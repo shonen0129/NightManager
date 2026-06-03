@@ -1,0 +1,8 @@
+{
+  "results_format_version": "v1",
+  "created_at": "2026-06-03T08:24:27",
+  "run_name": "production_decision",
+  "run_tag": null,
+  "output_dir": "/Users/takahashimasatoshi/Library/Mobile Documents/com~apple~CloudDocs/個別株/日米ラグ_2.1/results/20260603_082427_production_decision",
+  "entry_point": "production.py"
+}

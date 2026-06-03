@@ -1,0 +1,83 @@
+{
+  "timestamp": "2026-06-03T08:24:47",
+  "dry_run": true,
+  "buy_orders_count": 5,
+  "sell_orders_count": 5,
+  "buy_results": [
+    {
+      "order_id": "SIM-20260603082447-1617",
+      "status": "SIMULATED",
+      "ticker": "1617.T",
+      "side": "BUY",
+      "quantity": 2
+    },
+    {
+      "order_id": "SIM-20260603082447-1623",
+      "status": "SIMULATED",
+      "ticker": "1623.T",
+      "side": "BUY",
+      "quantity": 1
+    },
+    {
+      "order_id": "SIM-20260603082447-1626",
+      "status": "SIMULATED",
+      "ticker": "1626.T",
+      "side": "BUY",
+      "quantity": 8
+    },
+    {
+      "order_id": "SIM-20260603082447-1627",
+      "status": "SIMULATED",
+      "ticker": "1627.T",
+      "side": "BUY",
+      "quantity": 7
+    },
+    {
+      "order_id": "SIM-20260603082447-1631",
+      "status": "SIMULATED",
+      "ticker": "1631.T",
+      "side": "BUY",
+      "quantity": 6
+    }
+  ],
+  "sell_results": [
+    {
+      "order_id": "SIM-20260603082447-1619",
+      "status": "SIMULATED",
+      "ticker": "1619.T",
+      "side": "SELL",
+      "quantity": 3
+    },
+    {
+      "order_id": "SIM-20260603082447-1621",
+      "status": "SIMULATED",
+      "ticker": "1621.T",
+      "side": "SELL",
+      "quantity": 3
+    },
+    {
+      "order_id": "SIM-20260603082447-1622",
+      "status": "SIMULATED",
+      "ticker": "1622.T",
+      "side": "SELL",
+      "quantity": 6
+    },
+    {
+      "order_id": "SIM-20260603082447-1624",
+      "status": "SIMULATED",
+      "ticker": "1624.T",
+      "side": "SELL",
+      "quantity": 3
+    },
+    {
+      "order_id": "SIM-20260603082447-1629",
+      "status": "SIMULATED",
+      "ticker": "1629.T",
+      "side": "SELL",
+      "quantity": 390
+    }
+  ],
+  "expected_orders_count": 10,
+  "submitted_orders_count": 10,
+  "failed_orders_count": 0
+}

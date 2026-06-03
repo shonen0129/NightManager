@@ -1,0 +1,43 @@
+{
+  "run_time": "2026-05-29T16:21:14",
+  "config": {
+    "start_date": "2026-01-01",
+    "k": 6,
+    "lambda_reg": 0.75,
+    "q": 0.3,
+    "weight_mode": "signal",
+    "dispersion_filter": false,
+    "dispersion_metric": "long_short_mean_gap",
+    "v3_mode": "static",
+    "ewma_half_life": 45,
+    "lambda_lw": 0.5,
+    "lw_target": "equicorrelation",
+    "corr_window": 60,
+    "include_v4_prior": true,
+    "signal_mode": "gap_residual",
+    "gap_open_coef": 0.7,
+    "topix_beta_coef": 0.6,
+    "beta_window": 60,
+    "gamma": 0.5,
+    "var_confidence": 0.99,
+    "var_window": 250,
+    "var_warning": 0.02,
+    "var_stop": 0.03,
+    "es_warning": 0.025,
+    "es_stop": 0.04,
+    "daily_loss_warning": 0.015,
+    "daily_loss_stop": 0.025,
+    "monthly_loss_stop": 0.05,
+    "max_net_exposure": 0.05,
+    "max_gross_exposure": 3.0
+  },
+  "samples": 93,
+  "first_trade_date": "2026-01-05",
+  "last_trade_date": "2026-05-29",
+  "final_wealth": 2.00665006345363,
+  "max_drawdown": -0.04426425732727446,
+  "output_files": {
+    "daily_results": "/Users/takahashimasatoshi/Library/Mobile Documents/com~apple~CloudDocs/個別株/日米ラグ_2.1/results/20260529_162110_sanity_check/daily_results.csv",
+    "metrics": "/Users/takahashimasatoshi/Library/Mobile Documents/com~apple~CloudDocs/個別株/日米ラグ_2.1/results/20260529_162110_sanity_check/metrics.csv"
+  }
+}

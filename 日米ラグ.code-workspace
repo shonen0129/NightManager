@@ -1,0 +1,15 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"chat.tools.terminal.autoApprove": {
+			"/^python3 -m py_compile \"/Users/shonen/Library/Mobile Documents/com~apple~CloudDocs/個別株/日米ラグ/kabu_auto_login_min/kabu_auto_login\\.py\"$/": {
+				"approve": true,
+				"matchCommandLine": true
+			}
+		}
+	}
+}

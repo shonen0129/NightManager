@@ -1,0 +1,58 @@
+# =============================================================================
+# scenario_c.yaml – シナリオC: 特徴量拡張型
+# =============================================================================
+correction:
+  enabled: true
+  library: lightgbm
+  multi_output_mode: single
+  n_factors: 6
+  n_sectors: 17
+  seed: 42
+
+hyperparams:
+  max_depth: 2
+  n_estimators: 100
+  learning_rate: 0.02
+  min_child_samples: 30
+  reg_lambda: 5.0
+  subsample: 0.70
+  colsample_bytree: 0.70
+  early_stopping_rounds: 20
+  clip_scale: 0.40          # 補正クリップ上限を0.40に調整
+
+features:
+  use_squared: true         # 2乗特徴量を有効化
+  use_absolute: true        # 絶対値特徴量を有効化
+  use_delta: true           # 変化量特徴量を有効化
+  delta_window: 5
+
+monotone_constraints:
+  default_f_0: 1
+  default_f_1: 0
+  default_f_2: 0
+  default_f_3: 0
+  default_f_4: 0
+  default_f_5: 0
+
+cv:
+  n_splits: 5
+  train_size: null
+  gap_purge: 1
+  embargo: 5
+  min_train_size: 120
+
+cost_model:
+  commission_rate: 0.0005
+  spread_rate: 0.0003
+  impact_rate: 0.0002
+
+thresholds:
+  contribution_cap: 0.30
+  significance_level: 0.05
+
+walk_forward:
+  start_date: "2015-01-01"
+  oos_start_date: "2020-01-01"
+  window_mode: expanding
+  rolling_window_days: 1260
+  output_dir: "results/scenario_c"

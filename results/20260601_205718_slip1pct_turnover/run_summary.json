@@ -1,0 +1,30 @@
+{
+  "run_time": "2026-06-01T20:57:20",
+  "slippage_rate_one_way": 0.01,
+  "turnover_assumption": "daily weight-change turnover = sum(|w_t - w_{t-1}|)",
+  "config": {
+    "start_date": "2015-01-01",
+    "k": 6,
+    "lambda_reg": 0.75,
+    "q": 0.3,
+    "weight_mode": "signal",
+    "signal_mode": "gap_residual",
+    "gap_open_coef": 0.7,
+    "topix_beta_coef": 0.6,
+    "beta_window": 60,
+    "max_gross_exposure": 3.0
+  },
+  "samples": 2706,
+  "first_trade_date": "2015-01-05",
+  "last_trade_date": "2026-06-01",
+  "final_wealth": 1.4729054756470215e-30,
+  "max_drawdown": -1.0,
+  "metrics": {
+    "AR": -4.667434527238325,
+    "RISK": 0.22469430657776437,
+    "R/R": -20.772375581412316,
+    "Sharpe": -20.772375581412316,
+    "MDD": -1.0,
+    "Total Return": -1.0
+  }
+}

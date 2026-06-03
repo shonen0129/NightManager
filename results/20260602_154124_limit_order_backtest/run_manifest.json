@@ -1,0 +1,30 @@
+{
+  "run_timestamp": "20260602_154124",
+  "start_date": "2015-01-01",
+  "oos_start_date": "2020-01-01",
+  "signal_mode": "gap_residual",
+  "gap_open_coef": 0.7,
+  "slippage_bps": 5.0,
+  "theory_margins_bps": [
+    0,
+    5,
+    10,
+    20,
+    30,
+    50
+  ],
+  "prev_close_offsets_bps": [
+    -10,
+    -5,
+    0,
+    5,
+    10,
+    20
+  ],
+  "n_scenarios": 49,
+  "df_exec_rows": 4121,
+  "df_signals_rows": 46002,
+  "highlow_nan_rate_high": 0.0,
+  "highlow_nan_rate_low": 0.0,
+  "output_dir": "/Users/takahashimasatoshi/Library/Mobile Documents/com~apple~CloudDocs/個別株/日米ラグ_2.1/results/20260602_154124_limit_order_backtest"
+}

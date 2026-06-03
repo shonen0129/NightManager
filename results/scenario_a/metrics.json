@@ -1,0 +1,32 @@
+{
+  "linear": {
+    "label": "Linear Baseline",
+    "ar": 0.810907181490557,
+    "risk": 0.21269378199462693,
+    "rr": 3.8125570662476727,
+    "mdd": -0.06903077301295446,
+    "sharpe": 3.812557066247673,
+    "ic_mean": null,
+    "dsr_pvalue": 1.0,
+    "sr_star": 0.0,
+    "n_obs": 1504,
+    "n_trials": 1
+  },
+  "corrected": {
+    "label": "Linear + GBT Correction",
+    "ar": 0.8219402174111948,
+    "risk": 0.21311423331880894,
+    "rr": 3.8568058294896272,
+    "mdd": -0.06822913627902327,
+    "sharpe": 3.8568058294896264,
+    "ic_mean": null,
+    "dsr_pvalue": 0.9999999999600709,
+    "sr_star": 1.1925940010138572,
+    "n_obs": 1504,
+    "n_trials": 5
+  },
+  "decision": "REJECT",
+  "reason": "REJECT – the nonlinear correction does NOT outperform the linear benchmark on an OOS, net-of-cost, multiple-testing-corrected basis.\nSpecific failures:\n  • DSR p-value not significant: 1.0000 >= 0.05 (n_trials=5)",
+  "n_trials": 5,
+  "oos_start": "2020-01-01"
+}

@@ -1,0 +1,28 @@
+yfinance==1.2.0
+pandas==3.0.1
+numpy==2.4.3
+matplotlib==3.10.8
+scipy==1.17.1
+requests==2.32.5
+python-dotenv==1.1.1
+beautifulsoup4==4.12.3
+
+# kabuステーション自動ログイン機能（Windows環境）
+pyautogui>=1.0.0
+pygetwindow>=0.0.9
+pyperclip>=1.8.2
+
+# Gmail API（OTP自動取得用）
+google-auth-oauthlib>=1.0.0
+google-auth-httplib2>=0.2.0
+google-api-python-client>=2.80.0
+
+# 設定ファイル（TOML）解析用
+toml>=0.10.2
+
+# 非線形補正層（GBT + SHAP + YAML）
+lightgbm>=4.0.0
+shap>=0.46.0
+scikit-learn>=1.4.0
+pyyaml>=6.0.0
+

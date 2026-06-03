@@ -1,0 +1,17 @@
+yfinance==1.2.0
+pandas==3.0.1
+numpy==2.4.3
+matplotlib==3.10.8
+scipy==1.17.1
+requests==2.32.5
+python-dotenv==1.1.1
+beautifulsoup4==4.12.3
+
+# kabu繧ｹ繝・・繧ｷ繝ｧ繝ｳ閾ｪ蜍輔Ο繧ｰ繧､繝ｳ讖溯・・・indows迺ｰ蠅・ｼ・pyautogui>=1.0.0
+
+# Gmail API・・TP閾ｪ蜍募叙蠕礼畑・・google-auth-oauthlib>=1.0.0
+google-auth-httplib2>=0.2.0
+google-api-python-client>=2.80.0
+
+# 險ｭ螳壹ヵ繧｡繧､繝ｫ・・OML・芽ｧ｣譫千畑
+toml>=0.10.2
