@@ -33,4 +33,4 @@ data/*.pkl
 # results/**/*
 
 # Logs
-*.log
+*.logsrc/kabu_auto_login/creds/
