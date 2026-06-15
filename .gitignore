@@ -27,10 +27,24 @@ Thumbs.db
 
 # Data cache
 *.pkl
-data/*.pkl
-
-# Results (optional - uncomment if you want to ignore results)
-# results/**/*
+market_data/*.pkl
+market_data/*.npz
+market_data/*.zip
 
 # Logs
-*.logsrc/kabu_auto_login/creds/
+*.log
+
+# kabu_auto_login credentials
+kabu_auto_login/creds/
+kabu_auto_login/.env
+
+# Large generated results and plots
+results/
+shadow_runs/
+live/
+market_data/
+# Exceptions for markdown reports / diffs
+!results/**/*.md
+!results/**/*.patch
+!shadow_runs/**/*.md
+

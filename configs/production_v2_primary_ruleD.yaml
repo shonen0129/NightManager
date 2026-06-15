@@ -1,0 +1,139 @@
+model:
+  name: production_p8p3_blpx
+  display_name: "Production P8P3-BLPX v2 (mu_over_sigma + RuleD)"
+  short_name: "P8P3-BLPX-v2"
+  version: "production_p8p3_v2"
+
+signal_components:
+  p8p3:
+    enabled: true
+    weight: 1.0
+  p0:
+    enabled: false
+    weight: 0.0
+  p3:
+    enabled: false
+    weight: 0.0
+  p8:
+    enabled: false
+    weight: 0.0
+
+final_signal:
+  type: p8p3_only
+  formula: z(P8P3)
+
+# --- v2 拡張: ランキング方式 ---
+ranking:
+  mode: mu_over_sigma           # gap 調整済み予測分布ベースのリスク調整スコア
+  score_formula: "mu_gap / sigma_gap"
+  sigma_floor: 1.0e-6           # ゼロ除算防止フロア
+  # mu_over_sigma スコアが利用不可の場合は baseline P8P3-BLPX スコアにフォールバック
+  fallback_to_base_signal: true
+
+# --- v2 拡張: 動的グロスエクスポージャー (RuleD) ---
+gross_scaling:
+  rule: RuleD                   # Low→0.75, Medium→1.00, High→1.00
+  pit_rolling_window: 252       # PIT 三分位ビニング用ローリング窓（営業日）
+  multipliers:
+    Low: 0.75
+    Medium: 1.00
+    High: 1.00
+  tertile_low_pct: 33.3333      # 低閾値パーセンタイル
+  tertile_high_pct: 66.6667     # 高閾値パーセンタイル
+  baseline_gross: 2.0           # pre-gross 基準グロスエクスポージャー
+  # 252日未満の履歴の場合は multiplier=1.00 にフォールバック
+  fallback_multiplier: 1.00
+
+# --- v2 拡張: gap 調整済み分布の参照先 ---
+gap_distribution:
+  # 日次更新される latest/ シンボリックリンクを参照
+  # run_daily_production_v2.py --gap-input-dir で上書き可能
+  dir: results/gap_adjusted_distribution/latest
+  mu_file_pattern: "matrices/mu_gap_{date}.npy"    # date = YYYYMMDD
+  omega_file_pattern: "matrices/omega_gap_{date}.npy"
+  diagnostics_file: "portfolio_gap_distribution_diagnostics.csv"
+
+portfolio:
+  long_short_frac: 0.3
+  n_assets: 17
+  weight_mode: signal           # baseline_style = signal 加重（シグナルに mu_over_sigma を使用）
+  net_target: 0.0
+  long_count: 5
+  short_count: 5
+
+risk:
+  max_gross_exposure: 2.0       # RuleD 乗数適用後の上限（上限チェックに使用）
+  max_net_exposure: 0.05
+  var_confidence: 0.99
+  var_window: 250
+  var_warning: 0.02
+  var_stop: 0.03
+  es_warning: 0.025
+  es_stop: 0.04
+  daily_loss_warning: 0.015
+  daily_loss_stop: 0.025
+  monthly_loss_stop: 0.05
+
+costs:
+  slippage_bps_per_side: 5
+  cost_bps_per_gross: 10.0      # 動的グロス計算の ex-ante コスト（bps/unit gross）
+
+blpx:
+  param_set: refined_best_p8p3_production
+  rho: 0.01
+  alpha_xx: 0.50
+  alpha_yx: 0.05
+  alpha_yy: 0.50
+  lambda_pca: 0.10
+  lambda_sector: 0.40
+  beta_conf: 0.25
+  winsor_sigma: 3.0
+  blp_window: 252
+  ewma_halflife: 45
+  execution_target_cost_adjustment: none
+  target: topix_residual
+  use_raw_target: false
+
+residualization:
+  enabled_for_p3: true
+  jp_market_proxy: TOPIX
+  beta_window: 60
+  method: rolling_ols
+  lookahead_safe: true
+
+# --- v2: フォールバック階層 ---
+# 第1フォールバック: 旧 P8P3-BLPX v1（gap data 欠損時）
+# 第2フォールバック: SRE（v1 も利用不可の場合）
+fallback:
+  enabled: true
+  # v2 固有: gap data 欠損時は v1 ウェイトファイルを使用
+  v1_weights_file: live/production_p8p3_blpx/v1_baseline_weights.csv
+  fallback_model: SRE           # v1 も利用不可の場合の最終フォールバック
+  fallback_on_audit_failure: true
+  fallback_on_missing_data: true
+  fallback_on_invalid_confidence_variance: true
+  fallback_on_sector_prior_error: true
+  fallback_on_gap_data_missing: true   # v2 追加: gap data 欠損時に v1 フォールバック
+
+audit:
+  enforce_signal_weighting: true
+  forbid_uniform_weighting: true
+  check_date_alignment: true
+  check_residualization_leakage: true
+  check_cost_consistency: true
+  check_weight_constraints: true
+  # v2 追加監査項目
+  check_pit_binning_lookahead: true    # PIT ビニングが strictly historical であること
+  check_gap_data_freshness: true       # gap data の日付が trade_date と整合すること
+
+output:
+  base_dir: results/production_p8p3_blpx
+  live_dir: live/production_p8p3_blpx
+  save_signals: true
+  save_weights: true
+  save_plots: true
+  run_audit: true
+  # v2 追加出力
+  save_v1_baseline: true              # v1 ベースラインウェイトを v1_baseline_weights.csv に保存
+  save_pit_binning: true              # PIT ビニング詳細を pit_binning.json に保存
+  save_scores: true                   # mu_over_sigma スコアを production_scores.csv に保存

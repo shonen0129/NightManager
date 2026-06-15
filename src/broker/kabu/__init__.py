@@ -1,1 +1,0 @@
-"""kabuステーション broker adapter."""

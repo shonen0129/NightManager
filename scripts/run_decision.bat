@@ -26,8 +26,8 @@ if exist "%VENV_DIR%\Scripts\activate.bat" (
 )
 
 REM スクリプト実行
-cd /d "%PROJECT_DIR%\src"
-python production.py --mode decision --api-enable --capital-from-wallet --text-output >> "%LOG_FILE%" 2>&1
+cd /d "%PROJECT_DIR%"
+python -m leadlag.cli decision --api-enable --capital-from-wallet --text-output >> "%LOG_FILE%" 2>&1
 
 set "EXIT_CODE=%ERRORLEVEL%"
 echo [%date% %time%] === 終了コード: %EXIT_CODE% === >> "%LOG_FILE%"

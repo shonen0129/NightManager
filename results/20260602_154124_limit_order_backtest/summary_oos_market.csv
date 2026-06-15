@@ -1,2 +1,0 @@
-﻿scenario,basis,margin_bps,renormalize,slip_on_entry,period,fill_rate_total_%,fill_rate_long_%,fill_rate_short_%,daily_fills_mean,AR_%,RISK_%,RR,MDD_%,Sharpe,AR_renorm_%,RISK_renorm_%,RR_renorm,MDD_renorm_%,net_mean,net_std,net_abs_gt5pct_%,port_beta_mean,port_beta_std
-baseline_market,market,0,False,True,oos,100.0,100.0,100.0,10.0,80.36,21.21,3.788,-6.9,3.788,80.36,21.21,3.788,-6.9,0.0,0.0,0.0,0.0061,0.2565

@@ -19,6 +19,7 @@ dependencies = [
     "requests>=2.32.0",
     "python-dotenv>=1.1.0",
     "beautifulsoup4>=4.12.0",
+    "pydantic>=2.0",
 ]
 
 [project.optional-dependencies]
@@ -40,7 +41,7 @@ dev = [
 ]
 
 [project.scripts]
-leadlag = "production:main"
+leadlag = "leadlag.cli:main"
 
 # ---------------------------------------------------------------------------
 # Packaging — src layout
@@ -63,15 +64,12 @@ target-version = "py311"
 select = ["E", "F", "W", "I", "UP"]
 ignore = [
     "E501",   # line too long (handled by formatter)
+    "E402",   # module level import not at top of file (allow sys.path.insert before import)
     "UP007",  # use X | Y for union type hints (keep Optional for 3.11 compat)
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = [
-    "broker", "config", "data", "data_loader",
-    "domain", "infrastructure", "services",
-    "strategy", "performance", "production",
-]
+known-first-party = ["leadlag"]
 
 # ---------------------------------------------------------------------------
 # Mypy
@@ -87,6 +85,6 @@ ignore_missing_imports = true
 # Pytest
 # ---------------------------------------------------------------------------
 [tool.pytest.ini_options]
-testpaths = ["src/test"]
+testpaths = ["tests"]
 pythonpath = ["src"]
 addopts = "-v --tb=short"

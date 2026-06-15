@@ -1,0 +1,86 @@
+model:
+  name: sector_relative_ensemble_blp
+  display_name: "Sector Relative Ensemble with Regularized Block BLP"
+  short_name: "SRE-BLP"
+
+portfolio:
+  long_short_frac: 0.3
+  n_assets: 17
+  weight_mode: signal
+  net_target: 0.0
+
+costs:
+  slippage_bps_per_side: 5.0
+
+residualization:
+  enabled_for_p3: true
+  jp_market_proxy: TOPIX
+  beta_window: 60
+  method: rolling_ols
+  lookahead_safe: true
+
+# Grids for validation
+grids:
+  blp_window_grid:
+    - 252
+  ewma_halflife_grid:
+    - 45
+  alpha_xx_grid:
+    - 0.25
+    - 0.50
+    - 0.75
+  alpha_yx_grid:
+    - 0.00
+    - 0.25
+    - 0.50
+  rho_grid:
+    - 0.003
+    - 0.010
+    - 0.030
+    - 0.100
+    - 0.300
+  rank_grid:
+    - "full"
+  slippage_bps_grid:
+    - 0.0
+    - 2.5
+    - 5.0
+    - 7.5
+    - 10.0
+
+ensembles:
+  - name: SRE_current
+    p0: 0.50
+    p3: 0.50
+    p5: 0.00
+    p5p3: 0.00
+  - name: BLP_SRE
+    p0: 0.00
+    p3: 0.00
+    p5: 0.50
+    p5p3: 0.50
+  - name: Hybrid_20
+    p0: 0.40
+    p3: 0.40
+    p5: 0.10
+    p5p3: 0.10
+  - name: Hybrid_25
+    p0: 0.375
+    p3: 0.375
+    p5: 0.125
+    p5p3: 0.125
+  - name: Hybrid_50
+    p0: 0.25
+    p3: 0.25
+    p5: 0.25
+    p5p3: 0.25
+  - name: P5_only
+    p0: 0.00
+    p3: 0.00
+    p5: 1.00
+    p5p3: 0.00
+  - name: P5P3_only
+    p0: 0.00
+    p3: 0.00
+    p5: 0.00
+    p5p3: 1.00

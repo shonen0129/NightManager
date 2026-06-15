@@ -1,8 +1,0 @@
-{
-  "results_format_version": "v1",
-  "created_at": "2026-05-29T16:21:10",
-  "run_name": "production_backtest",
-  "run_tag": "sanity_check",
-  "output_dir": "/Users/takahashimasatoshi/Library/Mobile Documents/com~apple~CloudDocs/個別株/日米ラグ_2.1/results/20260529_162110_sanity_check",
-  "entry_point": "production.py"
-}

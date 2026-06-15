@@ -1,0 +1,24 @@
+model:
+  name: production_p0
+  display_name: "Production Model (P0)"
+  short_name: "P0"
+  version: "production_v0"
+
+portfolio:
+  long_short_frac: 0.3
+  n_assets: 17
+  weight_mode: signal
+  gross_target: 2.0
+  net_target: 0.0
+
+costs:
+  slippage_bps_per_side: 5
+
+residualization:
+  enabled_for_p3: false
+  beta_window: 60
+  jp_market_proxy: TOPIX
+
+audit:
+  enforce_signal_weighting: true
+  forbid_uniform_weighting: true

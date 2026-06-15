@@ -1,0 +1,60 @@
+model:
+  name: sector_relative_ensemble_us_residual_prior
+  display_name: "Sector Relative Ensemble with US Residual Prior"
+  short_name: "SRE-USRP"
+  version: "research_v2"
+
+ensemble:
+  type: signal_level
+  p0_weight: 0.375
+  p3_weight: 0.375
+  p4_weight: 0.25
+  normalization: zscore
+
+prior:
+  variant: "resid_v1_v2_removed" # Default variant
+
+portfolio:
+  long_short_frac: 0.3
+  n_assets: 17
+  weight_mode: signal
+  net_target: 0.0
+
+risk:
+  max_gross_exposure: 2.0
+  max_net_exposure: 0.05
+  var_confidence: 0.99
+  var_window: 250
+  var_warning: 0.02
+  var_stop: 0.03
+  es_warning: 0.025
+  es_stop: 0.04
+  daily_loss_warning: 0.015
+  daily_loss_stop: 0.025
+  monthly_loss_stop: 0.05
+
+costs:
+  slippage_bps_per_side: 5
+
+residualization:
+  enabled_for_p3: true
+  jp_market_proxy: TOPIX
+  beta_window: 60
+  method: rolling_ols
+  lookahead_safe: true
+
+us_residualization:
+  enabled: true
+  benchmark: "SPY"
+  beta_window: 60
+  beta_shift: 1
+  gamma: 0.75
+
+lambda_reg: 0.75
+
+output:
+  base_dir: results/us_residual_prior
+  save_signals: true
+  save_weights: true
+  save_plots: true
+  run_audit: true

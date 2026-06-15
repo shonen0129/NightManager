@@ -1,0 +1,59 @@
+# Configuration for Final Model Selection
+
+model:
+  name: sector_relative_ensemble_blp_enhanced
+  display_name: "Sector Relative Ensemble with Enhanced BLP"
+  short_name: "SRE-BLPX"
+
+portfolio:
+  long_short_frac: 0.3
+  n_assets: 17
+  weight_mode: signal
+  net_target: 0.0
+
+costs:
+  slippage_bps_per_side: 5.0
+
+residualization:
+  enabled_for_p3: true
+  jp_market_proxy: TOPIX
+  beta_window: 60
+  method: rolling_ols
+  lookahead_safe: true
+
+parameter_sets:
+  refined_best:
+    rho: 0.01
+    alpha_xx: 0.50
+    alpha_yx: 0.05
+    alpha_yy: 0.50
+    lambda_pca: 0.10
+    lambda_sector: 0.40
+    beta_conf: 0.25
+    winsor_sigma: 3.0
+    blp_window: 252
+    ewma_halflife: 45
+    execution_target_cost_adjustment: "none"
+  
+  balanced_stable:
+    rho: 0.003
+    alpha_xx: 0.75
+    alpha_yx: 0.05
+    alpha_yy: 0.50
+    lambda_pca: 0.25
+    lambda_sector: 0.25
+    beta_conf: 0.25
+    winsor_sigma: 4.0
+    blp_window: 252
+    ewma_halflife: 45
+    execution_target_cost_adjustment: "none"
+
+candidates:
+  - name: SRE
+    formula: "0.5 * z(P0) + 0.5 * z(P3)"
+  - name: BLPX_100
+    formula: "z(0.5 * z(P8) + 0.5 * z(P8P3))"
+  - name: SRE_BLPX_BLEND_25
+    formula: "0.75 * z(SRE) + 0.25 * z(BLPX_100)"
+  - name: SRE_BLPX_BLEND_33
+    formula: "0.67 * z(SRE) + 0.33 * z(BLPX_100)"

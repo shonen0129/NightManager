@@ -1,8 +1,0 @@
-{
-  "results_format_version": "v1",
-  "created_at": "2026-05-28T20:40:50",
-  "run_name": "us_open_to_close_compare",
-  "run_tag": null,
-  "output_dir": "/Users/takahashimasatoshi/Library/Mobile Documents/com~apple~CloudDocs/個別株/日米ラグ_2.1/results/20260528_204050_us_open_to_close_compare",
-  "entry_point": "backtest_config.create_timestamped_output_dir"
-}
