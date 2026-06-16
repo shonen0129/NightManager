@@ -1,4 +1,12 @@
-"""Type-safe domain models for the lead-lag strategy."""
+"""Type-safe domain models for the lead-lag strategy.
+
+This module defines the core domain types (dataclasses / Enums).
+
+NOTE: ``StrategyConfig`` and ``RiskConfig`` were previously defined here as
+frozen dataclasses.  They have been migrated to ``leadlag.config.schemas``
+(Pydantic BaseModel) to enable field-level validation and a single source of
+truth.  The names are re-exported here for backward compatibility.
+"""
 
 from __future__ import annotations
 
@@ -193,45 +201,10 @@ class BacktestResult:
     scales: np.ndarray
 
 
-@dataclass(frozen=True)
-class StrategyConfig:
-    """戦略設定."""
-
-    k: int = 6
-    lambda_reg: float = 0.75
-    q: float = 0.3
-    weight_mode: str = "signal"
-    dispersion_filter: bool = True
-    dispersion_metric: str = "long_short_mean_gap"
-    v3_mode: str = "static"
-    ewma_half_life: int | None = 45
-    lambda_lw: float = 0.5
-    lw_target: str = "equicorrelation"
-    corr_window: int = 60
-    include_v4_prior: bool = True
-    signal_mode: str = "gap_residual"
-    gap_open_coef: float = 0.70
-    topix_beta_coef: float = 1.20
-    beta_window: int = 60
-    gamma: float = 0.5
-    slippage_bps: float = (
-        5.0  # 片道スリッページ (basis points)。往復コスト = 2 × slippage_bps × gross_exposure
-    )
-    vol_adjusted_target: bool = True
-
-
-@dataclass(frozen=True)
-class RiskConfig:
-    """リスク管理設定."""
-
-    var_confidence: float = 0.99
-    var_window: int = 250
-    var_warning: float = 0.02
-    var_stop: float = 0.03
-    es_warning: float = 0.025
-    es_stop: float = 0.04
-    daily_loss_warning: float = 0.015
-    daily_loss_stop: float = 0.025
-    monthly_loss_stop: float = 0.05
-    max_net_exposure: float = 0.05
-    max_gross_exposure: float = 2.0
+# ---------------------------------------------------------------------------
+# Backward-compatible re-exports from config.schemas
+# ---------------------------------------------------------------------------
+# StrategyConfig and RiskConfig have been migrated to Pydantic BaseModel
+# in leadlag.config.schemas for unified validation.  Import them from there
+# in new code.  The aliases below keep existing imports working.
+from leadlag.config.schemas import RiskConfig, StrategyConfig  # noqa: F401, E402

@@ -34,6 +34,27 @@ def _normalize_kabu_api_url(api_url: str) -> str:
     return f"{normalized}/kabusapi"
 
 
+def _map_risk_section(risk_data: dict) -> dict:
+    """YAML の risk セクションを RiskConfig キーにマッピングする（単一正本）.
+
+    strategy_kwargs と risk_kwargs の両方に同じマッピングが必要なケースで
+    このヘルパーを使うことで、変更箇所を 1 か所に集約する。
+    """
+    return {
+        "var_confidence": risk_data.get("var_confidence", 0.99),
+        "var_window": risk_data.get("var_window", 250),
+        "var_warning": risk_data.get("var_warning", 0.02),
+        "var_stop": risk_data.get("var_stop", 0.03),
+        "es_warning": risk_data.get("es_warning", 0.025),
+        "es_stop": risk_data.get("es_stop", 0.04),
+        "daily_loss_warning": risk_data.get("daily_loss_warning", 0.015),
+        "daily_loss_stop": risk_data.get("daily_loss_stop", 0.025),
+        "monthly_loss_stop": risk_data.get("monthly_loss_stop", 0.05),
+        "max_net_exposure": risk_data.get("max_net_exposure", 0.05),
+        "max_gross_exposure": risk_data.get("max_gross_exposure", 2.0),
+    }
+
+
 def load_config_from_yaml(yaml_path: str | Path | None = None) -> AppConfig:
     """Load config from YAML, merge with env variables, and validate via Pydantic.
 
@@ -62,7 +83,10 @@ def load_config_from_yaml(yaml_path: str | Path | None = None) -> AppConfig:
     risk_data = yaml_data.get("risk", {})
     output_data = yaml_data.get("output", {})
 
-    # Map StrategyConfig fields
+    # Risk parameters — single source via helper (eliminates duplication)
+    risk_kwargs = _map_risk_section(risk_data)
+
+    # Map StrategyConfig fields (strategy / signal / portfolio params only)
     strategy_kwargs = {
         "model_name": model_data.get("name", "sector_relative_ensemble"),
         "k": model_data.get("k", 6),
@@ -79,45 +103,22 @@ def load_config_from_yaml(yaml_path: str | Path | None = None) -> AppConfig:
         "include_v4_prior": portfolio_data.get("include_v4_prior", True),
         "signal_mode": portfolio_data.get("signal_mode", "gap_residual"),
         "gap_open_coef": portfolio_data.get("gap_open_coef", 0.70),
-        "topix_beta_coef": res_data.get("topix_beta_coef", 0.6),
+        "topix_beta_coef": res_data.get("topix_beta_coef", 1.20),
         "beta_window": res_data.get("beta_window", 60),
         "gamma": portfolio_data.get("gamma", 0.5),
         "slippage_bps": costs_data.get("slippage_bps_per_side", 5.0),
         "vol_adjusted_target": portfolio_data.get("vol_adjusted_target", True),
         "start_date": yaml_data.get("start_date", "2015-01-01"),
-        "var_confidence": risk_data.get("var_confidence", 0.99),
-        "var_window": risk_data.get("var_window", 250),
-        "var_warning": risk_data.get("var_warning", 0.02),
-        "var_stop": risk_data.get("var_stop", 0.03),
-        "es_warning": risk_data.get("es_warning", 0.025),
-        "es_stop": risk_data.get("es_stop", 0.04),
-        "daily_loss_warning": risk_data.get("daily_loss_warning", 0.015),
-        "daily_loss_stop": risk_data.get("daily_loss_stop", 0.025),
-        "monthly_loss_stop": risk_data.get("monthly_loss_stop", 0.05),
-        "max_net_exposure": risk_data.get("max_net_exposure", 0.05),
-        "max_gross_exposure": risk_data.get("max_gross_exposure", 2.0),
+        # Include risk thresholds for backward compat with production runners
+        # that pass a single StrategyConfig to both strategy and risk layers.
+        **risk_kwargs,
     }
 
     # Override strategy from env if present
     if "STRATEGY_SLIPPAGE_BPS" in os.environ:
         strategy_kwargs["slippage_bps"] = float(os.environ["STRATEGY_SLIPPAGE_BPS"])
 
-    # Map RiskConfig fields
-    risk_kwargs = {
-        "var_confidence": risk_data.get("var_confidence", 0.99),
-        "var_window": risk_data.get("var_window", 250),
-        "var_warning": risk_data.get("var_warning", 0.02),
-        "var_stop": risk_data.get("var_stop", 0.03),
-        "es_warning": risk_data.get("es_warning", 0.025),
-        "es_stop": risk_data.get("es_stop", 0.04),
-        "daily_loss_warning": risk_data.get("daily_loss_warning", 0.015),
-        "daily_loss_stop": risk_data.get("daily_loss_stop", 0.025),
-        "monthly_loss_stop": risk_data.get("monthly_loss_stop", 0.05),
-        "max_net_exposure": risk_data.get("max_net_exposure", 0.05),
-        "max_gross_exposure": risk_data.get("max_gross_exposure", 2.0),
-    }
 
-    # Parse Kabu section from env/defaults
     kabu_url = _normalize_kabu_api_url(os.environ.get("KABU_API_URL", "http://localhost:18080"))
     kabu_token = os.environ.get("KABU_API_TOKEN", "")
     kabu_password = os.environ.get("KABU_API_PASSWORD", "")

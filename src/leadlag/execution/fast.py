@@ -45,6 +45,7 @@ from leadlag.data.market_data import (
     validate_us_returns_map as _validate_us_returns_map,
 )
 from leadlag.data.tickers import JP_TICKERS, TOPIX_TICKER, US_TICKERS
+from leadlag.config.schemas import StrategyConfig as _DefaultStrategyConfig
 from leadlag.execution.config import StrategyConfig as ProductionConfig
 from leadlag.execution.helpers import (
     build_strategy,
@@ -91,8 +92,9 @@ class PrecomputedLeadLagStrategy:
                 return raw
             return default
 
-        # defaults matching StrategyConfig
-        default_cfg = StrategyConfigCompatibility()
+        # Use the canonical Pydantic StrategyConfig for all defaults.
+        # This ensures defaults are always in sync with config/schemas.py.
+        default_cfg = _DefaultStrategyConfig()
 
         self.C_full = cache_data["C_full"]
         self.v3_mode = str(cache_data.get("v3_mode", "static"))
@@ -365,30 +367,6 @@ class PrecomputedLeadLagStrategy:
         }
 
 
-class StrategyConfigCompatibility:
-    """Mock StrategyConfig compatibility properties."""
-
-    k: int = 6
-    lambda_reg: float = 0.75
-    q: float = 0.3
-    weight_mode: str = "signal"
-    dispersion_filter: bool = False
-    dispersion_metric: str = "long_short_mean_gap"
-    v3_mode: str = "static"
-    ewma_half_life: int = 45
-    lambda_lw: float = 0.5
-    lw_target: str = "equicorrelation"
-    corr_window: int = 60
-    include_v4_prior: bool = True
-    signal_mode: str = "gap_residual"
-    gap_open_coef: float = 0.70
-    topix_beta_coef: float = 0.6
-    beta_window: int = 60
-    gamma: float = 0.5
-    slippage_bps: float = 5.0
-    vol_adjusted_target: bool = True
-
-
 # ---------------------------------------------------------------------------
 # Precomputed cache builder
 # ---------------------------------------------------------------------------
@@ -637,7 +615,6 @@ def run_decision_fast(
         hist_returns=hist_returns,
         output_dir=output_dir,
         api_client=api_client,
-        api_dry_run=api_dry_run,
         text_output=text_output,
     )
 

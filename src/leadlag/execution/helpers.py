@@ -268,9 +268,17 @@ def submit_orders_via_api(
     decision_df: pd.DataFrame,
     api_client: BrokerClient,
     output_dir: str,
-    dry_run: bool = False,
 ) -> dict:
-    """Submit trade orders to the broker API."""
+    """Submit trade orders to the broker API.
+
+    The dry-run vs live distinction is handled entirely by the BrokerClient
+    implementation: ``DryRunBrokerClient`` simulates orders without sending
+    them, while ``KabuBrokerClient`` submits to the real API.  This function
+    does not need to know which variant is being used.
+    """
+    from leadlag.broker.base import BrokerClient as _BC
+    is_dry_run = type(api_client).__name__ == "DryRunBrokerClient"
+
     active_orders = decision_df[decision_df["action"].isin(["BUY", "SELL"])].copy()
     qty = pd.to_numeric(active_orders["quantity"], errors="coerce").fillna(0)
     valid_orders = active_orders[qty > 0].copy()
@@ -284,7 +292,7 @@ def submit_orders_via_api(
 
     summary = {
         "timestamp": datetime.now().isoformat(timespec="seconds"),
-        "dry_run": dry_run,
+        "dry_run": is_dry_run,
         "buy_orders_count": buy_count,
         "sell_orders_count": sell_count,
         "buy_results": [],
@@ -303,52 +311,31 @@ def submit_orders_via_api(
     expected_orders_count = len(order_requests)
     summary["expected_orders_count"] = expected_orders_count
 
-    if dry_run:
-        logger.info("[DRY RUN MODE] Simulating order submission (no actual orders sent)...")
-        for req in order_requests:
-            clean = req.ticker.replace(".T", "")
-            simulated = {
-                "order_id": f"SIM-{datetime.now().strftime('%Y%m%d%H%M%S')}-{clean}",
-                "status": "SIMULATED",
-                "ticker": req.ticker,
-                "side": req.side.value,
-                "quantity": req.quantity,
-            }
+    logger.info("[ORDER SUBMISSION] Sending %d orders via broker API...", len(order_requests))
+    if order_requests:
+        results = api_client.submit_orders_batch(order_requests, delay_ms=250)
+        for result in results:
+            side = result.side.value
             logger.info(
-                "  [SIMULATED %s] %s: %d shares",
-                req.side.value,
-                req.ticker,
-                req.quantity,
+                "  [%s] %s: %d shares (Order ID: %s, Status: %s)",
+                side,
+                result.ticker,
+                result.quantity,
+                result.order_id,
+                result.status.value,
             )
-            if req.side.value == "BUY":
-                summary["buy_results"].append(simulated)
-            else:
-                summary["sell_results"].append(simulated)
-    else:
-        logger.info("[LIVE MODE] Submitting orders to broker API...")
-        if order_requests:
-            results = api_client.submit_orders_batch(order_requests, delay_ms=250)
-            for result in results:
-                side = result.side.value
-                logger.info(
-                    "  [%s SUBMITTED] %s: %d shares (Order ID: %s)",
-                    side,
-                    result.ticker,
-                    result.quantity,
-                    result.order_id,
-                )
-                result_dict = {
-                    "order_id": result.order_id,
-                    "status": result.status.value,
-                    "ticker": result.ticker,
-                    "side": side,
-                    "quantity": result.quantity,
-                    "message": result.message,
-                }
-                if side == "BUY":
-                    summary["buy_results"].append(result_dict)
-                elif side == "SELL":
-                    summary["sell_results"].append(result_dict)
+            result_dict = {
+                "order_id": result.order_id,
+                "status": result.status.value,
+                "ticker": result.ticker,
+                "side": side,
+                "quantity": result.quantity,
+                "message": result.message,
+            }
+            if side == "BUY":
+                summary["buy_results"].append(result_dict)
+            elif side == "SELL":
+                summary["sell_results"].append(result_dict)
 
     submitted_orders_count = len(summary["buy_results"]) + len(summary["sell_results"])
     summary["submitted_orders_count"] = submitted_orders_count
@@ -359,7 +346,7 @@ def submit_orders_via_api(
         json.dump(summary, f, ensure_ascii=False, indent=2)
     logger.info("API execution log saved: %s", log_path)
 
-    if not dry_run and summary["failed_orders_count"] > 0:
+    if not is_dry_run and summary["failed_orders_count"] > 0:
         raise RuntimeError(
             "Order submission incomplete: "
             f"submitted={submitted_orders_count}/expected={expected_orders_count}. "
@@ -419,10 +406,13 @@ def execute_post_decision_flow(
     hist_returns: pd.Series,
     output_dir: str,
     api_client: BrokerClient | None = None,
-    api_dry_run: bool = False,
     text_output: bool = False,
 ) -> str:
     """Execute post-decision flow (gross adjustment, risk check, capital allocation, order submission, and output writing).
+
+    The dry-run vs live behaviour is determined by the ``api_client`` type:
+    pass a ``DryRunBrokerClient`` for simulated execution, or a
+    ``KabuBrokerClient`` for live trading.
 
     Returns:
         Path to the decision output CSV.
@@ -519,7 +509,6 @@ def execute_post_decision_flow(
             decision_df=decision_df,
             api_client=api_client,
             output_dir=output_dir,
-            dry_run=api_dry_run,
         )
 
     return out_path

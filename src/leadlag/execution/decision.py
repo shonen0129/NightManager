@@ -336,7 +336,6 @@ def run_decision(
         hist_returns=hist_returns,
         output_dir=output_dir,
         api_client=api_client,
-        api_dry_run=api_dry_run,
         text_output=text_output,
     )
 
