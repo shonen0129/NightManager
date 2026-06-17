@@ -19,6 +19,7 @@ US ETF と TOPIX-17 セクター ETF のリードラグ相関を利用した、
 - **Phase 5**: 設定定義のPydantic移行、モデル層・実行層・安全監査の完全デカップリング（BaseModel導入による純粋化、BacktestEngine / ComplianceAuditor への役割分担）
 - **Phase 6**: 計算ボトルネックの高速化最適化（`compute_us_residualized_returns` のベクトル化、基準相関行列 `c_full` 及び残差空間事前分布 `_prepare_residual_prior` のメモリキャッシュ化による高速化）
 - **Phase 7 (2026-06-15)**: 本番 v2 モデル（P8P3-BLPX v2）への昇格に伴い、ギャップ調整予測分布計算、リスク調整ランキング（`mu_over_sigma`）、PIT ビニングに基づく動的グロス制御（`RuleD`）の導入、および v2 → v1 → SRE の多段階自動フォールバック機能の実装。
+- **Phase 8 (2026-06-17)**: AIMA/IOSCO モデルリスクガイドラインに準拠するため、文書体系を再編。運用方針書から詳細なアルゴリズム数理・システムパラメータ・日次実行コマンド等を分離し、別冊の《モデル技術仕様書》および《日次運用手順書》へ移行。
 
 ---
 
@@ -27,7 +28,7 @@ US ETF と TOPIX-17 セクター ETF のリードラグ相関を利用した、
 ```
 pyproject.toml      # ビルド設定・依存関係・ruff/mypy/pytest 設定
 requirements.txt    # pip 互換依存一覧
-docs/               # 設計・運用方針ドキュメント
+docs/               # 運用方針書、モデル技術仕様書、日次運用手順書などの設計・運用ドキュメント群
 market_data/        # 市場データキャッシュ 及び 1629.T NAV パッチ用 CSV
 configs/            # 本番動作パラメータ設定ファイル (configs/production.yaml)
 results/            # バックテストおよび日次推論の実行出力ルート (SRE本番用)
@@ -266,8 +267,10 @@ python3 -m pytest tests/unit/test_dry_run_broker.py -v
 
 | ドキュメント | 内容 |
 |---|---|
+| [運用方針書.md](運用方針書.md) | 投資目的・哲学、投資ユニバース、検証原則、リスク管理制限値、ガバナンス枠組み等（原則書） |
+| [モデル技術仕様書.md](モデル技術仕様書.md) | シグナル構築数理、PCA・BLPXモデル定式化、パラメータ仕様、事前固有ベクトル設計等の技術仕様 |
+| [日次運用手順書.md](日次運用手順書.md) | 日次のシステム実行タイムライン、自動安全監査 (Safety Audit) 項目、手動ロールバック、監視・アラート手順 |
 | [MODE_USAGE_GUIDE.md](MODE_USAGE_GUIDE.md) | CLI 実行モード一覧・戦略モード・コマンド例・入出力仕様 |
-| [運用方針書.md](運用方針書.md) | 投資方針・シグナル構築数理・リスク管理・ガバナンス・SRE 本番導入 |
-| [model_spec_sector_relative_ensemble.md](model_spec_sector_relative_ensemble.md) | SRE モデル仕様 |
+| [model_spec_sector_relative_ensemble.md](model_spec_sector_relative_ensemble.md) | SRE モデル仕様（旧本番・フォールバックモデル） |
 | [deprecated_experiments.md](deprecated_experiments.md) | 廃止実験 (P2/P5/P6 等) のサマリ |
-| [SCHEDULER_SETUP.md](SCHEDULER_SETUP.md) | Windows タスクスケジューラ設定 |
+| [SCHEDULER_SETUP.md](SCHEDULER_SETUP.md) | Windows タスクスケジューラ設定（旧実行環境用） |
