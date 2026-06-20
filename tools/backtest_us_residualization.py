@@ -149,7 +149,7 @@ def main():
     # Align SPY returns to df_exec
     spy_close = spy_df["Close"].copy()
     spy_close.index = pd.to_datetime(spy_close.index).tz_localize(None).normalize()
-    spy_cc = spy_close.pct_change()
+    spy_cc = spy_close.pct_change(fill_method=None)
     df_exec["spy_cc"] = spy_cc.reindex(df_exec["sig_date"]).values
     df_exec["spy_cc"] = df_exec["spy_cc"].fillna(0.0)
 

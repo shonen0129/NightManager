@@ -15,8 +15,6 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 
-from leadlag.data.tickers import JP_TICKERS
-
 from leadlag.broker.base import BrokerClient
 from leadlag.broker.factory import create_broker_from_args
 from leadlag.core import allocator as domain_allocator
@@ -276,7 +274,6 @@ def submit_orders_via_api(
     them, while ``KabuBrokerClient`` submits to the real API.  This function
     does not need to know which variant is being used.
     """
-    from leadlag.broker.base import BrokerClient as _BC
     is_dry_run = type(api_client).__name__ == "DryRunBrokerClient"
 
     active_orders = decision_df[decision_df["action"].isin(["BUY", "SELL"])].copy()
@@ -514,6 +511,66 @@ def execute_post_decision_flow(
     return out_path
 
 
+def resolve_daily_open_prices(
+    api_client: BrokerClient | None,
+    config: ProductionConfig,
+    opens_csv: str | None,
+    use_google_opens: bool,
+) -> tuple[dict[str, float], float | None]:
+    """Fetch JP open prices with API -> Google -> CSV fallback mechanism.
+
+    Used by both decision.py and fast.py.
+    """
+    from leadlag.data.tickers import JP_TICKERS, TOPIX_TICKER
+    from leadlag.data.market_data import (
+        fetch_opens_from_google as _fetch_opens_from_google,
+        load_opens_from_csv as _load_opens_from_csv,
+        validate_manual_opens as _validate_manual_opens,
+        validate_topix_open as _validate_topix_open,
+    )
+
+    tickers_for_opens = JP_TICKERS
+    if config.signal_mode == "gap_residual":
+        tickers_for_opens = JP_TICKERS + [TOPIX_TICKER]
+
+    if api_client is not None:
+        logger.info("Fetching JP opens from broker API...")
+        manual_opens = api_client.fetch_open_prices(tickers_for_opens, allow_missing=True)
+        missing = [tk for tk in tickers_for_opens if tk not in manual_opens]
+        if missing:
+            logger.warning(
+                "Falling back to Google Finance for %d ticker(s): %s",
+                len(missing),
+                ", ".join(missing),
+            )
+            google_fetched = _fetch_opens_from_google(tickers=missing, allow_missing=True)
+            manual_opens.update(google_fetched)
+            missing_jp = [tk for tk in JP_TICKERS if tk not in manual_opens]
+            if missing_jp:
+                raise ValueError(
+                    "Missing open prices after API + Google fallback: " + ", ".join(missing_jp)
+                )
+        logger.info("Resolved open prices for %d tickers", len(manual_opens))
+    elif use_google_opens:
+        logger.info("Fetching JP current real-time prices from Google Finance...")
+        manual_opens = _fetch_opens_from_google(tickers=tickers_for_opens)
+    elif opens_csv is not None:
+        logger.info("Loading JP opens from CSV...")
+        manual_opens = _load_opens_from_csv(opens_csv)
+    else:
+        raise ValueError(
+            "--jp-opens-csv or --google-opens is required when API is not enabled. "
+            "Either provide a CSV file, use --google-opens, or use --api-enable."
+        )
+
+    _validate_manual_opens(manual_opens)
+    topix_open = None
+    if config.signal_mode == "gap_residual":
+        topix_open = _validate_topix_open(manual_opens)
+
+    return manual_opens, topix_open
+
+
 # ---------------------------------------------------------------------------
 # Re-exports
 # ---------------------------------------------------------------------------
@@ -522,3 +579,4 @@ get_hist_returns_for_risk = _get_hist_returns_for_risk
 log_decision_summary = _log_decision_summary
 print_risk_report = _print_risk_report
 print_text_orders = _print_text_orders
+

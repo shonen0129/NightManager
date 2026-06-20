@@ -6,6 +6,8 @@ Implements the SRE model (signal-level ensemble of P0, P3, and P4 components wit
 from __future__ import annotations
 
 import logging
+from typing import Any
+
 import numpy as np
 import pandas as pd
 
@@ -234,10 +236,6 @@ class SectorRelativeEnsembleModel(BaseModel):
         y_jp_oc_df = df_exec[[f"jp_oc_{tk}" for tk in JP_TICKERS]].rename(
             columns=lambda c: c.replace("jp_oc_", "")
         )
-        jp_oc = df_exec[[f"jp_oc_{tk}" for tk in JP_TICKERS]].values
-
-        # Calculate close-to-close returns on trade_date (vectorized)
-        y_jp_cc = (1.0 + jp_gap) * (1.0 + jp_oc) - 1.0
 
         topix_cc_trade = (
             df_exec["topix_cc_trade"].values

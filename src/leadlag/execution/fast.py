@@ -30,26 +30,15 @@ from leadlag.data.cache import (
     write_cache_with_lock as _write_cache_with_lock,
 )
 from leadlag.data.market_data import (
-    fetch_opens_from_google as _fetch_opens_from_google,
-)
-from leadlag.data.market_data import (
-    load_opens_from_csv as _load_opens_from_csv,
-)
-from leadlag.data.market_data import (
-    validate_manual_opens as _validate_manual_opens,
-)
-from leadlag.data.market_data import (
-    validate_topix_open as _validate_topix_open,
-)
-from leadlag.data.market_data import (
     validate_us_returns_map as _validate_us_returns_map,
 )
-from leadlag.data.tickers import JP_TICKERS, TOPIX_TICKER, US_TICKERS
+from leadlag.data.tickers import JP_TICKERS, US_TICKERS
 from leadlag.config.schemas import StrategyConfig as _DefaultStrategyConfig
 from leadlag.execution.config import StrategyConfig as ProductionConfig
 from leadlag.execution.helpers import (
     build_strategy,
     execute_post_decision_flow,
+    resolve_daily_open_prices,
 )
 
 logger = logging.getLogger(__name__)
@@ -520,43 +509,18 @@ def fetch_us_returns_from_api(
 
 
 def fetch_jp_opens_for_fast_mode(
-    api_client: BrokerClient,
+    api_client: BrokerClient | None,
     config: ProductionConfig,
     jp_opens_csv: str | None,
     google_opens: bool,
-) -> tuple[dict, float | None]:
+) -> tuple[dict[str, float], float | None]:
     """Fetch JP open prices for fast mode with API → Google → CSV fallback."""
-    if jp_opens_csv is not None:
-        manual_opens = _load_opens_from_csv(jp_opens_csv)
-    elif google_opens:
-        logger.info("  Fetching from Google Finance...")
-        tickers_for_opens = JP_TICKERS + [TOPIX_TICKER]
-        manual_opens = _fetch_opens_from_google(tickers=tickers_for_opens)
-    else:
-        logger.info("  Fetching from kabu API...")
-        tickers_for_opens = JP_TICKERS + [TOPIX_TICKER]
-        manual_opens = api_client.fetch_open_prices(tickers_for_opens, allow_missing=True)
-        missing = [tk for tk in tickers_for_opens if tk not in manual_opens]
-        if missing:
-            logger.warning(
-                "  Falling back to Google Finance for %d ticker(s): %s",
-                len(missing),
-                ", ".join(missing),
-            )
-            google_fetched = _fetch_opens_from_google(tickers=missing, allow_missing=True)
-            manual_opens.update(google_fetched)
-            missing_jp = [tk for tk in JP_TICKERS if tk not in manual_opens]
-            if missing_jp:
-                raise ValueError(
-                    "Missing open prices after API + Google fallback: " + ", ".join(missing_jp)
-                )
-
-    _validate_manual_opens(manual_opens)
-    topix_open = None
-    if config.signal_mode == "gap_residual":
-        topix_open = _validate_topix_open(manual_opens)
-
-    return manual_opens, topix_open
+    return resolve_daily_open_prices(
+        api_client=api_client,
+        config=config,
+        opens_csv=jp_opens_csv,
+        use_google_opens=google_opens,
+    )
 
 
 def run_decision_fast(

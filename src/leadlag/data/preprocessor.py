@@ -66,8 +66,8 @@ def preprocess_data(data: dict, beta_window: int = 60) -> pd.DataFrame:
     jp_c_joint = jp_c.loc[joint_dates]
 
     # Close-to-close returns
-    ret_us_cc = us_c_joint.pct_change()
-    ret_jp_cc = jp_c_joint.pct_change()
+    ret_us_cc = us_c_joint.pct_change(fill_method=None)
+    ret_jp_cc = jp_c_joint.pct_change(fill_method=None)
 
     # Proxy returns for ETFs with limited history
     if "XLC" in ret_us_cc.columns and ret_us_cc["XLC"].isna().any():

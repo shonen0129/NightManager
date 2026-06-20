@@ -257,32 +257,33 @@ def compute_correlation(
     Returns:
         mu, sigma, correlation_matrix
     """
-    if ewma_half_life is None:
-        mu = np.mean(window_returns, axis=0)
-        sigma = np.std(window_returns, axis=0, ddof=0)
+    with np.errstate(invalid="ignore"):
+        if ewma_half_life is None:
+            mu = np.mean(window_returns, axis=0)
+            sigma = np.std(window_returns, axis=0, ddof=0)
+            sigma[sigma == 0] = 1e-8
+            z_window = (window_returns - mu) / sigma
+            corr = np.dot(z_window.T, z_window) / window_returns.shape[0]
+            np.fill_diagonal(corr, 1.0)
+            return mu, sigma, corr
+
+        if ewma_half_life <= 0:
+            raise ValueError("ewma_half_life must be positive when provided")
+
+        t = window_returns.shape[0]
+        decay = np.power(0.5, 1.0 / float(ewma_half_life))
+        weights = np.power(decay, np.arange(t - 1, -1, -1))
+        weights = weights / np.sum(weights)
+
+        mu = np.sum(window_returns * weights[:, None], axis=0)
+        var = np.sum(((window_returns - mu) ** 2) * weights[:, None], axis=0)
+        sigma = np.sqrt(np.maximum(var, 1e-16))
         sigma[sigma == 0] = 1e-8
+
         z_window = (window_returns - mu) / sigma
-        corr = np.dot(z_window.T, z_window) / window_returns.shape[0]
+        corr = np.dot((z_window * weights[:, None]).T, z_window)
         np.fill_diagonal(corr, 1.0)
         return mu, sigma, corr
-
-    if ewma_half_life <= 0:
-        raise ValueError("ewma_half_life must be positive when provided")
-
-    t = window_returns.shape[0]
-    decay = np.power(0.5, 1.0 / float(ewma_half_life))
-    weights = np.power(decay, np.arange(t - 1, -1, -1))
-    weights = weights / np.sum(weights)
-
-    mu = np.sum(window_returns * weights[:, None], axis=0)
-    var = np.sum(((window_returns - mu) ** 2) * weights[:, None], axis=0)
-    sigma = np.sqrt(np.maximum(var, 1e-16))
-    sigma[sigma == 0] = 1e-8
-
-    z_window = (window_returns - mu) / sigma
-    corr = np.dot((z_window * weights[:, None]).T, z_window)
-    np.fill_diagonal(corr, 1.0)
-    return mu, sigma, corr
 
 
 _BASELINE_CORR_CACHE: dict = {}

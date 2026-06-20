@@ -8,7 +8,6 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from leadlag.data.tickers import JP_TICKERS
 from leadlag.models.base import AuditContext
 
 logger = logging.getLogger(__name__)

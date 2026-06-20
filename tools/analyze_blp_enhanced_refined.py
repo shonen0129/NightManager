@@ -1335,7 +1335,7 @@ def main():
                 c_col = spy_data["Close"]
                 if isinstance(c_col, pd.DataFrame):
                     c_col = c_col.iloc[:, 0]
-                spy_ret = c_col.pct_change().reindex(sim_dates_slice).fillna(0.0)
+                spy_ret = c_col.pct_change(fill_method=None).reindex(sim_dates_slice).fillna(0.0)
         except Exception:
             pass
         if np.all(spy_ret == 0.0):
@@ -1348,7 +1348,7 @@ def main():
                 c_col = jpy_data["Close"]
                 if isinstance(c_col, pd.DataFrame):
                     c_col = c_col.iloc[:, 0]
-                jpy_ret = c_col.pct_change().reindex(sim_dates_slice).fillna(0.0)
+                jpy_ret = c_col.pct_change(fill_method=None).reindex(sim_dates_slice).fillna(0.0)
         except Exception:
             pass
             
@@ -1358,7 +1358,7 @@ def main():
                 c_col = vix_data["Close"]
                 if isinstance(c_col, pd.DataFrame):
                     c_col = c_col.iloc[:, 0]
-                vix_series = c_col.reindex(sim_dates_slice).fillna(method="ffill").fillna(20.0)
+                vix_series = c_col.reindex(sim_dates_slice).ffill().fillna(20.0)
         except Exception:
             pass
         if np.all(vix_series == 0.0):

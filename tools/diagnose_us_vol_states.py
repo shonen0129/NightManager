@@ -86,7 +86,7 @@ def calculate_vix_states(vix_series: pd.Series, rolling_w: int, long_w: int) -> 
     # 1d change metrics
     df["VIX_change_1d"] = vix_series.diff(1)
     df["VIX_change_1d_z_60"] = (df["VIX_change_1d"] - df["VIX_change_1d"].rolling(rolling_w).mean()) / df["VIX_change_1d"].rolling(rolling_w).std(ddof=1)
-    df["VIX_pct_change_1d"] = vix_series.pct_change(1)
+    df["VIX_pct_change_1d"] = vix_series.pct_change(1, fill_method=None)
     
     return df
 
