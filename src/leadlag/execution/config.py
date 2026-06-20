@@ -9,7 +9,7 @@ from typing import Any
 import yaml
 from dotenv import load_dotenv
 
-from leadlag.config import AppConfig, KabuApiConfig, RiskConfig, StrategyConfig
+from leadlag.config import AppConfig, KabuApiConfig, TachibanaApiConfig, RiskConfig, StrategyConfig
 
 logger = logging.getLogger(__name__)
 
@@ -119,6 +119,9 @@ def load_config_from_yaml(yaml_path: str | Path | None = None) -> AppConfig:
         strategy_kwargs["slippage_bps"] = float(os.environ["STRATEGY_SLIPPAGE_BPS"])
 
 
+    broker_provider = os.environ.get("BROKER_PROVIDER", "kabu").lower().strip()
+
+    # Load Kabu config
     kabu_url = _normalize_kabu_api_url(os.environ.get("KABU_API_URL", "http://localhost:18080"))
     kabu_token = os.environ.get("KABU_API_TOKEN", "")
     kabu_password = os.environ.get("KABU_API_PASSWORD", "")
@@ -126,22 +129,19 @@ def load_config_from_yaml(yaml_path: str | Path | None = None) -> AppConfig:
     kabu_margin = int(os.environ.get("KABU_MARGIN_TRADE_TYPE", "3"))
     kabu_account = int(os.environ.get("KABU_ACCOUNT_TYPE", "4"))
 
-    # Basic validations (can also be done via Pydantic validators, but let's keep inline for exact logic match)
-    if not kabu_url:
-        raise ValueError("Kabu API URL is required (set KABU_API_URL env)")
-    if not kabu_url.startswith(("http://", "https://")):
-        raise ValueError(f"Kabu API URL must start with http:// or https://, got: {kabu_url}")
-
-    if not kabu_token and not kabu_password:
-        logger.warning(
-            "Neither KABU_API_TOKEN nor KABU_API_PASSWORD is set. Token will need to be provided."
-        )
-
-    if kabu_margin not in (1, 2, 3):
-        raise ValueError(f"Invalid margin trade type: {kabu_margin}. Supported: 1, 2, 3")
-
-    if kabu_account not in (2, 4, 12):
-        raise ValueError(f"Invalid account type: {kabu_account}. Supported: 2, 4, 12")
+    if broker_provider == "kabu":
+        if not kabu_url:
+            raise ValueError("Kabu API URL is required (set KABU_API_URL env)")
+        if not kabu_url.startswith(("http://", "https://")):
+            raise ValueError(f"Kabu API URL must start with http:// or https://, got: {kabu_url}")
+        if not kabu_token and not kabu_password:
+            logger.warning(
+                "Neither KABU_API_TOKEN nor KABU_API_PASSWORD is set. Token will need to be provided."
+            )
+        if kabu_margin not in (1, 2, 3):
+            raise ValueError(f"Invalid margin trade type: {kabu_margin}. Supported: 1, 2, 3")
+        if kabu_account not in (2, 4, 12):
+            raise ValueError(f"Invalid account type: {kabu_account}. Supported: 2, 4, 12")
 
     kabu_cfg = KabuApiConfig(
         api_url=kabu_url,
@@ -152,6 +152,37 @@ def load_config_from_yaml(yaml_path: str | Path | None = None) -> AppConfig:
         account_type=kabu_account,
     )
 
+    # Load Tachibana config
+    tachi_url = os.environ.get("TACHIBANA_API_URL", "https://kabuka.e-shiten.jp/e_api_v4r9")
+    tachi_auth_id = os.environ.get("TACHIBANA_AUTH_ID", "")
+    tachi_priv_key = os.environ.get("TACHIBANA_PRIVATE_KEY_PATH", "")
+    tachi_sec_pw = os.environ.get("TACHIBANA_SECOND_PASSWORD", "")
+    tachi_timeout = int(os.environ.get("TACHIBANA_REQUEST_TIMEOUT", "10"))
+    tachi_margin = int(os.environ.get("TACHIBANA_MARGIN_TRADE_TYPE", "3"))
+    tachi_account = int(os.environ.get("TACHIBANA_ACCOUNT_TYPE", "4"))
+
+    if broker_provider == "tachibana":
+        if not tachi_url:
+            raise ValueError("Tachibana API URL is required (set TACHIBANA_API_URL env)")
+        if not tachi_url.startswith(("http://", "https://")):
+            raise ValueError(f"Tachibana API URL must start with http:// or https://, got: {tachi_url}")
+        if not tachi_auth_id:
+            raise ValueError("Tachibana Auth ID is required (set TACHIBANA_AUTH_ID env)")
+        if tachi_margin not in (1, 2, 3):
+            raise ValueError(f"Invalid margin trade type: {tachi_margin}. Supported: 1, 2, 3")
+        if tachi_account not in (2, 4, 12):
+            raise ValueError(f"Invalid account type: {tachi_account}. Supported: 2, 4, 12")
+
+    tachi_cfg = TachibanaApiConfig(
+        api_url=tachi_url,
+        auth_id=tachi_auth_id,
+        private_key_path=tachi_priv_key,
+        second_password=tachi_sec_pw,
+        request_timeout=tachi_timeout,
+        margin_trade_type=tachi_margin,
+        account_type=tachi_account,
+    )
+
     strategy_cfg = StrategyConfig(**strategy_kwargs)
     risk_cfg = RiskConfig(**risk_kwargs)
 
@@ -159,6 +190,8 @@ def load_config_from_yaml(yaml_path: str | Path | None = None) -> AppConfig:
         strategy=strategy_cfg,
         risk=risk_cfg,
         kabu=kabu_cfg,
+        tachibana=tachi_cfg,
+        broker_provider=broker_provider,
         output_base_dir=output_data.get("base_dir", "results/sector_relative_ensemble"),
         output_live_dir=output_data.get("live_dir", "live/sector_relative_ensemble"),
         run_audit=output_data.get("run_audit", True),

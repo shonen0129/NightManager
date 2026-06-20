@@ -27,4 +27,6 @@ lightgbm>=4.0.0
 shap>=0.46.0
 scikit-learn>=1.4.0
 pyyaml>=6.0.0
+pycryptodome>=3.10.0
+
 

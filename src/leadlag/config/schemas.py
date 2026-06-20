@@ -97,6 +97,19 @@ class KabuApiConfig(BaseModel):
     account_type: int = Field(default=4, description="口座区分 (2=一般, 4=特定, 12=法人)")
 
 
+class TachibanaApiConfig(BaseModel):
+    """立花証券 API configuration."""
+    model_config = {"frozen": True}
+
+    api_url: str = Field(default="https://kabuka.e-shiten.jp/e_api_v4r9", description="立花API ベース URL")
+    auth_id: str = Field(default="", description="認証ID (sAuthId)")
+    private_key_path: str = Field(default="", description="秘密鍵ファイルパス (.pem)")
+    second_password: str = Field(default="", description="第二パスワード (取引パスワード)")
+    request_timeout: int = Field(default=10, ge=1, description="リクエストタイムアウト (秒)")
+    margin_trade_type: int = Field(default=3, description="信用取引区分 (1=制度, 2=一般, 3=日計)")
+    account_type: int = Field(default=4, description="口座区分 (2=一般, 4=特定, 12=法人)")
+
+
 class AppConfig(BaseModel):
     """Full application configuration.
 
@@ -108,6 +121,8 @@ class AppConfig(BaseModel):
     strategy: StrategyConfig = Field(default_factory=StrategyConfig)
     risk: RiskConfig = Field(default_factory=RiskConfig)
     kabu: KabuApiConfig = Field(default_factory=KabuApiConfig)
+    tachibana: TachibanaApiConfig = Field(default_factory=TachibanaApiConfig)
+    broker_provider: str = Field(default="kabu", description="使用するブローカープロバイダー ('kabu' | 'tachibana' | 'dry_run')")
     output_base_dir: str = Field(default="results/sector_relative_ensemble", description="バックテスト出力ルート")
     output_live_dir: str = Field(default="live/sector_relative_ensemble", description="本番ライブ出力ルート")
     run_audit: bool = Field(default=True, description="実行後に ComplianceAuditor を走らせるか")

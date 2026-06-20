@@ -41,6 +41,12 @@ def create_broker(config: BrokerConfig) -> BrokerClient:
         logger.info("Creating KabuBrokerClient (url=%s)", config.api_url)
         return KabuBrokerClient(config)
 
+    elif provider == "tachibana":
+        from leadlag.broker.tachibana.client import TachibanaBrokerClient
+
+        logger.info("Creating TachibanaBrokerClient (url=%s)", config.api_url)
+        return TachibanaBrokerClient(config)
+
     elif provider == "dry_run":
         from leadlag.broker.dry_run import DryRunBrokerClient
 
@@ -49,7 +55,7 @@ def create_broker(config: BrokerConfig) -> BrokerClient:
 
     else:
         raise ValueError(
-            f"Unknown broker provider: {config.provider!r}. Supported: 'kabu', 'dry_run'"
+            f"Unknown broker provider: {config.provider!r}. Supported: 'kabu', 'tachibana', 'dry_run'"
         )
 
 
@@ -77,21 +83,20 @@ def create_broker_from_args(
     Returns:
         BrokerClient ready for use
     """
+    import os
+
     if dry_run:
-        config = BrokerConfig(
-            provider="dry_run",
-            api_url=api_url,
-            margin_trade_type=margin_trade_type,
-            account_type=account_type,
-        )
+        provider = "dry_run"
     else:
-        config = BrokerConfig(
-            provider="kabu",
-            api_url=api_url,
-            api_token=api_token or "",
-            api_password=api_password or "",
-            request_timeout=request_timeout,
-            margin_trade_type=margin_trade_type,
-            account_type=account_type,
-        )
+        provider = os.environ.get("BROKER_PROVIDER", "kabu").lower().strip()
+
+    config = BrokerConfig(
+        provider=provider,
+        api_url=api_url,
+        api_token=api_token or "",
+        api_password=api_password or "",
+        request_timeout=request_timeout,
+        margin_trade_type=margin_trade_type,
+        account_type=account_type,
+    )
     return create_broker(config)
