@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""Step 5.5: Covariance Optimization Consistency Audit for P8P3-BLPX.
+"""Step 5.5: Covariance Optimization Consistency Audit for Residual-BLPX.
 
 Audits and reconciles the covariance-aware portfolio optimization validation results,
 resolves reported unit inconsistencies, recomputes bootstrap confidence intervals,

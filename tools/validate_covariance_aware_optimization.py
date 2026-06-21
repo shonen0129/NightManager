@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""Step 5: Covariance-Aware Portfolio Optimization Validation for P8P3-BLPX.
+"""Step 5: Covariance-Aware Portfolio Optimization Validation for Residual-BLPX.
 
 Validates whether using the full gap-adjusted predictive covariance matrix Omega_gap,
 including off-diagonal covariance components, improves portfolio weighting beyond

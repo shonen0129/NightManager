@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Deployment and Backup Tool for Production P8P3-BLPX Configuration.
+"""Deployment and Backup Tool for Production Residual-BLPX Configuration.
 
 Safely replaces configs/production.yaml after verifying safety audits,
 creating backups in configs/archive/ and generating unified diff patches.

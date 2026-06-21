@@ -1,4 +1,4 @@
-"""Unit tests for SRE with US Residualization (SRE-USR) Model.
+"""Unit tests for PCA-Ensemble with US Residualization (PCA-Ensemble-USR) Model.
 
 Verifies rolling beta shift (no lookahead), gamma parameter sensitivity behavior,
 ensemble weights logic, and data sanity checks.

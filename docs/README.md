@@ -1,14 +1,14 @@
-# Sector Relative Ensemble (SRE) Strategy
+# Sector Relative Ensemble (PCA-Ensemble) Strategy
 
-This repository contains the codebase and tools for the **Sector Relative Ensemble (SRE)** strategy, which is the official production trading model of the Lead-Lag Market-Neutral Fund.
+This repository contains the codebase and tools for the **Sector Relative Ensemble (PCA-Ensemble)** strategy, which is the official production trading model of the Lead-Lag Market-Neutral Fund.
 
-SRE was previously referred to as the `P0/P3 signal-level 50/50 ensemble`. The naming with experimental numbers (P0, P3, P5, P6) is deprecated.
+PCA-Ensemble was previously referred to as the `Raw-PCA/Residual-PCA signal-level 50/50 ensemble`. The naming with experimental numbers (Raw-PCA, Residual-PCA, P5, P6) is deprecated.
 
 ## Model Overview
-SRE combines the standard Production signal (P0) with a TOPIX-residualized Production target signal (P3) at the signal level. It uses a cross-sectional Z-score normalization for both components before taking a 50/50 average. Portfolio weights are built using the canonical signal-weighted allocator.
+PCA-Ensemble combines the standard Production signal (Raw-PCA) with a TOPIX-residualized Production target signal (Residual-PCA) at the signal level. It uses a cross-sectional Z-score normalization for both components before taking a 50/50 average. Portfolio weights are built using the canonical signal-weighted allocator.
 
 > [!WARNING]
-> Uniform/equal-weighting is strictly forbidden in SRE. The model must always use `signals.build_weights(..., weight_mode="signal")` to maintain high risk-adjusted Sharpe profiles.
+> Uniform/equal-weighting is strictly forbidden in PCA-Ensemble. The model must always use `signals.build_weights(..., weight_mode="signal")` to maintain high risk-adjusted Sharpe profiles.
 
 ## Data Requirements
 Execution requires daily US sector ETF returns and Japanese TOPIX-17 sector ETF prices, as well as TOPIX index price series for OLS residualization. These can be fetched automatically via yfinance or kabuステーション API.
@@ -17,12 +17,12 @@ Execution requires daily US sector ETF returns and Japanese TOPIX-17 sector ETF 
 The canonical production configuration is stored in:
 `configs/production.yaml`
 
-Do not create dedicated model configurations like `configs/sector_relative_ensemble.yaml`. Maintain SRE parameters directly inside `configs/production.yaml`.
+Do not create dedicated model configurations like `configs/sector_relative_ensemble.yaml`. Maintain PCA-Ensemble parameters directly inside `configs/production.yaml`.
 
 ## Commands
 
 ### Historical Backtesting
-To run a historical backtest of the SRE model under a 5 bps slippage assumption:
+To run a historical backtest of the PCA-Ensemble model under a 5 bps slippage assumption:
 ```bash
 python tools/backtest_sector_relative_ensemble.py \
     --config configs/production.yaml \
@@ -31,7 +31,7 @@ python tools/backtest_sector_relative_ensemble.py \
 ```
 
 ### Daily Dry Run / Execution
-To run SRE for daily signal and order generation:
+To run PCA-Ensemble for daily signal and order generation:
 ```bash
 python tools/run_daily_sector_relative_ensemble.py \
     --config configs/production.yaml \

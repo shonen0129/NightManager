@@ -1,4 +1,4 @@
-"""Unit tests for Sector Relative Ensemble with US Residual Prior (SRE-USRP) Model.
+"""Unit tests for Sector Relative Ensemble with US Residual Prior (PCA-Ensemble-USRP) Model.
 
 Verifies rolling beta shift (no lookahead), prior vector orthonormalization, prior variants checks,
 C0 residualized properties, and portfolio/cost checks.
@@ -55,7 +55,7 @@ def test_us_beta_shift_no_lookahead():
 
 def test_jp_beta_shift_no_lookahead():
     """2. Verify that rolling beta calculation for JP returns does not use lookahead data."""
-    # This is tested implicitly via SRE P3 target calculation which is shifted by 1 day.
+    # This is tested implicitly via PCA-Ensemble Residual-PCA target calculation which is shifted by 1 day.
     # We also check that in run_audit we enforce jp_beta_uses_t_minus_1_window.
     pass
 
@@ -235,7 +235,7 @@ def test_c0_built_from_residual_returns():
 
 
 def test_ensemble_weights_sum_to_one():
-    """11. Verify SRE-USRP ensemble weights sum to 1.0."""
+    """11. Verify PCA-Ensemble-USRP ensemble weights sum to 1.0."""
     cfg = {
         "model": {"name": "sector_relative_ensemble_us_residual_prior"},
         "p0_weight": 0.40,
@@ -248,5 +248,5 @@ def test_ensemble_weights_sum_to_one():
 
 def test_cost_consistency():
     """12. Verify transaction cost drag consistency net = gross - cost."""
-    # Verified during backtest loop in SRE-USRP model run_audit.
+    # Verified during backtest loop in PCA-Ensemble-USRP model run_audit.
     pass

@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Daily Shadow-Run Generator for P8P3-BLPX Model.
+"""Daily Shadow-Run Generator for Residual-BLPX Model.
 
 Runs daily portfolio construction for shadow candidates and production baseline,
 performing timing audits, numerical boundary audits, and writing output files.

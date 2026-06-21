@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Compute, Save, and Diagnose P8P3-BLPX Prediction Error Covariance (Step 1).
+"""Compute, Save, and Diagnose Residual-BLPX Prediction Error Covariance (Step 1).
 
 Calculates Omega_struct daily using point-in-time intermediate matrices
 and performs rigorous calibration and numerical audits.

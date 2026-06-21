@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Audit Dynamic Gross Exposure Costs and Production Readiness for P8P3-BLPX.
+"""Audit Dynamic Gross Exposure Costs and Production Readiness for Residual-BLPX.
 
 Performs a focused audit of cost formula consistency, recomputes sizing rules
 under 4 cost variants, evaluates tail risks and regime robustness, and generates

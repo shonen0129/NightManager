@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Daily execution script for Sector Relative Ensemble (SRE) Model.
+"""Daily execution script for Sector Relative Ensemble (PCA-Ensemble) Model.
 
 Loads config, runs standard operational daily pipeline, and writes output csv/audit files.
 """

@@ -1,4 +1,4 @@
-"""Unit tests for Sector Relative Ensemble with Reduced-Rank Regression (SRE-RRR) Model."""
+"""Unit tests for Sector Relative Ensemble with Reduced-Rank Regression (PCA-Ensemble-RRR) Model."""
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ from leadlag.execution.backtester import BacktestEngine
 
 @pytest.fixture
 def rrr_sample_config() -> dict:
-    """Return sample configuration dictionary for testing SRE-RRR."""
+    """Return sample configuration dictionary for testing PCA-Ensemble-RRR."""
     return {
         "model": {"name": "sector_relative_ensemble_rrr"},
         "portfolio": {"long_short_frac": 0.3, "weight_mode": "signal"},
@@ -202,7 +202,7 @@ def test_prior_rrr_formula(rrr_sample_config):
 
 
 def test_ensemble_weights_sum(rrr_sample_config):
-    """7. test_ensemble_weights_sum: Verify SRE-RRR weights sum to 1.0."""
+    """7. test_ensemble_weights_sum: Verify PCA-Ensemble-RRR weights sum to 1.0."""
     model = SectorRelativeEnsembleRRRModel(rrr_sample_config)
     w_sum = (
         model.p0_weight
@@ -251,7 +251,7 @@ def test_cost_consistency(rrr_sample_config, sample_df_exec):
 
 
 def test_baseline_sre_reproduction(rrr_sample_config, sample_df_exec):
-    """10. test_baseline_sre_reproduction: Verify SRE-RRR with zero weights matches PCA SRE production model."""
+    """10. test_baseline_sre_reproduction: Verify PCA-Ensemble-RRR with zero weights matches PCA PCA-Ensemble production model."""
     df_exec, _ = sample_df_exec
     start_str = df_exec.index[-10].strftime("%Y-%m-%d")
 

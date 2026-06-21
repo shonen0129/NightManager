@@ -1,4 +1,4 @@
-"""Unit and compliance tests for Production P8P3-BLPX Model."""
+"""Unit and compliance tests for Production Residual-BLPX Model."""
 
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ from leadlag.data.tickers import JP_TICKERS, US_TICKERS
 
 @pytest.fixture
 def p8p3_prod_config() -> dict:
-    """Return P8P3 production configuration dict for testing."""
+    """Return Residual-BLPX production configuration dict for testing."""
     config_path = ROOT / "configs" / "production_p8p3_blpx.yaml"
     with open(config_path) as f:
         return yaml.safe_load(f)
@@ -37,7 +37,7 @@ def test_production_config_model_name(p8p3_prod_config):
 
 
 def test_p8p3_uses_topix_residual_target(p8p3_prod_config, sample_df_exec):
-    """2. Check that P8P3 model targets residualized returns."""
+    """2. Check that Residual-BLPX model targets residualized returns."""
     df_exec, _ = sample_df_exec
     model = SectorRelativeEnsembleBLPEnhancedModel(p8p3_prod_config)
     inputs = model._prepare_common_inputs(df_exec)
@@ -49,7 +49,7 @@ def test_p8p3_uses_topix_residual_target(p8p3_prod_config, sample_df_exec):
 
 
 def test_p8p3_does_not_use_raw_target(p8p3_prod_config, sample_df_exec):
-    """3. Verify that P8P3 residual target matrix does not equal raw target returns."""
+    """3. Verify that Residual-BLPX residual target matrix does not equal raw target returns."""
     df_exec, _ = sample_df_exec
     model = SectorRelativeEnsembleBLPEnhancedModel(p8p3_prod_config)
     inputs = model._prepare_common_inputs(df_exec)
@@ -75,7 +75,7 @@ def test_no_lookahead_xy_pairs(p8p3_prod_config, sample_df_exec):
 def test_topix_beta_shift_one(p8p3_prod_config, sample_df_exec):
     """5. Verify TOPIX OLS beta computation uses a strict 1-day shift (lookahead safe)."""
     df_exec, _ = sample_df_exec
-    # In SRE / BLPX enhanced, rolling OLS beta is estimated on historical target returns
+    # In PCA-Ensemble / BLPX enhanced, rolling OLS beta is estimated on historical target returns
     model = SectorRelativeEnsembleBLPEnhancedModel(p8p3_prod_config)
     inputs = model._prepare_common_inputs(df_exec)
     assert inputs["y_jp_target"] is not None
@@ -101,7 +101,7 @@ def test_winsorization_no_lookahead(p8p3_prod_config):
 
 
 def test_blpx_matrix_dimensions(p8p3_prod_config, sample_df_exec):
-    """7. Check dimensions of covariance and BLP matrices in P8P3 estimation."""
+    """7. Check dimensions of covariance and BLP matrices in Residual-BLPX estimation."""
     df_exec, _ = sample_df_exec
     model = SectorRelativeEnsembleBLPEnhancedModel(p8p3_prod_config)
     inputs = model._prepare_common_inputs(df_exec)
@@ -186,7 +186,7 @@ def test_cost_consistency(p8p3_prod_config, sample_df_exec):
 
 
 def test_fallback_to_sre(p8p3_prod_config, sample_df_exec):
-    """14. Check SRE fallback behaves correctly when training data contains NaNs."""
+    """14. Check PCA-Ensemble fallback behaves correctly when training data contains NaNs."""
     df_exec, _ = sample_df_exec
     model = SectorRelativeEnsembleBLPEnhancedModel(p8p3_prod_config)
     inputs = model._prepare_common_inputs(df_exec)

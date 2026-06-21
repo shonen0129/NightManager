@@ -1,6 +1,6 @@
-"""Unit tests for Sector Relative Ensemble (SRE) Model.
+"""Unit tests for Sector Relative Ensemble (PCA-Ensemble) Model.
 
-Verifies SRE configurations, signal generation, weighting, audits, and pipeline completion.
+Verifies PCA-Ensemble configurations, signal generation, weighting, audits, and pipeline completion.
 """
 
 from __future__ import annotations
@@ -20,7 +20,7 @@ from leadlag.models.sre import SectorRelativeEnsembleModel
 
 
 def test_config_loading_and_attributes():
-    """1, 2, 3: Verify existing config can be loaded and SRE parameters are correct."""
+    """1, 2, 3: Verify existing config can be loaded and PCA-Ensemble parameters are correct."""
     config_path = ROOT / "configs" / "archive" / "production_before_p8p3_blpx_20260614.yaml"
     assert config_path.exists()
 
@@ -118,7 +118,7 @@ def test_chronological_and_cost_safety():
 
 
 def test_pipeline_completeness_and_daily_run(sample_model, sample_df_exec):
-    """18, 19: Verify SRE model backtest and daily run can be executed successfully."""
+    """18, 19: Verify PCA-Ensemble model backtest and daily run can be executed successfully."""
     df_exec, _ = sample_df_exec
     model = sample_model
 

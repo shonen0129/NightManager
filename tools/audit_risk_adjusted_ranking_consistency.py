@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""Step 4.5 Risk-Adjusted Ranking Consistency Audit for P8P3-BLPX.
+"""Step 4.5 Risk-Adjusted Ranking Consistency Audit for Residual-BLPX.
 
 Audits and reconciles Step 4 validation results, checking recommendation consistency,
 meaning of baseline-style weighting, baseline score identity, dynamic gross overlays,

@@ -27,7 +27,7 @@ ranking:
   mode: mu_over_sigma           # gap 調整済み予測分布ベースのリスク調整スコア
   score_formula: "mu_gap / sigma_gap"
   sigma_floor: 1.0e-6           # ゼロ除算防止フロア
-  # mu_over_sigma スコアが利用不可の場合は baseline P8P3-BLPX スコアにフォールバック
+  # mu_over_sigma スコアが利用不可の場合は baseline Residual-BLPX スコアにフォールバック
   fallback_to_base_signal: true
 
 # --- v2 拡張: 動的グロスエクスポージャー (RuleD) ---
@@ -102,8 +102,8 @@ residualization:
   lookahead_safe: true
 
 # --- v2: フォールバック階層 ---
-# 第1フォールバック: 旧 P8P3-BLPX v1（gap data 欠損時）
-# 第2フォールバック: SRE（v1 も利用不可の場合）
+# 第1フォールバック: 旧 Residual-BLPX v1（gap data 欠損時）
+# 第2フォールバック: PCA-Ensemble（v1 も利用不可の場合）
 fallback:
   enabled: true
   # v2 固有: gap data 欠損時は v1 ウェイトファイルを使用

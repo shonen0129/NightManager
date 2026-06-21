@@ -1,6 +1,6 @@
 """Sector Relative Ensemble with Regularized Block BLP Model.
 
-Implements the SRE-BLP model which integrates standard Production signals (P0, P3)
+Implements the PCA-Ensemble-BLP model which integrates standard Production signals (Raw-PCA, Residual-PCA)
 with Regularized Block BLP signals (P5, P5P3).
 """
 
@@ -27,9 +27,9 @@ logger = logging.getLogger(__name__)
 
 
 class SectorRelativeEnsembleBLPModel(BaseModel):
-    """Sector Relative Ensemble with Regularized Block BLP (SRE-BLP) Model.
+    """Sector Relative Ensemble with Regularized Block BLP (PCA-Ensemble-BLP) Model.
 
-    Ensembles standard PCA signals (P0, P3) and Regularized Block BLP signals (P5, P5P3).
+    Ensembles standard PCA signals (Raw-PCA, Residual-PCA) and Regularized Block BLP signals (P5, P5P3).
     """
 
     def __init__(self, config: dict | object):
@@ -141,7 +141,7 @@ class SectorRelativeEnsembleBLPModel(BaseModel):
             else df_exec["topix_night_return"].values + df_exec["topix_oc_return"].values
         )
 
-        # Rolling OLS residualization for P3/P5P3
+        # Rolling OLS residualization for Residual-PCA/P5P3
         betas_jp_p3 = compute_rolling_ols_betas(
             y_jp_target, topix_cc_trade.reshape(-1, 1), self.beta_window
         )
@@ -181,7 +181,7 @@ class SectorRelativeEnsembleBLPModel(BaseModel):
         jp_beta: np.ndarray | None,
         topix_night: np.ndarray | None,
     ) -> np.ndarray:
-        """Compute the P0 (Production PCA) signal at index i."""
+        """Compute the Raw-PCA (Production PCA) signal at index i."""
         gap_t1 = np.nan_to_num(jp_gap[i], nan=0.0) if jp_gap is not None else np.zeros(self.n_j)
         betas_t = np.asarray(jp_beta[i], dtype=float) if jp_beta is not None else None
         topix_night_t = float(topix_night[i]) if topix_night is not None else None
@@ -222,7 +222,7 @@ class SectorRelativeEnsembleBLPModel(BaseModel):
         jp_beta: np.ndarray | None,
         topix_night: np.ndarray | None,
     ) -> np.ndarray:
-        """Compute the P3 (Residual target PCA) signal at index i."""
+        """Compute the Residual-PCA (Residual target PCA) signal at index i."""
         gap_t1 = np.nan_to_num(jp_gap[i], nan=0.0) if jp_gap is not None else np.zeros(self.n_j)
         betas_t = np.asarray(jp_beta[i], dtype=float) if jp_beta is not None else None
         topix_night_t = float(topix_night[i]) if topix_night is not None else None
@@ -457,13 +457,13 @@ class SectorRelativeEnsembleBLPModel(BaseModel):
 
         start_idx = self.corr_window
         for i in range(start_idx, T):
-            # 1. P0 (Production PCA)
+            # 1. Raw-PCA (Production PCA)
             p0_sig = self.compute_production_signal(
                 i, c_full, v0_static, v1, v2, all_returns_raw, jp_gap, jp_beta, topix_night
             )
             p0_signals[i] = p0_sig
 
-            # 2. P3 (Residual target PCA)
+            # 2. Residual-PCA (Residual target PCA)
             p3_sig = self.compute_residual_signal(
                 jp_res_returns_p3, i, c_full_p3, v0_static, v1, v2, jp_gap, jp_beta, topix_night
             )
@@ -499,7 +499,7 @@ class SectorRelativeEnsembleBLPModel(BaseModel):
             z5 = self.normalize_signals(p5_res["signal"], self.normalization_method)
             z5p3 = self.normalize_signals(p5p3_res["signal"], self.normalization_method)
 
-            # Combined SRE-BLP signal
+            # Combined PCA-Ensemble-BLP signal
             s_ens = self.combine_signals(z0, z3, z5, z5p3)
             combined_signals[i] = s_ens
             normalized_combined_signals[i] = self.normalize_signals(

@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Validation and Auditing Suite for Production P8P3-BLPX Model.
+"""Validation and Auditing Suite for Production Residual-BLPX Model.
 
 Runs comparative backtests, checks lookahead-safety, target residuals,
 and outputs detailed statistics and production_change_report.md.
@@ -348,7 +348,7 @@ def main():
             "full_MDD": full_m["MDD"],
         })
     df_comp = pd.DataFrame(comp_rows)
-    # Add difference metrics vs SRE
+    # Add difference metrics vs PCA-Ensemble
     sre_m = df_comp[df_comp["candidate"] == "SRE"].iloc[0]
     df_comp["ar_retention_vs_sre"] = df_comp["oos_AR"] / sre_m["oos_AR"]
     df_comp["sharpe_improvement_vs_sre"] = df_comp["oos_Sharpe"] - sre_m["oos_Sharpe"]
@@ -530,7 +530,7 @@ def main():
         
     diff_patch_exists = (out_dir / "production_config_diff.patch").exists()
 
-    # Fallback to SRE testing (mocking NaN)
+    # Fallback to PCA-Ensemble testing (mocking NaN)
     logger.info("Testing SRE fallback operational paths...")
     nan_returns = inputs["all_returns_raw"].copy()
     nan_returns[300, :] = np.nan
@@ -543,7 +543,7 @@ def main():
             v0_static=inputs["v0_static"],
             c_full=inputs["c_full"]
         )
-        # SRE fallback should yield finite signal
+        # PCA-Ensemble fallback should yield finite signal
         if np.all(np.isfinite(fb_res["signal"])):
             fallback_test_passed = True
     except Exception as e:
@@ -655,37 +655,37 @@ def main():
     # Decide apply status
     decision_text = "APPLY_PRODUCTION_CHANGE_TO_P8P3" if all_passed else "FALLBACK_TO_SRE"
 
-    report_content = f"""# Production P8P3-BLPX Change Report
+    report_content = f"""# Production Residual-BLPX Change Report
 
 ## 1. Executive Summary
 
-- **P8P3単体への変更可否**: **可** (安全監査をすべてパスしており、OOS性能が本番採用条件を満たしています)
+- **Residual-BLPX単体への変更可否**: **可** (安全監査をすべてパスしており、OOS性能が本番採用条件を満たしています)
 - **採用/不採用判定**: `APPLY_PRODUCTION_CHANGE_TO_P8P3`
-- **fallbackモデル**: `SRE`
+- **fallbackモデル**: `PCA-Ensemble`
 - **audit結果**: **`all_passed = {all_passed}`**
 - **主な理由**:
-  - `P8P3_only` モデルは OOS Sharpe が `{p8p3_oos["Sharpe"]:.4f}` を記録し、SRE Baselineの `{sre_oos["Sharpe"]:.4f}` に対して明確なパフォーマンス改善を達成。
-  - ボラティリティは `{p8p3_oos["RISK"]*100:.2f}%` と Baseline の `{sre_oos["RISK"]*100:.2f}%` と同水準（僅かな低下）を維持しつつ、最大ドローダウンを `{p8p3_oos["MDD"]*100:.2f}%`（SRE: `{sre_oos["MDD"]*100:.2f}%`）に抑えています。
-  - ターンオーバーは `{p8p3_oos["turnover"]:.4f}` であり、SREの `{sre_oos["turnover"]:.4f}` から `{(p8p3_oos["turnover"]/sre_oos["turnover"]-1)*100:+.2f}%` の変化にとどまり、採用基準である「SRE比 +5%以内」をクリアしています。
+  - `Residual-BLPX v1` モデルは OOS Sharpe が `{p8p3_oos["Sharpe"]:.4f}` を記録し、PCA-Ensemble Baselineの `{sre_oos["Sharpe"]:.4f}` に対して明確なパフォーマンス改善を達成。
+  - ボラティリティは `{p8p3_oos["RISK"]*100:.2f}%` と Baseline の `{sre_oos["RISK"]*100:.2f}%` と同水準（僅かな低下）を維持しつつ、最大ドローダウンを `{p8p3_oos["MDD"]*100:.2f}%`（PCA-Ensemble: `{sre_oos["MDD"]*100:.2f}%`）に抑えています。
+  - ターンオーバーは `{p8p3_oos["turnover"]:.4f}` であり、PCA-Ensembleの `{sre_oos["turnover"]:.4f}` から `{(p8p3_oos["turnover"]/sre_oos["turnover"]-1)*100:+.2f}%` の変化にとどまり、採用基準である「PCA-Ensemble比 +5%以内」をクリアしています。
 
 ---
 
 ## 2. Model Definition
 
-- **P8P3定義**: Enhanced BLPX conditioned with TOPIX residual targets.
+- **Residual-BLPX定義**: Enhanced BLPX conditioned with TOPIX residual targets.
 - **X定義**: Standardized close-to-close returns of 15 US ETFs.
 - **Y定義**: Standardized next-day (t+1) returns of 17 JP Sector ETFs residualized against TOPIX close-to-close returns.
 - **TOPIX residual target**: Beta parameters are OLS-estimated rolling over 60 days, strictly shifted by 1 day to ensure lookahead safety.
 - **Enhanced BLPX仕様**: Linear predictor constrained with Frobenius-scaled PCA and Sector Priors, and adjusted via covariance-based confidence weights.
-- **最終signal formula**: `production_signal = z(P8P3)`
+- **最終signal formula**: `production_signal = z(Residual-BLPX)`
 
 ---
 
 ## 3. Production Config Changes
 
-- **変更前モデル**: `SRE` (Sector Relative Ensemble)
-- **変更後モデル**: `Production P8P3 Enhanced BLPX` (P8P3-BLPX)
-- **fallback設定**: SRE (enabled, fallback on audit failure or missing data).
+- **変更前モデル**: `PCA-Ensemble` (Sector Relative Ensemble)
+- **変更後モデル**: `Production Residual-BLPX Enhanced BLPX` (Residual-BLPX)
+- **fallback設定**: PCA-Ensemble (enabled, fallback on audit failure or missing data).
 - **backup path**: `configs/archive/production_before_p8p3_blpx_*.yaml`
 
 ---
@@ -711,16 +711,16 @@ Slippage: **5.0 bps**
 
 | モデル名 | 期間 | 年率リターン (AR) | ボラティリティ (RISK) | シャープレシオ | 最大ドローダウン (MDD) | ターンオーバー |
 |---|---|:---:|:---:|:---:|:---:|:---:|
-| **SRE Baseline** | Train | {df_summary[(df_summary["ensemble"]=="SRE") & (df_summary["slippage_bps"]==5.0) & (df_summary["period"]=="train")].iloc[0]["AR"]*100:.2f}% | {df_summary[(df_summary["ensemble"]=="SRE") & (df_summary["slippage_bps"]==5.0) & (df_summary["period"]=="train")].iloc[0]["RISK"]*100:.2f}% | {df_summary[(df_summary["ensemble"]=="SRE") & (df_summary["slippage_bps"]==5.0) & (df_summary["period"]=="train")].iloc[0]["Sharpe"]:.4f} | {df_summary[(df_summary["ensemble"]=="SRE") & (df_summary["slippage_bps"]==5.0) & (df_summary["period"]=="train")].iloc[0]["MDD"]*100:.2f}% | {df_summary[(df_summary["ensemble"]=="SRE") & (df_summary["slippage_bps"]==5.0) & (df_summary["period"]=="train")].iloc[0]["turnover"]:.4f} |
+| **PCA-Ensemble Baseline** | Train | {df_summary[(df_summary["ensemble"]=="PCA-Ensemble") & (df_summary["slippage_bps"]==5.0) & (df_summary["period"]=="train")].iloc[0]["AR"]*100:.2f}% | {df_summary[(df_summary["ensemble"]=="PCA-Ensemble") & (df_summary["slippage_bps"]==5.0) & (df_summary["period"]=="train")].iloc[0]["RISK"]*100:.2f}% | {df_summary[(df_summary["ensemble"]=="PCA-Ensemble") & (df_summary["slippage_bps"]==5.0) & (df_summary["period"]=="train")].iloc[0]["Sharpe"]:.4f} | {df_summary[(df_summary["ensemble"]=="PCA-Ensemble") & (df_summary["slippage_bps"]==5.0) & (df_summary["period"]=="train")].iloc[0]["MDD"]*100:.2f}% | {df_summary[(df_summary["ensemble"]=="PCA-Ensemble") & (df_summary["slippage_bps"]==5.0) & (df_summary["period"]=="train")].iloc[0]["turnover"]:.4f} |
 | | OOS | {sre_oos["AR"]*100:.2f}% | {sre_oos["RISK"]*100:.2f}% | {sre_oos["Sharpe"]:.4f} | {sre_oos["MDD"]*100:.2f}% | {sre_oos["turnover"]:.4f} |
 | | Full | {sre_full["AR"]*100:.2f}% | {sre_full["RISK"]*100:.2f}% | {sre_full["Sharpe"]:.4f} | {sre_full["MDD"]*100:.2f}% | {sre_full["turnover"]:.4f} |
-| **BLPX_100** | Train | {df_summary[(df_summary["ensemble"]=="BLPX_100") & (df_summary["slippage_bps"]==5.0) & (df_summary["period"]=="train")].iloc[0]["AR"]*100:.2f}% | {df_summary[(df_summary["ensemble"]=="BLPX_100") & (df_summary["slippage_bps"]==5.0) & (df_summary["period"]=="train")].iloc[0]["RISK"]*100:.2f}% | {df_summary[(df_summary["ensemble"]=="BLPX_100") & (df_summary["slippage_bps"]==5.0) & (df_summary["period"]=="train")].iloc[0]["Sharpe"]:.4f} | {df_summary[(df_summary["ensemble"]=="BLPX_100") & (df_summary["slippage_bps"]==5.0) & (df_summary["period"]=="train")].iloc[0]["MDD"]*100:.2f}% | {df_summary[(df_summary["ensemble"]=="BLPX_100") & (df_summary["slippage_bps"]==5.0) & (df_summary["period"]=="train")].iloc[0]["turnover"]:.4f} |
+| **BLPX-Ensemble** | Train | {df_summary[(df_summary["ensemble"]=="BLPX-Ensemble") & (df_summary["slippage_bps"]==5.0) & (df_summary["period"]=="train")].iloc[0]["AR"]*100:.2f}% | {df_summary[(df_summary["ensemble"]=="BLPX-Ensemble") & (df_summary["slippage_bps"]==5.0) & (df_summary["period"]=="train")].iloc[0]["RISK"]*100:.2f}% | {df_summary[(df_summary["ensemble"]=="BLPX-Ensemble") & (df_summary["slippage_bps"]==5.0) & (df_summary["period"]=="train")].iloc[0]["Sharpe"]:.4f} | {df_summary[(df_summary["ensemble"]=="BLPX-Ensemble") & (df_summary["slippage_bps"]==5.0) & (df_summary["period"]=="train")].iloc[0]["MDD"]*100:.2f}% | {df_summary[(df_summary["ensemble"]=="BLPX-Ensemble") & (df_summary["slippage_bps"]==5.0) & (df_summary["period"]=="train")].iloc[0]["turnover"]:.4f} |
 | | OOS | {blpx100_oos["AR"]*100:.2f}% | {blpx100_oos["RISK"]*100:.2f}% | {blpx100_oos["Sharpe"]:.4f} | {blpx100_oos["MDD"]*100:.2f}% | {blpx100_oos["turnover"]:.4f} |
 | | Full | {blpx100_full["AR"]*100:.2f}% | {blpx100_full["RISK"]*100:.2f}% | {blpx100_full["Sharpe"]:.4f} | {blpx100_full["MDD"]*100:.2f}% | {blpx100_full["turnover"]:.4f} |
-| **SRE_BLPX_BLEND_33** | Train | {df_summary[(df_summary["ensemble"]=="SRE_BLPX_BLEND_33") & (df_summary["slippage_bps"]==5.0) & (df_summary["period"]=="train")].iloc[0]["AR"]*100:.2f}% | {df_summary[(df_summary["ensemble"]=="SRE_BLPX_BLEND_33") & (df_summary["slippage_bps"]==5.0) & (df_summary["period"]=="train")].iloc[0]["RISK"]*100:.2f}% | {df_summary[(df_summary["ensemble"]=="SRE_BLPX_BLEND_33") & (df_summary["slippage_bps"]==5.0) & (df_summary["period"]=="train")].iloc[0]["Sharpe"]:.4f} | {df_summary[(df_summary["ensemble"]=="SRE_BLPX_BLEND_33") & (df_summary["slippage_bps"]==5.0) & (df_summary["period"]=="train")].iloc[0]["MDD"]*100:.2f}% | {df_summary[(df_summary["ensemble"]=="SRE_BLPX_BLEND_33") & (df_summary["slippage_bps"]==5.0) & (df_summary["period"]=="train")].iloc[0]["turnover"]:.4f} |
+| **PCA-BLPX Hybrid Ensemble** | Train | {df_summary[(df_summary["ensemble"]=="PCA-BLPX Hybrid Ensemble") & (df_summary["slippage_bps"]==5.0) & (df_summary["period"]=="train")].iloc[0]["AR"]*100:.2f}% | {df_summary[(df_summary["ensemble"]=="PCA-BLPX Hybrid Ensemble") & (df_summary["slippage_bps"]==5.0) & (df_summary["period"]=="train")].iloc[0]["RISK"]*100:.2f}% | {df_summary[(df_summary["ensemble"]=="PCA-BLPX Hybrid Ensemble") & (df_summary["slippage_bps"]==5.0) & (df_summary["period"]=="train")].iloc[0]["Sharpe"]:.4f} | {df_summary[(df_summary["ensemble"]=="PCA-BLPX Hybrid Ensemble") & (df_summary["slippage_bps"]==5.0) & (df_summary["period"]=="train")].iloc[0]["MDD"]*100:.2f}% | {df_summary[(df_summary["ensemble"]=="PCA-BLPX Hybrid Ensemble") & (df_summary["slippage_bps"]==5.0) & (df_summary["period"]=="train")].iloc[0]["turnover"]:.4f} |
 | | OOS | {blend33_oos["AR"]*100:.2f}% | {blend33_oos["RISK"]*100:.2f}% | {blend33_oos["Sharpe"]:.4f} | {blend33_oos["MDD"]*100:.2f}% | {blend33_oos["turnover"]:.4f} |
 | | Full | {blend33_full["AR"]*100:.2f}% | {blend33_full["RISK"]*100:.2f}% | {blend33_full["Sharpe"]:.4f} | {blend33_full["MDD"]*100:.2f}% | {blend33_full["turnover"]:.4f} |
-| **P8P3_only (New Prod)** | Train | {p8p3_train["AR"]*100:.2f}% | {p8p3_train["RISK"]*100:.2f}% | {p8p3_train["Sharpe"]:.4f} | {p8p3_train["MDD"]*100:.2f}% | {p8p3_train["turnover"]:.4f} |
+| **Residual-BLPX v1 (New Prod)** | Train | {p8p3_train["AR"]*100:.2f}% | {p8p3_train["RISK"]*100:.2f}% | {p8p3_train["Sharpe"]:.4f} | {p8p3_train["MDD"]*100:.2f}% | {p8p3_train["turnover"]:.4f} |
 | | OOS | {p8p3_oos["AR"]*100:.2f}% | {p8p3_oos["RISK"]*100:.2f}% | {p8p3_oos["Sharpe"]:.4f} | {p8p3_oos["MDD"]*100:.2f}% | {p8p3_oos["turnover"]:.4f} |
 | | Full | {p8p3_full["AR"]*100:.2f}% | {p8p3_full["RISK"]*100:.2f}% | {p8p3_full["Sharpe"]:.4f} | {p8p3_full["MDD"]*100:.2f}% | {p8p3_full["turnover"]:.4f} |
 
@@ -732,23 +732,23 @@ OOS period Sharpe under multiple slippage costs (bps):
 
 | モデル名 | 0.0bps | 2.5bps | 5.0bps | 7.5bps | 10.0bps |
 |---|:---:|:---:|:---:|:---:|:---:|
-| **SRE Baseline** | {df_summary[(df_summary["ensemble"]=="SRE") & (df_summary["slippage_bps"]==0.0) & (df_summary["period"]=="oos")].iloc[0]["Sharpe"]:.4f} | {df_summary[(df_summary["ensemble"]=="SRE") & (df_summary["slippage_bps"]==2.5) & (df_summary["period"]=="oos")].iloc[0]["Sharpe"]:.4f} | {sre_oos["Sharpe"]:.4f} | {df_summary[(df_summary["ensemble"]=="SRE") & (df_summary["slippage_bps"]==7.5) & (df_summary["period"]=="oos")].iloc[0]["Sharpe"]:.4f} | {df_summary[(df_summary["ensemble"]=="SRE") & (df_summary["slippage_bps"]==10.0) & (df_summary["period"]=="oos")].iloc[0]["Sharpe"]:.4f} |
-| **BLPX_100** | {df_summary[(df_summary["ensemble"]=="BLPX_100") & (df_summary["slippage_bps"]==0.0) & (df_summary["period"]=="oos")].iloc[0]["Sharpe"]:.4f} | {df_summary[(df_summary["ensemble"]=="BLPX_100") & (df_summary["slippage_bps"]==2.5) & (df_summary["period"]=="oos")].iloc[0]["Sharpe"]:.4f} | {blpx100_oos["Sharpe"]:.4f} | {df_summary[(df_summary["ensemble"]=="BLPX_100") & (df_summary["slippage_bps"]==7.5) & (df_summary["period"]=="oos")].iloc[0]["Sharpe"]:.4f} | {df_summary[(df_summary["ensemble"]=="BLPX_100") & (df_summary["slippage_bps"]==10.0) & (df_summary["period"]=="oos")].iloc[0]["Sharpe"]:.4f} |
-| **P8P3_only (New Prod)** | {df_summary[(df_summary["ensemble"]=="P8P3_only") & (df_summary["slippage_bps"]==0.0) & (df_summary["period"]=="oos")].iloc[0]["Sharpe"]:.4f} | {df_summary[(df_summary["ensemble"]=="P8P3_only") & (df_summary["slippage_bps"]==2.5) & (df_summary["period"]=="oos")].iloc[0]["Sharpe"]:.4f} | {p8p3_oos["Sharpe"]:.4f} | {p8p3_7p5["Sharpe"]:.4f} | {p8p3_10["Sharpe"]:.4f} |
+| **PCA-Ensemble Baseline** | {df_summary[(df_summary["ensemble"]=="PCA-Ensemble") & (df_summary["slippage_bps"]==0.0) & (df_summary["period"]=="oos")].iloc[0]["Sharpe"]:.4f} | {df_summary[(df_summary["ensemble"]=="PCA-Ensemble") & (df_summary["slippage_bps"]==2.5) & (df_summary["period"]=="oos")].iloc[0]["Sharpe"]:.4f} | {sre_oos["Sharpe"]:.4f} | {df_summary[(df_summary["ensemble"]=="PCA-Ensemble") & (df_summary["slippage_bps"]==7.5) & (df_summary["period"]=="oos")].iloc[0]["Sharpe"]:.4f} | {df_summary[(df_summary["ensemble"]=="PCA-Ensemble") & (df_summary["slippage_bps"]==10.0) & (df_summary["period"]=="oos")].iloc[0]["Sharpe"]:.4f} |
+| **BLPX-Ensemble** | {df_summary[(df_summary["ensemble"]=="BLPX-Ensemble") & (df_summary["slippage_bps"]==0.0) & (df_summary["period"]=="oos")].iloc[0]["Sharpe"]:.4f} | {df_summary[(df_summary["ensemble"]=="BLPX-Ensemble") & (df_summary["slippage_bps"]==2.5) & (df_summary["period"]=="oos")].iloc[0]["Sharpe"]:.4f} | {blpx100_oos["Sharpe"]:.4f} | {df_summary[(df_summary["ensemble"]=="BLPX-Ensemble") & (df_summary["slippage_bps"]==7.5) & (df_summary["period"]=="oos")].iloc[0]["Sharpe"]:.4f} | {df_summary[(df_summary["ensemble"]=="BLPX-Ensemble") & (df_summary["slippage_bps"]==10.0) & (df_summary["period"]=="oos")].iloc[0]["Sharpe"]:.4f} |
+| **Residual-BLPX v1 (New Prod)** | {df_summary[(df_summary["ensemble"]=="Residual-BLPX v1") & (df_summary["slippage_bps"]==0.0) & (df_summary["period"]=="oos")].iloc[0]["Sharpe"]:.4f} | {df_summary[(df_summary["ensemble"]=="Residual-BLPX v1") & (df_summary["slippage_bps"]==2.5) & (df_summary["period"]=="oos")].iloc[0]["Sharpe"]:.4f} | {p8p3_oos["Sharpe"]:.4f} | {p8p3_7p5["Sharpe"]:.4f} | {p8p3_10["Sharpe"]:.4f} |
 
 ---
 
 ## 7. Risk Diagnostics
 
-- **MDD**: P8P3_only is `{p8p3_oos["MDD"]*100:.2f}%` in OOS, which is slightly lower (better) than SRE Baseline's `{sre_oos["MDD"]*100:.2f}%`.
+- **MDD**: Residual-BLPX v1 is `{p8p3_oos["MDD"]*100:.2f}%` in OOS, which is slightly lower (better) than PCA-Ensemble Baseline's `{sre_oos["MDD"]*100:.2f}%`.
 - **Condition numbers**: max condition number `{max_cond:.3f}`, median `{median_cond:.3f}`. This confirms the Ridge regularization successfully stabilizes matrix inversion.
 
 ---
 
 ## 8. Signal Diagnostics
 
-- **Model Correlation (Pearson)**: P8P3 vs SRE is **`{corr_p3_p8p3:.4f}`** at the residual target component level.
-- **Selection overlap**: SRE and P8P3 portfolio overlap is around `{total_overlap*100:.2f}%`, demonstrating significant independent alpha components.
+- **Model Correlation (Pearson)**: Residual-BLPX vs PCA-Ensemble is **`{corr_p3_p8p3:.4f}`** at the residual target component level.
+- **Selection overlap**: PCA-Ensemble and Residual-BLPX portfolio overlap is around `{total_overlap*100:.2f}%`, demonstrating significant independent alpha components.
 
 ---
 
@@ -771,7 +771,7 @@ OOS period Sharpe under multiple slippage costs (bps):
 ## 11. Runbook Notes
 
 - **Daily execution flow**: Trigger script `tools/run_daily_sector_relative_ensemble.py --config configs/production.yaml`.
-- **Emergency rollback**: Replace `configs/production.yaml` with the backed-up file under `configs/archive/` to restore SRE baseline immediately.
+- **Emergency rollback**: Replace `configs/production.yaml` with the backed-up file under `configs/archive/` to restore PCA-Ensemble baseline immediately.
 """
     with open(out_dir / "production_change_report.md", "w") as f:
         f.write(report_content)

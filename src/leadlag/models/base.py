@@ -39,10 +39,10 @@ class AuditContext:
     """Prior subspace variant identifier (e.g. 'resid_v2_removed'), or None."""
 
     p0_weight: float = 0.5
-    """Ensemble weight for P0 (Production PCA) signal."""
+    """Ensemble weight for Raw-PCA (Production PCA) signal."""
 
     p3_weight: float = 0.5
-    """Ensemble weight for P3 (Residual target PCA) signal."""
+    """Ensemble weight for Residual-PCA (Residual target PCA) signal."""
 
     p4_weight: float = 0.0
     """Ensemble weight for P4 (US-residualized) signal."""

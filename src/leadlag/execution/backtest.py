@@ -65,7 +65,7 @@ def run_production(
 
     if not skip_chart:
         # Generate chart report using df structured for graphing
-        # SRE backtest result dict contains daily_returns and equity_curve keys
+        # PCA-Ensemble backtest result dict contains daily_returns and equity_curve keys
         # We need to build a DataFrame matching results_df structure: index=date, daily_return
         graph_df = pd.DataFrame(
             {"daily_return": results["daily_returns"]}, index=results["daily_returns"].index

@@ -3,7 +3,7 @@
 Writes all daily production artifacts to the *live* directory:
 
   - latest_weights.csv           — primary production weights
-  - v1_baseline_weights.csv      — v1 P8P3-BLPX weights (fallback / comparison)
+  - v1_baseline_weights.csv      — v1 Residual-BLPX weights (fallback / comparison)
   - production_scores.csv        — mu_over_sigma scores for all 17 tickers
   - production_summary.csv       — one-row summary statistics
   - pit_binning.json             — PIT binning audit details

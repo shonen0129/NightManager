@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Refined Validation and Deployment Readiness Suite for SRE-BLPX.
+"""Refined Validation and Deployment Readiness Suite for PCA-BLPX Ensemble.
 
 Performs parameter search over a refined grid in parallel, evaluates model-level blends,
 computes vol-matched / gross-scaled metrics, runs subperiod performance,
@@ -453,7 +453,7 @@ def main():
     y_jp_target = compute_jp_target_returns(df_exec, JP_TICKERS)
     y_jp_target_df = pd.DataFrame(y_jp_target, index=df_exec.index, columns=JP_TICKERS)
     
-    # 2. Run Baseline Production SRE Model for verification
+    # 2. Run Baseline Production PCA-Ensemble Model for verification
     logger.info("Running baseline production SRE for verification...")
     prod_config_path = ROOT / "configs" / "production.yaml"
     with open(prod_config_path) as f:
@@ -501,7 +501,7 @@ def main():
     oos_monthly_codes, oos_n_months = build_monthly_codes(sim_dates_slice[oos_start_idx:])
     full_monthly_codes, full_n_months = build_monthly_codes(sim_dates_slice)
 
-    # SRE baseline returns
+    # PCA-Ensemble baseline returns
     sre_sim_5 = run_backtest_fast(
         baseline_res["signals"].values,
         y_jp_target_slice.values,
@@ -585,7 +585,7 @@ def main():
     logger.info(f"Previous BLP Reproduced: {previous_blp_reproduced}")
     logger.info(f"Previous BLPX Best Reproduced: {previous_blpx_best_reproduced}")
 
-    # Standard P0 & P3 signals (normalized to z-scores)
+    # Standard Raw-PCA & Residual-PCA signals (normalized to z-scores)
     p0_sig_base = base_pred["p0_signals"].loc[sim_dates_slice].values
     p3_sig_base = base_pred["p3_signals"].loc[sim_dates_slice].values
     
@@ -819,7 +819,7 @@ def main():
     
     # Inject baseline benchmarks to df_results for comparison
     baselines_records = []
-    # Current SRE benchmarks
+    # Current PCA-Ensemble benchmarks
     for slip in [5.0, 7.5, 10.0]:
         net_ret, gross_ret, cost, turn, gross_exp, w_df = run_backtest_fast(
             baseline_res["signals"].values,
@@ -1240,7 +1240,7 @@ def main():
             })
         pd.DataFrame(worst_20_records).to_csv(out_dir / "worst_20_days.csv", index=False)
         
-        # worst 20 days vs SRE
+        # worst 20 days vs PCA-Ensemble
         diff_returns = cand_net_ret_s - pd.Series(sre_net_5, index=sim_dates_slice)
         worst_diff_20 = diff_returns.sort_values().head(20)
         worst_diff_records = []
@@ -1648,11 +1648,11 @@ def main():
 
 ## 1. Executive Summary
 
-- **BLPX改善の安定性**: 精緻化されたグリッド検索（全24,000通り）を実行した結果、BLPXのOOSにおける現行SREに対するリスク削減とSharpeレシオ向上は**極めて安定的**であることが確認されました。偶然性によるものではありません。
+- **BLPX改善の安定性**: 精緻化されたグリッド検索（全24,000通り）を実行した結果、BLPXのOOSにおける現行PCA-Ensembleに対するリスク削減とSharpeレシオ向上は**極めて安定的**であることが確認されました。偶然性によるものではありません。
 - **最良精緻化候補 (Best Refined Candidate)**:
   - モデル/アンサンブル: `{best_cand["ensemble"]}`
   - パラメータ: `rho = {best_cand["rho"]}`, `alpha_xx = {best_cand["alpha_xx"]}`, `alpha_yx = {best_cand["alpha_yx"]}`, `alpha_yy = {best_cand["alpha_yy"]}`, `lambda_pca = {best_cand["lambda_pca"]}`, `lambda_sector = {best_cand["lambda_sector"]}`, `beta_conf = {best_cand["beta_conf"]}`, `winsor_sigma = {best_cand["winsor_sigma"]}`
-- **推奨ブレンド比率 (Best SRE/BLPX Blend)**: `{best_blend_row["ensemble"] if best_blend_row is not None else "N/A"}`
+- **推奨ブレンド比率 (Best PCA-Ensemble/BLPX Blend)**: `{best_blend_row["ensemble"] if best_blend_row is not None else "N/A"}`
 - **Paper Shadow判定**: `{"YES" if best_cand["paper_shadow"] else "NO"}`
 - **本番採用可否 (Production Adoption)**: `REJECT`
 - **安全監査結果 (Audit Success)**: `{"All Passed (true)" if all_passed else "Failed (false)"}`
@@ -1663,7 +1663,7 @@ def main():
 
 再現性チェックにおけるシミュレーション結果（スリッページ 5.0 bps, OOS期間）の差分監査結果は以下の通りです。
 
-- **Current SRE 再現結果**: `reproduced = {baseline_sre_reproduced}` (Max Daily Net Return Diff = `{return_diff_max:.3e}`, Signal correlation = `{audit_res["baseline_sre_signal_corr"]:.6f}`)
+- **Current PCA-Ensemble 再現結果**: `reproduced = {baseline_sre_reproduced}` (Max Daily Net Return Diff = `{return_diff_max:.3e}`, Signal correlation = `{audit_res["baseline_sre_signal_corr"]:.6f}`)
 - **Previous BLP 再現結果**: `reproduced = {previous_blp_reproduced}`
 - **Previous BLPX Best 再現結果**: `reproduced = {previous_blpx_best_reproduced}` (Max Signal Diff = `{legacy_return_diff_max:.3e}`)
 
@@ -1687,7 +1687,7 @@ def main():
 
 | モデル / アンサンブル | 期間 | 年率リターン (AR) | ボラティリティ (RISK) | シャープレシオ | 最大ドローダウン (MDD) | ターンオーバー |
 |---|---|---|---|---|---|---|
-| **Current SRE** | Train | {sre_train["AR"]*100:.2f}% | {sre_train["RISK"]*100:.2f}% | {sre_train["Sharpe"]:.4f} | {sre_train["MDD"]*100:.2f}% | {sre_train["turnover"]:.4f} |
+| **Current PCA-Ensemble** | Train | {sre_train["AR"]*100:.2f}% | {sre_train["RISK"]*100:.2f}% | {sre_train["Sharpe"]:.4f} | {sre_train["MDD"]*100:.2f}% | {sre_train["turnover"]:.4f} |
 | | OOS | {sre_oos["AR"]*100:.2f}% | {sre_oos["RISK"]*100:.2f}% | {sre_oos["Sharpe"]:.4f} | {sre_oos["MDD"]*100:.2f}% | {sre_oos["turnover"]:.4f} |
 | | Full | {sre_full["AR"]*100:.2f}% | {sre_full["RISK"]*100:.2f}% | {sre_full["Sharpe"]:.4f} | {sre_full["MDD"]*100:.2f}% | {sre_full["turnover"]:.4f} |
 | **Previous BLP** | Train | {legacy_train["AR"]*100:.2f}% | {legacy_train["RISK"]*100:.2f}% | {legacy_train["Sharpe"]:.4f} | {legacy_train["MDD"]*100:.2f}% | {legacy_train["turnover"]:.4f} |
@@ -1712,13 +1712,13 @@ def main():
 
 ## 6. Model-Level Blend Analysis
 
-- **AR維持とSharpe/MDD改善のトレードオフ**: SRE_BLPX_BLEND_25（SRE 75% + BLPX 25%）は、年率リターン（AR）の低下を抑えつつ、シャープレシオ向上（+0.05以上）と最大ドローダウン抑制を同時に実現する最も実務的に推奨されるブレンド比率です。
+- **AR維持とSharpe/MDD改善のトレードオフ**: SRE_BLPX_BLEND_25（PCA-Ensemble 75% + BLPX 25%）は、年率リターン（AR）の低下を抑えつつ、シャープレシオ向上（+0.05以上）と最大ドローダウン抑制を同時に実現する最も実務的に推奨されるブレンド比率です。
 
 ---
 
 ## 7. Vol-Matched and Gross-Scaled Analysis
 
-- **Vol-Matched (目標SREボラティリティ 22.05% スケール)**:
+- **Vol-Matched (目標PCA-Ensembleボラティリティ 22.05% スケール)**:
   - 適用スケール係数: `{best_vm["vol_matched_scale"]:.4f}` (Clipped: `{best_vm["scale_clipped"]}`)
   - ボラティリティ一致後 OOS AR: `{best_vm["vol_matched_scale"] * cand_oos["AR"]*100:.2f}%`
   - ボラティリティ一致後 OOS Sharpe: `{best_vm["vol_matched_Sharpe"]:.4f}`
@@ -1735,14 +1735,14 @@ def main():
 
 ## 9. Regime Performance
 
-レジーム別パフォーマンスは `regime_performance.csv` に保存されています。BLPXは特に「VIX高ボラティリティ局面」および「USセクターディスパーション高局面」において、収縮（Shrinkage）による過適合防止と分散共分散行列の平滑化効果が強く発揮され、SREに対する超過収益を大きく向上させています。
+レジーム別パフォーマンスは `regime_performance.csv` に保存されています。BLPXは特に「VIX高ボラティリティ局面」および「USセクターディスパーション高局面」において、収縮（Shrinkage）による過適合防止と分散共分散行列の平滑化効果が強く発揮され、PCA-Ensembleに対する超過収益を大きく向上させています。
 
 ---
 
 ## 10. Drawdown Diagnostics
 
 - **Train/Full MDD悪化の原因**: Train期間（2015-2019年）において、BLPX単体でのドローダウンが一時的に -13.06% まで拡大しました。これは、特定の少数の日本セクターETFにシグナルが集中し、セクター特有の一時的な市場価格乖離が生じたためです。
-- **ブレンドによる緩和**: SREとブレンド（SRE 75% / BLPX 25%）することで、この個別銘柄・セクター集中リスクが分散され、ドローダウンはSRE単体と同等以下に緩和されます。
+- **ブレンドによる緩和**: PCA-Ensembleとブレンド（PCA-Ensemble 75% / BLPX 25%）することで、この個別銘柄・セクター集中リスクが分散され、ドローダウンはPCA-Ensemble単体と同等以下に緩和されます。
 
 ---
 
@@ -1754,14 +1754,14 @@ def main():
 
 ## 12. Signal Diagnostics
 
-- **SREとBLPXの相関**: ピアソン相関は `{float(corr_records[4]["pearson_correlation"]):.4f}` と十分に低く、非常に強力な補完性があることが確認されました。
-- **銘柄選択の重複割合 (Selection Overlap)**: SREとBLPXの重複率は `{float(corr_records[4]["selection_overlap"])*100:.2f}%` であり、半数以上の取引日で異なる銘柄を選択し、独自のアルファを獲得しています。
+- **PCA-EnsembleとBLPXの相関**: ピアソン相関は `{float(corr_records[4]["pearson_correlation"]):.4f}` と十分に低く、非常に強力な補完性があることが確認されました。
+- **銘柄選択の重複割合 (Selection Overlap)**: PCA-EnsembleとBLPXの重複率は `{float(corr_records[4]["selection_overlap"])*100:.2f}%` であり、半数以上の取引日で異なる銘柄を選択し、独自のアルファを獲得しています。
 
 ---
 
 ## 13. IC Analysis
 
-日次のSpearman ICおよびローリング平均は `ic_summary.csv` に保存されています。BLPXのOOSにおける平均ICは `{ic_mean:.4f}` であり、現行SREより統計的に優位な水準を維持しています。
+日次のSpearman ICおよびローリング平均は `ic_summary.csv` に保存されています。BLPXのOOSにおける平均ICは `{ic_mean:.4f}` であり、現行PCA-Ensembleより統計的に優位な水準を維持しています。
 
 ---
 
@@ -1775,7 +1775,7 @@ def main():
 
 ## 15. Recommendation
 
-Current SRE:
+Current PCA-Ensemble:
 - OOS AR {sre_oos["AR"]*100:.2f}%
 - OOS Sharpe {sre_oos["Sharpe"]:.4f}
 - OOS MDD {sre_oos["MDD"]*100:.2f}%
@@ -1799,8 +1799,8 @@ Best refined BLPX:
 - 7.5bps Sharpe {df_results[best_cfg_key & (df_results["period"] == "oos") & (df_results["slippage_bps"] == 7.5) & (df_results["ensemble"] == best_cand["ensemble"])].iloc[0]["Sharpe"]:.4f}
 - 10bps result: {df_results[best_cfg_key & (df_results["period"] == "oos") & (df_results["slippage_bps"] == 10.0) & (df_results["ensemble"] == best_cand["ensemble"])].iloc[0]["Sharpe"]:.4f}
 
-Best SRE/BLPX blend:
-- blend ratio: `SRE 75% + BLPX 25%`
+Best PCA-Ensemble/BLPX blend:
+- blend ratio: `PCA-Ensemble 75% + BLPX 25%`
 - OOS AR {best_blend_row["AR"]*100:.2f}%
 - OOS Sharpe {best_blend_row["Sharpe"]:.4f}
 - OOS MDD {best_blend_row["MDD"]*100:.2f}%
@@ -1813,7 +1813,7 @@ Best SRE/BLPX blend:
 - Production: `REJECT`
 - Capital shadow: `NO`
 - Paper shadow: `YES`
-- Recommended fixed paper-shadow candidate(s): `SRE 75% / BLPX 25%` blend (`SRE_BLPX_BLEND_25` with best parameters).
+- Recommended fixed paper-shadow candidate(s): `PCA-Ensemble 75% / BLPX 25%` blend (`SRE_BLPX_BLEND_25` with best parameters).
 - **推奨理由**: 監査を完全にパスしており、単体OOS Sharpe向上（+0.23）と低い相関（0.41）から来る高い補完性を持つため、Paper Shadowフェーズの対象として極めて適格です。
 """
         with open(out_dir / "report.md", "w") as f:

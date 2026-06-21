@@ -1,4 +1,4 @@
-"""Unit tests for Sector Relative Ensemble with Enhanced BLP (SRE-BLPX) Model."""
+"""Unit tests for Sector Relative Ensemble with Enhanced BLP (PCA-BLPX Ensemble) Model."""
 
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ from leadlag.execution.backtester import BacktestEngine
 
 @pytest.fixture
 def blpx_sample_config() -> dict:
-    """Return sample configuration dictionary for testing SRE-BLPX."""
+    """Return sample configuration dictionary for testing PCA-BLPX Ensemble."""
     return {
         "model": {"name": "sector_relative_ensemble_blp_enhanced"},
         "portfolio": {"long_short_frac": 0.3, "weight_mode": "signal"},
@@ -244,7 +244,7 @@ def test_cost_consistency(blpx_sample_config, sample_df_exec):
 
 
 def test_baseline_sre_reproduction(blpx_sample_config, sample_df_exec):
-    """12. test_baseline_sre_reproduction: Verify SRE-BLPX with zero BLP weights matches SRE production model."""
+    """12. test_baseline_sre_reproduction: Verify PCA-BLPX Ensemble with zero BLP weights matches PCA-Ensemble production model."""
     df_exec, _ = sample_df_exec
     start_str = df_exec.index[-10].strftime("%Y-%m-%d")
 
@@ -270,11 +270,11 @@ def test_baseline_sre_reproduction(blpx_sample_config, sample_df_exec):
 
 
 def test_previous_blp_reproduction(blpx_sample_config, sample_df_exec):
-    """13. test_previous_blp_reproduction: Verify SRE-BLPX with baseline parameters matches legacy BLP model."""
+    """13. test_previous_blp_reproduction: Verify PCA-BLPX Ensemble with baseline parameters matches legacy BLP model."""
     df_exec, _ = sample_df_exec
     start_str = df_exec.index[-10].strftime("%Y-%m-%d")
 
-    # Legacy SRE-BLP config
+    # Legacy PCA-Ensemble-BLP config
     legacy_cfg = {
         "model": {"name": "sector_relative_ensemble_blp"},
         "portfolio": {"long_short_frac": 0.3, "weight_mode": "signal"},
@@ -289,7 +289,7 @@ def test_previous_blp_reproduction(blpx_sample_config, sample_df_exec):
     }
     legacy_model = SectorRelativeEnsembleBLPModel(legacy_cfg)
 
-    # Enhanced SRE-BLPX config configured to match legacy baseline
+    # Enhanced PCA-BLPX Ensemble config configured to match legacy baseline
     blpx_cfg = blpx_sample_config.copy()
     blpx_cfg["ensemble"]["p0_weight"] = 0.4
     blpx_cfg["ensemble"]["p3_weight"] = 0.4

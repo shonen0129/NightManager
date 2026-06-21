@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""US Volatility State Diagnostics for Production P8P3-BLPX Model.
+"""US Volatility State Diagnostics for Production Residual-BLPX Model.
 
 Diagnoses signal IC, PnL, costs, risk, drawdown, and execution workload
 across different US volatility states, preserving production logic and configs.

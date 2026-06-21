@@ -183,12 +183,12 @@ python3 -m leadlag.cli close \
 
 ---
 
-## 5. 本番 v2 (P8P3-BLPX) および SRE 実行ツール
+## 5. 本番 v2 (Residual-BLPX) および PCA-Ensemble 実行ツール
 
-本番 v2 モデル（P8P3-BLPX v2）および legacy SRE 用の実行・検証スクリプトが `tools/` に用意されている。
+本番 v2 モデル（Residual-BLPX-RA v2）および legacy PCA-Ensemble 用の実行・検証スクリプトが `tools/` に用意されている。
 
 ### 5.1 本番 v2 日次実行スクリプト (`tools/run_daily_production_v2.py`)
-本番 v2 （P8P3-BLPX v2: `mu_over_sigma` ランキング + `RuleD` 動的グロス）のデイリー注文生成および自動安全監査（Safety Audit）を実行する。
+本番 v2 （Residual-BLPX-RA v2: `mu_over_sigma` ランキング + `RuleD` 動的グロス）のデイリー注文生成および自動安全監査（Safety Audit）を実行する。
 * 本番実行（9:10 POST_OPEN データ取得後）：
   ```bash
   python tools/run_daily_production_v2.py \
@@ -223,15 +223,15 @@ python3 -m leadlag.cli close \
       --gap-dir results/gap_adjusted_distribution/latest
   ```
 
-### 5.4 Legacy SRE ツール
-* SRE バックテスト（アーカイブされた SRE 設定ファイルを使用）：
+### 5.4 Legacy PCA-Ensemble ツール
+* PCA-Ensemble バックテスト（アーカイブされた PCA-Ensemble 設定ファイルを使用）：
   ```bash
   python tools/backtest_sector_relative_ensemble.py \
       --config configs/archive/production_before_p8p3_blpx_20260614.yaml \
       --slippage-bps 5 \
       --output-dir results/sector_relative_ensemble/
   ```
-* SRE 日次実行（アーカイブされた SRE 設定ファイルを使用）：
+* PCA-Ensemble 日次実行（アーカイブされた PCA-Ensemble 設定ファイルを使用）：
   ```bash
   python tools/run_daily_sector_relative_ensemble.py \
       --config configs/archive/production_before_p8p3_blpx_20260614.yaml \
@@ -262,7 +262,7 @@ python3 -m leadlag.cli close \
 | `signal`（標準） | 確信度に応じて配分 | シグナルの中央値からの乖離幅で加重 |
 | `equal` | 均等配分 | ロング・ショートそれぞれ同ウェイト |
 
-> **Warning:** SRE 本番では `signal` モードが**必須**。`equal` は検証目的以外で使用禁止。
+> **Warning:** PCA-Ensemble 本番では `signal` モードが**必須**。`equal` は検証目的以外で使用禁止。
 
 ### 6.3 v3_mode
 
@@ -271,14 +271,14 @@ python3 -m leadlag.cli close \
 | `static`（標準） | 事前定義ベクトルを使用 | 静的な `V0` を使う | FAST MODE 対応可 |
 | `dynamic` | 市場状態連動で更新 | βベースで `v3` を都度再構成 | FAST MODE 非対応 |
 
-### 6.4 ranking.mode（P8P3-BLPX v2 のみ）
+### 6.4 ranking.mode（Residual-BLPX-RA v2 のみ）
 
 | 値 | 用途 | ロジック概要 |
 |:--|:--|:--|
 | `mu_over_sigma`（本番標準） | リスク調整リターンで順位付け | 予測期待リターン $\mu_{\text{gap}}$ を予測標準偏差 $\sigma_{\text{gap}}$ で割った値 |
 | `mu_gap` | 単純期待リターンで順位付け | 予測期待リターン $\mu_{\text{gap}}$ をそのまま使用 |
 
-### 6.5 gross_scaling.rule（P8P3-BLPX v2 のみ）
+### 6.5 gross_scaling.rule（Residual-BLPX-RA v2 のみ）
 
 | 値 | 用途 | ロジック概要 |
 |:--|:--|:--|

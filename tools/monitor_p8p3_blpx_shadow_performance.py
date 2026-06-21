@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Production Shadow-Run Performance Monitor for P8P3-BLPX.
+"""Production Shadow-Run Performance Monitor for Residual-BLPX.
 
 Evaluates daily portfolio weights from shadow run directories against realized
 returns to track ex-post performance, realized Sharpe, drawdowns, and costs.

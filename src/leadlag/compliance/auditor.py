@@ -225,7 +225,7 @@ class ComplianceAuditor:
             audit_res["c0_no_nan_inf"] = True
             audit_res["c0_positive_semidefinite_or_tolerated"] = True
 
-        # SRE original checks compat
+        # PCA-Ensemble original checks compat
         audit_res["p0_weight_ok"] = (
             abs(ctx.p0_weight - 0.5) < 1e-6 if not ctx.us_res_enabled else True
         )

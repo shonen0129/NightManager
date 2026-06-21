@@ -1,6 +1,6 @@
 """Sector Relative Ensemble Model class.
 
-Implements the SRE model (signal-level ensemble of P0, P3, and P4 components with options for US residualization and residual space prior variant).
+Implements the PCA-Ensemble model (signal-level ensemble of Raw-PCA, Residual-PCA, and P4 components with options for US residualization and residual space prior variant).
 """
 
 from __future__ import annotations
@@ -87,9 +87,9 @@ def compute_jp_target_returns(df_exec: pd.DataFrame, jp_tickers: list[str]) -> n
 
 
 class SectorRelativeEnsembleModel(BaseModel):
-    """Sector Relative Ensemble (SRE) Model.
+    """Sector Relative Ensemble (PCA-Ensemble) Model.
 
-    Ensembles standard Production signal (P0), TOPIX-residualized Production signal (P3),
+    Ensembles standard Production signal (Raw-PCA), TOPIX-residualized Production signal (Residual-PCA),
     and SPY/TOPIX-residualized signal (P4).
     """
 
@@ -243,7 +243,7 @@ class SectorRelativeEnsembleModel(BaseModel):
             else df_exec["topix_night_return"].values + df_exec["topix_oc_return"].values
         )
 
-        # Rolling OLS residualization for P3 (lookahead-safe) using target returns
+        # Rolling OLS residualization for Residual-PCA (lookahead-safe) using target returns
         betas_jp_p3 = compute_rolling_ols_betas(
             y_jp_target, topix_cc_trade.reshape(-1, 1), self.beta_window
         )
@@ -471,7 +471,7 @@ class SectorRelativeEnsembleModel(BaseModel):
         jp_beta: np.ndarray | None,
         topix_night: np.ndarray | None,
     ) -> np.ndarray:
-        """Compute the P0 (Production) signal at index i."""
+        """Compute the Raw-PCA (Production) signal at index i."""
         cache_key = (i, self.lambda_reg)
         global _PRODUCTION_SIGNAL_CACHE
         if cache_key in _PRODUCTION_SIGNAL_CACHE:
@@ -519,7 +519,7 @@ class SectorRelativeEnsembleModel(BaseModel):
         jp_beta: np.ndarray | None,
         topix_night: np.ndarray | None,
     ) -> np.ndarray:
-        """Compute the P3 (JP Residual target) or P4 signal at index i."""
+        """Compute the Residual-PCA (JP Residual target) or P4 signal at index i."""
         is_p3 = hasattr(self, "v0_static_obj") and id(v0_static) == id(self.v0_static_obj)
         if is_p3:
             cache_key = ("P3", i, self.lambda_reg, self.k)
@@ -579,11 +579,11 @@ class SectorRelativeEnsembleModel(BaseModel):
             raise ValueError(f"Unknown normalization method: {method}")
 
     def combine_signals(self, z0: np.ndarray, z3: np.ndarray) -> np.ndarray:
-        """Combine P0 and P3 signals (signal-level 50/50 ensemble)."""
+        """Combine Raw-PCA and Residual-PCA signals (signal-level 50/50 ensemble)."""
         return 0.5 * z0 + 0.5 * z3
 
     def build_weights(self, signal: np.ndarray, q: float | None = None) -> np.ndarray:
-        """Construct portfolio weights from combined SRE signal."""
+        """Construct portfolio weights from combined PCA-Ensemble signal."""
         q_val = q if q is not None else self.q
         return signals.build_weights(
             signal=signal,
@@ -636,13 +636,13 @@ class SectorRelativeEnsembleModel(BaseModel):
         # Fill first corr_window rows with zeros, or run from corr_window
         start_idx = self.corr_window
         for i in range(start_idx, T):
-            # P0
+            # Raw-PCA
             p0_sig = self.compute_production_signal(
                 df_exec, i, c_full, v0_static, v1, v2, all_returns_raw, jp_gap, jp_beta, topix_night
             )
             p0_signals[i] = p0_sig
 
-            # P3
+            # Residual-PCA
             p3_sig = self.compute_residual_signal(
                 df_exec, jp_res_returns_p3, i, c_full_p3, v0_static, v1, v2, jp_gap, jp_beta, topix_night
             )

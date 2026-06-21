@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-"""Backtesting and Verification Suite for Sector Relative Ensemble with Reduced-Rank Regression (SRE-RRR).
+"""Backtesting and Verification Suite for Sector Relative Ensemble with Reduced-Rank Regression (PCA-Ensemble-RRR).
 
-Evaluates model configurations across param grids, compares them with baseline SRE, and runs safety audits.
+Evaluates model configurations across param grids, compares them with baseline PCA-Ensemble, and runs safety audits.
 """
 
 from __future__ import annotations
@@ -469,7 +469,7 @@ def main():
     y_jp_target = compute_jp_target_returns(df_exec, JP_TICKERS)
     y_jp_target_df = pd.DataFrame(y_jp_target, index=df_exec.index, columns=JP_TICKERS)
 
-    # 2. Run Baseline Production SRE Model for verification
+    # 2. Run Baseline Production PCA-Ensemble Model for verification
     logger.info("Running baseline production SRE for verification...")
     prod_config_path = ROOT / "configs" / "production.yaml"
     with open(prod_config_path) as f:
@@ -509,7 +509,7 @@ def main():
     daily_positions_master = {}
     drawdown_master = {}
 
-    # Initialize a base RRR model to generate P0/P3 components once
+    # Initialize a base RRR model to generate Raw-PCA/Residual-PCA components once
     init_rrr_cfg = {
         "model": {"name": "sector_relative_ensemble_rrr"},
         "portfolio": {"long_short_frac": 0.3, "weight_mode": "signal"},
@@ -698,7 +698,7 @@ def main():
     # oos_ranking_5bps.csv (OOS, 5bps)
     df_oos_5bps = df_results[(df_results["period"] == "oos") & (df_results["slippage_bps"] == 5.0)].copy()
 
-    # Baseline SRE parameters extraction
+    # Baseline PCA-Ensemble parameters extraction
     sre_rows = df_oos_5bps[df_oos_5bps["ensemble"] == "SRE_current"]
     if not sre_rows.empty:
         sre_oos_sharpe = float(sre_rows["Sharpe"].iloc[0])
@@ -1120,7 +1120,7 @@ def main():
 
 ## 1. Executive Summary
 
-- **Comparison to Current SRE**: The RRR model was evaluated as an alternative/hybrid addition to the PCA-based Sector Relative Ensemble.
+- **Comparison to Current PCA-Ensemble**: The RRR model was evaluated as an alternative/hybrid addition to the PCA-based Sector Relative Ensemble.
 - **Best Candidate**:
   - Model: `{best_cand["ensemble"] if best_cand is not None else "N/A"}`
   - Variant: `{best_cand["variant"] if best_cand is not None else "N/A"}`
@@ -1161,7 +1161,7 @@ def main():
 
 | Model | Period | Annual Return (AR) | Volatility (RISK) | Sharpe Ratio | Max Drawdown (MDD) | Turnover |
 |---|---|---|---|---|---|---|
-| **Current SRE** | Train | {sre_train["AR"]*100:.2f}% | {sre_train["RISK"]*100:.2f}% | {sre_train["Sharpe"]:.4f} | {sre_train["MDD"]*100:.2f}% | {sre_train["turnover"]:.4f} |
+| **Current PCA-Ensemble** | Train | {sre_train["AR"]*100:.2f}% | {sre_train["RISK"]*100:.2f}% | {sre_train["Sharpe"]:.4f} | {sre_train["MDD"]*100:.2f}% | {sre_train["turnover"]:.4f} |
 | | OOS | {sre_oos["AR"]*100:.2f}% | {sre_oos["RISK"]*100:.2f}% | {sre_oos["Sharpe"]:.4f} | {sre_oos["MDD"]*100:.2f}% | {sre_oos["turnover"]:.4f} |
 | | Full | {sre_full["AR"]*100:.2f}% | {sre_full["RISK"]*100:.2f}% | {sre_full["Sharpe"]:.4f} | {sre_full["MDD"]*100:.2f}% | {sre_full["turnover"]:.4f} |
 | **Best Candidate ({best_cand["ensemble"] if best_cand is not None else "N/A"})** | Train | {cand_train["AR"]*100:.2f}% | {cand_train["RISK"]*100:.2f}% | {cand_train["Sharpe"]:.4f} | {cand_train["MDD"]*100:.2f}% | {cand_train["turnover"]:.4f} |
@@ -1194,8 +1194,8 @@ Check `ensemble_comparison_5bps.csv` for metrics of SRE_current, Hybrid_RRR, and
 ## 11. Signal Diagnostics
 
 Component correlations are exported to `signal_correlations.csv`.
-- **P0 vs P6 (raw targets) correlation**: {float(corr_records[0]["pearson_correlation"]):.4f}
-- **P3 vs P6P3 (residuals) correlation**: {float(corr_records[1]["pearson_correlation"]):.4f}
+- **Raw-PCA vs P6 (raw targets) correlation**: {float(corr_records[0]["pearson_correlation"]):.4f}
+- **Residual-PCA vs P6P3 (residuals) correlation**: {float(corr_records[1]["pearson_correlation"]):.4f}
 
 ## 12. Risk and Drawdown
 
@@ -1216,11 +1216,11 @@ Slippage sensitivities across [0.0, 5.0, 7.5, 10.0] are available in `summary.cs
 
 Summary of `audit.json`:
 - **Lookahead Violations**: {num_lookahead_violations}
-- **Replication of baseline SRE**: `{baseline_sre_reproduced}`
+- **Replication of baseline PCA-Ensemble**: `{baseline_sre_reproduced}`
 
 ## 16. Recommendation
 
-- **Current SRE**:
+- **Current PCA-Ensemble**:
   OOS AR {sre_oos["AR"]*100:.2f}%, Sharpe {sre_oos["Sharpe"]:.4f}, MDD {sre_oos["MDD"]*100:.2f}%, turnover {sre_oos["turnover"]:.4f}
 
 - **Best RRR candidate**:

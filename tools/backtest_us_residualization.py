@@ -1,14 +1,14 @@
 #!/usr/bin/env python
-"""Validation and backtesting script for US Market Residualization (P4 component) in SRE-USR.
+"""Validation and backtesting script for US Market Residualization (P4 component) in PCA-Ensemble-USR.
 
 Runs a grid search over:
 - gamma_grid: [0.0, 0.25, 0.5, 0.75, 1.0]
 - ensemble_grid: [
-    {"name": "SRE_current", "p0": 0.50, "p3": 0.50, "p4": 0.00},
-    {"name": "SRE_USR_40_40_20", "p0": 0.40, "p3": 0.40, "p4": 0.20},
-    {"name": "SRE_USR_375_375_25", "p0": 0.375, "p3": 0.375, "p4": 0.25},
-    {"name": "SRE_USR_30_30_40", "p0": 0.30, "p3": 0.30, "p4": 0.40},
-    {"name": "P4_only", "p0": 0.00, "p3": 0.00, "p4": 1.00}
+    {"name": "SRE_current", "raw-pca": 0.50, "residual-pca": 0.50, "p4": 0.00},
+    {"name": "SRE_USR_40_40_20", "raw-pca": 0.40, "residual-pca": 0.40, "p4": 0.20},
+    {"name": "SRE_USR_375_375_25", "raw-pca": 0.375, "residual-pca": 0.375, "p4": 0.25},
+    {"name": "SRE_USR_30_30_40", "raw-pca": 0.30, "residual-pca": 0.30, "p4": 0.40},
+    {"name": "P4_only", "raw-pca": 0.00, "residual-pca": 0.00, "p4": 1.00}
   ]
 - slippage_grid: [0.0, 2.5, 5.0, 7.5, 10.0]
 
@@ -166,7 +166,7 @@ def main():
     best_candidate_key = None
     best_candidate_sharpe = -999.0
 
-    # Retrieve current SRE base metrics for comparison/ranking
+    # Retrieve current PCA-Ensemble base metrics for comparison/ranking
     current_sre_oos_metrics = None
 
     logger.info("Starting SRE-USR Grid Search Backtest Loop...")
@@ -277,7 +277,7 @@ def main():
                     }
                     summary_records.append(record)
 
-                    # Extract current SRE benchmark (SRE_current, 5.0 bps slippage)
+                    # Extract current PCA-Ensemble benchmark (SRE_current, 5.0 bps slippage)
                     if ens["name"] == "SRE_current" and abs(slip - 5.0) < 1e-6:
                         if period == "oos":
                             current_sre_oos_metrics = record
@@ -303,7 +303,7 @@ def main():
         (summary_df["period"] == "oos") & (abs(summary_df["slippage_bps"] - 5.0) < 1e-6)
     ].copy()
 
-    # Compare SRE current benchmark (OOS Sharpe, MDD, AR, Turnover)
+    # Compare PCA-Ensemble current benchmark (OOS Sharpe, MDD, AR, Turnover)
     curr_sharpe = current_sre_oos_metrics["Sharpe"]
     curr_mdd = current_sre_oos_metrics["MDD"]
     curr_ar = current_sre_oos_metrics["AR"]
@@ -455,7 +455,7 @@ def main():
         plt.plot(
             best_candidate_res["equity_curve"], label=f"{best_candidate_key} (Net)", color="navy"
         )
-        # Plot benchmark current SRE
+        # Plot benchmark current PCA-Ensemble
         current_sre_net = (1.0 + daily_returns_db["SRE_current_gamma_0.00"]).cumprod()
         plt.plot(current_sre_net, label="SRE_current (Net)", color="gray", linestyle="--")
         plt.title("SRE-USR Cumulative Net Equity")
@@ -572,7 +572,7 @@ def main():
         (summary_5bps["gamma"] == best_gamma) & (summary_5bps["period"] == "oos")
     ].sort_values(by="Sharpe", ascending=False)
 
-    # Subperiod metrics of best candidate vs current SRE
+    # Subperiod metrics of best candidate vs current PCA-Ensemble
     best_train_m = summary_5bps[
         (summary_5bps["model"] == best_ens_name)
         & (summary_5bps["gamma"] == best_gamma)
@@ -604,11 +604,11 @@ def main():
     report_content = f"""# US Residualization Backtest Report
 
 ## 1. Executive Summary
-- **Current Production SRE OOS Sharpe**: {curr_sharpe:.4f}
-- **Best SRE-USR Candidate OOS Sharpe**: {best_candidate_sharpe:.4f}
-- **Best SRE-USR Config**: Gamma = {best_gamma:.2f}, weights = [P0: {best_ens["p0"]:.3f}, P3: {best_ens["p3"]:.3f}, P4: {best_ens["p4"]:.3f}]
+- **Current Production PCA-Ensemble OOS Sharpe**: {curr_sharpe:.4f}
+- **Best PCA-Ensemble-USR Candidate OOS Sharpe**: {best_candidate_sharpe:.4f}
+- **Best PCA-Ensemble-USR Config**: Gamma = {best_gamma:.2f}, weights = [Raw-PCA: {best_ens["raw-pca"]:.3f}, Residual-PCA: {best_ens["residual-pca"]:.3f}, P4: {best_ens["p4"]:.3f}]
 - **Recommendation**: {pass_status} for production candidate.
-- **Key Reason**: The addition of the US market residualized component (P4) yields an OOS Sharpe ratio of {best_candidate_sharpe:.4f} compared to the current SRE's {curr_sharpe:.4f}. It is a {"valid" if pass_status == "APPROVED" else "weak"} candidate since it {"satisfies" if pass_status == "APPROVED" else "breaches some of"} the primary validation constraints (MDD constraint, AR drawdown, turnover criteria).
+- **Key Reason**: The addition of the US market residualized component (P4) yields an OOS Sharpe ratio of {best_candidate_sharpe:.4f} compared to the current PCA-Ensemble's {curr_sharpe:.4f}. It is a {"valid" if pass_status == "APPROVED" else "weak"} candidate since it {"satisfies" if pass_status == "APPROVED" else "breaches some of"} the primary validation constraints (MDD constraint, AR drawdown, turnover criteria).
 
 ## 2. Backtest Setup
 - **Train period**: 2015-01-05 to 2019-12-31
@@ -621,9 +621,9 @@ def main():
 - **Slippage grid**: [0.0, 2.5, 5.0, 7.5, 10.0]
 
 ## 3. Main Results at 5bps
-Below is the comparison of the best candidate SRE-USR vs the baseline SRE:
+Below is the comparison of the best candidate PCA-Ensemble-USR vs the baseline PCA-Ensemble:
 
-| Period | SRE (AR) | SRE (Sharpe) | SRE (MDD) | SRE-USR (AR) | SRE-USR (Sharpe) | SRE-USR (MDD) |
+| Period | PCA-Ensemble (AR) | PCA-Ensemble (Sharpe) | PCA-Ensemble (MDD) | PCA-Ensemble-USR (AR) | PCA-Ensemble-USR (Sharpe) | PCA-Ensemble-USR (MDD) |
 |---|---|---|---|---|---|---|
 | **Train** | {curr_train_m["AR"] * 100:.2f}% | {curr_train_m["Sharpe"]:.4f} | {curr_train_m["MDD"] * 100:.2f}% | {best_train_m["AR"] * 100:.2f}% | {best_train_m["Sharpe"]:.4f} | {best_train_m["MDD"] * 100:.2f}% |
 | **OOS** | {curr_oos_m["AR"] * 100:.2f}% | {curr_oos_m["Sharpe"]:.4f} | {curr_oos_m["MDD"] * 100:.2f}% | {best_oos_m["AR"] * 100:.2f}% | {best_oos_m["Sharpe"]:.4f} | {best_oos_m["MDD"] * 100:.2f}% |
@@ -640,28 +640,28 @@ Performance of the best configuration across different values of gamma (OOS subp
 ## 5. Ensemble Weight Sensitivity
 Performance across different ensemble weights at the optimal gamma = {best_gamma:.2f} (OOS subperiod, 5bps slippage):
 
-{ens_sens[["model", "p0", "p3", "p4", "AR", "Sharpe", "MDD", "Avg Turnover"]].to_markdown(index=False)}
+{ens_sens[["model", "raw-pca", "residual-pca", "p4", "AR", "Sharpe", "MDD", "Avg Turnover"]].to_markdown(index=False)}
 
 ## 6. Signal Diagnostics
-- **P0 vs P3 Correlation**: {best_p0_p3_corr:.4f}
-- **P0 vs P4 Correlation**: {best_p0_p4_corr:.4f}
-- **P3 vs P4 Correlation**: {best_p3_p4_corr:.4f}
-- **P0 vs P3 Rank Correlation**: {best_p0_p3_rank:.4f}
-- **P0 vs P4 Rank Correlation**: {best_p0_p4_rank:.4f}
-- **P3 vs P4 Rank Correlation**: {best_p3_p4_rank:.4f}
-- **P0 vs P3 Sign Agreement**: {best_p0_p3_agree * 100:.2f}%
-- **P0 vs P4 Sign Agreement**: {best_p0_p4_agree * 100:.2f}%
-- **P3 vs P4 Sign Agreement**: {best_p3_p4_agree * 100:.2f}%
+- **Raw-PCA vs Residual-PCA Correlation**: {best_p0_p3_corr:.4f}
+- **Raw-PCA vs P4 Correlation**: {best_p0_p4_corr:.4f}
+- **Residual-PCA vs P4 Correlation**: {best_p3_p4_corr:.4f}
+- **Raw-PCA vs Residual-PCA Rank Correlation**: {best_p0_p3_rank:.4f}
+- **Raw-PCA vs P4 Rank Correlation**: {best_p0_p4_rank:.4f}
+- **Residual-PCA vs P4 Rank Correlation**: {best_p3_p4_rank:.4f}
+- **Raw-PCA vs Residual-PCA Sign Agreement**: {best_p0_p3_agree * 100:.2f}%
+- **Raw-PCA vs P4 Sign Agreement**: {best_p0_p4_agree * 100:.2f}%
+- **Residual-PCA vs P4 Sign Agreement**: {best_p3_p4_agree * 100:.2f}%
 - **Average Daily IC**: {daily_ics_series.mean():.4f}
 
 ## 7. Risk and Drawdown
-- **Current SRE MDD (OOS)**: {curr_oos_m["MDD"] * 100:.2f}%
-- **Best SRE-USR MDD (OOS)**: {best_oos_m["MDD"] * 100:.2f}%
-- **Rolling Sharpe Ratio**: rolling 250-day Sharpe has remained robust, and drawdown profile during March 2020 and 2022 market events indicates SRE-USR provides smoother downside mitigation due to the isolated idiosyncratic US sectors.
+- **Current PCA-Ensemble MDD (OOS)**: {curr_oos_m["MDD"] * 100:.2f}%
+- **Best PCA-Ensemble-USR MDD (OOS)**: {best_oos_m["MDD"] * 100:.2f}%
+- **Rolling Sharpe Ratio**: rolling 250-day Sharpe has remained robust, and drawdown profile during March 2020 and 2022 market events indicates PCA-Ensemble-USR provides smoother downside mitigation due to the isolated idiosyncratic US sectors.
 
 ## 8. Turnover and Cost
-- **Current SRE Avg Turnover**: {curr_turnover:.4f}
-- **Best SRE-USR Avg Turnover**: {best_oos_m["Avg Turnover"]:.4f}
+- **Current PCA-Ensemble Avg Turnover**: {curr_turnover:.4f}
+- **Best PCA-Ensemble-USR Avg Turnover**: {best_oos_m["Avg Turnover"]:.4f}
 - **Annualized Cost Drag**: {best_oos_m["Avg Transaction Cost"] * 245 * 100:.2f}% per year.
 - **Slippage Sensitivity (OOS Sharpe)**:
   - 0 bps: {summary_df[(summary_df["model"] == best_ens_name) & (summary_df["gamma"] == best_gamma) & (summary_df["period"] == "oos") & (summary_df["slippage_bps"] == 0.0)].iloc[0]["Sharpe"]:.4f}
@@ -682,7 +682,7 @@ Summary:
 - **All Audits Passed**: {best_audit["all_passed"]}
 
 ## 10. Recommendation
-We {"strongly recommend" if pass_status == "APPROVED" else "do not recommend"} adopting the SRE-USR model configuration with gamma = {best_gamma:.2f} and weights P0: {best_ens["p0"]:.3f} / P3: {best_ens["p3"]:.3f} / P4: {best_ens["p4"]:.3f}.
+We {"strongly recommend" if pass_status == "APPROVED" else "do not recommend"} adopting the PCA-Ensemble-USR model configuration with gamma = {best_gamma:.2f} and weights Raw-PCA: {best_ens["raw-pca"]:.3f} / Residual-PCA: {best_ens["residual-pca"]:.3f} / P4: {best_ens["p4"]:.3f}.
 - Adopting P4 at weight {best_ens["p4"]:.3f} raises the OOS Sharpe from {curr_sharpe:.4f} to {best_candidate_sharpe:.4f} while preserving dollar neutrality and keeping turnover within limits.
 
 ### How to Run Backtest

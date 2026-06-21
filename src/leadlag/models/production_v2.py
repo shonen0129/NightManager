@@ -20,7 +20,7 @@ load_gap_matrices(gap_input_dir, date_str)
     Load mu_gap / Omega_gap ``.npy`` files.
 
 load_v1_fallback_weights(v1_weights_file, date_str, n_j)
-    Load v1 P8P3-BLPX baseline weights.
+    Load v1 Residual-BLPX baseline weights.
 
 load_pit_ir_history(gap_input_dir, trade_date)
     Load historical ex-ante IR series for PIT binning.
@@ -141,7 +141,7 @@ def load_v1_fallback_weights(
     date_str: str,
     n_j: int,
 ) -> tuple[np.ndarray, list[str]]:
-    """Load v1 P8P3-BLPX baseline weights as fallback.
+    """Load v1 Residual-BLPX baseline weights as fallback.
 
     Args:
         v1_weights_file: Path to ``v1_baseline_weights.csv``.

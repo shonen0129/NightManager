@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Backtesting script for SRE P0/P4 Ensemble Validation.
+"""Backtesting script for PCA-Ensemble Raw-PCA/P4 Ensemble Validation.
 
 Loads config, runs grid search, generates metrics, diagnostics, plots, and audits.
 """
@@ -188,7 +188,7 @@ def main():
     daily_drawdowns_db = {}
     summary_records = []
     
-    # Store P4 vs P3 signal correlations for OOS 5bps diagnostic
+    # Store P4 vs Residual-PCA signal correlations for OOS 5bps diagnostic
     p4_vs_p3_corrs = []
 
     # Map to store actual model outputs for ensembling diagnostics
@@ -291,7 +291,7 @@ def main():
                         
                         if not is_baseline_like:
                             run_results_db[key_5bps] = res
-                            # P4 vs P3 signal correlation
+                            # P4 vs Residual-PCA signal correlation
                             p3_flat = res["p3_signals"].values.flatten()
                             p4_flat = res["p4_signals"].values.flatten()
                             p4_p3_corr = float(np.corrcoef(p4_flat, p3_flat)[0, 1])
@@ -328,7 +328,7 @@ def main():
     summary_5bps = summary_df[abs(summary_df["slippage_bps"] - 5.0) < 1e-6]
     summary_5bps.to_csv(out_dir / "summary_5bps.csv", index=False)
 
-    # 4. Verify SRE baseline reproduction
+    # 4. Verify PCA-Ensemble baseline reproduction
     logger.info("Verifying current SRE baseline reproduction...")
     ref_net_path = ROOT / "results/baseline_reconciliation/reference_sre/daily_net_returns.csv"
     if not ref_net_path.exists():
@@ -410,7 +410,7 @@ def main():
     oos_5bps["monthly_wins"] = monthly_wins
     oos_5bps["monthly_losses"] = monthly_losses
 
-    # Get P4 vs P3 corr
+    # Get P4 vs Residual-PCA corr
     corr_dict = {}
     for item in p4_vs_p3_corrs:
         corr_key = f"{item['model']}_prior_{item['prior_variant']}_gamma_{item['gamma']:.2f}"
@@ -448,8 +448,8 @@ def main():
     oos_ranking_5bps = oos_5bps.sort_values(by="Sharpe", ascending=False)
     oos_ranking_5bps.to_csv(out_dir / "oos_ranking_5bps.csv", index=False)
 
-    # 6. P0/P4 weight sensitivity table (Section 10, Output 4)
-    # Filter for P0/P4 models at gamma=0.50, OOS period
+    # 6. Raw-PCA/P4 weight sensitivity table (Section 10, Output 4)
+    # Filter for Raw-PCA/P4 models at gamma=0.50, OOS period
     p0_p4_weights = ["P0_P4_90_10", "P0_P4_80_20", "P0_P4_70_30", "P0_P4_60_40", "P0_P4_50_50", "P0_P4_40_60"]
     weight_sensitivity = oos_5bps[
         (oos_5bps["model"].isin(p0_p4_weights)) & (abs(oos_5bps["gamma"] - 0.50) < 1e-6)
@@ -657,7 +657,7 @@ def main():
     rolling_metrics_df.to_csv(out_dir / "rolling_metrics.csv")
 
     # 10. Selection Overlap Rate (Output 14)
-    # Compare candidate selection with baseline SRE selection
+    # Compare candidate selection with baseline PCA-Ensemble selection
     weights_cand = daily_positions_db[best_key]
     weights_sre = daily_positions_db["SRE_current"]
     common_dates = weights_cand.index.intersection(weights_sre.index)
@@ -847,15 +847,15 @@ def main():
     sre_oos = summary_5bps[(summary_5bps["model"] == "SRE_current") & (summary_5bps["period"] == "oos")].iloc[0]
     sre_full = summary_5bps[(summary_5bps["model"] == "SRE_current") & (summary_5bps["period"] == "full")].iloc[0]
 
-    report_content = f"""# SRE P0/P4 Ensemble Backtest Report
+    report_content = f"""# PCA-Ensemble Raw-PCA/P4 Ensemble Backtest Report
 
 ## 1. Executive Summary
-- **Current SRE OOS 5bps**:
+- **Current PCA-Ensemble OOS 5bps**:
   AR {sre_oos['AR']*100:.2f}%, Sharpe {sre_oos['Sharpe']:.4f}, MDD {sre_oos['MDD']*100:.2f}%
-- **Best P0/P4 OOS 5bps**:
-  variant = `{best_prior_variant}`, gamma = {best_gamma_val:.2f}, weights = P0 {best_p0_w*100:.1f}% / P4 {best_p4_w*100:.1f}%
+- **Best Raw-PCA/P4 OOS 5bps**:
+  variant = `{best_prior_variant}`, gamma = {best_gamma_val:.2f}, weights = Raw-PCA {best_p0_w*100:.1f}% / P4 {best_p4_w*100:.1f}%
   AR {cand_oos['AR']*100:.2f}%, Sharpe {cand_oos['Sharpe']:.4f}, MDD {cand_oos['MDD']*100:.2f}%
-- **Difference vs Current SRE**:
+- **Difference vs Current PCA-Ensemble**:
   Sharpe diff {cand_oos['Sharpe'] - sre_oos['Sharpe']:.4f}
   AR diff {(cand_oos['AR'] - sre_oos['AR'])*100:.2f} pt
   MDD diff {(cand_oos['MDD'] - sre_oos['MDD'])*100:.2f} pt
@@ -867,8 +867,8 @@ def main():
   reason = {f"The candidate passes all verification filters, yields an OOS Sharpe improvement of {cand_oos['Sharpe'] - sre_oos['Sharpe']:.4f}, keeps the drawdown profile intact, and exhibits a very strong outperformance t-statistic of {diff_tstat:.4f}." if best_row['pass_candidate'] else "The candidate does not pass all validation filters (either fails to improve Sharpe by +0.05, worsens drawdown, or has a diff t-stat <= 1.5)."}
 
 ## 2. Motivation
-- **Isolating US Sector Residuals**: The production P3 model is residualized against TOPIX but contains raw US sector ETF returns. The SRE-USRP (P4) model performs SPY-residualization on the US input returns to prevent global equity beta leakage.
-- **Substitution vs Addition**: Previous runs added P4, but since P4 and P3 both carry JP TOPIX-residualized targets, they overlap significantly. We test replacing P3 with P4 completely to form a P0/P4 ensemble and evaluate if it achieves a cleaner, more orthogonal allocation.
+- **Isolating US Sector Residuals**: The production Residual-PCA model is residualized against TOPIX but contains raw US sector ETF returns. The PCA-Ensemble-USRP (P4) model performs SPY-residualization on the US input returns to prevent global equity beta leakage.
+- **Substitution vs Addition**: Previous runs added P4, but since P4 and Residual-PCA both carry JP TOPIX-residualized targets, they overlap significantly. We test replacing Residual-PCA with P4 completely to form a Raw-PCA/P4 ensemble and evaluate if it achieves a cleaner, more orthogonal allocation.
 
 ## 3. Backtest Setup
 - **Train period**: 2015-01-05 to 2019-12-31
@@ -879,41 +879,41 @@ def main():
 - **Prior Variants**:
   - `resid_v1_v2_removed` (Sharpe-oriented, $V0$ orthonormal basis reconstructed after dropping global $v1$ and nation-spread $v2$ components)
   - `resid_v2_removed` (Independence-oriented, dropping group $v2$ component only)
-- **Grids**: Gamma `[0.0, 0.5, 0.75, 1.0]`, Weight Grid (P0/P4), Slippage `[0.0, 5.0, 10.0]` bps.
+- **Grids**: Gamma `[0.0, 0.5, 0.75, 1.0]`, Weight Grid (Raw-PCA/P4), Slippage `[0.0, 5.0, 10.0]` bps.
 
 ## 4. Baseline Reproduction
-- The baseline SRE model (P0/P3 50/50) was run on this system and aligned with the historical production reference daily returns:
+- The baseline PCA-Ensemble model (Raw-PCA/Residual-PCA 50/50) was run on this system and aligned with the historical production reference daily returns:
   - Max Absolute Difference: {max_abs_diff:.6e}
   - Historical Sharpe: 3.8963 vs Run Sharpe: {sre_oos['Sharpe']:.4f}
   - Baseline reproduction is verified: **{current_sre_baseline_reproduced}**
 
 ## 5. Main OOS Results at 5bps
-Below is a comparison of the best candidate SRE P0/P4 vs current SRE and baseline components:
+Below is a comparison of the best candidate PCA-Ensemble Raw-PCA/P4 vs current PCA-Ensemble and baseline components:
 
 | Model / Component | Period | AR (%) | RISK (%) | Sharpe | MDD (%) | Turnover | Avg Net Exp |
 |---|---|---:|---:|---:|---:|---:|---:|
-| **SRE_current** (P0/P3 50/50) | Train | {sre_train['AR']*100:.2f}% | {sre_train['RISK']*100:.2f}% | {sre_train['Sharpe']:.4f} | {sre_train['MDD']*100:.2f}% | {sre_train['turnover']:.4f} | {sre_train['average net exposure']:.4f} |
+| **SRE_current** (Raw-PCA/Residual-PCA 50/50) | Train | {sre_train['AR']*100:.2f}% | {sre_train['RISK']*100:.2f}% | {sre_train['Sharpe']:.4f} | {sre_train['MDD']*100:.2f}% | {sre_train['turnover']:.4f} | {sre_train['average net exposure']:.4f} |
 | | OOS | {sre_oos['AR']*100:.2f}% | {sre_oos['RISK']*100:.2f}% | {sre_oos['Sharpe']:.4f} | {sre_oos['MDD']*100:.2f}% | {sre_oos['turnover']:.4f} | {sre_oos['average net exposure']:.4f} |
 | | Full | {sre_full['AR']*100:.2f}% | {sre_full['RISK']*100:.2f}% | {sre_full['Sharpe']:.4f} | {sre_full['MDD']*100:.2f}% | {sre_full['turnover']:.4f} | {sre_full['average net exposure']:.4f} |
-| **Best P0/P4** | Train | {cand_train['AR']*100:.2f}% | {cand_train['RISK']*100:.2f}% | {cand_train['Sharpe']:.4f} | {cand_train['MDD']*100:.2f}% | {cand_train['turnover']:.4f} | {cand_train['average net exposure']:.4f} |
+| **Best Raw-PCA/P4** | Train | {cand_train['AR']*100:.2f}% | {cand_train['RISK']*100:.2f}% | {cand_train['Sharpe']:.4f} | {cand_train['MDD']*100:.2f}% | {cand_train['turnover']:.4f} | {cand_train['average net exposure']:.4f} |
 | | OOS | {cand_oos['AR']*100:.2f}% | {cand_oos['RISK']*100:.2f}% | {cand_oos['Sharpe']:.4f} | {cand_oos['MDD']*100:.2f}% | {cand_oos['turnover']:.4f} | {cand_oos['average net exposure']:.4f} |
 | | Full | {cand_full['AR']*100:.2f}% | {cand_full['RISK']*100:.2f}% | {cand_full['Sharpe']:.4f} | {cand_full['MDD']*100:.2f}% | {cand_full['turnover']:.4f} | {cand_full['average net exposure']:.4f} |
-| **P0 only** (Production) | OOS | {summary_5bps[(summary_5bps['model']=='P0_only') & (summary_5bps['period']=='oos')].iloc[0]['AR']*100:.2f}% | {summary_5bps[(summary_5bps['model']=='P0_only') & (summary_5bps['period']=='oos')].iloc[0]['RISK']*100:.2f}% | {summary_5bps[(summary_5bps['model']=='P0_only') & (summary_5bps['period']=='oos')].iloc[0]['Sharpe']:.4f} | {summary_5bps[(summary_5bps['model']=='P0_only') & (summary_5bps['period']=='oos')].iloc[0]['MDD']*100:.2f}% | {summary_5bps[(summary_5bps['model']=='P0_only') & (summary_5bps['period']=='oos')].iloc[0]['turnover']:.4f} | {summary_5bps[(summary_5bps['model']=='P0_only') & (summary_5bps['period']=='oos')].iloc[0]['average net exposure']:.4f} |
-| **P3 only** (Residualized JP) | OOS | {summary_5bps[(summary_5bps['model']=='P3_only') & (summary_5bps['period']=='oos')].iloc[0]['AR']*100:.2f}% | {summary_5bps[(summary_5bps['model']=='P3_only') & (summary_5bps['period']=='oos')].iloc[0]['RISK']*100:.2f}% | {summary_5bps[(summary_5bps['model']=='P3_only') & (summary_5bps['period']=='oos')].iloc[0]['Sharpe']:.4f} | {summary_5bps[(summary_5bps['model']=='P3_only') & (summary_5bps['period']=='oos')].iloc[0]['MDD']*100:.2f}% | {summary_5bps[(summary_5bps['model']=='P3_only') & (summary_5bps['period']=='oos')].iloc[0]['turnover']:.4f} | {summary_5bps[(summary_5bps['model']=='P3_only') & (summary_5bps['period']=='oos')].iloc[0]['average net exposure']:.4f} |
+| **Raw-PCA only** (Production) | OOS | {summary_5bps[(summary_5bps['model']=='P0_only') & (summary_5bps['period']=='oos')].iloc[0]['AR']*100:.2f}% | {summary_5bps[(summary_5bps['model']=='P0_only') & (summary_5bps['period']=='oos')].iloc[0]['RISK']*100:.2f}% | {summary_5bps[(summary_5bps['model']=='P0_only') & (summary_5bps['period']=='oos')].iloc[0]['Sharpe']:.4f} | {summary_5bps[(summary_5bps['model']=='P0_only') & (summary_5bps['period']=='oos')].iloc[0]['MDD']*100:.2f}% | {summary_5bps[(summary_5bps['model']=='P0_only') & (summary_5bps['period']=='oos')].iloc[0]['turnover']:.4f} | {summary_5bps[(summary_5bps['model']=='P0_only') & (summary_5bps['period']=='oos')].iloc[0]['average net exposure']:.4f} |
+| **Residual-PCA only** (Residualized JP) | OOS | {summary_5bps[(summary_5bps['model']=='P3_only') & (summary_5bps['period']=='oos')].iloc[0]['AR']*100:.2f}% | {summary_5bps[(summary_5bps['model']=='P3_only') & (summary_5bps['period']=='oos')].iloc[0]['RISK']*100:.2f}% | {summary_5bps[(summary_5bps['model']=='P3_only') & (summary_5bps['period']=='oos')].iloc[0]['Sharpe']:.4f} | {summary_5bps[(summary_5bps['model']=='P3_only') & (summary_5bps['period']=='oos')].iloc[0]['MDD']*100:.2f}% | {summary_5bps[(summary_5bps['model']=='P3_only') & (summary_5bps['period']=='oos')].iloc[0]['turnover']:.4f} | {summary_5bps[(summary_5bps['model']=='P3_only') & (summary_5bps['period']=='oos')].iloc[0]['average net exposure']:.4f} |
 | **P4 only** (Residualized US/JP) | OOS | {summary_5bps[(summary_5bps['model']=='P4_only') & (summary_5bps['prior_variant']==best_prior_variant) & (summary_5bps['gamma']==best_gamma_val) & (summary_5bps['period']=='oos')].iloc[0]['AR']*100:.2f}% | {summary_5bps[(summary_5bps['model']=='P4_only') & (summary_5bps['prior_variant']==best_prior_variant) & (summary_5bps['gamma']==best_gamma_val) & (summary_5bps['period']=='oos')].iloc[0]['RISK']*100:.2f}% | {summary_5bps[(summary_5bps['model']=='P4_only') & (summary_5bps['prior_variant']==best_prior_variant) & (summary_5bps['gamma']==best_gamma_val) & (summary_5bps['period']=='oos')].iloc[0]['Sharpe']:.4f} | {summary_5bps[(summary_5bps['model']=='P4_only') & (summary_5bps['prior_variant']==best_prior_variant) & (summary_5bps['gamma']==best_gamma_val) & (summary_5bps['period']=='oos')].iloc[0]['MDD']*100:.2f}% | {summary_5bps[(summary_5bps['model']=='P4_only') & (summary_5bps['prior_variant']==best_prior_variant) & (summary_5bps['gamma']==best_gamma_val) & (summary_5bps['period']=='oos')].iloc[0]['turnover']:.4f} | {summary_5bps[(summary_5bps['model']=='P4_only') & (summary_5bps['prior_variant']==best_prior_variant) & (summary_5bps['gamma']==best_gamma_val) & (summary_5bps['period']=='oos')].iloc[0]['average net exposure']:.4f} |
 
-## 6. P0/P4 Weight Sensitivity
-Performance across P0/P4 allocation weights (at best prior `{best_prior_variant}`, gamma = {best_gamma_val:.2f}, OOS, 5bps):
+## 6. Raw-PCA/P4 Weight Sensitivity
+Performance across Raw-PCA/P4 allocation weights (at best prior `{best_prior_variant}`, gamma = {best_gamma_val:.2f}, OOS, 5bps):
 
-{weight_sensitivity[['model', 'p0', 'p4', 'AR', 'RISK', 'Sharpe', 'MDD', 'turnover']].to_markdown(index=False)}
+{weight_sensitivity[['model', 'raw-pca', 'p4', 'AR', 'RISK', 'Sharpe', 'MDD', 'turnover']].to_markdown(index=False)}
 
 ## 7. P4 Variant Comparison
 Performance comparing `resid_v1_v2_removed` (Sharpe-oriented) vs `resid_v2_removed` (Independence-oriented) at gamma = 0.50, OOS, 5bps:
 
-{variant_comp[['model', 'prior_variant', 'p0', 'p4', 'AR', 'RISK', 'Sharpe', 'MDD', 'turnover', 'p4_vs_p3_corr']].to_markdown(index=False)}
+{variant_comp[['model', 'prior_variant', 'raw-pca', 'p4', 'AR', 'RISK', 'Sharpe', 'MDD', 'turnover', 'p4_vs_p3_corr']].to_markdown(index=False)}
 
-## 8. Difference vs Current SRE
-Outperformance stats for the best configuration vs baseline SRE:
+## 8. Difference vs Current PCA-Ensemble
+Outperformance stats for the best configuration vs baseline PCA-Ensemble:
 - **Diff Mean Daily**: {diff_mean*10000:.4f} bps
 - **Diff Std Daily**: {diff_std*100:.4f}%
 - **t-stat**: {diff_tstat:.4f}
@@ -922,10 +922,10 @@ Outperformance stats for the best configuration vs baseline SRE:
 - **Daily Return Correlation**: {diff_stats[0]['correlation_with_current_sre']:.4f}
 
 ## 9. Signal Diagnostics
-- **P0 vs P3 correlation**: {corrs[0]['correlation']:.4f} (rank: {corrs[0]['rank_correlation']:.4f}, sign agree: {corrs[0]['sign_agreement']*100:.1f}%)
-- **P0 vs P4 correlation**: {corrs[1]['correlation']:.4f} (rank: {corrs[1]['rank_correlation']:.4f}, sign agree: {corrs[1]['sign_agreement']*100:.1f}%)
-- **P3 vs P4 correlation**: {corrs[2]['correlation']:.4f} (rank: {corrs[2]['rank_correlation']:.4f}, sign agree: {corrs[2]['sign_agreement']*100:.1f}%)
-- **Candidate vs SRE signal correlation**: {corrs[3]['correlation']:.4f}
+- **Raw-PCA vs Residual-PCA correlation**: {corrs[0]['correlation']:.4f} (rank: {corrs[0]['rank_correlation']:.4f}, sign agree: {corrs[0]['sign_agreement']*100:.1f}%)
+- **Raw-PCA vs P4 correlation**: {corrs[1]['correlation']:.4f} (rank: {corrs[1]['rank_correlation']:.4f}, sign agree: {corrs[1]['sign_agreement']*100:.1f}%)
+- **Residual-PCA vs P4 correlation**: {corrs[2]['correlation']:.4f} (rank: {corrs[2]['rank_correlation']:.4f}, sign agree: {corrs[2]['sign_agreement']*100:.1f}%)
+- **Candidate vs PCA-Ensemble signal correlation**: {corrs[3]['correlation']:.4f}
 - **Average Selection Overlap Rate**: {avg_overlap_rate*100:.2f}%
 
 ## 10. Risk and Stress Periods
@@ -952,7 +952,7 @@ Summary of safety audits from `audit.json`:
 ## 13. Recommendation
 - **Production adoption recommendation**: **{decision_recom}**
 - **Shadow deployment recommendation**: **{decision_recom}**
-- **Key Reason**: {f"The candidate SRE P0/P4 model (weights: P0 {best_p0_w*100:.1f}% / P4 {best_p4_w*100:.1f}%) outperforms SRE baseline by {cand_oos['Sharpe'] - sre_oos['Sharpe']:.4f} Sharpe ratio OOS, passes all risk limits, has a t-stat of {diff_tstat:.4f}, and achieves significant transaction cost efficiency." if best_row['pass_candidate'] else "The best candidate failed to meet the required Sharpe ratio improvement of +0.05, worsened Max Drawdown, or lacked outperformance t-stat significance."}
+- **Key Reason**: {f"The candidate PCA-Ensemble Raw-PCA/P4 model (weights: Raw-PCA {best_p0_w*100:.1f}% / P4 {best_p4_w*100:.1f}%) outperforms PCA-Ensemble baseline by {cand_oos['Sharpe'] - sre_oos['Sharpe']:.4f} Sharpe ratio OOS, passes all risk limits, has a t-stat of {diff_tstat:.4f}, and achieves significant transaction cost efficiency." if best_row['pass_candidate'] else "The best candidate failed to meet the required Sharpe ratio improvement of +0.05, worsened Max Drawdown, or lacked outperformance t-stat significance."}
 """
 
     with open(out_dir / "report.md", "w") as f:

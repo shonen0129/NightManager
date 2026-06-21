@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Backtesting script for Sector Relative Ensemble (SRE) Model.
+"""Backtesting script for Sector Relative Ensemble (PCA-Ensemble) Model.
 
 Loads config, runs simulation, generates metrics, diagnostics, plots, and audits.
 """
@@ -51,7 +51,7 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument("--slippage-bps", type=float, default=5.0, help="Slippage bps (one-way)")
     parser.add_argument("--output-dir", default="results/sector_relative_ensemble/", help="Output directory")
 
-    # Overrides for SRE parameters
+    # Overrides for PCA-Ensemble parameters
     parser.add_argument("--normalization", default="zscore", choices=["zscore", "identity", "rank_normalize"])
     parser.add_argument("--production-signal-weight", type=float, default=0.5)
     parser.add_argument("--residual-signal-weight", type=float, default=0.5)
@@ -210,7 +210,7 @@ def main():
     df_exec["topix_oc_return"] = r_topix_oc.reindex(df_exec.index).values
     df_exec["topix_cc_trade"] = (1.0 + df_exec["topix_night_return"]) * (1.0 + df_exec["topix_oc_return"]) - 1.0
 
-    # 3. Instantiate SRE model and run generic BacktestEngine
+    # 3. Instantiate PCA-Ensemble model and run generic BacktestEngine
     model = SectorRelativeEnsembleModel(cfg)
     from leadlag.execution.backtester import BacktestEngine
     results = BacktestEngine.run_backtest(model, df_exec, start_date=args.start_date, end_date=args.end_date, slippage_bps=args.slippage_bps)
@@ -368,14 +368,14 @@ def main():
 
     # 8. Markdown report generation (final_report.md)
     logger.info("Creating markdown report...")
-    report_content = f"""# Sector Relative Ensemble (SRE) Backtest Report
+    report_content = f"""# Sector Relative Ensemble (PCA-Ensemble) Backtest Report
 
-This report summarizes the historical performance and safety checks of the SRE production model.
+This report summarizes the historical performance and safety checks of the PCA-Ensemble production model.
 
 ## Model Summary
 - **Name**: sector_relative_ensemble
 - **Display Name**: Sector Relative Ensemble
-- **Short Name**: SRE
+- **Short Name**: PCA-Ensemble
 - **Slippage**: {args.slippage_bps} bps per side (one-way)
 
 ## Performance Metrics
@@ -387,9 +387,9 @@ This report summarizes the historical performance and safety checks of the SRE p
 | **Full** (2015-01-05 to Present) | {sub_metrics["full"].get("AR", 0.0)*100:.2f}% | {sub_metrics["full"].get("RISK", 0.0)*100:.2f}% | {sub_metrics["full"].get("R/R", 0.0):.4f} | {sub_metrics["full"].get("Sharpe", 0.0):.4f} | {sub_metrics["full"].get("MDD", 0.0)*100:.2f}% |
 
 ## Diagnostics
-- **P0 vs P3 Signal Correlation**: {p0_p3_corr:.4f}
-- **P0 vs P3 Rank Correlation**: {p0_p3_rank_corr:.4f}
-- **P0 vs P3 Sign Agreement**: {p0_p3_sign_agree*100:.2f}%
+- **Raw-PCA vs Residual-PCA Signal Correlation**: {p0_p3_corr:.4f}
+- **Raw-PCA vs Residual-PCA Rank Correlation**: {p0_p3_rank_corr:.4f}
+- **Raw-PCA vs Residual-PCA Sign Agreement**: {p0_p3_sign_agree*100:.2f}%
 
 ### Worst Drawdown Periods
 {top_dd.to_markdown(index=False)}

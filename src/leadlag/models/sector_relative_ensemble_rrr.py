@@ -1,6 +1,6 @@
 """Sector Relative Ensemble with Reduced-Rank Regression Model.
 
-Implements the SRE-RRR model which integrates standard Production signals (P0, P3)
+Implements the PCA-Ensemble-RRR model which integrates standard Production signals (Raw-PCA, Residual-PCA)
 with Reduced-Rank Regression signals (P6, P6P3) and Lowrank BLP signals (P7, P7P3).
 """
 
@@ -34,9 +34,9 @@ _PREPARE_COMMON_INPUTS_CACHE = {}
 
 
 class SectorRelativeEnsembleRRRModel(BaseModel):
-    """Sector Relative Ensemble with Reduced-Rank Regression (SRE-RRR) Model.
+    """Sector Relative Ensemble with Reduced-Rank Regression (PCA-Ensemble-RRR) Model.
 
-    Ensembles standard PCA signals (P0, P3) and RRR/Lowrank BLP signals.
+    Ensembles standard PCA signals (Raw-PCA, Residual-PCA) and RRR/Lowrank BLP signals.
     """
 
     def __init__(self, config: dict | object):
@@ -172,7 +172,7 @@ class SectorRelativeEnsembleRRRModel(BaseModel):
             else df_exec["topix_night_return"].values + df_exec["topix_oc_return"].values
         )
 
-        # Rolling OLS residualization for P3/P6P3/P7P3
+        # Rolling OLS residualization for Residual-PCA/P6P3/P7P3
         betas_jp_p3 = compute_rolling_ols_betas(
             y_jp_target, topix_cc_trade.reshape(-1, 1), self.beta_window
         )
@@ -214,7 +214,7 @@ class SectorRelativeEnsembleRRRModel(BaseModel):
         jp_beta: np.ndarray | None,
         topix_night: np.ndarray | None,
     ) -> np.ndarray:
-        """Compute the P0 (Production PCA) signal at index i."""
+        """Compute the Raw-PCA (Production PCA) signal at index i."""
         cache_key = (i, self.lambda_reg, self.k)
         global _PRODUCTION_SIGNAL_CACHE
         if cache_key in _PRODUCTION_SIGNAL_CACHE:
@@ -263,7 +263,7 @@ class SectorRelativeEnsembleRRRModel(BaseModel):
         jp_beta: np.ndarray | None,
         topix_night: np.ndarray | None,
     ) -> np.ndarray:
-        """Compute the P3 (Residual target PCA) signal at index i."""
+        """Compute the Residual-PCA (Residual target PCA) signal at index i."""
         cache_key = (i, self.lambda_reg, self.k)
         global _RESIDUAL_SIGNAL_CACHE
         if cache_key in _RESIDUAL_SIGNAL_CACHE:
@@ -676,13 +676,13 @@ class SectorRelativeEnsembleRRRModel(BaseModel):
 
         start_idx = self.corr_window
         for i in range(start_idx, T):
-            # 1. P0 (Production PCA)
+            # 1. Raw-PCA (Production PCA)
             p0_sig = self.compute_production_signal(
                 i, c_full, v0_static, v1, v2, all_returns_raw, jp_gap, jp_beta, topix_night
             )
             p0_signals[i] = p0_sig
 
-            # 2. P3 (Residual target PCA)
+            # 2. Residual-PCA (Residual target PCA)
             p3_sig = self.compute_residual_signal(
                 jp_res_returns_p3, i, c_full_p3, v0_static, v1, v2, jp_gap, jp_beta, topix_night
             )
@@ -750,7 +750,7 @@ class SectorRelativeEnsembleRRRModel(BaseModel):
             z7 = self.normalize_signals(p7_res["signal"], self.normalization_method)
             z7p3 = self.normalize_signals(p7p3_res["signal"], self.normalization_method)
 
-            # Combined SRE-RRR signal
+            # Combined PCA-Ensemble-RRR signal
             s_ens = self.combine_signals(z0, z3, z6, z6p3, z7, z7p3)
             combined_signals[i] = s_ens
             normalized_combined_signals[i] = self.normalize_signals(

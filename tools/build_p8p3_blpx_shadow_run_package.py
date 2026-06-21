@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Historical Batch Shadow-Run Builder for P8P3-BLPX Model.
+"""Historical Batch Shadow-Run Builder for Residual-BLPX Model.
 
 Runs daily shadow portfolio simulations over historical dates, compiles panels,
 computes metrics, generates plots, and writes safety audit reports.
@@ -250,7 +250,7 @@ def main():
     df_long["signal_date"] = pd.to_datetime(df_long["signal_date"]).dt.strftime("%Y-%m-%d")
     
     # Load baseline positions file for baseline weights reference
-    # SRE baseline positions are stored in results/production_p8p3_blpx_validation/daily_positions_P8P3_only.csv
+    # PCA-Ensemble baseline positions are stored in results/production_p8p3_blpx_validation/daily_positions_P8P3_only.csv
     # Or step 4.5 baseline positions
     weights_file = Path("results/production_p8p3_blpx_validation/daily_positions_P8P3_only.csv")
     if not weights_file.exists():
@@ -294,7 +294,7 @@ def main():
     r_target_vals = r_target_df.values
     
     for idx_t, dt in enumerate(common_dates):
-        # Write SRE production weights daily mock file to temp_prod_dir/latest_weights.csv
+        # Write PCA-Ensemble production weights daily mock file to temp_prod_dir/latest_weights.csv
         df_base_t = df_base_pos[df_base_pos["trade_date"] == dt]
         if len(df_base_t) > 0:
             row_weights = df_base_t.iloc[0]
@@ -842,7 +842,7 @@ def main():
 
 ## 2. Candidate Definitions
 
-- **baseline**: Production P8P3-BLPX (replicates current production weights and signals; gross = 2.0).
+- **baseline**: Production Residual-BLPX (replicates current production weights and signals; gross = 2.0).
 - **primary_ruleD**: closed-form `mu_over_sigma` sizing using baseline_style weighting and defensive dynamic gross multiplier RuleD.
 - **secondary_cov_ruleD**: covariance-aware `mu_over_sigma` sizing (90% baseline_style + 10% shrink_mv_full) and defensive dynamic gross multiplier RuleD.
 - **opportunity_ruleA**: baseline_style weighting and opportunity-seeking dynamic gross multiplier RuleA.

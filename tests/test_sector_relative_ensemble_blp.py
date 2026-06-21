@@ -1,4 +1,4 @@
-"""Unit tests for Sector Relative Ensemble with Regularized Block BLP (SRE-BLP) Model."""
+"""Unit tests for Sector Relative Ensemble with Regularized Block BLP (PCA-Ensemble-BLP) Model."""
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ from leadlag.execution.backtester import BacktestEngine
 
 @pytest.fixture
 def blp_sample_config() -> dict:
-    """Return sample configuration dictionary for testing SRE-BLP."""
+    """Return sample configuration dictionary for testing PCA-Ensemble-BLP."""
     return {
         "model": {"name": "sector_relative_ensemble_blp"},
         "portfolio": {"long_short_frac": 0.3, "weight_mode": "signal"},
@@ -224,18 +224,18 @@ def test_cost_consistency(blp_sample_config, sample_df_exec):
 
 
 def test_baseline_sre_reproduction(blp_sample_config, sample_df_exec):
-    """8. test_baseline_sre_reproduction: Verify SRE-BLP with zero BLP weights matches SRE production model."""
+    """8. test_baseline_sre_reproduction: Verify PCA-Ensemble-BLP with zero BLP weights matches PCA-Ensemble production model."""
     df_exec, _ = sample_df_exec
     # Run only 10 dates to keep test fast
     start_str = df_exec.index[-10].strftime("%Y-%m-%d")
 
-    # Production SRE model
+    # Production PCA-Ensemble model
     prod_config_path = ROOT / "configs" / "archive" / "production_before_p8p3_blpx_20260614.yaml"
     with open(prod_config_path) as f:
         prod_cfg = yaml.safe_load(f)
     sre_model = SectorRelativeEnsembleModel(prod_cfg)
 
-    # SRE-BLP configured to match SRE (p5_weight=0.0, p5p3_weight=0.0, p0_weight=0.5, p3_weight=0.5)
+    # PCA-Ensemble-BLP configured to match PCA-Ensemble (p5_weight=0.0, p5p3_weight=0.0, p0_weight=0.5, p3_weight=0.5)
     blp_cfg = blp_sample_config.copy()
     blp_cfg["ensemble"]["p0_weight"] = 0.5
     blp_cfg["ensemble"]["p3_weight"] = 0.5

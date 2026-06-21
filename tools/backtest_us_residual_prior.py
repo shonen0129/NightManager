@@ -1,19 +1,19 @@
 #!/usr/bin/env python
-"""Validation and backtesting script for US Residual Prior (P4 component) in SRE-USRP.
+"""Validation and backtesting script for US Residual Prior (P4 component) in PCA-Ensemble-USRP.
 
 Runs a grid search over:
 - prior_variants: raw_v1_to_v6, resid_v2_removed, resid_v1_v2_removed, resid_v1_v2_scaled_025, resid_v1_v2_scaled_050
 - gamma_grid: [0.0, 0.5, 0.75, 1.0]
 - lambda_reg_grid: [0.25, 0.50, 0.75]
 - ensemble_grid:
-  - SRE_current: P0=0.5, P3=0.5, P4=0.0
-  - SRE_P4_40_40_20: P0=0.4, P3=0.4, P4=0.2
-  - SRE_P4_375_375_25: P0=0.375, P3=0.375, P4=0.25
-  - SRE_P4_45_45_10: P0=0.45, P3=0.45, P4=0.10
-  - P4_only: P0=0.0, P3=0.0, P4=1.0
+  - SRE_current: Raw-PCA=0.5, Residual-PCA=0.5, P4=0.0
+  - SRE_P4_40_40_20: Raw-PCA=0.4, Residual-PCA=0.4, P4=0.2
+  - SRE_P4_375_375_25: Raw-PCA=0.375, Residual-PCA=0.375, P4=0.25
+  - SRE_P4_45_45_10: Raw-PCA=0.45, Residual-PCA=0.45, P4=0.10
+  - P4_only: Raw-PCA=0.0, Residual-PCA=0.0, P4=1.0
 - slippage_grid: [0.0, 5.0, 10.0] bps
 
-Outputs comparison matrices, OOS rankings, outperformance stats vs current SRE,
+Outputs comparison matrices, OOS rankings, outperformance stats vs current PCA-Ensemble,
 diagnostic plots, safety audits, and a comprehensive markdown report.
 """
 
@@ -177,7 +177,7 @@ def main():
     # Track prior diagnostic results
     c0_diagnostics_records = []
 
-    # Map to store run results for P4 vs P3 signal correlation
+    # Map to store run results for P4 vs Residual-PCA signal correlation
     p4_vs_p3_corrs = []
 
     if getattr(args, "only_report", False):
@@ -214,7 +214,7 @@ def main():
         curr_ar = float(current_sre_oos_metrics["AR"])
         curr_turnover = float(current_sre_oos_metrics["Avg Turnover"])
 
-        # SRE current returns timeseries
+        # PCA-Ensemble current returns timeseries
         res_sre_returns = daily_returns_db["SRE_current"]
 
         # Identify best candidate based on Sharpe from OOS ranking
@@ -364,7 +364,7 @@ def main():
                                 daily_returns_db[db_key] = res["daily_returns"]
                                 daily_positions_db[db_key] = weights_df
 
-                                # Compute P4 vs P3 signal correlation
+                                # Compute P4 vs Residual-PCA signal correlation
                                 if ens["name"] != "SRE_current":
                                     p3_flat = res["p3_signals"].values.flatten()
                                     p4_flat = res["p4_signals"].values.flatten()
@@ -494,13 +494,13 @@ def main():
             (summary_df["period"] == "oos") & (abs(summary_df["slippage_bps"] - 5.0) < 1e-6)
         ].copy()
 
-        # Compare SRE current benchmark (OOS Sharpe, MDD, AR, Turnover)
+        # Compare PCA-Ensemble current benchmark (OOS Sharpe, MDD, AR, Turnover)
         curr_sharpe = current_sre_oos_metrics["Sharpe"]
         curr_mdd = current_sre_oos_metrics["MDD"]
         curr_ar = current_sre_oos_metrics["AR"]
         curr_turnover = current_sre_oos_metrics["Avg Turnover"]
 
-        # SRE current returns timeseries
+        # PCA-Ensemble current returns timeseries
         res_sre_returns = daily_returns_db["SRE_current"]
 
         # Flags calculation for all rows
@@ -525,7 +525,7 @@ def main():
         oos_5bps["diff_tstat"] = diff_tstats
         oos_5bps["diff_tstat_positive"] = oos_5bps["diff_tstat"] > 0.0
 
-        # Calculate P4 vs P3 signal corr for all models
+        # Calculate P4 vs Residual-PCA signal corr for all models
         corr_map = {}
         for item in p4_vs_p3_corrs:
             k = f"{item['model']}_{item['prior_variant']}_{item['gamma']:.2f}_{item['lambda_reg']:.2f}"
@@ -605,7 +605,7 @@ def main():
     ]
     pd.DataFrame(correlations_records).to_csv(out_dir / "signal_correlations.csv", index=False)
 
-    # Output p4 vs p3 by prior_variant
+    # Output p4 vs residual-pca by prior_variant
     pd.DataFrame(p4_vs_p3_corrs).to_csv(out_dir / "p4_vs_p3_by_prior.csv", index=False)
 
     # Output diff return stats
@@ -878,15 +878,15 @@ def main():
     report_content = f"""# US Residual Prior Backtest Report
 
 ## 1. Executive Summary
-- **Current Production SRE OOS Sharpe**: {curr_sharpe:.4f}
-- **Best SRE-USRP Candidate OOS Sharpe**: {best_candidate_sharpe:.4f}
-- **Best SRE-USRP Config**: Prior Variant = `{best_prior}`, Gamma = {best_gamma:.2f}, Lambda Reg = {best_lambda_reg:.2f}, weights = [P0: {best_ens["p0"]:.3f}, P3: {best_ens["p3"]:.3f}, P4: {best_ens["p4"]:.3f}]
+- **Current Production PCA-Ensemble OOS Sharpe**: {curr_sharpe:.4f}
+- **Best PCA-Ensemble-USRP Candidate OOS Sharpe**: {best_candidate_sharpe:.4f}
+- **Best PCA-Ensemble-USRP Config**: Prior Variant = `{best_prior}`, Gamma = {best_gamma:.2f}, Lambda Reg = {best_lambda_reg:.2f}, weights = [Raw-PCA: {best_ens["raw-pca"]:.3f}, Residual-PCA: {best_ens["residual-pca"]:.3f}, P4: {best_ens["p4"]:.3f}]
 - **Recommendation**: {pass_status} for production/shadow deployment.
-- **Key Reason**: The space-consistent residual prior P4 model yields an OOS Sharpe ratio of {best_candidate_sharpe:.4f} compared to current SRE's {curr_sharpe:.4f}. It {"satisfies" if pass_status == "APPROVED" else "breaches some of"} the primary validation constraints (MDD constraint, AR drawdown, turnover criteria, P4 vs P3 correlation < 0.95, positive t-stat).
+- **Key Reason**: The space-consistent residual prior P4 model yields an OOS Sharpe ratio of {best_candidate_sharpe:.4f} compared to current PCA-Ensemble's {curr_sharpe:.4f}. It {"satisfies" if pass_status == "APPROVED" else "breaches some of"} the primary validation constraints (MDD constraint, AR drawdown, turnover criteria, P4 vs Residual-PCA correlation < 0.95, positive t-stat).
 
 ## 2. Motivation
 - **Inconsistent Prior Issue**: In the previous P4 validation, the residualized return matrix was mapped onto a prior subspace target $C0$ built from raw, unresidualized returns using raw cyclical/defensive, FX, energy, and inflation prior vectors. This re-injected global and group-level market dynamics back into the market-neutral signal space.
-- **Goal**: Reconstruct $C0$ in the residualized subspace and orthonormalize prior vectors after removing the global factor $v1$ and group difference factor $v2$. We evaluate if this restores P4's true idiosyncrasy and lowers its correlation to P3.
+- **Goal**: Reconstruct $C0$ in the residualized subspace and orthonormalize prior vectors after removing the global factor $v1$ and group difference factor $v2$. We evaluate if this restores P4's true idiosyncrasy and lowers its correlation to Residual-PCA.
 
 ## 3. Backtest Setup
 - **Train period**: 2015-01-05 to 2019-12-31
@@ -903,9 +903,9 @@ def main():
 - **Grids**: Gamma `[0.0, 0.5, 0.75, 1.0]`, Lambda Reg `[0.25, 0.50, 0.75]`, Slippage `[0.0, 5.0, 10.0]` bps.
 
 ## 4. Main OOS Results at 5bps
-Below is the comparison of the best candidate SRE-USRP vs the baseline SRE:
+Below is the comparison of the best candidate PCA-Ensemble-USRP vs the baseline PCA-Ensemble:
 
-| Period | SRE (AR) | SRE (Sharpe) | SRE (MDD) | SRE-USRP (AR) | SRE-USRP (Sharpe) | SRE-USRP (MDD) |
+| Period | PCA-Ensemble (AR) | PCA-Ensemble (Sharpe) | PCA-Ensemble (MDD) | PCA-Ensemble-USRP (AR) | PCA-Ensemble-USRP (Sharpe) | PCA-Ensemble-USRP (MDD) |
 |---|---|---|---|---|---|---|
 | **Train** | {curr_train_m["AR"] * 100:.2f}% | {curr_train_m["Sharpe"]:.4f} | {curr_train_m["MDD"] * 100:.2f}% | {best_train_m["AR"] * 100:.2f}% | {best_train_m["Sharpe"]:.4f} | {best_train_m["MDD"] * 100:.2f}% |
 | **OOS** | {curr_oos_m["AR"] * 100:.2f}% | {curr_oos_m["Sharpe"]:.4f} | {curr_oos_m["MDD"] * 100:.2f}% | {best_oos_m["AR"] * 100:.2f}% | {best_oos_m["Sharpe"]:.4f} | {best_oos_m["MDD"] * 100:.2f}% |
@@ -919,7 +919,7 @@ Performance across different prior variants (at the best configuration's gamma =
 
 {prior_comp[["prior_variant", "AR", "RISK", "Sharpe", "MDD", "Avg Turnover", "p4_vs_p3_corr"]].to_markdown(index=False)}
 
-- **V2 Removal Effect**: Removing $v2$ reduces P4 vs P3 correlation from 0.9854 down to ~{prior_comp[prior_comp["prior_variant"] == "resid_v2_removed"]["p4_vs_p3_corr"].iloc[0]:.4f}.
+- **V2 Removal Effect**: Removing $v2$ reduces P4 vs Residual-PCA correlation from 0.9854 down to ~{prior_comp[prior_comp["prior_variant"] == "resid_v2_removed"]["p4_vs_p3_corr"].iloc[0]:.4f}.
 - **V1 & V2 Removal Effect**: Removing both global and group difference vectors yields the lowest signal correlation of ~{prior_comp[prior_comp["prior_variant"] == "resid_v1_v2_removed"]["p4_vs_p3_corr"].iloc[0]:.4f}, confirming that these components are what caused signal duplication.
 
 ## 6. Gamma Sensitivity
@@ -935,7 +935,7 @@ Performance across lambda_reg values for the best configuration (OOS subperiod, 
 ## 8. Ensemble Sensitivity
 Performance across different ensemble weights at the optimal prior variant `{best_prior}`, gamma = {best_gamma:.2f}, lambda_reg = {best_lambda_reg:.2f} (OOS subperiod, 5bps slippage):
 
-| model | p0 | p3 | p4 | AR | Sharpe | MDD | Avg Turnover |
+| model | raw-pca | residual-pca | p4 | AR | Sharpe | MDD | Avg Turnover |
 |:---|---:|---:|---:|---:|---:|---:|---:|
 | **SRE_current** | 0.500 | 0.500 | 0.000 | {curr_oos_m["AR"]:.4f} | {curr_oos_m["Sharpe"]:.4f} | {curr_oos_m["MDD"]:.4f} | {curr_oos_m["Avg Turnover"]:.4f} |
 | **SRE_P4_45_45_10** | 0.450 | 0.450 | 0.100 | {summary_5bps[(summary_5bps["model"] == "SRE_P4_45_45_10") & (summary_5bps["prior_variant"] == best_prior) & (summary_5bps["gamma"] == best_gamma) & (summary_5bps["lambda_reg"] == best_lambda_reg) & (summary_5bps["period"] == "oos")].iloc[0]["AR"]:.4f} | {summary_5bps[(summary_5bps["model"] == "SRE_P4_45_45_10") & (summary_5bps["prior_variant"] == best_prior) & (summary_5bps["gamma"] == best_gamma) & (summary_5bps["lambda_reg"] == best_lambda_reg) & (summary_5bps["period"] == "oos")].iloc[0]["Sharpe"]:.4f} | {summary_5bps[(summary_5bps["model"] == "SRE_P4_45_45_10") & (summary_5bps["prior_variant"] == best_prior) & (summary_5bps["gamma"] == best_gamma) & (summary_5bps["lambda_reg"] == best_lambda_reg) & (summary_5bps["period"] == "oos")].iloc[0]["MDD"]:.4f} | {summary_5bps[(summary_5bps["model"] == "SRE_P4_45_45_10") & (summary_5bps["prior_variant"] == best_prior) & (summary_5bps["gamma"] == best_gamma) & (summary_5bps["lambda_reg"] == best_lambda_reg) & (summary_5bps["period"] == "oos")].iloc[0]["Avg Turnover"]:.4f} |
@@ -944,19 +944,19 @@ Performance across different ensemble weights at the optimal prior variant `{bes
 | **P4_only** | 0.000 | 0.000 | 1.000 | {summary_5bps[(summary_5bps["model"] == "P4_only") & (summary_5bps["prior_variant"] == best_prior) & (summary_5bps["gamma"] == best_gamma) & (summary_5bps["lambda_reg"] == best_lambda_reg) & (summary_5bps["period"] == "oos")].iloc[0]["AR"]:.4f} | {summary_5bps[(summary_5bps["model"] == "P4_only") & (summary_5bps["prior_variant"] == best_prior) & (summary_5bps["gamma"] == best_gamma) & (summary_5bps["lambda_reg"] == best_lambda_reg) & (summary_5bps["period"] == "oos")].iloc[0]["Sharpe"]:.4f} | {summary_5bps[(summary_5bps["model"] == "P4_only") & (summary_5bps["prior_variant"] == best_prior) & (summary_5bps["gamma"] == best_gamma) & (summary_5bps["lambda_reg"] == best_lambda_reg) & (summary_5bps["period"] == "oos")].iloc[0]["MDD"]:.4f} | {summary_5bps[(summary_5bps["model"] == "P4_only") & (summary_5bps["prior_variant"] == best_prior) & (summary_5bps["gamma"] == best_gamma) & (summary_5bps["lambda_reg"] == best_lambda_reg) & (summary_5bps["period"] == "oos")].iloc[0]["Avg Turnover"]:.4f} |
 
 ## 9. Signal Diagnostics
-- **P0 vs P3 Correlation**: {best_p0_p3_corr:.4f}
-- **P0 vs P4 Correlation**: {best_p0_p4_corr:.4f}
-- **P3 vs P4 Correlation**: {best_p3_p4_corr:.4f}
-- **P0 vs P3 Rank Correlation**: {best_p0_p3_rank:.4f}
-- **P0 vs P4 Rank Correlation**: {best_p0_p4_rank:.4f}
-- **P3 vs P4 Rank Correlation**: {best_p3_p4_rank:.4f}
-- **P0 vs P3 Sign Agreement**: {best_p0_p3_agree * 100:.2f}%
-- **P0 vs P4 Sign Agreement**: {best_p0_p4_agree * 100:.2f}%
-- **P3 vs P4 Sign Agreement**: {best_p3_p4_agree * 100:.2f}%
+- **Raw-PCA vs Residual-PCA Correlation**: {best_p0_p3_corr:.4f}
+- **Raw-PCA vs P4 Correlation**: {best_p0_p4_corr:.4f}
+- **Residual-PCA vs P4 Correlation**: {best_p3_p4_corr:.4f}
+- **Raw-PCA vs Residual-PCA Rank Correlation**: {best_p0_p3_rank:.4f}
+- **Raw-PCA vs P4 Rank Correlation**: {best_p0_p4_rank:.4f}
+- **Residual-PCA vs P4 Rank Correlation**: {best_p3_p4_rank:.4f}
+- **Raw-PCA vs Residual-PCA Sign Agreement**: {best_p0_p3_agree * 100:.2f}%
+- **Raw-PCA vs P4 Sign Agreement**: {best_p0_p4_agree * 100:.2f}%
+- **Residual-PCA vs P4 Sign Agreement**: {best_p3_p4_agree * 100:.2f}%
 - **Average Daily IC**: {daily_ics_series.mean():.4f}
 
-## 10. Difference vs Current SRE
-Outperformance metrics of the best candidate SRE-USRP vs current SRE:
+## 10. Difference vs Current PCA-Ensemble
+Outperformance metrics of the best candidate PCA-Ensemble-USRP vs current PCA-Ensemble:
 - **Diff Return Mean (daily)**: {diff_mean * 10000:.2f} bps/day
 - **Diff Return Std (daily)**: {diff_std * 100:.4f}%
 - **Diff t-stat**: {diff_tstat:.4f}
@@ -968,9 +968,9 @@ Outperformance metrics of the best candidate SRE-USRP vs current SRE:
 - **Best Monthly Outperformance**: {best_monthly_outperf * 100:.2f}%
 
 ## 11. Risk / Drawdown
-- **Current SRE MDD (OOS)**: {curr_oos_m["MDD"] * 100:.2f}%
-- **Best SRE-USRP MDD (OOS)**: {best_oos_m["MDD"] * 100:.2f}%
-- **Rolling Sharpe Ratio**: rolling 250-day Sharpe has remained robust, and drawdown profile during March 2020 and 2022 market events indicates SRE-USRP provides smoother downside mitigation due to the isolated idiosyncratic US sectors.
+- **Current PCA-Ensemble MDD (OOS)**: {curr_oos_m["MDD"] * 100:.2f}%
+- **Best PCA-Ensemble-USRP MDD (OOS)**: {best_oos_m["MDD"] * 100:.2f}%
+- **Rolling Sharpe Ratio**: rolling 250-day Sharpe has remained robust, and drawdown profile during March 2020 and 2022 market events indicates PCA-Ensemble-USRP provides smoother downside mitigation due to the isolated idiosyncratic US sectors.
 
 ## 12. Cost Sensitivity
 Slippage sensitivity (OOS Sharpe) for the best candidate config:
@@ -1002,7 +1002,7 @@ Summary:
 - **All Audits Passed**: {best_audit["all_passed"]}
 
 ## 15. Recommendation
-We {"recommend" if pass_status == "APPROVED" else "do not recommend"} adopting the SRE-USRP model configuration with `{best_prior}`, gamma = {best_gamma:.2f}, lambda_reg = {best_lambda_reg:.2f} and weights P0: {best_ens["p0"]:.3f} / P3: {best_ens["p3"]:.3f} / P4: {best_ens["p4"]:.3f}.
+We {"recommend" if pass_status == "APPROVED" else "do not recommend"} adopting the PCA-Ensemble-USRP model configuration with `{best_prior}`, gamma = {best_gamma:.2f}, lambda_reg = {best_lambda_reg:.2f} and weights Raw-PCA: {best_ens["raw-pca"]:.3f} / Residual-PCA: {best_ens["residual-pca"]:.3f} / P4: {best_ens["p4"]:.3f}.
 - {"Adopting P4 at weight " + f"{best_ens['p4']:.3f} raises the OOS Sharpe from {curr_sharpe:.4f} to {best_candidate_sharpe:.4f} while keeping the MDD profile robust and reducing signal redundancy (correlation below 0.95)." if pass_status == "APPROVED" else "Adopting P4 at weight " + f"{best_ens['p4']:.3f} raises the OOS Sharpe from {curr_sharpe:.4f} to {best_candidate_sharpe:.4f}, but it breaches validation constraints (drawdown degradation to {best_candidate_row['MDD']*100:.2f}% vs baseline {curr_mdd*100:.2f}%, signal correlation of {best_candidate_row['p4_vs_p3_corr']:.4f} exceeding the 0.95 limit, or lacks positive daily return outperformance t-stat significance: {best_candidate_row['diff_tstat']:.4f})."}
 
 ### How to Run Backtest

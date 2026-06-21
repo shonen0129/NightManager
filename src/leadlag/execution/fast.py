@@ -376,8 +376,8 @@ def build_precomputed_cache(
     if cache_dir:
         os.makedirs(cache_dir, exist_ok=True)
 
-    # In SRE mode, SRE uses LeadLagStrategy static components inside P0 / P3
-    # SRE model handles saving cache using nested strategies
+    # In PCA-Ensemble mode, PCA-Ensemble uses LeadLagStrategy static components inside Raw-PCA / Residual-PCA
+    # PCA-Ensemble model handles saving cache using nested strategies
     from leadlag.models.sre import SectorRelativeEnsembleModel
 
     SectorRelativeEnsembleModel(config)

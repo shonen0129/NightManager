@@ -125,7 +125,7 @@ def resolve_wallet_capital(api_client: BrokerClient) -> float:
 
 def build_strategy(config: ProductionConfig, df_exec: pd.DataFrame):
     """Factory function for compat wrap."""
-    # SRE model can be built directly
+    # PCA-Ensemble model can be built directly
     from leadlag.models.sre import SectorRelativeEnsembleModel
 
     return SectorRelativeEnsembleModel(config)

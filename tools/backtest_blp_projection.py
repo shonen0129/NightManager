@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-"""Backtesting and Verification Suite for Sector Relative Ensemble with Regularized Block BLP (SRE-BLP).
+"""Backtesting and Verification Suite for Sector Relative Ensemble with Regularized Block BLP (PCA-Ensemble-BLP).
 
-Evaluates model configurations across param grids, compares them with baseline SRE, and runs safety audits.
+Evaluates model configurations across param grids, compares them with baseline PCA-Ensemble, and runs safety audits.
 """
 
 from __future__ import annotations
@@ -247,7 +247,7 @@ def main():
     y_jp_target = compute_jp_target_returns(df_exec, JP_TICKERS)
     y_jp_target_df = pd.DataFrame(y_jp_target, index=df_exec.index, columns=JP_TICKERS)
     
-    # 2. Run Baseline Production SRE Model for verification
+    # 2. Run Baseline Production PCA-Ensemble Model for verification
     logger.info("Running baseline production SRE for verification...")
     # Load production config parameters
     prod_config_path = ROOT / "configs" / "production.yaml"
@@ -289,7 +289,7 @@ def main():
     daily_positions_master = {}
     drawdown_master = {}
     
-    # We only precompute P0 and P3 once as they do not depend on BLP parameters.
+    # We only precompute Raw-PCA and Residual-PCA once as they do not depend on BLP parameters.
     # We will compute them using the SREBLPModel instance configured with defaults
     init_blp_cfg = {
         "model": {"name": "sector_relative_ensemble_blp"},
@@ -300,7 +300,7 @@ def main():
     blp_base_model = SectorRelativeEnsembleBLPModel(init_blp_cfg)
     base_pred = blp_base_model.predict_signals(df_exec)
     
-    # Verify baseline SRE reproduction
+    # Verify baseline PCA-Ensemble reproduction
     p0_sig_base = base_pred["p0_signals"].loc[sim_dates_slice]
     p3_sig_base = base_pred["p3_signals"].loc[sim_dates_slice]
     
@@ -758,7 +758,7 @@ def main():
     df_ranking_no_sre = df_ranking[df_ranking["ensemble"] != "SRE_current"]
     best_cand = df_ranking_no_sre.iloc[0] if not df_ranking_no_sre.empty else None
     
-    # SRE Current values
+    # PCA-Ensemble Current values
     sre_train = df_results[(df_results["ensemble"] == "SRE_current") & (df_results["period"] == "train") & (df_results["slippage_bps"] == 5.0)].iloc[0]
     sre_oos = df_results[(df_results["ensemble"] == "SRE_current") & (df_results["period"] == "oos") & (df_results["slippage_bps"] == 5.0)].iloc[0]
     sre_full = df_results[(df_results["ensemble"] == "SRE_current") & (df_results["period"] == "full") & (df_results["slippage_bps"] == 5.0)].iloc[0]
@@ -794,7 +794,7 @@ def main():
 
 ## 1. Executive Summary
 
-- **Comparison to Current SRE**: The Regularized Block BLP model was evaluated as an alternative/hybrid addition to the PCA-based Sector Relative Ensemble.
+- **Comparison to Current PCA-Ensemble**: The Regularized Block BLP model was evaluated as an alternative/hybrid addition to the PCA-based Sector Relative Ensemble.
 - **Best Candidate**:
   - Model: `{best_cand["ensemble"] if best_cand is not None else "N/A"}`
   - Parameters: `rho = {best_cand["rho"] if best_cand is not None else "N/A"}`, `alpha_xx = {best_cand["alpha_xx"] if best_cand is not None else "N/A"}`, `alpha_yx = {best_cand["alpha_yx"] if best_cand is not None else "N/A"}`, `rank = {best_cand["rank"] if best_cand is not None else "N/A"}`
@@ -830,7 +830,7 @@ def main():
 
 | Model | Period | Annual Return (AR) | Volatility (RISK) | Sharpe Ratio | Max Drawdown (MDD) | Turnover |
 |---|---|---|---|---|---|---|
-| **Current SRE** | Train | {sre_train["AR"]*100:.2f}% | {sre_train["RISK"]*100:.2f}% | {sre_train["Sharpe"]:.4f} | {sre_train["MDD"]*100:.2f}% | {sre_train["turnover"]:.4f} |
+| **Current PCA-Ensemble** | Train | {sre_train["AR"]*100:.2f}% | {sre_train["RISK"]*100:.2f}% | {sre_train["Sharpe"]:.4f} | {sre_train["MDD"]*100:.2f}% | {sre_train["turnover"]:.4f} |
 | | OOS | {sre_oos["AR"]*100:.2f}% | {sre_oos["RISK"]*100:.2f}% | {sre_oos["Sharpe"]:.4f} | {sre_oos["MDD"]*100:.2f}% | {sre_oos["turnover"]:.4f} |
 | | Full | {sre_full["AR"]*100:.2f}% | {sre_full["RISK"]*100:.2f}% | {sre_full["Sharpe"]:.4f} | {sre_full["MDD"]*100:.2f}% | {sre_full["turnover"]:.4f} |
 | **Best Candidate ({best_cand["ensemble"] if best_cand is not None else "N/A"})** | Train | {cand_train["AR"]*100:.2f}% | {cand_train["RISK"]*100:.2f}% | {cand_train["Sharpe"]:.4f} | {cand_train["MDD"]*100:.2f}% | {cand_train["turnover"]:.4f} |
@@ -849,15 +849,15 @@ Sensitivity metrics are exported to `blp_param_sensitivity.csv`.
 
 Ensemble comparison is stored in `ensemble_comparison_5bps.csv`.
 
-- **Hybrid_20**: 0.4 P0 + 0.4 P3 + 0.1 P5 + 0.1 P5P3
+- **Hybrid_20**: 0.4 Raw-PCA + 0.4 Residual-PCA + 0.1 P5 + 0.1 P5P3
 - **BLP_SRE**: 0.5 P5 + 0.5 P5P3
 
 ## 8. Signal Diagnostics
 
 Component correlations are exported to `signal_correlations.csv`.
 
-- **P0 vs P5 (raw targets) correlation**: {float(corr_records[0]["pearson_correlation"]):.4f}
-- **P3 vs P5P3 (residuals) correlation**: {float(corr_records[1]["pearson_correlation"]):.4f}
+- **Raw-PCA vs P5 (raw targets) correlation**: {float(corr_records[0]["pearson_correlation"]):.4f}
+- **Residual-PCA vs P5P3 (residuals) correlation**: {float(corr_records[1]["pearson_correlation"]):.4f}
 
 ## 9. Risk and Drawdown
 
@@ -877,11 +877,11 @@ Slippage sensitivities across [0.0, 2.5, 5.0, 7.5, 10.0] are available in `summa
 
 Summary of `audit.json`:
 - **Lookahead Violations**: {num_lookahead_violations}
-- **Replication of baseline SRE**: `{baseline_sre_reproduced}`
+- **Replication of baseline PCA-Ensemble**: `{baseline_sre_reproduced}`
 
 ## 13. Recommendation
 
-- **Current SRE**:
+- **Current PCA-Ensemble**:
   OOS AR {sre_oos["AR"]*100:.2f}%, Sharpe {sre_oos["Sharpe"]:.4f}, MDD {sre_oos["MDD"]*100:.2f}%, turnover {sre_oos["turnover"]:.4f}
 
 - **Best BLP candidate**:
