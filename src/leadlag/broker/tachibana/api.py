@@ -91,14 +91,14 @@ class TachibanaClient:
         # Try 1: PKCS1_OAEP with SHA-256
         try:
             cipher = PKCS1_OAEP.new(key, hashAlgo=SHA256)
-            return cipher.decrypt(encrypted_data).decode("utf-8")
+            return cipher.decrypt(encrypted_data).decode("utf-8").strip()
         except Exception:
             pass
 
         # Try 2: PKCS1_OAEP with SHA-1 (default)
         try:
             cipher = PKCS1_OAEP.new(key, hashAlgo=SHA1)
-            return cipher.decrypt(encrypted_data).decode("utf-8")
+            return cipher.decrypt(encrypted_data).decode("utf-8").strip()
         except Exception:
             pass
 
@@ -108,7 +108,7 @@ class TachibanaClient:
             sentinel = b"DECRYPT_FAIL"
             dec = cipher.decrypt(encrypted_data, sentinel)
             if dec != sentinel:
-                return dec.decode("utf-8")
+                return dec.decode("utf-8").strip()
         except Exception:
             pass
 
@@ -123,6 +123,7 @@ class TachibanaClient:
             "sAuthId": self.config.auth_id,
             "p_no": str(self.p_no),
             "p_sd_date": p_sd_date,
+            "sJsonOfmt": "4",
         }
         self.p_no += 1
 
@@ -133,6 +134,16 @@ class TachibanaClient:
         response.raise_for_status()
 
         result = response.json()
+        # Check gateway-level errors first (e.g. invalid auth_id)
+        p_errno = result.get("p_errno", "0")
+        if p_errno != "0":
+            err_text = result.get("p_err", "Tachibana gateway error")
+            raise TachibanaApiError(
+                f"Tachibana login failed (gateway code={p_errno}): {err_text}",
+                endpoint="/auth/login",
+                result_code=p_errno,
+            )
+
         result_code = result.get("sResultCode", "-1")
         if result_code != "0":
             err_text = result.get("sResultText", "Unknown login error")
@@ -164,6 +175,7 @@ class TachibanaClient:
             "sCLMID": "CLMAuthLogoutRequest",
             "p_no": str(self.p_no),
             "p_sd_date": p_sd_date,
+            "sJsonOfmt": "4",
         }
         self.p_no += 1
 
@@ -200,6 +212,8 @@ class TachibanaClient:
             self.p_no += 1
         if "p_sd_date" not in payload:
             payload["p_sd_date"] = self._get_timestamp()
+        if "sJsonOfmt" not in payload:
+            payload["sJsonOfmt"] = "4"
 
         json_str = json.dumps(payload, separators=(",", ":"))
         full_url = f"{virtual_url.rstrip('/')}/?{urllib.parse.quote(json_str)}"
@@ -207,6 +221,16 @@ class TachibanaClient:
         response = self.session.get(full_url, timeout=self.config.request_timeout)
         response.raise_for_status()
         result = response.json()
+
+        # Check gateway-level errors first
+        p_errno = result.get("p_errno", "0")
+        if p_errno != "0":
+            err_text = result.get("p_err", "Tachibana gateway error")
+            raise TachibanaApiError(
+                f"Tachibana request failed (gateway code={p_errno}): {err_text}",
+                endpoint=payload.get("sCLMID"),
+                result_code=p_errno,
+            )
 
         # Check for session expired codes (10099 = セッションタイムアウト, 11991 = セッション情報レコードなし)
         result_code = result.get("sResultCode")
@@ -223,6 +247,16 @@ class TachibanaClient:
             response = self.session.get(new_full_url, timeout=self.config.request_timeout)
             response.raise_for_status()
             result = response.json()
+
+            # Check gateway-level errors on retry
+            p_errno = result.get("p_errno", "0")
+            if p_errno != "0":
+                err_text = result.get("p_err", "Tachibana gateway error")
+                raise TachibanaApiError(
+                    f"Tachibana request failed (gateway code={p_errno}): {err_text}",
+                    endpoint=payload.get("sCLMID"),
+                    result_code=p_errno,
+                )
 
         # Generic error check (if sResultCode present and not 0)
         final_result_code = result.get("sResultCode", "0")
