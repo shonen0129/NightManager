@@ -1,0 +1,73 @@
+start_date: null
+end_date: null
+
+aum_jpy: 1000000
+
+entry_time: "09:10"
+use_open_proxy_when_0910_missing: true
+
+target_gross_list: [0.5, 1.0, 1.5, 2.0]
+
+adv_window: 20
+adv_cap: 0.20
+min_adv_jpy_list: [0, 500000, 1000000, 3000000]
+
+commission_jpy_per_trade: 0
+
+buy_interest_rate_annual: 0.025
+sell_interest_rate_annual: 0.00
+stock_borrow_fee_annual: 0.0115
+interest_day_count: 365
+interest_days: 1
+
+reverse_fee_bps_per_day_scenarios: [0, 5, 10, 30]
+
+spread_cost_mode: "scenario"
+roundtrip_spread_bps_list: [5, 10, 15, 20, 30, 50]
+
+impact_eta_list: [0.0, 0.02, 0.05, 0.10]
+
+lot_size_default: 1
+round_lot_mode: true
+
+optimization_models:
+  - baseline_current
+  - net_alpha_filter
+  - net_score_ranking
+  - cost_aware_mvo
+  - cost_aware_mvo_beta_neutral
+  - integer_rounded_mvo
+
+net_alpha_filter:
+  cost_multiple_thresholds: [1.0, 1.5, 2.0]
+  min_names_per_side: 1
+  max_names_per_side: 5
+
+net_score_ranking:
+  lambda_tc_list: [0.5, 1.0, 2.0]
+  min_names_per_side: 1
+  max_names_per_side: 5
+
+mvo:
+  risk_aversion_list: [1.0, 3.0, 5.0, 10.0]
+  max_abs_weight_per_name: 0.25
+  dollar_neutral: true
+  beta_neutral: [false, true]
+  allow_variable_gross: true
+  min_gross: 0.0
+  solver: "scipy_slsqp"
+  fallback_on_fail: "scale_down_or_zero"
+
+short_availability_mode: "assume_available"
+short_unavailable_scenarios:
+  - name: "base_all_short_available"
+    unavailable_probability: 0.0
+  - name: "stress_20pct_short_unavailable"
+    unavailable_probability: 0.2
+  - name: "stress_50pct_short_unavailable"
+    unavailable_probability: 0.5
+
+tax_rate: 0.20315
+
+output_dir: "reports/sprint2_cost_aware_aum1m"
+artifact_dir: "artifacts/sprint2_cost_aware_aum1m"

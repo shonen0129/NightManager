@@ -1,0 +1,4 @@
+Model,annualized_net_return,annualized_volatility,IR,max_drawdown,gross_alpha_before_cost,spread_cost_ann,financing_cost_ann,borrow_cost_ann,impact_cost_ann,average_realized_gross,average_number_of_traded_names,average_absolute_weight_per_name,max_absolute_weight,concentration_HHI,ADV_usage,turnover_ann,long_leg_PnL_ann,short_leg_PnL_ann
+baseline_current,34.1548%,7.3637%,4.6382,-9.7890%,55.9144%,20.7236%,0.7095%,0.3266%,0.0000%,0.8224,9.77,0.0838,0.1666,0.1312,3.8274%,414.4711,22.2358%,33.6786%
+cost_aware_mvo,45.6921%,9.4159%,4.8526,-15.5874%,72.0509%,25.1040%,0.8591%,0.3958%,0.0000%,0.9962,7.98,0.1349,0.2476,0.1829,4.2678%,502.0792,28.3809%,43.6699%
+cost_aware_mvo_beta_neutral,40.5906%,8.8034%,4.6108,-14.3967%,66.9012%,25.0578%,0.8580%,0.3948%,0.0000%,0.9944,8.68,0.1224,0.2439,0.1731,4.3941%,501.1556,26.1438%,40.7573%

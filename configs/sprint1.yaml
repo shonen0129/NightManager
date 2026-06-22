@@ -1,0 +1,14 @@
+start_date: null
+end_date: null
+entry_time: "09:10"
+beta_windows: [60]
+adv_windows: [20]
+aum_scenarios_jpy: [10000000, 30000000, 50000000, 100000000, 300000000, 500000000, 1000000000]
+adv_caps: [0.01, 0.03, 0.05, 0.10]
+min_adv_jpy: [0, 1000000, 3000000, 5000000, 10000000]
+impact_eta: [0.02, 0.05, 0.10]
+static_cost_bps: [5, 15, 30]
+target_gross: 2.0
+max_abs_weight_per_name: 0.25
+output_dir: "reports/sprint1"
+artifact_dir: "artifacts/sprint1"

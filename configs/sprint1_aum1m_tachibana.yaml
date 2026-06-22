@@ -1,0 +1,60 @@
+start_date: null
+end_date: null
+
+aum_jpy: 1000000
+
+entry_time: "09:10"
+use_open_proxy_when_0910_missing: true
+
+gross_exposure_list: [0.5, 1.0, 1.5, 2.0]
+
+adv_window: 20
+adv_cap: 0.20
+min_adv_jpy_list: [0, 500000, 1000000, 3000000]
+
+round_lot_mode: true
+default_lot_size: 1
+
+commission_jpy_per_trade: 0
+
+interest_day_count: 365
+interest_days_base: 1
+interest_days_sensitivity: [0, 1]
+
+buy_interest_rate_annual: 0.025
+sell_interest_rate_annual: 0.00
+stock_borrow_fee_annual: 0.0115
+
+reverse_fee_bps_per_day_scenarios: [0, 5, 10, 30]
+
+spread_cost_mode: "use_data_if_available_else_scenario"
+fallback_roundtrip_spread_bps: [5, 10, 15, 20, 30, 50]
+
+short_availability_mode: "assume_available"
+short_unavailable_scenarios:
+  - name: "base_all_short_available"
+    unavailable_probability: 0.0
+  - name: "stress_20pct_short_unavailable"
+    unavailable_probability: 0.2
+  - name: "stress_50pct_short_unavailable"
+    unavailable_probability: 0.5
+
+liquidity_constraint_method_list:
+  - "scale_down"
+  - "clip_by_name"
+  - "skip_illiquid"
+
+output_dir: "reports/sprint1_aum1m_tachibana"
+artifact_dir: "artifacts/sprint1_aum1m_tachibana"
+
+broker_profile:
+  name: "tachibana_reference"
+  trading_commission_jpy: 0
+  margin_buy_interest_annual: 0.025
+  margin_sell_interest_annual: 0.00
+  stock_borrow_fee_annual: 0.0115
+  minimum_commission_jpy: 0
+  management_fee_jpy: 0
+  transfer_fee_jpy: 0
+  base_reverse_fee_bps_per_day: 0
+  note: "Rates are based on Tachibana Securities e-branch public fee/rate information. Reverse stock lending fees are not included unless scenario-specified."

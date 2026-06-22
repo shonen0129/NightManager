@@ -1,0 +1,20 @@
+Metric,Value
+median abs(mu),0.0030122104653100834
+p75 abs(mu),0.005837026876748752
+p90 abs(mu),0.009797392773962145
+p95 abs(mu),0.013181970727791951
+median tc_rt,0.0011
+p75 tc_rt,0.0011
+p90 tc_rt,0.0011
+p95 tc_rt,0.0011
+median abs(mu)/tc_rt,2.7383731502818938
+p90 abs(mu)/tc_rt,8.906720703601948
+mu bucket Q1 mean return,-0.0030500361794612687
+mu bucket Q2 mean return,-0.0009568243407116652
+mu bucket Q3 mean return,-0.00033662324050344217
+mu bucket Q4 mean return,-4.982499271441845e-07
+mu bucket Q5 mean return,0.0016253967809182527
+regression slope,0.0038658244395188414
+regression R-squared,0.0004996410585674419
+regression p-value,5.5843784397267465e-09
+"correlation(mu, signal_gap_adjusted)",1.0

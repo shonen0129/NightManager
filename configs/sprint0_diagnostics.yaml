@@ -1,0 +1,17 @@
+# configs/sprint0_diagnostics.yaml
+
+start_date: null
+end_date: null
+intraday_entry_time: "09:10"
+beta_windows: [60, 120]
+ic_method: "spearman"
+long_short_quantile: 0.30
+aum_scenarios_jpy: [100000000, 500000000, 1000000000, 3000000000, 5000000000, 10000000000]
+adv_warning_threshold: 0.05
+adv_critical_threshold: 0.10
+cost_scenarios_bps:
+  low: 5
+  base: 15
+  high: 30
+output_dir: "reports/sprint0"
+artifact_dir: "artifacts/sprint0"

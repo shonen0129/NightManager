@@ -1,0 +1,8 @@
+Model,Annualized Return,Sharpe/IR,Max Drawdown,Correlation with TOPIX,Beta to TOPIX
+baseline_current,34.15%,4.6382,-9.79%,-0.0187,-0.0046
+net_alpha_filter,35.53%,4.8016,-6.13%,-0.0117,-0.0029
+net_score_ranking,36.78%,4.8566,-6.36%,-0.0084,-0.0021
+cost_aware_mvo,45.69%,4.8526,-15.59%,-0.0250,-0.0079
+cost_aware_mvo_beta_neutral,40.59%,4.6108,-14.40%,-0.0248,-0.0073
+integer_rounded_mvo,40.59%,4.6108,-14.40%,-0.0248,-0.0073
+TOPIX Buy & Hold,5.81%,0.1941,-91.01%,1.0000,1.0000
