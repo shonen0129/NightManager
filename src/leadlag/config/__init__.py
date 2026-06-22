@@ -5,10 +5,10 @@ from __future__ import annotations
 from leadlag.config.schemas import (
     AppConfig,
     KabuApiConfig,
-    TachibanaApiConfig,
     ProductionV2RunConfig,
     RiskConfig,
     StrategyConfig,
+    TachibanaApiConfig,
 )
 
 __all__ = [

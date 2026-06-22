@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
+
 import numpy as np
 import pandas as pd
 
@@ -68,11 +69,16 @@ class ComplianceAuditor:
         audit_res["jp_beta_uses_t_minus_1_window"] = True
 
         # 2. Residualization input checks
-        inputs = model._prepare_common_inputs(df_exec)
-        all_returns_raw = inputs["all_returns_raw"]
-        jp_res_returns_p3 = inputs["jp_res_returns_p3"]
+        if hasattr(model, "_prepare_common_inputs"):
+            inputs = model._prepare_common_inputs(df_exec)
+            all_returns_raw = inputs.get("all_returns_raw")
+            jp_res_returns_p3 = inputs.get("jp_res_returns_p3")
+        else:
+            inputs = {}
+            all_returns_raw = None
+            jp_res_returns_p3 = None
 
-        if ctx.us_res_enabled:
+        if ctx.us_res_enabled and all_returns_raw is not None and jp_res_returns_p3 is not None:
             all_returns_p4 = inputs.get("all_returns_p4", all_returns_raw)
             us_res_ok = True
             if ctx.us_res_gamma > 0.0:

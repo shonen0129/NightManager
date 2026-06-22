@@ -16,6 +16,7 @@ import numpy as np
 import pandas as pd
 
 from leadlag.broker.base import BrokerClient
+from leadlag.config.schemas import StrategyConfig as _DefaultStrategyConfig
 from leadlag.core import signal as signals
 from leadlag.data.cache import (
     exclusive_lock as _exclusive_lock,
@@ -33,7 +34,6 @@ from leadlag.data.market_data import (
     validate_us_returns_map as _validate_us_returns_map,
 )
 from leadlag.data.tickers import JP_TICKERS, US_TICKERS
-from leadlag.config.schemas import StrategyConfig as _DefaultStrategyConfig
 from leadlag.execution.config import StrategyConfig as ProductionConfig
 from leadlag.execution.helpers import (
     build_strategy,

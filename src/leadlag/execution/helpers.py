@@ -29,6 +29,7 @@ from leadlag.core.types import (
 from leadlag.data.cache import get_hist_returns_for_risk as _get_hist_returns_for_risk
 from leadlag.execution.config import StrategyConfig as ProductionConfig
 from leadlag.execution.config import load_config_from_yaml
+from leadlag.models.sre import SectorRelativeEnsembleModel
 from leadlag.reporting.formatter import (
     log_decision_summary as _log_decision_summary,
 )
@@ -123,11 +124,14 @@ def resolve_wallet_capital(api_client: BrokerClient) -> float:
 # ---------------------------------------------------------------------------
 
 
-def build_strategy(config: ProductionConfig, df_exec: pd.DataFrame):
-    """Factory function for compat wrap."""
-    # PCA-Ensemble model can be built directly
-    from leadlag.models.sre import SectorRelativeEnsembleModel
+def build_strategy(
+    config: ProductionConfig,
+    df_exec: pd.DataFrame | None = None,
+) -> SectorRelativeEnsembleModel:
+    """Factory function for compat wrap.
 
+    df_exec is unused but kept for backward compatibility with runner scripts.
+    """
     return SectorRelativeEnsembleModel(config)
 
 
@@ -521,13 +525,19 @@ def resolve_daily_open_prices(
 
     Used by both decision.py and fast.py.
     """
-    from leadlag.data.tickers import JP_TICKERS, TOPIX_TICKER
     from leadlag.data.market_data import (
         fetch_opens_from_google as _fetch_opens_from_google,
+    )
+    from leadlag.data.market_data import (
         load_opens_from_csv as _load_opens_from_csv,
+    )
+    from leadlag.data.market_data import (
         validate_manual_opens as _validate_manual_opens,
+    )
+    from leadlag.data.market_data import (
         validate_topix_open as _validate_topix_open,
     )
+    from leadlag.data.tickers import JP_TICKERS, TOPIX_TICKER
 
     tickers_for_opens = JP_TICKERS
     if config.signal_mode == "gap_residual":

@@ -7,23 +7,12 @@ import logging
 import numpy as np
 
 from leadlag.core.types import CapitalAllocation
+from leadlag.data.tickers import lot_size_for
 
 logger = logging.getLogger(__name__)
 DEFAULT_SIDE_LEVERAGE = 1.5
 
-LOT_SIZE_BY_TICKER = {
-    "1629.T": 10,
-    "1629": 10,
-}
 
-
-def _lot_size_for_ticker(ticker: str) -> int:
-    lot_size = LOT_SIZE_BY_TICKER.get(ticker)
-    if lot_size is None and ticker.endswith(".T"):
-        lot_size = LOT_SIZE_BY_TICKER.get(ticker.replace(".T", ""))
-    if lot_size is None or lot_size < 1:
-        return 1
-    return int(lot_size)
 
 
 def allocate_capital(
@@ -107,7 +96,7 @@ def allocate_capital(
                 continue
 
             target_alloc = side_budget * (abs(weights[idx]) / side_sum)
-            lot_size = _lot_size_for_ticker(tk)
+            lot_size = lot_size_for(tk)
             lot_price = price * lot_size
             if lot_price <= 0:
                 continue
@@ -135,7 +124,7 @@ def allocate_capital(
             return float(open_prices.get(tk, 0.0))
 
         def _lot_size_at(idx: int) -> int:
-            return _lot_size_for_ticker(tickers[idx])
+            return lot_size_for(tickers[idx])
 
         def _lot_price_at(idx: int) -> float:
             return _price_at(idx) * _lot_size_at(idx)

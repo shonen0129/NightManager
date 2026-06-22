@@ -327,8 +327,8 @@ def get_hist_returns_for_risk(
         return hist_returns
 
     logger.info("No return cache found; running full backtest for VaR/ES...")
-    from leadlag.execution.backtester import BacktestEngine
     from leadlag.data.cache import load_df_exec_from_local_cache
+    from leadlag.execution.backtester import BacktestEngine
     df_exec = load_df_exec_from_local_cache()
     out_res = BacktestEngine.run_backtest(strategy, df_exec, start_date=config.start_date)
     hist_results = pd.DataFrame(

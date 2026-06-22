@@ -199,40 +199,40 @@ def compute_us_residualized_returns(
     spy_returns = np.nan_to_num(spy_returns, nan=0.0, posinf=0.0, neginf=0.0)
 
     T, n_u = us_returns.shape
-    
+
     us_df = pd.DataFrame(us_returns)
     spy_series = pd.Series(spy_returns)
-    
+
     cov_rolling = us_df.rolling(beta_window).cov(spy_series)
     var_rolling = spy_series.rolling(beta_window).var()
-    
+
     var_mask = var_rolling > 1e-12
     betas_raw = cov_rolling.divide(var_rolling.where(var_mask, np.nan), axis=0)
     betas_shifted = betas_raw.shift(1)
-    
+
     # Any non-finite values (NaN/inf) should be treated as NaN to be filled
     betas_shifted = betas_shifted.where(np.isfinite(betas_shifted), np.nan)
-    
+
     betas_val = betas_shifted.values
-    
+
     # Also ensure first beta_window rows are 0.0
     betas_val[:beta_window] = 0.0
-    
+
     # If there are no NaNs in betas_val (common case for clean data), we can skip the loop
     if np.isnan(betas_val).any():
         for t in range(beta_window, T):
             row = betas_val[t]
             prev_row = betas_val[t - 1]
-            
+
             is_finite_prev = np.isfinite(prev_row).all() if t > beta_window else False
-            
+
             nan_mask = np.isnan(row)
             if np.any(nan_mask):
                 if is_finite_prev:
                     betas_val[t, nan_mask] = prev_row[nan_mask]
                 else:
                     betas_val[t, nan_mask] = 1.0
-                    
+
     r_us_adj = us_returns - gamma * betas_val * spy_returns[:, np.newaxis]
 
     # Final fallback check to guarantee no NaNs/infs

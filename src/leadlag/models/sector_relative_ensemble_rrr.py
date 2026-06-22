@@ -7,9 +7,10 @@ with Reduced-Rank Regression signals (P6, P6P3) and Lowrank BLP signals (P7, P7P
 from __future__ import annotations
 
 import logging
+from typing import Any
+
 import numpy as np
 import pandas as pd
-from typing import Any
 
 from leadlag.core import signal as signals
 from leadlag.core.correlation import (

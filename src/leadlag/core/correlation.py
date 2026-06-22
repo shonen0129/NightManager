@@ -299,7 +299,7 @@ def compute_baseline_correlation(
     base_returns = all_returns[mask]
     if base_returns.shape[0] == 0:
         raise ValueError("No rows found for baseline period (2010-2014)")
-    
+
     cache_key = (ewma_half_life, base_returns.shape, hash(base_returns.tobytes()))
     if cache_key in _BASELINE_CORR_CACHE:
         return _BASELINE_CORR_CACHE[cache_key].copy()

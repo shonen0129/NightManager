@@ -8,17 +8,18 @@ conditional confidence weighting, winsorized robust covariance, and execution co
 from __future__ import annotations
 
 import logging
+from typing import Any
+
 import numpy as np
 import pandas as pd
-from typing import Any
 
 from leadlag.core import signal as signals
 from leadlag.core.correlation import (
     build_base_vectors,
+    build_c0_from_v0,
     build_v3_static,
     compute_baseline_correlation,
     compute_correlation,
-    build_c0_from_v0,
     regularize_correlation,
 )
 from leadlag.core.residualize import compute_rolling_ols_betas
@@ -76,7 +77,7 @@ class SectorRelativeEnsembleBLPEnhancedModel(BaseModel):
         self.lambda_pca = float(self._resolve_val("lambda_pca", 0.0))
         self.lambda_sector = float(self._resolve_val("lambda_sector", 0.0))
         self.beta_conf = float(self._resolve_val("beta_conf", 0.0))
-        
+
         winsor_val = self._resolve_val("winsor_sigma", None)
         if winsor_val is not None and str(winsor_val).lower() != "none":
             self.winsor_sigma = float(winsor_val)
@@ -116,7 +117,7 @@ class SectorRelativeEnsembleBLPEnhancedModel(BaseModel):
         elif key == "exec_adjustment":
             aliases.append("execution_target_cost_adjustment")
             aliases.append("execution_target_cost_adjustment_mode")
-            
+
         keys_to_try = [key] + aliases
         for k in keys_to_try:
             if hasattr(self.config, k):
@@ -139,7 +140,7 @@ class SectorRelativeEnsembleBLPEnhancedModel(BaseModel):
     def _build_sector_prior(self) -> np.ndarray:
         """Build the fixed日米業種対応行列 M_sector of size 17 x 15."""
         M = np.zeros((self.n_j, self.n_u))
-        
+
         # Sector Mapping dictionary mapping US ETFs to JP tickers
         mapping = {
             "XLB": {"1620.T": 0.5, "1623.T": 0.5},
@@ -158,7 +159,7 @@ class SectorRelativeEnsembleBLPEnhancedModel(BaseModel):
             "IUSG": {"1626.T": 0.5, "1625.T": 0.5},
             "USMV": {"1617.T": 0.33, "1621.T": 0.33, "1627.T": 0.34}
         }
-        
+
         for u_idx, us_tk in enumerate(US_TICKERS):
             if us_tk in mapping:
                 for jp_tk, w in mapping[us_tk].items():
@@ -171,7 +172,7 @@ class SectorRelativeEnsembleBLPEnhancedModel(BaseModel):
         for u_idx in range(self.n_u):
             if col_sums[u_idx] > 0:
                 M[:, u_idx] /= col_sums[u_idx]
-                
+
         return M
 
     def _prepare_common_inputs(self, df_exec: pd.DataFrame) -> dict:
@@ -348,7 +349,7 @@ class SectorRelativeEnsembleBLPEnhancedModel(BaseModel):
         window_start = max(0, current_index - self.blp_window)
         # Slices from window_start to current_index-1 (contains historical X and Y)
         window_returns = all_returns[window_start:current_index].copy()
-        
+
         # 1. Execution-aware target adjustment (vol-scaling target)
         if self.exec_adjustment == "vol_scale" and rolling_std is not None:
             for idx_local in range(len(window_returns)):
@@ -451,7 +452,7 @@ class SectorRelativeEnsembleBLPEnhancedModel(BaseModel):
             B_pca = v_j_t_k @ v_u_t_k.T
 
         norm_B_blp = np.linalg.norm(B_blp, "fro")
-        
+
         # PCA scaling
         norm_B_pca = np.linalg.norm(B_pca, "fro")
         scale_pca = norm_B_blp / (norm_B_pca + 1e-12)
@@ -494,7 +495,7 @@ class SectorRelativeEnsembleBLPEnhancedModel(BaseModel):
         # conditional variance: Sigma_Y_given_X = Sigma_YY_reg - Sigma_YX_reg @ inv_A @ Sigma_XY_reg
         Sigma_XY_reg = Sigma_YX_reg.T
         Sigma_Y_given_X = Sigma_YY_reg - Sigma_YX_reg @ inv_A @ Sigma_XY_reg
-        
+
         pred_var = np.maximum(np.diag(Sigma_Y_given_X), 0.0)
         var_floor = 1e-8
         pred_var_floored = np.maximum(pred_var, var_floor)

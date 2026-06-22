@@ -25,8 +25,14 @@ from leadlag.data.cache import (
 from leadlag.data.fetcher import download_data
 from leadlag.data.market_data import (
     compute_gap_from_jp_close as _compute_gap_from_jp_close,
+)
+from leadlag.data.market_data import (
     compute_gap_override as _compute_gap_override,
+)
+from leadlag.data.market_data import (
     compute_topix_night_override as _compute_topix_night_override,
+)
+from leadlag.data.market_data import (
     normalize_to_tokyo_date as _normalize_to_tokyo_date,
 )
 from leadlag.data.preprocessor import preprocess_data
@@ -36,16 +42,17 @@ from leadlag.execution.helpers import (
     build_api_client,
     build_output_dir,
     build_strategy,
-    get_hist_returns_for_risk,
-    resolve_wallet_capital,
     execute_post_decision_flow,
+    get_hist_returns_for_risk,
     resolve_daily_open_prices,
+    resolve_wallet_capital,
 )
 
 logger = logging.getLogger(__name__)
 
 
 import numpy as np
+
 
 def generate_daily_decision_results(model, df_exec, trade_date, current_weights=None):
     if trade_date == "latest":
@@ -55,19 +62,19 @@ def generate_daily_decision_results(model, df_exec, trade_date, current_weights=
         trade_date = pd.to_datetime(trade_date)
         i = df_exec.index.get_loc(trade_date)
     sig_date = df_exec["sig_date"].values[i]
-    
+
     pred = model.predict_signals(df_exec)
-    
+
     p0_sig = pred["p0_signals"].iloc[i].values
     p3_sig = pred["p3_signals"].iloc[i].values
     s_ens = pred["signals"].iloc[i].values
-    
+
     z0 = model.normalize_signals(p0_sig, model.normalization_method)
     z3 = model.normalize_signals(p3_sig, model.normalization_method)
-    
+
     w = model.build_weights(s_ens)
     ranks = pd.Series(s_ens).rank(ascending=False).values.astype(int)
-    
+
     side = []
     for weight in w:
         if weight > 1e-10:
@@ -76,7 +83,7 @@ def generate_daily_decision_results(model, df_exec, trade_date, current_weights=
             side.append("SHORT")
         else:
             side.append("NEUTRAL")
-            
+
     sig_records = []
     for j, tk in enumerate(JP_TICKERS):
         rec = {
@@ -98,10 +105,10 @@ def generate_daily_decision_results(model, df_exec, trade_date, current_weights=
             rec["us_residual_z"] = float(z4[j])
         sig_records.append(rec)
     latest_signal_df = pd.DataFrame(sig_records)
-    
+
     gross_exp = float(np.sum(np.abs(w)))
     net_exp = float(np.sum(w))
-    
+
     weight_records = []
     for j, tk in enumerate(JP_TICKERS):
         weight_records.append(
@@ -116,13 +123,13 @@ def generate_daily_decision_results(model, df_exec, trade_date, current_weights=
             }
         )
     latest_weights_df = pd.DataFrame(weight_records)
-    
+
     order_records = []
     for j, tk in enumerate(JP_TICKERS):
         curr_w = float(current_weights.get(tk, 0.0)) if current_weights is not None else 0.0
         target_w = float(w[j])
         delta_w = target_w - curr_w
-        
+
         note = ""
         if side[j] == "LONG":
             note = "Buy to target weight" if delta_w > 0 else "Reduce long weight"
@@ -130,7 +137,7 @@ def generate_daily_decision_results(model, df_exec, trade_date, current_weights=
             note = "Sell to target weight" if delta_w < 0 else "Cover short weight"
         else:
             note = "Close position" if abs(curr_w) > 1e-10 else "No position"
-            
+
         order_records.append(
             {
                 "trade_date": trade_date.strftime("%Y-%m-%d"),
@@ -143,7 +150,7 @@ def generate_daily_decision_results(model, df_exec, trade_date, current_weights=
             }
         )
     latest_orders_df = pd.DataFrame(order_records)
-    
+
     return {
         "signal_df": latest_signal_df,
         "weights_df": latest_weights_df,

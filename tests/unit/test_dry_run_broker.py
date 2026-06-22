@@ -142,7 +142,8 @@ class TestBrokerFactory:
         )
         assert isinstance(client, DryRunBrokerClient)
 
-    def test_dry_run_false_returns_kabu_client(self):
+    def test_dry_run_false_returns_kabu_client(self, monkeypatch):
+        monkeypatch.setenv("BROKER_PROVIDER", "kabu")
         client = create_broker_from_args(
             api_url="http://localhost:18080",
             api_token="test-token",
@@ -151,7 +152,8 @@ class TestBrokerFactory:
         )
         assert isinstance(client, KabuBrokerClient)
 
-    def test_both_are_broker_client_subclasses(self):
+    def test_both_are_broker_client_subclasses(self, monkeypatch):
+        monkeypatch.setenv("BROKER_PROVIDER", "kabu")
         dry = create_broker_from_args(
             api_url="http://localhost:18080",
             api_token=None,

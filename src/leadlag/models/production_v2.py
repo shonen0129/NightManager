@@ -34,9 +34,9 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from leadlag.compliance.v2_auditor import run_leakage_audit, run_numerical_audit
 from leadlag.config.schemas import ProductionV2RunConfig
 from leadlag.core.portfolio import get_rolling_pit_bin, solve_baseline_style
-from leadlag.compliance.v2_auditor import run_leakage_audit, run_numerical_audit
 from leadlag.data.tickers import JP_TICKERS
 
 logger = logging.getLogger(__name__)

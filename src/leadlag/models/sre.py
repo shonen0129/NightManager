@@ -19,8 +19,8 @@ from leadlag.core.correlation import (
     compute_correlation,
 )
 from leadlag.core.residualize import compute_rolling_ols_betas
-from leadlag.data.tickers import JP_TICKERS, US_TICKERS
 from leadlag.data.preprocessor import compute_us_residualized_returns
+from leadlag.data.tickers import JP_TICKERS, US_TICKERS
 from leadlag.models.base import BaseModel
 
 logger = logging.getLogger(__name__)
