@@ -286,11 +286,22 @@ class TachibanaClient:
         return res.get("aShinyouTategyokuList") or []
 
     def get_price(self, tickers: list[str]) -> list[dict[str, Any]]:
-        """Fetch current prices, open, and previous close for a list of tickers (max 120)."""
+        """Fetch current prices, open, previous close, and 5-level LOB for a list of tickers (max 120).
+
+        LOB columns (ask side): pGAP1..5 (price), pGAV1..5 (size)
+        LOB columns (bid side): pGBP1..5 (price), pGBV1..5 (size)
+        """
+        lob_columns = [
+            "pDPP", "pPRP", "pDOP", "pDHP", "pDLP", "pDV",
+            "pGAP1", "pGAP2", "pGAP3", "pGAP4", "pGAP5",
+            "pGAV1", "pGAV2", "pGAV3", "pGAV4", "pGAV5",
+            "pGBP1", "pGBP2", "pGBP3", "pGBP4", "pGBP5",
+            "pGBV1", "pGBV2", "pGBV3", "pGBV4", "pGBV5",
+        ]
         payload = {
             "sCLMID": "CLMMfdsGetMarketPrice",
             "sTargetIssueCode": ",".join(tickers),
-            "sTargetColumn": "pDPP,pPRP,pDOP,pDHP,pDLP,pDV",
+            "sTargetColumn": ",".join(lob_columns),
         }
         res = self._request("sUrlPrice", payload)
         return res.get("aCLMMfdsMarketPrice") or []

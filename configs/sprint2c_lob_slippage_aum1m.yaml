@@ -1,0 +1,37 @@
+start_date: "2009-01-01"
+end_date: "2026-03-31"
+
+aum_jpy: 1000000
+
+api:
+  enabled: false
+  broker_provider: "tachibana"
+  request_timeout: 10
+
+cost_aware_optimization:
+  default_spread_fallback_roundtrip_bps: 15.0
+  buy_interest_rate_annual: 0.025
+  sell_interest_rate_annual: 0.00
+  stock_borrow_fee_annual: 0.0115
+  interest_day_count: 365
+  interest_days: 1
+  commission_jpy_per_trade: 0
+  tax_rate: 0.20315
+
+execution:
+  n_long: 5
+  n_short: 5
+  min_net_score: 0.0
+  adv_cap: 0.20
+  adv_window: 20
+  round_lot_mode: true
+  lot_size_default: 1
+  # Hard constraints
+  max_quoted_spread_bps: 30.0
+  max_estimated_slippage_bps: 20.0
+  # LOB scaling thresholds
+  lob_depth_levels: 5
+  min_depth_ratio_scale: 1.5
+
+output_dir: "reports/sprint2c_lob_slippage"
+artifact_dir: "artifacts/sprint2c_lob_slippage"
