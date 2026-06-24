@@ -26,8 +26,8 @@ def rrr_sample_config() -> dict:
         "model": {"name": "sector_relative_ensemble_rrr"},
         "portfolio": {"long_short_frac": 0.3, "weight_mode": "signal"},
         "ensemble": {
-            "p0_weight": 0.4,
-            "p3_weight": 0.4,
+            "raw_pca_weight": 0.4,
+            "residual_pca_weight": 0.4,
             "p6_weight": 0.1,
             "p6p3_weight": 0.1,
             "p7_weight": 0.0,
@@ -205,8 +205,8 @@ def test_ensemble_weights_sum(rrr_sample_config):
     """7. test_ensemble_weights_sum: Verify PCA-Ensemble-RRR weights sum to 1.0."""
     model = SectorRelativeEnsembleRRRModel(rrr_sample_config)
     w_sum = (
-        model.p0_weight
-        + model.p3_weight
+        model.raw_pca_weight
+        + model.residual_pca_weight
         + model.p6_weight
         + model.p6p3_weight
         + model.p7_weight
@@ -255,14 +255,14 @@ def test_baseline_sre_reproduction(rrr_sample_config, sample_df_exec):
     df_exec, _ = sample_df_exec
     start_str = df_exec.index[-10].strftime("%Y-%m-%d")
 
-    prod_config_path = ROOT / "configs" / "archive" / "production_before_p8p3_blpx_20260614.yaml"
+    prod_config_path = ROOT / "configs" / "archive" / "production_before_residual_blpx_20260614.yaml"
     with open(prod_config_path) as f:
         prod_cfg = yaml.safe_load(f)
     sre_model = SectorRelativeEnsembleModel(prod_cfg)
 
     rrr_cfg = rrr_sample_config.copy()
-    rrr_cfg["ensemble"]["p0_weight"] = 0.5
-    rrr_cfg["ensemble"]["p3_weight"] = 0.5
+    rrr_cfg["ensemble"]["raw_pca_weight"] = 0.5
+    rrr_cfg["ensemble"]["residual_pca_weight"] = 0.5
     rrr_cfg["ensemble"]["p6_weight"] = 0.0
     rrr_cfg["ensemble"]["p6p3_weight"] = 0.0
     rrr_cfg["ensemble"]["p7_weight"] = 0.0

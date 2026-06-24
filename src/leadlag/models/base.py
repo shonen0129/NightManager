@@ -38,14 +38,20 @@ class AuditContext:
     prior_variant: str | None = None
     """Prior subspace variant identifier (e.g. 'resid_v2_removed'), or None."""
 
-    p0_weight: float = 0.5
+    raw_pca_weight: float = 0.5
     """Ensemble weight for Raw-PCA (Production PCA) signal."""
 
-    p3_weight: float = 0.5
+    residual_pca_weight: float = 0.5
     """Ensemble weight for Residual-PCA (Residual target PCA) signal."""
 
     p4_weight: float = 0.0
     """Ensemble weight for P4 (US-residualized) signal."""
+
+    raw_blpx_weight: float = 0.0
+    """Ensemble weight for Raw-BLPX signal."""
+
+    residual_blpx_weight: float = 0.0
+    """Ensemble weight for Residual-BLPX signal."""
 
     extra: dict = field(default_factory=dict)
     """Model-specific auxiliary metadata (arbitrary key-value pairs)."""
@@ -98,7 +104,9 @@ class BaseModel(ABC):
             us_res_beta_window=getattr(self, "us_res_beta_window", 60),
             us_res_gamma=getattr(self, "us_res_gamma", 0.5),
             prior_variant=getattr(self, "prior_variant", None),
-            p0_weight=getattr(self, "p0_weight", 0.5),
-            p3_weight=getattr(self, "p3_weight", 0.5),
+            raw_pca_weight=getattr(self, "raw_pca_weight", 0.5),
+            residual_pca_weight=getattr(self, "residual_pca_weight", 0.5),
             p4_weight=getattr(self, "p4_weight", 0.0),
+            raw_blpx_weight=getattr(self, "raw_blpx_weight", 0.0),
+            residual_blpx_weight=getattr(self, "residual_blpx_weight", 0.0),
         )

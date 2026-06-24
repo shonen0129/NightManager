@@ -29,7 +29,7 @@ sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "tools"))
 
 from leadlag.data.tickers import JP_TICKERS
-from run_daily_p8p3_blpx_shadow import generate_daily_shadow_portfolio, write_daily_files
+from run_daily_residual_blpx_shadow import generate_daily_shadow_portfolio, write_daily_files
 
 logging.basicConfig(
     level=logging.INFO,
@@ -46,7 +46,7 @@ def parse_arguments() -> argparse.Namespace:
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(description="Historical Batch Shadow Runner")
     parser.add_argument("--config", default="configs/production.yaml", help="Path to config file")
-    parser.add_argument("--model", default="production_p8p3_blpx", help="Model name")
+    parser.add_argument("--model", default="production_residual_blpx", help="Model name")
     parser.add_argument("--gap-input-dir", default="results/gap_adjusted_distribution/20260615_004202", help="Step 2 gap distribution folder")
     parser.add_argument("--ranking-audit-dir", default="results/risk_adjusted_ranking_audit/20260615_120049", help="Step 4.5 audit directory")
     parser.add_argument("--covariance-audit-dir", default="results/covariance_optimization_audit/20260615_123718", help="Step 5.5 audit directory")
@@ -54,7 +54,7 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument("--cost-audit-dir", default="results/dynamic_gross_cost_audit/20260615_031123", help="Step 3.5 cost audit directory")
     parser.add_argument("--vol-state-panel", default="results/vol_state_diagnostics/20260614_115821/state_panel.csv", help="US Vol State Panel CSV path")
     parser.add_argument("--output-dir", default="results/production_shadow_run_package", help="Output directory")
-    parser.add_argument("--shadow-root", default="shadow_runs/p8p3_blpx", help="Shadow runs root folder")
+    parser.add_argument("--shadow-root", default="shadow_runs/residual_blpx", help="Shadow runs root folder")
     parser.add_argument("--start", default="2020-01-01", help="Start date (YYYY-MM-DD)")
     parser.add_argument("--end", default="2026-06-14", help="End date (YYYY-MM-DD)")
     parser.add_argument("--baseline-gross", type=float, default=2.0, help="Baseline gross exposure")
@@ -250,9 +250,9 @@ def main():
     df_long["signal_date"] = pd.to_datetime(df_long["signal_date"]).dt.strftime("%Y-%m-%d")
     
     # Load baseline positions file for baseline weights reference
-    # PCA-Ensemble baseline positions are stored in results/production_p8p3_blpx_validation/daily_positions_P8P3_only.csv
+    # PCA-Ensemble baseline positions are stored in results/production_residual_blpx_validation/daily_positions_Residual-BLPX_only.csv
     # Or step 4.5 baseline positions
-    weights_file = Path("results/production_p8p3_blpx_validation/daily_positions_P8P3_only.csv")
+    weights_file = Path("results/production_residual_blpx_validation/daily_positions_Residual-BLPX_only.csv")
     if not weights_file.exists():
         weights_file = ranking_audit_dir / "baseline_positions.csv"
         

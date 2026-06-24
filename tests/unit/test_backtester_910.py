@@ -22,8 +22,8 @@ class DummyModel(BaseModel):
         )
         return {
             "signals": sigs,
-            "p0_signals": sigs,
-            "p3_signals": sigs,
+            "raw_pca_signals": sigs,
+            "residual_pca_signals": sigs,
             "p4_signals": sigs,
             "normalized_signals": sigs,
             "y_jp_oc_df": y_jp_oc_df,

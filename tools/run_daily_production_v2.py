@@ -2,7 +2,7 @@
 """Daily Production Runner v2: mu_over_sigma + baseline_style + RuleD.
 
 This script is the official daily production execution entry-point for
-production_p8p3_v2.  All business logic lives in the ``src/leadlag`` package:
+production_residual_blpx_v2.  All business logic lives in the ``src/leadlag`` package:
 
   - Portfolio construction : ``leadlag.models.production_v2``
   - Math helpers           : ``leadlag.core.portfolio``
@@ -50,13 +50,7 @@ sys.path.insert(0, str(ROOT / "src"))
 # Import after path is set up
 from leadlag.compliance.v2_auditor import run_leakage_audit, run_numerical_audit
 from leadlag.core.portfolio import get_rolling_pit_bin, solve_baseline_style
-from leadlag.models.production_v2 import (
-    BASELINE_GROSS,
-    COST_BPS_PER_GROSS,
-    LONG_COUNT,
-    SHORT_COUNT,
-    generate_v2_production_portfolio,
-)
+from leadlag.models.production_v2 import generate_v2_production_portfolio, VERSION
 from leadlag.reporting.production_v2_writer import write_production_files
 
 logging.basicConfig(
@@ -88,12 +82,12 @@ def parse_arguments() -> argparse.Namespace:
     )
     p.add_argument(
         "--v1-weights-file",
-        default="live/production_p8p3_blpx/v1_baseline_weights.csv",
+        default="live/production_residual_blpx/v1_baseline_weights.csv",
         help="Path to v1 baseline weights CSV (fallback when gap data missing)",
     )
     p.add_argument(
         "--live-dir",
-        default="live/production_p8p3_blpx",
+        default="live/production_residual_blpx",
         help="Live output directory",
     )
     p.add_argument(
@@ -166,7 +160,8 @@ def run_self_tests() -> int:
 
     # Test 6: cost formula consistency
     gross_ex = float(np.sum(np.abs(w_ok)))  # 2.0
-    cost_bps = gross_ex * COST_BPS_PER_GROSS
+    cost_bps_per_gross = 10.0  # Default from ProductionV2RunConfig
+    cost_bps = gross_ex * cost_bps_per_gross
     assert abs(cost_bps - 20.0) < 1e-9, f"T6: expected 20 bps got {cost_bps}"
     logger.info("[PASS] T6: cost formula")
 

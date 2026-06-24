@@ -6,8 +6,8 @@ model:
 
 ensemble:
   type: signal_level
-  p0_weight: 0.375
-  p3_weight: 0.375
+  raw_pca_weight: 0.375
+  residual_pca_weight: 0.375
   p4_weight: 0.25
   normalization: zscore
 

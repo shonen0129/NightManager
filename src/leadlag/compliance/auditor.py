@@ -24,6 +24,9 @@ class ComplianceAuditor:
         df_exec: pd.DataFrame,
         results: dict,
         output_dir: str | Path,
+        *,
+        max_net_limit: float = 0.051,
+        max_gross_limit: float = 2.01,
     ) -> dict:
         """Run safety audits for the model and its configurations.
 
@@ -32,6 +35,8 @@ class ComplianceAuditor:
             df_exec: Execution DataFrame containing historical data.
             results: Backtest or daily execution results.
             output_dir: Path to write audit artifacts.
+            max_net_limit: Maximum allowed net exposure (default: 0.051).
+            max_gross_limit: Maximum allowed gross exposure (default: 2.01).
 
         Returns:
             Dict containing audit results summary.
@@ -116,7 +121,7 @@ class ComplianceAuditor:
             audit_res["gamma_one_matches_full_residual_us"] = True
 
         # 3. Ensemble weight checks
-        weight_sum = ctx.p0_weight + ctx.p3_weight + ctx.p4_weight
+        weight_sum = ctx.raw_pca_weight + ctx.residual_pca_weight + ctx.p4_weight + ctx.raw_blpx_weight + ctx.residual_blpx_weight
         ensemble_weights_sum_to_one = abs(weight_sum - 1.0) < 1e-6
         audit_res["ensemble_weights_sum_to_one"] = bool(ensemble_weights_sum_to_one)
 
@@ -132,12 +137,10 @@ class ComplianceAuditor:
         audit_res["no_nan_inf_in_signals"] = bool(no_nan_inf_in_signals)
         audit_res["no_nan_inf_in_weights"] = bool(no_nan_inf_in_weights)
 
-        max_net_limit = 0.051
         net_exposures = weights_df.sum(axis=1).abs()
         net_exposure_within_limit = bool(np.all(net_exposures <= max_net_limit))
         audit_res["net_exposure_within_limit"] = bool(net_exposure_within_limit)
 
-        max_gross_limit = 2.01
         gross_exposures = weights_df.abs().sum(axis=1)
         gross_exposure_within_limit = bool(np.all(gross_exposures <= max_gross_limit))
         audit_res["gross_exposure_within_limit"] = bool(gross_exposure_within_limit)
@@ -232,11 +235,11 @@ class ComplianceAuditor:
             audit_res["c0_positive_semidefinite_or_tolerated"] = True
 
         # PCA-Ensemble original checks compat
-        audit_res["p0_weight_ok"] = (
-            abs(ctx.p0_weight - 0.5) < 1e-6 if not ctx.us_res_enabled else True
+        audit_res["raw_pca_weight_ok"] = (
+            abs(ctx.raw_pca_weight - 0.5) < 1e-6 if not ctx.us_res_enabled else True
         )
-        audit_res["p3_weight_ok"] = (
-            abs(ctx.p3_weight - 0.5) < 1e-6 if not ctx.us_res_enabled else True
+        audit_res["residual_pca_weight_ok"] = (
+            abs(ctx.residual_pca_weight - 0.5) < 1e-6 if not ctx.us_res_enabled else True
         )
 
         # Calculate overall success

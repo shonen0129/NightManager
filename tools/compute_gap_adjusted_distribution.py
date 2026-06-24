@@ -50,13 +50,13 @@ warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 def parse_arguments() -> argparse.Namespace:
     """Parse command line arguments."""
-    parser = argparse.ArgumentParser(description="P8P3-BLPX Step 2 Gap-Adjusted Distribution Diagnostics")
+    parser = argparse.ArgumentParser(description="Residual-BLPX Step 2 Gap-Adjusted Distribution Diagnostics")
     parser.add_argument("--distribution-input-dir", default="results/distribution_diagnostics/20260614_185401", help="Step 1 diagnostics input directory")
     parser.add_argument("--validation-input-dir", default="results/distribution_validation/20260614_235912", help="Step 1 validation input directory")
     parser.add_argument("--vol-state-panel", default="results/vol_state_diagnostics/20260614_115821/state_panel.csv", help="US Vol State Panel CSV path")
     parser.add_argument("--config", default="configs/production.yaml", help="Path to production YAML config")
-    parser.add_argument("--model", default="production_p8p3_blpx", help="Model identifier")
-    parser.add_argument("--results-dir", default="results/production_p8p3_blpx_validation", help="Validation/weights folder")
+    parser.add_argument("--model", default="production_residual_blpx", help="Model identifier")
+    parser.add_argument("--results-dir", default="results/production_residual_blpx_validation", help="Validation/weights folder")
     parser.add_argument("--output-dir", default="results/gap_adjusted_distribution", help="Output directory")
     parser.add_argument("--start", default="2020-01-01", help="Start date (YYYY-MM-DD)")
     parser.add_argument("--end", default="2026-06-14", help="End date (YYYY-MM-DD)")
@@ -218,12 +218,12 @@ def main():
     df_exec["topix_cc_trade"] = (1.0 + df_exec["topix_night_return"]) * (1.0 + df_exec["topix_oc_return"]) - 1.0
     
     # Setup model
-    logger.info("Instantiating P8P3-BLPX model...")
+    logger.info("Instantiating Residual-BLPX model...")
     model = SectorRelativeEnsembleBLPEnhancedModel(cfg)
     inputs = model._prepare_common_inputs(df_exec)
     
     # Fetch weights
-    weights_file = results_dir / "daily_positions_P8P3_only.csv"
+    weights_file = results_dir / "daily_positions_Residual-BLPX_only.csv"
     if not weights_file.exists():
         logger.error(f"Weights file not found at {weights_file}")
         sys.exit(1)
@@ -315,7 +315,7 @@ def main():
         
         # Run model to get raw std scaling and standardized predictions
         try:
-            p8p3_res = model.compute_blp_signal(
+            residual_blpx_res = model.compute_blp_signal(
                 jp_res_returns_p3,
                 i,
                 gap_override=gap_override,
@@ -332,15 +332,15 @@ def main():
             logger.warning(f"Error calling compute_blp_signal on {date_str}: {e}")
             continue
             
-        z_hat_j = p8p3_res["z_hat_j_t1"]
-        sigma_Y_denorm = p8p3_res["sigma_Y_denorm"]
-        mu_Y = p8p3_res["mu_Y"]
+        z_hat_j = residual_blpx_res["z_hat_j_t1"]
+        sigma_Y_denorm = residual_blpx_res["sigma_Y_denorm"]
+        mu_Y = residual_blpx_res["mu_Y"]
         
         # Compute mu_raw
         if model.vol_adjusted_target:
             mu_raw = z_hat_j * sigma_Y_denorm
         else:
-            mu_raw = mu_Y + p8p3_res["sigma_Y"] * z_hat_j
+            mu_raw = mu_Y + residual_blpx_res["sigma_Y"] * z_hat_j
             
         # Reconstruct Omega_raw
         Omega_raw = np.diag(sigma_Y_denorm) @ Omega_struct @ np.diag(sigma_Y_denorm)
@@ -364,7 +364,7 @@ def main():
         mu_gap = (1.0 + mu_raw) / denominator_floored - 1.0
         
         # Check matching with production model's signal
-        signal_prod = p8p3_res["signal"]
+        signal_prod = residual_blpx_res["signal"]
         diff_mu = np.max(np.abs(mu_gap - signal_prod))
         if diff_mu > 1e-12:
             logger.warning(f"Difference in mu_gap and production signal on {date_str}: {diff_mu:.2e}")

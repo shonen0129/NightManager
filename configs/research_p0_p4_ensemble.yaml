@@ -6,8 +6,8 @@ model:
 
 ensemble:
   type: signal_level
-  p0_weight: 0.50
-  p3_weight: 0.00
+  raw_pca_weight: 0.50
+  residual_pca_weight: 0.00
   p4_weight: 0.50
   normalization: zscore
 
@@ -53,7 +53,7 @@ us_residualization:
 lambda_reg: 0.75
 
 output:
-  base_dir: results/p0_p4_ensemble
+  base_dir: results/raw_pca_p4_ensemble
   save_signals: true
   save_weights: true
   save_plots: true

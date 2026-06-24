@@ -298,7 +298,7 @@ def evaluate_single_run(args_tuple):
 
     for ens in ensembles:
         ens_name = ens["name"]
-        w_p0, w_p3, w_p6, w_p6p3, w_p7, w_p7p3 = ens["p0"], ens["p3"], ens["p6"], ens["p6p3"], ens["p7"], ens["p7p3"]
+        w_p0, w_p3, w_p6, w_p6p3, w_p7, w_p7p3 = ens["raw_pca"], ens["residual_pca"], ens["p6"], ens["p6p3"], ens["p7"], ens["p7p3"]
 
         # Combined signal
         comb_sig = (
@@ -514,7 +514,7 @@ def main():
         "model": {"name": "sector_relative_ensemble_rrr"},
         "portfolio": {"long_short_frac": 0.3, "weight_mode": "signal"},
         "ensemble": {
-            "p0_weight": 0.5, "p3_weight": 0.5,
+            "raw_pca_weight": 0.5, "residual_pca_weight": 0.5,
             "p6_weight": 0.0, "p6p3_weight": 0.0,
             "p7_weight": 0.0, "p7p3_weight": 0.0
         },
@@ -522,8 +522,8 @@ def main():
     rrr_base_model = SectorRelativeEnsembleRRRModel(init_rrr_cfg)
     base_pred = rrr_base_model.predict_signals(df_exec)
 
-    p0_sig_base = base_pred["p0_signals"].loc[sim_dates_slice]
-    p3_sig_base = base_pred["p3_signals"].loc[sim_dates_slice]
+    raw_pca_sig_base = base_pred["raw_pca_signals"].loc[sim_dates_slice]
+    residual_pca_sig_base = base_pred["residual_pca_signals"].loc[sim_dates_slice]
 
     # Check baseline replication
     reproduced_signals_df = base_pred["signals"].loc[sim_dates_slice]
@@ -561,8 +561,8 @@ def main():
     daily_diagnostics_all = []
 
     # Standard normalization of components
-    z0_df = p0_sig_base.apply(lambda row: rrr_base_model.normalize_signals(row.values, "zscore"), axis=1, result_type="expand")
-    z3_df = p3_sig_base.apply(lambda row: rrr_base_model.normalize_signals(row.values, "zscore"), axis=1, result_type="expand")
+    z0_df = raw_pca_sig_base.apply(lambda row: rrr_base_model.normalize_signals(row.values, "zscore"), axis=1, result_type="expand")
+    z3_df = residual_pca_sig_base.apply(lambda row: rrr_base_model.normalize_signals(row.values, "zscore"), axis=1, result_type="expand")
 
     # Generate default parameter signals for report diagnostics (avoids undefined z6_df, etc.)
     logger.info("Generating default parameter RRR signals for report diagnostics...")
@@ -865,8 +865,8 @@ def main():
 
     # 5. Signal correlations
     logger.info("Computing signal correlations and IC timeseries...")
-    p0_flat = z0_df.values.flatten()
-    p3_flat = z3_df.values.flatten()
+    raw_pca_flat = z0_df.values.flatten()
+    residual_pca_flat = z3_df.values.flatten()
     p6_flat = z6_df.values.flatten()
     p6p3_flat = z6p3_df.values.flatten()
     p7_flat = z7_df.values.flatten()
@@ -874,13 +874,13 @@ def main():
 
     corr_records = []
     pairs = [
-        ("P0", "P6", p0_flat, p6_flat),
-        ("P3", "P6P3", p3_flat, p6p3_flat),
-        ("P0", "P3", p0_flat, p3_flat),
+        ("Raw-PCA", "P6", raw_pca_flat, p6_flat),
+        ("Residual-PCA", "P6P3", residual_pca_flat, p6p3_flat),
+        ("Raw-PCA", "Residual-PCA", raw_pca_flat, residual_pca_flat),
         ("P6", "P6P3", p6_flat, p6p3_flat),
         ("P7", "P7P3", p7_flat, p7p3_flat),
-        ("P0", "P7", p0_flat, p7_flat),
-        ("P3", "P7P3", p3_flat, p7p3_flat),
+        ("Raw-PCA", "P7", raw_pca_flat, p7_flat),
+        ("Residual-PCA", "P7P3", residual_pca_flat, p7p3_flat),
     ]
     for n1, n2, f1, f2 in pairs:
         pears = float(np.corrcoef(f1, f2)[0, 1])
@@ -981,7 +981,7 @@ def main():
     no_nan_inf_in_component_signals = True
     no_nan_inf_in_ensemble_signals = True
     for ens in ensembles:
-        w_sum = ens["p0"] + ens["p3"] + ens["p6"] + ens["p6p3"] + ens["p7"] + ens["p7p3"]
+        w_sum = ens["raw_pca"] + ens["residual_pca"] + ens["p6"] + ens["p6p3"] + ens["p7"] + ens["p7p3"]
         if abs(w_sum - 1.0) > 1e-6:
             ensemble_weights_sum_to_one = False
 

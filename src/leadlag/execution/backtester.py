@@ -126,8 +126,8 @@ class BacktestEngine:
         drawdown = (wealth / running_max) - 1.0
 
         out_res = {
-            "p0_signals": pred["p0_signals"].loc[sim_dates_slice],
-            "p3_signals": pred["p3_signals"].loc[sim_dates_slice],
+            "raw_pca_signals": pred["raw_pca_signals"].loc[sim_dates_slice],
+            "residual_pca_signals": pred["residual_pca_signals"].loc[sim_dates_slice],
             "p4_signals": pred["p4_signals"].loc[sim_dates_slice],
             "signals": sre_signals_df.loc[sim_dates_slice],
             "normalized_signals": pred["normalized_signals"].loc[sim_dates_slice],

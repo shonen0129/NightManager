@@ -50,12 +50,12 @@ warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 def parse_arguments() -> argparse.Namespace:
     """Parse command line arguments."""
-    parser = argparse.ArgumentParser(description="P8P3 Prediction Covariance Diagnostic Suite")
+    parser = argparse.ArgumentParser(description="Residual-BLPX Prediction Covariance Diagnostic Suite")
     parser.add_argument("--config", default="configs/production.yaml", help="Path to YAML config file")
-    parser.add_argument("--model", default="production_p8p3_blpx", help="Model name")
+    parser.add_argument("--model", default="production_residual_blpx", help="Model name")
     parser.add_argument("--start", default="2020-01-01", help="Start date (YYYY-MM-DD)")
     parser.add_argument("--end", default="2026-06-14", help="End date (YYYY-MM-DD)")
-    parser.add_argument("--results-dir", default="results/production_p8p3_blpx_validation", help="Validation outputs directory")
+    parser.add_argument("--results-dir", default="results/production_residual_blpx_validation", help="Validation outputs directory")
     parser.add_argument("--output-dir", default="results/distribution_diagnostics", help="Output directory")
     parser.add_argument("--slippage-bps", type=float, default=5.0, help="Slippage bps per side")
     parser.add_argument("--save-daily-matrices", type=str, default="true", help="Save daily matrices (true/false)")
@@ -190,7 +190,7 @@ def main():
     logger.info(f"Diagnostics window: {sim_dates_slice[0].strftime('%Y-%m-%d')} to {sim_dates_slice[-1].strftime('%Y-%m-%d')} ({len(sim_dates_slice)} days)")
     
     # 3. Model setup
-    logger.info("Instantiating P8P3-BLPX model...")
+    logger.info("Instantiating Residual-BLPX model...")
     model = SectorRelativeEnsembleBLPEnhancedModel(cfg)
     inputs = model._prepare_common_inputs(df_exec)
     
@@ -207,7 +207,7 @@ def main():
     v0_static = inputs["v0_static"]
     
     # Check weights and runs
-    weights_file = results_dir / "daily_positions_P8P3_only.csv"
+    weights_file = results_dir / "daily_positions_Residual-BLPX_only.csv"
     if not weights_file.exists():
         if args.run_backtest_if_missing:
             logger.info(f"Weights file {weights_file} not found. Running backtest...")
@@ -266,7 +266,7 @@ def main():
         
         # Call model to get raw matrices
         try:
-            p8p3_res = model.compute_blp_signal(
+            residual_blpx_res = model.compute_blp_signal(
                 jp_res_returns_p3,
                 i,
                 gap_override=gap_override,
@@ -283,14 +283,14 @@ def main():
             logger.warning(f"Error computing signal on {dt.strftime('%Y-%m-%d')}: {e}")
             continue
             
-        Sigma_XX = p8p3_res["Sigma_XX"]
-        Sigma_YX = p8p3_res["Sigma_YX"]
+        Sigma_XX = residual_blpx_res["Sigma_XX"]
+        Sigma_YX = residual_blpx_res["Sigma_YX"]
         Sigma_XY = Sigma_YX.T
-        Sigma_YY = p8p3_res["Sigma_YY"]
-        B_struct = p8p3_res["B_struct"]
-        z_U = p8p3_res["z_U"]
-        pred_var_vec = p8p3_res["pred_var_vec"]
-        sigma_Y_denorm = p8p3_res["sigma_Y_denorm"]
+        Sigma_YY = residual_blpx_res["Sigma_YY"]
+        B_struct = residual_blpx_res["B_struct"]
+        z_U = residual_blpx_res["z_U"]
+        pred_var_vec = residual_blpx_res["pred_var_vec"]
+        sigma_Y_denorm = residual_blpx_res["sigma_Y_denorm"]
         
         # Validate matrix finitude
         if not (np.isfinite(Sigma_XX).all() and np.isfinite(Sigma_YX).all() and np.isfinite(Sigma_YY).all() and np.isfinite(B_struct).all()):
@@ -337,7 +337,7 @@ def main():
         frob_norm = float(np.linalg.norm(Omega_struct, "fro"))
         
         # Frobenius distance to Sigma_Y|X
-        inv_A = p8p3_res["inv_A"]
+        inv_A = residual_blpx_res["inv_A"]
         Sigma_Y_given_X = Sigma_YY - Sigma_YX @ inv_A @ Sigma_XY
         frob_diff = float(np.linalg.norm(Omega_struct - Sigma_Y_given_X, "fro"))
         
@@ -390,7 +390,7 @@ def main():
         omega_std_raw = np.sqrt(np.maximum(omega_diag_raw, 1e-10))
         
         # Portfolio level diagnostics
-        mu_t = p8p3_res["signal"] # Raw prediction
+        mu_t = residual_blpx_res["signal"] # Raw prediction
         
         # Retrieve weights
         w_t = np.zeros(model.n_j)
@@ -453,7 +453,7 @@ def main():
                 "signal_date": sig_date,
                 "trade_date": date_str,
                 "ticker": tk,
-                "z_hat_J": float(p8p3_res["z_hat_j_t1"][idx]),
+                "z_hat_J": float(residual_blpx_res["z_hat_j_t1"][idx]),
                 "mu_t": float(mu_t[idx]),
                 "omega_diag_struct": float(omega_diag_raw[idx]),
                 "omega_std_struct": float(omega_std_raw[idx]),

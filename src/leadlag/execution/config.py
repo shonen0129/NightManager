@@ -10,7 +10,7 @@ from typing import Any
 import yaml
 from dotenv import load_dotenv
 
-from leadlag.config import AppConfig, KabuApiConfig, RiskConfig, StrategyConfig, TachibanaApiConfig
+from leadlag.config.schemas import AppConfig, KabuApiConfig, RiskConfig, StrategyConfig, TachibanaApiConfig
 
 logger = logging.getLogger(__name__)
 
@@ -104,7 +104,7 @@ def load_config_from_yaml(yaml_path: str | Path | None = None) -> AppConfig:
         "include_v4_prior": portfolio_data.get("include_v4_prior", True),
         "signal_mode": portfolio_data.get("signal_mode", "gap_residual"),
         "gap_open_coef": portfolio_data.get("gap_open_coef", 0.70),
-        "topix_beta_coef": res_data.get("topix_beta_coef", 1.20),
+        "topix_beta_coef": res_data.get("topix_beta_coef", 0.6),
         "beta_window": res_data.get("beta_window", 60),
         "gamma": portfolio_data.get("gamma", 0.5),
         "slippage_bps": costs_data.get("slippage_bps_per_side", 5.0),

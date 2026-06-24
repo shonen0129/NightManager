@@ -349,7 +349,7 @@ def main():
     prev_blp_cfg = {
         "model": {"name": "sector_relative_ensemble_blp"},
         "portfolio": {"long_short_frac": 0.3, "weight_mode": "signal"},
-        "ensemble": {"p0_weight": 0.4, "p3_weight": 0.4, "p5_weight": 0.1, "p5p3_weight": 0.1},
+        "ensemble": {"raw_pca_weight": 0.4, "residual_pca_weight": 0.4, "p5_weight": 0.1, "p5p3_weight": 0.1},
         "costs": {"slippage_bps_per_side": 5.0},
         "blp_window": 252,
         "blp_ewma_halflife": 45,
@@ -365,7 +365,7 @@ def main():
     init_blpx_cfg = {
         "model": {"name": "sector_relative_ensemble_blp_enhanced"},
         "portfolio": {"long_short_frac": 0.3, "weight_mode": "signal"},
-        "ensemble": {"p0_weight": 0.5, "p3_weight": 0.5, "p8_weight": 0.0, "p8p3_weight": 0.0},
+        "ensemble": {"raw_pca_weight": 0.5, "residual_pca_weight": 0.5, "raw_blpx_weight": 0.0, "residual_blpx_weight": 0.0},
         "costs": {"slippage_bps_per_side": 5.0},
     }
     blpx_base_model = SectorRelativeEnsembleBLPEnhancedModel(init_blpx_cfg)
@@ -395,7 +395,7 @@ def main():
     prev_blpx_cfg = {
         "model": {"name": "sector_relative_ensemble_blp_enhanced"},
         "portfolio": {"long_short_frac": 0.3, "weight_mode": "signal"},
-        "ensemble": {"p0_weight": 0.4, "p3_weight": 0.4, "p8_weight": 0.1, "p8p3_weight": 0.1},
+        "ensemble": {"raw_pca_weight": 0.4, "residual_pca_weight": 0.4, "raw_blpx_weight": 0.1, "residual_blpx_weight": 0.1},
         "costs": {"slippage_bps_per_side": 5.0},
         "blp_window": 252,
         "blp_ewma_halflife": 45,
@@ -483,10 +483,10 @@ def main():
                 "exec_adjustment": "none",
                 "variant": "baseline_blp",
                 "ensemble": "SRE_current",
-                "p0": 0.5,
-                "p3": 0.5,
-                "p8": 0.0,
-                "p8p3": 0.0,
+                "raw_pca": 0.5,
+                "residual_pca": 0.5,
+                "raw_blpx": 0.0,
+                "residual_blpx": 0.0,
                 "slippage_bps": slip,
                 "period": p_name,
             }
@@ -528,10 +528,10 @@ def main():
                 "exec_adjustment": "none",
                 "variant": "baseline_blp",
                 "ensemble": "BLP_prev_Hybrid_20",
-                "p0": 0.4,
-                "p3": 0.4,
-                "p8": 0.1,
-                "p8p3": 0.1,
+                "raw_pca": 0.4,
+                "residual_pca": 0.4,
+                "raw_blpx": 0.1,
+                "residual_blpx": 0.1,
                 "slippage_bps": slip,
                 "period": p_name,
             }
@@ -539,12 +539,12 @@ def main():
             all_results.append(record)
 
     # Cache standard component signals for correlation analysis
-    p0_sig_base = base_pred["p0_signals"].loc[sim_dates_slice]
-    p3_sig_base = base_pred["p3_signals"].loc[sim_dates_slice]
+    raw_pca_sig_base = base_pred["raw_pca_signals"].loc[sim_dates_slice]
+    residual_pca_sig_base = base_pred["residual_pca_signals"].loc[sim_dates_slice]
 
     # Pre-computed Z-scores of standard components
-    z0_df = p0_sig_base.apply(lambda row: blpx_base_model.normalize_signals(row.values, "zscore"), axis=1, result_type="expand")
-    z3_df = p3_sig_base.apply(lambda row: blpx_base_model.normalize_signals(row.values, "zscore"), axis=1, result_type="expand")
+    z0_df = raw_pca_sig_base.apply(lambda row: blpx_base_model.normalize_signals(row.values, "zscore"), axis=1, result_type="expand")
+    z3_df = residual_pca_sig_base.apply(lambda row: blpx_base_model.normalize_signals(row.values, "zscore"), axis=1, result_type="expand")
 
     # Grid Search Loop over Enhanced BLP Parameters
     total_grid_combinations = len(blp_window_grid) * len(ewma_halflife_grid) * len(alpha_xx_grid) * \
@@ -583,7 +583,7 @@ def main():
                                                 run_cfg = {
                                                     "model": {"name": "sector_relative_ensemble_blp_enhanced"},
                                                     "portfolio": {"long_short_frac": 0.3, "weight_mode": "signal"},
-                                                    "ensemble": {"p0_weight": 0.0, "p3_weight": 0.0, "p8_weight": 1.0, "p8p3_weight": 0.0},
+                                                    "ensemble": {"raw_pca_weight": 0.0, "residual_pca_weight": 0.0, "raw_blpx_weight": 1.0, "residual_blpx_weight": 0.0},
                                                     "blp_window": window,
                                                     "blp_ewma_halflife": halflife,
                                                     "alpha_xx": alpha_xx,
@@ -601,8 +601,8 @@ def main():
                                                 run_model = SectorRelativeEnsembleBLPEnhancedModel(run_cfg)
                                                 pred = run_model.predict_signals(df_exec)
                                                 
-                                                p8_sig = pred["p8_signals"].loc[sim_dates_slice]
-                                                p8p3_sig = pred["p8p3_signals"].loc[sim_dates_slice]
+                                                raw_blpx_sig = pred["raw_blpx_signals"].loc[sim_dates_slice]
+                                                residual_blpx_sig = pred["residual_blpx_signals"].loc[sim_dates_slice]
                                                 
                                                 # Lookahead check for safety audits
                                                 for i_step in range(start_idx, end_idx + 1):
@@ -615,28 +615,28 @@ def main():
 
                                                 # Regularization audits
                                                 diag_df = pred["blp_diagnostics"]
-                                                conds = diag_df["p8_cond_num"].dropna().values
+                                                conds = diag_df["raw_blpx_cond_num"].dropna().values
                                                 if len(conds) > 0:
                                                     max_c = float(np.max(conds))
                                                     if max_c > max_condition_number:
                                                         max_condition_number = max_c
                                                     all_cond_nums.extend(conds)
-                                                num_pinv_fallbacks += int(diag_df["p8_pinv_fallback"].sum())
+                                                num_pinv_fallbacks += int(diag_df["raw_blpx_pinv_fallback"].sum())
                                                 
                                                 # Standardize and normalize signals
-                                                z8_df = p8_sig.apply(lambda row: run_model.normalize_signals(row.values, "zscore"), axis=1, result_type="expand")
-                                                z8p3_df = p8p3_sig.apply(lambda row: run_model.normalize_signals(row.values, "zscore"), axis=1, result_type="expand")
+                                                z_raw_blpx_df = raw_blpx_sig.apply(lambda row: run_model.normalize_signals(row.values, "zscore"), axis=1, result_type="expand")
+                                                z_residual_blpx_df = residual_blpx_sig.apply(lambda row: run_model.normalize_signals(row.values, "zscore"), axis=1, result_type="expand")
                                                 
                                                 # Check constraints and finiteness
-                                                if z8_df.isna().any().any() or np.isinf(z8_df.values).any():
+                                                if z_raw_blpx_df.isna().any().any() or np.isinf(z_raw_blpx_df.values).any():
                                                     blpx_regularization_passed = False
                                                 
                                                 # Conditional variance diagnostics
-                                                min_pv = float(diag_df["p8_min_pred_var"].min())
+                                                min_pv = float(diag_df["raw_blpx_min_pred_var"].min())
                                                 if min_pv < min_pred_var_before_floor:
                                                     min_pred_var_before_floor = min_pv
-                                                num_pred_var_floored += int(diag_df["p8_num_pred_var_floored"].sum())
-                                                if diag_df["p8_min_pred_var"].min() < 0.0:
+                                                num_pred_var_floored += int(diag_df["raw_blpx_num_pred_var_floored"].sum())
+                                                if diag_df["raw_blpx_min_pred_var"].min() < 0.0:
                                                     confidence_variance_valid = False
                                                     
                                                 # Loop over ensembles
@@ -645,10 +645,10 @@ def main():
                                                     if ens_name in ["SRE_current", "BLP_prev_Hybrid_20"]:
                                                         continue # Pre-computed
                                                         
-                                                    w_p0, w_p3, w_p8, w_p8p3 = ens["p0"], ens["p3"], ens["p8"], ens["p8p3"]
+                                                    w_p0, w_p3, w_p8, w_residual_blpx = ens["raw_pca"], ens["residual_pca"], ens["raw_blpx"], ens["residual_blpx"]
                                                     
                                                     # Combined signal
-                                                    comb_sig = w_p0 * z0_df + w_p3 * z3_df + w_p8 * z8_df + w_p8p3 * z8p3_df
+                                                    comb_sig = w_p0 * z0_df + w_p3 * z3_df + w_p8 * z_raw_blpx_df + w_residual_blpx * z_residual_blpx_df
                                                     
                                                     # Loop over slippages
                                                     for slip in slippage_grid:
@@ -696,10 +696,10 @@ def main():
                                                                 "exec_adjustment": exec_adj,
                                                                 "variant": variant_name,
                                                                 "ensemble": ens_name,
-                                                                "p0": w_p0,
-                                                                "p3": w_p3,
-                                                                "p8": w_p8,
-                                                                "p8p3": w_p8p3,
+                                                                "raw_pca": w_p0,
+                                                                "residual_pca": w_p3,
+                                                                "raw_blpx": w_p8,
+                                                                "residual_blpx": w_residual_blpx,
                                                                 "slippage_bps": slip,
                                                                 "period": period_name,
                                                             }
@@ -894,7 +894,7 @@ def main():
         best_cfg = {
             "model": {"name": "sector_relative_ensemble_blp_enhanced"},
             "portfolio": {"long_short_frac": 0.3, "weight_mode": "signal"},
-            "ensemble": {"p0_weight": best_cand["p0"], "p3_weight": best_cand["p3"], "p8_weight": best_cand["p8"], "p8p3_weight": best_cand["p8p3"]},
+            "ensemble": {"raw_pca_weight": best_cand["raw_pca"], "residual_pca_weight": best_cand["residual_pca"], "raw_blpx_weight": best_cand["raw_blpx"], "residual_blpx_weight": best_cand["residual_blpx"]},
             "blp_window": int(best_cand["blp_window"]),
             "blp_ewma_halflife": float(best_cand["ewma_halflife"]),
             "alpha_xx": float(best_cand["alpha_xx"]),
@@ -934,11 +934,11 @@ def main():
             if ens_name in ["SRE_current", "BLP_prev_Hybrid_20"]:
                 continue
                 
-            w_p0, w_p3, w_p8, w_p8p3 = ens["p0"], ens["p3"], ens["p8"], ens["p8p3"]
-            z8_df = best_pred["p8_signals"].loc[sim_dates_slice].apply(lambda row: best_model.normalize_signals(row.values, "zscore"), axis=1, result_type="expand")
-            z8p3_df = best_pred["p8p3_signals"].loc[sim_dates_slice].apply(lambda row: best_model.normalize_signals(row.values, "zscore"), axis=1, result_type="expand")
+            w_p0, w_p3, w_p8, w_residual_blpx = ens["raw_pca"], ens["residual_pca"], ens["raw_blpx"], ens["residual_blpx"]
+            z_raw_blpx_df = best_pred["raw_blpx_signals"].loc[sim_dates_slice].apply(lambda row: best_model.normalize_signals(row.values, "zscore"), axis=1, result_type="expand")
+            z_residual_blpx_df = best_pred["residual_blpx_signals"].loc[sim_dates_slice].apply(lambda row: best_model.normalize_signals(row.values, "zscore"), axis=1, result_type="expand")
             
-            comb_sig = w_p0 * z0_df + w_p3 * z3_df + w_p8 * z8_df + w_p8p3 * z8p3_df
+            comb_sig = w_p0 * z0_df + w_p3 * z3_df + w_p8 * z_raw_blpx_df + w_residual_blpx * z_residual_blpx_df
             
             sim_ens = simulate_portfolio_fast(comb_sig, y_jp_target_slice, q=0.3, n_j=17, weight_mode="signal", slippage_bps=5.0)
             daily_returns_master[ens_name] = sim_ens["daily_returns"]
@@ -975,17 +975,17 @@ def main():
         }).to_csv(out_dir / "long_short_contribution.csv")
 
         # Compute component signal correlations
-        p8_flat = best_pred["p8_signals"].loc[sim_dates_slice].values.flatten()
-        p8p3_flat = best_pred["p8p3_signals"].loc[sim_dates_slice].values.flatten()
-        p0_flat = z0_df.values.flatten()
-        p3_flat = z3_df.values.flatten()
+        raw_blpx_flat = best_pred["raw_blpx_signals"].loc[sim_dates_slice].values.flatten()
+        residual_blpx_flat = best_pred["residual_blpx_signals"].loc[sim_dates_slice].values.flatten()
+        raw_pca_flat = z0_df.values.flatten()
+        residual_pca_flat = z3_df.values.flatten()
         
         corr_records = []
         pairs = [
-            ("P0", "P8", p0_flat, p8_flat),
-            ("P3", "P8P3", p3_flat, p8p3_flat),
-            ("P0", "P3", p0_flat, p3_flat),
-            ("P8", "P8P3", p8_flat, p8p3_flat),
+            ("Raw-PCA", "Raw-BLPX", raw_pca_flat, raw_blpx_flat),
+            ("Residual-PCA", "Residual-BLPX", residual_pca_flat, residual_blpx_flat),
+            ("Raw-PCA", "Residual-PCA", raw_pca_flat, residual_pca_flat),
+            ("Raw-BLPX", "Residual-BLPX", raw_blpx_flat, residual_blpx_flat),
         ]
         for n1, n2, f1, f2 in pairs:
             pears = float(np.corrcoef(f1, f2)[0, 1])
@@ -1036,16 +1036,16 @@ def main():
     # 6. Safety Audits Checks
     logger.info("Executing quantitative audits...")
     
-    p8_uses_us_input = True
-    p8_uses_p0_target = True
-    p8p3_uses_us_input = True
-    p8p3_uses_p3_topix_residual_target = True
+    raw_blpx_uses_us_input = True
+    raw_blpx_uses_p0_target = True
+    residual_blpx_uses_us_input = True
+    residual_blpx_uses_p3_topix_residual_target = True
     
     ensemble_weights_sum_to_one = True
     no_nan_inf_in_component_signals = True
     no_nan_inf_in_ensemble_signals = True
     for ens in ensembles:
-        w_sum = ens["p0"] + ens["p3"] + ens["p8"] + ens["p8p3"]
+        w_sum = ens["raw_pca"] + ens["residual_pca"] + ens["raw_blpx"] + ens["residual_blpx"]
         if abs(w_sum - 1.0) > 1e-6:
             ensemble_weights_sum_to_one = False
             
@@ -1066,10 +1066,10 @@ def main():
         "max_training_y_date_le_signal_date": max_training_y_date_le_signal_date,
         "num_lookahead_violations": num_lookahead_violations,
         "signal_date_lt_trade_date": True,
-        "p8_uses_us_input": p8_uses_us_input,
-        "p8_uses_p0_target": p8_uses_p0_target,
-        "p8p3_uses_us_input": p8p3_uses_us_input,
-        "p8p3_uses_p3_topix_residual_target": p8p3_uses_p3_topix_residual_target,
+        "raw_blpx_uses_us_input": raw_blpx_uses_us_input,
+        "raw_blpx_uses_p0_target": raw_blpx_uses_p0_target,
+        "residual_blpx_uses_us_input": residual_blpx_uses_us_input,
+        "residual_blpx_uses_p3_topix_residual_target": residual_blpx_uses_p3_topix_residual_target,
         "blpx_matrix_dimensions_passed": blpx_matrix_dimensions_passed,
         "blpx_regularization_passed": blpx_regularization_passed,
         "max_condition_number": max_condition_number,

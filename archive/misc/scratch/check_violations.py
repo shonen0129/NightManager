@@ -80,8 +80,8 @@ for i in range(start_idx, T):
 
 # Raw signals
 daily_signals = {
-    "P0": np.zeros((T, 17)),
-    "P3": np.zeros((T, 17))
+    "Raw-PCA": np.zeros((T, 17)),
+    "Residual-PCA": np.zeros((T, 17))
 }
 for idx, date in enumerate(sim_dates):
     i = start_idx + idx
@@ -95,7 +95,7 @@ for idx, date in enumerate(sim_dates):
         gap_override=gap_t1, gap_open_coef=0.70, topix_beta_coef=0.6,
         betas_t=betas_t, topix_night_t=topix_night_t, vol_adjusted_target=True
     )
-    daily_signals["P0"][i] = sig_res_p0["signal"]
+    daily_signals["Raw-PCA"][i] = sig_res_p0["signal"]
 
     sig_res_p3 = signals.compute_signal(
         jp_res_returns_p3, i, 15, 60, c_full, v0_static, v1, v2,
@@ -103,7 +103,7 @@ for idx, date in enumerate(sim_dates):
         gap_override=gap_t1, gap_open_coef=0.70, topix_beta_coef=0.6,
         betas_t=betas_t, topix_night_t=topix_night_t, vol_adjusted_target=True
     )
-    daily_signals["P3"][i] = sig_res_p3["signal"]
+    daily_signals["Residual-PCA"][i] = sig_res_p3["signal"]
 
 # Now audit all models
 w_p0_list = []
@@ -114,31 +114,31 @@ y_jp_oc_all = y_jp_oc_df.values
 
 for idx, date in enumerate(sim_dates):
     i = start_idx + idx
-    w_t0 = build_portfolio_weights(daily_signals["P0"][i])
-    disp0 = signals.compute_dispersion_indicator(daily_signals["P0"][i], 0.3, 17, "long_short_mean_gap")
+    w_t0 = build_portfolio_weights(daily_signals["Raw-PCA"][i])
+    disp0 = signals.compute_dispersion_indicator(daily_signals["Raw-PCA"][i], 0.3, 17, "long_short_mean_gap")
     disp0_hist = []
     for h in range(max(0, i - 60), i):
-        if not np.isnan(daily_signals["P0"][h]).all():
-            disp0_hist.append(signals.compute_dispersion_indicator(daily_signals["P0"][h], 0.3, 17, "long_short_mean_gap"))
+        if not np.isnan(daily_signals["Raw-PCA"][h]).all():
+            disp0_hist.append(signals.compute_dispersion_indicator(daily_signals["Raw-PCA"][h], 0.3, 17, "long_short_mean_gap"))
     scale0 = signals.dispersion_scale(disp0, disp0_hist, False)
     w_p0_list.append(w_t0 * scale0)
 
-    w_t3 = build_portfolio_weights(daily_signals["P3"][i])
-    disp3 = signals.compute_dispersion_indicator(daily_signals["P3"][i], 0.3, 17, "long_short_mean_gap")
+    w_t3 = build_portfolio_weights(daily_signals["Residual-PCA"][i])
+    disp3 = signals.compute_dispersion_indicator(daily_signals["Residual-PCA"][i], 0.3, 17, "long_short_mean_gap")
     disp3_hist = []
     for h in range(max(0, i - 60), i):
-        if not np.isnan(daily_signals["P3"][h]).all():
-            disp3_hist.append(signals.compute_dispersion_indicator(daily_signals["P3"][h], 0.3, 17, "long_short_mean_gap"))
+        if not np.isnan(daily_signals["Residual-PCA"][h]).all():
+            disp3_hist.append(signals.compute_dispersion_indicator(daily_signals["Residual-PCA"][h], 0.3, 17, "long_short_mean_gap"))
     scale3 = signals.dispersion_scale(disp3, disp3_hist, False)
     w_p3_list.append(w_t3 * scale3)
 
-    sig_comb = 0.5 * cs_normalize(daily_signals["P0"][i], "zscore") + 0.5 * cs_normalize(daily_signals["P3"][i], "zscore")
+    sig_comb = 0.5 * cs_normalize(daily_signals["Raw-PCA"][i], "zscore") + 0.5 * cs_normalize(daily_signals["Residual-PCA"][i], "zscore")
     w_t_eq = build_portfolio_weights(sig_comb)
     w_eq_list.append(w_t_eq)
 
 daily_weights_out = {
-    "P0": pd.DataFrame(w_p0_list, index=sim_dates, columns=JP_TICKERS),
-    "P3": pd.DataFrame(w_p3_list, index=sim_dates, columns=JP_TICKERS),
+    "Raw-PCA": pd.DataFrame(w_p0_list, index=sim_dates, columns=JP_TICKERS),
+    "Residual-PCA": pd.DataFrame(w_p3_list, index=sim_dates, columns=JP_TICKERS),
     "ens_P0_P3_equal": pd.DataFrame(w_eq_list, index=sim_dates, columns=JP_TICKERS)
 }
 
@@ -167,7 +167,7 @@ overlay_variants = {
 
 for name, cfg in overlay_variants.items():
     res = simulate_p6_fast(
-        daily_signals["P0"], daily_signals["P3"], cfg,
+        daily_signals["Raw-PCA"], daily_signals["Residual-PCA"], cfg,
         sim_dates_idx, df_exec, jp_gap, topix_night, y_jp_oc_all,
         {0.95: market_percentiles[0.95], 0.975: market_percentiles[0.95], 0.99: market_percentiles[0.95]}, # placeholder
         {0.975: etf_percentiles[0.99], 0.99: etf_percentiles[0.99]} # placeholder

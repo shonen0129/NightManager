@@ -1,26 +1,26 @@
 model:
-  name: production_p8p3_blpx
-  display_name: "Production P8P3 Enhanced BLPX"
-  short_name: "P8P3-BLPX"
-  version: "production_p8p3_v1"
+  name: production_residual_blpx
+  display_name: "Production Residual-BLPX Enhanced BLPX"
+  short_name: "Residual-BLPX"
+  version: "production_residual_blpx_v1"
 
 signal_components:
-  p8p3:
+  residual_blpx:
     enabled: true
     weight: 1.0
-  p0:
+  raw_pca:
     enabled: false
     weight: 0.0
-  p3:
+  residual_pca:
     enabled: false
     weight: 0.0
-  p8:
+  raw_blpx:
     enabled: false
     weight: 0.0
 
 final_signal:
-  type: p8p3_only
-  formula: z(P8P3)
+  type: residual_blpx_only
+  formula: z(Residual-BLPX)
 
 portfolio:
   long_short_frac: 0.3
@@ -45,7 +45,7 @@ costs:
   slippage_bps_per_side: 5
 
 blpx:
-  param_set: refined_best_p8p3_production
+  param_set: refined_best_residual_blpx_production
   rho: 0.01
   alpha_xx: 0.50
   alpha_yx: 0.05
@@ -84,8 +84,8 @@ audit:
   check_weight_constraints: true
 
 output:
-  base_dir: results/production_p8p3_blpx
-  live_dir: live/production_p8p3_blpx
+  base_dir: results/production_residual_blpx
+  live_dir: live/production_residual_blpx
   save_signals: true
   save_weights: true
   save_plots: true

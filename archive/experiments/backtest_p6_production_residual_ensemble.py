@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """Experimental script for P6 Model implementation and evaluation.
 
-Implements P0, P3, ens_P0_P3_equal, and P6 (with multiple risk overlay combinations).
+Implements Raw-PCA, Residual-PCA, ens_P0_P3_equal, and P6 (with multiple risk overlay combinations).
 Performs stage-wise grid search on the Train period strictly.
 Conducts slippage sensitivity, subperiod robustness, and strict safety audits.
 """
@@ -299,8 +299,8 @@ def calculate_comprehensive_metrics(
 
 
 def simulate_p6_fast(
-    p0_sigs: np.ndarray,
-    p3_sigs: np.ndarray,
+    raw_pca_sigs: np.ndarray,
+    residual_pca_sigs: np.ndarray,
     config: dict,
     sim_dates_idx: list[int],
     df_exec: pd.DataFrame,
@@ -310,7 +310,7 @@ def simulate_p6_fast(
     market_percentiles: dict,
     etf_percentiles: dict,
 ) -> dict:
-    """Simulate P6 strategy on precalculated P0/P3 signals lookahead-free and highly optimized."""
+    """Simulate P6 strategy on precalculated Raw-PCA/Residual-PCA signals lookahead-free and highly optimized."""
     N = N_JP_ASSETS
     L = len(sim_dates_idx)
 
@@ -362,8 +362,8 @@ def simulate_p6_fast(
     ic_scale = config.get("ic_scale", 1.0)
 
     for t_idx, idx in enumerate(sim_dates_idx):
-        s0 = p0_sigs[idx]
-        s3 = p3_sigs[idx]
+        s0 = raw_pca_sigs[idx]
+        s3 = residual_pca_sigs[idx]
 
         # CS Normalization
         z0 = cs_normalize(s0, norm_method)
@@ -587,7 +587,7 @@ def main():
     jp_beta = df_exec[[f"jp_beta_{tk}" for tk in JP_TICKERS]].values
     topix_night = df_exec["topix_night_return"].values
     
-    # Target residualization for P3 (lookahead-free, 1-day lagged for rolling target vol)
+    # Target residualization for Residual-PCA (lookahead-free, 1-day lagged for rolling target vol)
     y_data_p3 = y_jp_cc_df[JP_TICKERS].values
     x_data_p3 = y_topix_cc_series.values.reshape(-1, 1)
     betas_jp_p3 = compute_rolling_ols_betas(y_data_p3, x_data_p3, 60)
@@ -625,12 +625,12 @@ def main():
             etf_percentiles[0.99][i, j] = np.percentile(hist_window_jp[:, j], 99.0)
 
     # -------------------------------------------------------------------------
-    # COMPUTE RAW SIGNALS FOR P0 AND P3
+    # COMPUTE RAW SIGNALS FOR Raw-PCA AND Residual-PCA
     # -------------------------------------------------------------------------
-    logger.info("Computing raw walk-forward signals for P0 and P3...")
+    logger.info("Computing raw walk-forward signals for Raw-PCA and Residual-PCA...")
     daily_signals = {
-        "P0": np.zeros((T, N_JP_ASSETS)),
-        "P3": np.zeros((T, N_JP_ASSETS))
+        "Raw-PCA": np.zeros((T, N_JP_ASSETS)),
+        "Residual-PCA": np.zeros((T, N_JP_ASSETS))
     }
 
     for idx, date in enumerate(sim_dates):
@@ -639,23 +639,23 @@ def main():
         betas_t = np.asarray(jp_beta[i], dtype=float) if jp_beta is not None else None
         topix_night_t = float(topix_night[i]) if topix_night is not None else None
 
-        # P0
+        # Raw-PCA
         sig_res_p0 = signals.compute_signal(
             all_returns_raw, i, 15, 60, c_full, v0_static, v1, v2,
             6, 0.75, 0.5, "equicorrelation", 45, v3_dynamic=False,
             gap_override=gap_t1, gap_open_coef=0.70, topix_beta_coef=0.6,
             betas_t=betas_t, topix_night_t=topix_night_t, vol_adjusted_target=True
         )
-        daily_signals["P0"][i] = np.asarray(sig_res_p0["signal"], dtype=float)
+        daily_signals["Raw-PCA"][i] = np.asarray(sig_res_p0["signal"], dtype=float)
 
-        # P3
+        # Residual-PCA
         sig_res_p3 = signals.compute_signal(
             jp_res_returns_p3, i, 15, 60, c_full, v0_static, v1, v2,
             6, 0.75, 0.5, "equicorrelation", 45, v3_dynamic=False,
             gap_override=gap_t1, gap_open_coef=0.70, topix_beta_coef=0.6,
             betas_t=betas_t, topix_night_t=topix_night_t, vol_adjusted_target=True
         )
-        daily_signals["P3"][i] = np.asarray(sig_res_p3["signal"], dtype=float)
+        daily_signals["Residual-PCA"][i] = np.asarray(sig_res_p3["signal"], dtype=float)
 
     # Prepare Train mask index
     train_mask = (df_exec.index[start_idx:] <= pd.to_datetime(train_end_date))
@@ -669,7 +669,7 @@ def main():
     logger.info("Starting Stage-wise grid search for P6 on Train period...")
     grid_records = []
 
-    # --- Stage 1: Base P0/P3 weight & normalization ---
+    # --- Stage 1: Base Raw-PCA/Residual-PCA weight & normalization ---
     logger.info("Stage 1: Base weight and normalization search...")
     best_stage1_sharpe = -999.0
     best_stage1_config = None
@@ -684,7 +684,7 @@ def main():
                 "agreement_penalty": 1.0,  # disabled
             }
             res = simulate_p6_fast(
-                daily_signals["P0"], daily_signals["P3"], cfg,
+                daily_signals["Raw-PCA"], daily_signals["Residual-PCA"], cfg,
                 train_dates_idx, df_exec, jp_gap, topix_night, y_jp_oc_train,
                 market_percentiles, etf_percentiles
             )
@@ -714,7 +714,7 @@ def main():
             cfg["agreement_penalty"] = penalty
             
             res = simulate_p6_fast(
-                daily_signals["P0"], daily_signals["P3"], cfg,
+                daily_signals["Raw-PCA"], daily_signals["Residual-PCA"], cfg,
                 train_dates_idx, df_exec, jp_gap, topix_night, y_jp_oc_train,
                 market_percentiles, etf_percentiles
             )
@@ -744,7 +744,7 @@ def main():
             cfg["market_gap_scale"] = scale
             
             res = simulate_p6_fast(
-                daily_signals["P0"], daily_signals["P3"], cfg,
+                daily_signals["Raw-PCA"], daily_signals["Residual-PCA"], cfg,
                 train_dates_idx, df_exec, jp_gap, topix_night, y_jp_oc_train,
                 market_percentiles, etf_percentiles
             )
@@ -772,7 +772,7 @@ def main():
             cfg["individual_gap_scale"] = scale
             
             res = simulate_p6_fast(
-                daily_signals["P0"], daily_signals["P3"], cfg,
+                daily_signals["Raw-PCA"], daily_signals["Residual-PCA"], cfg,
                 train_dates_idx, df_exec, jp_gap, topix_night, y_jp_oc_train,
                 market_percentiles, etf_percentiles
             )
@@ -803,7 +803,7 @@ def main():
                 cfg["vol_scale_min"] = 0.5
                 
                 res = simulate_p6_fast(
-                    daily_signals["P0"], daily_signals["P3"], cfg,
+                    daily_signals["Raw-PCA"], daily_signals["Residual-PCA"], cfg,
                     train_dates_idx, df_exec, jp_gap, topix_night, y_jp_oc_train,
                     market_percentiles, etf_percentiles
                 )
@@ -843,7 +843,7 @@ def main():
                     cfg["dd_scale_long"] = scale_long
                     
                     res = simulate_p6_fast(
-                        daily_signals["P0"], daily_signals["P3"], cfg,
+                        daily_signals["Raw-PCA"], daily_signals["Residual-PCA"], cfg,
                         train_dates_idx, df_exec, jp_gap, topix_night, y_jp_oc_train,
                         market_percentiles, etf_percentiles
                     )
@@ -881,7 +881,7 @@ def main():
                 cfg["ic_scale"] = scale
                 
                 res = simulate_p6_fast(
-                    daily_signals["P0"], daily_signals["P3"], cfg,
+                    daily_signals["Raw-PCA"], daily_signals["Residual-PCA"], cfg,
                     train_dates_idx, df_exec, jp_gap, topix_night, y_jp_oc_train,
                     market_percentiles, etf_percentiles
                 )
@@ -909,7 +909,7 @@ def main():
 
     # Verify combined model Sharpe
     res_comb = simulate_p6_fast(
-        daily_signals["P0"], daily_signals["P3"], best_params,
+        daily_signals["Raw-PCA"], daily_signals["Residual-PCA"], best_params,
         train_dates_idx, df_exec, jp_gap, topix_night, y_jp_oc_train,
         market_percentiles, etf_percentiles
     )
@@ -934,7 +934,7 @@ def main():
         json.dump(best_params, f, indent=4)
 
     # -------------------------------------------------------------------------
-    # WALK-FORWARD EVALUATION FOR P0, P3, ens_P0_P3_equal, AND P6 VARIANTS
+    # WALK-FORWARD EVALUATION FOR Raw-PCA, Residual-PCA, ens_P0_P3_equal, AND P6 VARIANTS
     # -------------------------------------------------------------------------
     logger.info("Executing final walk-forward evaluation on Full Period...")
     sim_dates_idx = list(range(start_idx, T))
@@ -947,19 +947,19 @@ def main():
     daily_signals_out = {}
     daily_weights_out = {}
 
-    # 1. P0
+    # 1. Raw-PCA
     w_p0_list = []
     ret_p0_list = []
     exp_p0_list = []
     cost_p0_list = []
     for idx, date in enumerate(sim_dates):
         i = start_idx + idx
-        w_t = build_portfolio_weights(daily_signals["P0"][i])
-        disp = signals.compute_dispersion_indicator(daily_signals["P0"][i], 0.3, 17, "long_short_mean_gap")
+        w_t = build_portfolio_weights(daily_signals["Raw-PCA"][i])
+        disp = signals.compute_dispersion_indicator(daily_signals["Raw-PCA"][i], 0.3, 17, "long_short_mean_gap")
         dispersion_history = []
         for h in range(max(0, i - 60), i):
-            if not np.isnan(daily_signals["P0"][h]).all():
-                disp_h = signals.compute_dispersion_indicator(daily_signals["P0"][h], 0.3, 17, "long_short_mean_gap")
+            if not np.isnan(daily_signals["Raw-PCA"][h]).all():
+                disp_h = signals.compute_dispersion_indicator(daily_signals["Raw-PCA"][h], 0.3, 17, "long_short_mean_gap")
                 dispersion_history.append(disp_h)
         scale = signals.dispersion_scale(disp, dispersion_history, False)
         w_scaled = w_t * scale
@@ -973,25 +973,25 @@ def main():
         exp_p0_list.append(gross_exp)
         cost_p0_list.append(cost)
 
-    daily_returns["P0"] = pd.Series(ret_p0_list, index=sim_dates)
-    daily_gross_exps["P0"] = pd.Series(exp_p0_list, index=sim_dates)
-    daily_costs["P0"] = pd.Series(cost_p0_list, index=sim_dates)
-    daily_signals_out["P0"] = pd.DataFrame(daily_signals["P0"][start_idx:], index=sim_dates, columns=JP_TICKERS)
-    daily_weights_out["P0"] = pd.DataFrame(w_p0_list, index=sim_dates, columns=JP_TICKERS)
+    daily_returns["Raw-PCA"] = pd.Series(ret_p0_list, index=sim_dates)
+    daily_gross_exps["Raw-PCA"] = pd.Series(exp_p0_list, index=sim_dates)
+    daily_costs["Raw-PCA"] = pd.Series(cost_p0_list, index=sim_dates)
+    daily_signals_out["Raw-PCA"] = pd.DataFrame(daily_signals["Raw-PCA"][start_idx:], index=sim_dates, columns=JP_TICKERS)
+    daily_weights_out["Raw-PCA"] = pd.DataFrame(w_p0_list, index=sim_dates, columns=JP_TICKERS)
 
-    # 2. P3
+    # 2. Residual-PCA
     w_p3_list = []
     ret_p3_list = []
     exp_p3_list = []
     cost_p3_list = []
     for idx, date in enumerate(sim_dates):
         i = start_idx + idx
-        w_t = build_portfolio_weights(daily_signals["P3"][i])
-        disp = signals.compute_dispersion_indicator(daily_signals["P3"][i], 0.3, 17, "long_short_mean_gap")
+        w_t = build_portfolio_weights(daily_signals["Residual-PCA"][i])
+        disp = signals.compute_dispersion_indicator(daily_signals["Residual-PCA"][i], 0.3, 17, "long_short_mean_gap")
         dispersion_history = []
         for h in range(max(0, i - 60), i):
-            if not np.isnan(daily_signals["P3"][h]).all():
-                disp_h = signals.compute_dispersion_indicator(daily_signals["P3"][h], 0.3, 17, "long_short_mean_gap")
+            if not np.isnan(daily_signals["Residual-PCA"][h]).all():
+                disp_h = signals.compute_dispersion_indicator(daily_signals["Residual-PCA"][h], 0.3, 17, "long_short_mean_gap")
                 dispersion_history.append(disp_h)
         scale = signals.dispersion_scale(disp, dispersion_history, False)
         w_scaled = w_t * scale
@@ -1005,11 +1005,11 @@ def main():
         exp_p3_list.append(gross_exp)
         cost_p3_list.append(cost)
 
-    daily_returns["P3"] = pd.Series(ret_p3_list, index=sim_dates)
-    daily_gross_exps["P3"] = pd.Series(exp_p3_list, index=sim_dates)
-    daily_costs["P3"] = pd.Series(cost_p3_list, index=sim_dates)
-    daily_signals_out["P3"] = pd.DataFrame(daily_signals["P3"][start_idx:], index=sim_dates, columns=JP_TICKERS)
-    daily_weights_out["P3"] = pd.DataFrame(w_p3_list, index=sim_dates, columns=JP_TICKERS)
+    daily_returns["Residual-PCA"] = pd.Series(ret_p3_list, index=sim_dates)
+    daily_gross_exps["Residual-PCA"] = pd.Series(exp_p3_list, index=sim_dates)
+    daily_costs["Residual-PCA"] = pd.Series(cost_p3_list, index=sim_dates)
+    daily_signals_out["Residual-PCA"] = pd.DataFrame(daily_signals["Residual-PCA"][start_idx:], index=sim_dates, columns=JP_TICKERS)
+    daily_weights_out["Residual-PCA"] = pd.DataFrame(w_p3_list, index=sim_dates, columns=JP_TICKERS)
 
     # 3. ens_P0_P3_equal
     w_eq_list = []
@@ -1019,7 +1019,7 @@ def main():
     sig_eq_list = []
     for idx, date in enumerate(sim_dates):
         i = start_idx + idx
-        sig_comb = 0.5 * cs_normalize(daily_signals["P0"][i], "zscore") + 0.5 * cs_normalize(daily_signals["P3"][i], "zscore")
+        sig_comb = 0.5 * cs_normalize(daily_signals["Raw-PCA"][i], "zscore") + 0.5 * cs_normalize(daily_signals["Residual-PCA"][i], "zscore")
         sig_eq_list.append(sig_comb)
         
         w_t = build_portfolio_weights(sig_comb)
@@ -1104,7 +1104,7 @@ def main():
     for name, cfg in overlay_variants.items():
         logger.info(f"Simulating walk-forward {name} on Full Period...")
         res = simulate_p6_fast(
-            daily_signals["P0"], daily_signals["P3"], cfg,
+            daily_signals["Raw-PCA"], daily_signals["Residual-PCA"], cfg,
             sim_dates_idx, df_exec, jp_gap, topix_night, y_jp_oc_all,
             market_percentiles, etf_percentiles
         )
@@ -1129,16 +1129,16 @@ def main():
     normalized_sig_out_df = pd.DataFrame(index=sim_dates)
     w_out_df = pd.DataFrame(index=sim_dates)
     for tk in JP_TICKERS:
-        sig_out_df[f"P0_{tk}"] = daily_signals_out["P0"][tk]
-        sig_out_df[f"P3_{tk}"] = daily_signals_out["P3"][tk]
+        sig_out_df[f"Raw-PCA_{tk}"] = daily_signals_out["Raw-PCA"][tk]
+        sig_out_df[f"Residual-PCA_{tk}"] = daily_signals_out["Residual-PCA"][tk]
         sig_out_df[f"P6_{tk}"] = daily_signals_out["P6_optimal"][tk]
         
-        normalized_sig_out_df[f"P0_{tk}"] = cs_normalize(daily_signals_out["P0"][tk].values, "zscore")
-        normalized_sig_out_df[f"P3_{tk}"] = cs_normalize(daily_signals_out["P3"][tk].values, "zscore")
+        normalized_sig_out_df[f"Raw-PCA_{tk}"] = cs_normalize(daily_signals_out["Raw-PCA"][tk].values, "zscore")
+        normalized_sig_out_df[f"Residual-PCA_{tk}"] = cs_normalize(daily_signals_out["Residual-PCA"][tk].values, "zscore")
         normalized_sig_out_df[f"P6_{tk}"] = cs_normalize(daily_signals_out["P6_optimal"][tk].values, "zscore")
         
-        w_out_df[f"P0_{tk}"] = daily_weights_out["P0"][tk]
-        w_out_df[f"P3_{tk}"] = daily_weights_out["P3"][tk]
+        w_out_df[f"Raw-PCA_{tk}"] = daily_weights_out["Raw-PCA"][tk]
+        w_out_df[f"Residual-PCA_{tk}"] = daily_weights_out["Residual-PCA"][tk]
         w_out_df[f"P6_{tk}"] = daily_weights_out["P6_optimal"][tk]
     sig_out_df.to_csv(results_dir / "signals_P0_P3_P6.csv")
     normalized_sig_out_df.to_csv(results_dir / "normalized_signals_P0_P3_P6.csv")
@@ -1167,12 +1167,12 @@ def main():
     # -------------------------------------------------------------------------
     logger.info("Computing correlations and attributions...")
     
-    # 1. P0/P3 signal agreement ratio
-    p0_signs = np.sign(daily_signals_out["P0"].values)
-    p3_signs = np.sign(daily_signals_out["P3"].values)
-    agreement_ratio = pd.Series(np.mean(p0_signs == p3_signs, axis=1), index=sim_dates)
+    # 1. Raw-PCA/Residual-PCA signal agreement ratio
+    raw_pca_signs = np.sign(daily_signals_out["Raw-PCA"].values)
+    residual_pca_signs = np.sign(daily_signals_out["Residual-PCA"].values)
+    agreement_ratio = pd.Series(np.mean(raw_pca_signs == residual_pca_signs, axis=1), index=sim_dates)
     pd.DataFrame({"Signal Agreement Ratio": agreement_ratio}).to_csv(
-        results_dir / "p0_p3_signal_agreement.csv"
+        results_dir / "raw_pca_p3_signal_agreement.csv"
     )
 
     # 2. Signal Correlation
@@ -1180,8 +1180,8 @@ def main():
     p6_p0_corr_list = []
     p6_p3_corr_list = []
     for date in sim_dates:
-        s0 = daily_signals_out["P0"].loc[date].values
-        s3 = daily_signals_out["P3"].loc[date].values
+        s0 = daily_signals_out["Raw-PCA"].loc[date].values
+        s3 = daily_signals_out["Residual-PCA"].loc[date].values
         s6 = daily_signals_out["P6_optimal"].loc[date].values
         
         c_p0_p3, _ = spearmanr(s0, s3) if np.std(s0) > 0 and np.std(s3) > 0 else (np.nan, None)
@@ -1189,7 +1189,7 @@ def main():
         c_p6_p3, _ = spearmanr(s6, s3) if np.std(s6) > 0 and np.std(s3) > 0 else (np.nan, None)
         
         sig_corr_list.append({
-            "P0_P3_Corr": c_p0_p3,
+            "Raw-PCA_P3_Corr": c_p0_p3,
             "P6_P0_Corr": c_p6_p0,
             "P6_P3_Corr": c_p6_p3
         })
@@ -1246,7 +1246,7 @@ def main():
     logger.info("Running Slippage Sensitivity Analysis...")
     rates = [0.0, 5.0, 10.0, 15.0, 20.0]
     sensitivity_records = []
-    models_to_test = ["P0", "P3", "ens_P0_P3_equal", "P6_base_50_50", "P6_full", "P6_optimal"]
+    models_to_test = ["Raw-PCA", "Residual-PCA", "ens_P0_P3_equal", "P6_base_50_50", "P6_full", "P6_optimal"]
 
     for r_bps in rates:
         r_rate = r_bps / 10000.0
@@ -1300,7 +1300,7 @@ def main():
     ]
 
     subperiod_records = []
-    models_to_report = ["P0", "P3", "ens_P0_P3_equal", "P6_base_50_50", "P6_full", "P6_optimal"]
+    models_to_report = ["Raw-PCA", "Residual-PCA", "ens_P0_P3_equal", "P6_base_50_50", "P6_full", "P6_optimal"]
 
     for name, mask in subperiods:
         if mask.sum() == 0:
@@ -1543,7 +1543,7 @@ def main():
     
     # We pass negated raw signals to simulate_p6_fast
     res_rev = simulate_p6_fast(
-        -daily_signals["P0"], -daily_signals["P3"], rev_cfg,
+        -daily_signals["Raw-PCA"], -daily_signals["Residual-PCA"], rev_cfg,
         sim_dates_idx, df_exec, jp_gap, topix_night, y_jp_oc_all,
         market_percentiles, etf_percentiles
     )
@@ -1586,7 +1586,7 @@ def main():
 
     # 1. Equity curves of top models (OOS)
     plt.figure(figsize=(12, 6))
-    top_models = ["P0", "P3", "ens_P0_P3_equal", "P6_optimal"]
+    top_models = ["Raw-PCA", "Residual-PCA", "ens_P0_P3_equal", "P6_optimal"]
     oos_eq = daily_eq_df.loc[args.oos_start:]
     oos_eq = oos_eq / oos_eq.iloc[0]
     for m in top_models:
@@ -1602,7 +1602,7 @@ def main():
     # 2. Equity curves of all models (Full)
     plt.figure(figsize=(12, 6))
     full_eq = daily_eq_df / daily_eq_df.iloc[0]
-    all_eq_models = ["P0", "P3", "ens_P0_P3_equal", "P6_base_50_50", "P6_full", "P6_optimal"]
+    all_eq_models = ["Raw-PCA", "Residual-PCA", "ens_P0_P3_equal", "P6_base_50_50", "P6_full", "P6_optimal"]
     for m in all_eq_models:
         plt.plot(full_eq.index, full_eq[m].values, label=m, alpha=0.85)
     plt.title("P6 Evaluation Suite: All Equity Curves (Full Period)", fontsize=14)
@@ -1732,16 +1732,16 @@ def main():
     plt.savefig(results_dir / "filter_flags_timeseries.png", dpi=150)
     plt.close()
 
-    # 12. P0/P3 signal agreement heatmap / line plot
+    # 12. Raw-PCA/Residual-PCA signal agreement heatmap / line plot
     plt.figure(figsize=(12, 5))
-    plt.plot(sig_corr_df.index, sig_corr_df["P0_P3_Corr"].rolling(60).mean().values, label="Rolling 60d P0/P3 Signal Correlation", alpha=0.8)
+    plt.plot(sig_corr_df.index, sig_corr_df["Raw-PCA_P3_Corr"].rolling(60).mean().values, label="Rolling 60d Raw-PCA/Residual-PCA Signal Correlation", alpha=0.8)
     plt.plot(agreement_ratio.index, pd.Series(agreement_ratio).rolling(60).mean().values, label="Rolling 60d Signal Agreement Ratio", alpha=0.8)
-    plt.title("P0 & P3 Signal Direction Alignment & Correlation", fontsize=14)
+    plt.title("Raw-PCA & Residual-PCA Signal Direction Alignment & Correlation", fontsize=14)
     plt.ylabel("Value", fontsize=12)
     plt.xlabel("Trade Date", fontsize=12)
     plt.legend()
     plt.tight_layout()
-    plt.savefig(results_dir / "p0_p3_signal_agreement_heatmap.png", dpi=150)
+    plt.savefig(results_dir / "raw_pca_p3_signal_agreement_heatmap.png", dpi=150)
     plt.close()
 
     # -------------------------------------------------------------
@@ -1764,9 +1764,9 @@ This report documents the implementation, grid search optimization, backtesting,
   - [backtest_p6_production_residual_ensemble.py](file://{results_dir.parent.parent / "tools" / "backtest_p6_production_residual_ensemble.py"}): Walk-forward daily simulation, stage-wise grid search, and safety audits for the P6 strategy.
   - [test_p6_production_residual_ensemble.py](file://{results_dir.parent.parent / "src" / "tests" / "unit" / "test_p6_production_residual_ensemble.py"}): Unit tests validating signal shape matching, weight neutrality/leverage, lookahead leakage safety, and sign directions.
 - **P6 Model Design**:
-  - **Ensemble**: Blends cross-sectionally normalized signals of P0 and P3 using weights $w_0$ and $w_3$.
+  - **Ensemble**: Blends cross-sectionally normalized signals of Raw-PCA and Residual-PCA using weights $w_0$ and $w_3$.
   - **Risk Overlay Modules**:
-    - **Signal Agreement Filter**: Opposing P0 and P3 direction weights are penalized.
+    - **Signal Agreement Filter**: Opposing Raw-PCA and Residual-PCA direction weights are penalized.
     - **Extreme Gap Filters**: Reduces gross scale when TOPIX opening gap is extreme, and scales down individual ETF signals on extreme sector gaps.
     - **Volatility Targeting**: Binds portfolio realized volatility to a target using rolling 1-day lagged return std.
     - **Drawdown-aware Scaling**: Shields capital by lowering leverage during deep historical drawdowns.
@@ -1787,7 +1787,7 @@ This report documents the implementation, grid search optimization, backtesting,
 ## 3. P6 Selected Hyperparameters
 
 The optimal P6 hyperparameters were selected strictly on Train Sharpe during the train period:
-- **w0 (P0 weight)**: {best_params['w0']}
+- **w0 (Raw-PCA weight)**: {best_params['w0']}
 - **norm_method**: {best_params['norm_method']}
 - **agreement_mode**: {best_params['agreement_mode']}
 - **agreement_penalty**: {best_params['agreement_penalty']}
@@ -1815,7 +1815,7 @@ The optimal P6 hyperparameters were selected strictly on Train Sharpe during the
 ## 4. Key Observations & Overlay Impact
 
 ### A. Core Overlay Efficacy
-- The **Signal Agreement Filter** reduces cross-sectional conflicts. In periods where P0 and P3 signals disagree, restricting exposure prevents trading during low-confidence regime transitions, resulting in smoother returns.
+- The **Signal Agreement Filter** reduces cross-sectional conflicts. In periods where Raw-PCA and Residual-PCA signals disagree, restricting exposure prevents trading during low-confidence regime transitions, resulting in smoother returns.
 - The **Volatility Targeting** and **Drawdown Scaling** overlays effectively bound drawdown spikes (MDD) during high-volatility years (e.g. 2020 macro shocks), protecting the strategy from deep regime tail losses.
 - **Slippage Sensitivity**: Evaluating P6_optimal under $0, 5, 10, 15, 20$ bps slippage shows strong turnover-controlled resilience compared to base equal ensembles.
 
@@ -1823,17 +1823,17 @@ The optimal P6 hyperparameters were selected strictly on Train Sharpe during the
 
 ## 5. Deployment recommendation
 
-### Conservative Portfolio: `P6_optimal` or `P0`
+### Conservative Portfolio: `P6_optimal` or `Raw-PCA`
 - **OOS Sharpe**: {metrics_df[(metrics_df['Model'] == 'P6_optimal') & (metrics_df['Period'] == 'OOS')]['Sharpe'].values[0]:.4f}
-- **OOS Sharpe (P0)**: {metrics_df[(metrics_df['Model'] == 'P0') & (metrics_df['Period'] == 'OOS')]['Sharpe'].values[0]:.4f}
+- **OOS Sharpe (Raw-PCA)**: {metrics_df[(metrics_df['Model'] == 'Raw-PCA') & (metrics_df['Period'] == 'OOS')]['Sharpe'].values[0]:.4f}
 - **Rationale**: Minimal lookahead risk, zero audit violations, low turnover, and active risk overlay protection against drawdown.
 
 ### Balanced Portfolio / Main Candidate: `ens_P0_P3_equal` or `P6_full`
 - **OOS Sharpe**: {metrics_df[(metrics_df['Model'] == 'ens_P0_P3_equal') & (metrics_df['Period'] == 'OOS')]['Sharpe'].values[0]:.4f}
 - **Rationale**: Excellent compromise between high Sharpe and stable annualized return.
 
-### Aggressive Portfolio: `P3`
-- **OOS Sharpe**: {metrics_df[(metrics_df['Model'] == 'P3') & (metrics_df['Period'] == 'OOS')]['Sharpe'].values[0]:.4f}
+### Aggressive Portfolio: `Residual-PCA`
+- **OOS Sharpe**: {metrics_df[(metrics_df['Model'] == 'Residual-PCA') & (metrics_df['Period'] == 'OOS')]['Sharpe'].values[0]:.4f}
 - **Rationale**: High concentration in TOPIX-residualized alpha, capturing peak relative sector lead-lag signals.
 """
 

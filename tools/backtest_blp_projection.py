@@ -294,15 +294,15 @@ def main():
     init_blp_cfg = {
         "model": {"name": "sector_relative_ensemble_blp"},
         "portfolio": {"long_short_frac": 0.3, "weight_mode": "signal"},
-        "ensemble": {"p0_weight": 0.5, "p3_weight": 0.5, "p5_weight": 0.0, "p5p3_weight": 0.0},
+        "ensemble": {"raw_pca_weight": 0.5, "residual_pca_weight": 0.5, "p5_weight": 0.0, "p5p3_weight": 0.0},
         "costs": {"slippage_bps_per_side": 5.0},
     }
     blp_base_model = SectorRelativeEnsembleBLPModel(init_blp_cfg)
     base_pred = blp_base_model.predict_signals(df_exec)
     
     # Verify baseline PCA-Ensemble reproduction
-    p0_sig_base = base_pred["p0_signals"].loc[sim_dates_slice]
-    p3_sig_base = base_pred["p3_signals"].loc[sim_dates_slice]
+    raw_pca_sig_base = base_pred["raw_pca_signals"].loc[sim_dates_slice]
+    residual_pca_sig_base = base_pred["residual_pca_signals"].loc[sim_dates_slice]
     
     # Check signal & positions replication
     reproduced_signals_df = base_pred["signals"].loc[sim_dates_slice]
@@ -353,7 +353,7 @@ def main():
                             run_cfg = {
                                 "model": {"name": "sector_relative_ensemble_blp"},
                                 "portfolio": {"long_short_frac": 0.3, "weight_mode": "signal"},
-                                "ensemble": {"p0_weight": 0.0, "p3_weight": 0.0, "p5_weight": 1.0, "p5p3_weight": 0.0},
+                                "ensemble": {"raw_pca_weight": 0.0, "residual_pca_weight": 0.0, "p5_weight": 1.0, "p5p3_weight": 0.0},
                                 "blp_window": window,
                                 "blp_ewma_halflife": halflife,
                                 "alpha_xx": alpha_xx,
@@ -394,8 +394,8 @@ def main():
                             num_pinv_fallbacks += int(diag_df["p5_pinv_fallback"].sum())
                             
                             # standardise and normalize components
-                            z0_df = p0_sig_base.apply(lambda row: blp_model.normalize_signals(row.values, "zscore"), axis=1, result_type="expand")
-                            z3_df = p3_sig_base.apply(lambda row: blp_model.normalize_signals(row.values, "zscore"), axis=1, result_type="expand")
+                            z0_df = raw_pca_sig_base.apply(lambda row: blp_model.normalize_signals(row.values, "zscore"), axis=1, result_type="expand")
+                            z3_df = residual_pca_sig_base.apply(lambda row: blp_model.normalize_signals(row.values, "zscore"), axis=1, result_type="expand")
                             z5_df = p5_sig.apply(lambda row: blp_model.normalize_signals(row.values, "zscore"), axis=1, result_type="expand")
                             z5p3_df = p5p3_sig.apply(lambda row: blp_model.normalize_signals(row.values, "zscore"), axis=1, result_type="expand")
                             
@@ -406,7 +406,7 @@ def main():
                             # Loop over ensemble configs
                             for ens in ensembles:
                                 ens_name = ens["name"]
-                                w_p0, w_p3, w_p5, w_p5p3 = ens["p0"], ens["p3"], ens["p5"], ens["p5p3"]
+                                w_p0, w_p3, w_p5, w_p5p3 = ens["raw_pca"], ens["residual_pca"], ens["p5"], ens["p5p3"]
                                 
                                 # Combined signal
                                 comb_sig = w_p0 * z0_df + w_p3 * z3_df + w_p5 * z5_df + w_p5p3 * z5p3_df
@@ -578,16 +578,16 @@ def main():
     
     # 5. Signal correlations, IC and rank correlations
     logger.info("Computing signal correlations and IC timeseries...")
-    p0_flat = z0_df.values.flatten()
-    p3_flat = z3_df.values.flatten()
+    raw_pca_flat = z0_df.values.flatten()
+    residual_pca_flat = z3_df.values.flatten()
     p5_flat = z5_df.values.flatten()
     p5p3_flat = z5p3_df.values.flatten()
     
     corr_records = []
     pairs = [
-        ("P0", "P5", p0_flat, p5_flat),
-        ("P3", "P5P3", p3_flat, p5p3_flat),
-        ("P0", "P3", p0_flat, p3_flat),
+        ("Raw-PCA", "P5", raw_pca_flat, p5_flat),
+        ("Residual-PCA", "P5P3", residual_pca_flat, p5p3_flat),
+        ("Raw-PCA", "Residual-PCA", raw_pca_flat, residual_pca_flat),
         ("P5", "P5P3", p5_flat, p5p3_flat),
     ]
     for n1, n2, f1, f2 in pairs:
@@ -681,7 +681,7 @@ def main():
     no_nan_inf_in_component_signals = True
     no_nan_inf_in_ensemble_signals = True
     for ens in ensembles:
-        w_sum = ens["p0"] + ens["p3"] + ens["p5"] + ens["p5p3"]
+        w_sum = ens["raw_pca"] + ens["residual_pca"] + ens["p5"] + ens["p5p3"]
         if abs(w_sum - 1.0) > 1e-6:
             ensemble_weights_sum_to_one = False
             

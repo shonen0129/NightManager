@@ -100,11 +100,11 @@ def main():
     slippage_grid = [float(s) for s in args.slippage_grid.split(",")]
 
     ensemble_grid = [
-        {"name": "SRE_current", "p0": 0.50, "p3": 0.50, "p4": 0.00},
-        {"name": "SRE_USR_40_40_20", "p0": 0.40, "p3": 0.40, "p4": 0.20},
-        {"name": "SRE_USR_375_375_25", "p0": 0.375, "p3": 0.375, "p4": 0.25},
-        {"name": "SRE_USR_30_30_40", "p0": 0.30, "p3": 0.30, "p4": 0.40},
-        {"name": "P4_only", "p0": 0.00, "p3": 0.00, "p4": 1.00},
+        {"name": "SRE_current", "raw_pca": 0.50, "residual_pca": 0.50, "p4": 0.00},
+        {"name": "SRE_USR_40_40_20", "raw_pca": 0.40, "residual_pca": 0.40, "p4": 0.20},
+        {"name": "SRE_USR_375_375_25", "raw_pca": 0.375, "residual_pca": 0.375, "p4": 0.25},
+        {"name": "SRE_USR_30_30_40", "raw_pca": 0.30, "residual_pca": 0.30, "p4": 0.40},
+        {"name": "P4_only", "raw_pca": 0.00, "residual_pca": 0.00, "p4": 1.00},
     ]
 
     out_dir = (
@@ -177,8 +177,8 @@ def main():
                 run_cfg = cfg.copy()
                 if "ensemble" not in run_cfg:
                     run_cfg["ensemble"] = {}
-                run_cfg["ensemble"]["p0_weight"] = ens["p0"]
-                run_cfg["ensemble"]["p3_weight"] = ens["p3"]
+                run_cfg["ensemble"]["raw_pca_weight"] = ens["raw_pca"]
+                run_cfg["ensemble"]["residual_pca_weight"] = ens["residual_pca"]
                 run_cfg["ensemble"]["p4_weight"] = ens["p4"]
 
                 if "us_residualization" not in run_cfg:
@@ -254,8 +254,8 @@ def main():
                     record = {
                         "model": ens["name"],
                         "gamma": gamma,
-                        "p0": ens["p0"],
-                        "p3": ens["p3"],
+                        "raw_pca": ens["raw_pca"],
+                        "residual_pca": ens["residual_pca"],
                         "p4": ens["p4"],
                         "slippage_bps": slip,
                         "period": period,
@@ -310,11 +310,11 @@ def main():
     curr_turnover = current_sre_oos_metrics["Avg Turnover"]
 
     # Retrieve flattened correlations for best candidate to verify check
-    p0_flat = best_candidate_res["p0_signals"].values.flatten()
-    p3_flat = best_candidate_res["p3_signals"].values.flatten()
+    raw_pca_flat = best_candidate_res["raw_pca_signals"].values.flatten()
+    residual_pca_flat = best_candidate_res["residual_pca_signals"].values.flatten()
     p4_flat = best_candidate_res["p4_signals"].values.flatten()
-    float(np.corrcoef(p4_flat, p0_flat)[0, 1])
-    float(np.corrcoef(p4_flat, p3_flat)[0, 1])
+    float(np.corrcoef(p4_flat, raw_pca_flat)[0, 1])
+    float(np.corrcoef(p4_flat, residual_pca_flat)[0, 1])
     best_p4_to_sre_corr = float(
         np.corrcoef(p4_flat, best_candidate_res["signals"].values.flatten())[0, 1]
     )
@@ -368,8 +368,8 @@ def main():
     run_cfg = cfg.copy()
     if "ensemble" not in run_cfg:
         run_cfg["ensemble"] = {}
-    run_cfg["ensemble"]["p0_weight"] = best_ens["p0"]
-    run_cfg["ensemble"]["p3_weight"] = best_ens["p3"]
+    run_cfg["ensemble"]["raw_pca_weight"] = best_ens["raw_pca"]
+    run_cfg["ensemble"]["residual_pca_weight"] = best_ens["residual_pca"]
     run_cfg["ensemble"]["p4_weight"] = best_ens["p4"]
     if "us_residualization" not in run_cfg:
         run_cfg["us_residualization"] = {}
@@ -381,33 +381,33 @@ def main():
     best_audit = ComplianceAuditor.run_audit(best_model, df_exec, best_candidate_res, out_dir)
 
     # Component signal correlations
-    best_p0_p3_corr = np.corrcoef(p0_flat, p3_flat)[0, 1]
-    best_p0_p4_corr = np.corrcoef(p0_flat, p4_flat)[0, 1]
-    best_p3_p4_corr = np.corrcoef(p3_flat, p4_flat)[0, 1]
+    best_p0_p3_corr = np.corrcoef(raw_pca_flat, residual_pca_flat)[0, 1]
+    best_p0_p4_corr = np.corrcoef(raw_pca_flat, p4_flat)[0, 1]
+    best_p3_p4_corr = np.corrcoef(residual_pca_flat, p4_flat)[0, 1]
 
-    best_p0_p3_rank, _ = spearmanr(p0_flat, p3_flat)
-    best_p0_p4_rank, _ = spearmanr(p0_flat, p4_flat)
-    best_p3_p4_rank, _ = spearmanr(p3_flat, p4_flat)
+    best_p0_p3_rank, _ = spearmanr(raw_pca_flat, residual_pca_flat)
+    best_p0_p4_rank, _ = spearmanr(raw_pca_flat, p4_flat)
+    best_p3_p4_rank, _ = spearmanr(residual_pca_flat, p4_flat)
 
-    best_p0_p3_agree = np.mean(np.sign(p0_flat) == np.sign(p3_flat))
-    best_p0_p4_agree = np.mean(np.sign(p0_flat) == np.sign(p4_flat))
-    best_p3_p4_agree = np.mean(np.sign(p3_flat) == np.sign(p4_flat))
+    best_p0_p3_agree = np.mean(np.sign(raw_pca_flat) == np.sign(residual_pca_flat))
+    best_p0_p4_agree = np.mean(np.sign(raw_pca_flat) == np.sign(p4_flat))
+    best_p3_p4_agree = np.mean(np.sign(residual_pca_flat) == np.sign(p4_flat))
 
     correlations_records = [
         {
-            "pair": "P0_vs_P3",
+            "pair": "Raw-PCA_vs_P3",
             "correlation": best_p0_p3_corr,
             "rank_correlation": best_p0_p3_rank,
             "sign_agreement": best_p0_p3_agree,
         },
         {
-            "pair": "P0_vs_P4",
+            "pair": "Raw-PCA_vs_P4",
             "correlation": best_p0_p4_corr,
             "rank_correlation": best_p0_p4_rank,
             "sign_agreement": best_p0_p4_agree,
         },
         {
-            "pair": "P3_vs_P4",
+            "pair": "Residual-PCA_vs_P4",
             "correlation": best_p3_p4_corr,
             "rank_correlation": best_p3_p4_rank,
             "sign_agreement": best_p3_p4_agree,
@@ -549,8 +549,8 @@ def main():
         [
             "model",
             "gamma",
-            "p0",
-            "p3",
+            "raw_pca",
+            "residual_pca",
             "p4",
             "AR",
             "RISK",

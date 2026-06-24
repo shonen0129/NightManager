@@ -27,10 +27,10 @@ def blpx_sample_config() -> dict:
         "model": {"name": "sector_relative_ensemble_blp_enhanced"},
         "portfolio": {"long_short_frac": 0.3, "weight_mode": "signal"},
         "ensemble": {
-            "p0_weight": 0.4,
-            "p3_weight": 0.4,
-            "p8_weight": 0.1,
-            "p8p3_weight": 0.1,
+            "raw_pca_weight": 0.4,
+            "residual_pca_weight": 0.4,
+            "raw_blpx_weight": 0.1,
+            "residual_blpx_weight": 0.1,
             "normalization": "zscore",
         },
         "costs": {"slippage_bps_per_side": 5.0},
@@ -204,7 +204,7 @@ def test_blpx_ridge_stability(blpx_sample_config):
 def test_ensemble_weights_sum(blpx_sample_config):
     """9. test_ensemble_weights_sum: Verify ensemble weights sum to 1.0."""
     model = SectorRelativeEnsembleBLPEnhancedModel(blpx_sample_config)
-    w_sum = model.p0_weight + model.p3_weight + model.p8_weight + model.p8p3_weight
+    w_sum = model.raw_pca_weight + model.residual_pca_weight + model.raw_blpx_weight + model.residual_blpx_weight
     assert abs(w_sum - 1.0) < 1e-12
 
 
@@ -214,14 +214,14 @@ def test_no_nan_inf_signals(blpx_sample_config, sample_df_exec):
     model = SectorRelativeEnsembleBLPEnhancedModel(blpx_sample_config)
     res = model.predict_signals(df_exec)
     
-    p8_slice = res["p8_signals"].loc["2015-01-05":]
-    p8p3_slice = res["p8p3_signals"].loc["2015-01-05":]
+    raw_blpx_slice = res["raw_blpx_signals"].loc["2015-01-05":]
+    residual_blpx_slice = res["residual_blpx_signals"].loc["2015-01-05":]
     signals_slice = res["signals"].loc["2015-01-05":]
     
-    assert not p8_slice.isna().any().any()
-    assert not np.isinf(p8_slice.values).any()
-    assert not p8p3_slice.isna().any().any()
-    assert not np.isinf(p8p3_slice.values).any()
+    assert not raw_blpx_slice.isna().any().any()
+    assert not np.isinf(raw_blpx_slice.values).any()
+    assert not residual_blpx_slice.isna().any().any()
+    assert not np.isinf(residual_blpx_slice.values).any()
     assert not signals_slice.isna().any().any()
     assert not np.isinf(signals_slice.values).any()
 
@@ -248,16 +248,16 @@ def test_baseline_sre_reproduction(blpx_sample_config, sample_df_exec):
     df_exec, _ = sample_df_exec
     start_str = df_exec.index[-10].strftime("%Y-%m-%d")
 
-    prod_config_path = ROOT / "configs" / "archive" / "production_before_p8p3_blpx_20260614.yaml"
+    prod_config_path = ROOT / "configs" / "archive" / "production_before_residual_blpx_20260614.yaml"
     with open(prod_config_path) as f:
         prod_cfg = yaml.safe_load(f)
     sre_model = SectorRelativeEnsembleModel(prod_cfg)
 
     blpx_cfg = blpx_sample_config.copy()
-    blpx_cfg["ensemble"]["p0_weight"] = 0.5
-    blpx_cfg["ensemble"]["p3_weight"] = 0.5
-    blpx_cfg["ensemble"]["p8_weight"] = 0.0
-    blpx_cfg["ensemble"]["p8p3_weight"] = 0.0
+    blpx_cfg["ensemble"]["raw_pca_weight"] = 0.5
+    blpx_cfg["ensemble"]["residual_pca_weight"] = 0.5
+    blpx_cfg["ensemble"]["raw_blpx_weight"] = 0.0
+    blpx_cfg["ensemble"]["residual_blpx_weight"] = 0.0
 
     blpx_model = SectorRelativeEnsembleBLPEnhancedModel(blpx_cfg)
 
@@ -278,7 +278,7 @@ def test_previous_blp_reproduction(blpx_sample_config, sample_df_exec):
     legacy_cfg = {
         "model": {"name": "sector_relative_ensemble_blp"},
         "portfolio": {"long_short_frac": 0.3, "weight_mode": "signal"},
-        "ensemble": {"p0_weight": 0.4, "p3_weight": 0.4, "p5_weight": 0.1, "p5p3_weight": 0.1},
+        "ensemble": {"raw_pca_weight": 0.4, "residual_pca_weight": 0.4, "p5_weight": 0.1, "p5p3_weight": 0.1},
         "costs": {"slippage_bps_per_side": 5.0},
         "blp_window": 252,
         "blp_ewma_halflife": 45,
@@ -291,10 +291,10 @@ def test_previous_blp_reproduction(blpx_sample_config, sample_df_exec):
 
     # Enhanced PCA-BLPX Ensemble config configured to match legacy baseline
     blpx_cfg = blpx_sample_config.copy()
-    blpx_cfg["ensemble"]["p0_weight"] = 0.4
-    blpx_cfg["ensemble"]["p3_weight"] = 0.4
-    blpx_cfg["ensemble"]["p8_weight"] = 0.1
-    blpx_cfg["ensemble"]["p8p3_weight"] = 0.1
+    blpx_cfg["ensemble"]["raw_pca_weight"] = 0.4
+    blpx_cfg["ensemble"]["residual_pca_weight"] = 0.4
+    blpx_cfg["ensemble"]["raw_blpx_weight"] = 0.1
+    blpx_cfg["ensemble"]["residual_blpx_weight"] = 0.1
     blpx_cfg["blp_window"] = 252
     blpx_cfg["blp_ewma_halflife"] = 45
     blpx_cfg["alpha_xx"] = 0.75

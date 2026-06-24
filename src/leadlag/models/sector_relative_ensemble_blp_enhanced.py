@@ -30,7 +30,7 @@ from leadlag.models.sre import compute_jp_target_returns
 logger = logging.getLogger(__name__)
 
 # Caches to speed up grid search backtesting by avoiding redundant calculations
-_P0_P3_CACHE: dict = {}
+_RAW_PCA_RESIDUAL_PCA_CACHE: dict = {}
 _BLP_CORR_CACHE: dict = {}
 
 
@@ -89,16 +89,16 @@ class SectorRelativeEnsembleBLPEnhancedModel(BaseModel):
         # Ensemble weights
         sig_comps = self._resolve_val("signal_components", None)
         if isinstance(sig_comps, dict):
-            self.p0_weight = float(sig_comps.get("p0", {}).get("weight", 0.0)) if sig_comps.get("p0", {}).get("enabled", False) else 0.0
-            self.p3_weight = float(sig_comps.get("p3", {}).get("weight", 0.0)) if sig_comps.get("p3", {}).get("enabled", False) else 0.0
-            self.p8_weight = float(sig_comps.get("p8", {}).get("weight", 0.0)) if sig_comps.get("p8", {}).get("enabled", False) else 0.0
-            self.p8p3_weight = float(sig_comps.get("p8p3", {}).get("weight", 0.0)) if sig_comps.get("p8p3", {}).get("enabled", False) else 0.0
+            self.raw_pca_weight = float(sig_comps.get("raw_pca", {}).get("weight", 0.0)) if sig_comps.get("raw_pca", {}).get("enabled", False) else 0.0
+            self.residual_pca_weight = float(sig_comps.get("residual_pca", {}).get("weight", 0.0)) if sig_comps.get("residual_pca", {}).get("enabled", False) else 0.0
+            self.raw_blpx_weight = float(sig_comps.get("raw_blpx", {}).get("weight", 0.0)) if sig_comps.get("raw_blpx", {}).get("enabled", False) else 0.0
+            self.residual_blpx_weight = float(sig_comps.get("residual_blpx", {}).get("weight", 0.0)) if sig_comps.get("residual_blpx", {}).get("enabled", False) else 0.0
         else:
-            self.p0_weight = float(self._resolve_val("p0_weight", 0.4))
-            self.p3_weight = float(self._resolve_val("p3_weight", 0.4))
-            # Support both p8_weight and legacy p5_weight naming
-            self.p8_weight = float(self._resolve_val("p8_weight", self._resolve_val("p5_weight", 0.1)))
-            self.p8p3_weight = float(self._resolve_val("p8p3_weight", self._resolve_val("p5p3_weight", 0.1)))
+            self.raw_pca_weight = float(self._resolve_val("raw_pca_weight", 0.4))
+            self.residual_pca_weight = float(self._resolve_val("residual_pca_weight", 0.4))
+            # Support both raw_blpx_weight and legacy p5_weight naming
+            self.raw_blpx_weight = float(self._resolve_val("raw_blpx_weight", self._resolve_val("p5_weight", 0.1)))
+            self.residual_blpx_weight = float(self._resolve_val("residual_blpx_weight", self._resolve_val("p5p3_weight", 0.1)))
 
         # Precompute the fixed Sector Mapping matrix M_sector
         self.M_sector = self._build_sector_prior()
@@ -620,14 +620,14 @@ class SectorRelativeEnsembleBLPEnhancedModel(BaseModel):
             raise ValueError(f"Unknown normalization method: {method}")
 
     def combine_signals(
-        self, z0: np.ndarray, z3: np.ndarray, z8: np.ndarray, z8p3: np.ndarray
+        self, z0: np.ndarray, z3: np.ndarray, z_raw_blpx: np.ndarray, z_residual_blpx: np.ndarray
     ) -> np.ndarray:
         """Combine component signals with ensemble weights."""
         return (
-            self.p0_weight * z0
-            + self.p3_weight * z3
-            + self.p8_weight * z8
-            + self.p8p3_weight * z8p3
+            self.raw_pca_weight * z0
+            + self.residual_pca_weight * z3
+            + self.raw_blpx_weight * z_raw_blpx
+            + self.residual_blpx_weight * z_residual_blpx
         )
 
     def build_weights(self, signal: np.ndarray, q: float | None = None) -> np.ndarray:
@@ -672,10 +672,10 @@ class SectorRelativeEnsembleBLPEnhancedModel(BaseModel):
             rolling_std = np.maximum(rolling_std, 1e-8)
 
         # Setup output arrays
-        p0_signals = np.zeros((T, self.n_j))
-        p3_signals = np.zeros((T, self.n_j))
-        p8_signals = np.zeros((T, self.n_j))
-        p8p3_signals = np.zeros((T, self.n_j))
+        raw_pca_signals = np.zeros((T, self.n_j))
+        residual_pca_signals = np.zeros((T, self.n_j))
+        raw_blpx_signals = np.zeros((T, self.n_j))
+        residual_blpx_signals = np.zeros((T, self.n_j))
         combined_signals = np.zeros((T, self.n_j))
         normalized_combined_signals = np.zeros((T, self.n_j))
 
@@ -683,36 +683,36 @@ class SectorRelativeEnsembleBLPEnhancedModel(BaseModel):
         blp_diagnostics = []
 
         start_idx = self.corr_window
-        cache_key_p0_p3 = (id(df_exec), self.corr_window, self.k, self.lambda_reg, self.ewma_half_life)
-        if cache_key_p0_p3 in _P0_P3_CACHE:
-            p0_signals, p3_signals = _P0_P3_CACHE[cache_key_p0_p3]
-            p0_cached = True
+        cache_key_raw_pca_residual_pca = (id(df_exec), self.corr_window, self.k, self.lambda_reg, self.ewma_half_life)
+        if cache_key_raw_pca_residual_pca in _RAW_PCA_RESIDUAL_PCA_CACHE:
+            raw_pca_signals, residual_pca_signals = _RAW_PCA_RESIDUAL_PCA_CACHE[cache_key_raw_pca_residual_pca]
+            raw_pca_cached = True
         else:
-            p0_cached = False
+            raw_pca_cached = False
 
         for i in range(start_idx, T):
-            if not p0_cached:
+            if not raw_pca_cached:
                 # 1. Raw-PCA (Production PCA)
-                p0_sig = self.compute_production_signal(
+                raw_pca_sig = self.compute_production_signal(
                     i, c_full, v0_static, v1, v2, all_returns_raw, jp_gap, jp_beta, topix_night
                 )
-                p0_signals[i] = p0_sig
+                raw_pca_signals[i] = raw_pca_sig
 
                 # 2. Residual-PCA (Residual target PCA)
-                p3_sig = self.compute_residual_signal(
+                residual_pca_sig = self.compute_residual_signal(
                     jp_res_returns_p3, i, c_full_p3, v0_static, v1, v2, jp_gap, jp_beta, topix_night
                 )
-                p3_signals[i] = p3_sig
+                residual_pca_signals[i] = residual_pca_sig
             else:
-                p0_sig = p0_signals[i]
-                p3_sig = p3_signals[i]
+                raw_pca_sig = raw_pca_signals[i]
+                residual_pca_sig = residual_pca_signals[i]
 
             # 3. Raw-BLPX (Enhanced BLP Raw target)
             gap_override = np.nan_to_num(jp_gap[i], nan=0.0) if jp_gap is not None else None
             betas_t = np.asarray(jp_beta[i], dtype=float) if jp_beta is not None else None
             topix_night_t = float(topix_night[i]) if topix_night is not None else None
 
-            p8_res = self.compute_blp_signal(
+            raw_blpx_res = self.compute_blp_signal(
                 all_returns_raw,
                 i,
                 gap_override=gap_override,
@@ -723,10 +723,10 @@ class SectorRelativeEnsembleBLPEnhancedModel(BaseModel):
                 c_full=c_full,
                 is_residual=False,
             )
-            p8_signals[i] = p8_res["signal"]
+            raw_blpx_signals[i] = raw_blpx_res["signal"]
 
             # 4. Residual-BLPX (Enhanced BLP Residual target)
-            p8p3_res = self.compute_blp_signal(
+            residual_blpx_res = self.compute_blp_signal(
                 jp_res_returns_p3,
                 i,
                 gap_override=gap_override,
@@ -737,16 +737,16 @@ class SectorRelativeEnsembleBLPEnhancedModel(BaseModel):
                 c_full=c_full_p3,
                 is_residual=True,
             )
-            p8p3_signals[i] = p8p3_res["signal"]
+            residual_blpx_signals[i] = residual_blpx_res["signal"]
 
             # Standard Z-score normalization of component signals
-            z0 = self.normalize_signals(p0_sig, self.normalization_method)
-            z3 = self.normalize_signals(p3_sig, self.normalization_method)
-            z8 = self.normalize_signals(p8_res["signal"], self.normalization_method)
-            z8p3 = self.normalize_signals(p8p3_res["signal"], self.normalization_method)
+            z0 = self.normalize_signals(raw_pca_sig, self.normalization_method)
+            z3 = self.normalize_signals(residual_pca_sig, self.normalization_method)
+            z_raw_blpx = self.normalize_signals(raw_blpx_res["signal"], self.normalization_method)
+            z_residual_blpx = self.normalize_signals(residual_blpx_res["signal"], self.normalization_method)
 
             # Combined PCA-BLPX Ensemble signal
-            s_ens = self.combine_signals(z0, z3, z8, z8p3)
+            s_ens = self.combine_signals(z0, z3, z_raw_blpx, z_residual_blpx)
             combined_signals[i] = s_ens
             normalized_combined_signals[i] = self.normalize_signals(
                 s_ens, self.normalization_method
@@ -757,43 +757,43 @@ class SectorRelativeEnsembleBLPEnhancedModel(BaseModel):
             blp_diagnostics.append(
                 {
                     "date": date_str,
-                    "p8_cond_num": p8_res["cond_num"],
-                    "p8_b_norm": p8_res["b_norm"],
-                    "p8_b_pca_norm": p8_res["b_pca_norm"],
-                    "p8_b_sector_norm": p8_res["b_sector_norm"],
-                    "p8_b_struct_norm": p8_res["b_struct_norm"],
-                    "p8_sigma_xx_trace": p8_res["sigma_xx_trace"],
-                    "p8_sigma_yx_norm": p8_res["sigma_yx_norm"],
-                    "p8_sigma_yy_trace": p8_res["sigma_yy_trace"],
-                    "p8_min_pred_var": p8_res["min_pred_var"],
-                    "p8_max_pred_var": p8_res["max_pred_var"],
-                    "p8_num_pred_var_floored": p8_res["num_pred_var_floored"],
-                    "p8_pinv_fallback": int(p8_res["pinv_fallback"]),
-                    "p8_num_training_samples": p8_res["num_training_samples"],
+                    "raw_blpx_cond_num": raw_blpx_res["cond_num"],
+                    "raw_blpx_b_norm": raw_blpx_res["b_norm"],
+                    "raw_blpx_b_pca_norm": raw_blpx_res["b_pca_norm"],
+                    "raw_blpx_b_sector_norm": raw_blpx_res["b_sector_norm"],
+                    "raw_blpx_b_struct_norm": raw_blpx_res["b_struct_norm"],
+                    "raw_blpx_sigma_xx_trace": raw_blpx_res["sigma_xx_trace"],
+                    "raw_blpx_sigma_yx_norm": raw_blpx_res["sigma_yx_norm"],
+                    "raw_blpx_sigma_yy_trace": raw_blpx_res["sigma_yy_trace"],
+                    "raw_blpx_min_pred_var": raw_blpx_res["min_pred_var"],
+                    "raw_blpx_max_pred_var": raw_blpx_res["max_pred_var"],
+                    "raw_blpx_num_pred_var_floored": raw_blpx_res["num_pred_var_floored"],
+                    "raw_blpx_pinv_fallback": int(raw_blpx_res["pinv_fallback"]),
+                    "raw_blpx_num_training_samples": raw_blpx_res["num_training_samples"],
                 }
             )
 
-        if not p0_cached:
-            _P0_P3_CACHE[cache_key_p0_p3] = (p0_signals.copy(), p3_signals.copy())
+        if not raw_pca_cached:
+            _RAW_PCA_RESIDUAL_PCA_CACHE[cache_key_raw_pca_residual_pca] = (raw_pca_signals.copy(), residual_pca_signals.copy())
 
         # Build DataFrames
-        p0_df = pd.DataFrame(p0_signals, index=sim_dates, columns=JP_TICKERS)
-        p3_df = pd.DataFrame(p3_signals, index=sim_dates, columns=JP_TICKERS)
+        raw_pca_df = pd.DataFrame(raw_pca_signals, index=sim_dates, columns=JP_TICKERS)
+        residual_pca_df = pd.DataFrame(residual_pca_signals, index=sim_dates, columns=JP_TICKERS)
         p4_signals = np.zeros((T, self.n_j))
         p4_df = pd.DataFrame(p4_signals, index=sim_dates, columns=JP_TICKERS)
-        p8_df = pd.DataFrame(p8_signals, index=sim_dates, columns=JP_TICKERS)
-        p8p3_df = pd.DataFrame(p8p3_signals, index=sim_dates, columns=JP_TICKERS)
+        raw_blpx_df = pd.DataFrame(raw_blpx_signals, index=sim_dates, columns=JP_TICKERS)
+        residual_blpx_df = pd.DataFrame(residual_blpx_signals, index=sim_dates, columns=JP_TICKERS)
         combined_df = pd.DataFrame(combined_signals, index=sim_dates, columns=JP_TICKERS)
         normalized_df = pd.DataFrame(
             normalized_combined_signals, index=sim_dates, columns=JP_TICKERS
         )
 
         return {
-            "p0_signals": p0_df,
-            "p3_signals": p3_df,
+            "raw_pca_signals": raw_pca_df,
+            "residual_pca_signals": residual_pca_df,
             "p4_signals": p4_df,
-            "p8_signals": p8_df,
-            "p8p3_signals": p8p3_df,
+            "raw_blpx_signals": raw_blpx_df,
+            "residual_blpx_signals": residual_blpx_df,
             "signals": combined_df,
             "normalized_signals": normalized_df,
             "y_jp_oc_df": inputs["y_jp_oc_df"],

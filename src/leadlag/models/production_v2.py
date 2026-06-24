@@ -3,9 +3,8 @@
 Implements the daily mu_over_sigma + baseline_style + RuleD pipeline.
 
 All runtime parameters are read from the YAML ``cfg`` dict at call time via
-``parse_run_config(cfg)`` → ``ProductionV2RunConfig``.  Module-level constants
-(``LONG_COUNT``, ``BASELINE_GROSS``, etc.) are kept only as documentation of
-the Pydantic-schema defaults — they are **not** used inside any function.
+``parse_run_config(cfg)`` → ``ProductionV2RunConfig``.  Default values are
+defined in the Pydantic schema (leadlag.config.schemas.ProductionV2RunConfig).
 
 Public API
 ----------
@@ -42,15 +41,18 @@ from leadlag.data.tickers import JP_TICKERS
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Module-level constants — documentation only.
-# These are the Pydantic field *defaults*; actual runtime values always come
-# from ProductionV2RunConfig parsed from the YAML cfg dict.
+# Module identifier (used by production_v2_writer.py)
 # ---------------------------------------------------------------------------
-VERSION = "production_p8p3_v2"
-LONG_COUNT = 5          # ProductionV2RunConfig.long_count default
-SHORT_COUNT = 5         # ProductionV2RunConfig.short_count default
-BASELINE_GROSS = 2.0    # ProductionV2RunConfig.baseline_gross default
-COST_BPS_PER_GROSS = 10.0  # ProductionV2RunConfig.cost_bps_per_gross default
+VERSION = "production_residual_blpx_v2"
+
+# ---------------------------------------------------------------------------
+# Default constants (mirror ProductionV2RunConfig Pydantic defaults)
+# Exported for tests and tools that need quick access without parsing cfg.
+# ---------------------------------------------------------------------------
+BASELINE_GROSS = 2.0
+COST_BPS_PER_GROSS = 10.0
+LONG_COUNT = 5
+SHORT_COUNT = 5
 
 
 # ---------------------------------------------------------------------------

@@ -65,12 +65,12 @@ def generate_daily_decision_results(model, df_exec, trade_date, current_weights=
 
     pred = model.predict_signals(df_exec)
 
-    p0_sig = pred["p0_signals"].iloc[i].values
-    p3_sig = pred["p3_signals"].iloc[i].values
+    raw_pca_sig = pred["raw_pca_signals"].iloc[i].values
+    residual_pca_sig = pred["residual_pca_signals"].iloc[i].values
     s_ens = pred["signals"].iloc[i].values
 
-    z0 = model.normalize_signals(p0_sig, model.normalization_method)
-    z3 = model.normalize_signals(p3_sig, model.normalization_method)
+    z0 = model.normalize_signals(raw_pca_sig, model.normalization_method)
+    z3 = model.normalize_signals(residual_pca_sig, model.normalization_method)
 
     w = model.build_weights(s_ens)
     ranks = pd.Series(s_ens).rank(ascending=False).values.astype(int)
@@ -90,8 +90,8 @@ def generate_daily_decision_results(model, df_exec, trade_date, current_weights=
             "signal_date": sig_date,
             "trade_date": trade_date.strftime("%Y-%m-%d"),
             "ticker": tk,
-            "production_signal": float(p0_sig[j]),
-            "residual_signal": float(p3_sig[j]),
+            "production_signal": float(raw_pca_sig[j]),
+            "residual_signal": float(residual_pca_sig[j]),
             "production_z": float(z0[j]),
             "residual_z": float(z3[j]),
             "ensemble_signal": float(s_ens[j]),

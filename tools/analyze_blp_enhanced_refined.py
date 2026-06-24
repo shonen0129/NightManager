@@ -311,7 +311,7 @@ def run_precomputed_grid_worker(args_tuple):
                     z_hat_raw = np.einsum('tju,tu->tj', B_struct_raw, z_U_raw_arr)
                     pred_var_raw = 1.0 - (1.0 - alpha_yx)**2 * cov_reductions_raw_diag
                     pred_var_raw_floored = np.maximum(pred_var_raw, 1e-8)
-                    p8_signals = np.clip(z_hat_raw / (pred_var_raw_floored ** beta_conf), -5.0, 5.0)
+                    raw_blpx_signals = np.clip(z_hat_raw / (pred_var_raw_floored ** beta_conf), -5.0, 5.0)
                     
                     # Res
                     norm_B_res = (1.0 - alpha_yx) * norm_B_base_res
@@ -327,19 +327,19 @@ def run_precomputed_grid_worker(args_tuple):
                     z_hat_res = np.einsum('tju,tu->tj', B_struct_res, z_U_res_arr)
                     pred_var_res = 1.0 - (1.0 - alpha_yx)**2 * cov_reductions_res_diag
                     pred_var_res_floored = np.maximum(pred_var_res, 1e-8)
-                    p8p3_signals = np.clip(z_hat_res / (pred_var_res_floored ** beta_conf), -5.0, 5.0)
+                    residual_blpx_signals = np.clip(z_hat_res / (pred_var_res_floored ** beta_conf), -5.0, 5.0)
                         
-                    z8 = normalize_cross_sectional(p8_signals)
-                    z8p3 = normalize_cross_sectional(p8p3_signals)
-                    BLPX_SRE_signal = normalize_cross_sectional(0.5 * z8 + 0.5 * z8p3)
+                    z_raw_blpx = normalize_cross_sectional(raw_blpx_signals)
+                    z_residual_blpx = normalize_cross_sectional(residual_blpx_signals)
+                    BLPX_SRE_signal = normalize_cross_sectional(0.5 * z_raw_blpx + 0.5 * z_residual_blpx)
                     
                     ensemble_signals = {
                         "BLPX_SRE": BLPX_SRE_signal,
-                        "Hybrid_BLPX_20": normalize_cross_sectional(0.4 * z0 + 0.4 * z3 + 0.1 * z8 + 0.1 * z8p3),
-                        "Hybrid_BLPX_25": normalize_cross_sectional(0.375 * z0 + 0.375 * z3 + 0.125 * z8 + 0.125 * z8p3),
-                        "Hybrid_BLPX_50": normalize_cross_sectional(0.25 * z0 + 0.25 * z3 + 0.25 * z8 + 0.25 * z8p3),
-                        "P8_only": normalize_cross_sectional(z8),
-                        "P8P3_only": normalize_cross_sectional(z8p3),
+                        "Hybrid_BLPX_20": normalize_cross_sectional(0.4 * z0 + 0.4 * z3 + 0.1 * z_raw_blpx + 0.1 * z_residual_blpx),
+                        "Hybrid_BLPX_25": normalize_cross_sectional(0.375 * z0 + 0.375 * z3 + 0.125 * z_raw_blpx + 0.125 * z_residual_blpx),
+                        "Hybrid_BLPX_50": normalize_cross_sectional(0.25 * z0 + 0.25 * z3 + 0.25 * z_raw_blpx + 0.25 * z_residual_blpx),
+                        "Raw-BLPX_only": normalize_cross_sectional(z_raw_blpx),
+                        "Residual-BLPX_only": normalize_cross_sectional(z_residual_blpx),
                     }
                     
                     for w_b in blend_weights:
@@ -515,7 +515,7 @@ def main():
     prev_blp_cfg = {
         "model": {"name": "sector_relative_ensemble_blp"},
         "portfolio": {"long_short_frac": 0.3, "weight_mode": "signal"},
-        "ensemble": {"p0_weight": 0.4, "p3_weight": 0.4, "p5_weight": 0.1, "p5p3_weight": 0.1},
+        "ensemble": {"raw_pca_weight": 0.4, "residual_pca_weight": 0.4, "p5_weight": 0.1, "p5p3_weight": 0.1},
         "costs": {"slippage_bps_per_side": 5.0},
         "blp_window": 252,
         "blp_ewma_halflife": 45,
@@ -537,7 +537,7 @@ def main():
     prev_blpx_cfg = {
         "model": {"name": "sector_relative_ensemble_blp_enhanced"},
         "portfolio": {"long_short_frac": 0.3, "weight_mode": "signal"},
-        "ensemble": {"p0_weight": 0.0, "p3_weight": 0.0, "p8_weight": 0.5, "p8p3_weight": 0.5},
+        "ensemble": {"raw_pca_weight": 0.0, "residual_pca_weight": 0.0, "raw_blpx_weight": 0.5, "residual_blpx_weight": 0.5},
         "blp_window": 252,
         "blp_ewma_halflife": 45,
         "alpha_xx": 0.75,
@@ -564,7 +564,7 @@ def main():
     init_blpx_cfg = {
         "model": {"name": "sector_relative_ensemble_blp_enhanced"},
         "portfolio": {"long_short_frac": 0.3, "weight_mode": "signal"},
-        "ensemble": {"p0_weight": 0.5, "p3_weight": 0.5, "p8_weight": 0.0, "p8p3_weight": 0.0},
+        "ensemble": {"raw_pca_weight": 0.5, "residual_pca_weight": 0.5, "raw_blpx_weight": 0.0, "residual_blpx_weight": 0.0},
     }
     blpx_base_model = SectorRelativeEnsembleBLPEnhancedModel(init_blpx_cfg)
     base_pred = blpx_base_model.predict_signals(df_exec)
@@ -586,11 +586,11 @@ def main():
     logger.info(f"Previous BLPX Best Reproduced: {previous_blpx_best_reproduced}")
 
     # Standard Raw-PCA & Residual-PCA signals (normalized to z-scores)
-    p0_sig_base = base_pred["p0_signals"].loc[sim_dates_slice].values
-    p3_sig_base = base_pred["p3_signals"].loc[sim_dates_slice].values
+    raw_pca_sig_base = base_pred["raw_pca_signals"].loc[sim_dates_slice].values
+    residual_pca_sig_base = base_pred["residual_pca_signals"].loc[sim_dates_slice].values
     
-    z0 = normalize_cross_sectional(p0_sig_base)
-    z3 = normalize_cross_sectional(p3_sig_base)
+    z0 = normalize_cross_sectional(raw_pca_sig_base)
+    z3 = normalize_cross_sectional(residual_pca_sig_base)
     SRE_signal = normalize_cross_sectional(0.5 * z0 + 0.5 * z3)
 
     # Core arrays prep for BLP
@@ -1020,7 +1020,7 @@ def main():
         best_cfg = {
             "model": {"name": "sector_relative_ensemble_blp_enhanced"},
             "portfolio": {"long_short_frac": 0.3, "weight_mode": "signal"},
-            "ensemble": {"p0_weight": 0.0, "p3_weight": 0.0, "p8_weight": 0.5, "p8p3_weight": 0.5},
+            "ensemble": {"raw_pca_weight": 0.0, "residual_pca_weight": 0.0, "raw_blpx_weight": 0.5, "residual_blpx_weight": 0.5},
             "blp_window": int(best_cand["blp_window"]),
             "blp_ewma_halflife": float(best_cand["ewma_halflife"]),
             "alpha_xx": float(best_cand["alpha_xx"]),
@@ -1066,17 +1066,17 @@ def main():
         daily_returns_master["BLPX_prev_best"] = legacy_blpx_sim_5[0]
         
         # Form standard signals again for simulation
-        z8 = normalize_cross_sectional(best_pred["p8_signals"].loc[sim_dates_slice].values)
-        z8p3 = normalize_cross_sectional(best_pred["p8p3_signals"].loc[sim_dates_slice].values)
-        BLPX_SRE_sig = normalize_cross_sectional(0.5 * z8 + 0.5 * z8p3)
+        z_raw_blpx = normalize_cross_sectional(best_pred["raw_blpx_signals"].loc[sim_dates_slice].values)
+        z_residual_blpx = normalize_cross_sectional(best_pred["residual_blpx_signals"].loc[sim_dates_slice].values)
+        BLPX_SRE_sig = normalize_cross_sectional(0.5 * z_raw_blpx + 0.5 * z_residual_blpx)
         
         standard_ensembles = {
             "BLPX_SRE": BLPX_SRE_sig,
-            "Hybrid_BLPX_20": normalize_cross_sectional(0.4 * z0 + 0.4 * z3 + 0.1 * z8 + 0.1 * z8p3),
-            "Hybrid_BLPX_25": normalize_cross_sectional(0.375 * z0 + 0.375 * z3 + 0.125 * z8 + 0.125 * z8p3),
-            "Hybrid_BLPX_50": normalize_cross_sectional(0.25 * z0 + 0.25 * z3 + 0.25 * z8 + 0.25 * z8p3),
-            "P8_only": normalize_cross_sectional(z8),
-            "P8P3_only": normalize_cross_sectional(z8p3),
+            "Hybrid_BLPX_20": normalize_cross_sectional(0.4 * z0 + 0.4 * z3 + 0.1 * z_raw_blpx + 0.1 * z_residual_blpx),
+            "Hybrid_BLPX_25": normalize_cross_sectional(0.375 * z0 + 0.375 * z3 + 0.125 * z_raw_blpx + 0.125 * z_residual_blpx),
+            "Hybrid_BLPX_50": normalize_cross_sectional(0.25 * z0 + 0.25 * z3 + 0.25 * z_raw_blpx + 0.25 * z_residual_blpx),
+            "Raw-BLPX_only": normalize_cross_sectional(z_raw_blpx),
+            "Residual-BLPX_only": normalize_cross_sectional(z_residual_blpx),
         }
         for w_b in blend_weights:
             w_percent = int(w_b * 100)
@@ -1161,17 +1161,17 @@ def main():
             pd.DataFrame(w_df, index=sim_dates_slice, columns=JP_TICKERS).to_csv(out_dir / f"daily_positions_{name}.csv")
 
         # Compute Signal correlations & overlap
-        p8_flat = best_pred["p8_signals"].loc[sim_dates_slice].values.flatten()
-        p8p3_flat = best_pred["p8p3_signals"].loc[sim_dates_slice].values.flatten()
-        p0_flat = z0.flatten()
-        p3_flat = z3.flatten()
+        raw_blpx_flat = best_pred["raw_blpx_signals"].loc[sim_dates_slice].values.flatten()
+        residual_blpx_flat = best_pred["residual_blpx_signals"].loc[sim_dates_slice].values.flatten()
+        raw_pca_flat = z0.flatten()
+        residual_pca_flat = z3.flatten()
         
         corr_records = []
         pairs = [
-            ("P0", "P8", p0_flat, p8_flat),
-            ("P3", "P8P3", p3_flat, p8p3_flat),
-            ("P0", "P3", p0_flat, p3_flat),
-            ("P8", "P8P3", p8_flat, p8p3_flat),
+            ("Raw-PCA", "Raw-BLPX", raw_pca_flat, raw_blpx_flat),
+            ("Residual-PCA", "Residual-BLPX", residual_pca_flat, residual_blpx_flat),
+            ("Raw-PCA", "Residual-PCA", raw_pca_flat, residual_pca_flat),
+            ("Raw-BLPX", "Residual-BLPX", raw_blpx_flat, residual_blpx_flat),
             ("SRE", "BLPX_SRE", SRE_signal.flatten(), BLPX_SRE_sig.flatten()),
             ("SRE", "SRE_BLPX_BLEND_20", SRE_signal.flatten(), standard_ensembles["SRE_BLPX_BLEND_20"].flatten()),
             ("SRE", "SRE_BLPX_BLEND_25", SRE_signal.flatten(), standard_ensembles["SRE_BLPX_BLEND_25"].flatten()),

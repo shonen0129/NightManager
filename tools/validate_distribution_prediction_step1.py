@@ -38,7 +38,7 @@ warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 def parse_arguments() -> argparse.Namespace:
     """Parse command line arguments."""
-    parser = argparse.ArgumentParser(description="P8P3-BLPX Step 1 Distribution Validation Suite")
+    parser = argparse.ArgumentParser(description="Residual-BLPX Step 1 Distribution Validation Suite")
     parser.add_argument("--input-dir", required=False, help="Input directory containing Step 1 results")
     parser.add_argument("--output-dir", default="results/distribution_validation", help="Output directory")
     parser.add_argument("--start", default="2020-01-01", help="Start date (YYYY-MM-DD)")

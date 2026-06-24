@@ -26,8 +26,8 @@ def blp_sample_config() -> dict:
         "model": {"name": "sector_relative_ensemble_blp"},
         "portfolio": {"long_short_frac": 0.3, "weight_mode": "signal"},
         "ensemble": {
-            "p0_weight": 0.4,
-            "p3_weight": 0.4,
+            "raw_pca_weight": 0.4,
+            "residual_pca_weight": 0.4,
             "p5_weight": 0.1,
             "p5p3_weight": 0.1,
             "normalization": "zscore",
@@ -184,7 +184,7 @@ def test_blp_no_lookahead(blp_sample_config, sample_df_exec):
 def test_ensemble_weights_sum(blp_sample_config):
     """5. test_ensemble_weights_sum: Verify ensemble weights sum to 1.0."""
     model = SectorRelativeEnsembleBLPModel(blp_sample_config)
-    w_sum = model.p0_weight + model.p3_weight + model.p5_weight + model.p5p3_weight
+    w_sum = model.raw_pca_weight + model.residual_pca_weight + model.p5_weight + model.p5p3_weight
     assert abs(w_sum - 1.0) < 1e-12
 
 
@@ -230,15 +230,15 @@ def test_baseline_sre_reproduction(blp_sample_config, sample_df_exec):
     start_str = df_exec.index[-10].strftime("%Y-%m-%d")
 
     # Production PCA-Ensemble model
-    prod_config_path = ROOT / "configs" / "archive" / "production_before_p8p3_blpx_20260614.yaml"
+    prod_config_path = ROOT / "configs" / "archive" / "production_before_residual_blpx_20260614.yaml"
     with open(prod_config_path) as f:
         prod_cfg = yaml.safe_load(f)
     sre_model = SectorRelativeEnsembleModel(prod_cfg)
 
-    # PCA-Ensemble-BLP configured to match PCA-Ensemble (p5_weight=0.0, p5p3_weight=0.0, p0_weight=0.5, p3_weight=0.5)
+    # PCA-Ensemble-BLP configured to match PCA-Ensemble (p5_weight=0.0, p5p3_weight=0.0, raw_pca_weight=0.5, residual_pca_weight=0.5)
     blp_cfg = blp_sample_config.copy()
-    blp_cfg["ensemble"]["p0_weight"] = 0.5
-    blp_cfg["ensemble"]["p3_weight"] = 0.5
+    blp_cfg["ensemble"]["raw_pca_weight"] = 0.5
+    blp_cfg["ensemble"]["residual_pca_weight"] = 0.5
     blp_cfg["ensemble"]["p5_weight"] = 0.0
     blp_cfg["ensemble"]["p5p3_weight"] = 0.0
 

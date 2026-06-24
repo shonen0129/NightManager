@@ -34,11 +34,11 @@ class StrategyConfig(BaseModel):
     signal_mode: str = Field(default="gap_residual", description="シグナルモード (gap_residual | raw)")
     gap_open_coef: float = Field(default=0.70, description="ギャップ調整係数 (idiosyncratic ギャップへの感応度)")
     topix_beta_coef: float = Field(
-        default=1.20,
+        default=0.6,
         description=(
-            "TOPIX ベータ係数（実装上の正値: 1.20）。"
-            "運用方針書 §3.1 の N_U=11 記述と実装上の 15 銘柄の相違同様、"
-            "この値は信号精度向上のために実装で調整されている。"
+            "TOPIX ベータ係数（ギャップ残差補正時のTOPIXベータ係数）。"
+            "バックテスト検証により 0.6 が 1.20 より優れたパフォーマンスを示すため、"
+            "0.6 を正本として採用。"
         ),
     )
     beta_window: int = Field(default=60, ge=1, description="ローリング OLS ベータ推定窓 (日数)")

@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Experimental script for comparing P0/P3 signal-level ensemble vs P6_gap_filter.
+"""Experimental script for comparing Raw-PCA/Residual-PCA signal-level ensemble vs P6_gap_filter.
 
 Evaluates performance across multiple slippage levels: [0, 2.5, 5, 7.5, 10, 12.5, 15, 20, 25, 30] bps per side.
 Applies strict canonical signal-weighting logic and saves all required csv files, plots, and reports.
@@ -261,7 +261,7 @@ def main():
     jp_beta = df_exec[[f"jp_beta_{tk}" for tk in JP_TICKERS]].values
     topix_night = df_exec["topix_night_return"].values
 
-    # Target residualization for P3
+    # Target residualization for Residual-PCA
     y_data_p3 = y_jp_cc_df[JP_TICKERS].values
     x_data_p3 = y_topix_cc_series.values.reshape(-1, 1)
     betas_jp_p3 = compute_rolling_ols_betas(y_data_p3, x_data_p3, 60)
@@ -286,10 +286,10 @@ def main():
     # -------------------------------------------------------------------------
     # GENERATE RAW SIGNALS
     # -------------------------------------------------------------------------
-    logger.info("Generating signals for P0 and P3...")
+    logger.info("Generating signals for Raw-PCA and Residual-PCA...")
     daily_signals = {
-        "P0": np.zeros((T, 17)),
-        "P3": np.zeros((T, 17))
+        "Raw-PCA": np.zeros((T, 17)),
+        "Residual-PCA": np.zeros((T, 17))
     }
     for idx, date in enumerate(sim_dates):
         i = start_idx + idx
@@ -303,7 +303,7 @@ def main():
             gap_override=gap_t1, gap_open_coef=0.70, topix_beta_coef=0.6,
             betas_t=betas_t, topix_night_t=topix_night_t, vol_adjusted_target=True
         )
-        daily_signals["P0"][i] = sig_res_p0["signal"]
+        daily_signals["Raw-PCA"][i] = sig_res_p0["signal"]
 
         sig_res_p3 = signals.compute_signal(
             jp_res_returns_p3, i, 15, 60, c_full, v0_static, v1, v2,
@@ -311,7 +311,7 @@ def main():
             gap_override=gap_t1, gap_open_coef=0.70, topix_beta_coef=0.6,
             betas_t=betas_t, topix_night_t=topix_night_t, vol_adjusted_target=True
         )
-        daily_signals["P3"][i] = sig_res_p3["signal"]
+        daily_signals["Residual-PCA"][i] = sig_res_p3["signal"]
 
     # -------------------------------------------------------------------------
     # SIMULATE p0p3_ensemble_true WEIGHTS & RETURNS
@@ -323,7 +323,7 @@ def main():
     
     for idx, date in enumerate(sim_dates):
         i = start_idx + idx
-        sig_comb = 0.5 * cs_normalize(daily_signals["P0"][i], "zscore") + 0.5 * cs_normalize(daily_signals["P3"][i], "zscore")
+        sig_comb = 0.5 * cs_normalize(daily_signals["Raw-PCA"][i], "zscore") + 0.5 * cs_normalize(daily_signals["Residual-PCA"][i], "zscore")
         w_t = signals.build_weights(sig_comb, 0.3, 17, "signal")
         
         r_t = y_jp_oc_all[i]
@@ -333,7 +333,7 @@ def main():
         
     w_p0p3_df = pd.DataFrame(w_p0p3_list, index=sim_dates, columns=JP_TICKERS)
     sig_p0p3_df = pd.DataFrame(
-        [0.5 * cs_normalize(daily_signals["P0"][i], "zscore") + 0.5 * cs_normalize(daily_signals["P3"][i], "zscore") for i in range(start_idx, T)],
+        [0.5 * cs_normalize(daily_signals["Raw-PCA"][i], "zscore") + 0.5 * cs_normalize(daily_signals["Residual-PCA"][i], "zscore") for i in range(start_idx, T)],
         index=sim_dates, columns=JP_TICKERS
     )
 
@@ -353,8 +353,8 @@ def main():
         i = start_idx + idx
         
         # Base combined normalized signal
-        z0 = cs_normalize(daily_signals["P0"][i], "zscore")
-        z3 = cs_normalize(daily_signals["P3"][i], "zscore")
+        z0 = cs_normalize(daily_signals["Raw-PCA"][i], "zscore")
+        z3 = cs_normalize(daily_signals["Residual-PCA"][i], "zscore")
         s_base = 0.5 * z0 + 0.5 * z3
         
         # Individual ETF open gap filter
@@ -387,7 +387,7 @@ def main():
         
     w_p6_df = pd.DataFrame(w_p6_list, index=sim_dates, columns=JP_TICKERS)
     sig_p6_df = pd.DataFrame(
-        [0.5 * cs_normalize(daily_signals["P0"][i], "zscore") + 0.5 * cs_normalize(daily_signals["P3"][i], "zscore") for i in range(start_idx, T)],
+        [0.5 * cs_normalize(daily_signals["Raw-PCA"][i], "zscore") + 0.5 * cs_normalize(daily_signals["Residual-PCA"][i], "zscore") for i in range(start_idx, T)],
         index=sim_dates, columns=JP_TICKERS
     ) # same base signal
 
@@ -429,7 +429,7 @@ def main():
     }
 
     for slip in slippage_levels:
-        # P0/P3 cost & net return
+        # Raw-PCA/Residual-PCA cost & net return
         cost_p0p3 = 2.0 * (slip / 10000.0) * gross_exp_p0p3
         net_ret_p0p3 = gross_ret_p0p3 - cost_p0p3
         eq_p0p3 = (1.0 + pd.Series(net_ret_p0p3, index=sim_dates)).cumprod()
@@ -459,7 +459,7 @@ def main():
             p_bench = benchmark_df.reindex(p_dates)
             p_r_oc = y_jp_oc_df.reindex(p_dates)
 
-            # P0/P3
+            # Raw-PCA/Residual-PCA
             met_p0p3 = calculate_comprehensive_metrics(
                 pd.Series(net_ret_p0p3[mask.values], index=p_dates),
                 pd.Series(gross_exp_p0p3[mask.values], index=p_dates),
@@ -722,7 +722,7 @@ def main():
     pd.DataFrame([{
         "check_name": "Baseline Definition Audit",
         "status": "PASS",
-        "explanation": "Verified P0/P3 ensemble is canonical signal-weighted, and P6 has only gap overlays without drawdown/vol target.",
+        "explanation": "Verified Raw-PCA/Residual-PCA ensemble is canonical signal-weighted, and P6 has only gap overlays without drawdown/vol target.",
         "recommended_fix": "None."
     }]).to_csv(audit_dir / "baseline_definition_audit.csv", index=False)
 
@@ -764,7 +764,7 @@ def main():
     plt.figure()
     p0p3_oos = oos_df[oos_df["Model"] == "p0p3_ensemble"].sort_values("Slippage_bps")
     p6_oos = oos_df[oos_df["Model"] == "p6_gap_filter"].sort_values("Slippage_bps")
-    plt.plot(p0p3_oos["Slippage_bps"], p0p3_oos["Sharpe"], marker='o', label="P0/P3 Ensemble")
+    plt.plot(p0p3_oos["Slippage_bps"], p0p3_oos["Sharpe"], marker='o', label="Raw-PCA/Residual-PCA Ensemble")
     plt.plot(p6_oos["Slippage_bps"], p6_oos["Sharpe"], marker='x', label="P6 Gap Filter")
     plt.title("OOS Sharpe vs Slippage Level")
     plt.xlabel("Slippage (bps per side)")
@@ -776,7 +776,7 @@ def main():
 
     # 2. AR vs Slippage
     plt.figure()
-    plt.plot(p0p3_oos["Slippage_bps"], p0p3_oos["AR"], marker='o', label="P0/P3 Ensemble")
+    plt.plot(p0p3_oos["Slippage_bps"], p0p3_oos["AR"], marker='o', label="Raw-PCA/Residual-PCA Ensemble")
     plt.plot(p6_oos["Slippage_bps"], p6_oos["AR"], marker='x', label="P6 Gap Filter")
     plt.title("OOS AR vs Slippage Level")
     plt.xlabel("Slippage (bps per side)")
@@ -788,7 +788,7 @@ def main():
 
     # 3. MDD vs Slippage
     plt.figure()
-    plt.plot(p0p3_oos["Slippage_bps"], p0p3_oos["MDD"], marker='o', label="P0/P3 Ensemble")
+    plt.plot(p0p3_oos["Slippage_bps"], p0p3_oos["MDD"], marker='o', label="Raw-PCA/Residual-PCA Ensemble")
     plt.plot(p6_oos["Slippage_bps"], p6_oos["MDD"], marker='x', label="P6 Gap Filter")
     plt.title("OOS MDD vs Slippage Level")
     plt.xlabel("Slippage (bps per side)")
@@ -800,7 +800,7 @@ def main():
 
     # 4. Cost drag vs Slippage
     plt.figure()
-    plt.plot(p0p3_oos["Slippage_bps"], p0p3_oos["Annualized Cost Drag"], marker='o', label="P0/P3 Ensemble")
+    plt.plot(p0p3_oos["Slippage_bps"], p0p3_oos["Annualized Cost Drag"], marker='o', label="Raw-PCA/Residual-PCA Ensemble")
     plt.plot(p6_oos["Slippage_bps"], p6_oos["Annualized Cost Drag"], marker='x', label="P6 Gap Filter")
     plt.title("OOS Annualized Cost Drag vs Slippage Level")
     plt.xlabel("Slippage (bps per side)")
@@ -815,7 +815,7 @@ def main():
     for slip in [0.0, 5.0, 10.0, 15.0, 20.0]:
         eq_p0 = daily_equity_curves_dict[f"p0p3_ensemble_{slip}"]
         eq_p6 = daily_equity_curves_dict[f"p6_gap_filter_{slip}"]
-        plt.plot(sim_dates, eq_p0, label=f"P0/P3 Ens (slip={slip} bps)", alpha=0.6)
+        plt.plot(sim_dates, eq_p0, label=f"Raw-PCA/Residual-PCA Ens (slip={slip} bps)", alpha=0.6)
         plt.plot(sim_dates, eq_p6, label=f"P6 Gap Filt (slip={slip} bps)", linestyle="--", alpha=0.9)
     plt.title("Net Equity Curves by Slippage Level")
     plt.xlabel("Date")
@@ -829,7 +829,7 @@ def main():
     plt.figure()
     plt.plot(p6_oos["Slippage_bps"], p6_oos["Sharpe"].values - p0p3_oos["Sharpe"].values, marker='o', color="purple")
     plt.axhline(0.0, color="red", linestyle="--")
-    plt.title("Sharpe Difference: P6 Gap Filter - P0/P3 Ensemble (OOS)")
+    plt.title("Sharpe Difference: P6 Gap Filter - Raw-PCA/Residual-PCA Ensemble (OOS)")
     plt.xlabel("Slippage (bps per side)")
     plt.ylabel("Sharpe Difference")
     plt.grid(True)
@@ -840,7 +840,7 @@ def main():
     plt.figure()
     plt.plot(p6_oos["Slippage_bps"], p6_oos["AR"].values - p0p3_oos["AR"].values, marker='o', color="purple")
     plt.axhline(0.0, color="red", linestyle="--")
-    plt.title("AR Difference: P6 Gap Filter - P0/P3 Ensemble (OOS)")
+    plt.title("AR Difference: P6 Gap Filter - Raw-PCA/Residual-PCA Ensemble (OOS)")
     plt.xlabel("Slippage (bps per side)")
     plt.ylabel("AR Difference")
     plt.grid(True)
@@ -852,7 +852,7 @@ def main():
     plt.boxplot([
         w_p0p3_df.diff().abs().sum(axis=1) / 2.0,
         w_p6_df.diff().abs().sum(axis=1) / 2.0
-    ], labels=["P0/P3 Ensemble", "P6 Gap Filter"])
+    ], labels=["Raw-PCA/Residual-PCA Ensemble", "P6 Gap Filter"])
     plt.title("Daily Turnover Distribution")
     plt.ylabel("Daily Turnover")
     plt.grid(True)
@@ -912,16 +912,16 @@ def main():
     rel_be_oos = relative_be[0]
     rel_be_full = relative_be[1]
 
-    report_content = f"""# Slippage Sensitivity Analysis Report: Canonical P0/P3 Ensemble vs P6_gap_filter
+    report_content = f"""# Slippage Sensitivity Analysis Report: Canonical Raw-PCA/Residual-PCA Ensemble vs P6_gap_filter
 
-This report documents the rigorous comparison of the **Canonical P0/P3 signal-level 50/50 Ensemble** vs **P6_gap_filter** under multiple slippage cost assumptions ($0, 2.5, 5, 7.5, 10, 12.5, 15, 20, 25, 30$ bps per side). Both strategies utilize the canonical **signal-weighted** portfolio logic.
+This report documents the rigorous comparison of the **Canonical Raw-PCA/Residual-PCA signal-level 50/50 Ensemble** vs **P6_gap_filter** under multiple slippage cost assumptions ($0, 2.5, 5, 7.5, 10, 12.5, 15, 20, 25, 30$ bps per side). Both strategies utilize the canonical **signal-weighted** portfolio logic.
 
 ---
 
 ## 1. Executive Summary
 
 - **Who is superior at low slippage (0 - 5 bps)?** 
-  - **P0/P3 Ensemble** dominates in pure return terms (AR = **83.57%** vs **79.06%** at 5bps), but **P6_gap_filter** maintains a higher OOS Sharpe (**4.0039** vs **3.8815**).
+  - **Raw-PCA/Residual-PCA Ensemble** dominates in pure return terms (AR = **83.57%** vs **79.06%** at 5bps), but **P6_gap_filter** maintains a higher OOS Sharpe (**4.0039** vs **3.8815**).
 - **Who is superior at high slippage (>= 10 bps)?**
   - **P6_gap_filter** strongly outperforms in Sharpe, showing massive resilience. Because it trades conservatively during extreme overnight gap regimes, its cost drag is lower.
 - **Next Candidate Suitability**: `P6_gap_filter` is highly recommended for production deployment because it secures higher Sharpe stability and significantly lower cost drag under standard execution friction.
@@ -930,7 +930,7 @@ This report documents the rigorous comparison of the **Canonical P0/P3 signal-le
 
 ## 2. Canonical Definitions
 
-- **Canonical P0/P3 signal-level Ensemble**:
+- **Canonical Raw-PCA/Residual-PCA signal-level Ensemble**:
   - Blends $z_0$ and $z_3$ cross-sectionally daily using $w_0 = 0.5$ and $w_3 = 0.5$, normalized via `zscore`.
   - Builds weights using `signals.build_weights(s_base, 0.3, 17, "signal")`.
 - **P6_gap_filter**:
@@ -979,7 +979,7 @@ This report documents the rigorous comparison of the **Canonical P0/P3 signal-le
 ## 6. Final Deployment Recommendation
 
 ### If slippage <= 5 bps per side
-- **Recommended**: **P0/P3 Ensemble** (or **P6_gap_filter** for Sharpe).
+- **Recommended**: **Raw-PCA/Residual-PCA Ensemble** (or **P6_gap_filter** for Sharpe).
 - **Reason**: The base ensemble captures the maximum lead-lag alpha, yielding slightly higher annualized returns when trading friction is low.
 
 ### If slippage between 5 and 15 bps per side

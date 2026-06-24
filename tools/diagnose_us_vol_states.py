@@ -54,10 +54,10 @@ def parse_arguments() -> argparse.Namespace:
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(description="US Volatility State Diagnostics Suite")
     parser.add_argument("--config", default="configs/production.yaml", help="Path to config file")
-    parser.add_argument("--model", default="production_p8p3_blpx", help="Model name identifier")
+    parser.add_argument("--model", default="production_residual_blpx", help="Model name identifier")
     parser.add_argument("--start", default="2020-01-01", help="Analysis start date (trade_date)")
     parser.add_argument("--end", default="2026-06-14", help="Analysis end date (trade_date)")
-    parser.add_argument("--results-dir", default="results/production_p8p3_blpx_validation", help="Dir with existing results")
+    parser.add_argument("--results-dir", default="results/production_residual_blpx_validation", help="Dir with existing results")
     parser.add_argument("--output-dir", default="results/vol_state_diagnostics", help="Output directory")
     parser.add_argument("--run-backtest-if-missing", action="store_true", default=True, help="Force/allow backtest execution")
     parser.add_argument("--slippage-bps", type=float, default=5.0, help="Slippage in bps per side")
@@ -758,7 +758,7 @@ def main():
     df_exec = preprocess_data(raw_data, beta_window=60)
     
     # Running backtest replication to extract series
-    logger.info("Executing replication of production P8P3-BLPX backtest...")
+    logger.info("Executing replication of production Residual-BLPX backtest...")
     model = SectorRelativeEnsembleBLPEnhancedModel(cfg)
     backtest_res = BacktestEngine.run_backtest(
         model, df_exec, start_date=args.start, end_date=args.end, slippage_bps=slippage_bps
@@ -815,12 +815,12 @@ def main():
     # Portfolio mean predicted
     portfolio_metrics["predicted_portfolio_mean"] = (weights * signals).sum(axis=1)
     # Variance (from conditional pred_var)
-    if "p8_min_pred_var" in model.config or True:
+    if "raw_blpx_min_pred_var" in model.config or True:
         # Save conditional prediction variance elements (from diagnostics cache)
-        if (Path(args.results_dir) / "p8p3_diagnostics.csv").exists():
-            diag_df = pd.read_csv(Path(args.results_dir) / "p8p3_diagnostics.csv", index_col="date")
+        if (Path(args.results_dir) / "residual_blpx_diagnostics.csv").exists():
+            diag_df = pd.read_csv(Path(args.results_dir) / "residual_blpx_diagnostics.csv", index_col="date")
             diag_df.index = pd.to_datetime(diag_df.index)
-            portfolio_metrics["predicted_portfolio_variance"] = diag_df["p8_min_pred_var"].reindex(sim_dates)
+            portfolio_metrics["predicted_portfolio_variance"] = diag_df["raw_blpx_min_pred_var"].reindex(sim_dates)
         else:
             portfolio_metrics["predicted_portfolio_variance"] = np.nan
             

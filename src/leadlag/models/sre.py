@@ -120,8 +120,8 @@ class SectorRelativeEnsembleModel(BaseModel):
         self.vol_adjusted_target = self._resolve_val("vol_adjusted_target", True)
 
         # Resolve ensemble weights
-        self.p0_weight = float(self._resolve_val("p0_weight", 0.5))
-        self.p3_weight = float(self._resolve_val("p3_weight", 0.5))
+        self.raw_pca_weight = float(self._resolve_val("raw_pca_weight", 0.5))
+        self.residual_pca_weight = float(self._resolve_val("residual_pca_weight", 0.5))
         self.p4_weight = float(self._resolve_val("p4_weight", 0.0))
 
         # Resolve US residualization config
@@ -522,7 +522,7 @@ class SectorRelativeEnsembleModel(BaseModel):
         """Compute the Residual-PCA (JP Residual target) or P4 signal at index i."""
         is_p3 = hasattr(self, "v0_static_obj") and id(v0_static) == id(self.v0_static_obj)
         if is_p3:
-            cache_key = ("P3", i, self.lambda_reg, self.k)
+            cache_key = ("Residual-PCA", i, self.lambda_reg, self.k)
         else:
             cache_key = (
                 "P4",
@@ -628,8 +628,8 @@ class SectorRelativeEnsembleModel(BaseModel):
                 k_p4 = prior_info["k_expected"]
 
         # Setup arrays
-        p0_signals = np.zeros((T, self.n_j))
-        p3_signals = np.zeros((T, self.n_j))
+        raw_pca_signals = np.zeros((T, self.n_j))
+        residual_pca_signals = np.zeros((T, self.n_j))
         p4_signals = np.zeros((T, self.n_j))
         sre_signals = np.zeros((T, self.n_j))
 
@@ -637,20 +637,20 @@ class SectorRelativeEnsembleModel(BaseModel):
         start_idx = self.corr_window
         for i in range(start_idx, T):
             # Raw-PCA
-            p0_sig = self.compute_production_signal(
+            raw_pca_sig = self.compute_production_signal(
                 df_exec, i, c_full, v0_static, v1, v2, all_returns_raw, jp_gap, jp_beta, topix_night
             )
-            p0_signals[i] = p0_sig
+            raw_pca_signals[i] = raw_pca_sig
 
             # Residual-PCA
-            p3_sig = self.compute_residual_signal(
+            residual_pca_sig = self.compute_residual_signal(
                 df_exec, jp_res_returns_p3, i, c_full_p3, v0_static, v1, v2, jp_gap, jp_beta, topix_night
             )
-            p3_signals[i] = p3_sig
+            residual_pca_signals[i] = residual_pca_sig
 
             # Normalization
-            z0 = self.normalize_signals(p0_sig, self.normalization_method)
-            z3 = self.normalize_signals(p3_sig, self.normalization_method)
+            z0 = self.normalize_signals(raw_pca_sig, self.normalization_method)
+            z3 = self.normalize_signals(residual_pca_sig, self.normalization_method)
 
             # P4
             if self.us_res_enabled or self.p4_weight > 0.0:
@@ -694,12 +694,12 @@ class SectorRelativeEnsembleModel(BaseModel):
                 z4 = np.zeros(self.n_j)
 
             # Ensemble
-            s_ens = self.p0_weight * z0 + self.p3_weight * z3 + self.p4_weight * z4
+            s_ens = self.raw_pca_weight * z0 + self.residual_pca_weight * z3 + self.p4_weight * z4
             sre_signals[i] = s_ens
 
         # Create DataFrames
-        p0_df = pd.DataFrame(p0_signals, index=sim_dates, columns=JP_TICKERS)
-        p3_df = pd.DataFrame(p3_signals, index=sim_dates, columns=JP_TICKERS)
+        raw_pca_df = pd.DataFrame(raw_pca_signals, index=sim_dates, columns=JP_TICKERS)
+        residual_pca_df = pd.DataFrame(residual_pca_signals, index=sim_dates, columns=JP_TICKERS)
         p4_df = pd.DataFrame(p4_signals, index=sim_dates, columns=JP_TICKERS)
         sre_df = pd.DataFrame(sre_signals, index=sim_dates, columns=JP_TICKERS)
 
@@ -711,8 +711,8 @@ class SectorRelativeEnsembleModel(BaseModel):
             )
 
         out_res = {
-            "p0_signals": p0_df,
-            "p3_signals": p3_df,
+            "raw_pca_signals": raw_pca_df,
+            "residual_pca_signals": residual_pca_df,
             "p4_signals": p4_df,
             "signals": sre_df,
             "normalized_signals": sre_normalized_df,

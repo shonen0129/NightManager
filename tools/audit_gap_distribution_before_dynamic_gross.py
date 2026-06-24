@@ -48,7 +48,7 @@ warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 def parse_arguments() -> argparse.Namespace:
     """Parse command line arguments."""
-    parser = argparse.ArgumentParser(description="P8P3-BLPX Step 2 Gap Distribution Audit & Decomposition")
+    parser = argparse.ArgumentParser(description="Residual-BLPX Step 2 Gap Distribution Audit & Decomposition")
     parser.add_argument("--step1-dir", default="results/distribution_diagnostics/20260614_185401", help="Step 1 input folder")
     parser.add_argument("--step1-validation-dir", default="results/distribution_validation/20260614_235912", help="Step 1 Validation folder")
     parser.add_argument("--step2-dir", default="LATEST", help="Step 2 folder or LATEST")

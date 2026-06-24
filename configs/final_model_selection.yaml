@@ -50,9 +50,9 @@ parameter_sets:
 
 candidates:
   - name: SRE
-    formula: "0.5 * z(P0) + 0.5 * z(P3)"
+    formula: "0.5 * z(Raw-PCA) + 0.5 * z(Residual-PCA)"
   - name: BLPX_100
-    formula: "z(0.5 * z(P8) + 0.5 * z(P8P3))"
+    formula: "z(0.5 * z(Raw-BLPX) + 0.5 * z(Residual-BLPX))"
   - name: SRE_BLPX_BLEND_25
     formula: "0.75 * z(SRE) + 0.25 * z(BLPX_100)"
   - name: SRE_BLPX_BLEND_33

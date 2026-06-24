@@ -31,11 +31,11 @@ logger = logging.getLogger(__name__)
 
 def parse_arguments() -> argparse.Namespace:
     """Parse command line arguments."""
-    parser = argparse.ArgumentParser(description="Apply P8P3 Production Config")
+    parser = argparse.ArgumentParser(description="Apply Residual-BLPX Production Config")
     parser.add_argument("--source-config", default="configs/production.yaml", help="Current production config path")
-    parser.add_argument("--target-config", default="configs/production_p8p3_blpx.yaml", help="New candidate config path")
+    parser.add_argument("--target-config", default="configs/production_residual_blpx.yaml", help="New candidate config path")
     parser.add_argument("--backup-dir", default="configs/archive", help="Backup directory")
-    parser.add_argument("--output-dir", default="results/production_p8p3_blpx_validation", help="Output directory of validation")
+    parser.add_argument("--output-dir", default="results/production_residual_blpx_validation", help="Output directory of validation")
     parser.add_argument("--require-audit-pass", default="true", choices=["true", "false"], help="Enforce audit check pass before applying")
     parser.add_argument("--apply", action="store_true", help="Apply modifications (dry-run if omitted)")
     return parser.parse_args()
@@ -92,7 +92,7 @@ def main():
     
     # 3. Apply changes (or perform dry-run)
     date_str = datetime.now().strftime("%Y%m%d")
-    backup_filename = f"production_before_p8p3_blpx_{date_str}.yaml"
+    backup_filename = f"production_before_residual_blpx_{date_str}.yaml"
     backup_path = backup_dir / backup_filename
     
     if args.apply:

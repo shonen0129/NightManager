@@ -42,7 +42,7 @@ warnings.filterwarnings("ignore", category=UserWarning)
 
 def parse_arguments() -> argparse.Namespace:
     """Parse command line arguments."""
-    parser = argparse.ArgumentParser(description="P8P3-BLPX Covariance-Aware Portfolio Optimization Validation")
+    parser = argparse.ArgumentParser(description="Residual-BLPX Covariance-Aware Portfolio Optimization Validation")
     parser.add_argument("--gap-input-dir", default="results/gap_adjusted_distribution/20260615_004202", help="Step 2 gap output folder")
     parser.add_argument("--ranking-audit-dir", default="results/risk_adjusted_ranking_audit/20260615_120049", help="Step 4.5 ranking audit folder")
     parser.add_argument("--ranking-validation-dir", default="results/risk_adjusted_ranking_validation/20260615_032923", help="Step 4 output folder")
@@ -565,7 +565,7 @@ def main() -> None:
     df_long["signal_date"] = pd.to_datetime(df_long["signal_date"]).dt.strftime("%Y-%m-%d")
     
     # Load baseline daily positions
-    weights_file = Path("results/production_p8p3_blpx_validation/daily_positions_P8P3_only.csv")
+    weights_file = Path("results/production_residual_blpx_validation/daily_positions_Residual-BLPX_only.csv")
     if not weights_file.exists():
         logger.error(f"Weights file missing at {weights_file}")
         sys.exit(1)

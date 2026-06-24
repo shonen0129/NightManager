@@ -48,6 +48,19 @@ class TachibanaBrokerClient(BrokerClient):
             config.extra.get("private_key_path")
             or os.environ.get("TACHIBANA_PRIVATE_KEY_PATH", "")
         )
+        
+        # Security check: verify private key file has restrictive permissions
+        if private_key_path and os.path.exists(private_key_path):
+            import stat
+            file_stat = os.stat(private_key_path)
+            file_mode = stat.filemode(file_stat.st_mode)
+            # Check if file is readable by group or others (should be 600 or 400)
+            if file_stat.st_mode & (stat.S_IRGRP | stat.S_IROTH):
+                logger.warning(
+                    "SECURITY WARNING: Private key file %s has overly permissive permissions (%s). "
+                    "Recommended: chmod 600 (owner read/write only)",
+                    private_key_path, file_mode
+                )
         second_password = (
             config.api_password
             or config.extra.get("second_password")

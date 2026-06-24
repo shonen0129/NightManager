@@ -1,26 +1,26 @@
 model:
-  name: production_p8p3_blpx
-  display_name: "Production P8P3-BLPX v2 (mu_over_sigma + RuleD)"
-  short_name: "P8P3-BLPX-v2"
-  version: "production_p8p3_v2"
+  name: production_residual_blpx
+  display_name: "Production Residual-BLPX-RA v2 (mu_over_sigma + RuleD)"
+  short_name: "Residual-BLPX-RA-v2"
+  version: "production_residual_blpx_v2"
 
 signal_components:
-  p8p3:
+  residual_blpx:
     enabled: true
     weight: 1.0
-  p0:
+  raw_pca:
     enabled: false
     weight: 0.0
-  p3:
+  residual_pca:
     enabled: false
     weight: 0.0
-  p8:
+  raw_blpx:
     enabled: false
     weight: 0.0
 
 final_signal:
-  type: p8p3_only
-  formula: z(P8P3)
+  type: residual_blpx_only
+  formula: z(Residual-BLPX)
 
 # --- v2 拡張: ランキング方式 ---
 ranking:
@@ -79,7 +79,7 @@ costs:
   cost_bps_per_gross: 10.0      # 動的グロス計算の ex-ante コスト（bps/unit gross）
 
 blpx:
-  param_set: refined_best_p8p3_production
+  param_set: refined_best_residual_blpx_production
   rho: 0.01
   alpha_xx: 0.50
   alpha_yx: 0.05
@@ -100,6 +100,7 @@ residualization:
   beta_window: 60
   method: rolling_ols
   lookahead_safe: true
+  topix_beta_coef: 0.6  # バックテスト検証により0.6が1.20より優れたパフォーマンスを示す
 
 # --- v2: フォールバック階層 ---
 # 第1フォールバック: 旧 Residual-BLPX v1（gap data 欠損時）
@@ -107,7 +108,7 @@ residualization:
 fallback:
   enabled: true
   # v2 固有: gap data 欠損時は v1 ウェイトファイルを使用
-  v1_weights_file: live/production_p8p3_blpx/v1_baseline_weights.csv
+  v1_weights_file: live/production_residual_blpx/v1_baseline_weights.csv
   fallback_model: SRE           # v1 も利用不可の場合の最終フォールバック
   fallback_on_audit_failure: true
   fallback_on_missing_data: true
@@ -127,8 +128,8 @@ audit:
   check_gap_data_freshness: true       # gap data の日付が trade_date と整合すること
 
 output:
-  base_dir: results/production_p8p3_blpx
-  live_dir: live/production_p8p3_blpx
+  base_dir: results/production_residual_blpx
+  live_dir: live/production_residual_blpx
   save_signals: true
   save_weights: true
   save_plots: true

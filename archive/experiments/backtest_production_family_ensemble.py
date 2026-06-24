@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """Experimental script for Production-Family Ensembles & P5 Model Evaluation.
 
-Implements P0, P2, P3, and P5 models. Performs hyperparameter grid search for P5
+Implements Raw-PCA, P2, Residual-PCA, and P5 models. Performs hyperparameter grid search for P5
 on the train period. Simulates signal-level and risk-adjusted ensembles.
 Conducts slippage sensitivity, subperiod robustness, and strict safety audits.
 """
@@ -628,14 +628,14 @@ def main():
     logger.info(f"Grid search complete. Selected parameters: {best_params} with Train Sharpe: {best_sharpe:.4f}")
 
     # -------------------------------------------------------------------------
-    # EXECUTE BACKTEST FOR P0, P2, P3, P5
+    # EXECUTE BACKTEST FOR Raw-PCA, P2, Residual-PCA, P5
     # -------------------------------------------------------------------------
-    logger.info("Executing final backtest for P0, P2, P3, P5 models over the full period...")
-    model_ids = ["P0", "P2", "P3", "P5"]
+    logger.info("Executing final backtest for Raw-PCA, P2, Residual-PCA, P5 models over the full period...")
+    model_ids = ["Raw-PCA", "P2", "Residual-PCA", "P5"]
     daily_signals = {m: np.zeros((T, N_JP_ASSETS)) for m in model_ids}
     daily_weights = {m: np.zeros((T, N_JP_ASSETS)) for m in model_ids}
 
-    # Re-calculate residuals and predictions for P3 (beta_window=60, target_mode="resid_cc")
+    # Re-calculate residuals and predictions for Residual-PCA (beta_window=60, target_mode="resid_cc")
     y_data_p3 = y_jp_cc_df[JP_TICKERS].values
     x_data_p3 = y_topix_cc_series.values.reshape(-1, 1)
     betas_jp_p3 = compute_rolling_ols_betas(y_data_p3, x_data_p3, 60)
@@ -687,30 +687,30 @@ def main():
         betas_t = np.asarray(jp_beta[i], dtype=float) if jp_beta is not None else None
         topix_night_t = float(topix_night[i]) if topix_night is not None else None
 
-        # 1. P0: Production
+        # 1. Raw-PCA: Production
         sig_res_p0 = signals.compute_signal(
             all_returns_raw, i, 15, 60, c_full, v0_static, v1, v2,
             6, 0.75, 0.5, "equicorrelation", 45, v3_dynamic=False,
             gap_override=gap_t1, gap_open_coef=0.70, topix_beta_coef=0.6,
             betas_t=betas_t, topix_night_t=topix_night_t, vol_adjusted_target=True
         )
-        p0_sig = np.asarray(sig_res_p0["signal"], dtype=float)
-        p0_pred_r_cc = np.asarray(sig_res_p0["r_hat_jp_cc"], dtype=float)
-        daily_signals["P0"][i] = p0_sig
+        raw_pca_sig = np.asarray(sig_res_p0["signal"], dtype=float)
+        raw_pca_pred_r_cc = np.asarray(sig_res_p0["r_hat_jp_cc"], dtype=float)
+        daily_signals["Raw-PCA"][i] = raw_pca_sig
 
         # 2. P2: Production + Gap Shrinkage
         # Use P2 gap coefficients computed previously
-        p2_sig = (1.0 + p0_pred_r_cc) / np.maximum(1.0 + c_final_p5[i] * GapOpen_filt[i], 0.1) - 1.0
+        p2_sig = (1.0 + raw_pca_pred_r_cc) / np.maximum(1.0 + c_final_p5[i] * GapOpen_filt[i], 0.1) - 1.0
         daily_signals["P2"][i] = p2_sig
 
-        # 3. P3: Production + JP Residual target
+        # 3. Residual-PCA: Production + JP Residual target
         sig_res_p3 = signals.compute_signal(
             jp_res_returns_p3, i, 15, 60, c_full, v0_static, v1, v2,
             6, 0.75, 0.5, "equicorrelation", 45, v3_dynamic=False,
             gap_override=gap_t1, gap_open_coef=0.70, topix_beta_coef=0.6,
             betas_t=betas_t, topix_night_t=topix_night_t, vol_adjusted_target=True
         )
-        daily_signals["P3"][i] = np.asarray(sig_res_p3["signal"], dtype=float)
+        daily_signals["Residual-PCA"][i] = np.asarray(sig_res_p3["signal"], dtype=float)
 
         # 4. P5: Production + JP Residual target + Gap Shrinkage (optimal)
         sig_res_p5 = signals.compute_signal(
@@ -755,7 +755,7 @@ def main():
     weight_dfs = {m: pd.DataFrame(daily_weights[m][start_idx:], index=sim_dates, columns=JP_TICKERS) for m in model_ids}
     r_oc_df = y_jp_oc_df.reindex(sim_dates)
 
-    # Save P0/P2/P3/P5 signals and weights
+    # Save Raw-PCA/P2/Residual-PCA/P5 signals and weights
     sig_out_df = pd.DataFrame(index=sim_dates)
     normalized_sig_out_df = pd.DataFrame(index=sim_dates)
     w_out_df = pd.DataFrame(index=sim_dates)
@@ -816,11 +816,11 @@ def main():
 
     # Define fixed equal-weight combinations
     equal_weight_combinations = {
-        "ens_P0_P3_equal": ["P0", "P3"],
-        "ens_P2_P3_equal": ["P2", "P3"],
-        "ens_P3_P5_equal": ["P3", "P5"],
-        "ens_P0_P2_P3_equal": ["P0", "P2", "P3"],
-        "ens_P0_P2_P3_P5_equal": ["P0", "P2", "P3", "P5"]
+        "ens_P0_P3_equal": ["Raw-PCA", "Residual-PCA"],
+        "ens_P2_P3_equal": ["P2", "Residual-PCA"],
+        "ens_P3_P5_equal": ["Residual-PCA", "P5"],
+        "ens_P0_P2_P3_equal": ["Raw-PCA", "P2", "Residual-PCA"],
+        "ens_P0_P2_P3_P5_equal": ["Raw-PCA", "P2", "Residual-PCA", "P5"]
     }
 
     for name, models in equal_weight_combinations.items():
@@ -868,14 +868,14 @@ def main():
 
     # Define asymmetric fixed-weight combinations
     asymmetric_combinations = {
-        "ens_70P3_30P5": {"P3": 0.70, "P5": 0.30},
-        "ens_50P3_50P5": {"P3": 0.50, "P5": 0.50},
-        "ens_30P3_70P5": {"P3": 0.30, "P5": 0.70},
-        "ens_70P3_30P0": {"P3": 0.70, "P0": 0.30},
-        "ens_70P3_30P2": {"P3": 0.70, "P2": 0.30},
-        "ens_60P3_20P2_20P5": {"P3": 0.60, "P2": 0.20, "P5": 0.20},
-        "ens_50P3_25P0_25P5": {"P3": 0.50, "P0": 0.25, "P5": 0.25},
-        "ens_50P3_25P2_25P5": {"P3": 0.50, "P2": 0.25, "P5": 0.25}
+        "ens_70P3_30P5": {"Residual-PCA": 0.70, "P5": 0.30},
+        "ens_50P3_50P5": {"Residual-PCA": 0.50, "P5": 0.50},
+        "ens_30P3_70P5": {"Residual-PCA": 0.30, "P5": 0.70},
+        "ens_70P3_30P0": {"Residual-PCA": 0.70, "Raw-PCA": 0.30},
+        "ens_70P3_30P2": {"Residual-PCA": 0.70, "P2": 0.30},
+        "ens_60P3_20P2_20P5": {"Residual-PCA": 0.60, "P2": 0.20, "P5": 0.20},
+        "ens_50P3_25P0_25P5": {"Residual-PCA": 0.50, "Raw-PCA": 0.25, "P5": 0.25},
+        "ens_50P3_25P2_25P5": {"Residual-PCA": 0.50, "P2": 0.25, "P5": 0.25}
     }
 
     for name, weights_dict in asymmetric_combinations.items():
@@ -945,9 +945,9 @@ def main():
     sig_corr_df.to_csv(results_dir / "production_family_signal_correlation.csv")
 
     # Select models with signal correlation < 0.90 to avoid redundancy
-    # We always include P3 (best performing candidate) and check other candidates
-    selected_models = ["P3"]
-    for m in ["P0", "P2", "P5"]:
+    # We always include Residual-PCA (best performing candidate) and check other candidates
+    selected_models = ["Residual-PCA"]
+    for m in ["Raw-PCA", "P2", "P5"]:
         is_redundant = False
         for sel in selected_models:
             if sig_corr_df.loc[m, sel] >= 0.90:
@@ -1068,9 +1068,9 @@ def main():
         final_w = apply_cap_constraints(norm_w)
         selected_weights_records.append({
             "Rule": r_name,
-            "P0_weight": final_w[0],
+            "Raw-PCA_weight": final_w[0],
             "P2_weight": final_w[1],
-            "P3_weight": final_w[2],
+            "Residual-PCA_weight": final_w[2],
             "P5_weight": final_w[3]
         })
         
@@ -1133,22 +1133,22 @@ def main():
     # INCREMENTAL CONTRIBUTION TEST
     # -------------------------------------------------------------------------
     logger.info("Executing Incremental Contribution Test...")
-    # Base: P3
-    base_ret_series = daily_returns["P3"]
+    # Base: Residual-PCA
+    base_ret_series = daily_returns["Residual-PCA"]
     base_sharpe = float(base_ret_series.mean() / base_ret_series.std(ddof=1) * np.sqrt(245.0)) if base_ret_series.std(ddof=1) > 0 else np.nan
     base_ar = float(np.sum(base_ret_series) * 245.0 / len(sim_dates))
     base_mdd = float(((base_ret_series + 1.0).cumprod() / (base_ret_series + 1.0).cumprod().cummax() - 1.0).min())
-    base_turnover = float((weight_dfs["P3"].diff().abs().sum(axis=1) / 2.0).mean())
+    base_turnover = float((weight_dfs["Residual-PCA"].diff().abs().sum(axis=1) / 2.0).mean())
 
     contrib_records = []
-    for cand in ["P0", "P2", "P5"]:
-        # build combined ensemble: P3 + cand
-        models_to_comb = ["P3", cand]
+    for cand in ["Raw-PCA", "P2", "P5"]:
+        # build combined ensemble: Residual-PCA + cand
+        models_to_comb = ["Residual-PCA", cand]
         sig_list = []
         w_list = []
         ret_list = []
         for date in sim_dates:
-            sig_comb = 0.5 * normalize_signals(sig_dfs["P3"].loc[date].values) + 0.5 * normalize_signals(sig_dfs[cand].loc[date].values)
+            sig_comb = 0.5 * normalize_signals(sig_dfs["Residual-PCA"].loc[date].values) + 0.5 * normalize_signals(sig_dfs[cand].loc[date].values)
             sig_list.append(sig_comb)
 
             disp = signals.compute_dispersion_indicator(sig_comb, 0.3, 17, "long_short_mean_gap")
@@ -1189,7 +1189,7 @@ def main():
     logger.info("Running Slippage Sensitivity Analysis...")
     rates = [0.0, 5.0, 10.0, 15.0, 20.0]
     sensitivity_records = []
-    models_to_test = ["P0", "P2", "P3", "P5", "ens_P3_P5_equal", "ens_correlation_aware", "ens_risk_adjusted_rule_1"]
+    models_to_test = ["Raw-PCA", "P2", "Residual-PCA", "P5", "ens_P3_P5_equal", "ens_correlation_aware", "ens_risk_adjusted_rule_1"]
 
     for r_bps in rates:
         r_rate = r_bps / 10000.0
@@ -1247,7 +1247,7 @@ def main():
     ]
 
     subperiod_records = []
-    models_to_report = ["P0", "P2", "P3", "P5", "ens_P3_P5_equal", "ens_correlation_aware", "ens_risk_adjusted_rule_1"]
+    models_to_report = ["Raw-PCA", "P2", "Residual-PCA", "P5", "ens_P3_P5_equal", "ens_correlation_aware", "ens_risk_adjusted_rule_1"]
 
     for name, mask in subperiods:
         if mask.sum() == 0:
@@ -1506,7 +1506,7 @@ def main():
 
     # 1. Equity curves of top models (OOS)
     plt.figure(figsize=(12, 6))
-    top_models = ["P0", "P2", "P3", "P5", "ens_P3_P5_equal", "ens_correlation_aware", "ens_risk_adjusted_rule_1"]
+    top_models = ["Raw-PCA", "P2", "Residual-PCA", "P5", "ens_P3_P5_equal", "ens_correlation_aware", "ens_risk_adjusted_rule_1"]
     oos_eq = daily_eq_df.loc[args.oos_start:]
     oos_eq = oos_eq / oos_eq.iloc[0]
     for m in top_models:
@@ -1589,7 +1589,7 @@ def main():
     plt.close()
 
     # 8. Ensemble Weight Timeseries Plot
-    # We plot the rolling 60-day average weights for P0, P2, P3, P5 in the risk-adjusted ensemble
+    # We plot the rolling 60-day average weights for Raw-PCA, P2, Residual-PCA, P5 in the risk-adjusted ensemble
     plt.figure(figsize=(12, 5))
     df_ens_w = pd.read_csv(results_dir / "ensemble_weights_train_selected.csv")
     # Plotting selected fixed weights bar plot
@@ -1604,7 +1604,7 @@ def main():
     # 9. Rolling Sharpe & Rolling IC Heatmap/Line Plot
     # For top models over 250-day rolling window
     plt.figure(figsize=(12, 6))
-    for m in ["P0", "P3", "P5", "ens_P3_P5_equal"]:
+    for m in ["Raw-PCA", "Residual-PCA", "P5", "ens_P3_P5_equal"]:
         ret = daily_returns[m] if m in daily_returns else ensemble_returns[m]
         roll_sh = ret.rolling(252).mean() / ret.rolling(252).std() * np.sqrt(245.0)
         plt.plot(roll_sh.index, roll_sh.values, label=f"Rolling Sharpe {m}")
@@ -1617,7 +1617,7 @@ def main():
     
     # Save raw rolling Sharpe data
     df_roll_sh = pd.DataFrame(index=sim_dates)
-    for m in ["P0", "P3", "P5", "ens_P3_P5_equal"]:
+    for m in ["Raw-PCA", "Residual-PCA", "P5", "ens_P3_P5_equal"]:
         ret = daily_returns[m] if m in daily_returns else ensemble_returns[m]
         df_roll_sh[m] = ret.rolling(252).mean() / ret.rolling(252).std() * np.sqrt(245.0)
     df_roll_sh.to_csv(results_dir / "rolling_sharpe.csv")
@@ -1625,7 +1625,7 @@ def main():
     # Rolling IC Top Models Plot
     plt.figure(figsize=(12, 6))
     df_roll_ic = pd.DataFrame(index=sim_dates)
-    for m in ["P0", "P3", "P5"]:
+    for m in ["Raw-PCA", "Residual-PCA", "P5"]:
         ics = []
         for date in sim_dates:
             s_t = sig_dfs[m].loc[date].values
@@ -1649,7 +1649,7 @@ def main():
     # 10. Top Drawdown Periods
     dd_df = pd.read_csv(results_dir / "daily_drawdowns.csv", index_col=0, parse_dates=True)
     top_dd_records = []
-    for m in ["P0", "P3", "P5", "ens_P3_P5_equal"]:
+    for m in ["Raw-PCA", "Residual-PCA", "P5", "ens_P3_P5_equal"]:
         m_dd = dd_df[m]
         top_dd = m_dd.nsmallest(5)
         for date, val in top_dd.items():
@@ -1699,7 +1699,7 @@ def main():
 
     report_txt = f"""# Final Report: Production-Family Ensembles & P5 Model Evaluation
 
-This report documents the design, implementation, and empirical backtesting of the optimal **P5 (Production + JP Residual target + Gap Shrinkage)** model and the evaluations of ensembles containing only the **Production-family models** (P0, P2, P3, P5).
+This report documents the design, implementation, and empirical backtesting of the optimal **P5 (Production + JP Residual target + Gap Shrinkage)** model and the evaluations of ensembles containing only the **Production-family models** (Raw-PCA, P2, Residual-PCA, P5).
 
 ---
 
@@ -1747,7 +1747,7 @@ The optimal hyperparameter set was selected based strictly on the highest **Trai
 ## 4. Element-wise Key Observations
 
 ### A. JP Residual Target vs. Raw Target
-- Comparing **P3** and **P5** (residualized target) to **P0** and **P2** (raw target) shows that in-sample target residualization is highly effective. Removing the market index component from targets isolates pure relative sector alpha, improving OOS Sharpe.
+- Comparing **Residual-PCA** and **P5** (residualized target) to **Raw-PCA** and **P2** (raw target) shows that in-sample target residualization is highly effective. Removing the market index component from targets isolates pure relative sector alpha, improving OOS Sharpe.
 - We confirmed that target residuals must be shifted by 1 day (`y_residuals_shifted`) in the walk-forward loop, preventing target leakage when computing rolling target volatility.
 
 ### B. Gap Shrinkage & Capping
@@ -1755,20 +1755,20 @@ The optimal hyperparameter set was selected based strictly on the highest **Trai
 - Blending sector-specific coefficients with global coefficients protects the strategy from sector over-fitting during brief lookback horizons.
 
 ### C. Ensemble Performance
-- The **ens_P3_P5_equal** ensemble achieves excellent return-to-risk characteristics with lower drawdown profiles compared to individual models, confirming the diversify-benefit of blending raw-gap P3 and shrinkage-gap P5.
+- The **ens_P3_P5_equal** ensemble achieves excellent return-to-risk characteristics with lower drawdown profiles compared to individual models, confirming the diversify-benefit of blending raw-gap Residual-PCA and shrinkage-gap P5.
 
 ---
 
 ## 5. Deployment Recommendation
 
-### Conservative Portfolio: `P0` or `ens_P3_P5_equal`
+### Conservative Portfolio: `Raw-PCA` or `ens_P3_P5_equal`
 - **OOS Sharpe**: {metrics_df[(metrics_df['Model'] == 'ens_P3_P5_equal') & (metrics_df['Period'] == 'OOS')]['Sharpe'].values[0]:.4f}
 - **Annualized Return**: {metrics_df[(metrics_df['Model'] == 'ens_P3_P5_equal') & (metrics_df['Period'] == 'OOS')]['AR'].values[0]*100:.2f}%
 - **Max Drawdown**: {metrics_df[(metrics_df['Model'] == 'ens_P3_P5_equal') & (metrics_df['Period'] == 'OOS')]['MDD'].values[0]*100:.2f}%
 - **Rationale**: Minimal lookahead risk, zero audit violations, low turnover, and excellent Sharpe.
 
-### Balanced Portfolio / Main Candidate: `P3` or `P5`
-- **OOS Sharpe (P3)**: {metrics_df[(metrics_df['Model'] == 'P3') & (metrics_df['Period'] == 'OOS')]['Sharpe'].values[0]:.4f}
+### Balanced Portfolio / Main Candidate: `Residual-PCA` or `P5`
+- **OOS Sharpe (Residual-PCA)**: {metrics_df[(metrics_df['Model'] == 'Residual-PCA') & (metrics_df['Period'] == 'OOS')]['Sharpe'].values[0]:.4f}
 - **OOS Sharpe (P5)**: {metrics_df[(metrics_df['Model'] == 'P5') & (metrics_df['Period'] == 'OOS')]['Sharpe'].values[0]:.4f}
 - **Rationale**: Highest individual model performance. P5 adds dynamic gap shrinkage for additional cost drag resilience.
 

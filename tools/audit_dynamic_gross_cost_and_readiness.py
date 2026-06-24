@@ -40,7 +40,7 @@ warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 def parse_arguments() -> argparse.Namespace:
     """Parse command line arguments."""
-    parser = argparse.ArgumentParser(description="P8P3-BLPX Dynamic Gross Cost and Readiness Audit")
+    parser = argparse.ArgumentParser(description="Residual-BLPX Dynamic Gross Cost and Readiness Audit")
     parser.add_argument("--step1-input-dir", default="results/distribution_diagnostics/20260614_185401", help="Step 1 diagnostics folder")
     parser.add_argument("--step1-validation-dir", default="results/distribution_validation/20260614_235912", help="Step 1 Validation folder")
     parser.add_argument("--gap-input-dir", default="results/gap_adjusted_distribution/20260615_004202", help="Step 2 gap output folder")

@@ -243,7 +243,7 @@ def run_sprint0_calculations(
     model_gap = SectorRelativeEnsembleBLPEnhancedModel(prod_config)
     pred_gap = model_gap.predict_signals(df_exec)
     signals_gap = pred_gap["signals"]  # post-gap adjustment combined signal
-    p8p3_signals = pred_gap["p8p3_signals"]
+    residual_blpx_signals = pred_gap["residual_blpx_signals"]
 
     # Model without gap adjustment
     prod_config_no_gap = prod_config.copy()
@@ -251,7 +251,7 @@ def run_sprint0_calculations(
     model_no_gap = SectorRelativeEnsembleBLPEnhancedModel(prod_config_no_gap)
     pred_no_gap = model_no_gap.predict_signals(df_exec)
     signals_no_gap = pred_no_gap["signals"]
-    p8p3_no_gap_signals = pred_no_gap["p8p3_signals"]
+    residual_blpx_no_gap_signals = pred_no_gap["residual_blpx_signals"]
 
     # 6. Signal IC Analysis
     # We evaluate IC over valid_dates_beta
@@ -263,8 +263,8 @@ def run_sprint0_calculations(
         y_intra_t = y_res_intraday_60.loc[dt].values
         
         # Signals
-        sig_gap_t = p8p3_signals.loc[dt].values
-        sig_nogap_t = p8p3_no_gap_signals.loc[dt].values
+        sig_gap_t = residual_blpx_signals.loc[dt].values
+        sig_nogap_t = residual_blpx_no_gap_signals.loc[dt].values
 
         if np.isnan(y_cc_t).any() or np.isnan(y_intra_t).any():
             continue
@@ -318,7 +318,7 @@ def run_sprint0_calculations(
     
     # We compute the quantile returns for standard gap-adjusted signals
     for dt in valid_dates_beta:
-        sig_t = p8p3_signals.loc[dt]
+        sig_t = residual_blpx_signals.loc[dt]
         y_cc_t = y_res_cc_60.loc[dt]
         y_intra_t = y_res_intraday_60.loc[dt]
         y_raw_t = r_intraday.loc[dt]
@@ -354,7 +354,7 @@ def run_sprint0_calculations(
     # Wait, SRE config has blpx settings. We can build weights using model_gap.build_weights
     w_baseline = np.zeros((len(valid_dates_beta), model_gap.n_j))
     for idx, dt in enumerate(valid_dates_beta):
-        sig_t = p8p3_signals.loc[dt].values
+        sig_t = residual_blpx_signals.loc[dt].values
         w_baseline[idx] = model_gap.build_weights(sig_t)
     w_baseline_df = pd.DataFrame(w_baseline, index=valid_dates_beta, columns=JP_TICKERS)
 
@@ -634,8 +634,8 @@ def run_sprint0_calculations(
 
     # Signal diagnostics panel: daily signals, normalized signals, weights
     signal_diagnostics_panel = pd.concat({
-        "signal_gap_adjusted": p8p3_signals,
-        "signal_raw": p8p3_no_gap_signals,
+        "signal_gap_adjusted": residual_blpx_signals,
+        "signal_raw": residual_blpx_no_gap_signals,
         "weight_ruled": w_ruled_df,
     }, axis=1).loc[analysis_dates]
 

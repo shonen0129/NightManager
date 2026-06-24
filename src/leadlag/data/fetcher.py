@@ -61,11 +61,18 @@ def _load_1629_nav_per_share_from_csv(csv_path: str) -> pd.Series:
         None,
     )
     if header_idx is None:
-        raise ValueError(f"Could not find 'Date,' header in {csv_path}")
+        raise ValueError(
+            f"Could not find 'Date' header in CSV file: {csv_path}. "
+            f"Expected format: CSV with 'Date' column for NAV data."
+        )
 
     df = pd.read_csv(io.StringIO("\n".join(lines[header_idx:])))
     if "Date" not in df.columns or "Net Asset Value (per Share)" not in df.columns:
-        raise ValueError(f"Unexpected CSV columns in {csv_path}: {list(df.columns)}")
+        raise ValueError(
+            f"Unexpected CSV columns in {csv_path}. "
+            f"Required columns: ['Date', 'Net Asset Value (per Share)']. "
+            f"Found columns: {list(df.columns)}"
+        )
 
     df["Date"] = pd.to_datetime(
         df["Date"].astype(str),

@@ -50,37 +50,37 @@ grids:
 
 ensembles:
   - name: SRE_current
-    p0: 0.50
-    p3: 0.50
+    raw_pca: 0.50
+    residual_pca: 0.50
     p5: 0.00
     p5p3: 0.00
   - name: BLP_SRE
-    p0: 0.00
-    p3: 0.00
+    raw_pca: 0.00
+    residual_pca: 0.00
     p5: 0.50
     p5p3: 0.50
   - name: Hybrid_20
-    p0: 0.40
-    p3: 0.40
+    raw_pca: 0.40
+    residual_pca: 0.40
     p5: 0.10
     p5p3: 0.10
   - name: Hybrid_25
-    p0: 0.375
-    p3: 0.375
+    raw_pca: 0.375
+    residual_pca: 0.375
     p5: 0.125
     p5p3: 0.125
   - name: Hybrid_50
-    p0: 0.25
-    p3: 0.25
+    raw_pca: 0.25
+    residual_pca: 0.25
     p5: 0.25
     p5p3: 0.25
   - name: P5_only
-    p0: 0.00
-    p3: 0.00
+    raw_pca: 0.00
+    residual_pca: 0.00
     p5: 1.00
     p5p3: 0.00
   - name: P5P3_only
-    p0: 0.00
-    p3: 0.00
+    raw_pca: 0.00
+    residual_pca: 0.00
     p5: 0.00
     p5p3: 1.00

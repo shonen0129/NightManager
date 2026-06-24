@@ -1,7 +1,7 @@
 model:
   name: production_p0
-  display_name: "Production Model (P0)"
-  short_name: "P0"
+  display_name: "Production Model (Raw-PCA)"
+  short_name: "Raw-PCA"
   version: "production_v0"
 
 portfolio:

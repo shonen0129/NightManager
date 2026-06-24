@@ -46,13 +46,13 @@ logger = logging.getLogger(__name__)
 
 def parse_arguments() -> argparse.Namespace:
     """Parse command line arguments."""
-    parser = argparse.ArgumentParser(description="SRE P0/P4 Ensemble Backtest Suite")
+    parser = argparse.ArgumentParser(description="SRE Raw-PCA/P4 Ensemble Backtest Suite")
     parser.add_argument("--config", default="configs/research_p0_p4_ensemble.yaml", help="Path to config file")
     parser.add_argument("--start-date", default="2015-01-05", help="Backtest start date")
     parser.add_argument("--end-date", default="latest", help="Backtest end date")
     parser.add_argument("--train-end-date", default="2019-12-31", help="Train period end date")
     parser.add_argument("--oos-start-date", default="2020-01-01", help="OOS period start date")
-    parser.add_argument("--output-dir", default="results/p0_p4_ensemble", help="Output directory")
+    parser.add_argument("--output-dir", default="results/raw_pca_p4_ensemble", help="Output directory")
     return parser.parse_args()
 
 
@@ -169,18 +169,18 @@ def main():
     slippage_grid = [0.0, 5.0, 10.0]
 
     ensemble_grid = [
-        {"name": "SRE_current", "p0": 0.50, "p3": 0.50, "p4": 0.00},
-        {"name": "P0_only", "p0": 1.00, "p3": 0.00, "p4": 0.00},
-        {"name": "P3_only", "p0": 0.00, "p3": 1.00, "p4": 0.00},
-        {"name": "P4_only", "p0": 0.00, "p3": 0.00, "p4": 1.00},
-        {"name": "P0_P4_90_10", "p0": 0.90, "p3": 0.00, "p4": 0.10},
-        {"name": "P0_P4_80_20", "p0": 0.80, "p3": 0.00, "p4": 0.20},
-        {"name": "P0_P4_70_30", "p0": 0.70, "p3": 0.00, "p4": 0.30},
-        {"name": "P0_P4_60_40", "p0": 0.60, "p3": 0.00, "p4": 0.40},
-        {"name": "P0_P4_50_50", "p0": 0.50, "p3": 0.00, "p4": 0.50},
-        {"name": "P0_P4_40_60", "p0": 0.40, "p3": 0.00, "p4": 0.60},
-        {"name": "P0_P3_P4_40_40_20", "p0": 0.40, "p3": 0.40, "p4": 0.20},
-        {"name": "P0_P3_P4_45_45_10", "p0": 0.45, "p3": 0.45, "p4": 0.10},
+        {"name": "SRE_current", "raw_pca": 0.50, "residual_pca": 0.50, "p4": 0.00},
+        {"name": "Raw-PCA_only", "raw_pca": 1.00, "residual_pca": 0.00, "p4": 0.00},
+        {"name": "Residual-PCA_only", "raw_pca": 0.00, "residual_pca": 1.00, "p4": 0.00},
+        {"name": "P4_only", "raw_pca": 0.00, "residual_pca": 0.00, "p4": 1.00},
+        {"name": "Raw-PCA_P4_90_10", "raw_pca": 0.90, "residual_pca": 0.00, "p4": 0.10},
+        {"name": "Raw-PCA_P4_80_20", "raw_pca": 0.80, "residual_pca": 0.00, "p4": 0.20},
+        {"name": "Raw-PCA_P4_70_30", "raw_pca": 0.70, "residual_pca": 0.00, "p4": 0.30},
+        {"name": "Raw-PCA_P4_60_40", "raw_pca": 0.60, "residual_pca": 0.00, "p4": 0.40},
+        {"name": "Raw-PCA_P4_50_50", "raw_pca": 0.50, "residual_pca": 0.00, "p4": 0.50},
+        {"name": "Raw-PCA_P4_40_60", "raw_pca": 0.40, "residual_pca": 0.00, "p4": 0.60},
+        {"name": "Raw-PCA_P3_P4_40_40_20", "raw_pca": 0.40, "residual_pca": 0.40, "p4": 0.20},
+        {"name": "Raw-PCA_P3_P4_45_45_10", "raw_pca": 0.45, "residual_pca": 0.45, "p4": 0.10},
     ]
 
     daily_returns_db = {}
@@ -210,8 +210,8 @@ def main():
                 run_cfg = cfg.copy()
                 if "ensemble" not in run_cfg:
                     run_cfg["ensemble"] = {}
-                run_cfg["ensemble"]["p0_weight"] = ens["p0"]
-                run_cfg["ensemble"]["p3_weight"] = ens["p3"]
+                run_cfg["ensemble"]["raw_pca_weight"] = ens["raw_pca"]
+                run_cfg["ensemble"]["residual_pca_weight"] = ens["residual_pca"]
                 run_cfg["ensemble"]["p4_weight"] = ens["p4"]
 
                 if "us_residualization" not in run_cfg:
@@ -273,8 +273,8 @@ def main():
                             "model": ens["name"],
                             "prior_variant": "n/a" if is_baseline_like else prior,
                             "gamma": 0.0 if is_baseline_like else gamma,
-                            "p0": ens["p0"],
-                            "p3": ens["p3"],
+                            "raw_pca": ens["raw_pca"],
+                            "residual_pca": ens["residual_pca"],
                             "p4": ens["p4"],
                             "slippage_bps": slip,
                             "period": period,
@@ -292,9 +292,9 @@ def main():
                         if not is_baseline_like:
                             run_results_db[key_5bps] = res
                             # P4 vs Residual-PCA signal correlation
-                            p3_flat = res["p3_signals"].values.flatten()
+                            residual_pca_flat = res["residual_pca_signals"].values.flatten()
                             p4_flat = res["p4_signals"].values.flatten()
-                            p4_p3_corr = float(np.corrcoef(p4_flat, p3_flat)[0, 1])
+                            p4_p3_corr = float(np.corrcoef(p4_flat, residual_pca_flat)[0, 1])
                             p4_vs_p3_corrs.append({
                                 "model": ens["name"],
                                 "prior_variant": prior,
@@ -302,7 +302,7 @@ def main():
                                 "p4_vs_p3_corr": p4_p3_corr
                             })
 
-    # 3. Propagate SRE_current, P0_only, P3_only to all prior/gamma entries for sorting/sensitivity
+    # 3. Propagate SRE_current, Raw-PCA_only, Residual-PCA_only to all prior/gamma entries for sorting/sensitivity
     non_p4_records = [r for r in summary_records if r["p4"] == 0.0]
     summary_records = [r for r in summary_records if r["p4"] > 0.0]
     for record in non_p4_records:
@@ -450,16 +450,16 @@ def main():
 
     # 6. Raw-PCA/P4 weight sensitivity table (Section 10, Output 4)
     # Filter for Raw-PCA/P4 models at gamma=0.50, OOS period
-    p0_p4_weights = ["P0_P4_90_10", "P0_P4_80_20", "P0_P4_70_30", "P0_P4_60_40", "P0_P4_50_50", "P0_P4_40_60"]
+    raw_pca_p4_weights = ["Raw-PCA_P4_90_10", "Raw-PCA_P4_80_20", "Raw-PCA_P4_70_30", "Raw-PCA_P4_60_40", "Raw-PCA_P4_50_50", "Raw-PCA_P4_40_60"]
     weight_sensitivity = oos_5bps[
-        (oos_5bps["model"].isin(p0_p4_weights)) & (abs(oos_5bps["gamma"] - 0.50) < 1e-6)
+        (oos_5bps["model"].isin(raw_pca_p4_weights)) & (abs(oos_5bps["gamma"] - 0.50) < 1e-6)
     ].sort_values(by="p4")
-    weight_sensitivity.to_csv(out_dir / "p0_p4_weight_sensitivity.csv", index=False)
+    weight_sensitivity.to_csv(out_dir / "raw_pca_p4_weight_sensitivity.csv", index=False)
 
     # 7. P4 Variant Comparison table (Section 10, Output 5)
     # Compare resid_v1_v2_removed vs resid_v2_removed at gamma=0.50
     variant_comp = oos_5bps[
-        (oos_5bps["model"].isin(p0_p4_weights)) & (abs(oos_5bps["gamma"] - 0.50) < 1e-6)
+        (oos_5bps["model"].isin(raw_pca_p4_weights)) & (abs(oos_5bps["gamma"] - 0.50) < 1e-6)
     ].sort_values(by=["model", "prior_variant"])
     variant_comp.to_csv(out_dir / "p4_variant_comparison.csv", index=False)
 
@@ -477,8 +477,8 @@ def main():
     best_model_name = best_row["model"]
     best_prior_variant = best_row["prior_variant"]
     best_gamma_val = float(best_row["gamma"])
-    best_p0_w = float(best_row["p0"])
-    best_p3_w = float(best_row["p3"])
+    best_p0_w = float(best_row["raw_pca"])
+    best_p3_w = float(best_row["residual_pca"])
     best_p4_w = float(best_row["p4"])
 
     gamma_sensitivity = oos_5bps[
@@ -534,8 +534,8 @@ def main():
     best_run_cfg = cfg.copy()
     if "ensemble" not in best_run_cfg:
         best_run_cfg["ensemble"] = {}
-    best_run_cfg["ensemble"]["p0_weight"] = best_p0_w
-    best_run_cfg["ensemble"]["p3_weight"] = best_p3_w
+    best_run_cfg["ensemble"]["raw_pca_weight"] = best_p0_w
+    best_run_cfg["ensemble"]["residual_pca_weight"] = best_p3_w
     best_run_cfg["ensemble"]["p4_weight"] = best_p4_w
 
     if "us_residualization" not in best_run_cfg:
@@ -567,8 +567,8 @@ def main():
     full_audit["current_sre_matches_expected_range"] = bool(
         0.82 <= curr_ar <= 0.85 and 3.85 <= curr_sharpe <= 3.95 and -0.07 <= curr_mdd <= -0.06
     )
-    full_audit["p0_uses_production_implementation"] = True
-    full_audit["p3_uses_production_implementation"] = True
+    full_audit["raw_pca_uses_production_implementation"] = True
+    full_audit["residual_pca_uses_production_implementation"] = True
     full_audit["weight_builder_uses_production_implementation"] = True
     full_audit["cost_calculation_uses_production_implementation"] = True
 
@@ -690,8 +690,8 @@ def main():
     logger.info(f"Average Selection Overlap with current SRE: {avg_overlap_rate * 100:.2f}%")
 
     # 11. Signal correlations (Output 12)
-    p0_sig_best = best_res_data["p0_signals"].values.flatten()
-    p3_sig_best = best_res_data["p3_signals"].values.flatten()
+    raw_pca_sig_best = best_res_data["raw_pca_signals"].values.flatten()
+    residual_pca_sig_best = best_res_data["residual_pca_signals"].values.flatten()
     p4_sig_best = best_res_data["p4_signals"].values.flatten()
     cand_sig_best = best_res_data["signals"].values.flatten()
     sre_sig_curr = run_results_db.get("SRE_current", best_res_data)["signals"].values.flatten() # fallback to best if not stored
@@ -704,9 +704,9 @@ def main():
 
     corrs = []
     for pair_name, s1, s2 in [
-        ("P0_vs_P3", p0_sig_best, p3_sig_best),
-        ("P0_vs_P4", p0_sig_best, p4_sig_best),
-        ("P3_vs_P4", p3_sig_best, p4_sig_best),
+        ("Raw-PCA_vs_P3", raw_pca_sig_best, residual_pca_sig_best),
+        ("Raw-PCA_vs_P4", raw_pca_sig_best, p4_sig_best),
+        ("Residual-PCA_vs_P4", residual_pca_sig_best, p4_sig_best),
         ("candidate_vs_current_sre", cand_sig_best, sre_sig_curr)
     ]:
         c, rc, sa = calc_pair_metrics(s1, s2)
@@ -761,9 +761,9 @@ def main():
         
         # Cumulative return
         plt.figure(figsize=(10, 5))
-        plt.plot((1.0 + best_cand_returns).cumprod(), label=f"Best P0/P4 ({best_model_name})", color="navy")
-        plt.plot((1.0 + sre_current_ret).cumprod(), label="SRE Baseline (P0/P3)", color="gray", linestyle="--")
-        plt.title("P0/P4 Ensemble Net Cumulative Return vs Baseline")
+        plt.plot((1.0 + best_cand_returns).cumprod(), label=f"Best Raw-PCA/P4 ({best_model_name})", color="navy")
+        plt.plot((1.0 + sre_current_ret).cumprod(), label="SRE Baseline (Raw-PCA/Residual-PCA)", color="gray", linestyle="--")
+        plt.title("Raw-PCA/P4 Ensemble Net Cumulative Return vs Baseline")
         plt.xlabel("Date")
         plt.ylabel("Equity")
         plt.grid(True)
@@ -803,7 +803,7 @@ def main():
         # Rolling IC (60d)
         plt.figure(figsize=(10, 5))
         plt.plot(dates[60:], roll_60_ic[60:], color="purple")
-        plt.title("Candidate SRE P0/P4 60-Day Rolling Information Coefficient (IC)")
+        plt.title("Candidate SRE Raw-PCA/P4 60-Day Rolling Information Coefficient (IC)")
         plt.xlabel("Date")
         plt.ylabel("Rolling IC")
         plt.grid(True)
@@ -836,7 +836,7 @@ def main():
     logger.info("Writing backtest report...")
     decision_pass = "PASS" if best_row["pass_candidate"] else "FAIL"
     decision_recom = "RECOMMENDED" if best_row["pass_candidate"] else "NOT RECOMMENDED"
-    p3_p4_corr_best = corr_dict.get(best_key, 1.0)
+    residual_pca_p4_corr_best = corr_dict.get(best_key, 1.0)
     
     # Subperiod metrics helper slice
     cand_train = summary_5bps[(summary_5bps["model"] == best_model_name) & (summary_5bps["prior_variant"] == best_prior_variant) & (summary_5bps["gamma"] == best_gamma_val) & (summary_5bps["period"] == "train")].iloc[0]
@@ -898,8 +898,8 @@ Below is a comparison of the best candidate PCA-Ensemble Raw-PCA/P4 vs current P
 | **Best Raw-PCA/P4** | Train | {cand_train['AR']*100:.2f}% | {cand_train['RISK']*100:.2f}% | {cand_train['Sharpe']:.4f} | {cand_train['MDD']*100:.2f}% | {cand_train['turnover']:.4f} | {cand_train['average net exposure']:.4f} |
 | | OOS | {cand_oos['AR']*100:.2f}% | {cand_oos['RISK']*100:.2f}% | {cand_oos['Sharpe']:.4f} | {cand_oos['MDD']*100:.2f}% | {cand_oos['turnover']:.4f} | {cand_oos['average net exposure']:.4f} |
 | | Full | {cand_full['AR']*100:.2f}% | {cand_full['RISK']*100:.2f}% | {cand_full['Sharpe']:.4f} | {cand_full['MDD']*100:.2f}% | {cand_full['turnover']:.4f} | {cand_full['average net exposure']:.4f} |
-| **Raw-PCA only** (Production) | OOS | {summary_5bps[(summary_5bps['model']=='P0_only') & (summary_5bps['period']=='oos')].iloc[0]['AR']*100:.2f}% | {summary_5bps[(summary_5bps['model']=='P0_only') & (summary_5bps['period']=='oos')].iloc[0]['RISK']*100:.2f}% | {summary_5bps[(summary_5bps['model']=='P0_only') & (summary_5bps['period']=='oos')].iloc[0]['Sharpe']:.4f} | {summary_5bps[(summary_5bps['model']=='P0_only') & (summary_5bps['period']=='oos')].iloc[0]['MDD']*100:.2f}% | {summary_5bps[(summary_5bps['model']=='P0_only') & (summary_5bps['period']=='oos')].iloc[0]['turnover']:.4f} | {summary_5bps[(summary_5bps['model']=='P0_only') & (summary_5bps['period']=='oos')].iloc[0]['average net exposure']:.4f} |
-| **Residual-PCA only** (Residualized JP) | OOS | {summary_5bps[(summary_5bps['model']=='P3_only') & (summary_5bps['period']=='oos')].iloc[0]['AR']*100:.2f}% | {summary_5bps[(summary_5bps['model']=='P3_only') & (summary_5bps['period']=='oos')].iloc[0]['RISK']*100:.2f}% | {summary_5bps[(summary_5bps['model']=='P3_only') & (summary_5bps['period']=='oos')].iloc[0]['Sharpe']:.4f} | {summary_5bps[(summary_5bps['model']=='P3_only') & (summary_5bps['period']=='oos')].iloc[0]['MDD']*100:.2f}% | {summary_5bps[(summary_5bps['model']=='P3_only') & (summary_5bps['period']=='oos')].iloc[0]['turnover']:.4f} | {summary_5bps[(summary_5bps['model']=='P3_only') & (summary_5bps['period']=='oos')].iloc[0]['average net exposure']:.4f} |
+| **Raw-PCA only** (Production) | OOS | {summary_5bps[(summary_5bps['model']=='Raw-PCA_only') & (summary_5bps['period']=='oos')].iloc[0]['AR']*100:.2f}% | {summary_5bps[(summary_5bps['model']=='Raw-PCA_only') & (summary_5bps['period']=='oos')].iloc[0]['RISK']*100:.2f}% | {summary_5bps[(summary_5bps['model']=='Raw-PCA_only') & (summary_5bps['period']=='oos')].iloc[0]['Sharpe']:.4f} | {summary_5bps[(summary_5bps['model']=='Raw-PCA_only') & (summary_5bps['period']=='oos')].iloc[0]['MDD']*100:.2f}% | {summary_5bps[(summary_5bps['model']=='Raw-PCA_only') & (summary_5bps['period']=='oos')].iloc[0]['turnover']:.4f} | {summary_5bps[(summary_5bps['model']=='Raw-PCA_only') & (summary_5bps['period']=='oos')].iloc[0]['average net exposure']:.4f} |
+| **Residual-PCA only** (Residualized JP) | OOS | {summary_5bps[(summary_5bps['model']=='Residual-PCA_only') & (summary_5bps['period']=='oos')].iloc[0]['AR']*100:.2f}% | {summary_5bps[(summary_5bps['model']=='Residual-PCA_only') & (summary_5bps['period']=='oos')].iloc[0]['RISK']*100:.2f}% | {summary_5bps[(summary_5bps['model']=='Residual-PCA_only') & (summary_5bps['period']=='oos')].iloc[0]['Sharpe']:.4f} | {summary_5bps[(summary_5bps['model']=='Residual-PCA_only') & (summary_5bps['period']=='oos')].iloc[0]['MDD']*100:.2f}% | {summary_5bps[(summary_5bps['model']=='Residual-PCA_only') & (summary_5bps['period']=='oos')].iloc[0]['turnover']:.4f} | {summary_5bps[(summary_5bps['model']=='Residual-PCA_only') & (summary_5bps['period']=='oos')].iloc[0]['average net exposure']:.4f} |
 | **P4 only** (Residualized US/JP) | OOS | {summary_5bps[(summary_5bps['model']=='P4_only') & (summary_5bps['prior_variant']==best_prior_variant) & (summary_5bps['gamma']==best_gamma_val) & (summary_5bps['period']=='oos')].iloc[0]['AR']*100:.2f}% | {summary_5bps[(summary_5bps['model']=='P4_only') & (summary_5bps['prior_variant']==best_prior_variant) & (summary_5bps['gamma']==best_gamma_val) & (summary_5bps['period']=='oos')].iloc[0]['RISK']*100:.2f}% | {summary_5bps[(summary_5bps['model']=='P4_only') & (summary_5bps['prior_variant']==best_prior_variant) & (summary_5bps['gamma']==best_gamma_val) & (summary_5bps['period']=='oos')].iloc[0]['Sharpe']:.4f} | {summary_5bps[(summary_5bps['model']=='P4_only') & (summary_5bps['prior_variant']==best_prior_variant) & (summary_5bps['gamma']==best_gamma_val) & (summary_5bps['period']=='oos')].iloc[0]['MDD']*100:.2f}% | {summary_5bps[(summary_5bps['model']=='P4_only') & (summary_5bps['prior_variant']==best_prior_variant) & (summary_5bps['gamma']==best_gamma_val) & (summary_5bps['period']=='oos')].iloc[0]['turnover']:.4f} | {summary_5bps[(summary_5bps['model']=='P4_only') & (summary_5bps['prior_variant']==best_prior_variant) & (summary_5bps['gamma']==best_gamma_val) & (summary_5bps['period']=='oos')].iloc[0]['average net exposure']:.4f} |
 
 ## 6. Raw-PCA/P4 Weight Sensitivity

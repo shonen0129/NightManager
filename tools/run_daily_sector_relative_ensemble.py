@@ -101,7 +101,7 @@ def main():
 
     # 3. Instantiate the correct model class and generate daily decisions
     model_name = cfg.get("model", {}).get("name", "sector_relative_ensemble")
-    if model_name in ["production_p8p3_blpx", "sector_relative_ensemble_blp_enhanced"]:
+    if model_name in ["production_residual_blpx", "sector_relative_ensemble_blp_enhanced"]:
         from leadlag.models.sector_relative_ensemble_blp_enhanced import SectorRelativeEnsembleBLPEnhancedModel
         model = SectorRelativeEnsembleBLPEnhancedModel(cfg)
     else:

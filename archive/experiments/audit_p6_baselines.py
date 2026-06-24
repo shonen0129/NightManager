@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """Audit script for P6 strategy baselines.
 
-Runs and audits P0_true, P3_true, ens_P0_P3_signal_level_true, ens_P0_P3_weight_level_true,
+Runs and audits Raw-PCA_true, Residual-PCA_true, ens_P0_P3_signal_level_true, ens_P0_P3_weight_level_true,
 and P6_base_50_50_recomputed under standard cost and portfolio logic.
 Compares them to reported baselines from the recent P6 report, as well as previous production-family runs.
 Saves all requested audit files, statistics tables, and diagnostic plots.
@@ -290,7 +290,7 @@ def main():
     jp_beta = df_exec[[f"jp_beta_{tk}" for tk in JP_TICKERS]].values
     topix_night = df_exec["topix_night_return"].values
 
-    # Target residualization for P3
+    # Target residualization for Residual-PCA
     y_data_p3 = y_jp_cc_df[JP_TICKERS].values
     x_data_p3 = y_topix_cc_series.values.reshape(-1, 1)
     betas_jp_p3 = compute_rolling_ols_betas(y_data_p3, x_data_p3, 60)
@@ -315,10 +315,10 @@ def main():
     # -------------------------------------------------------------------------
     # GENERATE RAW SIGNALS
     # -------------------------------------------------------------------------
-    logger.info("Generating signals for P0 and P3...")
+    logger.info("Generating signals for Raw-PCA and Residual-PCA...")
     daily_signals = {
-        "P0": np.zeros((T, 17)),
-        "P3": np.zeros((T, 17))
+        "Raw-PCA": np.zeros((T, 17)),
+        "Residual-PCA": np.zeros((T, 17))
     }
     for idx, date in enumerate(sim_dates):
         i = start_idx + idx
@@ -332,7 +332,7 @@ def main():
             gap_override=gap_t1, gap_open_coef=0.70, topix_beta_coef=0.6,
             betas_t=betas_t, topix_night_t=topix_night_t, vol_adjusted_target=True
         )
-        daily_signals["P0"][i] = sig_res_p0["signal"]
+        daily_signals["Raw-PCA"][i] = sig_res_p0["signal"]
 
         sig_res_p3 = signals.compute_signal(
             jp_res_returns_p3, i, 15, 60, c_full, v0_static, v1, v2,
@@ -340,7 +340,7 @@ def main():
             gap_override=gap_t1, gap_open_coef=0.70, topix_beta_coef=0.6,
             betas_t=betas_t, topix_night_t=topix_night_t, vol_adjusted_target=True
         )
-        daily_signals["P3"][i] = sig_res_p3["signal"]
+        daily_signals["Residual-PCA"][i] = sig_res_p3["signal"]
 
     # -------------------------------------------------------------------------
     # DEFINE SIMULATION HELPER
@@ -413,21 +413,21 @@ def main():
     logger.info("Simulating baseline models...")
     
     # 1. True Baselines (Signal Weighted)
-    P0_true = run_sim(daily_signals["P0"], weight_mode="signal")
-    P3_true = run_sim(daily_signals["P3"], weight_mode="signal")
+    Raw-PCA_true = run_sim(daily_signals["Raw-PCA"], weight_mode="signal")
+    Residual-PCA_true = run_sim(daily_signals["Residual-PCA"], weight_mode="signal")
     
     # Ensembles
     sig_eq_list = []
     for i in range(T):
-        sig_comb = 0.5 * cs_normalize(daily_signals["P0"][i], "zscore") + 0.5 * cs_normalize(daily_signals["P3"][i], "zscore")
+        sig_comb = 0.5 * cs_normalize(daily_signals["Raw-PCA"][i], "zscore") + 0.5 * cs_normalize(daily_signals["Residual-PCA"][i], "zscore")
         sig_eq_list.append(sig_comb)
     sig_eq_matrix = np.array(sig_eq_list)
     
     ens_P0_P3_signal_level_true = run_sim(sig_eq_matrix, weight_mode="signal")
     
     # Weight-level true ensemble
-    w_P0_true = P0_true["weights"]
-    w_P3_true = P3_true["weights"]
+    w_P0_true = Raw-PCA_true["weights"]
+    w_P3_true = Residual-PCA_true["weights"]
     w_ens_w_list = []
     ret_ens_w_list = []
     exp_ens_w_list = []
@@ -464,8 +464,8 @@ def main():
     P6_base_50_50_recomputed = run_sim(sig_eq_matrix, weight_mode="signal")
 
     # 2. Reported in P6 (Uniform/Equal weighting)
-    P0_reported_in_p6 = run_sim(daily_signals["P0"], weight_mode="uniform")
-    P3_reported_in_p6 = run_sim(daily_signals["P3"], weight_mode="uniform")
+    Raw-PCA_reported_in_p6 = run_sim(daily_signals["Raw-PCA"], weight_mode="uniform")
+    Residual-PCA_reported_in_p6 = run_sim(daily_signals["Residual-PCA"], weight_mode="uniform")
     ens_P0_P3_equal_reported_in_p6 = run_sim(sig_eq_matrix, weight_mode="uniform")
     P6_base_50_50_reported_in_p6 = run_sim(sig_eq_matrix, weight_mode="signal") # wait, reported P6_base_50_50 was signal weighted!
 
@@ -497,36 +497,36 @@ def main():
     
     if prev_ret_df is not None:
         p_dates = sim_dates
-        # P0
-        p0_cols = [c for c in prev_w_df.columns if c.startswith("P0_")]
-        w_p0 = prev_w_df[p0_cols].rename(columns=lambda x: x.replace("P0_", "")).reindex(p_dates)
-        p0_rets = prev_ret_df["P0"].reindex(p_dates)
-        p0_sigs_df = pd.DataFrame(np.zeros((len(p_dates), 17)), index=p_dates, columns=JP_TICKERS)
+        # Raw-PCA
+        raw_pca_cols = [c for c in prev_w_df.columns if c.startswith("Raw-PCA_")]
+        w_p0 = prev_w_df[raw_pca_cols].rename(columns=lambda x: x.replace("Raw-PCA_", "")).reindex(p_dates)
+        raw_pca_rets = prev_ret_df["Raw-PCA"].reindex(p_dates)
+        raw_pca_sigs_df = pd.DataFrame(np.zeros((len(p_dates), 17)), index=p_dates, columns=JP_TICKERS)
         if prev_sig_df is not None:
-            p0_sig_cols = [c for c in prev_sig_df.columns if c.startswith("P0_")]
-            p0_sigs_df = prev_sig_df[p0_sig_cols].rename(columns=lambda x: x.replace("P0_", "")).reindex(p_dates)
+            raw_pca_sig_cols = [c for c in prev_sig_df.columns if c.startswith("Raw-PCA_")]
+            raw_pca_sigs_df = prev_sig_df[raw_pca_sig_cols].rename(columns=lambda x: x.replace("Raw-PCA_", "")).reindex(p_dates)
             
         previous_P0 = {
-            "returns": p0_rets,
+            "returns": raw_pca_rets,
             "weights": w_p0,
-            "signals": p0_sigs_df,
+            "signals": raw_pca_sigs_df,
             "gross_exps": w_p0.abs().sum(axis=1),
             "costs": w_p0.abs().sum(axis=1) * (10.0 / 10000.0) # 5bps per side = 10bps roundtrip
         }
         
-        # P3
-        p3_cols = [c for c in prev_w_df.columns if c.startswith("P3_")]
-        w_p3 = prev_w_df[p3_cols].rename(columns=lambda x: x.replace("P3_", "")).reindex(p_dates)
-        p3_rets = prev_ret_df["P3"].reindex(p_dates)
-        p3_sigs_df = pd.DataFrame(np.zeros((len(p_dates), 17)), index=p_dates, columns=JP_TICKERS)
+        # Residual-PCA
+        residual_pca_cols = [c for c in prev_w_df.columns if c.startswith("Residual-PCA_")]
+        w_p3 = prev_w_df[residual_pca_cols].rename(columns=lambda x: x.replace("Residual-PCA_", "")).reindex(p_dates)
+        residual_pca_rets = prev_ret_df["Residual-PCA"].reindex(p_dates)
+        residual_pca_sigs_df = pd.DataFrame(np.zeros((len(p_dates), 17)), index=p_dates, columns=JP_TICKERS)
         if prev_sig_df is not None:
-            p3_sig_cols = [c for c in prev_sig_df.columns if c.startswith("P3_")]
-            p3_sigs_df = prev_sig_df[p3_sig_cols].rename(columns=lambda x: x.replace("P3_", "")).reindex(p_dates)
+            residual_pca_sig_cols = [c for c in prev_sig_df.columns if c.startswith("Residual-PCA_")]
+            residual_pca_sigs_df = prev_sig_df[residual_pca_sig_cols].rename(columns=lambda x: x.replace("Residual-PCA_", "")).reindex(p_dates)
             
         previous_P3 = {
-            "returns": p3_rets,
+            "returns": residual_pca_rets,
             "weights": w_p3,
-            "signals": p3_sigs_df,
+            "signals": residual_pca_sigs_df,
             "gross_exps": w_p3.abs().sum(axis=1),
             "costs": w_p3.abs().sum(axis=1) * (10.0 / 10000.0)
         }
@@ -535,20 +535,20 @@ def main():
         previous_ens_P0_P3_equal = {
             "returns": prev_ret_df["ens_P0_P3_equal"].reindex(p_dates),
             "weights": 0.5 * w_p0 + 0.5 * w_p3, # simple weight average for plotting
-            "signals": p0_sigs_df, # placeholder
+            "signals": raw_pca_sigs_df, # placeholder
             "gross_exps": (0.5 * w_p0 + 0.5 * w_p3).abs().sum(axis=1),
             "costs": (0.5 * w_p0 + 0.5 * w_p3).abs().sum(axis=1) * (10.0 / 10000.0)
         }
 
     # Dict of all models to run metrics
     all_models = {
-        "P0_true": P0_true,
-        "P3_true": P3_true,
+        "Raw-PCA_true": Raw-PCA_true,
+        "Residual-PCA_true": Residual-PCA_true,
         "ens_P0_P3_signal_level_true": ens_P0_P3_signal_level_true,
         "ens_P0_P3_weight_level_true": ens_P0_P3_weight_level_true,
         "P6_base_50_50_recomputed": P6_base_50_50_recomputed,
-        "P0_reported_in_p6": P0_reported_in_p6,
-        "P3_reported_in_p6": P3_reported_in_p6,
+        "Raw-PCA_reported_in_p6": Raw-PCA_reported_in_p6,
+        "Residual-PCA_reported_in_p6": Residual-PCA_reported_in_p6,
         "ens_P0_P3_equal_reported_in_p6": ens_P0_P3_equal_reported_in_p6,
         "P6_base_50_50_reported_in_p6": P6_base_50_50_reported_in_p6
     }
@@ -600,7 +600,7 @@ def main():
     
     # 1. Signal Comparison
     sig_comp_list = []
-    for name in ["P0_true", "P3_true", "ens_P0_P3_signal_level_true", "P0_reported_in_p6", "P3_reported_in_p6"]:
+    for name in ["Raw-PCA_true", "Residual-PCA_true", "ens_P0_P3_signal_level_true", "Raw-PCA_reported_in_p6", "Residual-PCA_reported_in_p6"]:
         s_df = all_models[name]["signals"]
         sig_comp_list.append({
             "Model": name,
@@ -614,7 +614,7 @@ def main():
     pd.DataFrame(sig_comp_list).to_csv(results_dir / "signal_comparison.csv", index=False)
 
     # 2. Signal Correlation, Rank Correlation, Sign Agreement
-    names_to_compare = ["P0_true", "P3_true", "ens_P0_P3_signal_level_true", "P0_reported_in_p6", "P3_reported_in_p6"]
+    names_to_compare = ["Raw-PCA_true", "Residual-PCA_true", "ens_P0_P3_signal_level_true", "Raw-PCA_reported_in_p6", "Residual-PCA_reported_in_p6"]
     sig_corr_mat = np.zeros((len(names_to_compare), len(names_to_compare)))
     sig_sp_corr_mat = np.zeros((len(names_to_compare), len(names_to_compare)))
     sig_sign_agree_mat = np.zeros((len(names_to_compare), len(names_to_compare)))
@@ -661,12 +661,12 @@ def main():
 
     # 3. Portfolio Logic Comparison
     p_logic_list = [
-        {"Model": "P0_true", "Weighting Mode": "signal-weighted", "Min Long Assets": 5, "Min Short Assets": 5, "Beta Neutrality": "No"},
-        {"Model": "P3_true", "Weighting Mode": "signal-weighted", "Min Long Assets": 5, "Min Short Assets": 5, "Beta Neutrality": "No"},
+        {"Model": "Raw-PCA_true", "Weighting Mode": "signal-weighted", "Min Long Assets": 5, "Min Short Assets": 5, "Beta Neutrality": "No"},
+        {"Model": "Residual-PCA_true", "Weighting Mode": "signal-weighted", "Min Long Assets": 5, "Min Short Assets": 5, "Beta Neutrality": "No"},
         {"Model": "ens_P0_P3_signal_level_true", "Weighting Mode": "signal-weighted", "Min Long Assets": 5, "Min Short Assets": 5, "Beta Neutrality": "No"},
         {"Model": "P6_base_50_50_recomputed", "Weighting Mode": "signal-weighted", "Min Long Assets": 5, "Min Short Assets": 5, "Beta Neutrality": "No"},
-        {"Model": "P0_reported_in_p6", "Weighting Mode": "equal-weighted (uniform)", "Min Long Assets": 5, "Min Short Assets": 5, "Beta Neutrality": "No"},
-        {"Model": "P3_reported_in_p6", "Weighting Mode": "equal-weighted (uniform)", "Min Long Assets": 5, "Min Short Assets": 5, "Beta Neutrality": "No"},
+        {"Model": "Raw-PCA_reported_in_p6", "Weighting Mode": "equal-weighted (uniform)", "Min Long Assets": 5, "Min Short Assets": 5, "Beta Neutrality": "No"},
+        {"Model": "Residual-PCA_reported_in_p6", "Weighting Mode": "equal-weighted (uniform)", "Min Long Assets": 5, "Min Short Assets": 5, "Beta Neutrality": "No"},
         {"Model": "ens_P0_P3_equal_reported_in_p6", "Weighting Mode": "equal-weighted (uniform)", "Min Long Assets": 5, "Min Short Assets": 5, "Beta Neutrality": "No"}
     ]
     pd.DataFrame(p_logic_list).to_csv(results_dir / "portfolio_logic_comparison.csv", index=False)
@@ -730,8 +730,8 @@ def main():
 
     # Daily Return Differences (true vs reported)
     ret_diff_df = pd.DataFrame(index=sim_dates)
-    ret_diff_df["P0_diff"] = P0_true["returns"] - P0_reported_in_p6["returns"]
-    ret_diff_df["P3_diff"] = P3_true["returns"] - P3_reported_in_p6["returns"]
+    ret_diff_df["Raw-PCA_diff"] = Raw-PCA_true["returns"] - Raw-PCA_reported_in_p6["returns"]
+    ret_diff_df["Residual-PCA_diff"] = Residual-PCA_true["returns"] - Residual-PCA_reported_in_p6["returns"]
     ret_diff_df["ens_diff"] = ens_P0_P3_signal_level_true["returns"] - ens_P0_P3_equal_reported_in_p6["returns"]
     ret_diff_df.to_csv(results_dir / "daily_return_diff.csv")
 
@@ -780,21 +780,21 @@ def main():
 
     # 2. Previous Run consistency
     if previous_P0 is not None:
-        diff_prev_p0 = np.abs(P0_true["returns"] - previous_P0["returns"]).max()
+        diff_prev_p0 = np.abs(Raw-PCA_true["returns"] - previous_P0["returns"]).max()
         audit_results.append({
-            "check_name": "Previous P0 Verification Check",
-            "model_a": "P0_true",
+            "check_name": "Previous Raw-PCA Verification Check",
+            "model_a": "Raw-PCA_true",
             "model_b": "previous_P0",
             "status": "PASS" if diff_prev_p0 < 1e-6 else "WARNING",
             "max_abs_diff": diff_prev_p0,
-            "mean_abs_diff": np.abs(P0_true["returns"] - previous_P0["returns"]).mean(),
-            "explanation": "P0_true returns should match the stored previous production returns.",
+            "mean_abs_diff": np.abs(Raw-PCA_true["returns"] - previous_P0["returns"]).mean(),
+            "explanation": "Raw-PCA_true returns should match the stored previous production returns.",
             "recommended_fix": "Verify that date ranges and input files were exactly aligned."
         })
     else:
         audit_results.append({
-            "check_name": "Previous P0 Verification Check",
-            "model_a": "P0_true",
+            "check_name": "Previous Raw-PCA Verification Check",
+            "model_a": "Raw-PCA_true",
             "model_b": "previous_P0",
             "status": "WARNING",
             "max_abs_diff": np.nan,
@@ -804,15 +804,15 @@ def main():
         })
 
     # 3. Reported baseline in P6 discrepancy audit
-    diff_reported_p0 = np.abs(P0_true["returns"] - P0_reported_in_p6["returns"]).max()
+    diff_reported_p0 = np.abs(Raw-PCA_true["returns"] - Raw-PCA_reported_in_p6["returns"]).max()
     audit_results.append({
-        "check_name": "Reported Baseline P0 Discrepancy Check",
-        "model_a": "P0_true",
-        "model_b": "P0_reported_in_p6",
+        "check_name": "Reported Baseline Raw-PCA Discrepancy Check",
+        "model_a": "Raw-PCA_true",
+        "model_b": "Raw-PCA_reported_in_p6",
         "status": "FAIL" if diff_reported_p0 > 1e-4 else "PASS",
         "max_abs_diff": diff_reported_p0,
-        "mean_abs_diff": np.abs(P0_true["returns"] - P0_reported_in_p6["returns"]).mean(),
-        "explanation": "P0 reported in P6 script matches the uniform weight scheme, causing it to be degraded.",
+        "mean_abs_diff": np.abs(Raw-PCA_true["returns"] - Raw-PCA_reported_in_p6["returns"]).mean(),
+        "explanation": "Raw-PCA reported in P6 script matches the uniform weight scheme, causing it to be degraded.",
         "recommended_fix": "Replace uniform weighting build_portfolio_weights with signals.build_weights(..., 'signal') in P6 script baseline loops."
     })
 
@@ -829,7 +829,7 @@ def main():
             # Create a placeholder PASS audit
             recs = [{
                 "check_name": f"{key.replace('_', ' ').capitalize()} Audit",
-                "model_a": "P0_true",
+                "model_a": "Raw-PCA_true",
                 "model_b": "previous_P0" if previous_P0 is not None else "N/A",
                 "status": "PASS",
                 "max_abs_diff": 0.0,
@@ -849,7 +849,7 @@ def main():
     # 1. Equity curve comparison
     plt.figure(figsize=(12, 6))
     for name, m_dict in all_models.items():
-        if "reported" in name or name in ("P0_true", "P3_true", "ens_P0_P3_signal_level_true"):
+        if "reported" in name or name in ("Raw-PCA_true", "Residual-PCA_true", "ens_P0_P3_signal_level_true"):
             eq = (1.0 + m_dict["returns"]).cumprod()
             plt.plot(eq.index, eq.values, label=name, alpha=0.7)
     plt.title("Equity Curve Comparison: True vs Reported Baselines")
@@ -863,7 +863,7 @@ def main():
     # 2. Drawdown Comparison
     plt.figure(figsize=(12, 6))
     for name, m_dict in all_models.items():
-        if "reported" in name or name in ("P0_true", "P3_true", "ens_P0_P3_signal_level_true"):
+        if "reported" in name or name in ("Raw-PCA_true", "Residual-PCA_true", "ens_P0_P3_signal_level_true"):
             eq = (1.0 + m_dict["returns"]).cumprod()
             dd = eq / eq.cummax() - 1.0
             plt.plot(dd.index, dd.values, label=name, alpha=0.7)
@@ -877,7 +877,7 @@ def main():
 
     # 3. Daily return difference heatmap (or rolling rolling difference)
     plt.figure(figsize=(12, 4))
-    plt.plot(ret_diff_df.index, ret_diff_df["P0_diff"].rolling(60).mean(), label="P0 True - Reported (60d rolling)", color="blue")
+    plt.plot(ret_diff_df.index, ret_diff_df["Raw-PCA_diff"].rolling(60).mean(), label="Raw-PCA True - Reported (60d rolling)", color="blue")
     plt.plot(ret_diff_df.index, ret_diff_df["ens_diff"].rolling(60).mean(), label="Ensemble True - Reported (60d rolling)", color="red")
     plt.title("Rolling Daily Return Difference (True - Reported)")
     plt.xlabel("Date")
@@ -889,9 +889,9 @@ def main():
 
     # 4. Cumulative Return difference
     plt.figure(figsize=(12, 5))
-    cum_diff_p0 = (P0_true["returns"] - P0_reported_in_p6["returns"]).cumsum()
+    cum_diff_p0 = (Raw-PCA_true["returns"] - Raw-PCA_reported_in_p6["returns"]).cumsum()
     cum_diff_ens = (ens_P0_P3_signal_level_true["returns"] - ens_P0_P3_equal_reported_in_p6["returns"]).cumsum()
-    plt.plot(cum_diff_p0.index, cum_diff_p0.values, label="Cumulative Diff: P0 True - Reported", color="blue")
+    plt.plot(cum_diff_p0.index, cum_diff_p0.values, label="Cumulative Diff: Raw-PCA True - Reported", color="blue")
     plt.plot(cum_diff_ens.index, cum_diff_ens.values, label="Cumulative Diff: Ensemble True - Reported", color="red")
     plt.title("Cumulative Performance Drag due to Baseline Weight Logic Error")
     plt.xlabel("Date")
@@ -919,7 +919,7 @@ def main():
 
     # 7. Gross exposure timeseries
     plt.figure(figsize=(12, 4))
-    for name in ["P0_true", "P0_reported_in_p6", "ens_P0_P3_signal_level_true"]:
+    for name in ["Raw-PCA_true", "Raw-PCA_reported_in_p6", "ens_P0_P3_signal_level_true"]:
         plt.plot(exposure_df.index, exposure_df[f"{name}_gross"].rolling(20).mean(), label=f"{name} Gross (20d rolling)", alpha=0.8)
     plt.title("Gross Exposure Timeseries")
     plt.xlabel("Date")
@@ -931,7 +931,7 @@ def main():
 
     # 8. Turnover timeseries
     plt.figure(figsize=(12, 4))
-    for name in ["P0_true", "P0_reported_in_p6", "ens_P0_P3_signal_level_true"]:
+    for name in ["Raw-PCA_true", "Raw-PCA_reported_in_p6", "ens_P0_P3_signal_level_true"]:
         t = all_models[name]["weights"].diff().abs().sum(axis=1) / 2.0
         plt.plot(t.index, t.rolling(60).mean(), label=f"{name} Turnover (60d rolling)", alpha=0.8)
     plt.title("Strategy Turnover Timeseries")
@@ -981,16 +981,16 @@ def main():
     
     report_content = f"""# Baseline Audit Report: P6 Model vs Production Family
 
-This report documents a thorough diagnostic audit of the baseline mismatches discovered in the **P6 Model** backtest. It identifies the root cause of the performance degradation in the reported P0, P3, and Ensemble models, provides canonical definitions, and presents corrected performance tables.
+This report documents a thorough diagnostic audit of the baseline mismatches discovered in the **P6 Model** backtest. It identifies the root cause of the performance degradation in the reported Raw-PCA, Residual-PCA, and Ensemble models, provides canonical definitions, and presents corrected performance tables.
 
 ---
 
 ## 1. Executive Summary
 
-- **Baseline Mismatch Confirmed?** **YES**. The baseline models (`P0`, `P3`, `ens_P0_P3_equal`) reported in the recent P6 report were significantly degraded (e.g., OOS Sharpe of P0 fell from **3.93** to **3.16**).
+- **Baseline Mismatch Confirmed?** **YES**. The baseline models (`Raw-PCA`, `Residual-PCA`, `ens_P0_P3_equal`) reported in the recent P6 report were significantly degraded (e.g., OOS Sharpe of Raw-PCA fell from **3.93** to **3.16**).
 - **Root Cause**: The mismatch is entirely due to a **Portfolio Weight Logic discrepancy**. The P6 backtest script implemented a simplified uniform/equal-weighting helper `build_portfolio_weights` for its baseline loops, instead of the canonical **signal-weighted** logic `signals.build_weights(..., "signal")`. 
 - **P6 Base 50/50 Verification**: `P6_base_50_50_recomputed` matches `ens_P0_P3_signal_level_true` exactly (max return difference < 1e-15). This confirms that the P6 code is correct when run with signal-weighting, but its comparative baseline baselines were misaligned.
-- **Adopted Canonical Definitions**: Defined standard baseline files (`P0_true`, `P3_true`, and `ens_P0_P3_signal_level_true`) using the signal-weighted portfolio logic. All future evaluations must compare P6 overlays against these canonical metrics.
+- **Adopted Canonical Definitions**: Defined standard baseline files (`Raw-PCA_true`, `Residual-PCA_true`, and `ens_P0_P3_signal_level_true`) using the signal-weighted portfolio logic. All future evaluations must compare P6 overlays against these canonical metrics.
 
 ---
 
@@ -1000,7 +1000,7 @@ This report documents a thorough diagnostic audit of the baseline mismatches dis
   - **True Baselines**: Built using `signals.build_weights(sig, 0.3, 17, "signal")` where stock weights are scaled by signal deviation from the median (signal-weighted).
   - **Reported Baselines**: Built using a helper `build_portfolio_weights(sig)` which assigned equal weights (`1/N_long` and `-1/N_short`) to selected names, ignoring the cross-sectional signal magnitude.
 - **Impact of Weighting Error**:
-  - The uniform weighting scheme fails to exploit the high-conviction signal dispersion, dropping the OOS Sharpe of P0 from **3.9269** (True) to **3.1613** (Reported).
+  - The uniform weighting scheme fails to exploit the high-conviction signal dispersion, dropping the OOS Sharpe of Raw-PCA from **3.9269** (True) to **3.1613** (Reported).
   - The signal-level ensemble `P6_base_50_50` in the P6 script correctly utilized `signals.build_weights(..., "signal")`, which explains why it achieved OOS Sharpe of **3.8815** (matching the previous true ensemble), while the reported equal baseline `ens_P0_P3_equal` fell to **3.0090**.
 
 ---
@@ -1022,8 +1022,8 @@ This report documents a thorough diagnostic audit of the baseline mismatches dis
 
 - **Does P6 still outperform the true baselines?**
   - **No**. When compared against `P6_base_50_50_recomputed` and `ens_P0_P3_signal_level_true` (OOS Sharpe = 3.8815), the fully-overlayed `P6_optimal` (OOS Sharpe = 3.5462) does not outperform in pure return terms.
-  - **Yes, as a defensive variant**. The true benefit of P6 lies in its **drawdown protection**. Over the Full Period, `P6_optimal` achieves a Sharpe of **3.2700** and reduces Max Drawdown (MDD) to **-6.85%** (compared to P0_true MDD of **-14.49%**). It cuts capital loss risk by more than half while maintaining a high Sharpe.
-  - **Ranking shift**: `P6_gap_filter` (OOS Sharpe = 4.0039) and `P6_agree_gap` (OOS Sharpe = 4.0065) remain the top-performing variants, successfully outperforming both `P0_true` (3.9269) and the base ensemble (3.8815) in the OOS period.
+  - **Yes, as a defensive variant**. The true benefit of P6 lies in its **drawdown protection**. Over the Full Period, `P6_optimal` achieves a Sharpe of **3.2700** and reduces Max Drawdown (MDD) to **-6.85%** (compared to Raw-PCA_true MDD of **-14.49%**). It cuts capital loss risk by more than half while maintaining a high Sharpe.
+  - **Ranking shift**: `P6_gap_filter` (OOS Sharpe = 4.0039) and `P6_agree_gap` (OOS Sharpe = 4.0065) remain the top-performing variants, successfully outperforming both `Raw-PCA_true` (3.9269) and the base ensemble (3.8815) in the OOS period.
 
 ---
 

@@ -21,7 +21,7 @@ from leadlag.models.sre import SectorRelativeEnsembleModel
 
 def test_config_loading_and_attributes():
     """1, 2, 3: Verify existing config can be loaded and PCA-Ensemble parameters are correct."""
-    config_path = ROOT / "configs" / "archive" / "production_before_p8p3_blpx_20260614.yaml"
+    config_path = ROOT / "configs" / "archive" / "production_before_residual_blpx_20260614.yaml"
     assert config_path.exists()
 
     with open(config_path) as f:
@@ -29,8 +29,8 @@ def test_config_loading_and_attributes():
 
     assert cfg["model"]["name"] == "sector_relative_ensemble"
     assert cfg["portfolio"]["weight_mode"] == "signal"
-    assert cfg["ensemble"]["p0_weight"] == 0.5
-    assert cfg["ensemble"]["p3_weight"] == 0.5
+    assert cfg["ensemble"]["raw_pca_weight"] == 0.5
+    assert cfg["ensemble"]["residual_pca_weight"] == 0.5
 
 
 def test_signals_shapes_and_alignment(sample_model):
@@ -39,13 +39,13 @@ def test_signals_shapes_and_alignment(sample_model):
     np.random.seed(42)
     n_assets = 17
 
-    p0_sig = np.random.randn(n_assets)
-    p3_sig = np.random.randn(n_assets)
+    raw_pca_sig = np.random.randn(n_assets)
+    residual_pca_sig = np.random.randn(n_assets)
 
     model = sample_model
 
-    z0 = model.normalize_signals(p0_sig, "zscore")
-    z3 = model.normalize_signals(p3_sig, "zscore")
+    z0 = model.normalize_signals(raw_pca_sig, "zscore")
+    z3 = model.normalize_signals(residual_pca_sig, "zscore")
 
     # lack of NaN / inf
     assert not np.isnan(z0).any()

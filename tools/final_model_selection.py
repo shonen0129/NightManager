@@ -296,7 +296,7 @@ def main():
     init_blpx_cfg = {
         "model": {"name": "sector_relative_ensemble_blp_enhanced"},
         "portfolio": {"long_short_frac": 0.3, "weight_mode": "signal"},
-        "ensemble": {"p0_weight": 0.5, "p3_weight": 0.5, "p8_weight": 0.0, "p8p3_weight": 0.0},
+        "ensemble": {"raw_pca_weight": 0.5, "residual_pca_weight": 0.5, "raw_blpx_weight": 0.0, "residual_blpx_weight": 0.0},
     }
     blpx_base_model = SectorRelativeEnsembleBLPEnhancedModel(init_blpx_cfg)
     base_pred = blpx_base_model.predict_signals(df_exec)
@@ -326,7 +326,7 @@ def main():
     prev_blp_cfg = {
         "model": {"name": "sector_relative_ensemble_blp"},
         "portfolio": {"long_short_frac": 0.3, "weight_mode": "signal"},
-        "ensemble": {"p0_weight": 0.4, "p3_weight": 0.4, "p5_weight": 0.1, "p5p3_weight": 0.1},
+        "ensemble": {"raw_pca_weight": 0.4, "residual_pca_weight": 0.4, "p5_weight": 0.1, "p5p3_weight": 0.1},
         "blp_window": 252,
         "blp_ewma_halflife": 45,
         "alpha_xx": 0.75,
@@ -341,7 +341,7 @@ def main():
     prev_blpx_cfg = {
         "model": {"name": "sector_relative_ensemble_blp_enhanced"},
         "portfolio": {"long_short_frac": 0.3, "weight_mode": "signal"},
-        "ensemble": {"p0_weight": 0.0, "p3_weight": 0.0, "p8_weight": 0.5, "p8p3_weight": 0.5},
+        "ensemble": {"raw_pca_weight": 0.0, "residual_pca_weight": 0.0, "raw_blpx_weight": 0.5, "residual_blpx_weight": 0.5},
         "blp_window": 252,
         "blp_ewma_halflife": 45,
         "alpha_xx": 0.75,
@@ -360,10 +360,10 @@ def main():
     legacy_blpx_signals = legacy_blpx_res["signals"].loc[sim_dates_slice].values
 
     # standard Raw-PCA & Residual-PCA
-    p0_sig_base = base_pred["p0_signals"].loc[sim_dates_slice].values
-    p3_sig_base = base_pred["p3_signals"].loc[sim_dates_slice].values
-    z0 = normalize_cross_sectional(p0_sig_base)
-    z3 = normalize_cross_sectional(p3_sig_base)
+    raw_pca_sig_base = base_pred["raw_pca_signals"].loc[sim_dates_slice].values
+    residual_pca_sig_base = base_pred["residual_pca_signals"].loc[sim_dates_slice].values
+    z0 = normalize_cross_sectional(raw_pca_sig_base)
+    z3 = normalize_cross_sectional(residual_pca_sig_base)
     SRE_signal = normalize_cross_sectional(0.5 * z0 + 0.5 * z3)
 
     # 3. Compute main candidates signals under parameter sets
@@ -374,7 +374,7 @@ def main():
         cfg_model = {
             "model": {"name": "sector_relative_ensemble_blp_enhanced"},
             "portfolio": {"long_short_frac": 0.3, "weight_mode": "signal"},
-            "ensemble": {"p0_weight": 0.0, "p3_weight": 0.0, "p8_weight": 0.5, "p8p3_weight": 0.5},
+            "ensemble": {"raw_pca_weight": 0.0, "residual_pca_weight": 0.0, "raw_blpx_weight": 0.5, "residual_blpx_weight": 0.5},
             "blp_window": int(p_dict["blp_window"]),
             "blp_ewma_halflife": float(p_dict["ewma_halflife"]),
             "alpha_xx": float(p_dict["alpha_xx"]),
@@ -391,32 +391,32 @@ def main():
         model = SectorRelativeEnsembleBLPEnhancedModel(cfg_model)
         pred = model.predict_signals(df_exec)
         
-        p8 = pred["p8_signals"].loc[sim_dates_slice].values
-        p8p3 = pred["p8p3_signals"].loc[sim_dates_slice].values
+        raw_blpx = pred["raw_blpx_signals"].loc[sim_dates_slice].values
+        residual_blpx = pred["residual_blpx_signals"].loc[sim_dates_slice].values
         
         # Condition number tracking
         diag = pred["blp_diagnostics"]
-        conds = diag["p8_cond_num"].values if "p8_cond_num" in diag.columns else [1.0]
+        conds = diag["raw_blpx_cond_num"].values if "raw_blpx_cond_num" in diag.columns else [1.0]
         
         extra = {
             "cond_numbers": conds,
             "M_sector": model.M_sector,
-            "pred_vars": diag["p8_min_pred_var"].values if "p8_min_pred_var" in diag.columns else [1.0],
-            "pinv_fallbacks": diag["p8_pinv_fallback"].values if "p8_pinv_fallback" in diag.columns else [0],
+            "pred_vars": diag["raw_blpx_min_pred_var"].values if "raw_blpx_min_pred_var" in diag.columns else [1.0],
+            "pinv_fallbacks": diag["raw_blpx_pinv_fallback"].values if "raw_blpx_pinv_fallback" in diag.columns else [0],
             "pred": pred
         }
-        return p8, p8p3, extra
+        return raw_blpx, residual_blpx, extra
 
     # 3.1 Main Param Set computation
     logger.info(f"Computing main BLPX signals with parameter set: {args.blpx_param_set}...")
-    p8_raw, p8p3_raw, blpx_extra = compute_blpx_signals_for_params(p_set)
+    raw_blpx_raw, residual_blpx_raw, blpx_extra = compute_blpx_signals_for_params(p_set)
     
     # Save sector prior mapping to CSV
     pd.DataFrame(blpx_extra["M_sector"], index=JP_TICKERS, columns=US_TICKERS).to_csv(out_dir / "sector_prior_mapping.csv")
     
-    z8 = normalize_cross_sectional(p8_raw)
-    z8p3 = normalize_cross_sectional(p8p3_raw)
-    BLPX_signal = normalize_cross_sectional(0.5 * z8 + 0.5 * z8p3)
+    z_raw_blpx = normalize_cross_sectional(raw_blpx_raw)
+    z_residual_blpx = normalize_cross_sectional(residual_blpx_raw)
+    BLPX_signal = normalize_cross_sectional(0.5 * z_raw_blpx + 0.5 * z_residual_blpx)
     
     # Candidates Definition:
     # PCA-Ensemble: SRE_signal
@@ -433,10 +433,10 @@ def main():
     # 3.2 Optional Secondary Param Set comparison (balanced_stable)
     logger.info("Computing secondary BLPX signals (balanced_stable)...")
     sec_p_set = cfg["parameter_sets"]["balanced_stable"]
-    sec_p8_raw, sec_p8p3_raw, sec_blpx_extra = compute_blpx_signals_for_params(sec_p_set)
-    sec_z8 = normalize_cross_sectional(sec_p8_raw)
-    sec_z8p3 = normalize_cross_sectional(sec_p8p3_raw)
-    sec_BLPX_signal = normalize_cross_sectional(0.5 * sec_z8 + 0.5 * sec_z8p3)
+    sec_raw_blpx_raw, sec_residual_blpx_raw, sec_blpx_extra = compute_blpx_signals_for_params(sec_p_set)
+    sec_z_raw_blpx = normalize_cross_sectional(sec_raw_blpx_raw)
+    sec_z_residual_blpx = normalize_cross_sectional(sec_residual_blpx_raw)
+    sec_BLPX_signal = normalize_cross_sectional(0.5 * sec_z_raw_blpx + 0.5 * sec_z_residual_blpx)
     
     sec_candidates_signals = {
         "SRE": SRE_signal, # PCA-Ensemble is independent of parameters
@@ -622,10 +622,10 @@ def main():
     # 9. Signal Correlations & Overlap
     logger.info("Computing signal correlations...")
     # Component-level
-    p0_flat = z0.flatten()
-    p3_flat = z3.flatten()
-    p8_flat = z8.flatten()
-    p8p3_flat = z8p3.flatten()
+    raw_pca_flat = z0.flatten()
+    residual_pca_flat = z3.flatten()
+    raw_blpx_flat = z_raw_blpx.flatten()
+    residual_blpx_flat = z_residual_blpx.flatten()
     
     # Model-level signals
     sre_flat = SRE_signal.flatten()
@@ -637,8 +637,8 @@ def main():
     
     pairs = [
         # Component-level
-        ("component", "P0", "P8", p0_flat, p8_flat),
-        ("component", "P3", "P8P3", p3_flat, p8p3_flat),
+        ("component", "Raw-PCA", "Raw-BLPX", raw_pca_flat, raw_blpx_flat),
+        ("component", "Residual-PCA", "Residual-BLPX", residual_pca_flat, residual_blpx_flat),
         
         # Model-level
         ("model", "SRE", "BLPX_100", sre_flat, blpx_flat),

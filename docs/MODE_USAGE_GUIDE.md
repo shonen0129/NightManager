@@ -215,10 +215,10 @@ python3 -m leadlag.cli close \
       --output-dir results/gap_adjusted_distribution/latest
   ```
 
-### 5.3 日次シャドウ監視ランナー (`tools/run_daily_p8p3_blpx_shadow.py`)
+### 5.3 日次シャドウ監視ランナー (`tools/run_daily_residual_blpx_shadow.py`)
 本番 baseline (v1) と各シャドウ候補（RuleD等）を並行して計算し、ウェイト差分やシグナル特性の監視を行う。
   ```bash
-  python tools/run_daily_p8p3_blpx_shadow.py \
+  python tools/run_daily_residual_blpx_shadow.py \
       --trade-date latest \
       --gap-dir results/gap_adjusted_distribution/latest
   ```
@@ -227,14 +227,14 @@ python3 -m leadlag.cli close \
 * PCA-Ensemble バックテスト（アーカイブされた PCA-Ensemble 設定ファイルを使用）：
   ```bash
   python tools/backtest_sector_relative_ensemble.py \
-      --config configs/archive/production_before_p8p3_blpx_20260614.yaml \
+      --config configs/archive/production_before_residual_blpx_20260614.yaml \
       --slippage-bps 5 \
       --output-dir results/sector_relative_ensemble/
   ```
 * PCA-Ensemble 日次実行（アーカイブされた PCA-Ensemble 設定ファイルを使用）：
   ```bash
   python tools/run_daily_sector_relative_ensemble.py \
-      --config configs/archive/production_before_p8p3_blpx_20260614.yaml \
+      --config configs/archive/production_before_residual_blpx_20260614.yaml \
       --signal-date latest \
       --output-dir live/sector_relative_ensemble/ \
       --dry-run

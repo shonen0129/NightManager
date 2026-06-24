@@ -497,48 +497,42 @@ def is_strategy_cache_valid(cache_path: str, config=None) -> bool:
                 raw = np.asarray(npz[key])
                 actual = raw.item() if raw.shape == () else raw
 
-                if isinstance(expected, float):
-                    try:
+                # Type-aware comparison with early exit on mismatch
+                try:
+                    if isinstance(expected, float):
                         if not np.isclose(float(actual), expected, rtol=0.0, atol=1e-12):
                             logger.info(
                                 "[FAST MODE] Cache config mismatch for %s: actual=%s expected=%s",
-                                key,
-                                actual,
-                                expected,
+                                key, actual, expected,
                             )
                             return False
-                    except (TypeError, ValueError):
-                        return False
-                elif isinstance(expected, bool):
-                    if bool(actual) != expected:
-                        logger.info(
-                            "[FAST MODE] Cache config mismatch for %s: actual=%s expected=%s",
-                            key,
-                            actual,
-                            expected,
-                        )
-                        return False
-                elif isinstance(expected, int):
-                    try:
+                    elif isinstance(expected, bool):
+                        if bool(actual) != expected:
+                            logger.info(
+                                "[FAST MODE] Cache config mismatch for %s: actual=%s expected=%s",
+                                key, actual, expected,
+                            )
+                            return False
+                    elif isinstance(expected, int):
                         if int(actual) != expected:
                             logger.info(
                                 "[FAST MODE] Cache config mismatch for %s: actual=%s expected=%s",
-                                key,
-                                actual,
-                                expected,
+                                key, actual, expected,
                             )
                             return False
-                    except (TypeError, ValueError):
-                        return False
-                else:
-                    if str(actual) != expected:
-                        logger.info(
-                            "[FAST MODE] Cache config mismatch for %s: actual=%s expected=%s",
-                            key,
-                            actual,
-                            expected,
-                        )
-                        return False
+                    else:
+                        if str(actual) != expected:
+                            logger.info(
+                                "[FAST MODE] Cache config mismatch for %s: actual=%s expected=%s",
+                                key, actual, expected,
+                            )
+                            return False
+                except (TypeError, ValueError):
+                    logger.info(
+                        "[FAST MODE] Cache config type error for %s: actual=%s expected=%s",
+                        key, actual, expected,
+                    )
+                    return False
 
             if str(config.signal_mode) == "gap_residual":
                 for key in ("topix_night", "jp_beta"):

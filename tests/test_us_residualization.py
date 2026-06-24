@@ -104,12 +104,12 @@ def test_ensemble_weights_sum_to_one():
     """Verify that model ensemble weights sum to 1.0."""
     cfg = {
         "model": {"name": "sector_relative_ensemble"},
-        "p0_weight": 0.40,
-        "p3_weight": 0.40,
+        "raw_pca_weight": 0.40,
+        "residual_pca_weight": 0.40,
         "p4_weight": 0.20,
     }
     model = SectorRelativeEnsembleModel(cfg)
-    assert abs(model.p0_weight + model.p3_weight + model.p4_weight - 1.0) < 1e-6
+    assert abs(model.raw_pca_weight + model.residual_pca_weight + model.p4_weight - 1.0) < 1e-6
 
 
 def test_no_nan_inf_returned():

@@ -39,12 +39,12 @@ warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 def parse_arguments() -> argparse.Namespace:
     """Parse command line arguments."""
-    parser = argparse.ArgumentParser(description="Daily P8P3-BLPX Shadow Run Generator")
+    parser = argparse.ArgumentParser(description="Daily Residual-BLPX Shadow Run Generator")
     parser.add_argument("--config", default="configs/production.yaml", help="Path to config file")
-    parser.add_argument("--model", default="production_p8p3_blpx", help="Model name")
+    parser.add_argument("--model", default="production_residual_blpx", help="Model name")
     parser.add_argument("--trade-date", default="latest", help="YYYY-MM-DD or 'latest'")
-    parser.add_argument("--production-output-dir", default="live/production_p8p3_blpx", help="Production directory")
-    parser.add_argument("--shadow-root", default="shadow_runs/p8p3_blpx", help="Shadow run root folder")
+    parser.add_argument("--production-output-dir", default="live/production_residual_blpx", help="Production directory")
+    parser.add_argument("--shadow-root", default="shadow_runs/residual_blpx", help="Shadow run root folder")
     parser.add_argument("--gap-input-dir", default=None, help="Step 2 gap input directory (reconstruct if missing)")
     parser.add_argument("--baseline-gross", type=float, default=2.0, help="Baseline gross exposure")
     parser.add_argument("--cost-bps-per-gross", type=float, default=10.0, help="Cost in bps per unit gross")

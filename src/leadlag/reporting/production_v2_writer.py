@@ -89,7 +89,7 @@ def write_production_files(
             "ticker": tk,
             "weight": float(w_v1[j]),
             "side": side,
-            "version": "production_p8p3_v1",
+            "version": "production_residual_blpx_v1",
         })
     pd.DataFrame(v1_rows).to_csv(live_dir / "v1_baseline_weights.csv", index=False)
     logger.info("Written: v1_baseline_weights.csv")
@@ -200,7 +200,7 @@ def _write_daily_report(trade_date: str, live_dir: Path, result: dict) -> None:
     if fb["v1_fallback_used"]:
         fallback_note = (
             "\n\n> [!WARNING]\n> **フォールバック発動**: gap data 未利用。"
-            "v1 P8P3-BLPX ウェイトを使用しています。\n"
+            "v1 Residual-BLPX ウェイトを使用しています。\n"
         )
 
     alert_text = ""

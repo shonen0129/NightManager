@@ -177,8 +177,8 @@ def main():
     # Override options with command line arguments if provided
     if "ensemble" not in cfg:
         cfg["ensemble"] = {}
-    cfg["ensemble"]["p0_weight"] = args.production_signal_weight
-    cfg["ensemble"]["p3_weight"] = args.residual_signal_weight
+    cfg["ensemble"]["raw_pca_weight"] = args.production_signal_weight
+    cfg["ensemble"]["residual_pca_weight"] = args.residual_signal_weight
     cfg["ensemble"]["normalization"] = args.normalization
 
     if "portfolio" not in cfg:
@@ -248,16 +248,16 @@ def main():
     logger.info("Computing diagnostics...")
 
     # flattened signal arrays for correlation
-    p0_flat = results["p0_signals"].values.flatten()
-    p3_flat = results["p3_signals"].values.flatten()
+    raw_pca_flat = results["raw_pca_signals"].values.flatten()
+    residual_pca_flat = results["residual_pca_signals"].values.flatten()
 
-    p0_p3_corr = np.corrcoef(p0_flat, p3_flat)[0, 1]
-    p0_p3_rank_corr, _ = spearmanr(p0_flat, p3_flat)
-    p0_p3_sign_agree = np.mean(np.sign(p0_flat) == np.sign(p3_flat))
+    raw_pca_p3_corr = np.corrcoef(raw_pca_flat, residual_pca_flat)[0, 1]
+    raw_pca_p3_rank_corr, _ = spearmanr(raw_pca_flat, residual_pca_flat)
+    raw_pca_p3_sign_agree = np.mean(np.sign(raw_pca_flat) == np.sign(residual_pca_flat))
 
-    pd.DataFrame([{"correlation": p0_p3_corr}]).to_csv(out_dir / "component_signal_correlation.csv", index=False)
-    pd.DataFrame([{"rank_correlation": p0_p3_rank_corr}]).to_csv(out_dir / "component_rank_correlation.csv", index=False)
-    pd.DataFrame([{"sign_agreement": p0_p3_sign_agree}]).to_csv(out_dir / "component_signal_agreement.csv", index=False)
+    pd.DataFrame([{"correlation": raw_pca_p3_corr}]).to_csv(out_dir / "component_signal_correlation.csv", index=False)
+    pd.DataFrame([{"rank_correlation": raw_pca_p3_rank_corr}]).to_csv(out_dir / "component_rank_correlation.csv", index=False)
+    pd.DataFrame([{"sign_agreement": raw_pca_p3_sign_agree}]).to_csv(out_dir / "component_signal_agreement.csv", index=False)
 
     top_dd = calculate_top_drawdown_periods(results["daily_returns"], 5)
     top_dd.to_csv(out_dir / "top_drawdown_periods.csv", index=False)
@@ -387,9 +387,9 @@ This report summarizes the historical performance and safety checks of the PCA-E
 | **Full** (2015-01-05 to Present) | {sub_metrics["full"].get("AR", 0.0)*100:.2f}% | {sub_metrics["full"].get("RISK", 0.0)*100:.2f}% | {sub_metrics["full"].get("R/R", 0.0):.4f} | {sub_metrics["full"].get("Sharpe", 0.0):.4f} | {sub_metrics["full"].get("MDD", 0.0)*100:.2f}% |
 
 ## Diagnostics
-- **Raw-PCA vs Residual-PCA Signal Correlation**: {p0_p3_corr:.4f}
-- **Raw-PCA vs Residual-PCA Rank Correlation**: {p0_p3_rank_corr:.4f}
-- **Raw-PCA vs Residual-PCA Sign Agreement**: {p0_p3_sign_agree*100:.2f}%
+- **Raw-PCA vs Residual-PCA Signal Correlation**: {raw_pca_p3_corr:.4f}
+- **Raw-PCA vs Residual-PCA Rank Correlation**: {raw_pca_p3_rank_corr:.4f}
+- **Raw-PCA vs Residual-PCA Sign Agreement**: {raw_pca_p3_sign_agree*100:.2f}%
 
 ### Worst Drawdown Periods
 {top_dd.to_markdown(index=False)}

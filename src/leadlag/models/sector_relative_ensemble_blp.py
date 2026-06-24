@@ -69,8 +69,8 @@ class SectorRelativeEnsembleBLPModel(BaseModel):
         self.rank = self._resolve_val("rank", "full")
 
         # Ensemble weights
-        self.p0_weight = float(self._resolve_val("p0_weight", 0.4))
-        self.p3_weight = float(self._resolve_val("p3_weight", 0.4))
+        self.raw_pca_weight = float(self._resolve_val("raw_pca_weight", 0.4))
+        self.residual_pca_weight = float(self._resolve_val("residual_pca_weight", 0.4))
         self.p5_weight = float(self._resolve_val("p5_weight", 0.1))
         self.p5p3_weight = float(self._resolve_val("p5p3_weight", 0.1))
 
@@ -411,8 +411,8 @@ class SectorRelativeEnsembleBLPModel(BaseModel):
     ) -> np.ndarray:
         """Combine component signals with ensemble weights."""
         return (
-            self.p0_weight * z0
-            + self.p3_weight * z3
+            self.raw_pca_weight * z0
+            + self.residual_pca_weight * z3
             + self.p5_weight * z5
             + self.p5p3_weight * z5p3
         )
@@ -446,8 +446,8 @@ class SectorRelativeEnsembleBLPModel(BaseModel):
         jp_res_returns_p3 = inputs["jp_res_returns_p3"]
 
         # Setup output arrays
-        p0_signals = np.zeros((T, self.n_j))
-        p3_signals = np.zeros((T, self.n_j))
+        raw_pca_signals = np.zeros((T, self.n_j))
+        residual_pca_signals = np.zeros((T, self.n_j))
         p5_signals = np.zeros((T, self.n_j))
         p5p3_signals = np.zeros((T, self.n_j))
         combined_signals = np.zeros((T, self.n_j))
@@ -459,16 +459,16 @@ class SectorRelativeEnsembleBLPModel(BaseModel):
         start_idx = self.corr_window
         for i in range(start_idx, T):
             # 1. Raw-PCA (Production PCA)
-            p0_sig = self.compute_production_signal(
+            raw_pca_sig = self.compute_production_signal(
                 i, c_full, v0_static, v1, v2, all_returns_raw, jp_gap, jp_beta, topix_night
             )
-            p0_signals[i] = p0_sig
+            raw_pca_signals[i] = raw_pca_sig
 
             # 2. Residual-PCA (Residual target PCA)
-            p3_sig = self.compute_residual_signal(
+            residual_pca_sig = self.compute_residual_signal(
                 jp_res_returns_p3, i, c_full_p3, v0_static, v1, v2, jp_gap, jp_beta, topix_night
             )
-            p3_signals[i] = p3_sig
+            residual_pca_signals[i] = residual_pca_sig
 
             # 3. P5 (Raw target BLP)
             gap_override = np.nan_to_num(jp_gap[i], nan=0.0) if jp_gap is not None else None
@@ -495,8 +495,8 @@ class SectorRelativeEnsembleBLPModel(BaseModel):
             p5p3_signals[i] = p5p3_res["signal"]
 
             # Standard Z-score normalization of component signals
-            z0 = self.normalize_signals(p0_sig, self.normalization_method)
-            z3 = self.normalize_signals(p3_sig, self.normalization_method)
+            z0 = self.normalize_signals(raw_pca_sig, self.normalization_method)
+            z3 = self.normalize_signals(residual_pca_sig, self.normalization_method)
             z5 = self.normalize_signals(p5_res["signal"], self.normalization_method)
             z5p3 = self.normalize_signals(p5p3_res["signal"], self.normalization_method)
 
@@ -528,8 +528,8 @@ class SectorRelativeEnsembleBLPModel(BaseModel):
             )
 
         # Build DataFrames
-        p0_df = pd.DataFrame(p0_signals, index=sim_dates, columns=JP_TICKERS)
-        p3_df = pd.DataFrame(p3_signals, index=sim_dates, columns=JP_TICKERS)
+        raw_pca_df = pd.DataFrame(raw_pca_signals, index=sim_dates, columns=JP_TICKERS)
+        residual_pca_df = pd.DataFrame(residual_pca_signals, index=sim_dates, columns=JP_TICKERS)
         p4_signals = np.zeros((T, self.n_j))
         p4_df = pd.DataFrame(p4_signals, index=sim_dates, columns=JP_TICKERS)
         p5_df = pd.DataFrame(p5_signals, index=sim_dates, columns=JP_TICKERS)
@@ -540,8 +540,8 @@ class SectorRelativeEnsembleBLPModel(BaseModel):
         )
 
         return {
-            "p0_signals": p0_df,
-            "p3_signals": p3_df,
+            "raw_pca_signals": raw_pca_df,
+            "residual_pca_signals": residual_pca_df,
             "p4_signals": p4_df,
             "p5_signals": p5_df,
             "p5p3_signals": p5p3_df,

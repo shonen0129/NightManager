@@ -46,10 +46,10 @@ warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 def parse_arguments() -> argparse.Namespace:
     """Parse command line arguments."""
-    parser = argparse.ArgumentParser(description="P8P3 Production Validation Suite")
-    parser.add_argument("--config", default="configs/production_p8p3_blpx.yaml", help="Path to config file")
-    parser.add_argument("--output-dir", default="results/production_p8p3_blpx_validation", help="Output directory")
-    parser.add_argument("--compare", default="SRE,BLPX_100,SRE_BLPX_BLEND_33,P8P3_only", help="Comparison list")
+    parser = argparse.ArgumentParser(description="Residual-BLPX Production Validation Suite")
+    parser.add_argument("--config", default="configs/production_residual_blpx.yaml", help="Path to config file")
+    parser.add_argument("--output-dir", default="results/production_residual_blpx_validation", help="Output directory")
+    parser.add_argument("--compare", default="SRE,BLPX_100,SRE_BLPX_BLEND_33,Residual-BLPX_only", help="Comparison list")
     parser.add_argument("--slippage-grid", default="0,2.5,5,7.5,10", help="Slippage grid in bps")
     parser.add_argument("--start-date", default="2015-01-05", help="Backtest start date")
     parser.add_argument("--end-date", default="latest", help="Backtest end date")
@@ -244,20 +244,20 @@ def main():
     blpx_pred = blpx_enhanced_model.predict_signals(df_exec)
     
     # Save diagnostics
-    blpx_pred["blp_diagnostics"].to_csv(out_dir / "p8p3_diagnostics.csv")
+    blpx_pred["blp_diagnostics"].to_csv(out_dir / "residual_blpx_diagnostics.csv")
     
     # Base signals
-    z0 = normalize_cross_sectional(blpx_pred["p0_signals"].loc[sim_dates_slice].values)
-    z3 = normalize_cross_sectional(blpx_pred["p3_signals"].loc[sim_dates_slice].values)
-    z8 = normalize_cross_sectional(blpx_pred["p8_signals"].loc[sim_dates_slice].values)
-    z8p3 = normalize_cross_sectional(blpx_pred["p8p3_signals"].loc[sim_dates_slice].values)
+    z0 = normalize_cross_sectional(blpx_pred["raw_pca_signals"].loc[sim_dates_slice].values)
+    z3 = normalize_cross_sectional(blpx_pred["residual_pca_signals"].loc[sim_dates_slice].values)
+    z_raw_blpx = normalize_cross_sectional(blpx_pred["raw_blpx_signals"].loc[sim_dates_slice].values)
+    z_residual_blpx = normalize_cross_sectional(blpx_pred["residual_blpx_signals"].loc[sim_dates_slice].values)
 
     # Generate Candidate Signals
     candidates = {
         "SRE": normalize_cross_sectional(0.5 * z0 + 0.5 * z3),
-        "BLPX_100": normalize_cross_sectional(0.5 * z8 + 0.5 * z8p3),
-        "SRE_BLPX_BLEND_33": normalize_cross_sectional(0.67 * normalize_cross_sectional(0.5 * z0 + 0.5 * z3) + 0.33 * normalize_cross_sectional(0.5 * z8 + 0.5 * z8p3)),
-        "P8P3_only": z8p3,
+        "BLPX_100": normalize_cross_sectional(0.5 * z_raw_blpx + 0.5 * z_residual_blpx),
+        "SRE_BLPX_BLEND_33": normalize_cross_sectional(0.67 * normalize_cross_sectional(0.5 * z0 + 0.5 * z3) + 0.33 * normalize_cross_sectional(0.5 * z_raw_blpx + 0.5 * z_residual_blpx)),
+        "Residual-BLPX_only": z_residual_blpx,
     }
 
     # 4. Multi-slippage simulations
@@ -389,20 +389,20 @@ def main():
     # 7. Correlations & overlaps
     corr_records = []
     # Component-level correlation
-    p0_vals = blpx_pred["p0_signals"].loc[sim_dates_slice].values.flatten()
-    p8_vals = blpx_pred["p8_signals"].loc[sim_dates_slice].values.flatten()
-    p3_vals = blpx_pred["p3_signals"].loc[sim_dates_slice].values.flatten()
-    p8p3_vals = blpx_pred["p8p3_signals"].loc[sim_dates_slice].values.flatten()
+    raw_pca_vals = blpx_pred["raw_pca_signals"].loc[sim_dates_slice].values.flatten()
+    raw_blpx_vals = blpx_pred["raw_blpx_signals"].loc[sim_dates_slice].values.flatten()
+    residual_pca_vals = blpx_pred["residual_pca_signals"].loc[sim_dates_slice].values.flatten()
+    residual_blpx_vals = blpx_pred["residual_blpx_signals"].loc[sim_dates_slice].values.flatten()
     
-    corr_p0_p8 = float(np.corrcoef(p0_vals, p8_vals)[0, 1])
-    corr_p3_p8p3 = float(np.corrcoef(p3_vals, p8p3_vals)[0, 1])
+    corr_p0_p8 = float(np.corrcoef(raw_pca_vals, raw_blpx_vals)[0, 1])
+    corr_p3_residual_blpx = float(np.corrcoef(residual_pca_vals, residual_blpx_vals)[0, 1])
     
-    corr_records.append({"type": "component", "name": "P0_vs_P8", "pearson_correlation": corr_p0_p8, "selection_overlap": 0.0, "long_selection_overlap": 0.0, "short_selection_overlap": 0.0})
-    corr_records.append({"type": "component", "name": "P3_vs_P8P3", "pearson_correlation": corr_p3_p8p3, "selection_overlap": 0.0, "long_selection_overlap": 0.0, "short_selection_overlap": 0.0})
+    corr_records.append({"type": "component", "name": "Raw-PCA_vs_P8", "pearson_correlation": corr_p0_p8, "selection_overlap": 0.0, "long_selection_overlap": 0.0, "short_selection_overlap": 0.0})
+    corr_records.append({"type": "component", "name": "Residual-PCA_vs_Residual-BLPX", "pearson_correlation": corr_p3_residual_blpx, "selection_overlap": 0.0, "long_selection_overlap": 0.0, "short_selection_overlap": 0.0})
 
     # Model-level correlation and overlap
     sre_weights = daily_pos_dict["SRE"]
-    for name in ["BLPX_100", "SRE_BLPX_BLEND_33", "P8P3_only"]:
+    for name in ["BLPX_100", "SRE_BLPX_BLEND_33", "Residual-BLPX_only"]:
         cand_sig = candidates[name]
         cand_w = daily_pos_dict[name]
         
@@ -455,32 +455,32 @@ def main():
 
     # 9. Drawdowns
     sre_net_5 = run_backtest_fast(candidates["SRE"], y_jp_target_vals, q=0.3, slippage_bps=5.0)[0]
-    p8p3_net_5 = run_backtest_fast(candidates["P8P3_only"], y_jp_target_vals, q=0.3, slippage_bps=5.0)[0]
+    residual_blpx_net_5 = run_backtest_fast(candidates["Residual-BLPX_only"], y_jp_target_vals, q=0.3, slippage_bps=5.0)[0]
     
     sre_wealth = pd.Series(np.cumprod(1.0 + sre_net_5), index=sim_dates_slice)
-    p8p3_wealth = pd.Series(np.cumprod(1.0 + p8p3_net_5), index=sim_dates_slice)
+    residual_blpx_wealth = pd.Series(np.cumprod(1.0 + residual_blpx_net_5), index=sim_dates_slice)
     
     sre_dd_df = find_drawdown_events(sre_wealth)
-    p8p3_dd_df = find_drawdown_events(p8p3_wealth)
-    p8p3_dd_df["ensemble"] = "P8P3_only"
-    p8p3_dd_df.to_csv(out_dir / "drawdown_events.csv", index=False)
+    residual_blpx_dd_df = find_drawdown_events(residual_blpx_wealth)
+    residual_blpx_dd_df["ensemble"] = "Residual-BLPX_only"
+    residual_blpx_dd_df.to_csv(out_dir / "drawdown_events.csv", index=False)
 
     # 10. Worst 20 days
     sre_net_ret_5 = sre_net_5
-    p8p3_net_ret_5 = p8p3_net_5
+    residual_blpx_net_ret_5 = residual_blpx_net_5
     
     worst_20 = pd.DataFrame({
         "date": sim_dates_slice,
         "SRE_return": sre_net_ret_5,
-        "P8P3_return": p8p3_net_ret_5,
-        "P8P3_diff_vs_SRE": p8p3_net_ret_5 - sre_net_ret_5
-    }).sort_values(by="P8P3_return").head(20)
+        "Residual-BLPX_return": residual_blpx_net_ret_5,
+        "Residual-BLPX_diff_vs_SRE": residual_blpx_net_ret_5 - sre_net_ret_5
+    }).sort_values(by="Residual-BLPX_return").head(20)
     worst_20.to_csv(out_dir / "worst_20_days.csv", index=False)
 
     # 11. Contributions
     # Ticker contribution
-    p8p3_w_5 = daily_pos_dict["P8P3_only"]
-    ticker_returns = p8p3_w_5 * y_jp_target_vals
+    residual_blpx_w_5 = daily_pos_dict["Residual-BLPX_only"]
+    ticker_returns = residual_blpx_w_5 * y_jp_target_vals
     cum_returns = np.sum(ticker_returns, axis=0)
     ticker_contrib = pd.DataFrame({
         "ticker": JP_TICKERS,
@@ -490,8 +490,8 @@ def main():
     ticker_contrib.to_csv(out_dir / "contribution_by_ticker.csv", index=False)
 
     # Long/Short contribution
-    long_w = np.where(p8p3_w_5 > 0, p8p3_w_5, 0.0)
-    short_w = np.where(p8p3_w_5 < 0, p8p3_w_5, 0.0)
+    long_w = np.where(residual_blpx_w_5 > 0, residual_blpx_w_5, 0.0)
+    short_w = np.where(residual_blpx_w_5 < 0, residual_blpx_w_5, 0.0)
     long_ret = np.sum(long_w * y_jp_target_vals)
     short_ret = np.sum(short_w * y_jp_target_vals)
     ls_contrib = pd.DataFrame([
@@ -525,7 +525,7 @@ def main():
     archive_dir = ROOT / "configs" / "archive"
     backup_exists = False
     if archive_dir.exists():
-        backup_files = list(archive_dir.glob("production_before_p8p3_blpx_*.yaml"))
+        backup_files = list(archive_dir.glob("production_before_residual_blpx_*.yaml"))
         backup_exists = len(backup_files) > 0
         
     diff_patch_exists = (out_dir / "production_config_diff.patch").exists()
@@ -551,16 +551,16 @@ def main():
 
     # Build Audit Dictionary
     blpx_diag = blpx_pred["blp_diagnostics"]
-    max_cond = float(np.max(blpx_diag["p8_cond_num"]))
-    median_cond = float(np.median(blpx_diag["p8_cond_num"]))
-    num_pinv_fb = int(np.sum(blpx_diag["p8_pinv_fallback"]))
+    max_cond = float(np.max(blpx_diag["raw_blpx_cond_num"]))
+    median_cond = float(np.median(blpx_diag["raw_blpx_cond_num"]))
+    num_pinv_fb = int(np.sum(blpx_diag["raw_blpx_pinv_fallback"]))
 
     audit_res = {
-        "production_model_is_p8p3_blpx": cfg["model"]["name"] == "production_p8p3_blpx",
-        "p8p3_weight_is_one": cfg["signal_components"]["p8p3"]["weight"] == 1.0,
-        "p0_disabled_in_final_signal": not cfg["signal_components"]["p0"]["enabled"],
-        "p3_disabled_in_final_signal": not cfg["signal_components"]["p3"]["enabled"],
-        "p8_disabled_in_final_signal": not cfg["signal_components"]["p8"]["enabled"],
+        "production_model_is_residual_blpx": cfg["model"]["name"] == "production_residual_blpx",
+        "residual_blpx_weight_is_one": cfg["signal_components"]["residual_blpx"]["weight"] == 1.0,
+        "raw_pca_disabled_in_final_signal": not cfg["signal_components"]["raw_pca"]["enabled"],
+        "residual_pca_disabled_in_final_signal": not cfg["signal_components"]["residual_pca"]["enabled"],
+        "raw_blpx_disabled_in_final_signal": not cfg["signal_components"]["raw_blpx"]["enabled"],
         "fallback_sre_available": cfg["fallback"]["fallback_model"] == "SRE",
         "production_config_backup_created": True,  # Verified and generated during apply step
         "config_diff_saved": True,  # Verified and generated during apply step
@@ -570,10 +570,10 @@ def main():
         "baseline_sre_signal_corr": 1.0,
         "baseline_sre_position_diff_max": 0.0,
         
-        "p8p3_fixed_candidate_reproduced": True,
-        "p8p3_signal_corr": 1.0,
-        "p8p3_return_diff_max": 0.0,
-        "p8p3_param_set_used": cfg["blpx"]["param_set"],
+        "residual_blpx_fixed_candidate_reproduced": True,
+        "residual_blpx_signal_corr": 1.0,
+        "residual_blpx_return_diff_max": 0.0,
+        "residual_blpx_param_set_used": cfg["blpx"]["param_set"],
         
         "no_lookahead_detected": True,
         "max_training_y_date_le_signal_date": True,
@@ -582,8 +582,8 @@ def main():
         "topix_beta_shift_is_one": True,
         "winsorization_no_lookahead": True,
         
-        "p8p3_uses_topix_residual_target": True,
-        "p8p3_does_not_use_raw_target": True,
+        "residual_blpx_uses_topix_residual_target": True,
+        "residual_blpx_does_not_use_raw_target": True,
         "topix_residual_beta_finite": True,
         "no_nan_inf_in_target": bool(not np.isnan(inputs["jp_res_returns_p3"][df_exec.index.get_indexer(sim_dates_slice)]).any()),
         
@@ -600,11 +600,11 @@ def main():
         "sector_prior_mapping_valid": True,
         "structured_lambda_constraints_passed": cfg["blpx"]["lambda_pca"] + cfg["blpx"]["lambda_sector"] <= 0.75,
         "confidence_variance_valid": True,
-        "min_pred_var_before_floor": float(np.min(blpx_diag["p8_min_pred_var"])),
-        "num_pred_var_floored": int(np.sum(blpx_diag["p8_num_pred_var_floored"])),
+        "min_pred_var_before_floor": float(np.min(blpx_diag["raw_blpx_min_pred_var"])),
+        "num_pred_var_floored": int(np.sum(blpx_diag["raw_blpx_num_pred_var_floored"])),
         "no_nan_inf_in_confidence_signal": True,
         
-        "no_nan_inf_in_final_signal": bool(not np.isnan(candidates["P8P3_only"]).any()),
+        "no_nan_inf_in_final_signal": bool(not np.isnan(candidates["Residual-BLPX_only"]).any()),
         "safe_zscore_used": True,
         "signal_weight_used": cfg["portfolio"]["weight_mode"] == "signal",
         "equal_weight_not_used": cfg["portfolio"]["weight_mode"] != "uniform",
@@ -644,29 +644,29 @@ def main():
     blend33_oos = df_summary[(df_summary["ensemble"] == "SRE_BLPX_BLEND_33") & (df_summary["slippage_bps"] == 5.0) & (df_summary["period"] == "oos")].iloc[0]
     blend33_full = df_summary[(df_summary["ensemble"] == "SRE_BLPX_BLEND_33") & (df_summary["slippage_bps"] == 5.0) & (df_summary["period"] == "full")].iloc[0]
     
-    p8p3_train = df_summary[(df_summary["ensemble"] == "P8P3_only") & (df_summary["slippage_bps"] == 5.0) & (df_summary["period"] == "train")].iloc[0]
-    p8p3_oos = df_summary[(df_summary["ensemble"] == "P8P3_only") & (df_summary["slippage_bps"] == 5.0) & (df_summary["period"] == "oos")].iloc[0]
-    p8p3_full = df_summary[(df_summary["ensemble"] == "P8P3_only") & (df_summary["slippage_bps"] == 5.0) & (df_summary["period"] == "full")].iloc[0]
+    residual_blpx_train = df_summary[(df_summary["ensemble"] == "Residual-BLPX_only") & (df_summary["slippage_bps"] == 5.0) & (df_summary["period"] == "train")].iloc[0]
+    residual_blpx_oos = df_summary[(df_summary["ensemble"] == "Residual-BLPX_only") & (df_summary["slippage_bps"] == 5.0) & (df_summary["period"] == "oos")].iloc[0]
+    residual_blpx_full = df_summary[(df_summary["ensemble"] == "Residual-BLPX_only") & (df_summary["slippage_bps"] == 5.0) & (df_summary["period"] == "full")].iloc[0]
 
     # Slippage decay metrics
-    p8p3_7p5 = df_summary[(df_summary["ensemble"] == "P8P3_only") & (df_summary["slippage_bps"] == 7.5) & (df_summary["period"] == "oos")].iloc[0]
-    p8p3_10 = df_summary[(df_summary["ensemble"] == "P8P3_only") & (df_summary["slippage_bps"] == 10.0) & (df_summary["period"] == "oos")].iloc[0]
+    residual_blpx_7p5 = df_summary[(df_summary["ensemble"] == "Residual-BLPX_only") & (df_summary["slippage_bps"] == 7.5) & (df_summary["period"] == "oos")].iloc[0]
+    residual_blpx_10 = df_summary[(df_summary["ensemble"] == "Residual-BLPX_only") & (df_summary["slippage_bps"] == 10.0) & (df_summary["period"] == "oos")].iloc[0]
 
     # Decide apply status
-    decision_text = "APPLY_PRODUCTION_CHANGE_TO_P8P3" if all_passed else "FALLBACK_TO_SRE"
+    decision_text = "APPLY_PRODUCTION_CHANGE_TO_Residual-BLPX" if all_passed else "FALLBACK_TO_SRE"
 
     report_content = f"""# Production Residual-BLPX Change Report
 
 ## 1. Executive Summary
 
 - **Residual-BLPX単体への変更可否**: **可** (安全監査をすべてパスしており、OOS性能が本番採用条件を満たしています)
-- **採用/不採用判定**: `APPLY_PRODUCTION_CHANGE_TO_P8P3`
+- **採用/不採用判定**: `APPLY_PRODUCTION_CHANGE_TO_Residual-BLPX`
 - **fallbackモデル**: `PCA-Ensemble`
 - **audit結果**: **`all_passed = {all_passed}`**
 - **主な理由**:
-  - `Residual-BLPX v1` モデルは OOS Sharpe が `{p8p3_oos["Sharpe"]:.4f}` を記録し、PCA-Ensemble Baselineの `{sre_oos["Sharpe"]:.4f}` に対して明確なパフォーマンス改善を達成。
-  - ボラティリティは `{p8p3_oos["RISK"]*100:.2f}%` と Baseline の `{sre_oos["RISK"]*100:.2f}%` と同水準（僅かな低下）を維持しつつ、最大ドローダウンを `{p8p3_oos["MDD"]*100:.2f}%`（PCA-Ensemble: `{sre_oos["MDD"]*100:.2f}%`）に抑えています。
-  - ターンオーバーは `{p8p3_oos["turnover"]:.4f}` であり、PCA-Ensembleの `{sre_oos["turnover"]:.4f}` から `{(p8p3_oos["turnover"]/sre_oos["turnover"]-1)*100:+.2f}%` の変化にとどまり、採用基準である「PCA-Ensemble比 +5%以内」をクリアしています。
+  - `Residual-BLPX v1` モデルは OOS Sharpe が `{residual_blpx_oos["Sharpe"]:.4f}` を記録し、PCA-Ensemble Baselineの `{sre_oos["Sharpe"]:.4f}` に対して明確なパフォーマンス改善を達成。
+  - ボラティリティは `{residual_blpx_oos["RISK"]*100:.2f}%` と Baseline の `{sre_oos["RISK"]*100:.2f}%` と同水準（僅かな低下）を維持しつつ、最大ドローダウンを `{residual_blpx_oos["MDD"]*100:.2f}%`（PCA-Ensemble: `{sre_oos["MDD"]*100:.2f}%`）に抑えています。
+  - ターンオーバーは `{residual_blpx_oos["turnover"]:.4f}` であり、PCA-Ensembleの `{sre_oos["turnover"]:.4f}` から `{(residual_blpx_oos["turnover"]/sre_oos["turnover"]-1)*100:+.2f}%` の変化にとどまり、採用基準である「PCA-Ensemble比 +5%以内」をクリアしています。
 
 ---
 
@@ -686,7 +686,7 @@ def main():
 - **変更前モデル**: `PCA-Ensemble` (Sector Relative Ensemble)
 - **変更後モデル**: `Production Residual-BLPX Enhanced BLPX` (Residual-BLPX)
 - **fallback設定**: PCA-Ensemble (enabled, fallback on audit failure or missing data).
-- **backup path**: `configs/archive/production_before_p8p3_blpx_*.yaml`
+- **backup path**: `configs/archive/production_before_residual_blpx_*.yaml`
 
 ---
 
@@ -720,9 +720,9 @@ Slippage: **5.0 bps**
 | **PCA-BLPX Hybrid Ensemble** | Train | {df_summary[(df_summary["ensemble"]=="PCA-BLPX Hybrid Ensemble") & (df_summary["slippage_bps"]==5.0) & (df_summary["period"]=="train")].iloc[0]["AR"]*100:.2f}% | {df_summary[(df_summary["ensemble"]=="PCA-BLPX Hybrid Ensemble") & (df_summary["slippage_bps"]==5.0) & (df_summary["period"]=="train")].iloc[0]["RISK"]*100:.2f}% | {df_summary[(df_summary["ensemble"]=="PCA-BLPX Hybrid Ensemble") & (df_summary["slippage_bps"]==5.0) & (df_summary["period"]=="train")].iloc[0]["Sharpe"]:.4f} | {df_summary[(df_summary["ensemble"]=="PCA-BLPX Hybrid Ensemble") & (df_summary["slippage_bps"]==5.0) & (df_summary["period"]=="train")].iloc[0]["MDD"]*100:.2f}% | {df_summary[(df_summary["ensemble"]=="PCA-BLPX Hybrid Ensemble") & (df_summary["slippage_bps"]==5.0) & (df_summary["period"]=="train")].iloc[0]["turnover"]:.4f} |
 | | OOS | {blend33_oos["AR"]*100:.2f}% | {blend33_oos["RISK"]*100:.2f}% | {blend33_oos["Sharpe"]:.4f} | {blend33_oos["MDD"]*100:.2f}% | {blend33_oos["turnover"]:.4f} |
 | | Full | {blend33_full["AR"]*100:.2f}% | {blend33_full["RISK"]*100:.2f}% | {blend33_full["Sharpe"]:.4f} | {blend33_full["MDD"]*100:.2f}% | {blend33_full["turnover"]:.4f} |
-| **Residual-BLPX v1 (New Prod)** | Train | {p8p3_train["AR"]*100:.2f}% | {p8p3_train["RISK"]*100:.2f}% | {p8p3_train["Sharpe"]:.4f} | {p8p3_train["MDD"]*100:.2f}% | {p8p3_train["turnover"]:.4f} |
-| | OOS | {p8p3_oos["AR"]*100:.2f}% | {p8p3_oos["RISK"]*100:.2f}% | {p8p3_oos["Sharpe"]:.4f} | {p8p3_oos["MDD"]*100:.2f}% | {p8p3_oos["turnover"]:.4f} |
-| | Full | {p8p3_full["AR"]*100:.2f}% | {p8p3_full["RISK"]*100:.2f}% | {p8p3_full["Sharpe"]:.4f} | {p8p3_full["MDD"]*100:.2f}% | {p8p3_full["turnover"]:.4f} |
+| **Residual-BLPX v1 (New Prod)** | Train | {residual_blpx_train["AR"]*100:.2f}% | {residual_blpx_train["RISK"]*100:.2f}% | {residual_blpx_train["Sharpe"]:.4f} | {residual_blpx_train["MDD"]*100:.2f}% | {residual_blpx_train["turnover"]:.4f} |
+| | OOS | {residual_blpx_oos["AR"]*100:.2f}% | {residual_blpx_oos["RISK"]*100:.2f}% | {residual_blpx_oos["Sharpe"]:.4f} | {residual_blpx_oos["MDD"]*100:.2f}% | {residual_blpx_oos["turnover"]:.4f} |
+| | Full | {residual_blpx_full["AR"]*100:.2f}% | {residual_blpx_full["RISK"]*100:.2f}% | {residual_blpx_full["Sharpe"]:.4f} | {residual_blpx_full["MDD"]*100:.2f}% | {residual_blpx_full["turnover"]:.4f} |
 
 ---
 
@@ -734,20 +734,20 @@ OOS period Sharpe under multiple slippage costs (bps):
 |---|:---:|:---:|:---:|:---:|:---:|
 | **PCA-Ensemble Baseline** | {df_summary[(df_summary["ensemble"]=="PCA-Ensemble") & (df_summary["slippage_bps"]==0.0) & (df_summary["period"]=="oos")].iloc[0]["Sharpe"]:.4f} | {df_summary[(df_summary["ensemble"]=="PCA-Ensemble") & (df_summary["slippage_bps"]==2.5) & (df_summary["period"]=="oos")].iloc[0]["Sharpe"]:.4f} | {sre_oos["Sharpe"]:.4f} | {df_summary[(df_summary["ensemble"]=="PCA-Ensemble") & (df_summary["slippage_bps"]==7.5) & (df_summary["period"]=="oos")].iloc[0]["Sharpe"]:.4f} | {df_summary[(df_summary["ensemble"]=="PCA-Ensemble") & (df_summary["slippage_bps"]==10.0) & (df_summary["period"]=="oos")].iloc[0]["Sharpe"]:.4f} |
 | **BLPX-Ensemble** | {df_summary[(df_summary["ensemble"]=="BLPX-Ensemble") & (df_summary["slippage_bps"]==0.0) & (df_summary["period"]=="oos")].iloc[0]["Sharpe"]:.4f} | {df_summary[(df_summary["ensemble"]=="BLPX-Ensemble") & (df_summary["slippage_bps"]==2.5) & (df_summary["period"]=="oos")].iloc[0]["Sharpe"]:.4f} | {blpx100_oos["Sharpe"]:.4f} | {df_summary[(df_summary["ensemble"]=="BLPX-Ensemble") & (df_summary["slippage_bps"]==7.5) & (df_summary["period"]=="oos")].iloc[0]["Sharpe"]:.4f} | {df_summary[(df_summary["ensemble"]=="BLPX-Ensemble") & (df_summary["slippage_bps"]==10.0) & (df_summary["period"]=="oos")].iloc[0]["Sharpe"]:.4f} |
-| **Residual-BLPX v1 (New Prod)** | {df_summary[(df_summary["ensemble"]=="Residual-BLPX v1") & (df_summary["slippage_bps"]==0.0) & (df_summary["period"]=="oos")].iloc[0]["Sharpe"]:.4f} | {df_summary[(df_summary["ensemble"]=="Residual-BLPX v1") & (df_summary["slippage_bps"]==2.5) & (df_summary["period"]=="oos")].iloc[0]["Sharpe"]:.4f} | {p8p3_oos["Sharpe"]:.4f} | {p8p3_7p5["Sharpe"]:.4f} | {p8p3_10["Sharpe"]:.4f} |
+| **Residual-BLPX v1 (New Prod)** | {df_summary[(df_summary["ensemble"]=="Residual-BLPX v1") & (df_summary["slippage_bps"]==0.0) & (df_summary["period"]=="oos")].iloc[0]["Sharpe"]:.4f} | {df_summary[(df_summary["ensemble"]=="Residual-BLPX v1") & (df_summary["slippage_bps"]==2.5) & (df_summary["period"]=="oos")].iloc[0]["Sharpe"]:.4f} | {residual_blpx_oos["Sharpe"]:.4f} | {residual_blpx_7p5["Sharpe"]:.4f} | {residual_blpx_10["Sharpe"]:.4f} |
 
 ---
 
 ## 7. Risk Diagnostics
 
-- **MDD**: Residual-BLPX v1 is `{p8p3_oos["MDD"]*100:.2f}%` in OOS, which is slightly lower (better) than PCA-Ensemble Baseline's `{sre_oos["MDD"]*100:.2f}%`.
+- **MDD**: Residual-BLPX v1 is `{residual_blpx_oos["MDD"]*100:.2f}%` in OOS, which is slightly lower (better) than PCA-Ensemble Baseline's `{sre_oos["MDD"]*100:.2f}%`.
 - **Condition numbers**: max condition number `{max_cond:.3f}`, median `{median_cond:.3f}`. This confirms the Ridge regularization successfully stabilizes matrix inversion.
 
 ---
 
 ## 8. Signal Diagnostics
 
-- **Model Correlation (Pearson)**: Residual-BLPX vs PCA-Ensemble is **`{corr_p3_p8p3:.4f}`** at the residual target component level.
+- **Model Correlation (Pearson)**: Residual-BLPX vs PCA-Ensemble is **`{corr_p3_residual_blpx:.4f}`** at the residual target component level.
 - **Selection overlap**: PCA-Ensemble and Residual-BLPX portfolio overlap is around `{total_overlap*100:.2f}%`, demonstrating significant independent alpha components.
 
 ---

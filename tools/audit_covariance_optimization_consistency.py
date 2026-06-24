@@ -42,7 +42,7 @@ warnings.filterwarnings("ignore", category=UserWarning)
 
 def parse_arguments() -> argparse.Namespace:
     """Parse command line arguments."""
-    parser = argparse.ArgumentParser(description="P8P3-BLPX Covariance Optimization Consistency Audit")
+    parser = argparse.ArgumentParser(description="Residual-BLPX Covariance Optimization Consistency Audit")
     parser.add_argument("--cov-opt-dir", default="results/covariance_optimization_validation/20260615_121703", help="Step 5 validation folder")
     parser.add_argument("--ranking-audit-dir", default="results/risk_adjusted_ranking_audit/20260615_120049", help="Step 4.5 ranking audit folder")
     parser.add_argument("--ranking-validation-dir", default="results/risk_adjusted_ranking_validation/20260615_032923", help="Step 4 output folder")
@@ -361,7 +361,7 @@ def main() -> None:
     df_long["signal_date"] = pd.to_datetime(df_long["signal_date"]).dt.strftime("%Y-%m-%d")
     
     # Load baseline daily positions
-    weights_file = Path("results/production_p8p3_blpx_validation/daily_positions_P8P3_only.csv")
+    weights_file = Path("results/production_residual_blpx_validation/daily_positions_Residual-BLPX_only.csv")
     df_base_pos = pd.read_csv(weights_file)
     df_base_pos["trade_date"] = pd.to_datetime(df_base_pos["trade_date"]).dt.strftime("%Y-%m-%d")
     df_base_pos = df_base_pos.set_index("trade_date")

@@ -81,8 +81,8 @@ class SectorRelativeEnsembleRRRModel(BaseModel):
         self.alpha_yx = float(self._resolve_val("alpha_yx", 0.25))
 
         # Ensemble weights
-        self.p0_weight = float(self._resolve_val("p0_weight", 0.4))
-        self.p3_weight = float(self._resolve_val("p3_weight", 0.4))
+        self.raw_pca_weight = float(self._resolve_val("raw_pca_weight", 0.4))
+        self.residual_pca_weight = float(self._resolve_val("residual_pca_weight", 0.4))
         self.p6_weight = float(self._resolve_val("p6_weight", 0.1))
         self.p6p3_weight = float(self._resolve_val("p6p3_weight", 0.1))
         self.p7_weight = float(self._resolve_val("p7_weight", 0.0))
@@ -626,8 +626,8 @@ class SectorRelativeEnsembleRRRModel(BaseModel):
     ) -> np.ndarray:
         """Combine component signals with ensemble weights."""
         return (
-            self.p0_weight * z0
-            + self.p3_weight * z3
+            self.raw_pca_weight * z0
+            + self.residual_pca_weight * z3
             + self.p6_weight * z6
             + self.p6p3_weight * z6p3
             + self.p7_weight * z7
@@ -663,8 +663,8 @@ class SectorRelativeEnsembleRRRModel(BaseModel):
         jp_res_returns_p3 = inputs["jp_res_returns_p3"]
 
         # Setup output arrays
-        p0_signals = np.zeros((T, self.n_j))
-        p3_signals = np.zeros((T, self.n_j))
+        raw_pca_signals = np.zeros((T, self.n_j))
+        residual_pca_signals = np.zeros((T, self.n_j))
         p6_signals = np.zeros((T, self.n_j))
         p6p3_signals = np.zeros((T, self.n_j))
         p7_signals = np.zeros((T, self.n_j))
@@ -678,16 +678,16 @@ class SectorRelativeEnsembleRRRModel(BaseModel):
         start_idx = self.corr_window
         for i in range(start_idx, T):
             # 1. Raw-PCA (Production PCA)
-            p0_sig = self.compute_production_signal(
+            raw_pca_sig = self.compute_production_signal(
                 i, c_full, v0_static, v1, v2, all_returns_raw, jp_gap, jp_beta, topix_night
             )
-            p0_signals[i] = p0_sig
+            raw_pca_signals[i] = raw_pca_sig
 
             # 2. Residual-PCA (Residual target PCA)
-            p3_sig = self.compute_residual_signal(
+            residual_pca_sig = self.compute_residual_signal(
                 jp_res_returns_p3, i, c_full_p3, v0_static, v1, v2, jp_gap, jp_beta, topix_night
             )
-            p3_signals[i] = p3_sig
+            residual_pca_signals[i] = residual_pca_sig
 
             # 3. P6 (RRR Raw target)
             gap_override = np.nan_to_num(jp_gap[i], nan=0.0) if jp_gap is not None else None
@@ -744,8 +744,8 @@ class SectorRelativeEnsembleRRRModel(BaseModel):
             p7p3_signals[i] = p7p3_res["signal"]
 
             # Normalization
-            z0 = self.normalize_signals(p0_sig, self.normalization_method)
-            z3 = self.normalize_signals(p3_sig, self.normalization_method)
+            z0 = self.normalize_signals(raw_pca_sig, self.normalization_method)
+            z3 = self.normalize_signals(residual_pca_sig, self.normalization_method)
             z6 = self.normalize_signals(p6_res["signal"], self.normalization_method)
             z6p3 = self.normalize_signals(p6p3_res["signal"], self.normalization_method)
             z7 = self.normalize_signals(p7_res["signal"], self.normalization_method)
@@ -781,8 +781,8 @@ class SectorRelativeEnsembleRRRModel(BaseModel):
                 }
             )
 
-        p0_df = pd.DataFrame(p0_signals, index=sim_dates, columns=JP_TICKERS)
-        p3_df = pd.DataFrame(p3_signals, index=sim_dates, columns=JP_TICKERS)
+        raw_pca_df = pd.DataFrame(raw_pca_signals, index=sim_dates, columns=JP_TICKERS)
+        residual_pca_df = pd.DataFrame(residual_pca_signals, index=sim_dates, columns=JP_TICKERS)
         p6_df = pd.DataFrame(p6_signals, index=sim_dates, columns=JP_TICKERS)
         p6p3_df = pd.DataFrame(p6p3_signals, index=sim_dates, columns=JP_TICKERS)
         p7_df = pd.DataFrame(p7_signals, index=sim_dates, columns=JP_TICKERS)
@@ -795,8 +795,8 @@ class SectorRelativeEnsembleRRRModel(BaseModel):
         p4_df = pd.DataFrame(np.zeros((T, self.n_j)), index=sim_dates, columns=JP_TICKERS)
 
         return {
-            "p0_signals": p0_df,
-            "p3_signals": p3_df,
+            "raw_pca_signals": raw_pca_df,
+            "residual_pca_signals": residual_pca_df,
             "p4_signals": p4_df,
             "p6_signals": p6_df,
             "p6p3_signals": p6p3_df,

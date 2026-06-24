@@ -22,7 +22,7 @@ def sample_config_dict() -> dict:
     return {
         "model": {"name": "sector_relative_ensemble"},
         "portfolio": {"weight_mode": "signal", "long_short_frac": 0.3},
-        "ensemble": {"p0_weight": 0.5, "p3_weight": 0.5, "normalization": "zscore"},
+        "ensemble": {"raw_pca_weight": 0.5, "residual_pca_weight": 0.5, "normalization": "zscore"},
         "costs": {"slippage_bps_per_side": 5.0},
         "residualization": {"enabled_for_p3": True, "beta_window": 60}
     }
