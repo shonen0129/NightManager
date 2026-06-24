@@ -1,0 +1,167 @@
+run:
+  mode: "backtest"
+  start_date: "2009-07-10"
+  end_date: "2026-05-28"
+  random_seed: 42
+  timezone: "Asia/Tokyo"
+
+target:
+  primary_target: "intraday_residual"
+  allowed_targets:
+    - "open_to_close_residual"
+    - "entry_to_close_residual"
+    - "true_0910_to_close_residual"
+  separate_true_0910_report: true
+  use_close_to_close_as_reference_only: true
+
+portfolio:
+  aum_jpy: 1000000
+  gross_targets: [0.5, 0.75, 1.0]
+  default_gross_target: 0.5
+  adv_cap: 0.20
+  integer_rounding: true
+  lot_size_default: 1
+  max_abs_weight_per_name: 0.25
+  min_order_value_jpy: 1000
+
+costs:
+  commission_bps: 0.0
+  buy_interest_annual: 0.025
+  sell_interest_annual: 0.0
+  borrow_fee_annual: 0.0115
+  reverse_fee_bps_per_day_scenarios: [0, 5, 10, 30]
+  spread_fallback_roundtrip_bps: [5, 10, 15, 20, 30, 50]
+  default_spread_fallback_roundtrip_bps: 15
+
+features:
+  base_signal_column: "signal_gap_adjusted"
+
+  rolling_zscore_windows: [60, 120, 252]
+  default_zscore_window: 120
+
+  hinge_thresholds: [1.0, 1.5, 2.0]
+  hinge_directions: ["positive", "negative"]
+
+  max_raw_features: 40
+  max_selected_features: 20
+
+  feature_groups:
+    us_sector:
+      enabled: true
+      columns:
+        - "us_tech_return"
+        - "us_semiconductor_return"
+        - "us_energy_return"
+        - "us_financial_return"
+        - "us_industrial_return"
+        - "us_healthcare_return"
+        - "us_smallcap_return"
+
+    macro:
+      enabled: true
+      columns:
+        - "us10y_change"
+        - "usd_jpy_return"
+        - "vix_return"
+        - "nikkei_futures_return"
+        - "topix_futures_return"
+
+    gap:
+      enabled: true
+      columns:
+        - "jp_open_gap"
+        - "entry_gap"
+        - "gap_adjustment_term"
+        - "gap_surprise"
+
+    regime:
+      enabled: true
+      columns:
+        - "realized_vol_20d"
+        - "cross_sectional_dispersion"
+        - "topix_intraday_vol"
+
+feature_selection:
+  enabled: true
+  method: "benjamini_hochberg_fdr"
+  fdr_q: 0.10
+  min_abs_rank_ic: 0.02
+  min_sign_consistency: 0.60
+  max_features_after_fdr: 20
+  use_train_period_only: true
+  bootstrap_by_date: true
+
+model:
+  baseline_model: "net_score_ranking"
+
+  overlay_models:
+    - "hinge_ridge_overlay"
+    - "hinge_elasticnet_overlay"
+
+  target_mode: "residual_overlay"
+  prediction_formula: "mu_final = mu_base + alpha * delta_hinge"
+
+  alpha_blend_grid: [0.0, 0.25, 0.5, 0.75, 1.0]
+
+  ridge_alpha_grid: [0.1, 1.0, 10.0, 100.0]
+
+  elasticnet_alpha_grid: [0.0001, 0.001, 0.01, 0.1]
+  elasticnet_l1_ratio_grid: [0.1, 0.3, 0.5, 0.7]
+
+  cap_overlay_prediction: true
+  max_overlay_to_base_abs_ratio: 0.5
+  max_overlay_bps: 20
+
+validation:
+  walk_forward: true
+  train_window_days: 252
+  validation_window_days: 63
+  test_window_days: 21
+  step_days: 21
+
+  date_grouped_split: true
+  purge_days: 1
+
+  compare_targets:
+    - "open_to_close_residual"
+    - "entry_to_close_residual"
+
+  true_0910_subsample_report: true
+
+evaluation:
+  metrics:
+    - "rank_ic"
+    - "rank_icir"
+    - "pearson_ic"
+    - "hit_rate"
+    - "quantile_return"
+    - "long_short_spread_bps"
+    - "annualized_net_return"
+    - "annualized_vol"
+    - "IR"
+    - "max_drawdown"
+    - "turnover"
+    - "effective_gross"
+    - "feature_stability"
+    - "cost_sensitivity"
+
+  quantiles: [0.3, 0.7]
+
+  adoption_criteria:
+    min_annual_net_return_improvement: 0.03
+    min_ir_improvement: 0.20
+    max_dd_worsening_allowed: 0.00
+    max_turnover_increase_ratio: 0.20
+
+data:
+  prices_path: null
+  signals_path: null
+  targets_path: "artifacts/sprint1/targets_panel.parquet"
+  sprint2_results_path: "artifacts/sprint2_cost_aware_aum1m/"
+  sprint2c_lob_path: "artifacts/sprint2c_lob_slippage/"
+  feature_cache_path: "artifacts/sprint3a_hinge_features/feature_cache.parquet"
+
+output:
+  report_dir: "reports/sprint3a_hinge_features"
+  artifact_dir: "artifacts/sprint3a_hinge_features"
+  figure_dir: "reports/sprint3a_hinge_features/figures"

@@ -1,0 +1,3 @@
+check,status,message
+rolling_beta_lag1_applied,PASS,lag_days=1 applied to all factor returns before beta computation
+rolling_beta_not_empty,PASS,"Beta panel shape: (4119, 340)"

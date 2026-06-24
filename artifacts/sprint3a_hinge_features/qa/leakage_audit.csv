@@ -1,0 +1,7 @@
+check,status,message
+early_rows_mostly_nan,WARN,First 120 rows: 0.0% fully NaN (expected high)
+autocorr_lag1_hinge_pos_us_tech_return_k1_0,PASS,Autocorr lag-1 = 0.0068
+autocorr_lag1_hinge_pos_us_semiconductor_return_k1_0,PASS,Autocorr lag-1 = -0.0027
+autocorr_lag1_hinge_pos_us_energy_return_k1_0,PASS,Autocorr lag-1 = 0.0031
+hinge_pos_non_negative,PASS,min positive hinge value = 0.000000
+hinge_neg_non_negative,PASS,min negative hinge value = 0.000000

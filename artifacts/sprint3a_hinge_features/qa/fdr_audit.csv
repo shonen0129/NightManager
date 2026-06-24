@@ -1,0 +1,4 @@
+check,status,message
+fdr_windows_count,PASS,FDR ran on 175 walk-forward windows
+fdr_selected_count,PASS,Total feature-window selections: 0
+fdr_q_values_bounded,FAIL,Max q-value among selected features = nan

@@ -1,0 +1,7 @@
+check,status,message
+commission_zero,PASS,commission_bps = 0.0
+aum_1m,PASS,"AUM = ¥1,000,000"
+fixed_spread_only,PASS,LOB-based slippage NOT used (no historical order book data)
+integer_rounding,PASS,Integer share rounding applied in compute_daily_pnl
+buy_interest_correct,PASS,buy_interest = 2.50% annual
+borrow_fee_correct,PASS,borrow_fee = 1.150% annual
