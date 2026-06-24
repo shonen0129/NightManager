@@ -24,6 +24,10 @@ class BacktestEngine:
         start_date: str = "2015-01-05",
         end_date: str = "latest",
         slippage_bps: float | None = None,
+        overnight_alpha: float | None = None,
+        buy_interest_annual: float | None = None,
+        borrow_fee_annual: float | None = None,
+        reverse_fee_bps: float | None = None,
     ) -> dict:
         """Run a historical backtest of the model on the execution dataset.
 
@@ -33,12 +37,25 @@ class BacktestEngine:
             start_date: Backtest start date.
             end_date: Backtest end date.
             slippage_bps: Slippage bps one-way to override defaults.
+            overnight_alpha: Fraction of positions held overnight (0=full close, 1=full hold).
+                Defaults to model config value or 0.0 (backward compat).
+            buy_interest_annual: Annual financing rate for long positions.
+            borrow_fee_annual: Annual stock borrow fee for short positions.
+            reverse_fee_bps: Daily reverse stock lending fee (bps).
 
         Returns:
             Dict containing backtest results and metrics.
         """
         slip_bps = slippage_bps if slippage_bps is not None else getattr(model, "slippage_bps", 5.0)
-        logger.info(f"Starting generic backtest: start={start_date}, slippage={slip_bps} bps")
+        alpha = overnight_alpha if overnight_alpha is not None else getattr(model, "overnight_alpha", 0.0)
+        fin_annual = buy_interest_annual if buy_interest_annual is not None else getattr(model, "buy_interest_annual", 0.025)
+        borrow_annual = borrow_fee_annual if borrow_fee_annual is not None else getattr(model, "borrow_fee_annual", 0.0115)
+        rev_bps = reverse_fee_bps if reverse_fee_bps is not None else getattr(model, "reverse_fee_bps", 2.0)
+        logger.info(
+            f"Starting generic backtest: start={start_date}, slippage={slip_bps} bps, "
+            f"overnight_alpha={alpha}, financing={fin_annual*100:.2f}% ann, "
+            f"borrow={borrow_annual*100:.2f}% ann, reverse={rev_bps:.1f} bps/day"
+        )
 
         T = len(df_exec)
         sim_dates = df_exec.index
@@ -75,39 +92,80 @@ class BacktestEngine:
         y_jp_target = compute_jp_target_returns(df_exec, JP_TICKERS)
         y_jp_target_df = pd.DataFrame(y_jp_target, index=sim_dates, columns=JP_TICKERS)
 
+        # Overnight gap returns: gap(t) = open(t)/close(t-1) - 1
+        gap_cols = [f"jp_gap_{tk}" for tk in JP_TICKERS]
+        gap_returns_df = df_exec[gap_cols].copy()
+        gap_returns_df.columns = JP_TICKERS
+
+        # Cost parameters
+        slip = slip_bps / 10000.0
+        financing_daily = fin_annual / 365.0
+        borrow_daily = borrow_annual / 365.0
+        reverse_daily = rev_bps / 10000.0
+
         # Returns and Cost drag calculations
         gross_returns_list = []
         net_returns_list = []
         gross_returns_oc_list = []
         net_returns_oc_list = []
         cost_list = []
+        slip_cost_list = []
+        financing_cost_list = []
+        borrow_cost_list = []
+        reverse_cost_list = []
+        overnight_ret_list = []
         gross_exp_list = []
         turnover_list = []
 
         w_prev = np.zeros(model.n_j)
-        for date in sim_dates_slice:
+        dates_list = list(sim_dates_slice)
+        for i, date in enumerate(dates_list):
             w_t = sre_weights_df.loc[date].values
             r_target_t = y_jp_target_df.loc[date].values
             r_oc_t = y_jp_oc_df.loc[date].values
 
-            # Primary (9:10-to-Close)
+            # Intraday return (9:10-to-Close) — same for all alpha
             gross_ret = float(np.sum(w_t * r_target_t))
             gross_exp = float(np.sum(np.abs(w_t)))
+            long_exp = float(np.sum(np.maximum(w_t, 0.0)))
+            short_exp = float(np.sum(np.maximum(-w_t, 0.0)))
 
-            cost = 2.0 * (slip_bps / 10000.0) * gross_exp
-            net_ret = gross_ret - cost
+            # Overnight return: alpha * w_t * gap(t+1)
+            overnight_ret = 0.0
+            if alpha > 0 and i < len(dates_list) - 1:
+                next_date = dates_list[i + 1]
+                if next_date in gap_returns_df.index:
+                    r_gap_next = gap_returns_df.loc[next_date].values
+                    overnight_ret = alpha * float(np.sum(w_t * r_gap_next))
 
-            # Auxiliary (Open-to-Close)
+            # Cost model:
+            # (1-alpha) fraction: full round-trip (close at 15:00, reopen at 9:10)
+            # alpha fraction: only rebalance cost (hold overnight, adjust at 9:10)
+            turnover = float(np.sum(np.abs(w_t - w_prev)) / 2.0)
+
+            slip_cost = slip * (2.0 * (1.0 - alpha) * gross_exp + alpha * turnover)
+            fin_cost = alpha * long_exp * financing_daily
+            borrow_cost = alpha * short_exp * borrow_daily
+            reverse_cost = alpha * short_exp * reverse_daily
+            cost = slip_cost + fin_cost + borrow_cost + reverse_cost
+
+            # Net return = intraday + overnight - total cost
+            net_ret = gross_ret + overnight_ret - cost
+
+            # Auxiliary (Open-to-Close) — no overnight component for OC measure
             gross_ret_oc = float(np.sum(w_t * r_oc_t))
             net_ret_oc = gross_ret_oc - cost
-
-            turnover = float(np.sum(np.abs(w_t - w_prev)) / 2.0)
 
             gross_returns_list.append(gross_ret)
             net_returns_list.append(net_ret)
             gross_returns_oc_list.append(gross_ret_oc)
             net_returns_oc_list.append(net_ret_oc)
             cost_list.append(cost)
+            slip_cost_list.append(slip_cost)
+            financing_cost_list.append(fin_cost)
+            borrow_cost_list.append(borrow_cost)
+            reverse_cost_list.append(reverse_cost)
+            overnight_ret_list.append(overnight_ret)
             gross_exp_list.append(gross_exp)
             turnover_list.append(turnover)
 
@@ -118,6 +176,11 @@ class BacktestEngine:
         daily_returns_gross_oc = pd.Series(gross_returns_oc_list, index=sim_dates_slice)
         daily_returns_net_oc = pd.Series(net_returns_oc_list, index=sim_dates_slice)
         daily_costs = pd.Series(cost_list, index=sim_dates_slice)
+        daily_slip_costs = pd.Series(slip_cost_list, index=sim_dates_slice)
+        daily_financing_costs = pd.Series(financing_cost_list, index=sim_dates_slice)
+        daily_borrow_costs = pd.Series(borrow_cost_list, index=sim_dates_slice)
+        daily_reverse_costs = pd.Series(reverse_cost_list, index=sim_dates_slice)
+        daily_overnight_returns = pd.Series(overnight_ret_list, index=sim_dates_slice)
         daily_gross_exps = pd.Series(gross_exp_list, index=sim_dates_slice)
         daily_turnover = pd.Series(turnover_list, index=sim_dates_slice)
 
@@ -137,8 +200,14 @@ class BacktestEngine:
             "daily_returns_gross_oc": daily_returns_gross_oc,
             "daily_returns_net_oc": daily_returns_net_oc,
             "daily_costs": daily_costs,
+            "daily_slip_costs": daily_slip_costs,
+            "daily_financing_costs": daily_financing_costs,
+            "daily_borrow_costs": daily_borrow_costs,
+            "daily_reverse_costs": daily_reverse_costs,
+            "daily_overnight_returns": daily_overnight_returns,
             "daily_gross_exps": daily_gross_exps,
             "daily_turnover": daily_turnover,
+            "overnight_alpha": alpha,
             "equity_curve": wealth,
             "drawdown": drawdown,
         }

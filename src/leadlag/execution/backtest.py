@@ -54,7 +54,15 @@ def run_production(
     model = build_strategy(config, df_exec)
 
     from leadlag.execution.backtester import BacktestEngine
-    results = BacktestEngine.run_backtest(model, df_exec=df_exec, start_date=config.start_date)
+    results = BacktestEngine.run_backtest(
+        model,
+        df_exec=df_exec,
+        start_date=config.start_date,
+        overnight_alpha=config.overnight_alpha,
+        buy_interest_annual=config.buy_interest_annual,
+        borrow_fee_annual=config.borrow_fee_annual,
+        reverse_fee_bps=config.reverse_fee_bps,
+    )
 
     metrics = calculate_metrics(results["daily_returns"])
     var_es_result = compute_var_es(

@@ -141,6 +141,12 @@ class SectorRelativeEnsembleModel(BaseModel):
             if "costs" in config and "slippage_bps_per_side" in config["costs"]:
                 self.slippage_bps = float(config["costs"]["slippage_bps_per_side"])
 
+        # Overnight holding parameters
+        self.overnight_alpha = self._resolve_val("overnight_alpha", 0.5)
+        self.buy_interest_annual = self._resolve_val("buy_interest_annual", 0.025)
+        self.borrow_fee_annual = self._resolve_val("borrow_fee_annual", 0.0115)
+        self.reverse_fee_bps = self._resolve_val("reverse_fee_bps", 2.0)
+
     def _resolve_val(self, key: str, default: any) -> any:
         """Resolve value from config object or dict."""
         if hasattr(self.config, key):

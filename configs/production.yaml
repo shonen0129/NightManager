@@ -77,6 +77,11 @@ risk:
 costs:
   slippage_bps_per_side: 5
   cost_bps_per_gross: 10.0      # 動的グロス計算の ex-ante コスト（bps/unit gross）
+  # --- Overnight holding (position carry-over) ---
+  overnight_alpha: 0.5          # 持ち越し比率 (0=日次全額決済, 1=全額持ち越し)
+  buy_interest_annual: 0.025    # ロング資金調達コスト (年率 2.5%)
+  borrow_fee_annual: 0.0115     # 空売り貸株コスト (年率 1.15%)
+  reverse_fee_bps: 2.0          # 逆日歩 (bps/day, ショート側のみ)
 
 blpx:
   param_set: refined_best_residual_blpx_production

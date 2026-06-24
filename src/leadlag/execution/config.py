@@ -109,6 +109,10 @@ def load_config_from_yaml(yaml_path: str | Path | None = None) -> AppConfig:
         "gamma": portfolio_data.get("gamma", 0.5),
         "slippage_bps": costs_data.get("slippage_bps_per_side", 5.0),
         "vol_adjusted_target": portfolio_data.get("vol_adjusted_target", True),
+        "overnight_alpha": costs_data.get("overnight_alpha", 0.5),
+        "buy_interest_annual": costs_data.get("buy_interest_annual", 0.025),
+        "borrow_fee_annual": costs_data.get("borrow_fee_annual", 0.0115),
+        "reverse_fee_bps": costs_data.get("reverse_fee_bps", 2.0),
         "start_date": yaml_data.get("start_date", "2015-01-01"),
         # Include risk thresholds for backward compat with production runners
         # that pass a single StrategyConfig to both strategy and risk layers.
