@@ -61,11 +61,17 @@ class StrategyConfig(BaseModel):
     gamma: float = Field(default=0.5, description="US 残差化ブレンド係数")
     slippage_bps: float = Field(default=5.0, ge=0.0, description="片道スリッページ (basis points)")
     vol_adjusted_target: bool = Field(default=True, description="ボラティリティ調整ターゲット有効フラグ")
-    overnight_alpha: float = Field(
+    overnight_alpha_long: float = Field(
+        default=0.75,
+        ge=0.0,
+        le=1.0,
+        description="ロングポジションのオーバーナイト持ち越し比率 (0=日次全額決済, 1=全額持ち越し)",
+    )
+    overnight_alpha_short: float = Field(
         default=0.5,
         ge=0.0,
         le=1.0,
-        description="オーバーナイト持ち越し比率 (0=日次全額決済, 1=全額持ち越し)",
+        description="ショートポジションのオーバーナイト持ち越し比率 (0=日次全額決済, 1=全額持ち越し)",
     )
     buy_interest_annual: float = Field(default=0.025, ge=0.0, description="ロング資金調達コスト (年率)")
     borrow_fee_annual: float = Field(default=0.0115, ge=0.0, description="空売り貸株コスト (年率)")

@@ -25,6 +25,8 @@ class BacktestEngine:
         end_date: str = "latest",
         slippage_bps: float | None = None,
         overnight_alpha: float | None = None,
+        overnight_alpha_long: float | None = None,
+        overnight_alpha_short: float | None = None,
         buy_interest_annual: float | None = None,
         borrow_fee_annual: float | None = None,
         reverse_fee_bps: float | None = None,
@@ -37,8 +39,10 @@ class BacktestEngine:
             start_date: Backtest start date.
             end_date: Backtest end date.
             slippage_bps: Slippage bps one-way to override defaults.
-            overnight_alpha: Fraction of positions held overnight (0=full close, 1=full hold).
-                Defaults to model config value or 0.0 (backward compat).
+            overnight_alpha: Uniform alpha for both long and short (backward compat).
+                If specified, overrides overnight_alpha_long/short.
+            overnight_alpha_long: Alpha for long positions (0=full close, 1=full hold).
+            overnight_alpha_short: Alpha for short positions (0=full close, 1=full hold).
             buy_interest_annual: Annual financing rate for long positions.
             borrow_fee_annual: Annual stock borrow fee for short positions.
             reverse_fee_bps: Daily reverse stock lending fee (bps).
@@ -47,13 +51,20 @@ class BacktestEngine:
             Dict containing backtest results and metrics.
         """
         slip_bps = slippage_bps if slippage_bps is not None else getattr(model, "slippage_bps", 5.0)
-        alpha = overnight_alpha if overnight_alpha is not None else getattr(model, "overnight_alpha", 0.0)
+        # Resolve alpha: uniform overnight_alpha takes precedence for backward compat
+        if overnight_alpha is not None:
+            alpha_long = overnight_alpha
+            alpha_short = overnight_alpha
+        else:
+            alpha_long = overnight_alpha_long if overnight_alpha_long is not None else getattr(model, "overnight_alpha_long", 0.0)
+            alpha_short = overnight_alpha_short if overnight_alpha_short is not None else getattr(model, "overnight_alpha_short", 0.0)
         fin_annual = buy_interest_annual if buy_interest_annual is not None else getattr(model, "buy_interest_annual", 0.025)
         borrow_annual = borrow_fee_annual if borrow_fee_annual is not None else getattr(model, "borrow_fee_annual", 0.0115)
         rev_bps = reverse_fee_bps if reverse_fee_bps is not None else getattr(model, "reverse_fee_bps", 2.0)
         logger.info(
             f"Starting generic backtest: start={start_date}, slippage={slip_bps} bps, "
-            f"overnight_alpha={alpha}, financing={fin_annual*100:.2f}% ann, "
+            f"alpha_long={alpha_long}, alpha_short={alpha_short}, "
+            f"financing={fin_annual*100:.2f}% ann, "
             f"borrow={borrow_annual*100:.2f}% ann, reverse={rev_bps:.1f} bps/day"
         )
 
@@ -135,23 +146,28 @@ class BacktestEngine:
             long_exp = float(np.sum(np.maximum(w_t, 0.0)))
             short_exp = float(np.sum(np.maximum(-w_t, 0.0)))
 
-            # Overnight return: alpha * w_t * gap(t+1)
+            # Per-asset alpha mask: long positions use alpha_long, short uses alpha_short
+            alpha_mask = np.where(w_t > 0, alpha_long, np.where(w_t < 0, alpha_short, 0.0))
+
+            # Overnight return: sum over assets of alpha_mask[j] * w_t[j] * gap(t+1)[j]
             overnight_ret = 0.0
-            if alpha > 0 and i < len(dates_list) - 1:
+            if (alpha_long > 0 or alpha_short > 0) and i < len(dates_list) - 1:
                 next_date = dates_list[i + 1]
                 if next_date in gap_returns_df.index:
                     r_gap_next = gap_returns_df.loc[next_date].values
-                    overnight_ret = alpha * float(np.sum(w_t * r_gap_next))
+                    overnight_ret = float(np.sum(alpha_mask * w_t * r_gap_next))
 
             # Cost model:
-            # (1-alpha) fraction: full round-trip (close at 15:00, reopen at 9:10)
-            # alpha fraction: only rebalance cost (hold overnight, adjust at 9:10)
+            # (1-alpha_mask[j]) fraction: full round-trip (close at 15:00, reopen at 9:10)
+            # alpha_mask[j] fraction: only rebalance cost (hold overnight, adjust at 9:10)
             turnover = float(np.sum(np.abs(w_t - w_prev)) / 2.0)
 
-            slip_cost = slip * (2.0 * (1.0 - alpha) * gross_exp + alpha * turnover)
-            fin_cost = alpha * long_exp * financing_daily
-            borrow_cost = alpha * short_exp * borrow_daily
-            reverse_cost = alpha * short_exp * reverse_daily
+            slip_cost = slip * (2.0 * np.sum((1.0 - alpha_mask) * np.abs(w_t)) + np.sum(alpha_mask * np.abs(w_t - w_prev) / 2.0))
+            held_long = float(np.sum(alpha_mask * np.maximum(w_t, 0.0)))
+            held_short = float(np.sum(alpha_mask * np.maximum(-w_t, 0.0)))
+            fin_cost = held_long * financing_daily
+            borrow_cost = held_short * borrow_daily
+            reverse_cost = held_short * reverse_daily
             cost = slip_cost + fin_cost + borrow_cost + reverse_cost
 
             # Net return = intraday + overnight - total cost
@@ -212,7 +228,8 @@ class BacktestEngine:
             "daily_overnight_returns": daily_overnight_returns,
             "daily_gross_exps": daily_gross_exps,
             "daily_turnover": daily_turnover,
-            "overnight_alpha": alpha,
+            "overnight_alpha_long": alpha_long,
+            "overnight_alpha_short": alpha_short,
             "equity_curve": wealth,
             "drawdown": drawdown,
         }

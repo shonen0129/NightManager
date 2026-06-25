@@ -142,7 +142,8 @@ class SectorRelativeEnsembleModel(BaseModel):
                 self.slippage_bps = float(config["costs"]["slippage_bps_per_side"])
 
         # Overnight holding parameters
-        self.overnight_alpha = self._resolve_val("overnight_alpha", 0.0)
+        self.overnight_alpha_long = self._resolve_val("overnight_alpha_long", 0.0)
+        self.overnight_alpha_short = self._resolve_val("overnight_alpha_short", 0.0)
         self.buy_interest_annual = self._resolve_val("buy_interest_annual", 0.0)
         self.borrow_fee_annual = self._resolve_val("borrow_fee_annual", 0.0)
         self.reverse_fee_bps = self._resolve_val("reverse_fee_bps", 0.0)
