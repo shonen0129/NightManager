@@ -98,6 +98,8 @@ residualization:
   enabled_for_p3: true
   jp_market_proxy: TOPIX
   beta_window: 60
+  beta_winsor_sigma: 3.0
+  beta_shrinkage: 0.05
   method: rolling_ols
   lookahead_safe: true
 

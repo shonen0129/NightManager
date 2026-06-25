@@ -23,7 +23,114 @@ from leadlag.data.tickers import JP_TICKERS, TOPIX_TICKER, US_TICKERS
 logger = logging.getLogger(__name__)
 
 
-def preprocess_data(data: dict, beta_window: int = 60) -> pd.DataFrame:
+def _winsorize_rolling(
+    series: pd.Series | pd.DataFrame,
+    window: int,
+    n_sigma: float = 3.0,
+) -> pd.Series | pd.DataFrame:
+    """Rolling winsorize: clip values beyond n_sigma from rolling mean.
+
+    Args:
+        series: Series or DataFrame to winsorize
+        window: Rolling window size
+        n_sigma: Number of standard deviations for clipping
+
+    Returns:
+        Winsorized Series or DataFrame
+    """
+    rolling_mean = series.rolling(window, min_periods=window).mean()
+    rolling_std = series.rolling(window, min_periods=window).std()
+    lower = rolling_mean - n_sigma * rolling_std
+    upper = rolling_mean + n_sigma * rolling_std
+    return series.clip(lower=lower, upper=upper)
+
+
+def _compute_ewma_betas(
+    ret_jp_gap: pd.DataFrame,
+    topix_night: pd.Series,
+    beta_window: int,
+    ewma_halflife: float,
+) -> pd.DataFrame:
+    """Compute EWMA-weighted rolling betas for JP gap returns vs TOPIX night.
+
+    Uses exponentially weighted covariance and variance within a fixed rolling
+    window of ``beta_window`` days. Recent observations receive higher weight
+    (controlled by ``ewma_halflife``) while old data is fully discarded after
+    the window expires — ensuring lookahead-safe behavior identical to rolling
+    OLS, but with smoother and more responsive estimates.
+
+    Args:
+        ret_jp_gap: DataFrame of JP gap returns (per ticker columns)
+        topix_night: Series of TOPIX overnight returns
+        beta_window: Rolling window size (trading days)
+        ewma_halflife: EWMA half-life (trading days)
+
+    Returns:
+        DataFrame of rolling betas, same shape as ret_jp_gap
+    """
+    n = len(ret_jp_gap)
+    decay = 0.5 ** (1.0 / float(ewma_halflife))
+    weights = np.power(decay, np.arange(beta_window - 1, -1, -1))
+    weights = weights / np.sum(weights)
+
+    topix_arr = topix_night.values
+    gap_arr = ret_jp_gap.values
+
+    betas_arr = np.full((n, ret_jp_gap.shape[1]), np.nan)
+
+    for t in range(beta_window, n):
+        w_gap = gap_arr[t - beta_window : t]
+        w_topix = topix_arr[t - beta_window : t]
+
+        if np.any(~np.isfinite(w_topix)) or np.any(~np.isfinite(w_gap)):
+            continue
+
+        w_mean_topix = np.sum(weights * w_topix)
+        w_mean_gap = np.sum(weights[:, None] * w_gap, axis=0)
+
+        w_var_topix = np.sum(weights * (w_topix - w_mean_topix) ** 2)
+        if w_var_topix < 1e-16:
+            continue
+
+        w_cov = np.sum(
+            weights[:, None] * (w_gap - w_mean_gap) * (w_topix - w_mean_topix)[:, None],
+            axis=0,
+        )
+        betas_arr[t] = w_cov / w_var_topix
+
+    beta_df = pd.DataFrame(betas_arr, index=ret_jp_gap.index, columns=ret_jp_gap.columns)
+    beta_df = beta_df.replace([np.inf, -np.inf], np.nan)
+
+    return beta_df
+
+
+def _apply_beta_shrinkage(beta_df: pd.DataFrame, shrinkage: float) -> pd.DataFrame:
+    """Apply Bayesian shrinkage of betas toward 1.0.
+
+    Shrinks each beta estimate toward the prior mean of 1.0 (the theoretical
+    expectation for sector ETFs vs the market). The shrinkage intensity
+    controls the blend: 0.0 = no shrinkage, 1.0 = full shrink to 1.0.
+
+    Args:
+        beta_df: DataFrame of raw beta estimates
+        shrinkage: Shrinkage intensity in [0, 1]
+
+    Returns:
+        DataFrame of shrunk beta estimates
+    """
+    s = float(np.clip(shrinkage, 0.0, 1.0))
+    if s == 0.0:
+        return beta_df
+    return beta_df * (1.0 - s) + 1.0 * s
+
+
+def preprocess_data(
+    data: dict,
+    beta_window: int = 60,
+    beta_ewma_halflife: float | None = None,
+    beta_shrinkage: float = 0.0,
+    beta_winsor_sigma: float | None = None,
+) -> pd.DataFrame:
     """Align raw OHLC data and build the execution DataFrame.
 
     Steps:
@@ -36,6 +143,14 @@ def preprocess_data(data: dict, beta_window: int = 60) -> pd.DataFrame:
     Args:
         data: Dict with keys "us_close", "jp_close", "jp_open" (DataFrames)
         beta_window: Rolling window for beta computation (default 60 days)
+        beta_ewma_halflife: If set, use EWMA-weighted beta estimation with this
+            half-life (in trading days). When None, falls back to equal-weight
+            rolling cov/var (legacy behavior).
+        beta_shrinkage: Bayesian shrinkage intensity toward 1.0 (0.0 = no shrink,
+            1.0 = full shrink to 1.0). Applied after EWMA or rolling estimation.
+        beta_winsor_sigma: If set, winsorize gap and TOPIX returns at this many
+            rolling standard deviations before beta estimation (e.g. 3.0).
+            When None, no winsorization is applied.
 
     Returns:
         df_exec DataFrame indexed by trade_date
@@ -108,13 +223,27 @@ def preprocess_data(data: dict, beta_window: int = 60) -> pd.DataFrame:
         topix_close.index = pd.to_datetime(topix_close.index).tz_localize(None).normalize()
         topix_open.index = pd.to_datetime(topix_open.index).tz_localize(None).normalize()
         topix_night = topix_open / topix_close.shift(1) - 1.0
-        topix_var = topix_night.rolling(beta_window).var()
 
-        betas: dict[str, pd.Series] = {}
-        for tk in JP_TICKERS:
-            cov = ret_jp_gap[tk].rolling(beta_window).cov(topix_night)
-            betas[tk] = cov / topix_var
-        beta_df = pd.DataFrame(betas)
+        gap_for_beta = ret_jp_gap
+        topix_for_beta = topix_night
+        if beta_winsor_sigma is not None and beta_winsor_sigma > 0:
+            gap_for_beta = _winsorize_rolling(ret_jp_gap, beta_window, beta_winsor_sigma)
+            topix_for_beta = _winsorize_rolling(topix_night, beta_window, beta_winsor_sigma)
+
+        if beta_ewma_halflife is not None and beta_ewma_halflife > 0:
+            beta_df = _compute_ewma_betas(
+                gap_for_beta, topix_for_beta, beta_window, beta_ewma_halflife
+            )
+        else:
+            topix_var = topix_for_beta.rolling(beta_window).var()
+            betas: dict[str, pd.Series] = {}
+            for tk in JP_TICKERS:
+                cov = gap_for_beta[tk].rolling(beta_window).cov(topix_for_beta)
+                betas[tk] = cov / topix_var
+            beta_df = pd.DataFrame(betas)
+
+        if beta_shrinkage > 0.0:
+            beta_df = _apply_beta_shrinkage(beta_df, beta_shrinkage)
 
     # Build execution records
     records = []

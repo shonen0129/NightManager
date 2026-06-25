@@ -42,6 +42,22 @@ class StrategyConfig(BaseModel):
         ),
     )
     beta_window: int = Field(default=60, ge=1, description="ローリング OLS ベータ推定窓 (日数)")
+    beta_ewma_halflife: float | None = Field(
+        default=None,
+        ge=1.0,
+        description="EWMA 加重ベータ推定の半減期 (日数)。None の場合は等重ローリング推定 (従来動作)",
+    )
+    beta_shrinkage: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+        description="ベータの 1.0 へのベイズ縮小強度 (0=縮小なし, 1=完全に1.0)",
+    )
+    beta_winsor_sigma: float | None = Field(
+        default=None,
+        ge=1.0,
+        description="ベータ推定前のローリングウィンソライズ sigma 数 (例: 3.0)。None=ウィンソライズなし",
+    )
     gamma: float = Field(default=0.5, description="US 残差化ブレンド係数")
     slippage_bps: float = Field(default=5.0, ge=0.0, description="片道スリッページ (basis points)")
     vol_adjusted_target: bool = Field(default=True, description="ボラティリティ調整ターゲット有効フラグ")

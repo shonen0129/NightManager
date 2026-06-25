@@ -43,7 +43,13 @@ def run_production(
     data = download_data(beta_window=config.beta_window)
 
     logger.info("[2/4] Preprocessing aligned execution dataset...")
-    df_exec = preprocess_data(data, beta_window=config.beta_window)
+    df_exec = preprocess_data(
+        data,
+        beta_window=config.beta_window,
+        beta_ewma_halflife=getattr(config, "beta_ewma_halflife", None),
+        beta_shrinkage=getattr(config, "beta_shrinkage", 0.0),
+        beta_winsor_sigma=getattr(config, "beta_winsor_sigma", None),
+    )
 
     logger.info("[3/4] Running production strategy...")
     logger.info(

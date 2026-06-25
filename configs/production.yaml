@@ -103,6 +103,8 @@ residualization:
   enabled_for_p3: true
   jp_market_proxy: TOPIX
   beta_window: 60
+  beta_winsor_sigma: 3.0    # ベータ推定前のローリングウィンソライズ (3σ)
+  beta_shrinkage: 0.05      # ベータの1.0へのベイズ縮小強度
   method: rolling_ols
   lookahead_safe: true
   topix_beta_coef: 0.6  # バックテスト検証により0.6が1.20より優れたパフォーマンスを示す
