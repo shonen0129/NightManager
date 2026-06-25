@@ -94,8 +94,13 @@ class BacktestEngine:
 
         # Overnight gap returns: gap(t) = open(t)/close(t-1) - 1
         gap_cols = [f"jp_gap_{tk}" for tk in JP_TICKERS]
-        gap_returns_df = df_exec[gap_cols].copy()
-        gap_returns_df.columns = JP_TICKERS
+        if all(c in df_exec.columns for c in gap_cols):
+            gap_returns_df = df_exec[gap_cols].copy()
+            gap_returns_df.columns = JP_TICKERS
+        else:
+            gap_returns_df = pd.DataFrame(
+                0.0, index=sim_dates, columns=JP_TICKERS
+            )
 
         # Cost parameters
         slip = slip_bps / 10000.0
@@ -156,7 +161,7 @@ class BacktestEngine:
             gross_ret_oc = float(np.sum(w_t * r_oc_t))
             net_ret_oc = gross_ret_oc - cost
 
-            gross_returns_list.append(gross_ret)
+            gross_returns_list.append(gross_ret + overnight_ret)
             net_returns_list.append(net_ret)
             gross_returns_oc_list.append(gross_ret_oc)
             net_returns_oc_list.append(net_ret_oc)
