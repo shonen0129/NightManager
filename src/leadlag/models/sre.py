@@ -93,6 +93,8 @@ class SectorRelativeEnsembleModel(BaseModel):
     and SPY/TOPIX-residualized signal (P4).
     """
 
+    _config_sections = ["model", "ensemble", "portfolio", "costs", "residualization", "audit", "output", "prior"]
+
     def __init__(self, config: dict | object):
         """Initialize SectorRelativeEnsembleModel.
 
@@ -136,10 +138,7 @@ class SectorRelativeEnsembleModel(BaseModel):
         self.normalization_method = self._resolve_val("normalization", "zscore")
 
         # Slippage cost parameter resolution
-        self.slippage_bps = self._resolve_val("slippage_bps", 5.0)
-        if isinstance(config, dict):
-            if "costs" in config and "slippage_bps_per_side" in config["costs"]:
-                self.slippage_bps = float(config["costs"]["slippage_bps_per_side"])
+        self.slippage_bps = self._resolve_slippage_bps()
 
         # Overnight holding parameters
         self.overnight_alpha_long = self._resolve_val("overnight_alpha_long", 0.0)
@@ -147,50 +146,6 @@ class SectorRelativeEnsembleModel(BaseModel):
         self.buy_interest_annual = self._resolve_val("buy_interest_annual", 0.0)
         self.borrow_fee_annual = self._resolve_val("borrow_fee_annual", 0.0)
         self.reverse_fee_bps = self._resolve_val("reverse_fee_bps", 0.0)
-
-    def _resolve_val(self, key: str, default: any) -> any:
-        """Resolve value from config object or dict."""
-        if hasattr(self.config, key):
-            return getattr(self.config, key)
-        if isinstance(self.config, dict):
-            if key in self.config:
-                return self.config[key]
-            for section in [
-                "model",
-                "ensemble",
-                "portfolio",
-                "costs",
-                "residualization",
-                "audit",
-                "output",
-                "prior",
-            ]:
-                if section in self.config and key in self.config[section]:
-                    return self.config[section][key]
-            # Translations
-            if key == "model_name" and "name" in self.config.get("model", {}):
-                return self.config["model"]["name"]
-            if key == "k" and "k" in self.config.get("model", {}):
-                return self.config["model"]["k"]
-            if key == "q" and "long_short_frac" in self.config.get("portfolio", {}):
-                return self.config["portfolio"]["long_short_frac"]
-        return default
-
-    def _resolve_nested(self, key: str, default: any) -> any:
-        """Resolve dotted nested keys or falls back to _resolve_val."""
-        parts = key.split(".")
-        val = self._resolve_val(parts[-1], None)
-        if val is not None:
-            return val
-        if isinstance(self.config, dict):
-            curr = self.config
-            for part in parts:
-                if isinstance(curr, dict) and part in curr:
-                    curr = curr[part]
-                else:
-                    return default
-            return curr
-        return default
 
     def _prepare_common_inputs(self, df_exec: pd.DataFrame) -> dict:
         """Prepare and compute arrays and target matrices common to backtesting and live run."""
@@ -571,34 +526,9 @@ class SectorRelativeEnsembleModel(BaseModel):
         _RESIDUAL_SIGNAL_CACHE[cache_key] = sig
         return sig
 
-    def normalize_signals(self, sig: np.ndarray, method: str = "zscore") -> np.ndarray:
-        """Cross-sectionally normalize the signal values."""
-        if method == "identity":
-            return sig
-        centered = sig - np.median(sig)
-        if method == "zscore":
-            std = np.std(centered)
-            return centered / (std if std > 0 else 1.0)
-        elif method == "rank_normalize":
-            ranks = pd.Series(sig).rank(pct=True).values
-            return (ranks - 0.5) * 2.0
-        else:
-            raise ValueError(f"Unknown normalization method: {method}")
-
     def combine_signals(self, z0: np.ndarray, z3: np.ndarray) -> np.ndarray:
         """Combine Raw-PCA and Residual-PCA signals (signal-level 50/50 ensemble)."""
         return 0.5 * z0 + 0.5 * z3
-
-    def build_weights(self, signal: np.ndarray, q: float | None = None) -> np.ndarray:
-        """Construct portfolio weights from combined PCA-Ensemble signal."""
-        q_val = q if q is not None else self.q
-        return signals.build_weights(
-            signal=signal,
-            q=q_val,
-            n_j=self.n_j,
-            weight_mode=self.weight_mode,
-            enforce_sign=False,
-        )
 
     def predict_signals(self, df_exec: pd.DataFrame) -> dict[str, Any]:
         """Generate raw signals for all rows in df_exec from corr_window index onwards.

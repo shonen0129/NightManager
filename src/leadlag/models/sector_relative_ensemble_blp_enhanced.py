@@ -13,19 +13,13 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from leadlag.core import signal as signals
 from leadlag.core.correlation import (
-    build_base_vectors,
     build_c0_from_v0,
-    build_v3_static,
-    compute_baseline_correlation,
     compute_correlation,
     regularize_correlation,
 )
-from leadlag.core.residualize import compute_rolling_ols_betas
 from leadlag.data.tickers import JP_TICKERS, US_TICKERS
-from leadlag.models.base import BaseModel
-from leadlag.models.sre import compute_jp_target_returns
+from leadlag.models.blp_base import _BLPBase
 
 logger = logging.getLogger(__name__)
 
@@ -34,8 +28,31 @@ _RAW_PCA_RESIDUAL_PCA_CACHE: dict = {}
 _BLP_CORR_CACHE: dict = {}
 
 
-class SectorRelativeEnsembleBLPEnhancedModel(BaseModel):
+class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
     """Sector Relative Ensemble with Enhanced Regularized Block BLP (PCA-BLPX Ensemble) Model."""
+
+    _config_sections = ["model", "ensemble", "portfolio", "costs", "residualization", "blpx"]
+    _config_aliases = {
+        "blp_ewma_halflife": ["ewma_halflife"],
+        "exec_adjustment": ["execution_target_cost_adjustment", "execution_target_cost_adjustment_mode"],
+    }
+
+    _ZERO_BLP_DIAGNOSTICS: dict[str, Any] = {
+        "signal": None,  # set per-call to np.zeros(n_j)
+        "cond_num": 0.0,
+        "b_norm": 0.0,
+        "b_pca_norm": 0.0,
+        "b_sector_norm": 0.0,
+        "b_struct_norm": 0.0,
+        "sigma_xx_trace": 0.0,
+        "sigma_yx_norm": 0.0,
+        "sigma_yy_trace": 0.0,
+        "min_pred_var": 0.0,
+        "max_pred_var": 0.0,
+        "num_pred_var_floored": 0,
+        "pinv_fallback": 0,
+        "num_training_samples": 0,
+    }
 
     def __init__(self, config: dict | object):
         """Initialize SectorRelativeEnsembleBLPEnhancedModel.
@@ -109,38 +126,7 @@ class SectorRelativeEnsembleBLPEnhancedModel(BaseModel):
         self._M_sector_fixed = self.M_sector.copy()
 
         # Slippage cost parameter resolution
-        self.slippage_bps = self._resolve_val("slippage_bps", 5.0)
-        if isinstance(config, dict):
-            if "costs" in config and "slippage_bps_per_side" in config["costs"]:
-                self.slippage_bps = float(config["costs"]["slippage_bps_per_side"])
-
-    def _resolve_val(self, key: str, default: any) -> any:
-        """Resolve value from config object or dict."""
-        aliases = []
-        if key == "blp_ewma_halflife":
-            aliases.append("ewma_halflife")
-        elif key == "exec_adjustment":
-            aliases.append("execution_target_cost_adjustment")
-            aliases.append("execution_target_cost_adjustment_mode")
-
-        keys_to_try = [key] + aliases
-        for k in keys_to_try:
-            if hasattr(self.config, k):
-                return getattr(self.config, k)
-            if isinstance(self.config, dict):
-                if k in self.config:
-                    return self.config[k]
-                for section in ["model", "ensemble", "portfolio", "costs", "residualization", "blpx"]:
-                    if section in self.config and isinstance(self.config[section], dict) and k in self.config[section]:
-                        return self.config[section][k]
-                # Translations
-                if k == "model_name" and "name" in self.config.get("model", {}):
-                    return self.config["model"]["name"]
-                if k == "k" and "k" in self.config.get("model", {}):
-                    return self.config["model"]["k"]
-                if k == "q" and "long_short_frac" in self.config.get("portfolio", {}):
-                    return self.config["portfolio"]["long_short_frac"]
-        return default
+        self.slippage_bps = self._resolve_slippage_bps()
 
     def _build_sector_prior(self) -> np.ndarray:
         """Build the fixed 日米業種対応行列 M_sector of size (n_j x n_u).
@@ -241,159 +227,243 @@ class SectorRelativeEnsembleBLPEnhancedModel(BaseModel):
             return M_blended
         return np.zeros(B_blp.shape)
 
-    def _prepare_common_inputs(self, df_exec: pd.DataFrame) -> dict:
-        """Prepare inputs common to signal computation (raw targets, residuals, betas)."""
-        sim_dates = df_exec.index
+    def _prepare_window_returns(
+        self, all_returns: np.ndarray, current_index: int, rolling_std: np.ndarray | None
+    ) -> np.ndarray:
+        """Slice window returns, apply vol-scaling and winsorization."""
+        window_start = max(0, current_index - self.blp_window)
+        window_returns = all_returns[window_start:current_index].copy()
 
-        # Target returns for JP on trade_date (D_t+1)
-        y_jp_target = compute_jp_target_returns(df_exec, JP_TICKERS)
+        if self.exec_adjustment == "vol_scale" and rolling_std is not None:
+            for idx_local in range(len(window_returns)):
+                idx_global = window_start + idx_local
+                vol_factor = rolling_std[idx_global]
+                window_returns[idx_local, self.n_u:] /= vol_factor
 
-        # Build all_returns_raw: US columns are us_cc_* (on D_t), JP columns are y_jp_target (on D_t+1)
-        us_returns_raw = df_exec[[f"us_cc_{tk}" for tk in US_TICKERS]].values
-        all_returns_raw = np.column_stack([us_returns_raw, y_jp_target])
+        window_returns = np.nan_to_num(window_returns, nan=0.0, posinf=0.0, neginf=0.0)
 
-        # PCA baseline correlation
-        c_full = compute_baseline_correlation(
-            all_returns_raw, sim_dates.values, self.ewma_half_life
-        )
-        v0_static = build_v3_static(self.n_u, self.n_j, self.include_v4_prior)
-        base_vectors = build_base_vectors(self.n_u, self.n_j)
-        v1, v2 = base_vectors["v1"], base_vectors["v2"]
+        if self.winsor_sigma is not None:
+            for c in range(window_returns.shape[1]):
+                mu_c = np.mean(window_returns[:, c])
+                std_c = np.std(window_returns[:, c])
+                if std_c > 1e-8:
+                    window_returns[:, c] = np.clip(
+                        window_returns[:, c],
+                        mu_c - self.winsor_sigma * std_c,
+                        mu_c + self.winsor_sigma * std_c,
+                    )
+        return window_returns
 
-        # Parse gap, beta, and topix night
-        jp_gap = df_exec[[f"jp_gap_{tk}" for tk in JP_TICKERS]].values
-        jp_beta = (
-            df_exec[[f"jp_beta_{tk}" for tk in JP_TICKERS]].values
-            if any(c.startswith("jp_beta_") for c in df_exec.columns)
-            else None
-        )
-        topix_night = (
-            df_exec["topix_night_return"].values
-            if "topix_night_return" in df_exec.columns
-            else None
-        )
+    def _estimate_correlation(
+        self, window_returns: np.ndarray, current_index: int, is_residual: bool
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Estimate rolling mean, std, and correlation with caching."""
+        cache_key = (current_index, self.blp_window, self.winsor_sigma, self.exec_adjustment, self.blp_ewma_halflife, is_residual)
+        if cache_key in _BLP_CORR_CACHE:
+            return _BLP_CORR_CACHE[cache_key]
 
-        y_jp_oc_df = df_exec[[f"jp_oc_{tk}" for tk in JP_TICKERS]].rename(
-            columns=lambda c: c.replace("jp_oc_", "")
-        )
+        mu, sigma, corr = compute_correlation(window_returns, self.blp_ewma_halflife)
+        mu = np.nan_to_num(mu, nan=0.0, posinf=0.0, neginf=0.0)
+        sigma = np.nan_to_num(sigma, nan=1.0, posinf=1.0, neginf=1.0)
+        corr = np.nan_to_num(corr, nan=0.0, posinf=1.0, neginf=-1.0)
+        np.fill_diagonal(corr, 1.0)
+        _BLP_CORR_CACHE[cache_key] = (mu, sigma, corr)
+        return mu, sigma, corr
 
-        # TOPIX trade return
-        topix_cc_trade = (
-            df_exec["topix_cc_trade"].values
-            if "topix_cc_trade" in df_exec.columns
-            else df_exec["topix_night_return"].values + df_exec["topix_oc_return"].values
-        )
+    @staticmethod
+    def _safe_solve_inv(A: np.ndarray, B: np.ndarray, label: str = "A") -> tuple[np.ndarray, np.ndarray, bool]:
+        """Solve B @ inv(A) with pseudo-inverse fallback."""
+        pinv_fallback = False
+        try:
+            if not np.isfinite(A).all():
+                raise ValueError(f"{label} contains NaNs or Infs")
+            inv_A = np.linalg.inv(A)
+            result = B @ inv_A
+        except Exception:
+            pinv_fallback = True
+            try:
+                inv_A = np.linalg.pinv(A)
+                result = B @ inv_A
+            except Exception:
+                result = np.zeros((B.shape[0], A.shape[1]))
+                inv_A = np.zeros((A.shape[0], A.shape[1]))
+        return result, inv_A, pinv_fallback
 
-        # Rolling OLS residualization for Residual-PCA/Residual-BLPX
-        betas_jp_p3 = compute_rolling_ols_betas(
-            y_jp_target, topix_cc_trade.reshape(-1, 1), self.beta_window
-        )
-        y_residuals_p3 = y_jp_target - betas_jp_p3[:, :, 0] * topix_cc_trade.reshape(-1, 1)
+    def _solve_blp_coefficients(
+        self, corr: np.ndarray
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, float, bool]:
+        """Regularize correlation, solve for B_blp via ridge regression, and apply SVD rank reduction.
 
-        # Replace JP columns with residuals for TOPIX-residualized returns
-        jp_res_returns_p3 = all_returns_raw.copy()
-        jp_res_returns_p3[:, self.n_u :] = y_residuals_p3
+        Returns (B_blp, Sigma_XX_reg, Sigma_YX_reg, Sigma_YY_reg, cond_num, pinv_fallback).
+        """
+        C_XX = corr[: self.n_u, : self.n_u]
+        C_YX = corr[self.n_u :, : self.n_u]
+        C_YY = corr[self.n_u :, self.n_u :]
 
-        c_full_p3 = compute_baseline_correlation(
-            jp_res_returns_p3, sim_dates.values, self.ewma_half_life
-        )
+        Sigma_XX_reg = (1.0 - self.alpha_xx) * C_XX + self.alpha_xx * np.eye(self.n_u)
+        Sigma_YX_reg = (1.0 - self.alpha_yx) * C_YX
+        Sigma_YY_reg = (1.0 - self.alpha_yy) * C_YY + self.alpha_yy * np.eye(self.n_j)
 
-        return {
-            "all_returns_raw": all_returns_raw,
-            "c_full": c_full,
-            "c_full_p3": c_full_p3,
-            "v0_static": v0_static,
-            "v1": v1,
-            "v2": v2,
-            "jp_gap": jp_gap,
-            "jp_beta": jp_beta,
-            "topix_night": topix_night,
-            "y_jp_oc_df": y_jp_oc_df,
-            "jp_res_returns_p3": jp_res_returns_p3,
-            "y_jp_target": y_jp_target,
+        diag_mean = float(np.mean(np.diag(Sigma_XX_reg)))
+        ridge_matrix = self.rho * diag_mean * np.eye(self.n_u)
+        A = Sigma_XX_reg + ridge_matrix
+
+        try:
+            singular_values = np.linalg.svd(A, compute_uv=False)
+            cond_num = float(singular_values[0] / np.maximum(singular_values[-1], 1e-12))
+        except Exception:
+            cond_num = np.nan
+
+        B_blp, _, pinv_fallback = self._safe_solve_inv(A, Sigma_YX_reg, label="A")
+
+        if self.rank != "full" and self.rank is not None:
+            rank_val = int(self.rank)
+            if rank_val < min(B_blp.shape):
+                try:
+                    U, S, Vt = np.linalg.svd(B_blp, full_matrices=False)
+                    B_blp = U[:, :rank_val] @ np.diag(S[:rank_val]) @ Vt[:rank_val, :]
+                except Exception as e:
+                    logger.warning(f"SVD rank reduction failed: {e}")
+
+        return B_blp, Sigma_XX_reg, Sigma_YX_reg, Sigma_YY_reg, cond_num, pinv_fallback
+
+    def _compute_pca_prior(
+        self, corr: np.ndarray, v0_static: np.ndarray | None, c_full: np.ndarray | None
+    ) -> np.ndarray:
+        """Compute PCA prior B_pca from eigen decomposition of regularized correlation."""
+        B_pca = np.zeros((self.n_j, self.n_u))
+        if v0_static is not None and c_full is not None and corr.shape == (32, 32) and v0_static.shape == (32, 6) and c_full.shape == (32, 32):
+            c0_t = build_c0_from_v0(v0_static, c_full)
+            c_t_reg = regularize_correlation(
+                corr, c0_t, self.lambda_reg, self.lambda_lw, self.lw_target
+            )
+            eigvals, eigvecs = np.linalg.eigh(c_t_reg)
+            sort_idx = np.argsort(eigvals)[::-1]
+            eigvecs = eigvecs[:, sort_idx]
+
+            v_t_k = eigvecs[:, : self.k]
+            v_u_t_k = v_t_k[: self.n_u, :]
+            v_j_t_k = v_t_k[self.n_u :, :]
+            B_pca = v_j_t_k @ v_u_t_k.T
+        return B_pca
+
+    def _solve_tikhonov(
+        self,
+        Sigma_XX_reg: np.ndarray,
+        Sigma_YX_reg: np.ndarray,
+        B_pca: np.ndarray,
+        M_sector: np.ndarray,
+        diag_mean: float,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Multi-target Tikhonov regularization solve.
+
+        Returns (B_struct, inv_A_tikh).
+        """
+        l_pca = self.lambda_pca
+        l_sec = self.lambda_sector
+        lambda_sum = l_pca + l_sec
+        if lambda_sum > 0.75:
+            l_pca = (self.lambda_pca / lambda_sum) * 0.75
+            l_sec = (self.lambda_sector / lambda_sum) * 0.75
+
+        lambda_tikh = self.rho * diag_mean + l_pca + l_sec
+        A_tikh = Sigma_XX_reg + lambda_tikh * np.eye(self.n_u)
+        rhs = Sigma_YX_reg + l_pca * B_pca + l_sec * M_sector
+
+        B_struct, inv_A_tikh, _ = self._safe_solve_inv(A_tikh, rhs, label="A_tikh")
+        return B_struct, inv_A_tikh
+
+    @staticmethod
+    def _apply_confidence_weighting(
+        z_hat_j_t1: np.ndarray,
+        Sigma_YY_reg: np.ndarray,
+        Sigma_YX_reg: np.ndarray,
+        inv_A_tikh: np.ndarray,
+        beta_conf: float,
+    ) -> tuple[np.ndarray, np.ndarray, int]:
+        """Apply confidence weighting based on conditional prediction variance.
+
+        Returns (z_hat_j_t1_weighted, pred_var, num_floored).
+        """
+        Sigma_XY_reg = Sigma_YX_reg.T
+        Sigma_Y_given_X = Sigma_YY_reg - Sigma_YX_reg @ inv_A_tikh @ Sigma_XY_reg
+
+        pred_var = np.maximum(np.diag(Sigma_Y_given_X), 0.0)
+        var_floor = 1e-8
+        pred_var_floored = np.maximum(pred_var, var_floor)
+        num_floored = int(np.sum(pred_var < var_floor))
+
+        if beta_conf > 0.0:
+            z_hat_j_t1 = z_hat_j_t1 / (pred_var_floored ** beta_conf)
+            z_hat_j_t1 = np.nan_to_num(z_hat_j_t1, nan=0.0, posinf=0.0, neginf=0.0)
+            z_hat_j_t1 = np.clip(z_hat_j_t1, -5.0, 5.0)
+
+        return z_hat_j_t1, pred_var, num_floored
+
+    @staticmethod
+    def _build_blp_diagnostics(
+        signal: np.ndarray,
+        z_hat_j_t1: np.ndarray,
+        cond_num: float,
+        B_blp: np.ndarray,
+        B_pca: np.ndarray,
+        M_sector: np.ndarray,
+        B_struct: np.ndarray,
+        C_XX: np.ndarray,
+        C_YX: np.ndarray,
+        C_YY: np.ndarray,
+        pred_var: np.ndarray,
+        num_floored: int,
+        pinv_fallback: bool,
+        num_training_samples: int,
+        return_matrices: bool,
+        A: np.ndarray | None = None,
+        Sigma_XX_reg: np.ndarray | None = None,
+        Sigma_YX_reg: np.ndarray | None = None,
+        Sigma_YY_reg: np.ndarray | None = None,
+        inv_A_tikh: np.ndarray | None = None,
+        z_U_t: np.ndarray | None = None,
+        mu: np.ndarray | None = None,
+        sigma: np.ndarray | None = None,
+        sigma_j_t: np.ndarray | None = None,
+    ) -> dict[str, Any]:
+        """Build diagnostics dict for BLP signal."""
+        diag = {
+            "signal": signal,
+            "z_hat_j_t1": z_hat_j_t1,
+            "cond_num": cond_num,
+            "b_norm": float(np.linalg.norm(B_blp, "fro")),
+            "b_pca_norm": float(np.linalg.norm(B_pca)),
+            "b_sector_norm": float(np.linalg.norm(M_sector)),
+            "b_struct_norm": float(np.linalg.norm(B_struct)),
+            "sigma_xx_trace": float(np.trace(C_XX)),
+            "sigma_yx_norm": float(np.linalg.norm(C_YX)),
+            "sigma_yy_trace": float(np.trace(C_YY)),
+            "min_pred_var": float(np.min(pred_var)),
+            "max_pred_var": float(np.max(pred_var)),
+            "num_pred_var_floored": num_floored,
+            "pinv_fallback": pinv_fallback,
+            "num_training_samples": num_training_samples,
         }
-
-    def compute_production_signal(
-        self,
-        i: int,
-        c_full: np.ndarray,
-        v0_static: np.ndarray,
-        v1: np.ndarray,
-        v2: np.ndarray,
-        all_returns: np.ndarray,
-        jp_gap: np.ndarray,
-        jp_beta: np.ndarray | None,
-        topix_night: np.ndarray | None,
-    ) -> np.ndarray:
-        """Compute the Raw-PCA (Production PCA) signal at index i."""
-        gap_t1 = np.nan_to_num(jp_gap[i], nan=0.0) if jp_gap is not None else np.zeros(self.n_j)
-        betas_t = np.asarray(jp_beta[i], dtype=float) if jp_beta is not None else None
-        topix_night_t = float(topix_night[i]) if topix_night is not None else None
-
-        sig_res = signals.compute_signal(
-            all_returns=all_returns,
-            current_index=i,
-            n_u=self.n_u,
-            corr_window=self.corr_window,
-            c_full=c_full,
-            v0_static=v0_static,
-            v1=v1,
-            v2=v2,
-            k=self.k,
-            lambda_reg=self.lambda_reg,
-            lambda_lw=self.lambda_lw,
-            lw_target=self.lw_target,
-            ewma_half_life=self.ewma_half_life,
-            v3_dynamic=False,
-            gap_override=gap_t1,
-            gap_open_coef=self.gap_open_coef,
-            topix_beta_coef=self.topix_beta_coef,
-            betas_t=betas_t,
-            topix_night_t=topix_night_t,
-            vol_adjusted_target=self.vol_adjusted_target,
-        )
-        return np.asarray(sig_res["signal"], dtype=float)
-
-    def compute_residual_signal(
-        self,
-        jp_res_returns_p3: np.ndarray,
-        i: int,
-        c_full_p3: np.ndarray,
-        v0_static: np.ndarray,
-        v1: np.ndarray,
-        v2: np.ndarray,
-        jp_gap: np.ndarray,
-        jp_beta: np.ndarray | None,
-        topix_night: np.ndarray | None,
-    ) -> np.ndarray:
-        """Compute the Residual-PCA (Residual target PCA) signal at index i."""
-        gap_t1 = np.nan_to_num(jp_gap[i], nan=0.0) if jp_gap is not None else np.zeros(self.n_j)
-        betas_t = np.asarray(jp_beta[i], dtype=float) if jp_beta is not None else None
-        topix_night_t = float(topix_night[i]) if topix_night is not None else None
-
-        sig_res = signals.compute_signal(
-            all_returns=jp_res_returns_p3,
-            current_index=i,
-            n_u=self.n_u,
-            corr_window=self.corr_window,
-            c_full=c_full_p3,
-            v0_static=v0_static,
-            v1=v1,
-            v2=v2,
-            k=self.k,
-            lambda_reg=self.lambda_reg,
-            lambda_lw=self.lambda_lw,
-            lw_target=self.lw_target,
-            ewma_half_life=self.ewma_half_life,
-            v3_dynamic=False,
-            gap_override=gap_t1,
-            gap_open_coef=self.gap_open_coef,
-            topix_beta_coef=self.topix_beta_coef,
-            betas_t=betas_t,
-            topix_night_t=topix_night_t,
-            vol_adjusted_target=self.vol_adjusted_target,
-        )
-        return np.asarray(sig_res["signal"], dtype=float)
+        if return_matrices:
+            diag.update({
+                "Sigma_XX": A,
+                "Sigma_YX": Sigma_YX_reg,
+                "Sigma_YY": Sigma_YY_reg,
+                "inv_A": inv_A_tikh,
+                "B_blp": B_blp,
+                "B_pca_prior": B_pca,
+                "B_sector_prior": M_sector,
+                "B_struct": B_struct,
+                "z_U": z_U_t,
+                "pred_var_vec": pred_var,
+                "sigma_X": sigma[:len(sigma)//2] if sigma is not None else None,
+                "sigma_Y": sigma[len(sigma)//2:] if sigma is not None else None,
+                "sigma_Y_denorm": sigma_j_t,
+                "mu_X": mu[:len(mu)//2] if mu is not None else None,
+                "mu_Y": mu[len(mu)//2:] if mu is not None else None,
+            })
+        return diag
 
     def compute_blp_signal(
         self,
@@ -412,150 +482,26 @@ class SectorRelativeEnsembleBLPEnhancedModel(BaseModel):
 
         Ensure Y_date <= signal_date by slicing up to current_index - 1.
         """
-        window_start = max(0, current_index - self.blp_window)
-        # Slices from window_start to current_index-1 (contains historical X and Y)
-        window_returns = all_returns[window_start:current_index].copy()
+        # 1. Prepare window returns (vol-scaling + winsorization)
+        window_returns = self._prepare_window_returns(all_returns, current_index, rolling_std)
 
-        # 1. Execution-aware target adjustment (vol-scaling target)
-        if self.exec_adjustment == "vol_scale" and rolling_std is not None:
-            for idx_local in range(len(window_returns)):
-                idx_global = window_start + idx_local
-                vol_factor = rolling_std[idx_global]
-                # Scale JP returns (columns self.n_u onwards) by rolling volatility
-                window_returns[idx_local, self.n_u:] /= vol_factor
+        # 2. Estimate correlation
+        mu, sigma, corr = self._estimate_correlation(window_returns, current_index, is_residual)
 
-        window_returns = np.nan_to_num(window_returns, nan=0.0, posinf=0.0, neginf=0.0)
+        # 3. Solve BLP coefficients
+        B_blp, Sigma_XX_reg, Sigma_YX_reg, Sigma_YY_reg, cond_num, pinv_fallback = (
+            self._solve_blp_coefficients(corr)
+        )
 
-        # 2. Robust winsorization
-        if self.winsor_sigma is not None:
-            for c in range(window_returns.shape[1]):
-                mu_c = np.mean(window_returns[:, c])
-                std_c = np.std(window_returns[:, c])
-                if std_c > 1e-8:
-                    window_returns[:, c] = np.clip(
-                        window_returns[:, c],
-                        mu_c - self.winsor_sigma * std_c,
-                        mu_c + self.winsor_sigma * std_c,
-                    )
-
-        # Estimate rolling mean, std, and correlation
-        cache_key_corr = (current_index, self.blp_window, self.winsor_sigma, self.exec_adjustment, self.blp_ewma_halflife, is_residual)
-        if cache_key_corr in _BLP_CORR_CACHE:
-            mu, sigma, corr = _BLP_CORR_CACHE[cache_key_corr]
-        else:
-            mu, sigma, corr = compute_correlation(window_returns, self.blp_ewma_halflife)
-            mu = np.nan_to_num(mu, nan=0.0, posinf=0.0, neginf=0.0)
-            sigma = np.nan_to_num(sigma, nan=1.0, posinf=1.0, neginf=1.0)
-            corr = np.nan_to_num(corr, nan=0.0, posinf=1.0, neginf=-1.0)
-            np.fill_diagonal(corr, 1.0)
-            _BLP_CORR_CACHE[cache_key_corr] = (mu, sigma, corr)
-
-        # Partition correlation matrix (scale-standardized covariance)
-        C_XX = corr[: self.n_u, : self.n_u]
-        C_YX = corr[self.n_u :, : self.n_u]
-        C_YY = corr[self.n_u :, self.n_u :]
-
-        # Regularize Sigma_XX, Sigma_YX, Sigma_YY
-        Sigma_XX_reg = (1.0 - self.alpha_xx) * C_XX + self.alpha_xx * np.eye(self.n_u)
-        Sigma_YX_reg = (1.0 - self.alpha_yx) * C_YX
-        Sigma_YY_reg = (1.0 - self.alpha_yy) * C_YY + self.alpha_yy * np.eye(self.n_j)
-
-        # Scale-type Ridge matrix
-        diag_mean = float(np.mean(np.diag(Sigma_XX_reg)))
-        ridge_matrix = self.rho * diag_mean * np.eye(self.n_u)
-        A = Sigma_XX_reg + ridge_matrix
-
-        # Solve for B_blp with pseudo-inverse fallback
-        try:
-            singular_values = np.linalg.svd(A, compute_uv=False)
-            cond_num = float(singular_values[0] / np.maximum(singular_values[-1], 1e-12))
-        except Exception:
-            cond_num = np.nan
-
-        pinv_fallback = False
-        try:
-            if not np.isfinite(A).all():
-                raise ValueError("A contains NaNs or Infs")
-            inv_A = np.linalg.inv(A)
-            B_blp = Sigma_YX_reg @ inv_A
-        except Exception:
-            pinv_fallback = True
-            try:
-                inv_A = np.linalg.pinv(A)
-                B_blp = Sigma_YX_reg @ inv_A
-            except Exception:
-                B_blp = np.zeros((self.n_j, self.n_u))
-                inv_A = np.zeros((self.n_u, self.n_u))
-
-        # Low rank SVD projection
-        if self.rank != "full" and self.rank is not None:
-            rank_val = int(self.rank)
-            if rank_val < min(B_blp.shape):
-                try:
-                    U, S, Vt = np.linalg.svd(B_blp, full_matrices=False)
-                    B_blp = U[:, :rank_val] @ np.diag(S[:rank_val]) @ Vt[:rank_val, :]
-                except Exception as e:
-                    logger.warning(f"SVD rank reduction failed: {e}")
-
-        # 3. Structured Shrinkage
-        # PCA Prior
-        B_pca = np.zeros((self.n_j, self.n_u))
-        if v0_static is not None and c_full is not None and corr.shape == (32, 32) and v0_static.shape == (32, 6) and c_full.shape == (32, 32):
-            # Reconstruct c_t_reg from corr (the 32x32 correlation matrix)
-            c0_t = build_c0_from_v0(v0_static, c_full)
-            c_t_reg = regularize_correlation(
-                corr, c0_t, self.lambda_reg, self.lambda_lw, self.lw_target
-            )
-            # Eigen decomposition to match Raw-PCA/Residual-PCA logic
-            eigvals, eigvecs = np.linalg.eigh(c_t_reg)
-            sort_idx = np.argsort(eigvals)[::-1]
-            eigvecs = eigvecs[:, sort_idx]
-
-            # Re-use eigenvectors for K = 6 standard
-            v_t_k = eigvecs[:, : self.k]
-            v_u_t_k = v_t_k[: self.n_u, :]
-            v_j_t_k = v_t_k[self.n_u :, :]
-            B_pca = v_j_t_k @ v_u_t_k.T
-
-        # Sector prior (hook allows subclasses to provide dynamic prior)
+        # 4. Structured shrinkage: PCA prior + sector prior + Tikhonov
+        B_pca = self._compute_pca_prior(corr, v0_static, c_full)
         M_sector = self._get_sector_prior(current_index, all_returns, corr, B_blp)
+        diag_mean = float(np.mean(np.diag(Sigma_XX_reg)))
+        B_struct, inv_A_tikh = self._solve_tikhonov(
+            Sigma_XX_reg, Sigma_YX_reg, B_pca, M_sector, diag_mean
+        )
 
-        # Multi-target Tikhonov regularization (Bayesian ridge with multiple prior means)
-        #
-        # Standard form: each prior mean B0_i contributes a term λ_i * B0_i to the RHS
-        # and λ_i to the diagonal of the regularizer:
-        #   B = (Sigma_XX + (rho*diag + l_pca + l_sec)*I)^{-1}
-        #       * (Sigma_YX + l_pca * B_pca + l_sec * M_sector)
-        #
-        # B_pca and M_sector are coefficient-shaped (n_j x n_u) priors used directly
-        # without rescaling — the lambda parameters control their pull strength.
-        l_pca = self.lambda_pca
-        l_sec = self.lambda_sector
-        lambda_sum = l_pca + l_sec
-        if lambda_sum > 0.75:
-            l_pca = (self.lambda_pca / lambda_sum) * 0.75
-            l_sec = (self.lambda_sector / lambda_sum) * 0.75
-            lambda_sum = 0.75
-
-        # Tikhonov solve
-        lambda_tikh = self.rho * diag_mean + l_pca + l_sec
-        A_tikh = Sigma_XX_reg + lambda_tikh * np.eye(self.n_u)
-        rhs = Sigma_YX_reg + l_pca * B_pca + l_sec * M_sector
-
-        try:
-            if not np.isfinite(A_tikh).all():
-                raise ValueError("A_tikh contains NaNs or Infs")
-            inv_A_tikh = np.linalg.inv(A_tikh)
-            B_struct = rhs @ inv_A_tikh
-        except Exception:
-            try:
-                inv_A_tikh = np.linalg.pinv(A_tikh)
-                B_struct = rhs @ inv_A_tikh
-            except Exception:
-                B_struct = np.zeros((self.n_j, self.n_u))
-                inv_A_tikh = np.zeros((self.n_u, self.n_u))
-
-        # Standardize current US input
+        # 5. Predict standardized JP returns
         X_t = all_returns[current_index, : self.n_u]
         X_t = np.nan_to_num(X_t, nan=0.0, posinf=0.0, neginf=0.0)
         mu_X = mu[: self.n_u]
@@ -563,137 +509,62 @@ class SectorRelativeEnsembleBLPEnhancedModel(BaseModel):
         sigma_X_safe = np.where(sigma_X > 1e-8, sigma_X, 1.0)
         z_U_t = (X_t - mu_X) / sigma_X_safe
 
-        # Predict standardized JP returns
         z_hat_j_t1 = B_struct @ z_U_t
         z_hat_j_t1 = np.nan_to_num(z_hat_j_t1, nan=0.0, posinf=0.0, neginf=0.0)
 
-        # 4. Confidence Weighting
-        # conditional variance: Sigma_Y_given_X = Sigma_YY_reg - Sigma_YX_reg @ inv_A @ Sigma_XY_reg
-        Sigma_XY_reg = Sigma_YX_reg.T
-        Sigma_Y_given_X = Sigma_YY_reg - Sigma_YX_reg @ inv_A_tikh @ Sigma_XY_reg
+        # 6. Confidence weighting
+        z_hat_j_t1, pred_var, num_floored = self._apply_confidence_weighting(
+            z_hat_j_t1, Sigma_YY_reg, Sigma_YX_reg, inv_A_tikh, self.beta_conf
+        )
 
-        pred_var = np.maximum(np.diag(Sigma_Y_given_X), 0.0)
-        var_floor = 1e-8
-        pred_var_floored = np.maximum(pred_var, var_floor)
-        num_floored = int(np.sum(pred_var < var_floor))
-
-        if self.beta_conf > 0.0:
-            z_hat_j_t1 = z_hat_j_t1 / (pred_var_floored ** self.beta_conf)
-            z_hat_j_t1 = np.nan_to_num(z_hat_j_t1, nan=0.0, posinf=0.0, neginf=0.0)
-            # Winsorize/clip final confidence weighted signal to avoid extreme values
-            z_hat_j_t1 = np.clip(z_hat_j_t1, -5.0, 5.0)
-
-        # Vol adjustment / denormalization
-        mu_jp = mu[self.n_u :]
-        sigma_jp = sigma[self.n_u :]
-        if self.vol_adjusted_target:
-            if current_index >= 20:
-                jp_returns_20 = all_returns[current_index - 20 : current_index, self.n_u :]
-                jp_returns_20 = np.nan_to_num(jp_returns_20, nan=0.0, posinf=0.0, neginf=0.0)
-                sigma_j_t = np.std(jp_returns_20, axis=0, ddof=1)
-                sigma_j_t = np.maximum(sigma_j_t, 1e-8)
-            else:
-                sigma_j_t = sigma_jp
-            r_hat_jp_cc = z_hat_j_t1 * sigma_j_t
+        # 7. Denormalize and apply gap adjustment
+        r_hat_jp_cc = self._denormalize_signal(
+            z_hat_j_t1, mu, sigma, all_returns, current_index, self.n_u, self.vol_adjusted_target
+        )
+        if self.vol_adjusted_target and current_index >= 20:
+            jp_returns_20 = all_returns[current_index - 20 : current_index, self.n_u :]
+            jp_returns_20 = np.nan_to_num(jp_returns_20, nan=0.0, posinf=0.0, neginf=0.0)
+            sigma_j_t = np.std(jp_returns_20, axis=0, ddof=1)
+            sigma_j_t = np.maximum(sigma_j_t, 1e-8)
         else:
-            r_hat_jp_cc = mu_jp + sigma_jp * z_hat_j_t1
-        r_hat_jp_cc = np.nan_to_num(r_hat_jp_cc, nan=0.0, posinf=0.0, neginf=0.0)
+            sigma_j_t = sigma[self.n_u :]
 
-        # Apply gap override
-        if gap_override is not None:
-            gap_vec = np.asarray(gap_override, dtype=float).reshape(-1)
-            use_topix = False
-            if betas_t is not None and topix_night_t is not None:
-                betas_vec = np.asarray(betas_t, dtype=float).reshape(-1)
-                if (
-                    betas_vec.shape == gap_vec.shape
-                    and np.all(np.isfinite(betas_vec))
-                    and np.isfinite(float(topix_night_t))
-                ):
-                    use_topix = True
+        signal = self._apply_gap_adjustment(
+            r_hat_jp_cc, z_hat_j_t1, gap_override, betas_t, topix_night_t
+        )
 
-            if use_topix:
-                gap_syst = betas_vec * float(topix_night_t)
-                gap_idio = gap_vec - gap_syst
-                gap_filt = (
-                    self.gap_open_coef * gap_idio
-                    + (self.gap_open_coef - self.topix_beta_coef) * gap_syst
-                )
-                denom = np.maximum(1.0 + gap_filt, 0.1)
-                signal = (1.0 + r_hat_jp_cc) / denom - 1.0
-            else:
-                signal = r_hat_jp_cc - self.gap_open_coef * gap_vec
-        else:
-            signal = z_hat_j_t1
+        # 8. Build diagnostics
+        C_XX = corr[: self.n_u, : self.n_u]
+        C_YX = corr[self.n_u :, : self.n_u]
+        C_YY = corr[self.n_u :, self.n_u :]
+        A = Sigma_XX_reg + self.rho * diag_mean * np.eye(self.n_u)
 
-        # Diagnostic metrics
-        if return_matrices:
-            return {
-                "signal": signal,
-                "z_hat_j_t1": z_hat_j_t1,
-                "cond_num": cond_num,
-                "b_norm": float(np.linalg.norm(B_blp, "fro")),
-                "b_pca_norm": float(np.linalg.norm(B_pca)),
-                "b_sector_norm": float(np.linalg.norm(M_sector)),
-                "b_struct_norm": float(np.linalg.norm(B_struct)),
-                "sigma_xx_trace": float(np.trace(C_XX)),
-                "sigma_yx_norm": float(np.linalg.norm(C_YX)),
-                "sigma_yy_trace": float(np.trace(C_YY)),
-                "min_pred_var": float(np.min(pred_var)),
-                "max_pred_var": float(np.max(pred_var)),
-                "num_pred_var_floored": num_floored,
-                "pinv_fallback": pinv_fallback,
-                "num_training_samples": len(window_returns),
-                # Raw matrices
-                "Sigma_XX": A,
-                "Sigma_YX": Sigma_YX_reg,
-                "Sigma_YY": Sigma_YY_reg,
-                "inv_A": inv_A_tikh,
-                "B_blp": B_blp,
-                "B_pca_prior": B_pca,
-                "B_sector_prior": M_sector,
-                "B_struct": B_struct,
-                "z_U": z_U_t,
-                "pred_var_vec": pred_var,
-                "sigma_X": sigma[:self.n_u],
-                "sigma_Y": sigma[self.n_u:],
-                "sigma_Y_denorm": sigma_j_t,
-                "mu_X": mu[:self.n_u],
-                "mu_Y": mu[self.n_u:],
-            }
-
-        return {
-            "signal": signal,
-            "z_hat_j_t1": z_hat_j_t1,
-            "cond_num": cond_num,
-            "b_norm": float(np.linalg.norm(B_blp, "fro")),
-            "b_pca_norm": float(np.linalg.norm(B_pca)),
-            "b_sector_norm": float(np.linalg.norm(M_sector)),
-            "b_struct_norm": float(np.linalg.norm(B_struct)),
-            "sigma_xx_trace": float(np.trace(C_XX)),
-            "sigma_yx_norm": float(np.linalg.norm(C_YX)),
-            "sigma_yy_trace": float(np.trace(C_YY)),
-            "min_pred_var": float(np.min(pred_var)),
-            "max_pred_var": float(np.max(pred_var)),
-            "num_pred_var_floored": num_floored,
-            "pinv_fallback": pinv_fallback,
-            "num_training_samples": len(window_returns),
-        }
-
-    def normalize_signals(self, sig: np.ndarray, method: str = "zscore") -> np.ndarray:
-        """Cross-sectionally normalize the signal values."""
-        if method == "identity":
-            return sig
-        centered = sig - np.median(sig)
-        if method == "zscore":
-            std = np.std(centered)
-            std_safe = std if std > 1e-8 else 1.0
-            return centered / std_safe
-        elif method == "rank_normalize":
-            ranks = pd.Series(sig).rank(pct=True).values
-            return (ranks - 0.5) * 2.0
-        else:
-            raise ValueError(f"Unknown normalization method: {method}")
+        return self._build_blp_diagnostics(
+            signal=signal,
+            z_hat_j_t1=z_hat_j_t1,
+            cond_num=cond_num,
+            B_blp=B_blp,
+            B_pca=B_pca,
+            M_sector=M_sector,
+            B_struct=B_struct,
+            C_XX=C_XX,
+            C_YX=C_YX,
+            C_YY=C_YY,
+            pred_var=pred_var,
+            num_floored=num_floored,
+            pinv_fallback=pinv_fallback,
+            num_training_samples=len(window_returns),
+            return_matrices=return_matrices,
+            A=A,
+            Sigma_XX_reg=Sigma_XX_reg,
+            Sigma_YX_reg=Sigma_YX_reg,
+            Sigma_YY_reg=Sigma_YY_reg,
+            inv_A_tikh=inv_A_tikh,
+            z_U_t=z_U_t,
+            mu=mu,
+            sigma=sigma,
+            sigma_j_t=sigma_j_t,
+        )
 
     def combine_signals(
         self, z0: np.ndarray, z3: np.ndarray, z_raw_blpx: np.ndarray, z_residual_blpx: np.ndarray
@@ -704,17 +575,6 @@ class SectorRelativeEnsembleBLPEnhancedModel(BaseModel):
             + self.residual_pca_weight * z3
             + self.raw_blpx_weight * z_raw_blpx
             + self.residual_blpx_weight * z_residual_blpx
-        )
-
-    def build_weights(self, signal: np.ndarray, q: float | None = None) -> np.ndarray:
-        """Construct portfolio weights from combined signal."""
-        q_val = q if q is not None else self.q
-        return signals.build_weights(
-            signal=signal,
-            q=q_val,
-            n_j=self.n_j,
-            weight_mode=self.weight_mode,
-            enforce_sign=False,
         )
 
     def predict_signals(self, df_exec: pd.DataFrame) -> dict[str, Any]:
@@ -810,12 +670,7 @@ class SectorRelativeEnsembleBLPEnhancedModel(BaseModel):
                 )
                 raw_blpx_signals[i] = raw_blpx_res["signal"]
             else:
-                raw_blpx_res = {"signal": np.zeros(self.n_j), "cond_num": 0.0, "b_norm": 0.0,
-                                "b_pca_norm": 0.0, "b_sector_norm": 0.0, "b_struct_norm": 0.0,
-                                "sigma_xx_trace": 0.0, "sigma_yx_norm": 0.0, "sigma_yy_trace": 0.0,
-                                "min_pred_var": 0.0, "max_pred_var": 0.0,
-                                "num_pred_var_floored": 0, "pinv_fallback": 0,
-                                "num_training_samples": 0}
+                raw_blpx_res = {**self._ZERO_BLP_DIAGNOSTICS, "signal": np.zeros(self.n_j)}
 
             # 4. Residual-BLPX (skip if weight=0)
             if need_residual_blpx:
@@ -832,12 +687,7 @@ class SectorRelativeEnsembleBLPEnhancedModel(BaseModel):
                 )
                 residual_blpx_signals[i] = residual_blpx_res["signal"]
             else:
-                residual_blpx_res = {"signal": np.zeros(self.n_j), "cond_num": 0.0, "b_norm": 0.0,
-                                     "b_pca_norm": 0.0, "b_sector_norm": 0.0, "b_struct_norm": 0.0,
-                                     "sigma_xx_trace": 0.0, "sigma_yx_norm": 0.0, "sigma_yy_trace": 0.0,
-                                     "min_pred_var": 0.0, "max_pred_var": 0.0,
-                                     "num_pred_var_floored": 0, "pinv_fallback": 0,
-                                     "num_training_samples": 0}
+                residual_blpx_res = {**self._ZERO_BLP_DIAGNOSTICS, "signal": np.zeros(self.n_j)}
 
             # Standard Z-score normalization of component signals
             z0 = self.normalize_signals(raw_pca_sig, self.normalization_method)

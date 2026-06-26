@@ -1,6 +1,6 @@
 # Lead-Lag Market-Neutral Strategy — Architecture (v3.0)
 
-> **最終更新**: 2026-06-15
+> **最終更新**: 2026-06-27
 
 ## Overview
 
@@ -21,6 +21,7 @@ US ETF と TOPIX-17 セクター ETF のリードラグ相関を利用した、
 - **Phase 7 (2026-06-15)**: 本番 v2 モデル（Residual-BLPX-RA v2）への昇格に伴い、ギャップ調整予測分布計算、リスク調整ランキング（`mu_over_sigma`）、PIT ビニングに基づく動的グロス制御（`RuleD`）の導入、および v2 → v1 → PCA-Ensemble の多段階自動フォールバック機能の実装。
 - **Phase 8 (2026-06-17)**: AIMA/IOSCO モデルリスクガイドラインに準拠するため、文書体系を再編。運用方針書から詳細なアルゴリズム数理・システムパラメータ・日次実行コマンド等を分離し、別冊の《モデル技術仕様書》および《日次運用手順書》へ移行。
 - **Phase 9 (2026-06-25)**: `monitoring/` 層（HealthScoreCalculator）をアーキテクチャ文書に正式反映。Health Score によるポジションサイズ動的調整のバックテスト検証結果（Sharpe改善なし）を踏まえ、常にフルポジションでの運用を決定。Health Score は記録・監視用のみ。
+- **Phase 10 (2026-06-27)**: モデル層の継承階層をリファクタリング。`BaseModel` に共通ユーティリティメソッド（`_resolve_val`, `_resolve_nested`, `normalize_signals`, `build_weights`, `_resolve_slippage_bps`）を集約し、新規中間クラス `_BLPBase`（`blp_base.py`）に BLP 系モデル共通メソッド（`_prepare_common_inputs`, `compute_production_signal`, `compute_residual_signal`, `_denormalize_signal`, `_apply_gap_adjustment`）を集約。`SectorRelativeEnsembleBLPEnhancedModel`, `SectorRelativeEnsembleBLPModel`, `SectorRelativeEnsembleRRRModel` は `_BLPBase` を継承するよう変更。`compute_blp_signal` を7つのヘルパーメソッドに分割し、実験スクリプトの重複モデル定義を `scripts/experiment_models.py` に共通化。
 
 ---
 
@@ -65,11 +66,12 @@ src/
     │   └── auditor.py       # ComplianceAuditor — 安全監査ロジックの実行
     │
     ├── models/              # 本番モデルレイヤー（純粋なシグナル生成・ウェイト計算のみ、I/Oフリー）
-    │   ├── base.py          # BaseModel 抽象モデルインターフェース
+    │   ├── base.py          # BaseModel 抽象モデルインターフェース（共通ユーティリティ: _resolve_val, normalize_signals, build_weights 等）
+    │   ├── blp_base.py      # _BLPBase 中間クラス（BLP系モデル共通: _prepare_common_inputs, compute_production_signal, compute_residual_signal, _denormalize_signal, _apply_gap_adjustment）
     │   ├── sre.py           # SectorRelativeEnsembleModel (PCA-Ensemble) — 第2フォールバック
     │   ├── sector_relative_ensemble_blp.py           # SectorRelativeEnsembleBLPModel (BLP v1) — 第1フォールバック
-    │   ├── sector_relative_ensemble_blp_enhanced.py  # SectorRelativeEnsembleBLPEnhancedModel (BLP拡張)
-    │   ├── sector_relative_ensemble_rrr.py           # SectorRelativeEnsembleRRRModel
+    │   ├── sector_relative_ensemble_blp_enhanced.py  # SectorRelativeEnsembleBLPEnhancedModel (BLP拡張) — _BLPBase 継承
+    │   ├── sector_relative_ensemble_rrr.py           # SectorRelativeEnsembleRRRModel — _BLPBase 継承
     │   ├── production_v2.py # ProductionV2Model (Residual-BLPX-RA v2) — 本番モデル
     │   └── net_score_ranking_lob.py                  # NetScoreRankingLOBModel
     │
@@ -117,11 +119,25 @@ src/
 ### 1. Models Layer (`models/`)
 本番戦略モデルの定義。`core/` の計算ロジックを組み合わせて PCA-Ensemble モデルを構成する。I/Oや実行ループ、監査プロセスから切り離された純粋なインターフェースを提供する。
 
+**継承階層** (Phase 10 リファクタリング後):
+```
+ABC (abc.ABC)
+└── BaseModel (base.py)
+    ├── _BLPBase (blp_base.py) — BLP系モデル共通メソッド
+    │   ├── SectorRelativeEnsembleBLPEnhancedModel (sector_relative_ensemble_blp_enhanced.py)
+    │   ├── SectorRelativeEnsembleBLPModel (sector_relative_ensemble_blp.py)
+    │   └── SectorRelativeEnsembleRRRModel (sector_relative_ensemble_rrr.py)
+    └── SectorRelativeEnsembleModel (sre.py) — BaseModel 直接継承
+```
+
 | モジュール | 責務 |
 |---|---|
-| `base.py` | モデルのI/Oフリー共通抽象化インターフェース (`predict_signals`, `build_weights`) |
-| `pca-ensemble.py` | SectorRelativeEnsembleModel ロジック（Raw-PCA/Residual-PCA/P4 シグナル生成、Zスコア正規化、アンサンブル、ウェイト算出）の正本 |
-| `sector_relative_ensemble_blp_enhanced.py` | SectorRelativeEnsembleBLPEnhancedModel （本番 v2 基盤の BLPX 構造化投影および確信度調整モデル） |
+| `base.py` | BaseModel 抽象インターフェース (`predict_signals`, `build_weights`) および共通ユーティリティ（`_resolve_val`, `_resolve_nested`, `_resolve_slippage_bps`, `normalize_signals`, `build_weights`） |
+| `blp_base.py` | _BLPBase 中間クラス — BLP系モデル共通メソッド（`_prepare_common_inputs`, `_compute_pca_signal`, `compute_production_signal`, `compute_residual_signal`, `_denormalize_signal`, `_apply_gap_adjustment`） |
+| `sre.py` | SectorRelativeEnsembleModel (PCA-Ensemble) ロジック（Raw-PCA/Residual-PCA/P4 シグナル生成、Zスコア正規化、アンサンブル、ウェイト算出）の正本 |
+| `sector_relative_ensemble_blp.py` | SectorRelativeEnsembleBLPModel (BLP v1) — `_BLPBase` 継承、BLP シグナル生成 |
+| `sector_relative_ensemble_blp_enhanced.py` | SectorRelativeEnsembleBLPEnhancedModel （本番 v2 基盤の BLPX 構造化投影および確信度調整モデル） — `_BLPBase` 継承、`compute_blp_signal` を7つのヘルパーメソッドに分割 |
+| `sector_relative_ensemble_rrr.py` | SectorRelativeEnsembleRRRModel — `_BLPBase` 継承、キャッシュ機能付き PCA シグナル計算 |
 
 
 ### 2. Core Domain Layer (`core/`)

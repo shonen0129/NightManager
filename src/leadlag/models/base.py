@@ -8,6 +8,8 @@ from dataclasses import dataclass, field
 import numpy as np
 import pandas as pd
 
+from leadlag.core import signal as signals
+
 
 @dataclass
 class AuditContext:
@@ -60,6 +62,9 @@ class AuditContext:
 class BaseModel(ABC):
     """Abstract Base Class for Lead-Lag strategy models."""
 
+    _config_sections: list[str] = ["model", "ensemble", "portfolio", "costs", "residualization"]
+    _config_aliases: dict[str, list[str]] = {}
+
     @abstractmethod
     def predict_signals(self, df_exec: pd.DataFrame) -> dict[str, np.ndarray]:
         """Generate raw signals from the execution dataset.
@@ -72,17 +77,82 @@ class BaseModel(ABC):
         """
         pass
 
-    @abstractmethod
-    def build_weights(self, signals: np.ndarray) -> np.ndarray:
-        """Construct portfolio weights from signals.
+    def _resolve_val(self, key: str, default: any) -> any:
+        """Resolve value from config object or dict.
 
-        Args:
-            signals: Signal array of shape (n_j,).
-
-        Returns:
-            Weight array of shape (n_j,).
+        Searches the config object's attributes, then the dict's top-level keys,
+        then nested section keys (as defined by ``_config_sections``), and finally
+        applies any alias translations (as defined by ``_config_aliases``).
         """
-        pass
+        aliases = self._config_aliases.get(key, [])
+        keys_to_try = [key] + aliases
+        for k in keys_to_try:
+            if hasattr(self.config, k):
+                return getattr(self.config, k)
+            if isinstance(self.config, dict):
+                if k in self.config:
+                    return self.config[k]
+                for section in self._config_sections:
+                    if section in self.config and isinstance(self.config[section], dict) and k in self.config[section]:
+                        return self.config[section][k]
+                # Translations
+                if k == "model_name" and "name" in self.config.get("model", {}):
+                    return self.config["model"]["name"]
+                if k == "k" and "k" in self.config.get("model", {}):
+                    return self.config["model"]["k"]
+                if k == "q" and "long_short_frac" in self.config.get("portfolio", {}):
+                    return self.config["portfolio"]["long_short_frac"]
+        return default
+
+    def _resolve_nested(self, key: str, default: any) -> any:
+        """Resolve dotted nested keys or fall back to _resolve_val."""
+        parts = key.split(".")
+        val = self._resolve_val(parts[-1], None)
+        if val is not None:
+            return val
+        if isinstance(self.config, dict):
+            curr = self.config
+            for part in parts:
+                if isinstance(curr, dict) and part in curr:
+                    curr = curr[part]
+                else:
+                    return default
+            return curr
+        return default
+
+    def _resolve_slippage_bps(self) -> float:
+        """Resolve slippage bps from config, checking costs section."""
+        slippage = self._resolve_val("slippage_bps", 5.0)
+        if isinstance(self.config, dict):
+            if "costs" in self.config and "slippage_bps_per_side" in self.config["costs"]:
+                slippage = float(self.config["costs"]["slippage_bps_per_side"])
+        return float(slippage)
+
+    def normalize_signals(self, sig: np.ndarray, method: str = "zscore") -> np.ndarray:
+        """Cross-sectionally normalize the signal values."""
+        if method == "identity":
+            return sig
+        centered = sig - np.median(sig)
+        if method == "zscore":
+            std = np.std(centered)
+            std_safe = std if std > 1e-8 else 1.0
+            return centered / std_safe
+        elif method == "rank_normalize":
+            ranks = pd.Series(sig).rank(pct=True).values
+            return (ranks - 0.5) * 2.0
+        else:
+            raise ValueError(f"Unknown normalization method: {method}")
+
+    def build_weights(self, signal: np.ndarray, q: float | None = None) -> np.ndarray:
+        """Construct portfolio weights from combined signal."""
+        q_val = q if q is not None else self.q
+        return signals.build_weights(
+            signal=signal,
+            q=q_val,
+            n_j=self.n_j,
+            weight_mode=self.weight_mode,
+            enforce_sign=False,
+        )
 
     def get_audit_context(self) -> AuditContext:
         """Return metadata required by ComplianceAuditor.

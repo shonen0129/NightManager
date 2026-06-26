@@ -24,26 +24,10 @@ from leadlag.execution.backtester import BacktestEngine
 from leadlag.models.sector_relative_ensemble_blp_enhanced import (
     SectorRelativeEnsembleBLPEnhancedModel,
 )
+from scripts.experiment_models import BlendSectorModel
 
 logging.basicConfig(level=logging.WARNING, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
-
-
-class BlendSectorModel(SectorRelativeEnsembleBLPEnhancedModel):
-    """Blend static M_sector with rolling cross-correlation."""
-
-    def __init__(self, config, blend_alpha=0.5):
-        super().__init__(config)
-        self.blend_alpha = blend_alpha
-
-    def _get_sector_prior(self, current_index, all_returns, corr, B_blp):
-        C_YX = corr[self.n_u:, :self.n_u]
-        if C_YX.shape != B_blp.shape:
-            return np.zeros(B_blp.shape)
-        static = self.M_sector
-        if static.shape != C_YX.shape:
-            return C_YX.copy()
-        return (1.0 - self.blend_alpha) * static + self.blend_alpha * C_YX
 
 
 def build_config(yaml_path: str, overrides: dict | None = None) -> dict:
