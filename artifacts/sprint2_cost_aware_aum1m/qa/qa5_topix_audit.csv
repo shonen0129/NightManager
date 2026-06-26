@@ -1,3 +1,0 @@
-Date,topix_cc_trade_Return,IsAnomaly,Explanation
-2024-08-05,-0.10817992028847978,Yes,Extreme market day (e.g. August 2024 crash)
-2026-03-30,-0.9016461996612269,Yes,Wrong data mapping or split adjustment failure. TOPIX return was logged as -90.16% on 2026-03-30.
