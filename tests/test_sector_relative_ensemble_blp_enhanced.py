@@ -18,6 +18,7 @@ from leadlag.models.sector_relative_ensemble_blp import SectorRelativeEnsembleBL
 from leadlag.models.sector_relative_ensemble_blp_enhanced import SectorRelativeEnsembleBLPEnhancedModel
 from leadlag.models.sre import SectorRelativeEnsembleModel
 from leadlag.execution.backtester import BacktestEngine
+from leadlag.data.tickers import JP_TICKERS, US_TICKERS
 
 
 @pytest.fixture
@@ -241,6 +242,111 @@ def test_cost_consistency(blpx_sample_config, sample_df_exec):
 
     diff = np.abs(r_gross - costs - r_net)
     assert np.all(diff < 1e-15)
+
+
+def test_continuous_m_sector_positive_corr_only(blpx_sample_config):
+    """Verify continuous M_sector uses max(0, corr) — negative correlations get zero weight."""
+    cfg = blpx_sample_config.copy()
+    cfg["sector_eta"] = 1.0
+    cfg["sector_gamma"] = 2.0
+    model = SectorRelativeEnsembleBLPEnhancedModel(cfg)
+
+    n_u, n_j = model.n_u, model.n_j
+    corr = np.eye(n_u + n_j)
+    # Set all cross-correlations to -0.5 (negative)
+    corr[:n_u, n_u:] = -0.5
+    corr[n_u:, :n_u] = -0.5
+    np.fill_diagonal(corr, 1.0)
+
+    B_blp = np.zeros((n_j, n_u))
+    all_returns = np.random.randn(300, 32)
+    M = model._get_sector_prior(250, all_returns, corr, B_blp)
+
+    # With all-negative correlations and max(0, corr), M_data should be all zeros
+    # So M_blended = (1-eta)*M_fixed + eta*0 = M_fixed (since eta=1.0, M_blended=0)
+    # Actually with eta=1.0, M_blended = M_data = zeros (all corr <= 0)
+    assert np.allclose(M, 0.0, atol=1e-10)
+
+
+def test_continuous_m_sector_mixed_corr(blpx_sample_config):
+    """Verify continuous M_sector assigns weight only to positively correlated tickers."""
+    cfg = blpx_sample_config.copy()
+    cfg["sector_eta"] = 1.0
+    cfg["sector_gamma"] = 1.0
+    model = SectorRelativeEnsembleBLPEnhancedModel(cfg)
+
+    n_u, n_j = model.n_u, model.n_j
+    corr = np.eye(n_u + n_j)
+    # US ticker 0 (XLB) maps to 1620.T (j=3) and 1623.T (j=6)
+    j_pos = JP_TICKERS.index("1620.T")  # 3
+    j_neg = JP_TICKERS.index("1623.T")  # 6
+    corr[0, n_u + j_pos] = 0.8   # US 0 vs 1620.T: positive
+    corr[0, n_u + j_neg] = -0.6  # US 0 vs 1623.T: negative
+    corr[n_u + j_pos, 0] = 0.8
+    corr[n_u + j_neg, 0] = -0.6
+    np.fill_diagonal(corr, 1.0)
+
+    B_blp = np.zeros((n_j, n_u))
+    all_returns = np.random.randn(300, 32)
+    M = model._get_sector_prior(250, all_returns, corr, B_blp)
+
+    # For US ticker 0 (XLB), mapped to 1620.T (j=j_pos) and 1623.T (j=j_neg)
+    # Only j_pos has positive corr, so all weight goes there
+    u_idx_xlb = 0
+    assert M[j_pos, u_idx_xlb] > 0.0  # positive corr ticker gets weight
+    assert M[j_neg, u_idx_xlb] == 0.0  # negative corr ticker gets zero
+
+
+def test_tikhonov_no_scaling(blpx_sample_config, sample_df_exec):
+    """Verify Tikhonov uses priors directly without norm-based rescaling."""
+    df_exec, _ = sample_df_exec
+    cfg = blpx_sample_config.copy()
+    cfg["lambda_pca"] = 0.2
+    cfg["lambda_sector"] = 0.3
+    model = SectorRelativeEnsembleBLPEnhancedModel(cfg)
+    inputs = model._prepare_common_inputs(df_exec)
+
+    res = model.compute_blp_signal(
+        inputs["all_returns_raw"],
+        current_index=300,
+        v0_static=inputs["v0_static"],
+        c_full=inputs["c_full"],
+        return_matrices=True,
+    )
+
+    # With direct (unscaled) priors, B_pca_prior should be the raw B_pca
+    # and B_sector_prior should be the raw M_sector
+    assert "B_pca_prior" in res
+    assert "B_sector_prior" in res
+    assert "B_pca_scaled" not in res
+    assert "B_sector_scaled" not in res
+    assert np.all(np.isfinite(res["B_struct"]))
+
+
+def test_build_sector_prior_from_structure(blpx_sample_config):
+    """Verify _build_sector_prior derives from _SECTOR_MAPPING_STRUCTURE with equal weights + normalization."""
+    model = SectorRelativeEnsembleBLPEnhancedModel(blpx_sample_config)
+    M = model.M_sector
+
+    assert M.shape == (17, 15)
+    assert np.all(np.isfinite(M))
+
+    # Column normalization: each non-zero column sums to 1.0
+    col_sums = np.sum(M, axis=0)
+    for u in range(15):
+        if col_sums[u] > 0:
+            assert abs(col_sums[u] - 1.0) < 1e-10
+
+    # Verify structural consistency: non-zero entries match _SECTOR_MAPPING_STRUCTURE
+    from leadlag.data.tickers import JP_TICKERS, US_TICKERS
+    for u_idx, us_tk in enumerate(US_TICKERS):
+        if us_tk in model._SECTOR_MAPPING_STRUCTURE:
+            mapped_jp = model._SECTOR_MAPPING_STRUCTURE[us_tk]
+            for j_idx, jp_tk in enumerate(JP_TICKERS):
+                if jp_tk in mapped_jp:
+                    assert M[j_idx, u_idx] > 0.0, f"{jp_tk} should be non-zero for {us_tk}"
+                else:
+                    assert M[j_idx, u_idx] == 0.0, f"{jp_tk} should be zero for {us_tk}"
 
 
 def test_baseline_sre_reproduction(blpx_sample_config, sample_df_exec):

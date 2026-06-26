@@ -1,0 +1,8 @@
+Approach,Sharpe,AR,RISK,MDD,Turnover,Cost/day
+baseline,3.6414,98.91%,27.16%,-11.41%,1.5836,20.00bps
+approach1_c0_cross,3.4519,94.71%,27.44%,-12.51%,1.5808,20.00bps
+approach2_v0_ext,3.2709,88.72%,27.12%,-14.36%,1.5822,20.00bps
+approach3_tikhonov,3.6414,98.91%,27.16%,-11.41%,1.5836,20.00bps
+approach4_rrr,3.4511,91.03%,26.38%,-11.50%,1.5780,20.00bps
+approach5_c0_tikhonov,3.4519,94.71%,27.44%,-12.51%,1.5808,20.00bps
+approach6_continuous,3.6471,99.39%,27.25%,-10.55%,1.5836,20.00bps

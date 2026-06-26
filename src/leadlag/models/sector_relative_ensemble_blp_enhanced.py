@@ -100,8 +100,13 @@ class SectorRelativeEnsembleBLPEnhancedModel(BaseModel):
             self.raw_blpx_weight = float(self._resolve_val("raw_blpx_weight", self._resolve_val("p5_weight", 0.1)))
             self.residual_blpx_weight = float(self._resolve_val("residual_blpx_weight", self._resolve_val("p5p3_weight", 0.1)))
 
+        # Continuous M_sector parameters
+        self.sector_eta = float(self._resolve_val("sector_eta", 0.0))
+        self.sector_gamma = float(self._resolve_val("sector_gamma", 2.0))
+
         # Precompute the fixed Sector Mapping matrix M_sector
         self.M_sector = self._build_sector_prior()
+        self._M_sector_fixed = self.M_sector.copy()
 
         # Slippage cost parameter resolution
         self.slippage_bps = self._resolve_val("slippage_bps", 5.0)
@@ -138,31 +143,18 @@ class SectorRelativeEnsembleBLPEnhancedModel(BaseModel):
         return default
 
     def _build_sector_prior(self) -> np.ndarray:
-        """Build the fixed日米業種対応行列 M_sector of size 17 x 15."""
+        """Build the fixed 日米業種対応行列 M_sector of size (n_j x n_u).
+
+        Weights are derived from _SECTOR_MAPPING_STRUCTURE with equal split,
+        then column-normalized so each US ETF column sums to 1.0.
+        """
         M = np.zeros((self.n_j, self.n_u))
 
-        # Sector Mapping dictionary mapping US ETFs to JP tickers
-        mapping = {
-            "XLB": {"1620.T": 0.5, "1623.T": 0.5},
-            "XLC": {"1626.T": 1.0},
-            "XLE": {"1618.T": 0.5, "1627.T": 0.5},
-            "XLF": {"1631.T": 0.5, "1632.T": 0.5},
-            "XLI": {"1624.T": 0.33, "1622.T": 0.33, "1626.T": 0.34},
-            "XLK": {"1626.T": 0.5, "1625.T": 0.5},
-            "XLP": {"1617.T": 0.5, "1630.T": 0.5},
-            "XLRE": {"1633.T": 1.0},
-            "XLU": {"1627.T": 1.0},
-            "XLV": {"1621.T": 1.0},
-            "XLY": {"1630.T": 0.33, "1626.T": 0.33, "1622.T": 0.34},
-            "MTUM": {"1625.T": 0.5, "1626.T": 0.5},
-            "VLUE": {"1631.T": 0.25, "1632.T": 0.25, "1623.T": 0.25, "1622.T": 0.25},
-            "IUSG": {"1626.T": 0.5, "1625.T": 0.5},
-            "USMV": {"1617.T": 0.33, "1621.T": 0.33, "1627.T": 0.34}
-        }
-
         for u_idx, us_tk in enumerate(US_TICKERS):
-            if us_tk in mapping:
-                for jp_tk, w in mapping[us_tk].items():
+            if us_tk in self._SECTOR_MAPPING_STRUCTURE:
+                jp_tickers = self._SECTOR_MAPPING_STRUCTURE[us_tk]
+                w = 1.0 / len(jp_tickers)
+                for jp_tk in jp_tickers:
                     if jp_tk in JP_TICKERS:
                         j_idx = JP_TICKERS.index(jp_tk)
                         M[j_idx, u_idx] = w
@@ -174,6 +166,80 @@ class SectorRelativeEnsembleBLPEnhancedModel(BaseModel):
                 M[:, u_idx] /= col_sums[u_idx]
 
         return M
+
+    # Structural mapping: which JP tickers relate to which US tickers
+    _SECTOR_MAPPING_STRUCTURE = {
+        "XLB": ["1620.T", "1623.T"],
+        "XLC": ["1626.T"],
+        "XLE": ["1618.T", "1627.T"],
+        "XLF": ["1631.T", "1632.T"],
+        "XLI": ["1624.T", "1622.T", "1626.T"],
+        "XLK": ["1626.T", "1625.T"],
+        "XLP": ["1617.T", "1630.T"],
+        "XLRE": ["1633.T"],
+        "XLU": ["1627.T"],
+        "XLV": ["1621.T"],
+        "XLY": ["1630.T", "1626.T", "1622.T"],
+        "MTUM": ["1625.T", "1626.T"],
+        "VLUE": ["1631.T", "1632.T", "1623.T", "1622.T"],
+        "IUSG": ["1626.T", "1625.T"],
+        "USMV": ["1617.T", "1621.T", "1627.T"],
+    }
+
+    def _get_sector_prior(
+        self,
+        current_index: int,
+        all_returns: np.ndarray,
+        corr: np.ndarray,
+        B_blp: np.ndarray,
+    ) -> np.ndarray:
+        """Return the sector prior matrix M_sector (n_j x n_u).
+
+        When sector_eta > 0, blends the fixed mapping with data-driven
+        weights derived from the rolling cross-correlation:
+          w_ji = max(0, corr(u, ji))^gamma / sum_k max(0, corr(u, jk))^gamma
+          M_final = (1-eta) * M_fixed + eta * M_data
+
+        Override in subclasses to provide a fully dynamic sector prior.
+        """
+        if self.sector_eta <= 0.0 or self._M_sector_fixed.shape != B_blp.shape:
+            if self.M_sector.shape == B_blp.shape:
+                return self.M_sector
+            return np.zeros(B_blp.shape)
+
+        if corr.shape != (self.n_u + self.n_j, self.n_u + self.n_j):
+            return self._M_sector_fixed if self._M_sector_fixed.shape == B_blp.shape else np.zeros(B_blp.shape)
+
+        c_xy = corr[: self.n_u, self.n_u:]  # (n_u, n_j) — US vs JP cross-corr
+
+        M_data = np.zeros((self.n_j, self.n_u))
+        for u_idx, us_tk in enumerate(US_TICKERS):
+            if us_tk not in self._SECTOR_MAPPING_STRUCTURE:
+                continue
+            jp_tickers = self._SECTOR_MAPPING_STRUCTURE[us_tk]
+            weights = []
+            for jp_tk in jp_tickers:
+                if jp_tk in JP_TICKERS:
+                    j_idx = JP_TICKERS.index(jp_tk)
+                    raw_corr = c_xy[u_idx, j_idx]
+                    weights.append((j_idx, max(0.0, raw_corr) ** self.sector_gamma))
+            if not weights:
+                continue
+            total = sum(w for _, w in weights)
+            if total > 1e-10:
+                for j_idx, w in weights:
+                    M_data[j_idx, u_idx] = w / total
+
+        M_blended = (1.0 - self.sector_eta) * self._M_sector_fixed + self.sector_eta * M_data
+
+        col_sums = np.sum(M_blended, axis=0)
+        for u_idx in range(self.n_u):
+            if col_sums[u_idx] > 1e-10:
+                M_blended[:, u_idx] /= col_sums[u_idx]
+
+        if M_blended.shape == B_blp.shape:
+            return M_blended
+        return np.zeros(B_blp.shape)
 
     def _prepare_common_inputs(self, df_exec: pd.DataFrame) -> dict:
         """Prepare inputs common to signal computation (raw targets, residuals, betas)."""
@@ -451,33 +517,43 @@ class SectorRelativeEnsembleBLPEnhancedModel(BaseModel):
             v_j_t_k = v_t_k[self.n_u :, :]
             B_pca = v_j_t_k @ v_u_t_k.T
 
-        norm_B_blp = np.linalg.norm(B_blp, "fro")
+        # Sector prior (hook allows subclasses to provide dynamic prior)
+        M_sector = self._get_sector_prior(current_index, all_returns, corr, B_blp)
 
-        # PCA scaling
-        norm_B_pca = np.linalg.norm(B_pca, "fro")
-        scale_pca = norm_B_blp / (norm_B_pca + 1e-12)
-        B_pca_scaled = scale_pca * B_pca
-
-        # Sector prior scaling
-        if self.M_sector.shape == B_blp.shape:
-            M_sector = self.M_sector
-        else:
-            M_sector = np.zeros(B_blp.shape)
-        norm_M_sector = np.linalg.norm(M_sector, "fro")
-        scale_sector = norm_B_blp / (norm_M_sector + 1e-12)
-        B_sector = scale_sector * M_sector
-
-        # Mix priors subject to sum constraints
-        lambda_sum = self.lambda_pca + self.lambda_sector
+        # Multi-target Tikhonov regularization (Bayesian ridge with multiple prior means)
+        #
+        # Standard form: each prior mean B0_i contributes a term λ_i * B0_i to the RHS
+        # and λ_i to the diagonal of the regularizer:
+        #   B = (Sigma_XX + (rho*diag + l_pca + l_sec)*I)^{-1}
+        #       * (Sigma_YX + l_pca * B_pca + l_sec * M_sector)
+        #
+        # B_pca and M_sector are coefficient-shaped (n_j x n_u) priors used directly
+        # without rescaling — the lambda parameters control their pull strength.
         l_pca = self.lambda_pca
         l_sec = self.lambda_sector
+        lambda_sum = l_pca + l_sec
         if lambda_sum > 0.75:
-            # Scale down to sum to 0.75 max
             l_pca = (self.lambda_pca / lambda_sum) * 0.75
             l_sec = (self.lambda_sector / lambda_sum) * 0.75
             lambda_sum = 0.75
 
-        B_struct = (1.0 - lambda_sum) * B_blp + l_pca * B_pca_scaled + l_sec * B_sector
+        # Tikhonov solve
+        lambda_tikh = self.rho * diag_mean + l_pca + l_sec
+        A_tikh = Sigma_XX_reg + lambda_tikh * np.eye(self.n_u)
+        rhs = Sigma_YX_reg + l_pca * B_pca + l_sec * M_sector
+
+        try:
+            if not np.isfinite(A_tikh).all():
+                raise ValueError("A_tikh contains NaNs or Infs")
+            inv_A_tikh = np.linalg.inv(A_tikh)
+            B_struct = rhs @ inv_A_tikh
+        except Exception:
+            try:
+                inv_A_tikh = np.linalg.pinv(A_tikh)
+                B_struct = rhs @ inv_A_tikh
+            except Exception:
+                B_struct = np.zeros((self.n_j, self.n_u))
+                inv_A_tikh = np.zeros((self.n_u, self.n_u))
 
         # Standardize current US input
         X_t = all_returns[current_index, : self.n_u]
@@ -494,7 +570,7 @@ class SectorRelativeEnsembleBLPEnhancedModel(BaseModel):
         # 4. Confidence Weighting
         # conditional variance: Sigma_Y_given_X = Sigma_YY_reg - Sigma_YX_reg @ inv_A @ Sigma_XY_reg
         Sigma_XY_reg = Sigma_YX_reg.T
-        Sigma_Y_given_X = Sigma_YY_reg - Sigma_YX_reg @ inv_A @ Sigma_XY_reg
+        Sigma_Y_given_X = Sigma_YY_reg - Sigma_YX_reg @ inv_A_tikh @ Sigma_XY_reg
 
         pred_var = np.maximum(np.diag(Sigma_Y_given_X), 0.0)
         var_floor = 1e-8
@@ -556,9 +632,9 @@ class SectorRelativeEnsembleBLPEnhancedModel(BaseModel):
                 "signal": signal,
                 "z_hat_j_t1": z_hat_j_t1,
                 "cond_num": cond_num,
-                "b_norm": norm_B_blp,
+                "b_norm": float(np.linalg.norm(B_blp, "fro")),
                 "b_pca_norm": float(np.linalg.norm(B_pca)),
-                "b_sector_norm": float(np.linalg.norm(self.M_sector)),
+                "b_sector_norm": float(np.linalg.norm(M_sector)),
                 "b_struct_norm": float(np.linalg.norm(B_struct)),
                 "sigma_xx_trace": float(np.trace(C_XX)),
                 "sigma_yx_norm": float(np.linalg.norm(C_YX)),
@@ -572,10 +648,10 @@ class SectorRelativeEnsembleBLPEnhancedModel(BaseModel):
                 "Sigma_XX": A,
                 "Sigma_YX": Sigma_YX_reg,
                 "Sigma_YY": Sigma_YY_reg,
-                "inv_A": inv_A,
+                "inv_A": inv_A_tikh,
                 "B_blp": B_blp,
-                "B_pca_scaled": B_pca_scaled,
-                "B_sector_scaled": B_sector,
+                "B_pca_prior": B_pca,
+                "B_sector_prior": M_sector,
                 "B_struct": B_struct,
                 "z_U": z_U_t,
                 "pred_var_vec": pred_var,
@@ -590,9 +666,9 @@ class SectorRelativeEnsembleBLPEnhancedModel(BaseModel):
             "signal": signal,
             "z_hat_j_t1": z_hat_j_t1,
             "cond_num": cond_num,
-            "b_norm": norm_B_blp,
+            "b_norm": float(np.linalg.norm(B_blp, "fro")),
             "b_pca_norm": float(np.linalg.norm(B_pca)),
-            "b_sector_norm": float(np.linalg.norm(self.M_sector)),
+            "b_sector_norm": float(np.linalg.norm(M_sector)),
             "b_struct_norm": float(np.linalg.norm(B_struct)),
             "sigma_xx_trace": float(np.trace(C_XX)),
             "sigma_yx_norm": float(np.linalg.norm(C_YX)),
@@ -690,54 +766,78 @@ class SectorRelativeEnsembleBLPEnhancedModel(BaseModel):
         else:
             raw_pca_cached = False
 
+        # Determine which components to compute (skip zero-weight for speed)
+        need_raw_pca = self.raw_pca_weight > 0.0
+        need_residual_pca = self.residual_pca_weight > 0.0
+        need_raw_blpx = self.raw_blpx_weight > 0.0
+        need_residual_blpx = self.residual_blpx_weight > 0.0
+
         for i in range(start_idx, T):
-            if not raw_pca_cached:
-                # 1. Raw-PCA (Production PCA)
+            # 1. Raw-PCA (skip if weight=0 and not cached)
+            if need_raw_pca and not raw_pca_cached:
                 raw_pca_sig = self.compute_production_signal(
                     i, c_full, v0_static, v1, v2, all_returns_raw, jp_gap, jp_beta, topix_night
                 )
                 raw_pca_signals[i] = raw_pca_sig
+            else:
+                raw_pca_sig = raw_pca_signals[i]
 
-                # 2. Residual-PCA (Residual target PCA)
+            # 2. Residual-PCA (skip if weight=0 and not cached)
+            if need_residual_pca and not raw_pca_cached:
                 residual_pca_sig = self.compute_residual_signal(
                     jp_res_returns_p3, i, c_full_p3, v0_static, v1, v2, jp_gap, jp_beta, topix_night
                 )
                 residual_pca_signals[i] = residual_pca_sig
             else:
-                raw_pca_sig = raw_pca_signals[i]
                 residual_pca_sig = residual_pca_signals[i]
 
-            # 3. Raw-BLPX (Enhanced BLP Raw target)
+            # 3. Raw-BLPX (skip if weight=0)
             gap_override = np.nan_to_num(jp_gap[i], nan=0.0) if jp_gap is not None else None
             betas_t = np.asarray(jp_beta[i], dtype=float) if jp_beta is not None else None
             topix_night_t = float(topix_night[i]) if topix_night is not None else None
 
-            raw_blpx_res = self.compute_blp_signal(
-                all_returns_raw,
-                i,
-                gap_override=gap_override,
-                betas_t=betas_t,
-                topix_night_t=topix_night_t,
-                rolling_std=rolling_std,
-                v0_static=v0_static,
-                c_full=c_full,
-                is_residual=False,
-            )
-            raw_blpx_signals[i] = raw_blpx_res["signal"]
+            if need_raw_blpx:
+                raw_blpx_res = self.compute_blp_signal(
+                    all_returns_raw,
+                    i,
+                    gap_override=gap_override,
+                    betas_t=betas_t,
+                    topix_night_t=topix_night_t,
+                    rolling_std=rolling_std,
+                    v0_static=v0_static,
+                    c_full=c_full,
+                    is_residual=False,
+                )
+                raw_blpx_signals[i] = raw_blpx_res["signal"]
+            else:
+                raw_blpx_res = {"signal": np.zeros(self.n_j), "cond_num": 0.0, "b_norm": 0.0,
+                                "b_pca_norm": 0.0, "b_sector_norm": 0.0, "b_struct_norm": 0.0,
+                                "sigma_xx_trace": 0.0, "sigma_yx_norm": 0.0, "sigma_yy_trace": 0.0,
+                                "min_pred_var": 0.0, "max_pred_var": 0.0,
+                                "num_pred_var_floored": 0, "pinv_fallback": 0,
+                                "num_training_samples": 0}
 
-            # 4. Residual-BLPX (Enhanced BLP Residual target)
-            residual_blpx_res = self.compute_blp_signal(
-                jp_res_returns_p3,
-                i,
-                gap_override=gap_override,
-                betas_t=betas_t,
-                topix_night_t=topix_night_t,
-                rolling_std=rolling_std,
-                v0_static=v0_static,
-                c_full=c_full_p3,
-                is_residual=True,
-            )
-            residual_blpx_signals[i] = residual_blpx_res["signal"]
+            # 4. Residual-BLPX (skip if weight=0)
+            if need_residual_blpx:
+                residual_blpx_res = self.compute_blp_signal(
+                    jp_res_returns_p3,
+                    i,
+                    gap_override=gap_override,
+                    betas_t=betas_t,
+                    topix_night_t=topix_night_t,
+                    rolling_std=rolling_std,
+                    v0_static=v0_static,
+                    c_full=c_full_p3,
+                    is_residual=True,
+                )
+                residual_blpx_signals[i] = residual_blpx_res["signal"]
+            else:
+                residual_blpx_res = {"signal": np.zeros(self.n_j), "cond_num": 0.0, "b_norm": 0.0,
+                                     "b_pca_norm": 0.0, "b_sector_norm": 0.0, "b_struct_norm": 0.0,
+                                     "sigma_xx_trace": 0.0, "sigma_yx_norm": 0.0, "sigma_yy_trace": 0.0,
+                                     "min_pred_var": 0.0, "max_pred_var": 0.0,
+                                     "num_pred_var_floored": 0, "pinv_fallback": 0,
+                                     "num_training_samples": 0}
 
             # Standard Z-score normalization of component signals
             z0 = self.normalize_signals(raw_pca_sig, self.normalization_method)
