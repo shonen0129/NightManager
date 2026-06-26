@@ -28,7 +28,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run Sprint 0 Diagnostics QA Checks.")
     parser.add_argument(
         "--config",
-        default=os.path.join(ROOT, "configs", "sprint0_diagnostics.yaml"),
+        default=os.path.join(ROOT, "configs", "archive", "sprint0_diagnostics.yaml"),
         help="Path to Sprint 0 YAML config file.",
     )
     return parser.parse_args()

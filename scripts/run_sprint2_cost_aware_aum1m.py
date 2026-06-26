@@ -41,7 +41,7 @@ JP_TICKERS = [
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Sprint 2 Cost-Aware Optimization CLI")
-    parser.add_argument("--config", type=str, default="configs/sprint2_cost_aware_aum1m.yaml", help="Path to config YAML")
+    parser.add_argument("--config", type=str, default="configs/archive/sprint2_cost_aware_aum1m.yaml", help="Path to config YAML")
     parser.add_argument("--start_date", type=str, default=None, help="Optional start date override")
     parser.add_argument("--end_date", type=str, default=None, help="Optional end date override")
     return parser.parse_args()

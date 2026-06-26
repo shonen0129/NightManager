@@ -1,6 +1,9 @@
 # .env file (secrets)
 .env
 
+# Credentials (private keys, auth IDs)
+creds/
+
 # Python
 __pycache__/
 *.py[cod]
@@ -34,9 +37,18 @@ market_data/*.zip
 # Logs
 *.log
 
+# PID files
+*.pid
+
+# Profiling output
+prof_*
+
 # kabu_auto_login credentials
 kabu_auto_login/creds/
 kabu_auto_login/.env
+
+# Large generated artifacts (parquet, csv experiment outputs)
+artifacts/
 
 # Large generated results and plots
 results/

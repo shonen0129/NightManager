@@ -47,7 +47,7 @@ def compute_max_drawdown(returns: pd.Series) -> float:
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Run Sprint 1 Experiments")
-    parser.add_argument("--config", type=str, default="configs/sprint1.yaml", help="Path to config YAML")
+    parser.add_argument("--config", type=str, default="configs/archive/sprint1.yaml", help="Path to config YAML")
     parser.add_argument("--start_date", type=str, default=None, help="Optional start date override")
     parser.add_argument("--end_date", type=str, default=None, help="Optional end date override")
     return parser.parse_args()

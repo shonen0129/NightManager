@@ -7,18 +7,18 @@ CLI runner implementing walk-forward backtest of hinge overlay models
 
 Usage:
     python scripts/run_sprint3a_hinge_features.py \\
-        --config configs/sprint3a_hinge_features_aum1m.yaml
+        --config configs/archive/sprint3a_hinge_features_aum1m.yaml
 
     python scripts/run_sprint3a_hinge_features.py \\
-        --config configs/sprint3a_hinge_features_aum1m.yaml \\
+        --config configs/archive/sprint3a_hinge_features_aum1m.yaml \\
         --mode diagnostics
 
     python scripts/run_sprint3a_hinge_features.py \\
-        --config configs/sprint3a_hinge_features_aum1m.yaml \\
+        --config configs/archive/sprint3a_hinge_features_aum1m.yaml \\
         --mode backtest
 
     python scripts/run_sprint3a_hinge_features.py \\
-        --config configs/sprint3a_hinge_features_aum1m.yaml \\
+        --config configs/archive/sprint3a_hinge_features_aum1m.yaml \\
         --mode qa
 
 Look-ahead prevention:
@@ -103,7 +103,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--config",
         type=str,
-        default="configs/sprint3a_hinge_features_aum1m.yaml",
+        default="configs/archive/sprint3a_hinge_features_aum1m.yaml",
         help="Path to YAML config file",
     )
     parser.add_argument(
@@ -1442,7 +1442,7 @@ def main() -> None:
     logger.info("")
 
     added_files = [
-        "configs/sprint3a_hinge_features_aum1m.yaml",
+        "configs/archive/sprint3a_hinge_features_aum1m.yaml",
         "scripts/run_sprint3a_hinge_features.py",
         "src/features/__init__.py",
         "src/features/hinge_features.py",
@@ -1462,15 +1462,15 @@ def main() -> None:
     logger.info("Run command:")
     logger.info(
         "  python scripts/run_sprint3a_hinge_features.py "
-        "--config configs/sprint3a_hinge_features_aum1m.yaml --mode backtest"
+        "--config configs/archive/sprint3a_hinge_features_aum1m.yaml --mode backtest"
     )
     logger.info(
         "  python scripts/run_sprint3a_hinge_features.py "
-        "--config configs/sprint3a_hinge_features_aum1m.yaml --mode diagnostics"
+        "--config configs/archive/sprint3a_hinge_features_aum1m.yaml --mode diagnostics"
     )
     logger.info(
         "  python scripts/run_sprint3a_hinge_features.py "
-        "--config configs/sprint3a_hinge_features_aum1m.yaml --mode qa"
+        "--config configs/archive/sprint3a_hinge_features_aum1m.yaml --mode qa"
     )
 
     logger.info("")

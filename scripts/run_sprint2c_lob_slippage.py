@@ -415,7 +415,7 @@ def handle_live_dryrun(config: dict, api_client: TachibanaClient | None, api_ena
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Sprint 2-C LOB Slippage and Optimization Overlay Runner")
-    parser.add_argument("--config", type=str, default="configs/sprint2c_lob_slippage_aum1m.yaml", help="Path to config YAML file")
+    parser.add_argument("--config", type=str, default="configs/archive/sprint2c_lob_slippage_aum1m.yaml", help="Path to config YAML file")
     parser.add_argument("--mode", type=str, required=True, choices=["historical-fixed", "quote-log", "paper", "lob-replay", "live-dryrun"], help="Mode of execution")
     parser.add_argument("--test", action="store_true", help="For quote-log mode, runs immediately for a short test interval")
     args = parser.parse_args()

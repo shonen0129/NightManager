@@ -13,7 +13,7 @@ import pandas as pd
 import yaml
 
 # Add src/ to path
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 from leadlag.models.sre import SectorRelativeEnsembleModel

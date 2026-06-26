@@ -11,7 +11,7 @@ import pytest
 import yaml
 
 # Add src/ to path
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 from leadlag.models.sector_relative_ensemble_blp import SectorRelativeEnsembleBLPModel

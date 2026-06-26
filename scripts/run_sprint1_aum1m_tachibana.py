@@ -40,7 +40,7 @@ JP_TICKERS = [
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Sprint 1 AUM 1M JPY Tachibana Simulation CLI")
-    parser.add_argument("--config", type=str, default="configs/sprint1_aum1m_tachibana.yaml", help="Path to config YAML")
+    parser.add_argument("--config", type=str, default="configs/archive/sprint1_aum1m_tachibana.yaml", help="Path to config YAML")
     parser.add_argument("--start_date", type=str, default=None, help="Optional start date override")
     parser.add_argument("--end_date", type=str, default=None, help="Optional end date override")
     return parser.parse_args()

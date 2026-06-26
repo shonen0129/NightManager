@@ -13,18 +13,18 @@ Key difference from Sprint 3-A:
 
 Usage:
     python scripts/run_sprint3b_hinge_interactions.py \\
-        --config configs/sprint3b_hinge_interactions_aum1m.yaml
+        --config configs/archive/sprint3b_hinge_interactions_aum1m.yaml
 
     python scripts/run_sprint3b_hinge_interactions.py \\
-        --config configs/sprint3b_hinge_interactions_aum1m.yaml \\
+        --config configs/archive/sprint3b_hinge_interactions_aum1m.yaml \\
         --mode diagnostics
 
     python scripts/run_sprint3b_hinge_interactions.py \\
-        --config configs/sprint3b_hinge_interactions_aum1m.yaml \\
+        --config configs/archive/sprint3b_hinge_interactions_aum1m.yaml \\
         --mode backtest
 
     python scripts/run_sprint3b_hinge_interactions.py \\
-        --config configs/sprint3b_hinge_interactions_aum1m.yaml \\
+        --config configs/archive/sprint3b_hinge_interactions_aum1m.yaml \\
         --mode qa
 
 Look-ahead prevention:
@@ -149,7 +149,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--config",
         type=str,
-        default="configs/sprint3b_hinge_interactions_aum1m.yaml",
+        default="configs/archive/sprint3b_hinge_interactions_aum1m.yaml",
         help="Path to YAML config file",
     )
     parser.add_argument(
@@ -1881,7 +1881,7 @@ def main() -> None:
     logger.info("")
 
     added_files = [
-        "configs/sprint3b_hinge_interactions_aum1m.yaml",
+        "configs/archive/sprint3b_hinge_interactions_aum1m.yaml",
         "configs/sector_exposure_map.yaml",
         "scripts/run_sprint3b_hinge_interactions.py",
         "src/features/asset_exposures.py",
@@ -1898,11 +1898,11 @@ def main() -> None:
     logger.info("")
     logger.info("Run command:")
     logger.info("  python scripts/run_sprint3b_hinge_interactions.py "
-                "--config configs/sprint3b_hinge_interactions_aum1m.yaml --mode backtest")
+                "--config configs/archive/sprint3b_hinge_interactions_aum1m.yaml --mode backtest")
     logger.info("  python scripts/run_sprint3b_hinge_interactions.py "
-                "--config configs/sprint3b_hinge_interactions_aum1m.yaml --mode diagnostics")
+                "--config configs/archive/sprint3b_hinge_interactions_aum1m.yaml --mode diagnostics")
     logger.info("  python scripts/run_sprint3b_hinge_interactions.py "
-                "--config configs/sprint3b_hinge_interactions_aum1m.yaml --mode qa")
+                "--config configs/archive/sprint3b_hinge_interactions_aum1m.yaml --mode qa")
 
     logger.info("")
     logger.info("Key settings:")

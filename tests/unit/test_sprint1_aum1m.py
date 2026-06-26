@@ -19,7 +19,7 @@ from leadlag.diagnostics.sprint1_experiments import generate_targets_panel
 
 def test_config_loading():
     """Verify that configs/sprint1_aum1m_tachibana.yaml can be loaded with required keys."""
-    config_path = ROOT / "configs" / "sprint1_aum1m_tachibana.yaml"
+    config_path = ROOT / "configs" / "archive" / "sprint1_aum1m_tachibana.yaml"
     assert config_path.exists()
     
     with open(config_path) as f:
