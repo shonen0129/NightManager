@@ -185,10 +185,17 @@ def run_decision(
 
     # Build broker API client (if enabled)
     api_client: BrokerClient | None = None
+    current_positions: dict[str, int] | None = None
     if api_enable:
         api_client = build_api_client(api_url, api_token, api_dry_run)
         if use_wallet_capital:
             max_capital = resolve_wallet_capital(api_client)
+        # Fetch existing positions for delta-based order submission
+        try:
+            from leadlag.execution.helpers import fetch_current_positions
+            current_positions = fetch_current_positions(api_client)
+        except Exception as e:
+            logger.warning("Failed to fetch current positions: %s. Will submit full target.", e)
 
     t_trade = (
         pd.to_datetime(trade_date).normalize()
@@ -302,6 +309,7 @@ def run_decision(
         output_dir=output_dir,
         api_client=api_client,
         text_output=text_output,
+        current_positions=current_positions,
     )
 
     return out_path

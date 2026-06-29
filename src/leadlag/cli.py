@@ -240,6 +240,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             from leadlag.execution.helpers import (
                 build_api_client,
                 build_output_dir,
+                fetch_current_positions,
                 resolve_wallet_capital,
             )
 
@@ -299,6 +300,13 @@ def main(argv: Sequence[str] | None = None) -> int:
                 if args.capital_from_wallet:
                     max_capital = resolve_wallet_capital(api_client)
 
+                # Fetch existing positions for delta-based order submission
+                current_positions = None
+                try:
+                    current_positions = fetch_current_positions(api_client)
+                except Exception as e:
+                    logger.warning("Failed to fetch current positions: %s. Will submit full target.", e)
+
                 result_path = run_decision_fast(
                     config=config.strategy,
                     cache_path=cache_path,
@@ -313,6 +321,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     api_client=api_client,
                     api_dry_run=args.api_dry_run,
                     text_output=args.text_output,
+                    current_positions=current_positions,
                 )
                 logger.info("Fast decision completed. Output: %s", result_path)
 

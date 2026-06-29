@@ -97,10 +97,26 @@ class TachibanaBrokerClient(BrokerClient):
         res = self._client.get_wallet()
         cash = float(res.get("sGenbutuKabuKaituke", 0.0))
         margin = float(res.get("sSinyouSinkidate", 0.0))
+
+        # Fetch margin detail for 受入保証金 (deposited margin = equity base)
+        ukeire_hosyoukin = None
+        hosyoukin_yoryoku = None
+        hosyoukin_ritu = None
+        try:
+            detail = self._client.get_margin_detail(hituke_index=0)
+            ukeire_hosyoukin = float(detail.get("sUkeireHosyoukin", 0.0))
+            hosyoukin_yoryoku = float(detail.get("sHosyoukinYoryoku", 0.0))
+            hosyoukin_ritu = float(detail.get("sHosyoukinRitu", 0.0))
+        except Exception as e:
+            logger.warning("Failed to fetch margin detail: %s", e)
+
         return WalletInfo(
             cash_available=cash,
             margin_available=margin,
             extra={
+                "ukeire_hosyoukin": ukeire_hosyoukin,
+                "hosyoukin_yoryoku": hosyoukin_yoryoku,
+                "hosyoukin_ritu": hosyoukin_ritu,
                 "sHosyouKinritu": res.get("sHosyouKinritu"),
                 "sOisyouHasseiFlg": res.get("sOisyouHasseiFlg"),
                 "sTatekaekinHasseiFlg": res.get("sTatekaekinHasseiFlg"),

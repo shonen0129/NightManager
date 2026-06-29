@@ -30,12 +30,16 @@ def close_all_positions(
     margin_trade_type: int = 3,
     account_type: int = 4,
     close_position_order: int = 0,
+    overnight_alpha_long: float = 0.0,
+    overnight_alpha_short: float = 0.0,
 ) -> dict:
-    """Close all open margin positions by submitting opposite-side orders.
+    """Close open margin positions at 引け, respecting overnight holding ratios.
 
-    1. Fetches open positions from the broker (Position dataclass list)
-    2. For each position, submits an opposite-side close order
-    3. Uses 信用返済 (is_close=True) for proper position closing
+    For each position, only the ``(1 - alpha)`` fraction is closed at 引け.
+    The remaining ``alpha`` fraction is held overnight and rebalanced the next morning.
+
+    - Long positions: close ``(1 - overnight_alpha_long)`` fraction
+    - Short positions: close ``(1 - overnight_alpha_short)`` fraction
 
     Args:
         api_client: BrokerClient instance
@@ -44,11 +48,16 @@ def close_all_positions(
         margin_trade_type: 1=制度信用, 2=一般信用(長期), 3=一般信用(デイトレ)
         account_type: 2=一般口座, 4=特定口座, 12=法人口座
         close_position_order: Close priority (0-7) for credit repayment
+        overnight_alpha_long: Fraction of long positions to hold overnight (0=close all, 1=hold all)
+        overnight_alpha_short: Fraction of short positions to hold overnight (0=close all, 1=hold all)
 
     Returns:
         Dict with close order summary
     """
-    logger.info("=== Position Close (引け時反対売買) ===")
+    logger.info(
+        "=== Position Close (引け時反対売買) — alpha_long=%.2f, alpha_short=%.2f ===",
+        overnight_alpha_long, overnight_alpha_short,
+    )
 
     try:
         positions = api_client.get_positions()
@@ -74,11 +83,39 @@ def close_all_positions(
         }
 
     # Build close-order metadata and OrderRequest list
+    # Apply overnight holding ratios: only close (1 - alpha) fraction at 引け
     close_order_meta = []
     close_order_requests: list[OrderRequest] = []
+    held_overnight_meta = []
     for pos in positions:
         if pos.quantity <= 0:
             continue
+
+        # Determine alpha based on position side
+        alpha = overnight_alpha_long if pos.side == "BUY" else overnight_alpha_short
+        close_fraction = 1.0 - alpha
+        close_qty = int(pos.quantity * close_fraction)
+        hold_qty = pos.quantity - close_qty
+
+        if hold_qty > 0:
+            held_overnight_meta.append({
+                "ticker": pos.ticker,
+                "side": pos.side,
+                "hold_quantity": hold_qty,
+                "alpha": alpha,
+            })
+            logger.info(
+                "  Overnight hold: %s %s x%d (alpha=%.2f, held=%.0f%%)",
+                pos.ticker, pos.side, hold_qty, alpha, alpha * 100,
+            )
+
+        if close_qty <= 0:
+            logger.info(
+                "  Skipping close for %s %s: close_qty=0 (alpha=%.2f)",
+                pos.ticker, pos.side, alpha,
+            )
+            continue
+
         close_side_str = "SELL" if pos.side == "BUY" else "BUY"
         close_side = OrderSide.SELL if pos.side == "BUY" else OrderSide.BUY
         close_order_meta.append(
@@ -86,7 +123,7 @@ def close_all_positions(
                 "ticker": pos.ticker,
                 "exchange": pos.exchange or 27,
                 "side": close_side_str,
-                "quantity": pos.quantity,
+                "quantity": close_qty,
                 "margin_trade_type": pos.margin_trade_type or margin_trade_type,
                 "account_type": pos.account_type or account_type,
                 "order_type": "CLO",
@@ -98,16 +135,18 @@ def close_all_positions(
             OrderRequest(
                 ticker=pos.ticker,
                 side=close_side,
-                quantity=pos.quantity,
+                quantity=close_qty,
                 order_type=OrderType.CLOSE,
             )
         )
         logger.info(
-            "  Position to close: %s %s x%d → %s (引成（後場）)",
+            "  Position to close: %s %s x%d/%d → %s (引成（後場）, close=%.0f%%)",
             pos.ticker,
             pos.side,
+            close_qty,
             pos.quantity,
             close_side_str,
+            close_fraction * 100,
         )
 
     summary = {
@@ -115,6 +154,9 @@ def close_all_positions(
         "dry_run": dry_run,
         "positions_found": len(positions),
         "close_orders_count": len(close_order_requests),
+        "overnight_alpha_long": overnight_alpha_long,
+        "overnight_alpha_short": overnight_alpha_short,
+        "held_overnight": held_overnight_meta,
         "close_results": [],
     }
 
@@ -195,6 +237,15 @@ def wait_and_auto_close(
         close_position_order: Close priority (0-7) for credit repayment
     """
     config = load_config_from_yaml()
+    alpha_long = config.strategy.overnight_alpha_long
+    alpha_short = config.strategy.overnight_alpha_short
+    if config.broker_provider == "tachibana":
+        margin_trade_type = config.tachibana.margin_trade_type
+        account_type = config.tachibana.account_type
+    else:
+        margin_trade_type = config.kabu.margin_trade_type
+        account_type = config.kabu.account_type
+
     hour, minute = map(int, auto_close_time.split(":"))
     now = datetime.now()
     target = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
@@ -208,9 +259,11 @@ def wait_and_auto_close(
             api_client=api_client,
             output_dir=output_dir,
             dry_run=dry_run,
-            margin_trade_type=config.kabu.margin_trade_type,
-            account_type=config.kabu.account_type,
+            margin_trade_type=margin_trade_type,
+            account_type=account_type,
             close_position_order=close_position_order,
+            overnight_alpha_long=alpha_long,
+            overnight_alpha_short=alpha_short,
         )
         return
 
@@ -241,9 +294,11 @@ def wait_and_auto_close(
         api_client=api_client,
         output_dir=output_dir,
         dry_run=dry_run,
-        margin_trade_type=config.kabu.margin_trade_type,
-        account_type=config.kabu.account_type,
+        margin_trade_type=margin_trade_type,
+        account_type=account_type,
         close_position_order=close_position_order,
+        overnight_alpha_long=alpha_long,
+        overnight_alpha_short=alpha_short,
     )
     logger.info("=== AUTO-CLOSE COMPLETED ===")
 
@@ -267,13 +322,21 @@ def run_close_positions_mode(
     try:
         api_client = build_api_client(api_url, api_token, api_dry_run)
         config = load_config_from_yaml()
+        if config.broker_provider == "tachibana":
+            margin_trade_type = config.tachibana.margin_trade_type
+            account_type = config.tachibana.account_type
+        else:
+            margin_trade_type = config.kabu.margin_trade_type
+            account_type = config.kabu.account_type
         close_summary = close_all_positions(
             api_client=api_client,
             output_dir=output_dir,
             dry_run=api_dry_run,
-            margin_trade_type=config.kabu.margin_trade_type,
-            account_type=config.kabu.account_type,
+            margin_trade_type=margin_trade_type,
+            account_type=account_type,
             close_position_order=close_position_order,
+            overnight_alpha_long=config.strategy.overnight_alpha_long,
+            overnight_alpha_short=config.strategy.overnight_alpha_short,
         )
         logger.info(
             "Close-positions completed. Positions closed: %d",

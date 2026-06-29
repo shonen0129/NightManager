@@ -77,13 +77,26 @@ def build_api_client(
     Delegates to ``broker.factory.create_broker_from_args``.
     """
     app_cfg = load_config_from_yaml()
-    final_api_url = api_url if api_url else app_cfg.kabu.api_url
-    final_api_token = api_token if api_token else app_cfg.kabu.api_token
-    request_timeout = app_cfg.kabu.request_timeout
+    provider = app_cfg.broker_provider
 
-    api_password = app_cfg.kabu.api_password or os.environ.get("KABU_API_PASSWORD", "")
-    margin_trade_type = app_cfg.kabu.margin_trade_type
-    account_type = app_cfg.kabu.account_type
+    if provider == "tachibana" and not api_dry_run:
+        tachi = app_cfg.tachibana
+        final_api_url = api_url if api_url else tachi.api_url
+        final_api_token = api_token if api_token else tachi.auth_id
+        api_password = tachi.second_password
+        margin_trade_type = tachi.margin_trade_type
+        account_type = tachi.account_type
+        request_timeout = tachi.request_timeout
+        extra = {"private_key_path": tachi.private_key_path}
+    else:
+        kabu = app_cfg.kabu
+        final_api_url = api_url if api_url else kabu.api_url
+        final_api_token = api_token if api_token else kabu.api_token
+        api_password = kabu.api_password or os.environ.get("KABU_API_PASSWORD", "")
+        margin_trade_type = kabu.margin_trade_type
+        account_type = kabu.account_type
+        request_timeout = kabu.request_timeout
+        extra = {}
 
     client = create_broker_from_args(
         api_url=final_api_url,
@@ -93,15 +106,17 @@ def build_api_client(
         margin_trade_type=margin_trade_type,
         account_type=account_type,
         request_timeout=request_timeout,
+        extra=extra,
     )
 
-    logger.info("[API] Checking API connectivity...")
+    logger.info("[API] Checking API connectivity (provider=%s)...", provider)
     if not client.health_check():
         if api_dry_run:
             logger.warning("[API] Health check failed, continuing in dry-run mode...")
         else:
             raise RuntimeError(
-                "Failed to connect to kabuステーション API. Verify API URL and token are correct."
+                f"Failed to connect to broker API (provider={provider}). "
+                "Verify API URL, token, and credentials are correct."
             )
     else:
         logger.info("[API] Connection successful")
@@ -109,8 +124,37 @@ def build_api_client(
     return client
 
 
+def fetch_current_positions(api_client: BrokerClient) -> dict[str, int]:
+    """Fetch current open positions and return as a signed-quantity dict.
+
+    Returns:
+        Dict mapping ticker → signed quantity (positive=long, negative=short).
+    """
+    positions = api_client.get_positions()
+    current: dict[str, int] = {}
+    for pos in positions:
+        if pos.quantity <= 0:
+            continue
+        signed_qty = pos.quantity if pos.side == "BUY" else -pos.quantity
+        current[pos.ticker] = current.get(pos.ticker, 0) + signed_qty
+    logger.info("[POSITIONS] Current holdings: %s", current or "(none)")
+    return current
+
+
 def resolve_wallet_capital(api_client: BrokerClient) -> float:
     wallet = api_client.get_wallet()
+    # Prefer 受入保証金 (deposited margin = equity base) for margin trading.
+    # This value is stable regardless of overnight positions, unlike
+    # cash_available (現物買付可能額) or margin_available (信用新規建可能額)
+    # which are reduced by existing positions.
+    ukeire = wallet.extra.get("ukeire_hosyoukin")
+    if ukeire is not None and ukeire > 0:
+        logger.info(
+            "[CAPITAL] Using 受入保証金 (deposited margin) for sizing: %s JPY",
+            f"{ukeire:,.0f}",
+        )
+        return float(ukeire)
+    # Fallback for brokers without 受入保証金 (e.g. kabu)
     cash_available = float(wallet.cash_available)
     logger.info(
         "[CAPITAL] Using cash wallet balance for sizing: %s JPY",
@@ -270,8 +314,13 @@ def submit_orders_via_api(
     decision_df: pd.DataFrame,
     api_client: BrokerClient,
     output_dir: str,
+    current_positions: dict[str, int] | None = None,
 ) -> dict:
-    """Submit trade orders to the broker API.
+    """Submit trade orders to the broker API, accounting for existing positions.
+
+    When ``current_positions`` is provided, only the delta between target and
+    current quantities is submitted.  This avoids re-ordering the full target
+    when positions are already held from overnight carry-over.
 
     The dry-run vs live distinction is handled entirely by the BrokerClient
     implementation: ``DryRunBrokerClient`` simulates orders without sending
@@ -279,40 +328,75 @@ def submit_orders_via_api(
     does not need to know which variant is being used.
     """
     is_dry_run = type(api_client).__name__ == "DryRunBrokerClient"
+    current = current_positions or {}
 
-    active_orders = decision_df[decision_df["action"].isin(["BUY", "SELL"])].copy()
-    qty = pd.to_numeric(active_orders["quantity"], errors="coerce").fillna(0)
-    valid_orders = active_orders[qty > 0].copy()
+    # Compute delta quantities (target - current), then determine action
+    delta_orders = []
+    for _, row in decision_df.iterrows():
+        ticker = str(row["ticker"])
+        target_qty = int(row["quantity"])
+        # Target side: BUY → positive, SELL → negative
+        if row["action"] == "BUY":
+            target_signed = target_qty
+        elif row["action"] == "SELL":
+            target_signed = -target_qty
+        else:
+            target_signed = 0
 
-    skipped_count = len(active_orders) - len(valid_orders)
-    if skipped_count > 0:
-        logger.info("Skipping orders with quantity<=0: %d", skipped_count)
+        current_signed = current.get(ticker, 0)
+        delta = target_signed - current_signed
 
-    buy_count = int((valid_orders["action"] == "BUY").sum())
-    sell_count = int((valid_orders["action"] == "SELL").sum())
+        if delta > 0:
+            delta_orders.append((ticker, OrderSide.BUY, delta))
+        elif delta < 0:
+            delta_orders.append((ticker, OrderSide.SELL, abs(delta)))
+        # delta == 0: no order needed
+
+    # Log position reconciliation
+    if current:
+        logger.info("[DELTA] Reconciling against %d existing position(s):", len(current))
+        for _, row in decision_df.iterrows():
+            ticker = str(row["ticker"])
+            target_qty = int(row["quantity"])
+            cur = current.get(ticker, 0)
+            if row["action"] == "BUY":
+                target_signed = target_qty
+            elif row["action"] == "SELL":
+                target_signed = -target_qty
+            else:
+                target_signed = 0
+            delta = target_signed - cur
+            if delta != 0:
+                logger.info("  %s: target=%d, current=%d, delta=%d", ticker, target_signed, cur, delta)
+    else:
+        logger.info("[DELTA] No existing positions; submitting full target quantities")
+
+    buy_count = sum(1 for _, side, _ in delta_orders if side == OrderSide.BUY)
+    sell_count = sum(1 for _, side, _ in delta_orders if side == OrderSide.SELL)
 
     summary = {
         "timestamp": datetime.now().isoformat(timespec="seconds"),
         "dry_run": is_dry_run,
         "buy_orders_count": buy_count,
         "sell_orders_count": sell_count,
+        "current_positions": current,
         "buy_results": [],
         "sell_results": [],
     }
 
     order_requests = [
         OrderRequest(
-            ticker=str(row["ticker"]),
-            side=OrderSide(str(row["action"])),
-            quantity=int(row["quantity"]),
+            ticker=ticker,
+            side=side,
+            quantity=qty,
             order_type=OrderType.MARKET,
         )
-        for _, row in valid_orders.iterrows()
+        for ticker, side, qty in delta_orders
     ]
     expected_orders_count = len(order_requests)
     summary["expected_orders_count"] = expected_orders_count
 
-    logger.info("[ORDER SUBMISSION] Sending %d orders via broker API...", len(order_requests))
+    logger.info("[ORDER SUBMISSION] Sending %d delta orders via broker API...", len(order_requests))
     if order_requests:
         results = api_client.submit_orders_batch(order_requests, delay_ms=250)
         for result in results:
@@ -408,6 +492,7 @@ def execute_post_decision_flow(
     output_dir: str,
     api_client: BrokerClient | None = None,
     text_output: bool = False,
+    current_positions: dict[str, int] | None = None,
 ) -> str:
     """Execute post-decision flow (gross adjustment, risk check, capital allocation, order submission, and output writing).
 
@@ -510,6 +595,7 @@ def execute_post_decision_flow(
             decision_df=decision_df,
             api_client=api_client,
             output_dir=output_dir,
+            current_positions=current_positions,
         )
 
     return out_path

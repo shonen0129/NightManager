@@ -68,6 +68,7 @@ def create_broker_from_args(
     margin_trade_type: int = 3,
     account_type: int = 4,
     request_timeout: int = 10,
+    extra: dict | None = None,
 ) -> BrokerClient:
     """Convenience factory matching production.py's patterns.
 
@@ -79,6 +80,7 @@ def create_broker_from_args(
         margin_trade_type: Margin trade type
         account_type: Account type
         request_timeout: Request timeout in seconds
+        extra: Provider-specific additional settings (e.g. private_key_path for Tachibana)
 
     Returns:
         BrokerClient ready for use
@@ -98,5 +100,6 @@ def create_broker_from_args(
         request_timeout=request_timeout,
         margin_trade_type=margin_trade_type,
         account_type=account_type,
+        extra=extra or {},
     )
     return create_broker(config)

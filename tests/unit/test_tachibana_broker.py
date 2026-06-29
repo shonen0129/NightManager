@@ -135,14 +135,23 @@ class TestTachibanaClient:
 class TestTachibanaBrokerClient:
     @patch("requests.Session.get")
     def test_get_wallet_success(self, mock_get, broker_config):
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {
+        # Mock two API calls: CLMZanKaiSummary then CLMZanKaiSinyouSinkidateSyousai
+        summary_response = MagicMock()
+        summary_response.status_code = 200
+        summary_response.json.return_value = {
             "sResultCode": "0",
             "sGenbutuKabuKaituke": "123456",
             "sSinyouSinkidate": "987654",
         }
-        mock_get.return_value = mock_response
+        margin_response = MagicMock()
+        margin_response.status_code = 200
+        margin_response.json.return_value = {
+            "sResultCode": "0",
+            "sUkeireHosyoukin": "8631777",
+            "sHosyoukinYoryoku": "8387119",
+            "sHosyoukinRitu": "33",
+        }
+        mock_get.side_effect = [summary_response, margin_response]
 
         client = create_broker(broker_config)
         assert isinstance(client, TachibanaBrokerClient)
@@ -154,6 +163,9 @@ class TestTachibanaBrokerClient:
         assert isinstance(wallet, WalletInfo)
         assert wallet.cash_available == 123456.0
         assert wallet.margin_available == 987654.0
+        assert wallet.extra["ukeire_hosyoukin"] == 8631777.0
+        assert wallet.extra["hosyoukin_yoryoku"] == 8387119.0
+        assert wallet.extra["hosyoukin_ritu"] == 33.0
 
     @patch("requests.Session.get")
     def test_fetch_open_prices(self, mock_get, broker_config):

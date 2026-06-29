@@ -537,6 +537,7 @@ def run_decision_fast(
     api_client: BrokerClient | None = None,
     api_dry_run: bool = False,
     text_output: bool = False,
+    current_positions: dict[str, int] | None = None,
 ) -> str:
     """Generate a trade decision using the precomputed strategy cache."""
     logger.info("[FAST MODE] Loading precomputed strategy cache...")
@@ -580,6 +581,7 @@ def run_decision_fast(
         output_dir=output_dir,
         api_client=api_client,
         text_output=text_output,
+        current_positions=current_positions,
     )
 
     return out_path

@@ -275,6 +275,18 @@ class TachibanaClient:
         payload = {"sCLMID": "CLMZanKaiSummary"}
         return self._request("sUrlRequest", payload)
 
+    def get_margin_detail(self, hituke_index: int = 0) -> dict[str, Any]:
+        """Fetch margin detail (受入保証金, 保証金余力, etc.).
+
+        Args:
+            hituke_index: 0=当日, 1=翌営業日, ... 5=第6営業日
+        """
+        payload = {
+            "sCLMID": "CLMZanKaiSinyouSinkidateSyousai",
+            "sHitukeIndex": str(hituke_index),
+        }
+        return self._request("sUrlRequest", payload)
+
     def get_positions(self, ticker: str | None = None) -> list[dict[str, Any]]:
         """Fetch open credit positions."""
         payload = {

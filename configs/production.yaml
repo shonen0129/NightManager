@@ -62,7 +62,7 @@ portfolio:
   short_count: 5
 
 risk:
-  max_gross_exposure: 2.0       # RuleD 乗数適用後の上限（上限チェックに使用）
+  max_gross_exposure: 3.0       # RuleD 乗数適用後の上限（side_leverage=1.5 × gross_abs_sum=2.0 = 3.0）
   max_net_exposure: 0.05
   var_confidence: 0.99
   var_window: 250
@@ -78,7 +78,7 @@ costs:
   slippage_bps_per_side: 5
   cost_bps_per_gross: 10.0      # 動的グロス計算の ex-ante コスト（bps/unit gross）
   # --- Overnight holding (position carry-over) ---
-  overnight_alpha_long: 0.75     # ロング持ち越し比率 (0=日次全額決済, 1=全額持ち越し)
+  overnight_alpha_long: 1.0      # ロング持ち越し比率 (0=日次全額決済, 1=全額持ち越し)
   overnight_alpha_short: 0.5     # ショート持ち越し比率 (0=日次全額決済, 1=全額持ち越し)
   buy_interest_annual: 0.025    # ロング資金調達コスト (年率 2.5%)
   borrow_fee_annual: 0.0115     # 空売り貸株コスト (年率 1.15%)
