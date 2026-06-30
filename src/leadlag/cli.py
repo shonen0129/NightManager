@@ -198,6 +198,23 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     args = parser.parse_args(argv)
 
+    # Skip execution on non-trading days (weekends & Japanese holidays)
+    if args.command in ("decision", "close"):
+        from leadlag.core.market_calendar import is_market_closed
+
+        today = pd.Timestamp.now().date()
+        if is_market_closed(today):
+            holiday_name = None
+            try:
+                from leadlag.core.market_calendar import get_holiday_name
+
+                holiday_name = get_holiday_name(today)
+            except Exception:
+                pass
+            label = holiday_name or "non-trading day"
+            logger.info("Market closed today (%s: %s). Skipping %s.", today, label, args.command)
+            return 0
+
     if args.command == "decision":
         if args.capital_from_wallet and not args.api_enable:
             raise ValueError("--capital-from-wallet requires --api-enable")
