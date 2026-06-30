@@ -78,7 +78,7 @@ costs:
   slippage_bps_per_side: 5
   cost_bps_per_gross: 10.0      # 動的グロス計算の ex-ante コスト（bps/unit gross）
   # --- Overnight holding (position carry-over) ---
-  overnight_alpha_long: 1.0      # ロング持ち越し比率 (0=日次全額決済, 1=全額持ち越し)
+  overnight_alpha_long: 0.75     # ロング持ち越し比率 (0=日次全額決済, 1=全額持ち越し)
   overnight_alpha_short: 0.5     # ショート持ち越し比率 (0=日次全額決済, 1=全額持ち越し)
   buy_interest_annual: 0.025    # ロング資金調達コスト (年率 2.5%)
   borrow_fee_annual: 0.0115     # 空売り貸株コスト (年率 1.15%)
@@ -111,6 +111,24 @@ residualization:
   method: rolling_ols
   lookahead_safe: true
   topix_beta_coef: 0.6  # バックテスト検証により0.6が1.20より優れたパフォーマンスを示す
+
+# --- Phase 2A: マルチホライズン信号ブレンド ---
+multi_horizon_blend:
+  enabled: true
+  horizons: [1, 3, 5]             # ブレンド対象ホライズン（日）
+  weights: [0.8, 0.1, 0.1]        # 各ホライズンのブレンド重み
+  # h>1 の累積リターンに対応する gap matrix は別途計算・保存される
+  # ファイルが存在しない場合は h1 のみでフォールバック（graceful degradation）
+  mu_file_pattern_h: "matrices/mu_gap_h{h}_{date}.npy"     # h>1 用パターン
+  omega_file_pattern_h: "matrices/omega_gap_h{h}_{date}.npy"
+
+# --- Phase 2D: クロスセクショナル・ランク反転オーバーレイ ---
+cs_feature_overlay:
+  enabled: true
+  feature: rank_reversal
+  weight: 0.05                    # ブレンド重み（z(base) + weight * z(rank_reversal)）
+  # ランク反転シグナルは gap distribution 計算プロセスで事前計算・保存される
+  rank_reversal_file_pattern: "matrices/rank_reversal_{date}.npy"
 
 # --- v2: フォールバック階層 ---
 # 第1フォールバック: 旧 Residual-BLPX v1（gap data 欠損時）

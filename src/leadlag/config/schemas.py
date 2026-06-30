@@ -192,3 +192,12 @@ class ProductionV2RunConfig(BaseModel):
     # --- Fallback behavior ---
     fallback_on_gap_data_missing: bool = Field(default=True, description="gap data 欠損時に v1 フォールバック")
     fallback_on_audit_failure: bool = Field(default=True, description="数値監査失敗時に v1 フォールバック")
+
+    # --- Phase 2A: Multi-Horizon Signal Blending ---
+    mh_blend_enabled: bool = Field(default=False, description="マルチホライズンブレンド有効フラグ")
+    mh_horizons: tuple[int, ...] = Field(default=(1, 3, 5), description="ブレンド対象ホライズン（日）")
+    mh_weights: tuple[float, ...] = Field(default=(0.8, 0.1, 0.1), description="各ホライズンのブレンド重み")
+
+    # --- Phase 2D: Cross-Sectional Rank Reversal Overlay ---
+    cs_overlay_enabled: bool = Field(default=False, description="CS特徴量オーバーレイ有効フラグ")
+    cs_overlay_weight: float = Field(default=0.05, ge=0.0, description="ランク反転オーバーレイ重み")

@@ -37,6 +37,7 @@ from leadlag.compliance.v2_auditor import run_leakage_audit, run_numerical_audit
 from leadlag.config.schemas import ProductionV2RunConfig
 from leadlag.core.portfolio import get_rolling_pit_bin, solve_baseline_style
 from leadlag.data.tickers import JP_TICKERS
+from leadlag.models.signal_enhancement import apply_multi_horizon_blend, apply_rank_reversal_overlay
 
 logger = logging.getLogger(__name__)
 
@@ -84,6 +85,11 @@ def parse_run_config(cfg: dict) -> ProductionV2RunConfig:
     fallback_cfg = cfg.get("fallback", {})
     multipliers = gross_scaling.get("multipliers", {})
 
+    # Phase 2A: Multi-horizon blend config
+    mh_cfg = cfg.get("multi_horizon_blend", {})
+    # Phase 2D: CS feature overlay config
+    cs_cfg = cfg.get("cs_feature_overlay", {})
+
     return ProductionV2RunConfig(
         long_count=portfolio.get("long_count", 5),
         short_count=portfolio.get("short_count", 5),
@@ -98,6 +104,11 @@ def parse_run_config(cfg: dict) -> ProductionV2RunConfig:
         fallback_multiplier=gross_scaling.get("fallback_multiplier", 1.00),
         fallback_on_gap_data_missing=fallback_cfg.get("fallback_on_gap_data_missing", True),
         fallback_on_audit_failure=fallback_cfg.get("fallback_on_audit_failure", True),
+        mh_blend_enabled=mh_cfg.get("enabled", False),
+        mh_horizons=tuple(mh_cfg.get("horizons", [1, 3, 5])),
+        mh_weights=tuple(mh_cfg.get("weights", [0.8, 0.1, 0.1])),
+        cs_overlay_enabled=cs_cfg.get("enabled", False),
+        cs_overlay_weight=cs_cfg.get("weight", 0.05),
     )
 
 
@@ -450,6 +461,47 @@ def generate_v2_production_portfolio(
     # 6. Compute mu_over_sigma scores
     sigma_gap = np.sqrt(np.maximum(np.diag(Omega_gap), 1e-6))
     scores = mu_gap / sigma_gap
+
+    # 6a. Phase 2A: Multi-horizon signal blending
+    if run_cfg.mh_blend_enabled and len(run_cfg.mh_horizons) > 1:
+        mh_cfg = cfg.get("multi_horizon_blend", {})
+        mu_pattern = mh_cfg.get(
+            "mu_file_pattern_h", "matrices/mu_gap_h{h}_{date}.npy"
+        )
+        omega_pattern = mh_cfg.get(
+            "omega_file_pattern_h", "matrices/omega_gap_h{h}_{date}.npy"
+        )
+        scores, mh_alerts = apply_multi_horizon_blend(
+            scores_h1=scores,
+            gap_input_dir=gap_input_dir,
+            date_str=date_str,
+            horizons=run_cfg.mh_horizons,
+            weights=run_cfg.mh_weights,
+            mu_pattern=mu_pattern,
+            omega_pattern=omega_pattern,
+        )
+        alerts.extend(mh_alerts)
+        if not any("not found" in a for a in mh_alerts):
+            logger.info("[%s] Multi-horizon blend applied: horizons=%s, weights=%s",
+                        date_str, run_cfg.mh_horizons, run_cfg.mh_weights)
+
+    # 6b. Phase 2D: Cross-sectional rank reversal overlay
+    if run_cfg.cs_overlay_enabled:
+        cs_cfg = cfg.get("cs_feature_overlay", {})
+        rr_pattern = cs_cfg.get(
+            "rank_reversal_file_pattern", "matrices/rank_reversal_{date}.npy"
+        )
+        scores, cs_alerts = apply_rank_reversal_overlay(
+            scores=scores,
+            gap_input_dir=gap_input_dir,
+            date_str=date_str,
+            weight=run_cfg.cs_overlay_weight,
+            file_pattern=rr_pattern,
+        )
+        alerts.extend(cs_alerts)
+        if not any("not found" in a or "None" in a for a in cs_alerts):
+            logger.info("[%s] Rank reversal overlay applied: weight=%.2f",
+                        date_str, run_cfg.cs_overlay_weight)
 
     # 7. Select longs / shorts by score using run_cfg counts
     sorted_idx = np.argsort(scores)

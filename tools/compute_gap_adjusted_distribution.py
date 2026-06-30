@@ -65,6 +65,9 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument("--expanding-min-window", type=int, default=252, help="Expanding min window for PIT binning")
     parser.add_argument("--save-daily-matrices", type=str, default="true", help="Save daily matrices (true/false)")
     parser.add_argument("--compare-pre-gap", type=str, default="true", help="Compare with pre-gap metrics (true/false)")
+    parser.add_argument("--save-multi-horizon", type=str, default="true", help="Save h=3/h=5 gap matrices for multi-horizon blend (true/false)")
+    parser.add_argument("--save-rank-reversal", type=str, default="true", help="Save daily rank reversal signal for CS overlay (true/false)")
+    parser.add_argument("--mh-horizons", type=str, default="3,5", help="Comma-separated multi-horizon days to compute")
     parser.add_argument("--self-test", action="store_true", help="Run self-tests and exit")
     return parser.parse_args()
 
@@ -122,6 +125,71 @@ def compute_pit_bins(series: pd.Series, bin_method: str, rolling_window: int = N
         bins.iloc[i] = labels[bin_idx]
         
     return bins
+
+
+def compute_cumulative_returns(df_exec: pd.DataFrame, horizon: int) -> pd.DataFrame:
+    """Create a modified df_exec with cumulative h-day returns for US and JP.
+
+    Used for multi-horizon signal blending (Phase 2A).
+    Rolling sum over *horizon* days for all return columns.
+    """
+    from leadlag.data.tickers import US_TICKERS as _US_TICKERS
+    df_mod = df_exec.copy()
+
+    us_cols = [f"us_cc_{tk}" for tk in _US_TICKERS]
+    jp_oc_cols = [f"jp_oc_{tk}" for tk in JP_TICKERS]
+    jp_gap_cols = [f"jp_gap_{tk}" for tk in JP_TICKERS]
+
+    for col in us_cols:
+        if col in df_exec.columns:
+            df_mod[col] = df_exec[col].rolling(horizon).sum()
+
+    for col in jp_oc_cols:
+        if col in df_exec.columns:
+            df_mod[col] = df_exec[col].rolling(horizon).sum()
+
+    for col in jp_gap_cols:
+        if col in df_exec.columns:
+            df_mod[col] = df_exec[col].rolling(horizon).sum()
+
+    for col in ["topix_night_return", "topix_oc_return", "topix_cc_trade"]:
+        if col in df_exec.columns:
+            df_mod[col] = df_exec[col].rolling(horizon).sum()
+
+    return df_mod
+
+
+def compute_rank_reversal_for_date(df_exec: pd.DataFrame, i: int) -> np.ndarray:
+    """Compute cross-sectional rank reversal signal for date index *i*.
+
+    Rank reversal = -(rank(t-1) - rank(t-2)) for JP open-close returns.
+    Shifted by 1 day to avoid lookahead. Returns NaN-filled array for
+    indices where the signal cannot be computed (i < 2).
+
+    Args:
+        df_exec: Full execution DataFrame with jp_oc_{ticker} columns.
+        i: Current date index in df_exec.
+
+    Returns:
+        Array of shape (n_j,) with rank reversal values (negated rank change).
+    """
+    n_j = len(JP_TICKERS)
+    if i < 2:
+        return np.full(n_j, np.nan)
+
+    jp_oc_cols = [f"jp_oc_{tk}" for tk in JP_TICKERS]
+    df_oc = df_exec[jp_oc_cols].copy()
+    df_oc.columns = JP_TICKERS
+
+    # Shift by 1 day for lookahead safety
+    ranks = df_oc.shift(1).rank(axis=1)
+    rank_change = ranks.diff()
+
+    if i >= len(rank_change):
+        return np.full(n_j, np.nan)
+
+    vals = -rank_change.iloc[i].values.astype(float)
+    return vals
 
 
 def run_self_tests() -> int:
@@ -239,7 +307,34 @@ def main():
     jp_res_returns_p3 = inputs["jp_res_returns_p3"]
     c_full_p3 = inputs["c_full_p3"]
     v0_static = inputs["v0_static"]
-    
+
+    # --- Phase 2A: Multi-horizon model setup ---
+    save_mh = str_to_bool(args.save_multi_horizon)
+    save_rr = str_to_bool(args.save_rank_reversal)
+    mh_horizons = [int(h) for h in args.mh_horizons.split(",")] if save_mh else []
+
+    mh_models = {}   # {h: model_instance}
+    mh_inputs = {}   # {h: inputs_dict}
+
+    if save_mh and mh_horizons:
+        from leadlag.models.sector_relative_ensemble_blp_enhanced import (
+            _BLP_CORR_CACHE,
+            _RAW_PCA_RESIDUAL_PCA_CACHE,
+        )
+        for h in mh_horizons:
+            logger.info(f"Setting up multi-horizon model for h={h}...")
+            df_exec_h = compute_cumulative_returns(df_exec, h)
+            _BLP_CORR_CACHE.clear()
+            _RAW_PCA_RESIDUAL_PCA_CACHE.clear()
+            model_h = SectorRelativeEnsembleBLPEnhancedModel(cfg)
+            inputs_h = model_h._prepare_common_inputs(df_exec_h)
+            mh_models[h] = model_h
+            mh_inputs[h] = inputs_h
+            logger.info(f"  h={h} model ready (corr_window={model_h.corr_window})")
+
+    if save_rr:
+        logger.info("Rank reversal signal will be saved daily.")
+
     sim_dates = df_exec.index
     sim_dates_slice = sim_dates[sim_dates >= args.start]
     if args.end != "latest":
@@ -439,6 +534,67 @@ def main():
         if save_daily_m:
             np.save(out_dir / "matrices" / f"omega_gap_{dt_str}.npy", Omega_gap)
             np.save(out_dir / "matrices" / f"mu_gap_{dt_str}.npy", mu_gap)
+
+        # --- Phase 2A: Save multi-horizon gap matrices ---
+        if save_mh and mh_horizons:
+            for h in mh_horizons:
+                try:
+                    model_h = mh_models[h]
+                    inputs_h = mh_inputs[h]
+                    gap_h = inputs_h["jp_gap"]
+                    beta_h = inputs_h["jp_beta"]
+                    topix_night_h = inputs_h["topix_night"]
+                    jp_res_h = inputs_h["jp_res_returns_p3"]
+                    c_full_h = inputs_h["c_full_p3"]
+                    v0_h = inputs_h["v0_static"]
+
+                    gap_override_h = np.nan_to_num(gap_h[i], nan=0.0) if gap_h is not None else np.zeros(model_h.n_j)
+                    betas_t_h = np.asarray(beta_h[i], dtype=float) if beta_h is not None else np.zeros(model_h.n_j)
+                    topix_night_t_h = float(topix_night_h[i]) if topix_night_h is not None else 0.0
+
+                    res_h = model_h.compute_blp_signal(
+                        jp_res_h, i,
+                        gap_override=gap_override_h,
+                        betas_t=betas_t_h,
+                        topix_night_t=topix_night_t_h,
+                        rolling_std=None,
+                        v0_static=v0_h,
+                        c_full=c_full_h,
+                        is_residual=True,
+                        return_matrices=True,
+                    )
+
+                    z_hat_h = res_h["z_hat_j_t1"]
+                    sigma_Y_denorm_h = res_h["sigma_Y_denorm"]
+                    mu_Y_h = res_h["mu_Y"]
+
+                    if model_h.vol_adjusted_target:
+                        mu_raw_h = z_hat_h * sigma_Y_denorm_h
+                    else:
+                        mu_raw_h = mu_Y_h + res_h["sigma_Y"] * z_hat_h
+
+                    Omega_raw_h = np.diag(sigma_Y_denorm_h) @ Omega_struct @ np.diag(sigma_Y_denorm_h)
+
+                    # Gap adjustment for horizon h
+                    gap_syst_h = betas_t_h * topix_night_t_h
+                    gap_idio_h = gap_override_h - gap_syst_h
+                    gap_filt_h = c * gap_idio_h + (c - b) * gap_syst_h
+                    denom_h = np.maximum(1.0 + gap_filt_h, 0.1)
+                    D_gap_h = np.diag(1.0 / denom_h)
+                    mu_gap_h = (1.0 + mu_raw_h) / denom_h - 1.0
+                    Omega_gap_h = D_gap_h @ Omega_raw_h @ D_gap_h
+                    Omega_gap_h = 0.5 * (Omega_gap_h + Omega_gap_h.T)
+
+                    np.save(out_dir / "matrices" / f"mu_gap_h{h}_{dt_str}.npy", mu_gap_h)
+                    np.save(out_dir / "matrices" / f"omega_gap_h{h}_{dt_str}.npy", Omega_gap_h)
+                except Exception as e:
+                    logger.warning(f"Multi-horizon h={h} failed on {date_str}: {e}")
+
+        # --- Phase 2D: Save rank reversal signal ---
+        if save_rr:
+            rr_signal = compute_rank_reversal_for_date(df_exec, i)
+            if np.isfinite(rr_signal).any():
+                np.save(out_dir / "matrices" / f"rank_reversal_{dt_str}.npy", rr_signal)
             
         # Daily records
         omega_gap_daily_records.append({

@@ -1,0 +1,161 @@
+model:
+  name: production_raw_blpx_phase2
+  display_name: "Production Raw-BLPX Phase 2 (Multi-Horizon Blend + Rank Reversal)"
+  short_name: "Raw-BLPX-Phase2"
+  version: "production_raw_blpx_phase2_v1"
+
+signal_components:
+  raw_blpx:
+    enabled: true
+    weight: 0.8
+  raw_pca:
+    enabled: true
+    weight: 0.2
+  residual_pca:
+    enabled: false
+    weight: 0.0
+  residual_blpx:
+    enabled: false
+    weight: 0.0
+
+final_signal:
+  type: raw_blpx_pca_ensemble
+  formula: "0.8 * z(Raw-BLPX) + 0.2 * z(Raw-PCA)"
+
+# --- Phase 2A: Multi-Horizon Signal Blending ---
+multi_horizon_blend:
+  enabled: true
+  horizons: [1, 3, 5]
+  weights: [0.8, 0.1, 0.1]
+  description: >
+    Blend 1-day (80%), 3-day (10%), and 5-day (10%) cumulative return
+    BLPX signals. Each horizon uses cumulative multi-day returns as
+    alternative targets. Signals are cross-sectionally z-scored before blending.
+
+# --- Phase 2D: Cross-Sectional Rank Reversal ---
+cs_feature_overlay:
+  enabled: true
+  feature: rank_reversal
+  weight: 0.05
+  description: >
+    1-day cross-sectional rank reversal signal blended at 5% weight.
+    Computes the change in cross-sectional rank of JP open-close returns
+    (shifted by 1 day to avoid lookahead), negated to capture reversal.
+    z(blpx_mh) + 0.05 * z(rank_reversal)
+
+# --- v2 拡張: ランキング方式 ---
+ranking:
+  mode: mu_over_sigma
+  score_formula: "mu_gap / sigma_gap"
+  sigma_floor: 1.0e-6
+  fallback_to_base_signal: true
+
+# --- v2 拡張: 動的グロスエクスポージャー (RuleD) ---
+gross_scaling:
+  rule: RuleD
+  pit_rolling_window: 252
+  multipliers:
+    Low: 0.75
+    Medium: 1.00
+    High: 1.00
+  tertile_low_pct: 33.3333
+  tertile_high_pct: 66.6667
+  baseline_gross: 2.0
+  fallback_multiplier: 1.00
+
+# --- v2 拡張: gap 調整済み分布の参照先 ---
+gap_distribution:
+  dir: results/gap_adjusted_distribution/latest
+  mu_file_pattern: "matrices/mu_gap_{date}.npy"
+  omega_file_pattern: "matrices/omega_gap_{date}.npy"
+  diagnostics_file: "portfolio_gap_distribution_diagnostics.csv"
+
+portfolio:
+  long_short_frac: 0.3
+  n_assets: 17
+  weight_mode: signal
+  net_target: 0.0
+  long_count: 5
+  short_count: 5
+
+risk:
+  max_gross_exposure: 3.0
+  max_net_exposure: 0.05
+  var_confidence: 0.99
+  var_window: 250
+  var_warning: 0.02
+  var_stop: 0.03
+  es_warning: 0.025
+  es_stop: 0.04
+  daily_loss_warning: 0.015
+  daily_loss_stop: 0.025
+  monthly_loss_stop: 0.05
+
+costs:
+  slippage_bps_per_side: 5
+  cost_bps_per_gross: 10.0
+  overnight_alpha_long: 0.75
+  overnight_alpha_short: 0.5
+  buy_interest_annual: 0.025
+  borrow_fee_annual: 0.0115
+  reverse_fee_bps: 2.0
+
+blpx:
+  param_set: phase1d_optimized_raw_blpx_phase2
+  rho: 0.01
+  alpha_xx: 0.20
+  alpha_yx: 0.15
+  alpha_yy: 0.50
+  lambda_pca: 0.10
+  lambda_sector: 0.60
+  beta_conf: 0.25
+  winsor_sigma: 3.0
+  blp_window: 504
+  ewma_halflife: 120
+  sector_eta: 0.5
+  sector_gamma: 4.0
+  execution_target_cost_adjustment: none
+  target: raw
+  use_raw_target: true
+
+residualization:
+  enabled_for_p3: false
+  jp_market_proxy: TOPIX
+  beta_window: 60
+  beta_winsor_sigma: 3.0
+  beta_shrinkage: 0.05
+  method: rolling_ols
+  lookahead_safe: true
+  topix_beta_coef: 0.6
+
+# --- v2: フォールバック階層 ---
+fallback:
+  enabled: true
+  v1_weights_file: live/production_residual_blpx/v1_baseline_weights.csv
+  fallback_model: SRE
+  fallback_on_audit_failure: true
+  fallback_on_missing_data: true
+  fallback_on_invalid_confidence_variance: true
+  fallback_on_sector_prior_error: true
+  fallback_on_gap_data_missing: true
+
+audit:
+  enforce_signal_weighting: true
+  forbid_uniform_weighting: true
+  check_date_alignment: true
+  check_residualization_leakage: true
+  check_cost_consistency: true
+  check_weight_constraints: true
+  check_pit_binning_lookahead: true
+  check_gap_data_freshness: true
+
+output:
+  base_dir: results/production_raw_blpx_phase2
+  live_dir: live/production_raw_blpx_phase2
+  save_signals: true
+  save_weights: true
+  save_plots: true
+  run_audit: true
+  save_v1_baseline: true
+  save_pit_binning: true
+  save_scores: true
