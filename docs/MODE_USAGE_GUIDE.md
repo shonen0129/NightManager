@@ -23,10 +23,11 @@
 - 当日の TOPIX-17 寄付き価格を使って、即時に `BUY/SELL/HOLD` と数量を出力する。
 - `--api-enable` を付けると、注文送信まで実行できる（`--api-dry-run` で疑似送信可）。
 - 資金配分は信用前提のため、ロング・ショート各サイドで `capital × 1.5` まで利用可能（既定のグロス上限は 3.0）。
+- API有効時は既存ポジションを取得し、ターゲット株数との差分（delta）のみを発注する（持ち越しポジションの重複発注を防止）。
 
 ### 2.2 JP 寄付き価格の入力優先順位
 
-1. API 有効時: kabu API
+1. API 有効時: ブローカー API（立花証券 / kabu）
 2. `--google-opens` 指定時: Google Finance
 3. `--jp-opens-csv` 指定時: CSV
 4. 上記なし: エラー
@@ -120,7 +121,7 @@ Remaining capital: 1,563,800 JPY
 | `--auto-close-time HH:MM` | 自動クローズ時刻指定 | 既定 `14:50` |
 | `--close-position-order 0-7` | 返済順序（ClosePositionOrder）指定 | close-positions / auto-close で有効。未指定は `0` |
 | `--text-output` | 注文内容をテキスト表示 | 手動執行確認向け |
-| `--capital-from-wallet` | kabu API の残高を資金量として使用 | `--api-enable` が必要 |
+| `--capital-from-wallet` | ブローカー API の残高を資金量として使用（立花証券: 受入保証金を優先、kabu: 現物買付可能額） | `--api-enable` が必要 |
 | `--google-opens` | Google Finance から JP 寄付き価格を取得 | API 不要で使用可能 |
 | `--slippage-bps` | スリッページコスト（片道 bps）を上書き | バックテスト専用。未指定時はデフォルト 5.0 bps |
 
@@ -314,8 +315,8 @@ model = SectorRelativeEnsembleBLPEnhancedModel(config)
 | `--trade-date` | str | (today) | 取引日 (YYYY-MM-DD) |
 | `--jp-opens-csv` | str | — | JP 寄付き価格 CSV パス |
 | `--capital` | float | `1000000` | 手持ち資金 (JPY) |
-| `--capital-from-wallet` | flag | — | kabu API 残高を資金量として使用 |
-| `--api-enable` | flag | — | kabuステーション API 有効化 |
+| `--capital-from-wallet` | flag | — | ブローカー API 残高を資金量として使用（立花証券: 受入保証金、kabu: 現物買付可能額） |
+| `--api-enable` | flag | — | ブローカー API 有効化（立花証券 / kabu） |
 | `--api-url` | str | (env) | API URL |
 | `--api-token` | str | (env) | API トークン |
 | `--api-dry-run` | flag | — | API 疑似実行モード |
@@ -339,3 +340,5 @@ model = SectorRelativeEnsembleBLPEnhancedModel(config)
 | quantity が 0 のみ | signal が小さい、または資金が不足 | `--capital` を増やすか別の日付で試行 |
 | `FAST MODE requires --api-enable` | fast-mode は API 接続が必須 | `--api-enable` を追加 |
 | `--capital-from-wallet requires --api-enable` | wallet 機能は API が必要 | `--api-enable` を追加 |
+| `code=11014: 現金信用区分に誤りがあります` | `TACHIBANA_MARGIN_TRADE_TYPE` と口座の信用取引区分が不一致 | `.env` の `TACHIBANA_MARGIN_TRADE_TYPE` を確認（1=制度信用, 2/3=一般信用） |
+| `max_capital = 0 JPY` で発注されない | 入金がAPIに未反映、または受入保証金が0 | 入金反映後に再実行 |

@@ -45,17 +45,19 @@ costs:
   slippage_bps_per_side: 5
 
 blpx:
-  param_set: refined_best_residual_blpx_production
+  param_set: phase1d_optimized_residual_blpx_production
   rho: 0.01
-  alpha_xx: 0.50
-  alpha_yx: 0.05
+  alpha_xx: 0.20
+  alpha_yx: 0.15
   alpha_yy: 0.50
   lambda_pca: 0.10
-  lambda_sector: 0.40
+  lambda_sector: 0.60
   beta_conf: 0.25
   winsor_sigma: 3.0
-  blp_window: 252
-  ewma_halflife: 45
+  blp_window: 504
+  ewma_halflife: 120
+  sector_eta: 0.5
+  sector_gamma: 4.0
   execution_target_cost_adjustment: none
   target: topix_residual
   use_raw_target: false
