@@ -228,7 +228,7 @@ ABC (abc.ABC)
 
 ```
 BrokerClient (ABC)
-├── KabuBrokerClient → kabu_client.KabuClient のアダプタ
+├── KabuBrokerClient → leadlag.broker.kabu.api.KabuClient のアダプタ
 ├── TachibanaBrokerClient → TachibanaClient のアダプタ（PKI認証対応）
 ├── DryRunBrokerClient → ネットワーク不要のシミュレーション
 └── (将来) SBIBrokerClient, RakutenBrokerClient, ...

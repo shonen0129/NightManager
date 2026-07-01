@@ -74,7 +74,7 @@ Register-ScheduledTask `
 Write-Host "[OK] タスク登録完了: $TaskName1 (毎朝 7:00)" -ForegroundColor Green
 
 # ------------------------------------------------------------
-# タスク 2: production.py --mode decision（毎朝 9:00）
+# タスク 2: leadlag cli decision（毎朝 9:00）
 # ------------------------------------------------------------
 $TaskName2 = "日米ラグ_Decision"
 $BatPath2 = Join-Path $ScriptDir "run_decision.bat"
@@ -92,7 +92,7 @@ if (Get-ScheduledTask -TaskName $TaskName2 -ErrorAction SilentlyContinue) {
 
 Register-ScheduledTask `
     -TaskName $TaskName2 `
-    -Description "production decision 売買判定（毎朝9:00）" `
+    -Description "leadlag decision 売買判定（毎朝9:00）" `
     -Trigger $Trigger2 `
     -Action $Action2 `
     -Principal $Principal `
@@ -101,7 +101,7 @@ Register-ScheduledTask `
 Write-Host "[OK] タスク登録完了: $TaskName2 (毎朝 9:00)" -ForegroundColor Green
 
 # ------------------------------------------------------------
-# タスク 3: production.py --mode close-positions（毎日 14:00）
+# タスク 3: leadlag cli close（毎日 14:00）
 # ------------------------------------------------------------
 $TaskName3 = "日米ラグ_ClosePositions"
 $BatPath3 = Join-Path $ScriptDir "run_close_positions.bat"
@@ -119,7 +119,7 @@ if (Get-ScheduledTask -TaskName $TaskName3 -ErrorAction SilentlyContinue) {
 
 Register-ScheduledTask `
     -TaskName $TaskName3 `
-    -Description "production close-positions 引け反対売買（毎日14:00）" `
+    -Description "leadlag close 引け反対売買（毎日14:00）" `
     -Trigger $Trigger3 `
     -Action $Action3 `
     -Principal $Principal `

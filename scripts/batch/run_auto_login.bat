@@ -26,7 +26,7 @@ if exist "%VENV_DIR%\Scripts\activate.bat" (
 )
 
 REM スクリプト実行
-cd /d "%PROJECT_DIR%\src"
+cd /d "%PROJECT_DIR%\kabu_auto_login"
 python kabu_auto_login.py >> "%LOG_FILE%" 2>&1
 
 set "EXIT_CODE=%ERRORLEVEL%"

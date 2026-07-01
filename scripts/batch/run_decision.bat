@@ -1,6 +1,6 @@
 @echo off
 REM ============================================================
-REM production.py --mode decision（毎朝 9:00 実行）
+REM leadlag cli decision（毎朝 9:00 実行）
 REM ============================================================
 chcp 65001 >nul
 
@@ -15,7 +15,7 @@ REM ログファイル名（日付付き）
 for /f %%i in ('powershell -NoProfile -Command "Get-Date -Format yyyyMMdd"') do set "DATESTR=%%i"
 set "LOG_FILE=%LOG_DIR%\decision_%DATESTR%.log"
 
-echo [%date% %time%] === production decision 開始 === >> "%LOG_FILE%"
+echo [%date% %time%] === leadlag decision 開始 === >> "%LOG_FILE%"
 
 REM 仮想環境のアクティベート
 if exist "%VENV_DIR%\Scripts\activate.bat" (
@@ -27,6 +27,7 @@ if exist "%VENV_DIR%\Scripts\activate.bat" (
 
 REM スクリプト実行
 cd /d "%PROJECT_DIR%"
+set PYTHONPATH=src
 python -m leadlag.cli decision --api-enable --capital-from-wallet --text-output >> "%LOG_FILE%" 2>&1
 
 set "EXIT_CODE=%ERRORLEVEL%"

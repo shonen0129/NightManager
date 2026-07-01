@@ -1,7 +1,7 @@
 #!/bin/bash
 # ============================================================
 # macOS launchd 自動スケジューラ セットアップ
-# 使用方法: bash scripts/setup_scheduler_macos.sh
+# 使用方法: bash scripts/batch/setup_scheduler_macos.sh
 # ============================================================
 set -euo pipefail
 

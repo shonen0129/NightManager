@@ -184,7 +184,7 @@
 4. リードラグ信号との相関が低いことを確認してブレンド
 
 **実装**:
-- `src/leadlag/features/cross_sectional.py` を新規作成
+- `src/experiments/features/cross_sectional.py` を新規作成
 - `predict_signals` でリードラグ信号にクロスセクショナル信号を加重ブレンド
 
 **期待効果**: Rank IC +0.001〜0.003 (直交信号の diversification)
