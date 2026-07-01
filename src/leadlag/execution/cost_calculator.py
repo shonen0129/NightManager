@@ -14,8 +14,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
-from leadlag.execution.order_book_schema import OrderBookSnapshot
-from leadlag.execution.slippage_model import (
+from leadlag.execution.microstructure.order_book_schema import OrderBookSnapshot
+from leadlag.execution.microstructure.slippage_model import (
     CostSource,
     compute_entry_cost_bps,
     compute_exit_cost_bps,

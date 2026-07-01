@@ -7,7 +7,7 @@ from datetime import datetime, time as dt_time
 from typing import Any
 import pandas as pd
 
-from leadlag.execution.order_book_schema import OrderBookSnapshot, from_api_price_response, validate_quote
+from .order_book_schema import OrderBookSnapshot, from_api_price_response, validate_quote
 
 logger = logging.getLogger(__name__)
 

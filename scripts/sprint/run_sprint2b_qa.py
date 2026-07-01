@@ -21,12 +21,12 @@ import yfinance as yf
 from pathlib import Path
 from scipy.optimize import minimize
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 from leadlag.data.cache import load_df_exec_from_local_cache
-from leadlag.diagnostics.sprint0 import run_sprint0_calculations
-from leadlag.diagnostics.sprint1_experiments import generate_targets_panel
+from experiments.diagnostics.sprint0 import run_sprint0_calculations
+from experiments.diagnostics.sprint1_experiments import generate_targets_panel
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger(__name__)

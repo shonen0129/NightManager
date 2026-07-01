@@ -24,7 +24,7 @@ from scipy.stats import spearmanr
 import yfinance as yf
 
 # Add src/ to path
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 from leadlag.data.fetcher import download_data

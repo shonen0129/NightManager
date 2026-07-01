@@ -6,12 +6,12 @@ import numpy as np
 import pytest
 from unittest.mock import MagicMock
 
-from leadlag.cost.cost_calculator import (
+from leadlag.execution.cost_calculator import (
     CostCalculator,
     CostConfig,
     CostBreakdown,
 )
-from leadlag.execution.slippage_model import CostSource
+from leadlag.execution.microstructure.slippage_model import CostSource
 
 
 class TestCostConfig:

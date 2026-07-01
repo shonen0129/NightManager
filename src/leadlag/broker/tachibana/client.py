@@ -80,6 +80,19 @@ class TachibanaBrokerClient(BrokerClient):
     def close(self) -> None:
         self._client.close()
 
+    def get_order_detail(self, order_number: str, eigyou_day: str) -> dict[str, Any]:
+        """Fetch order detail with fill information (約定価格、約定株数).
+
+        Args:
+            order_number: Order ID from submit_order response
+            eigyou_day: Business day string (YYYYMMDD)
+
+        Returns:
+            Dict with sYakuzyouPrice, sYakuzyouSuryou, sYakuzyouDate,
+            aYakuzyouSikkouList (partial fills), aKessaiOrderTategyokuList (settlement details).
+        """
+        return self._client.get_order_detail(order_number, eigyou_day)
+
     def health_check(self) -> bool:
         """Check connection by attempting to login and retrieve price for a test ticker."""
         try:
@@ -256,6 +269,13 @@ class TachibanaBrokerClient(BrokerClient):
                         "sOrderTategyokuDay": pos.get("sOrderTategyokuDay"),
                         "sOrderTategyokuKizituDay": pos.get("sOrderTategyokuKizituDay"),
                         "sOrderGaisanHyoukaSoneki": pos.get("sOrderGaisanHyoukaSoneki"),
+                        "sOrderHyoukaTanka": pos.get("sOrderHyoukaTanka"),
+                        "sOrderGaisanHyoukaSonekiRitu": pos.get("sOrderGaisanHyoukaSonekiRitu"),
+                        "sOrderTategyokuDaikin": pos.get("sOrderTategyokuDaikin"),
+                        "sOrderTateTesuryou": pos.get("sOrderTateTesuryou"),
+                        "sOrderZyunHibu": pos.get("sOrderZyunHibu"),
+                        "sOrderGyakuhibu": pos.get("sOrderGyakuhibu"),
+                        "sOrderKasikaburyou": pos.get("sOrderKasikaburyou"),
                     },
                 )
             )

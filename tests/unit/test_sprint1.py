@@ -12,13 +12,13 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 from leadlag.data.cache import load_df_exec_from_local_cache
-from leadlag.diagnostics.sprint1_experiments import (
+from experiments.diagnostics.sprint1_experiments import (
     generate_targets_panel,
     solve_portfolio_weights,
     run_sprint1_backtests,
     run_ruled_rolling_calibration
 )
-from leadlag.diagnostics.sprint0 import run_sprint0_calculations
+from experiments.diagnostics.sprint0 import run_sprint0_calculations
 
 
 def test_targets_panel_generation():

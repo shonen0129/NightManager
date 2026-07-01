@@ -27,7 +27,7 @@ import seaborn as sns
 from scipy.stats import spearmanr, pearsonr, norm
 
 # Add src/ to path
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 from leadlag.data.fetcher import download_data
@@ -54,7 +54,7 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument("--distribution-input-dir", default="results/distribution_diagnostics/20260614_185401", help="Step 1 diagnostics input directory")
     parser.add_argument("--validation-input-dir", default="results/distribution_validation/20260614_235912", help="Step 1 validation input directory")
     parser.add_argument("--vol-state-panel", default="results/vol_state_diagnostics/20260614_115821/state_panel.csv", help="US Vol State Panel CSV path")
-    parser.add_argument("--config", default="configs/production.yaml", help="Path to production YAML config")
+    parser.add_argument("--config", default="configs/production/production.yaml", help="Path to production YAML config")
     parser.add_argument("--model", default="production_residual_blpx", help="Model identifier")
     parser.add_argument("--results-dir", default="results/production_residual_blpx_validation", help="Validation/weights folder")
     parser.add_argument("--output-dir", default="results/gap_adjusted_distribution", help="Output directory")

@@ -25,7 +25,7 @@ import logging
 import numpy as np
 import pandas as pd
 
-from models.hinge_overlay import (
+from experiments.models.hinge_overlay import (
     BaseHingeOverlay,
     cap_overlay_prediction,
     ALPHA_GRID_DEFAULT,

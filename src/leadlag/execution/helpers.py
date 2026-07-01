@@ -185,20 +185,18 @@ def build_strategy(
 
 
 def build_risk_config(config: ProductionConfig) -> RiskConfig:
-    # Use config loader's default risk configurations matching ProductionConfig
-    app_cfg = load_config_from_yaml()
     return RiskConfig(
-        var_confidence=app_cfg.risk.var_confidence,
-        var_window=app_cfg.risk.var_window,
-        var_warning=app_cfg.risk.var_warning,
-        var_stop=app_cfg.risk.var_stop,
-        es_warning=app_cfg.risk.es_warning,
-        es_stop=app_cfg.risk.es_stop,
-        daily_loss_warning=app_cfg.risk.daily_loss_warning,
-        daily_loss_stop=app_cfg.risk.daily_loss_stop,
-        monthly_loss_stop=app_cfg.risk.monthly_loss_stop,
-        max_net_exposure=app_cfg.risk.max_net_exposure,
-        max_gross_exposure=app_cfg.risk.max_gross_exposure,
+        var_confidence=config.var_confidence,
+        var_window=config.var_window,
+        var_warning=config.var_warning,
+        var_stop=config.var_stop,
+        es_warning=config.es_warning,
+        es_stop=config.es_stop,
+        daily_loss_warning=config.daily_loss_warning,
+        daily_loss_stop=config.daily_loss_stop,
+        monthly_loss_stop=config.monthly_loss_stop,
+        max_net_exposure=config.max_net_exposure,
+        max_gross_exposure=config.max_gross_exposure,
     )
 
 
@@ -245,8 +243,7 @@ def run_risk_checks(
 
 def auto_adjust_gross_exposure(decision: dict, config: ProductionConfig) -> dict:
     weights = np.asarray(decision["weight"], dtype=float)
-    app_cfg = load_config_from_yaml()
-    result = adjust_gross_exposure(weights, app_cfg.risk.max_gross_exposure)
+    result = adjust_gross_exposure(weights, config.max_gross_exposure)
 
     adjusted = dict(decision)
     adjusted["gross_before"] = result.gross_before
@@ -591,11 +588,41 @@ def execute_post_decision_flow(
         _print_text_orders(decision_df)
 
     if api_client is not None:
-        submit_orders_via_api(
+        order_summary = submit_orders_via_api(
             decision_df=decision_df,
             api_client=api_client,
             output_dir=output_dir,
             current_positions=current_positions,
+        )
+
+        # --- Trade journal: collect post-execution data for model improvement ---
+        api_log_path = os.path.join(output_dir, "api_execution_log.json")
+
+        # Fetch fill prices (約定価格) for slippage analysis
+        from leadlag.broker.dry_run import DryRunBrokerClient
+
+        if not isinstance(api_client, DryRunBrokerClient) and order_summary:
+            all_results = order_summary.get("buy_results", []) + order_summary.get("sell_results", [])
+            if all_results:
+                fetch_fill_prices(api_client, all_results)
+                # Re-save the enriched api_execution_log with fill data
+                with open(api_log_path, "w", encoding="utf-8") as f:
+                    json.dump(order_summary, f, ensure_ascii=False, indent=2)
+                logger.info("[JOURNAL] Fill prices enriched in api_execution_log.json")
+
+        # Save position snapshot (建単価・評価単価・評価損益)
+        pos_snapshot_path = save_position_snapshot(api_client, output_dir, label="decision")
+
+        # Save wallet snapshot (維持率・受入保証金)
+        wallet_snapshot_path = save_wallet_snapshot(api_client, output_dir, label="decision")
+
+        # Save daily journal index
+        save_daily_journal(
+            output_dir=output_dir,
+            decision_csv_path=out_path,
+            api_execution_log_path=api_log_path,
+            position_snapshot_path=pos_snapshot_path,
+            wallet_snapshot_path=wallet_snapshot_path,
         )
 
     return out_path
@@ -675,4 +702,272 @@ get_hist_returns_for_risk = _get_hist_returns_for_risk
 log_decision_summary = _log_decision_summary
 print_risk_report = _print_risk_report
 print_text_orders = _print_text_orders
+
+
+# ---------------------------------------------------------------------------
+# Trade journal — daily data collection for model improvement
+# ---------------------------------------------------------------------------
+
+
+def fetch_fill_prices(
+    api_client: BrokerClient,
+    order_results: list[dict],
+    *,
+    wait_seconds: float = 3.0,
+) -> list[dict]:
+    """Fetch fill prices for submitted orders via CLMOrderListDetail.
+
+    For each order in order_results (containing 'order_id'), queries the
+    broker for fill details and enriches the dict with:
+      - fill_price: 約定単価 (float or None)
+      - fill_quantity: 約定株数 (int or None)
+      - fill_status: 約定ステータス (str)
+      - fill_detail: raw API response (dict)
+
+    Args:
+        api_client: BrokerClient with get_order_detail support
+        order_results: List of order result dicts from submit_orders_via_api
+        wait_seconds: Delay before fetching fills (allows exchange processing)
+
+    Returns:
+        Enriched order_results with fill information.
+    """
+    import time
+
+    from leadlag.broker.tachibana.client import TachibanaBrokerClient
+
+    if not isinstance(api_client, TachibanaBrokerClient):
+        logger.debug("Fill price fetch not supported for this broker type, skipping.")
+        return order_results
+
+    if not order_results:
+        return order_results
+
+    eigyou_day = datetime.now().strftime("%Y%m%d")
+    time.sleep(wait_seconds)
+
+    for result in order_results:
+        order_id = result.get("order_id", "")
+        if not order_id or result.get("status") != "SUBMITTED":
+            result["fill_price"] = None
+            result["fill_quantity"] = None
+            result["fill_status"] = "NOT_SUBMITTED"
+            continue
+
+        try:
+            detail = api_client.get_order_detail(order_id, eigyou_day)
+            fill_price_str = detail.get("sYakuzyouPrice", "0.0000")
+            fill_qty_str = detail.get("sYakuzyouSuryou", "0")
+            fill_status = detail.get("sOrderStatus", "")
+
+            fill_price = float(fill_price_str) if fill_price_str and fill_price_str != "0.0000" else None
+            fill_quantity = int(fill_qty_str) if fill_qty_str else None
+
+            result["fill_price"] = fill_price
+            result["fill_quantity"] = fill_quantity
+            result["fill_status"] = fill_status
+            result["fill_detail"] = {
+                "sYakuzyouPrice": fill_price_str,
+                "sYakuzyouSuryou": fill_qty_str,
+                "sOrderStatus": fill_status,
+                "sOrderYakuzyouStatus": detail.get("sOrderYakuzyouStatus"),
+                "sBaiBaiDaikin": detail.get("sBaiBaiDaikin"),
+                "sBaiBaiTesuryo": detail.get("sBaiBaiTesuryo"),
+                "aYakuzyouSikkouList": detail.get("aYakuzyouSikkouList"),
+                "aKessaiOrderTategyokuList": detail.get("aKessaiOrderTategyokuList"),
+            }
+
+            logger.info(
+                "  [FILL] %s: %d shares @ %s (Order ID: %s, Status: %s)",
+                result.get("ticker"),
+                fill_quantity,
+                fill_price,
+                order_id,
+                fill_status,
+            )
+        except Exception as e:
+            logger.warning("Failed to fetch fill detail for order %s: %s", order_id, e)
+            result["fill_price"] = None
+            result["fill_quantity"] = None
+            result["fill_status"] = "FETCH_ERROR"
+
+    return order_results
+
+
+def save_position_snapshot(
+    api_client: BrokerClient,
+    output_dir: str,
+    *,
+    label: str = "decision",
+) -> str | None:
+    """Save current position snapshot with entry/evaluation prices.
+
+    Saves a JSON file with per-position details including:
+      - ticker, side, quantity, entry_price (建単価)
+      - evaluation_price (評価単価), unrealized_pnl (評価損益)
+      - margin costs (順日歩, 逆日歩, 貸株料)
+
+    Args:
+        api_client: BrokerClient instance
+        output_dir: Directory to save the snapshot file
+        label: Label for the filename (e.g. 'decision', 'close')
+
+    Returns:
+        Path to the saved file, or None if no positions or error.
+    """
+    try:
+        positions = api_client.get_positions()
+    except Exception as e:
+        logger.warning("Failed to fetch positions for snapshot: %s", e)
+        return None
+
+    if not positions:
+        logger.info("[JOURNAL] No open positions for snapshot.")
+        return None
+
+    snapshot = {
+        "timestamp": datetime.now().isoformat(timespec="seconds"),
+        "label": label,
+        "positions": [],
+    }
+
+    for pos in positions:
+        extra = pos.extra or {}
+        entry_price = pos.price
+        eval_price = float(extra.get("sOrderHyoukaTanka", 0) or 0)
+        unrealized_pnl = float(extra.get("sOrderGaisanHyoukaSoneki", 0) or 0)
+        unrealized_pnl_pct = float(extra.get("sOrderGaisanHyoukaSonekiRitu", 0) or 0)
+
+        snapshot["positions"].append({
+            "ticker": pos.ticker,
+            "side": pos.side,
+            "quantity": pos.quantity,
+            "entry_price": entry_price,
+            "evaluation_price": eval_price,
+            "unrealized_pnl": unrealized_pnl,
+            "unrealized_pnl_pct": unrealized_pnl_pct,
+            "execution_id": pos.execution_id,
+            "margin_trade_type": pos.margin_trade_type,
+            "account_type": pos.account_type,
+            "tategyoku_day": extra.get("sOrderTategyokuDay"),
+            "tategyoku_kizitu_day": extra.get("sOrderTategyokuKizituDay"),
+            "tategyoku_daikin": float(extra.get("sOrderTategyokuDaikin", 0) or 0),
+            "tate_tesuryou": float(extra.get("sOrderTateTesuryou", 0) or 0),
+            "jun_hibu": float(extra.get("sOrderZyunHibu", 0) or 0),
+            "gyaku_hibu": float(extra.get("sOrderGyakuhibu", 0) or 0),
+            "kasikaburyou": float(extra.get("sOrderKasikaburyou", 0) or 0),
+            "hensai_kanou_suryou": extra.get("sOrderHensaiKanouSuryou"),
+        })
+
+    snapshot["position_count"] = len(snapshot["positions"])
+    snapshot["total_unrealized_pnl"] = sum(p["unrealized_pnl"] for p in snapshot["positions"])
+
+    filename = f"positions_{label}_{datetime.now().strftime('%Y%m%d')}.json"
+    filepath = os.path.join(output_dir, filename)
+    with open(filepath, "w", encoding="utf-8") as f:
+        json.dump(snapshot, f, ensure_ascii=False, indent=2)
+    logger.info("[JOURNAL] Position snapshot saved: %s (%d positions, P&L=%s)",
+                filepath, snapshot["position_count"],
+                f"{snapshot['total_unrealized_pnl']:,.0f}")
+    return filepath
+
+
+def save_wallet_snapshot(
+    api_client: BrokerClient,
+    output_dir: str,
+    *,
+    label: str = "decision",
+) -> str | None:
+    """Save wallet/balance snapshot with margin details.
+
+    Saves cash_available, margin_available, 受入保証金, 維持率, 追証フラグ.
+
+    Args:
+        api_client: BrokerClient instance
+        output_dir: Directory to save the snapshot file
+        label: Label for the filename
+
+    Returns:
+        Path to the saved file, or None on error.
+    """
+    try:
+        wallet = api_client.get_wallet()
+    except Exception as e:
+        logger.warning("Failed to fetch wallet for snapshot: %s", e)
+        return None
+
+    snapshot = {
+        "timestamp": datetime.now().isoformat(timespec="seconds"),
+        "label": label,
+        "cash_available": wallet.cash_available,
+        "margin_available": wallet.margin_available,
+        "ukeire_hosyoukin": wallet.extra.get("ukeire_hosyoukin"),
+        "hosyoukin_yoryoku": wallet.extra.get("hosyoukin_yoryoku"),
+        "hosyoukin_ritu": wallet.extra.get("hosyoukin_ritu"),
+        "sHosyouKinritu": wallet.extra.get("sHosyouKinritu"),
+        "sOisyouHasseiFlg": wallet.extra.get("sOisyouHasseiFlg"),
+        "sTatekaekinHasseiFlg": wallet.extra.get("sTatekaekinHasseiFlg"),
+    }
+
+    filename = f"wallet_{label}_{datetime.now().strftime('%Y%m%d')}.json"
+    filepath = os.path.join(output_dir, filename)
+    with open(filepath, "w", encoding="utf-8") as f:
+        json.dump(snapshot, f, ensure_ascii=False, indent=2)
+    logger.info("[JOURNAL] Wallet snapshot saved: %s (margin=%s JPY, 維持率=%s%%)",
+                filepath,
+                f"{wallet.margin_available:,.0f}",
+                snapshot.get("hosyoukin_ritu", "N/A"))
+    return filepath
+
+
+def save_daily_journal(
+    output_dir: str,
+    decision_csv_path: str | None = None,
+    api_execution_log_path: str | None = None,
+    position_snapshot_path: str | None = None,
+    wallet_snapshot_path: str | None = None,
+    close_execution_log_path: str | None = None,
+) -> str:
+    """Save a daily journal index file that links all collected data.
+
+    Creates a single JSON file per day that references all collected
+    artifacts (decision, fills, positions, wallet, close) for easy
+    retrospective analysis.
+
+    Args:
+        output_dir: Directory for the journal file
+        decision_csv_path: Path to decision CSV
+        api_execution_log_path: Path to API execution log JSON
+        position_snapshot_path: Path to position snapshot JSON
+        wallet_snapshot_path: Path to wallet snapshot JSON
+        close_execution_log_path: Path to close execution log JSON
+
+    Returns:
+        Path to the journal index file.
+    """
+    journal_dir = os.path.join(os.path.dirname(output_dir), "trade_journal")
+    os.makedirs(journal_dir, exist_ok=True)
+
+    date_str = datetime.now().strftime("%Y%m%d")
+    journal = {
+        "date": date_str,
+        "timestamp": datetime.now().isoformat(timespec="seconds"),
+        "artifacts": {},
+    }
+
+    for label, path in [
+        ("decision_csv", decision_csv_path),
+        ("api_execution_log", api_execution_log_path),
+        ("position_snapshot", position_snapshot_path),
+        ("wallet_snapshot", wallet_snapshot_path),
+        ("close_execution_log", close_execution_log_path),
+    ]:
+        if path and os.path.exists(path):
+            journal["artifacts"][label] = path
+
+    journal_path = os.path.join(journal_dir, f"journal_{date_str}.json")
+    with open(journal_path, "w", encoding="utf-8") as f:
+        json.dump(journal, f, ensure_ascii=False, indent=2)
+    logger.info("[JOURNAL] Daily journal saved: %s", journal_path)
+    return journal_path
 

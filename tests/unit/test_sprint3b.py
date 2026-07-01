@@ -11,7 +11,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
-from features.hinge_interactions import (
+from experiments.features.hinge_interactions import (
     compute_within_date_cs_std,
     build_macro_hinge_x_asset_beta,
     build_sector_hinge_x_sector_exposure,

@@ -5,9 +5,9 @@ import numpy as np
 import pandas as pd
 from typing import Any
 
-from leadlag.execution.order_book_schema import OrderBookSnapshot
-from leadlag.execution.slippage_model import compute_entry_cost_bps, compute_exit_cost_bps, CostSource
-from leadlag.execution.execution_constraints import apply_hard_rules, replace_unavailable_short, ExecutionDecision
+from leadlag.execution.microstructure.order_book_schema import OrderBookSnapshot
+from leadlag.execution.microstructure.slippage_model import compute_entry_cost_bps, compute_exit_cost_bps, CostSource
+from leadlag.execution.microstructure.execution_constraints import apply_hard_rules, replace_unavailable_short, ExecutionDecision
 
 logger = logging.getLogger(__name__)
 

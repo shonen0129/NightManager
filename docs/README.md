@@ -15,17 +15,17 @@ Execution requires daily US sector ETF returns and Japanese TOPIX-17 sector ETF 
 
 ## Configuration File
 The canonical production configuration is stored in:
-`configs/production.yaml`
+`configs/production/production.yaml`
 
-Do not create dedicated model configurations like `configs/sector_relative_ensemble.yaml`. Maintain PCA-Ensemble parameters directly inside `configs/production.yaml`.
+Do not create dedicated model configurations like `configs/sector_relative_ensemble.yaml`. Maintain PCA-Ensemble parameters directly inside `configs/production/production.yaml`.
 
 ## Commands
 
 ### Historical Backtesting
 To run a historical backtest of the PCA-Ensemble model under a 5 bps slippage assumption:
 ```bash
-python tools/backtest_sector_relative_ensemble.py \
-    --config configs/production.yaml \
+python tools/research/backtest_sector_relative_ensemble.py \
+    --config configs/production/production.yaml \
     --slippage-bps 5 \
     --output-dir results/sector_relative_ensemble/
 ```
@@ -33,8 +33,8 @@ python tools/backtest_sector_relative_ensemble.py \
 ### Daily Dry Run / Execution
 To run PCA-Ensemble for daily signal and order generation:
 ```bash
-python tools/run_daily_sector_relative_ensemble.py \
-    --config configs/production.yaml \
+python tools/research/run_daily_sector_relative_ensemble.py \
+    --config configs/production/production.yaml \
     --signal-date latest \
     --output-dir live/sector_relative_ensemble/ \
     --dry-run

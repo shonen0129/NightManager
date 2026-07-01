@@ -22,7 +22,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(na
 logger = logging.getLogger(__name__)
 
 from pathlib import Path
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 ARTIFACT_DIR = ROOT / "artifacts" / "sprint2_cost_aware_aum1m"
 OUTPUT_DIR   = ROOT / "reports"   / "sprint2_cost_aware_aum1m"

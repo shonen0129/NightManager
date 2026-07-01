@@ -3,7 +3,7 @@ import sys
 import logging
 
 # Add src directory to path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../src")))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../src")))
 
 from leadlag.broker.base import BrokerConfig
 from leadlag.broker.factory import create_broker
@@ -15,7 +15,7 @@ def main():
     # Load dotenv from project root
     try:
         import dotenv
-        root_env = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.env"))
+        root_env = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.env"))
         if os.path.exists(root_env):
             logger.info(f"Loading environment variables from {root_env}")
             dotenv.load_dotenv(root_env)

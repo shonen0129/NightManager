@@ -12,8 +12,8 @@ import numpy as np
 from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.preprocessing import StandardScaler
 
-from models.hinge_overlay import BaseHingeOverlay, select_best_alpha, ALPHA_GRID_DEFAULT
-from models.hinge_interaction_overlay import impute_train_stats, apply_imputation
+from experiments.models.hinge_overlay import BaseHingeOverlay, select_best_alpha, ALPHA_GRID_DEFAULT
+from experiments.models.hinge_interaction_overlay import impute_train_stats, apply_imputation
 
 logger = logging.getLogger(__name__)
 

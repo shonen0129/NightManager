@@ -370,3 +370,21 @@ class TachibanaClient:
         }
         res = self._request("sUrlRequest", payload)
         return res.get("aOrderList") or []
+
+    def get_order_detail(self, order_number: str, eigyou_day: str) -> dict[str, Any]:
+        """Fetch order detail with fill information via CLMOrderListDetail.
+
+        Args:
+            order_number: Order number from CLMKabuNewOrder response
+            eigyou_day: Business day (YYYYMMDD) from CLMKabuNewOrder response
+
+        Returns:
+            Dict with fill price (sYakuzyouPrice), fill quantity (sYakuzyouSuryou),
+            fill date (sYakuzyouDate), and aYakuzyouSikkouList for partial fills.
+        """
+        payload = {
+            "sCLMID": "CLMOrderListDetail",
+            "sOrderNumber": order_number,
+            "sEigyouDay": eigyou_day,
+        }
+        return self._request("sUrlRequest", payload)

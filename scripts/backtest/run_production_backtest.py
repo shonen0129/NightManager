@@ -15,7 +15,7 @@ from pathlib import Path
 import yaml
 
 # Add src/ to path
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 from leadlag.data.fetcher import download_data
@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 
 def main():
     parser = argparse.ArgumentParser(description="Production Residual-BLPX Backtest")
-    parser.add_argument("--config", default="configs/production.yaml", help="Path to config YAML")
+    parser.add_argument("--config", default="configs/production/production.yaml", help="Path to config YAML")
     parser.add_argument("--start-date", default="2015-01-05", help="Backtest start date")
     parser.add_argument("--output-dir", default="results/production_backtest", help="Output directory")
     args = parser.parse_args()

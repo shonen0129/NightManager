@@ -24,9 +24,9 @@ import yaml
 import seaborn as sns
 
 # Add src/ and tools/ to path
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
-sys.path.insert(0, str(ROOT / "tools"))
+sys.path.insert(0, str(ROOT / "tools" / "validation"))
 
 from leadlag.data.tickers import JP_TICKERS
 from run_daily_residual_blpx_shadow import generate_daily_shadow_portfolio, write_daily_files
@@ -45,7 +45,7 @@ warnings.filterwarnings("ignore", category=RuntimeWarning)
 def parse_arguments() -> argparse.Namespace:
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(description="Historical Batch Shadow Runner")
-    parser.add_argument("--config", default="configs/production.yaml", help="Path to config file")
+    parser.add_argument("--config", default="configs/production/production.yaml", help="Path to config file")
     parser.add_argument("--model", default="production_residual_blpx", help="Model name")
     parser.add_argument("--gap-input-dir", default="results/gap_adjusted_distribution/20260615_004202", help="Step 2 gap distribution folder")
     parser.add_argument("--ranking-audit-dir", default="results/risk_adjusted_ranking_audit/20260615_120049", help="Step 4.5 audit directory")

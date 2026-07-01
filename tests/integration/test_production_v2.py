@@ -521,7 +521,7 @@ class TestSelfTestParity:
         """The tools/ entry-point self-test function should return 0."""
         # Import from entry-point directly
         import importlib.util
-        tools_script = ROOT / "tools" / "run_daily_production_v2.py"
+        tools_script = ROOT / "tools" / "production" / "run_daily_production_v2.py"
         spec = importlib.util.spec_from_file_location("run_daily_v2", tools_script)
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)

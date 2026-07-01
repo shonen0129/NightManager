@@ -16,7 +16,7 @@ import yfinance as yf
 
 from leadlag.data.cache import load_df_exec_from_local_cache, load_intraday_cache
 from leadlag.data.tickers import JP_TICKERS, US_TICKERS, TOPIX_TICKER
-from leadlag.diagnostics.sprint0 import find_latest_distribution_diagnostics, compute_rolling_beta
+from experiments.diagnostics.sprint0 import find_latest_distribution_diagnostics, compute_rolling_beta
 from leadlag.models.sre import compute_jp_target_returns
 
 logger = logging.getLogger(__name__)

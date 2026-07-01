@@ -13,7 +13,7 @@ import yaml
 from scipy import stats
 from scipy.stats import norm
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 from leadlag.data.cache import load_df_exec_from_local_cache

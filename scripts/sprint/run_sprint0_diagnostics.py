@@ -18,10 +18,10 @@ import pandas as pd
 import numpy as np
 
 # Add src/ to path
-ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 sys.path.insert(0, os.path.join(ROOT, "src"))
 
-from leadlag.diagnostics.sprint0 import run_sprint0_calculations
+from experiments.diagnostics.sprint0 import run_sprint0_calculations
 from leadlag.data.tickers import JP_TICKERS, US_TICKERS, TOPIX_TICKER
 
 logger = logging.getLogger("run_sprint0_diagnostics")

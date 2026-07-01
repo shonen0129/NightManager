@@ -17,7 +17,7 @@ import numpy as np
 from sklearn.linear_model import ElasticNet
 from sklearn.preprocessing import StandardScaler
 
-from models.hinge_overlay import BaseHingeOverlay
+from experiments.models.hinge_overlay import BaseHingeOverlay
 
 logger = logging.getLogger(__name__)
 
@@ -161,7 +161,7 @@ class HingeElasticNetOverlay(BaseHingeOverlay):
             Best fitted model with selected hyperparameters.
         """
         from scipy.stats import spearmanr
-        from models.hinge_overlay import select_best_alpha, ALPHA_GRID_DEFAULT
+        from experiments.models.hinge_overlay import select_best_alpha, ALPHA_GRID_DEFAULT
 
         best_ic = -np.inf
         best_model = None

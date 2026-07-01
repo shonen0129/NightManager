@@ -12,8 +12,8 @@ import numpy as np
 from sklearn.linear_model import Ridge
 from sklearn.preprocessing import StandardScaler
 
-from models.hinge_overlay import BaseHingeOverlay
-from models.hinge_interaction_overlay import impute_train_stats, apply_imputation
+from experiments.models.hinge_overlay import BaseHingeOverlay
+from experiments.models.hinge_interaction_overlay import impute_train_stats, apply_imputation
 
 logger = logging.getLogger(__name__)
 
@@ -114,7 +114,7 @@ class InteractionRidgeOverlay(BaseHingeOverlay):
         Returns the best fitted model.
         """
         from scipy.stats import spearmanr
-        from models.hinge_overlay import select_best_alpha, ALPHA_GRID_DEFAULT
+        from experiments.models.hinge_overlay import select_best_alpha, ALPHA_GRID_DEFAULT
 
         if len(X_train) == 0 or X_train.shape[1] == 0:
             best_model = cls(ridge_alpha=100.0, alpha=0.0, model_name=model_name)

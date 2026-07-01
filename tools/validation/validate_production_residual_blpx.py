@@ -22,7 +22,7 @@ import yaml
 from scipy.stats import spearmanr
 
 # Add src/ to path
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 from leadlag.data.fetcher import download_data
@@ -47,7 +47,7 @@ warnings.filterwarnings("ignore", category=RuntimeWarning)
 def parse_arguments() -> argparse.Namespace:
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(description="Residual-BLPX Production Validation Suite")
-    parser.add_argument("--config", default="configs/production_residual_blpx.yaml", help="Path to config file")
+    parser.add_argument("--config", default="configs/production/production_residual_blpx.yaml", help="Path to config file")
     parser.add_argument("--output-dir", default="results/production_residual_blpx_validation", help="Output directory")
     parser.add_argument("--compare", default="SRE,BLPX_100,SRE_BLPX_BLEND_33,Residual-BLPX_only", help="Comparison list")
     parser.add_argument("--slippage-grid", default="0,2.5,5,7.5,10", help="Slippage grid in bps")
@@ -231,7 +231,7 @@ def main():
 
     # 2. Baseline Model
     logger.info("Running SRE baseline model...")
-    with open("configs/production.yaml") as f:
+    with open("configs/production/production.yaml") as f:
         prod_cfg = yaml.safe_load(f)
     sre_model = SectorRelativeEnsembleModel(prod_cfg)
     sre_pred = sre_model.predict_signals(df_exec)

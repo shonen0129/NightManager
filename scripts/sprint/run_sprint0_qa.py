@@ -16,10 +16,10 @@ import pandas as pd
 import numpy as np
 
 # Add src/ to path
-ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 sys.path.insert(0, os.path.join(ROOT, "src"))
 
-from leadlag.diagnostics.sprint0_qa import run_sprint0_qa
+from experiments.diagnostics.sprint0_qa import run_sprint0_qa
 
 logger = logging.getLogger("run_sprint0_qa")
 

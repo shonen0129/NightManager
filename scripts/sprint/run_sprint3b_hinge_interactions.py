@@ -58,7 +58,7 @@ import yaml
 # ---------------------------------------------------------------------------
 # Path setup
 # ---------------------------------------------------------------------------
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 # ---------------------------------------------------------------------------
@@ -66,21 +66,21 @@ sys.path.insert(0, str(ROOT / "src"))
 # ---------------------------------------------------------------------------
 from leadlag.data.cache import load_df_exec_from_local_cache
 from leadlag.data.tickers import JP_TICKERS
-from leadlag.diagnostics.sprint0 import run_sprint0_calculations
-from leadlag.diagnostics.sprint1_experiments import generate_targets_panel
+from experiments.diagnostics.sprint0 import run_sprint0_calculations
+from experiments.diagnostics.sprint1_experiments import generate_targets_panel
 
-from features.hinge_features import (
+from experiments.features.hinge_features import (
     derive_proxy_features,
     rolling_zscore_lag1,
     rolling_zscore_panel_lag1,
     positive_hinge,
     negative_hinge,
 )
-from features.asset_exposures import (
+from experiments.features.asset_exposures import (
     build_asset_exposure_panel,
     load_static_sector_map,
 )
-from features.hinge_interactions import (
+from experiments.features.hinge_interactions import (
     build_macro_hinge_x_asset_beta,
     build_sector_hinge_x_sector_exposure,
     build_regime_hinge_x_base_signal,
@@ -88,22 +88,22 @@ from features.hinge_interactions import (
     build_all_interaction_features,
     compute_within_date_cs_std,
 )
-from features.feature_selection_fdr import (
+from experiments.features.feature_selection_fdr import (
     FDRFeatureSelector,
     compute_rank_ic_long_format,
     compute_feature_stability,
     run_walk_forward_fdr_selection,
 )
-from models.hinge_overlay import (
+from experiments.models.hinge_overlay import (
     generate_walk_forward_windows,
     cap_overlay_prediction,
     select_best_alpha,
     ALPHA_GRID_DEFAULT,
 )
-from models.hinge_interaction_ridge import InteractionRidgeOverlay
-from models.hinge_interaction_elasticnet import InteractionElasticNetOverlay
-from models.hinge_interaction_overlay import build_flat_arrays_from_long
-from reports.sprint3b_hinge_interaction_report import generate_sprint3b_report
+from experiments.models.hinge_interaction_ridge import InteractionRidgeOverlay
+from experiments.models.hinge_interaction_elasticnet import InteractionElasticNetOverlay
+from experiments.models.hinge_interaction_overlay import build_flat_arrays_from_long
+from experiments.reports.sprint3b_hinge_interaction_report import generate_sprint3b_report
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -309,7 +309,7 @@ def build_interaction_feature_panel(
     beta_cs_norm = rb_cfg.get("standardize_exposures_cross_sectionally", True)
 
     static_cfg = exp_cfg.get("static_sector_map", {})
-    static_path = ROOT / static_cfg.get("path", "configs/sector_exposure_map.yaml")
+    static_path = ROOT / static_cfg.get("path", "configs/research/sector_exposure_map.yaml")
     static_normalize = static_cfg.get("normalize_rows", False)
 
     # Asset returns (intraday open-to-close per ticker)
@@ -1882,14 +1882,14 @@ def main() -> None:
 
     added_files = [
         "configs/archive/sprint3b_hinge_interactions_aum1m.yaml",
-        "configs/sector_exposure_map.yaml",
-        "scripts/run_sprint3b_hinge_interactions.py",
-        "src/features/asset_exposures.py",
-        "src/features/hinge_interactions.py",
-        "src/models/hinge_interaction_overlay.py",
-        "src/models/hinge_interaction_ridge.py",
-        "src/models/hinge_interaction_elasticnet.py",
-        "src/reports/sprint3b_hinge_interaction_report.py",
+        "configs/research/sector_exposure_map.yaml",
+        "scripts/sprint/run_sprint3b_hinge_interactions.py",
+        "src/experiments/features/asset_exposures.py",
+        "src/experiments/features/hinge_interactions.py",
+        "src/experiments/models/hinge_interaction_overlay.py",
+        "src/experiments/models/hinge_interaction_ridge.py",
+        "src/experiments/models/hinge_interaction_elasticnet.py",
+        "src/experiments/reports/sprint3b_hinge_interaction_report.py",
     ]
     logger.info("Added/modified files:")
     for f in added_files:

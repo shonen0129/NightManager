@@ -22,12 +22,12 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 from pathlib import Path
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 from leadlag.data.cache import load_df_exec_from_local_cache
-from leadlag.diagnostics.sprint0 import run_sprint0_calculations
-from leadlag.diagnostics.sprint1_experiments import (
+from experiments.diagnostics.sprint0 import run_sprint0_calculations
+from experiments.diagnostics.sprint1_experiments import (
     generate_targets_panel,
     run_sprint1_backtests,
     run_ruled_rolling_calibration

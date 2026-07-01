@@ -1,6 +1,6 @@
 import pytest
-from leadlag.execution.order_book_schema import OrderBookSnapshot, validate_quote, from_api_price_response
-from leadlag.execution.order_book_cost import (
+from leadlag.execution.microstructure.order_book_schema import OrderBookSnapshot, validate_quote, from_api_price_response
+from leadlag.execution.microstructure.order_book_cost import (
     compute_mid_price,
     compute_quoted_spread_bps,
     compute_depth_jpy,
@@ -9,8 +9,8 @@ from leadlag.execution.order_book_cost import (
     compute_order_to_depth_ratio,
     LobNotAvailable
 )
-from leadlag.execution.slippage_model import compute_entry_cost_bps, compute_exit_cost_bps, CostSource
-from leadlag.execution.execution_constraints import apply_hard_rules, replace_unavailable_short
+from leadlag.execution.microstructure.slippage_model import compute_entry_cost_bps, compute_exit_cost_bps, CostSource
+from leadlag.execution.microstructure.execution_constraints import apply_hard_rules, replace_unavailable_short
 
 
 def test_order_book_snapshot_validation():

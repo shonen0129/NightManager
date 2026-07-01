@@ -3,8 +3,8 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from typing import Any
-from leadlag.execution.order_book_schema import OrderBookSnapshot
-from leadlag.execution.order_book_cost import (
+from .order_book_schema import OrderBookSnapshot
+from .order_book_cost import (
     compute_quoted_spread_bps,
     estimate_lob_slippage_bps,
     compute_order_to_depth_ratio
@@ -68,7 +68,7 @@ def apply_hard_rules(
         spread = compute_quoted_spread_bps(snapshot)
         slippage = estimate_lob_slippage_bps(snapshot, side, order_jpy)
 
-        from leadlag.execution.order_book_cost import compute_depth_jpy
+        from .order_book_cost import compute_depth_jpy
         depth = compute_depth_jpy(snapshot, side, lob_levels)
         ratio = order_jpy / depth if depth > 0 else float('inf')
 

@@ -23,7 +23,7 @@ from leadlag.data.tickers import JP_TICKERS, US_TICKERS
 @pytest.fixture
 def residual_blpx_prod_config() -> dict:
     """Return Residual-BLPX production configuration dict for testing."""
-    config_path = ROOT / "configs" / "production_residual_blpx.yaml"
+    config_path = ROOT / "configs" / "production" / "production_residual_blpx.yaml"
     with open(config_path) as f:
         return yaml.safe_load(f)
 

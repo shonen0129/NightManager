@@ -234,7 +234,8 @@ def run_sprint0_calculations(
     var_decomp_df = pd.DataFrame(var_decomp).set_index("ticker")
 
     # 5. Generate Signals (with and without gap adjustment)
-    prod_config_path = "/Users/takahashimasatoshi/Library/Mobile Documents/com~apple~CloudDocs/個別株/日米ラグ_2.1/configs/production.yaml"
+    from pathlib import Path
+    prod_config_path = Path(__file__).resolve().parents[3] / "configs" / "production" / "production.yaml"
     import yaml
     with open(prod_config_path) as f:
         prod_config = yaml.safe_load(f)

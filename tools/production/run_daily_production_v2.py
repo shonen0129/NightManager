@@ -44,7 +44,7 @@ import yaml
 # ---------------------------------------------------------------------------
 # Path setup — make the project package importable without installation
 # ---------------------------------------------------------------------------
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 # Import after path is set up
@@ -73,7 +73,7 @@ def parse_arguments() -> argparse.Namespace:
     p = argparse.ArgumentParser(
         description="Daily Production Runner v2 (mu_over_sigma + baseline_style + RuleD)"
     )
-    p.add_argument("--config", default="configs/production.yaml")
+    p.add_argument("--config", default="configs/production/production.yaml")
     p.add_argument("--trade-date", default="latest", help="YYYY-MM-DD or 'latest'")
     p.add_argument(
         "--gap-input-dir",

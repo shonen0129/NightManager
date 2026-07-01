@@ -5,7 +5,7 @@
 # ============================================================
 set -euo pipefail
 
-PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+PROJECT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
 LOG_DIR="${PROJECT_DIR}/logs"
 VENV_DIR="${PROJECT_DIR}/.venv-mac"
 

@@ -16,7 +16,7 @@ import pandas as pd
 import yaml
 
 # Add src/ to path
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 from leadlag.data.fetcher import download_data
@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 def parse_arguments() -> argparse.Namespace:
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(description="Sector Relative Ensemble Daily Operational Runner")
-    parser.add_argument("--config", default="configs/production.yaml", help="Path to YAML config file")
+    parser.add_argument("--config", default="configs/production/production.yaml", help="Path to YAML config file")
     parser.add_argument("--signal-date", default="latest", help="Date of signal generation (YYYY-MM-DD or 'latest')")
     parser.add_argument("--output-dir", default="live/sector_relative_ensemble/", help="Directory for live execution files")
     parser.add_argument("--dry-run", action="store_true", help="Simulate execution without placing actual orders")

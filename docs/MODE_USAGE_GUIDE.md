@@ -188,38 +188,38 @@ python3 -m leadlag.cli close \
 
 本番 v2 モデル（Residual-BLPX-RA v2）および legacy PCA-Ensemble 用の実行・検証スクリプトが `tools/` に用意されている。
 
-### 5.1 本番 v2 日次実行スクリプト (`tools/run_daily_production_v2.py`)
+### 5.1 本番 v2 日次実行スクリプト (`tools/production/run_daily_production_v2.py`)
 本番 v2 （Residual-BLPX-RA v2: `mu_over_sigma` ランキング + `RuleD` 動的グロス）のデイリー注文生成および自動安全監査（Safety Audit）を実行する。
 * 本番実行（9:10 POST_OPEN データ取得後）：
   ```bash
-  python tools/run_daily_production_v2.py \
+  python tools/production/run_daily_production_v2.py \
       --trade-date latest \
       --gap-input-dir results/gap_adjusted_distribution/latest
   ```
 * ドライラン実行（疑似注文生成）：
   ```bash
-  python tools/run_daily_production_v2.py \
+  python tools/production/run_daily_production_v2.py \
       --trade-date 2026-06-16 \
       --gap-input-dir results/gap_adjusted_distribution/latest \
       --dry-run true
   ```
 * セルフテスト実行：
   ```bash
-  python tools/run_daily_production_v2.py --self-test true
+  python tools/production/run_daily_production_v2.py --self-test true
   ```
 
-### 5.2 ギャップ調整済み予測分布生成 (`tools/compute_gap_adjusted_distribution.py`)
+### 5.2 ギャップ調整済み予測分布生成 (`tools/production/compute_gap_adjusted_distribution.py`)
 当日の日本市場寄付後のギャップオープン価格および前日の米国終値に基づき、ギャップ調整済みの予測期待値 $\mu_{\text{gap}}$ と予測共分散 $\Omega_{\text{gap}}$ を計算して保存する。
   ```bash
-  python tools/compute_gap_adjusted_distribution.py \
+  python tools/production/compute_gap_adjusted_distribution.py \
       --trade-date latest \
       --output-dir results/gap_adjusted_distribution/latest
   ```
 
-### 5.3 日次シャドウ監視ランナー (`tools/run_daily_residual_blpx_shadow.py`)
+### 5.3 日次シャドウ監視ランナー (`tools/validation/run_daily_residual_blpx_shadow.py`)
 本番 baseline (v1) と各シャドウ候補（RuleD等）を並行して計算し、ウェイト差分やシグナル特性の監視を行う。
   ```bash
-  python tools/run_daily_residual_blpx_shadow.py \
+  python tools/validation/run_daily_residual_blpx_shadow.py \
       --trade-date latest \
       --gap-dir results/gap_adjusted_distribution/latest
   ```
@@ -227,14 +227,14 @@ python3 -m leadlag.cli close \
 ### 5.4 Legacy PCA-Ensemble ツール
 * PCA-Ensemble バックテスト（アーカイブされた PCA-Ensemble 設定ファイルを使用）：
   ```bash
-  python tools/backtest_sector_relative_ensemble.py \
+  python tools/research/backtest_sector_relative_ensemble.py \
       --config configs/archive/production_before_residual_blpx_20260614.yaml \
       --slippage-bps 5 \
       --output-dir results/sector_relative_ensemble/
   ```
 * PCA-Ensemble 日次実行（アーカイブされた PCA-Ensemble 設定ファイルを使用）：
   ```bash
-  python tools/run_daily_sector_relative_ensemble.py \
+  python tools/research/run_daily_sector_relative_ensemble.py \
       --config configs/archive/production_before_residual_blpx_20260614.yaml \
       --signal-date latest \
       --output-dir live/sector_relative_ensemble/ \
@@ -246,7 +246,7 @@ python3 -m leadlag.cli close \
 ## 6. 戦略モード（signal / weight / v3）
 
 これらはサブコマンドとは別物で、シグナル生成とウェイト計算の内部設定を変更する。
-本番の動作設定は `configs/production.yaml` の各セクション（`portfolio`, `residualization` 等）で指定し、実行時に読み込まれる。
+本番の動作設定は `configs/production/production.yaml` の各セクション（`portfolio`, `residualization` 等）で指定し、実行時に読み込まれる。
 
 ### 6.1 signal_mode
 
@@ -293,7 +293,7 @@ import yaml
 from leadlag.models.sector_relative_ensemble_blp_enhanced import SectorRelativeEnsembleBLPEnhancedModel
 
 # 本番 v2 設定ファイルを読み込んでモデルを初期化
-config_path = "configs/production.yaml"
+config_path = "configs/production/production.yaml"
 with open(config_path) as f:
     config = yaml.safe_load(f)
 model = SectorRelativeEnsembleBLPEnhancedModel(config)

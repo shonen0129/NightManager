@@ -14,7 +14,7 @@ import numpy as np
 from sklearn.linear_model import Ridge
 from sklearn.preprocessing import StandardScaler
 
-from models.hinge_overlay import BaseHingeOverlay
+from experiments.models.hinge_overlay import BaseHingeOverlay
 
 logger = logging.getLogger(__name__)
 
@@ -128,7 +128,7 @@ class HingeRidgeOverlay(BaseHingeOverlay):
             Best fitted model with best ridge_alpha and best blend alpha.
         """
         from scipy.stats import spearmanr
-        from models.hinge_overlay import select_best_alpha
+        from experiments.models.hinge_overlay import select_best_alpha
 
         best_ic = -np.inf
         best_model = None
@@ -165,7 +165,7 @@ class HingeRidgeOverlay(BaseHingeOverlay):
             best_model._is_fitted = False
         else:
             # Also select best blend alpha on validation
-            from models.hinge_overlay import ALPHA_GRID_DEFAULT
+            from experiments.models.hinge_overlay import ALPHA_GRID_DEFAULT
             best_alpha = select_best_alpha(
                 X_val, y_val, mu_base_val, best_model,
                 alpha_grid=ALPHA_GRID_DEFAULT,

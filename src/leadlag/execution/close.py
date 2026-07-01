@@ -18,7 +18,13 @@ from datetime import datetime
 from leadlag.broker.base import BrokerClient
 from leadlag.core.types import OrderRequest, OrderSide, OrderType
 from leadlag.execution.config import load_config_from_yaml
-from leadlag.execution.helpers import build_api_client, build_output_dir
+from leadlag.execution.helpers import (
+    build_api_client,
+    build_output_dir,
+    save_position_snapshot,
+    save_wallet_snapshot,
+    save_daily_journal,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -341,6 +347,17 @@ def run_close_positions_mode(
         logger.info(
             "Close-positions completed. Positions closed: %d",
             close_summary.get("close_orders_count", 0),
+        )
+
+        # --- Trade journal: collect post-close data ---
+        close_log_path = os.path.join(output_dir, "close_execution_log.json")
+        pos_snapshot_path = save_position_snapshot(api_client, output_dir, label="close")
+        wallet_snapshot_path = save_wallet_snapshot(api_client, output_dir, label="close")
+        save_daily_journal(
+            output_dir=output_dir,
+            close_execution_log_path=close_log_path,
+            position_snapshot_path=pos_snapshot_path,
+            wallet_snapshot_path=wallet_snapshot_path,
         )
     finally:
         if api_client is not None:

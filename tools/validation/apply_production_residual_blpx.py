@@ -18,7 +18,7 @@ from datetime import datetime
 from pathlib import Path
 
 # Add src/ to path
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 logging.basicConfig(
@@ -32,8 +32,8 @@ logger = logging.getLogger(__name__)
 def parse_arguments() -> argparse.Namespace:
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(description="Apply Residual-BLPX Production Config")
-    parser.add_argument("--source-config", default="configs/production.yaml", help="Current production config path")
-    parser.add_argument("--target-config", default="configs/production_residual_blpx.yaml", help="New candidate config path")
+    parser.add_argument("--source-config", default="configs/production/production.yaml", help="Current production config path")
+    parser.add_argument("--target-config", default="configs/production/production_residual_blpx.yaml", help="New candidate config path")
     parser.add_argument("--backup-dir", default="configs/archive", help="Backup directory")
     parser.add_argument("--output-dir", default="results/production_residual_blpx_validation", help="Output directory of validation")
     parser.add_argument("--require-audit-pass", default="true", choices=["true", "false"], help="Enforce audit check pass before applying")

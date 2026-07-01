@@ -47,6 +47,9 @@ prof_*
 kabu_auto_login/creds/
 kabu_auto_login/.env
 
+# Scratch / temporary analysis scripts
+scratch/
+
 # Large generated artifacts (parquet, csv experiment outputs)
 artifacts/
 

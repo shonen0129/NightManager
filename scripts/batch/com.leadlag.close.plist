@@ -8,7 +8,7 @@
     <key>ProgramArguments</key>
     <array>
         <string>/bin/bash</string>
-        <string>__PROJECT_DIR__/scripts/run_close_positions.sh</string>
+        <string>__PROJECT_DIR__/scripts/batch/run_close_positions.sh</string>
     </array>
 
     <key>WorkingDirectory</key>

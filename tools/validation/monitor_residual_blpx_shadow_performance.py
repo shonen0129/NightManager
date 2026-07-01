@@ -20,7 +20,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 # Add src/ to path
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 from leadlag.data.tickers import JP_TICKERS

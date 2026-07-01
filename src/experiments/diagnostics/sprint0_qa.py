@@ -15,7 +15,7 @@ import yfinance as yf
 
 from leadlag.data.cache import load_df_exec_from_local_cache, load_intraday_cache
 from leadlag.data.tickers import JP_TICKERS, US_TICKERS, TOPIX_TICKER
-from leadlag.diagnostics.sprint0 import run_sprint0_calculations, find_latest_distribution_diagnostics
+from experiments.diagnostics.sprint0 import run_sprint0_calculations, find_latest_distribution_diagnostics
 
 logger = logging.getLogger(__name__)
 
@@ -576,7 +576,7 @@ def run_qa8_calibration_leak(
     """QA 8: Validate ex-ante IR calibration leak (compare full-sample vs rolling 252d quantile split)."""
     diag_file = find_latest_distribution_diagnostics()
     if not diag_file:
-        return {"calibration_leak_check": pd.DataFrame()}
+        return {"calibration_leak_comparison": pd.DataFrame()}
 
     diag_df = pd.read_csv(diag_file)
     diag_df["trade_date"] = pd.to_datetime(diag_df["trade_date"]).dt.normalize()

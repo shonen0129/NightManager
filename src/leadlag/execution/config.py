@@ -61,10 +61,10 @@ def load_config_from_yaml(yaml_path: str | Path | None = None) -> AppConfig:
 
     Args:
         yaml_path: Path to the configuration YAML file.
-                   Defaults to project_root/configs/production.yaml if exists.
+                   Defaults to project_root/configs/production/production.yaml if exists.
     """
     if yaml_path is None:
-        default_yaml = Path(__file__).parent.parent.parent.parent / "configs" / "production.yaml"
+        default_yaml = Path(__file__).parent.parent.parent.parent / "configs" / "production" / "production.yaml"
         if default_yaml.exists():
             yaml_path = default_yaml
 

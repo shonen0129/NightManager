@@ -51,7 +51,7 @@ import yaml
 # ---------------------------------------------------------------------------
 # Path setup
 # ---------------------------------------------------------------------------
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 # ---------------------------------------------------------------------------
@@ -59,25 +59,25 @@ sys.path.insert(0, str(ROOT / "src"))
 # ---------------------------------------------------------------------------
 from leadlag.data.cache import load_df_exec_from_local_cache
 from leadlag.data.tickers import JP_TICKERS
-from leadlag.diagnostics.sprint0 import run_sprint0_calculations
-from leadlag.diagnostics.sprint1_experiments import generate_targets_panel
+from experiments.diagnostics.sprint0 import run_sprint0_calculations
+from experiments.diagnostics.sprint1_experiments import generate_targets_panel
 
-from features.hinge_features import build_full_feature_panel, derive_proxy_features
-from features.feature_selection_fdr import (
+from experiments.features.hinge_features import build_full_feature_panel, derive_proxy_features
+from experiments.features.feature_selection_fdr import (
     FDRFeatureSelector,
     compute_rank_ic_long_format,
     compute_feature_stability,
     run_walk_forward_fdr_selection,
 )
-from models.hinge_overlay import (
+from experiments.models.hinge_overlay import (
     generate_walk_forward_windows,
     cap_overlay_prediction,
     select_best_alpha,
     ALPHA_GRID_DEFAULT,
 )
-from models.hinge_ridge_overlay import HingeRidgeOverlay
-from models.hinge_elasticnet_overlay import HingeElasticNetOverlay
-from reports.sprint3a_hinge_report import generate_sprint3a_report
+from experiments.models.hinge_ridge_overlay import HingeRidgeOverlay
+from experiments.models.hinge_elasticnet_overlay import HingeElasticNetOverlay
+from experiments.reports.sprint3a_hinge_report import generate_sprint3a_report
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -1443,9 +1443,9 @@ def main() -> None:
 
     added_files = [
         "configs/archive/sprint3a_hinge_features_aum1m.yaml",
-        "scripts/run_sprint3a_hinge_features.py",
-        "src/features/__init__.py",
-        "src/features/hinge_features.py",
+        "scripts/sprint/run_sprint3a_hinge_features.py",
+        "src/experiments/features/__init__.py",
+        "src/experiments/features/hinge_features.py",
         "src/features/feature_selection_fdr.py",
         "src/models/__init__.py",
         "src/models/hinge_overlay.py",

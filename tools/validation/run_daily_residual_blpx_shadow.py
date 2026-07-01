@@ -21,7 +21,7 @@ import yaml
 from scipy.optimize import minimize
 
 # Add src/ to path
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 from leadlag.data.tickers import JP_TICKERS
@@ -40,7 +40,7 @@ warnings.filterwarnings("ignore", category=RuntimeWarning)
 def parse_arguments() -> argparse.Namespace:
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(description="Daily Residual-BLPX Shadow Run Generator")
-    parser.add_argument("--config", default="configs/production.yaml", help="Path to config file")
+    parser.add_argument("--config", default="configs/production/production.yaml", help="Path to config file")
     parser.add_argument("--model", default="production_residual_blpx", help="Model name")
     parser.add_argument("--trade-date", default="latest", help="YYYY-MM-DD or 'latest'")
     parser.add_argument("--production-output-dir", default="live/production_residual_blpx", help="Production directory")

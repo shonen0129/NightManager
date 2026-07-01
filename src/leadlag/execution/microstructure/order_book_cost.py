@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from typing import Any
-from leadlag.execution.order_book_schema import OrderBookSnapshot
+from .order_book_schema import OrderBookSnapshot
 
 logger = logging.getLogger(__name__)
 

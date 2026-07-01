@@ -30,7 +30,7 @@ import pandas as pd
 import yaml
 from scipy import stats
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 from leadlag.data.cache import load_df_exec_from_local_cache
@@ -43,11 +43,11 @@ from leadlag.models.sector_relative_ensemble_blp_enhanced import (
     _RAW_PCA_RESIDUAL_PCA_CACHE,
 )
 
-from models.hinge_overlay import generate_walk_forward_windows, ALPHA_GRID_DEFAULT
-from models.hinge_interaction_overlay import build_flat_arrays_from_long
-from models.hinge_interaction_ridge import InteractionRidgeOverlay
-from models.hinge_interaction_elasticnet import InteractionElasticNetOverlay
-from models.hinge_interaction_gbdt import InteractionGBDTOverlay
+from experiments.models.hinge_overlay import generate_walk_forward_windows, ALPHA_GRID_DEFAULT
+from experiments.models.hinge_interaction_overlay import build_flat_arrays_from_long
+from experiments.models.hinge_interaction_ridge import InteractionRidgeOverlay
+from experiments.models.hinge_interaction_elasticnet import InteractionElasticNetOverlay
+from experiments.models.hinge_interaction_gbdt import InteractionGBDTOverlay
 
 logging.basicConfig(level=logging.WARNING, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)

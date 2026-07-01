@@ -4,7 +4,7 @@ REM kabuステーション自動ログイン（毎朝 7:00 実行）
 REM ============================================================
 chcp 65001 >nul
 
-set "PROJECT_DIR=%~dp0.."
+set "PROJECT_DIR=%~dp0../.."
 set "VENV_DIR=%PROJECT_DIR%\.venv"
 set "LOG_DIR=%PROJECT_DIR%\logs"
 
