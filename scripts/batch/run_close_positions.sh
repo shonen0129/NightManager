@@ -16,17 +16,18 @@ LOG_FILE="${LOG_DIR}/close_positions_${DATESTR}.log"
 
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] === close positions 開始 ===" >> "${LOG_FILE}"
 
-# 仮想環境のアクティベート
-if [ -f "${VENV_DIR}/bin/activate" ]; then
-    source "${VENV_DIR}/bin/activate"
+# 仮想環境のPython（activateが壊れている可能性があるため直接指定）
+PYTHON_BIN="${VENV_DIR}/bin/python"
+if [ -f "${PYTHON_BIN}" ]; then
+    :
 else
-    echo "[ERROR] venv not found: ${VENV_DIR}" >> "${LOG_FILE}"
+    echo "[ERROR] venv python not found: ${PYTHON_BIN}" >> "${LOG_FILE}"
     exit 1
 fi
 
 # スクリプト実行
 cd "${PROJECT_DIR}"
-PYTHONPATH=src python -m leadlag.cli close \
+PYTHONPATH=src "${PYTHON_BIN}" -m leadlag.cli close \
     >> "${LOG_FILE}" 2>&1
 
 EXIT_CODE=$?
