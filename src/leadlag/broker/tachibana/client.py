@@ -393,6 +393,12 @@ class TachibanaBrokerClient(BrokerClient):
             results.append(res)
 
         # --- Market-Neutrality Rollback Check ---
+        # Skip rollback for close orders (返済) — they reduce positions, not open new ones.
+        # Partial close failures are acceptable; the decision run will report them.
+        if is_close:
+            logger.info("Batch close submission complete: %d/%d orders successful.", len(results), len(orders))
+            return results
+
         buy_total = sum(1 for o in orders if o.side == OrderSide.BUY)
         sell_total = sum(1 for o in orders if o.side == OrderSide.SELL)
         buy_success = sum(1 for r in results if r.side == OrderSide.BUY and r.status == OrderStatus.SUBMITTED)

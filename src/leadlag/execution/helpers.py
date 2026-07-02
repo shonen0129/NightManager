@@ -22,6 +22,7 @@ from leadlag.core.portfolio import adjust_gross_exposure, classify_actions
 from leadlag.core.risk import evaluate_risk_checks
 from leadlag.core.types import (
     OrderRequest,
+    OrderResult,
     OrderSide,
     OrderType,
     RiskConfig,
@@ -327,8 +328,12 @@ def submit_orders_via_api(
     is_dry_run = type(api_client).__name__ == "DryRunBrokerClient"
     current = current_positions or {}
 
-    # Compute delta quantities (target - current), then determine action
-    delta_orders = []
+    # Compute delta quantities (target - current), then split into close vs new orders.
+    # Close orders (返済) reduce existing positions; new orders (新規) open or increase positions.
+    # When a delta crosses zero (e.g. LONG→SHORT), the portion that closes the existing
+    # position is a close order and the remainder is a new order.
+    close_orders: list[tuple[str, OrderSide, int]] = []
+    new_orders: list[tuple[str, OrderSide, int]] = []
     for _, row in decision_df.iterrows():
         ticker = str(row["ticker"])
         target_qty = int(row["quantity"])
@@ -343,11 +348,30 @@ def submit_orders_via_api(
         current_signed = current.get(ticker, 0)
         delta = target_signed - current_signed
 
-        if delta > 0:
-            delta_orders.append((ticker, OrderSide.BUY, delta))
-        elif delta < 0:
-            delta_orders.append((ticker, OrderSide.SELL, abs(delta)))
-        # delta == 0: no order needed
+        if delta == 0:
+            continue
+
+        side = OrderSide.BUY if delta > 0 else OrderSide.SELL
+        abs_delta = abs(delta)
+
+        # Determine how much of the delta closes the existing position
+        if current_signed > 0 and delta < 0:
+            # Reducing LONG: close up to current_signed, rest is new SHORT
+            close_qty = min(abs_delta, current_signed)
+            new_qty = abs_delta - close_qty
+        elif current_signed < 0 and delta > 0:
+            # Reducing SHORT: close up to abs(current_signed), rest is new LONG
+            close_qty = min(abs_delta, abs(current_signed))
+            new_qty = abs_delta - close_qty
+        else:
+            # No existing position, or delta in same direction as current → all new
+            close_qty = 0
+            new_qty = abs_delta
+
+        if close_qty > 0:
+            close_orders.append((ticker, side, close_qty))
+        if new_qty > 0:
+            new_orders.append((ticker, side, new_qty))
 
     # Log position reconciliation
     if current:
@@ -368,8 +392,8 @@ def submit_orders_via_api(
     else:
         logger.info("[DELTA] No existing positions; submitting full target quantities")
 
-    buy_count = sum(1 for _, side, _ in delta_orders if side == OrderSide.BUY)
-    sell_count = sum(1 for _, side, _ in delta_orders if side == OrderSide.SELL)
+    buy_count = sum(1 for _, side, _ in new_orders if side == OrderSide.BUY)
+    sell_count = sum(1 for _, side, _ in new_orders if side == OrderSide.SELL)
 
     summary = {
         "timestamp": datetime.now().isoformat(timespec="seconds"),
@@ -379,23 +403,58 @@ def submit_orders_via_api(
         "current_positions": current,
         "buy_results": [],
         "sell_results": [],
+        "close_results": [],
     }
 
-    order_requests = [
+    # --- Phase 1: Submit close orders (返済) first to free margin ---
+    close_order_requests = [
         OrderRequest(
             ticker=ticker,
             side=side,
             quantity=qty,
             order_type=OrderType.MARKET,
         )
-        for ticker, side, qty in delta_orders
+        for ticker, side, qty in close_orders
     ]
-    expected_orders_count = len(order_requests)
+    close_results_all: list[OrderResult] = []
+    if close_order_requests:
+        logger.info("[CLOSE PHASE] Submitting %d close (返済) orders first...", len(close_order_requests))
+        close_results_all = api_client.submit_orders_batch(
+            close_order_requests, delay_ms=250, is_close=True,
+        )
+        for result in close_results_all:
+            logger.info(
+                "  [CLOSE] %s: %d shares (Order ID: %s, Status: %s)",
+                result.ticker,
+                result.quantity,
+                result.order_id,
+                result.status.value,
+            )
+            summary["close_results"].append({
+                "order_id": result.order_id,
+                "status": result.status.value,
+                "ticker": result.ticker,
+                "side": result.side.value,
+                "quantity": result.quantity,
+                "message": result.message,
+            })
+
+    # --- Phase 2: Submit new orders (新規) after close orders ---
+    new_order_requests = [
+        OrderRequest(
+            ticker=ticker,
+            side=side,
+            quantity=qty,
+            order_type=OrderType.MARKET,
+        )
+        for ticker, side, qty in new_orders
+    ]
+    expected_orders_count = len(close_order_requests) + len(new_order_requests)
     summary["expected_orders_count"] = expected_orders_count
 
-    logger.info("[ORDER SUBMISSION] Sending %d delta orders via broker API...", len(order_requests))
-    if order_requests:
-        results = api_client.submit_orders_batch(order_requests, delay_ms=250)
+    if new_order_requests:
+        logger.info("[NEW PHASE] Submitting %d new (新規) orders...", len(new_order_requests))
+        results = api_client.submit_orders_batch(new_order_requests, delay_ms=250)
         for result in results:
             side = result.side.value
             logger.info(
@@ -419,7 +478,7 @@ def submit_orders_via_api(
             elif side == "SELL":
                 summary["sell_results"].append(result_dict)
 
-    submitted_orders_count = len(summary["buy_results"]) + len(summary["sell_results"])
+    submitted_orders_count = len(summary["buy_results"]) + len(summary["sell_results"]) + len(summary["close_results"])
     summary["submitted_orders_count"] = submitted_orders_count
     summary["failed_orders_count"] = max(0, expected_orders_count - submitted_orders_count)
 
