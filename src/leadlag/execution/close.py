@@ -11,12 +11,14 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import os
 import time as time_module
 from datetime import datetime
 
 from leadlag.broker.base import BrokerClient
 from leadlag.core.types import OrderRequest, OrderSide, OrderType
+from leadlag.data.tickers import lot_size_for
 from leadlag.execution.config import load_config_from_yaml
 from leadlag.execution.helpers import (
     build_api_client,
@@ -100,7 +102,10 @@ def close_all_positions(
         # Determine alpha based on position side
         alpha = overnight_alpha_long if pos.side == "BUY" else overnight_alpha_short
         close_fraction = 1.0 - alpha
-        close_qty = int(pos.quantity * close_fraction)
+        lot_size = lot_size_for(pos.ticker)
+        close_qty = math.floor(pos.quantity * close_fraction / lot_size + 0.5) * lot_size
+        if close_qty > pos.quantity:
+            close_qty = pos.quantity - (pos.quantity % lot_size)
         hold_qty = pos.quantity - close_qty
 
         if hold_qty > 0:
@@ -143,6 +148,8 @@ def close_all_positions(
                 side=close_side,
                 quantity=close_qty,
                 order_type=OrderType.CLOSE,
+                margin_trade_type=pos.margin_trade_type,
+                account_type=pos.account_type,
             )
         )
         logger.info(
@@ -217,7 +224,10 @@ def close_all_positions(
         json.dump(summary, f, ensure_ascii=False, indent=2)
     logger.info("Close execution log saved: %s", log_path)
 
-    success_count = len(summary["close_results"])
+    success_count = sum(
+        1 for r in summary["close_results"]
+        if r.get("status") != "FAILED"
+    )
     logger.info(
         "Position close completed: %d/%d orders submitted",
         success_count,

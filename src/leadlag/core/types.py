@@ -171,6 +171,8 @@ class OrderRequest:
     quantity: int
     order_type: OrderType = OrderType.MARKET
     limit_price: float | None = None
+    margin_trade_type: int | None = None
+    account_type: int | None = None
 
 
 @dataclass

@@ -296,7 +296,7 @@ class TachibanaBrokerClient(BrokerClient):
         # Margin Trade Type mapping
         # 1 = 制度信用 (Tachibana: 2=新規, 4=返済)
         # 2, 3 = 一般信用 (Tachibana: 6=新規, 8=返済)
-        m_type = self._broker_config.margin_trade_type
+        m_type = order.margin_trade_type if order.margin_trade_type is not None else self._broker_config.margin_trade_type
         if is_close:
             genkin_shinyou = "4" if m_type == 1 else "8"
         else:
@@ -304,7 +304,7 @@ class TachibanaBrokerClient(BrokerClient):
 
         # Account Type mapping
         # 4 (特定) -> "1", 2 (一般) -> "3", 12 (法人) -> "9"
-        acc_type = self._broker_config.account_type
+        acc_type = order.account_type if order.account_type is not None else self._broker_config.account_type
         account_code = "1"
         if acc_type == 2:
             account_code = "3"
@@ -396,7 +396,8 @@ class TachibanaBrokerClient(BrokerClient):
         # Skip rollback for close orders (返済) — they reduce positions, not open new ones.
         # Partial close failures are acceptable; the decision run will report them.
         if is_close:
-            logger.info("Batch close submission complete: %d/%d orders successful.", len(results), len(orders))
+            success = sum(1 for r in results if r.status == OrderStatus.SUBMITTED)
+            logger.info("Batch close submission complete: %d/%d orders successful.", success, len(orders))
             return results
 
         buy_total = sum(1 for o in orders if o.side == OrderSide.BUY)
