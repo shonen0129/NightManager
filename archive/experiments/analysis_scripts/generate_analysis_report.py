@@ -233,6 +233,6 @@ def main():
 
 if __name__ == "__main__":
     os.chdir(
-        "/Users/takahashimasatoshi/Library/Mobile Documents/com~apple~CloudDocs/個別株/日米ラグ/src"
+        os.path.join(os.path.dirname(__file__), "..", "..", "..", "src")
     )
     main()

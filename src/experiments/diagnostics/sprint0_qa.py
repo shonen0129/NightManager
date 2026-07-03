@@ -445,7 +445,7 @@ def run_qa6_capacity_units(
     close_df = yf_data["Close"].reindex(valid_dates_beta).ffill()
 
     # Load Quote width spreads
-    spread_path = "/Users/takahashimasatoshi/Library/Mobile Documents/com~apple~CloudDocs/個別株/日米ラグ_2.1/results/sector_relative_ensemble_execution_cost/quote_width_by_ticker.csv"
+    spread_path = os.path.join(os.path.dirname(__file__), "..", "..", "..", "results", "sector_relative_ensemble_execution_cost", "quote_width_by_ticker.csv")
     if os.path.exists(spread_path):
         spread_df = pd.read_csv(spread_path)
         spread_df["trade_date"] = pd.to_datetime(spread_df["trade_date"]).dt.normalize()
@@ -513,7 +513,7 @@ def run_qa7_cost_consistency(
     adv_rolling = adtv_daily.rolling(20).mean().replace(0.0, np.nan).replace([np.inf, -np.inf], np.nan)
 
     # Load Quote width spreads
-    spread_path = "/Users/takahashimasatoshi/Library/Mobile Documents/com~apple~CloudDocs/個別株/日米ラグ_2.1/results/sector_relative_ensemble_execution_cost/quote_width_by_ticker.csv"
+    spread_path = os.path.join(os.path.dirname(__file__), "..", "..", "..", "results", "sector_relative_ensemble_execution_cost", "quote_width_by_ticker.csv")
     if os.path.exists(spread_path):
         spread_df = pd.read_csv(spread_path)
         spread_df["trade_date"] = pd.to_datetime(spread_df["trade_date"]).dt.normalize()

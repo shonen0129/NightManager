@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 def main():
-    target_dir = "/Users/takahashimasatoshi/Library/Mobile Documents/com~apple~CloudDocs/個別株/日米ラグ_2.1/results/20260528_195455_bt_normal"
+    target_dir = os.path.join(os.path.dirname(__file__), "..", "..", "..", "results", "20260528_195455_bt_normal")
     csv_path = os.path.join(target_dir, "daily_results.csv")
     
     if not os.path.exists(csv_path):

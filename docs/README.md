@@ -70,4 +70,4 @@ The backtest automatically triggers a set of safety checks written to `results/s
 
 ## Deprecated Experiments
 All deprecated experimental scripts (P2, P5, P6, Gap Shrinkage, Low-Rank models, risk overlays, etc.) have been archived under `archive/experiments/`. For details on why these were not adopted, see:
-[deprecated_experiments.md](file:///Users/takahashimasatoshi/Library/Mobile%20Documents/com~apple~CloudDocs/%E5%80%8B%E5%88%A5%E6%A0%AA/%E6%97%A5%E7%B1%B3%E3%83%A9%E3%82%B0_2.1/docs/deprecated_experiments.md)
+[deprecated_experiments.md](deprecated_experiments.md)

@@ -104,7 +104,7 @@ Decomposes the gross returns sum into systematic market components and idiosyncr
 
 ## 8. Equity Curve and Drawdown Charts
 
-![Performance Comparison](/Users/takahashimasatoshi/Library/Mobile Documents/com~apple~CloudDocs/個別株/日米ラグ_2.1/results/compare_topix_residual/equity_drawdown_comparison.png)
+![Performance Comparison](../../results/compare_topix_residual/equity_drawdown_comparison.png)
 
 ---
 

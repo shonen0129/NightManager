@@ -302,7 +302,7 @@ def run_sprint1_backtests(
     r_topix_oc = df_exec["topix_oc_return"]
     
     # Load Quote width spreads if available, else static
-    spread_path = "/Users/takahashimasatoshi/Library/Mobile Documents/com~apple~CloudDocs/個別株/日米ラグ_2.1/results/sector_relative_ensemble_execution_cost/quote_width_by_ticker.csv"
+    spread_path = os.path.join(os.path.dirname(__file__), "..", "..", "..", "results", "sector_relative_ensemble_execution_cost", "quote_width_by_ticker.csv")
     if os.path.exists(spread_path):
         spread_df = pd.read_csv(spread_path)
         spread_df["trade_date"] = pd.to_datetime(spread_df["trade_date"]).dt.normalize()

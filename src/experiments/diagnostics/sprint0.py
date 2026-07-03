@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 def find_latest_distribution_diagnostics() -> str | None:
     """Find the path of the latest portfolio_gap_distribution_diagnostics.csv in results."""
-    base_dir = "/Users/takahashimasatoshi/Library/Mobile Documents/com~apple~CloudDocs/個別株/日米ラグ_2.1/results/gap_adjusted_distribution"
+    base_dir = os.path.join(os.path.dirname(__file__), "..", "..", "..", "results", "gap_adjusted_distribution")
     if not os.path.exists(base_dir):
         return None
     subdirs = glob.glob(os.path.join(base_dir, "202*"))
@@ -173,7 +173,7 @@ def run_sprint0_calculations(
     yearly_corr_df = pd.Series(yearly_corr, name="average_ticker_correlation")
 
     # Regime-wise correlation (VIX & USDJPY)
-    macro_path = "/Users/takahashimasatoshi/Library/Mobile Documents/com~apple~CloudDocs/個別株/日米ラグ_2.1/market_data/macro_data.pkl"
+    macro_path = os.path.join(os.path.dirname(__file__), "..", "..", "..", "market_data", "macro_data.pkl")
     macro_df = None
     regime_results = {}
     if os.path.exists(macro_path):
@@ -467,7 +467,7 @@ def run_sprint0_calculations(
     adv_rolling = adv_rolling.replace(0.0, np.nan).replace([np.inf, -np.inf], np.nan)
 
     # Load Quote width spreads
-    spread_path = "/Users/takahashimasatoshi/Library/Mobile Documents/com~apple~CloudDocs/個別株/日米ラグ_2.1/results/sector_relative_ensemble_execution_cost/quote_width_by_ticker.csv"
+    spread_path = os.path.join(os.path.dirname(__file__), "..", "..", "..", "results", "sector_relative_ensemble_execution_cost", "quote_width_by_ticker.csv")
     if os.path.exists(spread_path):
         spread_df = pd.read_csv(spread_path)
         spread_df["trade_date"] = pd.to_datetime(spread_df["trade_date"]).dt.normalize()
