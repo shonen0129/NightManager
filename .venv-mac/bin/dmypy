@@ -1,8 +1,0 @@
-#!/bin/sh
-'''exec' "/Users/shonen/Library/Mobile Documents/com~apple~CloudDocs/個別株/日米ラグ_2.1/.venv-mac/bin/python3.12" "$0" "$@"
-' '''
-import sys
-from mypy.dmypy.client import console_entry
-if __name__ == '__main__':
-    sys.argv[0] = sys.argv[0].removesuffix('.exe')
-    sys.exit(console_entry())
