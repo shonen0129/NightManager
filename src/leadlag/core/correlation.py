@@ -42,6 +42,49 @@ def build_base_vectors(n_u: int, n_j: int) -> dict[str, np.ndarray]:
     return {"v1": v1, "v2": v2}
 
 
+def get_static_sensitivity_labels() -> dict[str, np.ndarray]:
+    """Return the hardcoded sensitivity label vectors (single source of truth).
+
+    Values use a 7-level discrete grid: {-1.0, -0.6, -0.3, 0.0, +0.3, +0.6, +1.0}.
+    Order: US_TICKERS (15) then JP_TICKERS (17), total 32.
+
+    Returns
+    -------
+    dict with keys 'w3' (cyclical/defensive), 'w4' (FX),
+    'w5' (energy), 'w6' (inflation), each (32,) ndarray.
+    """
+    return {
+        "w3": np.array(
+            [
+                1.0, 0.3, 0.3, 1.0, 1.0, 0.6, -1.0, 0.3, -1.0, -1.0, 1.0, 0.0, 0.6, -0.3, -0.6,
+                -1.0, 0.3, 0.6, 1.0, -1.0, 1.0, 1.0, 1.0, 1.0, -0.3, -1.0, -0.3, 0.6, -0.6, 1.0, 0.6, 0.6,
+            ],
+            dtype=float,
+        ),
+        "w4": np.array(
+            [
+                0.3, 0.0, 0.0, 0.3, 0.6, 1.0, -0.6, -0.3, -0.6, -0.3, 0.6, 0.3, 0.0, 0.6, -0.3,
+                -0.6, 0.3, 0.3, 0.6, -0.3, 1.0, 0.6, 1.0, 1.0, -0.3, -1.0, -0.3, 1.0, -0.6, 0.3, 0.0, -1.0,
+            ],
+            dtype=float,
+        ),
+        "w5": np.array(
+            [
+                0.3, 0.0, 1.0, 0.0, 0.3, 0.0, -0.3, 0.0, -1.0, 0.0, -0.3, 0.0, 0.3, 0.0, -0.3,
+                -0.3, 1.0, 0.0, 0.3, 0.0, -0.3, 0.3, 0.0, 0.0, 0.0, -1.0, 0.0, 0.6, -0.3, 0.0, 0.0, 0.0,
+            ],
+            dtype=float,
+        ),
+        "w6": np.array(
+            [
+                1.0, -0.3, 1.0, 0.3, 0.3, -0.6, -0.3, 0.3, -0.6, -0.3, -0.3, 0.0, 0.6, -0.3, -0.3,
+                -0.3, 1.0, 0.3, 0.6, -0.3, 0.0, 0.6, 0.3, -0.3, -0.3, -1.0, -0.3, 1.0, -0.6, 0.3, 0.0, 0.3,
+            ],
+            dtype=float,
+        ),
+    }
+
+
 def build_v3_static(
     n_u: int,
     n_j: int,
@@ -49,6 +92,8 @@ def build_v3_static(
     w6_override: np.ndarray | None = None,
 ) -> np.ndarray:
     """Build static V0 matrix with sector and macro sensitivity priors.
+
+    Sensitivity labels use a 7-level discrete grid: {-1.0, -0.6, -0.3, 0.0, +0.3, +0.6, +1.0}.
 
     Args:
         n_u: Number of US assets (expected 15 for built-in labels)
@@ -62,44 +107,8 @@ def build_v3_static(
     base_vectors = build_base_vectors(n_u, n_j)
     v1, v2 = base_vectors["v1"], base_vectors["v2"]
 
-    # v3 (w3c): continuous cyclical/defensive sensitivity labels
-    w3 = np.array(
-        [
-            1.0,
-            0.3,
-            0.2,
-            0.8,
-            0.9,
-            0.7,
-            -1.0,
-            0.4,
-            -0.9,
-            -0.8,
-            1.0,
-            0.0,
-            0.6,
-            -0.2,
-            -0.7,
-            -0.9,
-            0.3,
-            0.6,
-            0.9,
-            -0.9,
-            1.0,
-            1.0,
-            0.9,
-            0.8,
-            -0.3,
-            -1.0,
-            -0.4,
-            0.7,
-            -0.5,
-            0.8,
-            0.6,
-            0.5,
-        ],
-        dtype=float,
-    )
+    labels = get_static_sensitivity_labels()
+    w3 = labels["w3"]
     if w3.shape[0] != v1.shape[0]:
         raise ValueError(f"w3 length must be {v1.shape[0]}, got {w3.shape[0]}")
     v3 = _orthogonalize_and_normalize(w3, [v1, v2])
@@ -107,122 +116,9 @@ def build_v3_static(
     if not include_v4:
         return np.column_stack([v1, v2, v3])
 
-    # v4: FX sensitivity labels
-    w4 = np.array(
-        [
-            0.4,
-            0.0,
-            0.1,
-            0.2,
-            0.7,
-            0.8,
-            -0.5,
-            -0.4,
-            -0.7,
-            -0.4,
-            0.6,
-            0.3,
-            0.1,
-            0.6,
-            -0.3,
-            -0.6,
-            0.2,
-            0.2,
-            0.5,
-            -0.2,
-            1.0,
-            0.6,
-            0.8,
-            1.0,
-            -0.2,
-            -0.8,
-            -0.4,
-            0.8,
-            -0.7,
-            0.3,
-            0.0,
-            -0.9,
-        ],
-        dtype=float,
-    )
-
-    # v5: energy-price sensitivity labels
-    w5 = np.array(
-        [
-            0.4,
-            0.0,
-            1.0,
-            0.0,
-            0.2,
-            0.0,
-            -0.3,
-            0.0,
-            -0.8,
-            0.0,
-            -0.3,
-            0.0,
-            0.4,
-            -0.1,
-            -0.3,
-            -0.3,
-            1.0,
-            -0.1,
-            0.3,
-            0.0,
-            -0.2,
-            0.2,
-            0.0,
-            0.0,
-            0.0,
-            -0.9,
-            -0.1,
-            0.7,
-            -0.2,
-            0.0,
-            0.0,
-            0.0,
-        ],
-        dtype=float,
-    )
-
-    # v6: inflation sensitivity labels
-    w6 = np.array(
-        [
-            0.8,
-            -0.3,
-            1.0,
-            0.3,
-            0.3,
-            -0.5,
-            -0.2,
-            0.4,
-            -0.7,
-            -0.2,
-            -0.4,
-            -0.1,
-            0.5,
-            -0.4,
-            -0.3,
-            -0.4,
-            1.0,
-            0.3,
-            0.7,
-            -0.2,
-            -0.1,
-            0.6,
-            0.2,
-            -0.3,
-            -0.3,
-            -0.8,
-            -0.3,
-            0.8,
-            -0.5,
-            0.2,
-            0.1,
-            0.3,
-        ],
-        dtype=float,
-    )
+    w4 = labels["w4"]
+    w5 = labels["w5"]
+    w6 = labels["w6"]
 
     if w6_override is not None:
         w6_arr = np.asarray(w6_override, dtype=float).reshape(-1)
@@ -293,14 +189,25 @@ def compute_baseline_correlation(
     all_returns: np.ndarray,
     date_index: np.ndarray,
     ewma_half_life: float | None = None,
+    baseline_start: str = "2010-01-01",
+    baseline_end: str = "2014-12-31",
 ) -> np.ndarray:
-    """Compute baseline correlation matrix from 2010-2014 data."""
-    mask = (date_index >= np.datetime64("2010-01-01")) & (date_index <= np.datetime64("2014-12-31"))
+    """Compute baseline correlation matrix from a specified period.
+
+    Parameters
+    ----------
+    all_returns : (T, N) array of returns
+    date_index : (T,) array of datetime64 dates
+    ewma_half_life : optional EWMA half-life for weighting
+    baseline_start : start date for baseline period (default 2010-01-01)
+    baseline_end : end date for baseline period (default 2014-12-31)
+    """
+    mask = (date_index >= np.datetime64(baseline_start)) & (date_index <= np.datetime64(baseline_end))
     base_returns = all_returns[mask]
     if base_returns.shape[0] == 0:
-        raise ValueError("No rows found for baseline period (2010-2014)")
+        raise ValueError(f"No rows found for baseline period ({baseline_start} to {baseline_end})")
 
-    cache_key = (ewma_half_life, base_returns.shape, hash(base_returns.tobytes()))
+    cache_key = (ewma_half_life, baseline_start, baseline_end, base_returns.shape, hash(base_returns.tobytes()))
     if cache_key in _BASELINE_CORR_CACHE:
         return _BASELINE_CORR_CACHE[cache_key].copy()
 

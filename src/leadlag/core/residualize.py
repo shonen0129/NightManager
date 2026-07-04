@@ -60,7 +60,7 @@ def compute_rolling_ols_betas(
         betas_shifted = betas_df.shift(1)
 
         # Convert back to numpy of shape (T, N_targets, 1)
-        betas = betas_shifted.values[:, :, np.newaxis]
+        betas = betas_shifted.values[:, :, np.newaxis].copy()
         betas[:window] = np.nan
         return betas
 

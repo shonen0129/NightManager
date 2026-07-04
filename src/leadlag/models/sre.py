@@ -17,6 +17,7 @@ from leadlag.core.correlation import (
     build_v3_static,
     compute_baseline_correlation,
     compute_correlation,
+    get_static_sensitivity_labels,
 )
 from leadlag.core.residualize import compute_rolling_ols_betas
 from leadlag.data.preprocessor import compute_us_residualized_returns
@@ -176,6 +177,7 @@ class SectorRelativeEnsembleModel(BaseModel):
         c_full = compute_baseline_correlation(
             all_returns_raw, sim_dates.values, self.ewma_half_life
         )
+
         v0_static = build_v3_static(self.n_u, self.n_j, self.include_v4_prior)
         self.v0_static_obj = v0_static
         base_vectors = build_base_vectors(self.n_u, self.n_j)
@@ -300,11 +302,12 @@ class SectorRelativeEnsembleModel(BaseModel):
                 for k, v in cached.items()
             }
 
-        # Prior vectors
-        w3 = np.array([1.0, 0.3, 0.2, 0.8, 0.9, 0.7, -1.0, 0.4, -0.9, -0.8, 1.0, 0.0, 0.6, -0.2, -0.7, -0.9, 0.3, 0.6, 0.9, -0.9, 1.0, 1.0, 0.9, 0.8, -0.3, -1.0, -0.4, 0.7, -0.5, 0.8, 0.6, 0.5], dtype=float)
-        w4 = np.array([0.4, 0.0, 0.1, 0.2, 0.7, 0.8, -0.5, -0.4, -0.7, -0.4, 0.6, 0.3, 0.1, 0.6, -0.3, -0.6, 0.2, 0.2, 0.5, -0.2, 1.0, 0.6, 0.8, 1.0, -0.2, -0.8, -0.4, 0.8, -0.7, 0.3, 0.0, -0.9], dtype=float)
-        w5 = np.array([0.4, 0.0, 1.0, 0.0, 0.2, 0.0, -0.3, 0.0, -0.8, 0.0, -0.3, 0.0, 0.4, -0.1, -0.3, -0.3, 1.0, -0.1, 0.3, 0.0, -0.2, 0.2, 0.0, 0.0, 0.0, -0.9, -0.1, 0.7, -0.2, -0.2, 0.0, 0.0], dtype=float)
-        w6 = np.array([0.8, -0.3, 1.0, 0.3, 0.3, -0.5, -0.2, 0.4, -0.7, -0.2, -0.4, -0.1, 0.5, -0.4, -0.3, -0.4, 1.0, 0.3, 0.7, -0.2, -0.1, 0.6, 0.2, -0.3, -0.3, -0.8, -0.3, 0.8, -0.5, 0.2, 0.1, 0.3], dtype=float)
+        # Prior vectors (single source: correlation.get_static_sensitivity_labels)
+        _labels = get_static_sensitivity_labels()
+        w3 = _labels["w3"]
+        w4 = _labels["w4"]
+        w5 = _labels["w5"]
+        w6 = _labels["w6"]
 
         def _orthogonalize_and_normalize(vector: np.ndarray, basis: list[np.ndarray]) -> np.ndarray:
             result = vector.astype(float, copy=True)
@@ -480,10 +483,10 @@ class SectorRelativeEnsembleModel(BaseModel):
         jp_gap: np.ndarray,
         jp_beta: np.ndarray | None,
         topix_night: np.ndarray | None,
+        is_p4: bool = False,
     ) -> np.ndarray:
         """Compute the Residual-PCA (JP Residual target) or P4 signal at index i."""
-        is_p3 = hasattr(self, "v0_static_obj") and id(v0_static) == id(self.v0_static_obj)
-        if is_p3:
+        if not is_p4:
             cache_key = ("Residual-PCA", i, self.lambda_reg, self.k)
         else:
             cache_key = (
@@ -564,6 +567,10 @@ class SectorRelativeEnsembleModel(BaseModel):
                 V0_resid = prior_info["V0_resid"]
                 k_p4 = prior_info["k_expected"]
 
+        # Clear per-run signal caches to prevent cross-run contamination
+        _PRODUCTION_SIGNAL_CACHE.clear()
+        _RESIDUAL_SIGNAL_CACHE.clear()
+
         # Setup arrays
         raw_pca_signals = np.zeros((T, self.n_j))
         residual_pca_signals = np.zeros((T, self.n_j))
@@ -608,6 +615,7 @@ class SectorRelativeEnsembleModel(BaseModel):
                             jp_gap=jp_gap,
                             jp_beta=jp_beta,
                             topix_night=topix_night,
+                            is_p4=True,
                         )
                     finally:
                         signals.build_c0_from_v0 = orig_build_c0
@@ -624,6 +632,7 @@ class SectorRelativeEnsembleModel(BaseModel):
                         jp_gap,
                         jp_beta,
                         topix_night,
+                        is_p4=True,
                     )
                 p4_signals[i] = p4_sig
                 z4 = self.normalize_signals(p4_sig, self.normalization_method)
