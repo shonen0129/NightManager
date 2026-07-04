@@ -20,6 +20,7 @@ MAX_401_RETRIES = 3
 # リターン待機時間
 DEFAULT_MAX_RETRIES = 3
 DEFAULT_BACKOFF_FACTOR = 1.0
+MAX_RETRY_SLEEP: float = 10.0
 RETRYABLE_STATUS_CODES = {408, 429, 500, 502, 503, 504}
 
 
@@ -271,7 +272,7 @@ class KabuClient:
                         f"Server returned {response.status_code}: {response.text}"
                     )
                     if attempt < max_retries - 1:
-                        wait_time = backoff_factor * (2**attempt)
+                        wait_time = min(backoff_factor * (2**attempt), MAX_RETRY_SLEEP)
                         logger.warning(
                             f"API request returned {response.status_code}. "
                             f"Retrying in {wait_time:.1f}s (attempt {attempt + 1}/{max_retries})"
@@ -303,7 +304,7 @@ class KabuClient:
             except requests.RequestException as e:
                 last_exception = e
                 if attempt < max_retries - 1:
-                    wait_time = backoff_factor * (2**attempt)
+                    wait_time = min(backoff_factor * (2**attempt), MAX_RETRY_SLEEP)
                     logger.warning(
                         f"API request failed: {method} {endpoint}: {e}. "
                         f"Retrying in {wait_time:.1f}s (attempt {attempt + 1}/{max_retries})"

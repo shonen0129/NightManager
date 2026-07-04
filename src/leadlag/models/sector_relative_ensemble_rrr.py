@@ -59,6 +59,7 @@ class SectorRelativeEnsembleRRRModel(_BLPBase):
         self.topix_beta_coef = self._resolve_val("topix_beta_coef", 0.6)
         self.beta_window = self._resolve_val("beta_window", 60)
         self.vol_adjusted_target = self._resolve_val("vol_adjusted_target", True)
+        self.min_raw_weight = self._resolve_val("min_raw_weight", 0.0)
         self.normalization_method = self._resolve_val("normalization", "zscore")
 
         # RRR Parameters (with standard defaults)
@@ -256,7 +257,8 @@ class SectorRelativeEnsembleRRRModel(_BLPBase):
                 from leadlag.core.correlation import build_c0_from_v0, regularize_correlation
                 c0_t = build_c0_from_v0(v0_static, c_full_prior)
                 c_t_reg = regularize_correlation(
-                    corr, c0_t, self.lambda_reg, self.lambda_lw, self.lw_target
+                    corr, c0_t, self.lambda_reg, self.lambda_lw, self.lw_target,
+                    getattr(self, "min_raw_weight", 0.0),
                 )
                 try:
                     eigvals, eigvecs = np.linalg.eigh(c_t_reg)

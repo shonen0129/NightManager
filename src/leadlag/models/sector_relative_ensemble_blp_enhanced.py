@@ -79,6 +79,7 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
         self.topix_beta_coef = self._resolve_val("topix_beta_coef", 0.6)
         self.beta_window = self._resolve_val("beta_window", 60)
         self.vol_adjusted_target = self._resolve_val("vol_adjusted_target", True)
+        self.min_raw_weight = self._resolve_val("min_raw_weight", 0.0)
         self.normalization_method = self._resolve_val("normalization", "zscore")
 
         # BLP Parameters
@@ -335,7 +336,8 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
         if v0_static is not None and c_full is not None and corr.shape == (32, 32) and v0_static.shape == (32, 6) and c_full.shape == (32, 32):
             c0_t = build_c0_from_v0(v0_static, c_full)
             c_t_reg = regularize_correlation(
-                corr, c0_t, self.lambda_reg, self.lambda_lw, self.lw_target
+                corr, c0_t, self.lambda_reg, self.lambda_lw, self.lw_target,
+                getattr(self, "min_raw_weight", 0.0),
             )
             eigvals, eigvecs = np.linalg.eigh(c_t_reg)
             sort_idx = np.argsort(eigvals)[::-1]

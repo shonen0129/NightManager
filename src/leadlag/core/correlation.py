@@ -246,14 +246,40 @@ def build_lw_target_correlation(corr: np.ndarray, target: str = "equicorrelation
     return result
 
 
+def effective_raw_weight(lambda_lw: float, lambda_reg: float) -> float:
+    """Compute the effective weight of c_t in the final regularized matrix.
+
+    With two-stage shrinkage:
+        c_reg = (1-lambda_lw)*(1-lambda_reg)*c_t + lambda_lw*(1-lambda_reg)*C_LW + lambda_reg*c_0
+    so the raw sample weight is (1-lambda_lw)*(1-lambda_reg).
+    """
+    return (1.0 - lambda_lw) * (1.0 - lambda_reg)
+
+
 def regularize_correlation(
     c_t: np.ndarray,
     c_0_t: np.ndarray,
     lambda_reg: float,
     lambda_lw: float,
     lw_target: str,
+    min_raw_weight: float = 0.0,
 ) -> np.ndarray:
-    """Two-stage correlation regularization."""
+    """Two-stage correlation regularization with attenuation guardrail.
+
+    Stage 1 (LW):  c_lw = (1-lambda_lw)*c_t + lambda_lw*C_LW
+    Stage 2 (reg): c_reg = (1-lambda_reg)*c_lw + lambda_reg*c_0
+
+    The effective raw weight is (1-lambda_lw)*(1-lambda_reg).  When this
+    falls below *min_raw_weight*, lambda_reg is automatically rescaled so
+    that at least *min_raw_weight* of the sample correlation survives.
+    This prevents the two-stage shrinkage from collapsing the final
+    matrix onto the prior.
+    """
+    raw_w = effective_raw_weight(lambda_lw, lambda_reg)
+    if raw_w < min_raw_weight and (1.0 - lambda_lw) > 1e-10:
+        lambda_reg = 1.0 - min_raw_weight / (1.0 - lambda_lw)
+        lambda_reg = float(np.clip(lambda_reg, 0.0, 1.0))
+
     lw_target_mat = build_lw_target_correlation(c_t, lw_target)
     c_lw = (1 - lambda_lw) * c_t + lambda_lw * lw_target_mat
     c_reg = (1 - lambda_reg) * c_lw + lambda_reg * c_0_t

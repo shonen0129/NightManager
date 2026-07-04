@@ -110,56 +110,92 @@ else:
             pass
 
 
+class LockTimeoutError(TimeoutError):
+    """Raised when a file lock cannot be acquired within the timeout period."""
+
+
+_DEFAULT_LOCK_TIMEOUT: float = 30.0
+_LOCK_POLL_INTERVAL: float = 0.5
+
+
+def _lock_with_timeout(lock_path: str, exclusive: bool, timeout: float) -> object:
+    """Acquire a file lock with timeout, polling every _LOCK_POLL_INTERVAL seconds.
+
+    Returns the opened lock file object (caller must close it).
+    """
+    lock_dir = os.path.dirname(lock_path)
+    if lock_dir:
+        os.makedirs(lock_dir, exist_ok=True)
+
+    lock_file = open(lock_path, "a+b")
+    deadline = time_module.monotonic() + timeout
+    while True:
+        try:
+            _lock_file(lock_file, exclusive=exclusive, non_blocking=True)
+            return lock_file
+        except (BlockingIOError, OSError):
+            remaining = deadline - time_module.monotonic()
+            if remaining <= 0:
+                lock_file.close()
+                raise LockTimeoutError(
+                    f"Could not acquire {'exclusive' if exclusive else 'shared'} lock "
+                    f"on {lock_path} within {timeout:.0f}s. "
+                    "Another process may be holding the lock or a stale .lock file exists."
+                )
+            time_module.sleep(min(_LOCK_POLL_INTERVAL, remaining))
+
+
 @contextlib.contextmanager
-def file_lock(filepath: str, exclusive: bool = False):
-    """Context manager for file-based locking to prevent concurrent cache corruption."""
+def file_lock(filepath: str, exclusive: bool = False, timeout: float = _DEFAULT_LOCK_TIMEOUT):
+    """Context manager for file-based locking to prevent concurrent cache corruption.
+
+    Args:
+        filepath: Path to the file to lock.
+        exclusive: If True, acquire an exclusive lock; otherwise shared.
+        timeout: Maximum seconds to wait for the lock (default: 30s).
+    """
     lock_desc = "exclusive" if exclusive else "shared"
-    fd = open(filepath, "r+b" if exclusive else "rb")
+    lock_file = _lock_with_timeout(filepath, exclusive=exclusive, timeout=timeout)
+    logger.debug(f"Acquired {lock_desc} lock on {filepath}")
     try:
-        try:
-            _lock_file(fd, exclusive=exclusive, non_blocking=True)
-            logger.debug(f"Acquired {lock_desc} lock on {filepath}")
-        except BlockingIOError:
-            logger.warning(
-                f"Could not acquire {lock_desc} lock on {filepath}; "
-                "file may be in use by another process"
-            )
-            _lock_file(fd, exclusive=exclusive, non_blocking=False)
-            logger.info(f"Acquired {lock_desc} lock on {filepath} after waiting")
-        yield fd
+        yield lock_file
     finally:
-        _unlock_file(fd)
-        fd.close()
+        _unlock_file(lock_file)
+        lock_file.close()
 
 
 @contextlib.contextmanager
-def exclusive_lock(lock_path: str):
-    """Acquire an exclusive advisory lock using a sidecar lock file."""
-    lock_dir = os.path.dirname(lock_path)
-    if lock_dir:
-        os.makedirs(lock_dir, exist_ok=True)
+def exclusive_lock(lock_path: str, timeout: float = _DEFAULT_LOCK_TIMEOUT):
+    """Acquire an exclusive advisory lock using a sidecar lock file.
 
-    with open(lock_path, "a+b") as lock_file:
-        _lock_file(lock_file, exclusive=True, non_blocking=False)
-        try:
-            yield
-        finally:
-            _unlock_file(lock_file)
+    Args:
+        lock_path: Path to the sidecar lock file.
+        timeout: Maximum seconds to wait for the lock (default: 30s).
+            Raises LockTimeoutError if the lock cannot be acquired in time.
+    """
+    lock_file = _lock_with_timeout(lock_path, exclusive=True, timeout=timeout)
+    try:
+        yield
+    finally:
+        _unlock_file(lock_file)
+        lock_file.close()
 
 
 @contextlib.contextmanager
-def shared_lock(lock_path: str):
-    """Acquire a shared advisory lock using a sidecar lock file."""
-    lock_dir = os.path.dirname(lock_path)
-    if lock_dir:
-        os.makedirs(lock_dir, exist_ok=True)
+def shared_lock(lock_path: str, timeout: float = _DEFAULT_LOCK_TIMEOUT):
+    """Acquire a shared advisory lock using a sidecar lock file.
 
-    with open(lock_path, "a+b") as lock_file:
-        _lock_file(lock_file, exclusive=False, non_blocking=False)
-        try:
-            yield
-        finally:
-            _unlock_file(lock_file)
+    Args:
+        lock_path: Path to the sidecar lock file.
+        timeout: Maximum seconds to wait for the lock (default: 30s).
+            Raises LockTimeoutError if the lock cannot be acquired in time.
+    """
+    lock_file = _lock_with_timeout(lock_path, exclusive=False, timeout=timeout)
+    try:
+        yield
+    finally:
+        _unlock_file(lock_file)
+        lock_file.close()
 
 
 # ---------------------------------------------------------------------------
@@ -487,6 +523,7 @@ def is_strategy_cache_valid(cache_path: str, config=None) -> bool:
                 "lambda_lw": float(_get_val("lambda_lw", 0.5)),
                 "lw_target": str(_get_val("lw_target", "equicorrelation")),
                 "gamma": float(_get_val("gamma", 0.5)),
+                "min_raw_weight": float(_get_val("min_raw_weight", 0.0)),
             }
 
             for key, expected in required_keys.items():

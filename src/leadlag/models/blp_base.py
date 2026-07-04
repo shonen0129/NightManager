@@ -127,6 +127,7 @@ class _BLPBase(BaseModel):
             betas_t=betas_t,
             topix_night_t=topix_night_t,
             vol_adjusted_target=self.vol_adjusted_target,
+            min_raw_weight=getattr(self, "min_raw_weight", 0.0),
         )
         return np.asarray(sig_res["signal"], dtype=float)
 

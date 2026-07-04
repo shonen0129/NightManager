@@ -35,6 +35,7 @@ def compute_signal(
     betas_t: np.ndarray | None = None,
     topix_night_t: float | None = None,
     vol_adjusted_target: bool = False,
+    min_raw_weight: float = 0.0,
 ) -> dict[str, np.ndarray | float]:
     """Compute the lead-lag signal for a single time step.
 
@@ -87,7 +88,7 @@ def compute_signal(
     else:
         c0_t = build_c0_from_v0(v0_static, c_full)
 
-    c_t_reg = regularize_correlation(c_t, c0_t, lambda_reg, lambda_lw, lw_target)
+    c_t_reg = regularize_correlation(c_t, c0_t, lambda_reg, lambda_lw, lw_target, min_raw_weight)
 
     # Eigen decomposition
     eigvals, eigvecs = np.linalg.eigh(c_t_reg)

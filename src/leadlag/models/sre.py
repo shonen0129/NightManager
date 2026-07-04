@@ -121,6 +121,7 @@ class SectorRelativeEnsembleModel(BaseModel):
         self.topix_beta_coef = self._resolve_val("topix_beta_coef", 0.6)
         self.beta_window = self._resolve_val("beta_window", 60)
         self.vol_adjusted_target = self._resolve_val("vol_adjusted_target", True)
+        self.min_raw_weight = self._resolve_val("min_raw_weight", 0.0)
 
         # Resolve ensemble weights
         self.raw_pca_weight = float(self._resolve_val("raw_pca_weight", 0.5))
@@ -479,6 +480,7 @@ class SectorRelativeEnsembleModel(BaseModel):
             betas_t=betas_t,
             topix_night_t=topix_night_t,
             vol_adjusted_target=self.vol_adjusted_target,
+            min_raw_weight=getattr(self, "min_raw_weight", 0.0),
         )
         sig = np.asarray(sig_res["signal"], dtype=float)
         _PRODUCTION_SIGNAL_CACHE[cache_key] = sig
@@ -548,6 +550,7 @@ class SectorRelativeEnsembleModel(BaseModel):
             betas_t=betas_t,
             topix_night_t=topix_night_t,
             vol_adjusted_target=self.vol_adjusted_target,
+            min_raw_weight=getattr(self, "min_raw_weight", 0.0),
         )
         sig = np.asarray(sig_res["signal"], dtype=float)
         _RESIDUAL_SIGNAL_CACHE[cache_key] = sig

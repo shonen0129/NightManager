@@ -13,6 +13,7 @@ Public API::
 
 from __future__ import annotations
 
+import concurrent.futures
 import io
 import logging
 import os
@@ -21,6 +22,33 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 import yfinance as yf
+
+logger = logging.getLogger(__name__)
+
+_YF_DOWNLOAD_TIMEOUT_SECONDS: int = 60
+
+
+def _yf_download_with_timeout(timeout: int = _YF_DOWNLOAD_TIMEOUT_SECONDS, **kwargs):
+    """Wrap yf.download with a timeout to prevent indefinite hangs.
+
+    yfinance does not support a native timeout parameter, so we run it in a
+    background thread and cancel if it exceeds ``timeout`` seconds.
+    """
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(yf.download, **kwargs)
+        try:
+            return future.result(timeout=timeout)
+        except concurrent.futures.TimeoutError:
+            logger.error(
+                "yf.download timed out after %ds (tickers=%s). "
+                "Yahoo Finance may be rate-limiting or unavailable.",
+                timeout,
+                kwargs.get("tickers", "?"),
+            )
+            raise TimeoutError(
+                f"yf.download exceeded {timeout}s timeout — "
+                "Yahoo Finance may be rate-limiting or under maintenance."
+            )
 
 from leadlag.data.cache import (
     etf_pkl_path,
@@ -33,8 +61,6 @@ from leadlag.data.tickers import (
     TOPIX_TICKER,
     US_TICKERS,
 )
-
-logger = logging.getLogger(__name__)
 
 # Number of recent days to re-fetch during incremental update to absorb
 # delayed / corrected data from Yahoo Finance
@@ -236,14 +262,14 @@ def _update_stale_cache_missing_only(
         _CACHE_UPDATE_LOOKBACK_DAYS,
     )
 
-    us_data = yf.download(
-        US_TICKERS,
+    us_data = _yf_download_with_timeout(
+        tickers=US_TICKERS,
         start=update_start.strftime("%Y-%m-%d"),
         end=end_date,
         auto_adjust=False,
     )
-    jp_data = yf.download(
-        JP_TICKERS_WITH_TOPIX,
+    jp_data = _yf_download_with_timeout(
+        tickers=JP_TICKERS_WITH_TOPIX,
         start=update_start.strftime("%Y-%m-%d"),
         end=end_date,
         auto_adjust=False,
@@ -334,15 +360,15 @@ def download_data(
 
     try:
         logger.info("Downloading US ETF data...")
-        us_data = yf.download(
-            US_TICKERS,
+        us_data = _yf_download_with_timeout(
+            tickers=US_TICKERS,
             start=start_date,
             end=end_date,
             auto_adjust=False,
         )
         logger.info("Downloading JP ETF data...")
-        jp_data = yf.download(
-            JP_TICKERS_WITH_TOPIX,
+        jp_data = _yf_download_with_timeout(
+            tickers=JP_TICKERS_WITH_TOPIX,
             start=start_date,
             end=end_date,
             auto_adjust=False,
@@ -386,7 +412,9 @@ def update_intraday_cache(tickers: list[str] = JP_TICKERS) -> None:
     for interval, period in [("1m", "7d"), ("5m", "60d")]:
         logger.info("Downloading %s data for period %s...", interval, period)
         try:
-            new_data = yf.download(tickers, period=period, interval=interval, auto_adjust=False)
+            new_data = _yf_download_with_timeout(
+                tickers=tickers, period=period, interval=interval, auto_adjust=False
+            )
             if new_data.empty:
                 logger.warning("No new data downloaded for interval %s.", interval)
                 continue

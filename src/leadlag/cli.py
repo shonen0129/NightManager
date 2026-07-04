@@ -216,6 +216,14 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 0
 
     if args.command == "decision":
+        if args.auto_close:
+            logger.warning(
+                "--auto-close is deprecated: the decision process will block until %s. "
+                "Use the separate 'close' subcommand via launchd/cron (com.leadlag.close) instead. "
+                "Remove --auto-close from batch scripts to avoid indefinite hangs.",
+                getattr(args, "auto_close_time", "14:50"),
+            )
+
         if args.capital_from_wallet and not args.api_enable:
             raise ValueError("--capital-from-wallet requires --api-enable")
 

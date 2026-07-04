@@ -114,6 +114,7 @@ class PrecomputedLeadLagStrategy:
         self.lambda_reg = float(_resolve_value("lambda_reg", lambda_reg, default_cfg.lambda_reg))
         self.lambda_lw = float(_resolve_value("lambda_lw", lambda_lw, default_cfg.lambda_lw))
         self.lw_target = str(_resolve_value("lw_target", lw_target, default_cfg.lw_target))
+        self.min_raw_weight = float(_resolve_value("min_raw_weight", None, getattr(default_cfg, "min_raw_weight", 0.0)))
         self.corr_window = int(_resolve_value("corr_window", corr_window, default_cfg.corr_window))
         self.N_U = int(cache_data.get("N_U", len(US_TICKERS)))
         self.N_J = int(cache_data.get("N_J", len(JP_TICKERS)))
@@ -273,6 +274,7 @@ class PrecomputedLeadLagStrategy:
             betas_t=betas_t,
             topix_night_t=topix_night_t,
             vol_adjusted_target=self.vol_adjusted_target,
+            min_raw_weight=getattr(self, "min_raw_weight", 0.0),
         )
 
         if use_cache:

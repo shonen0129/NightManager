@@ -202,17 +202,28 @@ class TachibanaBrokerClient(BrokerClient):
 
         Tachibana API is JP only; uses yfinance dynamically as a fallback.
         """
+        import concurrent.futures
+
         logger.info("[TachibanaBroker] Fetching US ETF returns via yfinance fallback...")
         import yfinance as yf
+
+        _YF_TIMEOUT = 30
 
         returns: dict[str, float] = {}
         failed: list[str] = []
 
         for ticker in us_tickers:
             try:
-                # Fetch recent historical daily prices to compute return
                 t_obj = yf.Ticker(ticker)
-                hist = t_obj.history(period="5d")
+                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                    future = executor.submit(t_obj.history, period="5d")
+                    try:
+                        hist = future.result(timeout=_YF_TIMEOUT)
+                    except concurrent.futures.TimeoutError:
+                        logger.error("yfinance history() timed out for %s after %ds", ticker, _YF_TIMEOUT)
+                        failed.append(ticker)
+                        continue
+
                 if len(hist) >= 2:
                     last_close = hist["Close"].iloc[-1]
                     prev_close = hist["Close"].iloc[-2]

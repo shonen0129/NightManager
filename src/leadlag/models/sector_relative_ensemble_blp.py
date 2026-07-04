@@ -50,6 +50,7 @@ class SectorRelativeEnsembleBLPModel(_BLPBase):
         self.topix_beta_coef = self._resolve_val("topix_beta_coef", 0.6)
         self.beta_window = self._resolve_val("beta_window", 60)
         self.vol_adjusted_target = self._resolve_val("vol_adjusted_target", True)
+        self.min_raw_weight = self._resolve_val("min_raw_weight", 0.0)
         self.normalization_method = self._resolve_val("normalization", "zscore")
 
         # BLP Parameters (with standard defaults)
