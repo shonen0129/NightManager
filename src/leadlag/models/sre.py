@@ -152,6 +152,8 @@ class SectorRelativeEnsembleModel(BaseModel):
         """Prepare and compute arrays and target matrices common to backtesting and live run."""
         cache_key = (
             len(df_exec),
+            df_exec.index[0],
+            df_exec.index[-1],
             self.ewma_half_life,
             self.beta_window,
             self.include_v4_prior,
@@ -437,7 +439,18 @@ class SectorRelativeEnsembleModel(BaseModel):
         topix_night: np.ndarray | None,
     ) -> np.ndarray:
         """Compute the Raw-PCA (Production) signal at index i."""
-        cache_key = (i, self.lambda_reg)
+        cache_key = (
+            i,
+            self.lambda_reg,
+            self.k,
+            self.corr_window,
+            self.ewma_half_life,
+            self.lambda_lw,
+            self.lw_target,
+            self.gap_open_coef,
+            self.topix_beta_coef,
+            self.vol_adjusted_target,
+        )
         global _PRODUCTION_SIGNAL_CACHE
         if cache_key in _PRODUCTION_SIGNAL_CACHE:
             return _PRODUCTION_SIGNAL_CACHE[cache_key].copy()
@@ -486,15 +499,26 @@ class SectorRelativeEnsembleModel(BaseModel):
         is_p4: bool = False,
     ) -> np.ndarray:
         """Compute the Residual-PCA (JP Residual target) or P4 signal at index i."""
+        _signal_params = (
+            self.lambda_reg,
+            self.k,
+            self.corr_window,
+            self.ewma_half_life,
+            self.lambda_lw,
+            self.lw_target,
+            self.gap_open_coef,
+            self.topix_beta_coef,
+            self.vol_adjusted_target,
+        )
         if not is_p4:
-            cache_key = ("Residual-PCA", i, self.lambda_reg, self.k)
+            cache_key = ("Residual-PCA", i, _signal_params)
         else:
             cache_key = (
                 "P4",
                 i,
                 getattr(self, "prior_variant", None),
                 getattr(self, "us_res_gamma", None),
-                self.lambda_reg,
+                _signal_params,
             )
         global _RESIDUAL_SIGNAL_CACHE
         if cache_key in _RESIDUAL_SIGNAL_CACHE:

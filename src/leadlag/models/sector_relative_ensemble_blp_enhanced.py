@@ -258,7 +258,7 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
         self, window_returns: np.ndarray, current_index: int, is_residual: bool
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Estimate rolling mean, std, and correlation with caching."""
-        cache_key = (current_index, self.blp_window, self.winsor_sigma, self.exec_adjustment, self.blp_ewma_halflife, is_residual)
+        cache_key = (current_index, self.blp_window, self.winsor_sigma, self.exec_adjustment, self.blp_ewma_halflife, is_residual, id(window_returns))
         if cache_key in _BLP_CORR_CACHE:
             return _BLP_CORR_CACHE[cache_key]
 
@@ -619,7 +619,20 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
         blp_diagnostics = []
 
         start_idx = self.corr_window
-        cache_key_raw_pca_residual_pca = (id(df_exec), self.corr_window, self.k, self.lambda_reg, self.ewma_half_life)
+        cache_key_raw_pca_residual_pca = (
+            len(df_exec),
+            df_exec.index[0],
+            df_exec.index[-1],
+            self.corr_window,
+            self.k,
+            self.lambda_reg,
+            self.ewma_half_life,
+            self.lambda_lw,
+            self.lw_target,
+            self.gap_open_coef,
+            self.topix_beta_coef,
+            self.vol_adjusted_target,
+        )
         if cache_key_raw_pca_residual_pca in _RAW_PCA_RESIDUAL_PCA_CACHE:
             raw_pca_signals, residual_pca_signals = _RAW_PCA_RESIDUAL_PCA_CACHE[cache_key_raw_pca_residual_pca]
             raw_pca_cached = True

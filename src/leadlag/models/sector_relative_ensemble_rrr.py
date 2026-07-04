@@ -121,7 +121,18 @@ class SectorRelativeEnsembleRRRModel(_BLPBase):
         topix_night: np.ndarray | None,
     ) -> np.ndarray:
         """Compute the Raw-PCA (Production PCA) signal at index i."""
-        cache_key = (i, self.lambda_reg, self.k)
+        cache_key = (
+            i,
+            self.lambda_reg,
+            self.k,
+            self.corr_window,
+            self.ewma_half_life,
+            self.lambda_lw,
+            self.lw_target,
+            self.gap_open_coef,
+            self.topix_beta_coef,
+            self.vol_adjusted_target,
+        )
         global _PRODUCTION_SIGNAL_CACHE
         if cache_key in _PRODUCTION_SIGNAL_CACHE:
             return _PRODUCTION_SIGNAL_CACHE[cache_key].copy()
@@ -145,7 +156,18 @@ class SectorRelativeEnsembleRRRModel(_BLPBase):
         topix_night: np.ndarray | None,
     ) -> np.ndarray:
         """Compute the Residual-PCA (Residual target PCA) signal at index i."""
-        cache_key = (i, self.lambda_reg, self.k)
+        cache_key = (
+            i,
+            self.lambda_reg,
+            self.k,
+            self.corr_window,
+            self.ewma_half_life,
+            self.lambda_lw,
+            self.lw_target,
+            self.gap_open_coef,
+            self.topix_beta_coef,
+            self.vol_adjusted_target,
+        )
         global _RESIDUAL_SIGNAL_CACHE
         if cache_key in _RESIDUAL_SIGNAL_CACHE:
             return _RESIDUAL_SIGNAL_CACHE[cache_key].copy()
@@ -198,7 +220,7 @@ class SectorRelativeEnsembleRRRModel(_BLPBase):
         window_returns = np.nan_to_num(window_returns, nan=0.0, posinf=0.0, neginf=0.0)
 
         # Estimate rolling mean, std, and correlation
-        corr_cache_key = (current_index, self.rrr_window, self.rrr_ewma_halflife)
+        corr_cache_key = (current_index, self.rrr_window, self.rrr_ewma_halflife, id(all_returns))
         global _CORR_MATRIX_CACHE
         if corr_cache_key in _CORR_MATRIX_CACHE:
             mu, sigma, corr = _CORR_MATRIX_CACHE[corr_cache_key]
@@ -477,6 +499,11 @@ class SectorRelativeEnsembleRRRModel(_BLPBase):
         """Generate component and ensemble signals for all rows in df_exec."""
         T = len(df_exec)
         sim_dates = df_exec.index
+
+        # Clear per-run signal caches to prevent cross-run contamination
+        _PRODUCTION_SIGNAL_CACHE.clear()
+        _RESIDUAL_SIGNAL_CACHE.clear()
+        _CORR_MATRIX_CACHE.clear()
 
         inputs = self._prepare_common_inputs(df_exec)
         all_returns_raw = inputs["all_returns_raw"]

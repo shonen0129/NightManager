@@ -31,7 +31,7 @@ def compute_signal(
     v3_dynamic: bool = False,
     gap_override: np.ndarray | None = None,
     gap_open_coef: float = 0.70,
-    topix_beta_coef: float = 1.20,
+    topix_beta_coef: float = 0.6,
     betas_t: np.ndarray | None = None,
     topix_night_t: float | None = None,
     vol_adjusted_target: bool = False,
