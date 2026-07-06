@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import numpy as np
+from scipy.optimize import minimize_scalar
+from scipy.stats import kendalltau, t as student_t
 
 # Numeric constants
 EPSILON_WEIGHT = 1e-12
@@ -147,8 +149,23 @@ def build_v3_dynamic(betas: np.ndarray, v1: np.ndarray, v2: np.ndarray) -> np.nd
 def compute_correlation(
     window_returns: np.ndarray,
     ewma_half_life: float | None = None,
+    use_copula: bool = False,
+    copula_blend_weight: float = 0.0,
+    copula_nu_init: float = 5.0,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Compute rolling mean, std, and correlation (equal-weight or EWMA).
+
+    When *use_copula* is True and *copula_blend_weight* > 0, the Pearson
+    correlation matrix is blended with a t-copula correlation matrix to
+    capture tail dependence.
+
+    Args:
+        window_returns: (T, N) array of returns.
+        ewma_half_life: EWMA half-life for weighting. None = equal weight.
+        use_copula: If True, blend Pearson with t-copula correlation.
+        copula_blend_weight: Blend weight in [0, 1]. 0 = Pearson only,
+            1 = copula only. Ignored when use_copula=False.
+        copula_nu_init: Initial degrees-of-freedom for t-copula estimation.
 
     Returns:
         mu, sigma, correlation_matrix
@@ -161,24 +178,30 @@ def compute_correlation(
             z_window = (window_returns - mu) / sigma
             corr = np.dot(z_window.T, z_window) / window_returns.shape[0]
             np.fill_diagonal(corr, 1.0)
-            return mu, sigma, corr
+        else:
+            if ewma_half_life <= 0:
+                raise ValueError("ewma_half_life must be positive when provided")
 
-        if ewma_half_life <= 0:
-            raise ValueError("ewma_half_life must be positive when provided")
+            t = window_returns.shape[0]
+            decay = np.power(0.5, 1.0 / float(ewma_half_life))
+            weights = np.power(decay, np.arange(t - 1, -1, -1))
+            weights = weights / np.sum(weights)
 
-        t = window_returns.shape[0]
-        decay = np.power(0.5, 1.0 / float(ewma_half_life))
-        weights = np.power(decay, np.arange(t - 1, -1, -1))
-        weights = weights / np.sum(weights)
+            mu = np.sum(window_returns * weights[:, None], axis=0)
+            var = np.sum(((window_returns - mu) ** 2) * weights[:, None], axis=0)
+            sigma = np.sqrt(np.maximum(var, 1e-16))
+            sigma[sigma == 0] = 1e-8
 
-        mu = np.sum(window_returns * weights[:, None], axis=0)
-        var = np.sum(((window_returns - mu) ** 2) * weights[:, None], axis=0)
-        sigma = np.sqrt(np.maximum(var, 1e-16))
-        sigma[sigma == 0] = 1e-8
+            z_window = (window_returns - mu) / sigma
+            corr = np.dot((z_window * weights[:, None]).T, z_window)
+            np.fill_diagonal(corr, 1.0)
 
-        z_window = (window_returns - mu) / sigma
-        corr = np.dot((z_window * weights[:, None]).T, z_window)
-        np.fill_diagonal(corr, 1.0)
+        if use_copula and copula_blend_weight > 0.0:
+            corr_copula, _nu = estimate_t_copula(
+                window_returns, nu_init=copula_nu_init
+            )
+            corr = blend_correlation(corr, corr_copula, copula_blend_weight)
+
         return mu, sigma, corr
 
 
@@ -286,3 +309,263 @@ def regularize_correlation(
     c_reg = 0.5 * (c_reg + c_reg.T)
     np.fill_diagonal(c_reg, 1.0)
     return c_reg
+
+
+# ---------------------------------------------------------------------------
+# Copula-based correlation estimation
+# ---------------------------------------------------------------------------
+
+
+def empirical_cdf_transform(returns: np.ndarray) -> np.ndarray:
+    """Transform each column to uniform [0, 1] via empirical CDF (pseudodata).
+
+    Uses the plotting-position formula u = rank / (T + 1) to avoid
+    exact 0 or 1 values that would map to ±inf under inverse CDF.
+
+    Args:
+        returns: (T, N) array of returns.
+
+    Returns:
+        (T, N) array of uniform [0, 1] values.
+    """
+    T, N = returns.shape
+    u = np.zeros_like(returns, dtype=float)
+    for k in range(N):
+        col = returns[:, k]
+        finite_mask = np.isfinite(col)
+        if not np.any(finite_mask):
+            u[:, k] = 0.5
+            continue
+        ranks = np.empty(T)
+        ranks[finite_mask] = _rank_average(col[finite_mask])
+        ranks[~finite_mask] = np.nan
+        u[:, k] = ranks / (T + 1.0)
+    return u
+
+
+def _rank_average(values: np.ndarray) -> np.ndarray:
+    """Compute average ranks (1-based) for a 1-D array."""
+    order = np.argsort(values, kind="mergesort")
+    ranks = np.empty(len(values), dtype=float)
+    sorted_vals = values[order]
+    i = 0
+    while i < len(values):
+        j = i
+        while j + 1 < len(values) and sorted_vals[j + 1] == sorted_vals[i]:
+            j += 1
+        avg_rank = (i + j) / 2.0 + 1.0  # 1-based average rank
+        ranks[order[i:j + 1]] = avg_rank
+        i = j + 1
+    return ranks
+
+
+def _make_psd_correlation(R: np.ndarray) -> np.ndarray:
+    """Project a symmetric matrix to the nearest PSD correlation matrix."""
+    R = 0.5 * (R + R.T)
+    np.fill_diagonal(R, 1.0)
+    eigvals = np.linalg.eigvalsh(R)
+    min_eig = eigvals.min()
+    if min_eig < 0:
+        R = R + (abs(min_eig) + 1e-6) * np.eye(R.shape[0])
+        d = np.sqrt(np.diag(R))
+        R = R / np.outer(d, d)
+        np.fill_diagonal(R, 1.0)
+    return R
+
+
+def estimate_t_copula(
+    returns: np.ndarray,
+    nu_init: float = 5.0,
+    max_outer_iter: int = 5,
+) -> tuple[np.ndarray, float]:
+    """Estimate a multivariate t-copula correlation matrix and degrees of freedom.
+
+    Uses a two-step iterative procedure:
+      1. Kendall's tau → initial correlation matrix R
+      2. Alternate: optimize nu (R fixed) then update R (nu fixed)
+
+    Args:
+        returns: (T, N) array of returns.
+        nu_init: Initial guess for degrees of freedom.
+        max_outer_iter: Number of outer alternation iterations.
+
+    Returns:
+        Tuple of (R_copula, nu): correlation matrix and degrees of freedom.
+    """
+    T, N = returns.shape
+    if T < 10 or N < 2:
+        return np.eye(N), float(nu_init)
+
+    u = empirical_cdf_transform(returns)
+    u = np.clip(u, 1e-6, 1.0 - 1e-6)
+
+    # Step 1: Kendall's tau → R_init
+    R = np.eye(N)
+    for i in range(N):
+        for j in range(i + 1, N):
+            mask = np.isfinite(u[:, i]) & np.isfinite(u[:, j])
+            if np.sum(mask) > 3:
+                tau, _ = kendalltau(u[mask, i], u[mask, j])
+                if np.isfinite(tau):
+                    R[i, j] = R[j, i] = np.sin(np.pi * tau / 2.0)
+    R = _make_psd_correlation(R)
+
+    nu = float(nu_init)
+
+    for _ in range(max_outer_iter):
+        # Step 2: optimize nu (R fixed)
+        z = student_t.ppf(u, df=nu)
+        z = np.clip(z, -10.0, 10.0)
+        z = np.nan_to_num(z, nan=0.0, posinf=10.0, neginf=-10.0)
+
+        def neg_loglik_nu(nu_val: float) -> float:
+            return _t_copula_neg_loglik(z, R, nu_val)
+
+        res = minimize_scalar(
+            neg_loglik_nu, bounds=(2.5, 30.0), method="bounded"
+        )
+        if res.success:
+            nu = float(res.x)
+
+        # Step 3: update R (nu fixed)
+        z = student_t.ppf(u, df=nu)
+        z = np.clip(z, -10.0, 10.0)
+        z = np.nan_to_num(z, nan=0.0, posinf=10.0, neginf=-10.0)
+        try:
+            R_new = np.corrcoef(z.T)
+        except Exception:
+            R_new = R.copy()
+        R_new = np.nan_to_num(R_new, nan=0.0, posinf=1.0, neginf=-1.0)
+        if not np.all(np.isfinite(R_new)):
+            R_new = R.copy()
+        np.fill_diagonal(R_new, 1.0)
+        R = _make_psd_correlation(R_new)
+
+    return R, nu
+
+
+def _t_copula_neg_loglik(
+    z: np.ndarray, R: np.ndarray, nu: float
+) -> float:
+    """Negative log-likelihood of a t-copula given t-quantile transformed data.
+
+    log c(u; R, ν) = gammaln((ν+n)/2) + (n-1)*gammaln(ν/2) - n*gammaln((ν+1)/2)
+                      - 0.5*log|R| - ((ν+n)/2)*log(1 + z'R^{-1}z/ν)
+                      + ((ν+1)/2)*Σ log(1 + z_k²/ν)
+
+    Args:
+        z: (T, N) array of t-quantile transformed values.
+        R: (N, N) copula correlation matrix.
+        nu: Degrees of freedom.
+
+    Returns:
+        Negative log-likelihood (scalar).
+    """
+    T, N = z.shape
+    L = None
+    jitter = 1e-6
+    for _attempt in range(5):
+        try:
+            L = np.linalg.cholesky(R + jitter * np.eye(N))
+            break
+        except np.linalg.LinAlgError:
+            jitter *= 10.0
+    if L is None:
+        return 1e15
+
+    log_det_R = 2.0 * np.sum(np.log(np.diag(L)))
+    try:
+        R_inv = np.linalg.solve(R + jitter * np.eye(N), np.eye(N))
+    except np.linalg.LinAlgError:
+        R_inv = np.linalg.pinv(R)
+
+    half_nu = nu / 2.0
+    half_nu_plus_N = (nu + N) / 2.0
+    half_nu_plus_1 = (nu + 1) / 2.0
+
+    from scipy.special import gammaln
+
+    const = (
+        gammaln(half_nu_plus_N)
+        + (N - 1) * gammaln(half_nu)
+        - N * gammaln(half_nu_plus_1)
+        - 0.5 * log_det_R
+    )
+
+    # Vectorized: compute all T rows at once
+    # quad[t] = z[t] @ R_inv @ z[t]  →  np.einsum over rows
+    quad_all = np.einsum("ti,ij,tj->t", z, R_inv, z)  # (T,)
+    denom_all = np.sum(np.log1p(z ** 2 / nu), axis=1)  # (T,)
+
+    log_c_all = (
+        const
+        - half_nu_plus_N * np.log1p(quad_all / nu)
+        + half_nu_plus_1 * denom_all
+    )
+
+    total = float(np.sum(log_c_all))
+
+    if not np.isfinite(total):
+        return 1e15
+    return -total
+
+
+def blend_correlation(
+    corr_pearson: np.ndarray,
+    corr_copula: np.ndarray,
+    weight: float,
+) -> np.ndarray:
+    """Blend Pearson and copula correlation matrices.
+
+    Args:
+        corr_pearson: Pearson correlation matrix (N, N).
+        corr_copula: Copula correlation matrix (N, N).
+        weight: Blend weight in [0, 1]. 0 = Pearson only, 1 = copula only.
+
+    Returns:
+        Blended correlation matrix (N, N).
+    """
+    weight = float(np.clip(weight, 0.0, 1.0))
+    corr = (1.0 - weight) * corr_pearson + weight * corr_copula
+    corr = 0.5 * (corr + corr.T)
+    np.fill_diagonal(corr, 1.0)
+    return corr
+
+
+def compute_stress_weight(
+    window_returns: np.ndarray,
+    method: str = "var_ratio",
+    recent_window: int = 20,
+    threshold: float = 1.5,
+    sigmoid_slope: float = 8.0,
+) -> float:
+    """Compute a stress-regime weight in [0, 1] for dynamic copula blending.
+
+    When the recent volatility is significantly higher than the baseline,
+    the weight approaches 1 (favoring copula correlation that captures
+    tail dependence). In calm periods the weight approaches 0 (Pearson only).
+
+    Args:
+        window_returns: (T, N) array of returns.
+        method: Method for stress detection ("var_ratio").
+        recent_window: Number of recent days for vol estimation.
+        threshold: Vol ratio above which stress is signaled.
+        sigmoid_slope: Steepness of the sigmoid transition.
+
+    Returns:
+        Stress weight in [0, 1].
+    """
+    T = window_returns.shape[0]
+    if T < recent_window + 10:
+        return 0.0
+
+    if method == "var_ratio":
+        recent_vol = np.std(window_returns[-recent_window:], axis=0)
+        baseline_vol = np.std(window_returns, axis=0)
+        ratio = np.median(recent_vol / np.maximum(baseline_vol, 1e-8))
+        if not np.isfinite(ratio):
+            return 0.0
+        w = 1.0 / (1.0 + np.exp(-(ratio - threshold) * sigmoid_slope))
+        return float(np.clip(w, 0.0, 1.0))
+
+    return 0.0

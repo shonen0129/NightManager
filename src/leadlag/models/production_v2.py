@@ -36,6 +36,7 @@ import pandas as pd
 from leadlag.compliance.v2_auditor import run_leakage_audit, run_numerical_audit
 from leadlag.config.schemas import ProductionV2RunConfig
 from leadlag.core.portfolio import get_rolling_pit_bin, solve_baseline_style
+from leadlag.core.signal import build_weights_minvar
 from leadlag.data.tickers import JP_TICKERS
 from leadlag.models.signal_enhancement import apply_multi_horizon_blend, apply_rank_reversal_overlay
 
@@ -89,6 +90,8 @@ def parse_run_config(cfg: dict) -> ProductionV2RunConfig:
     mh_cfg = cfg.get("multi_horizon_blend", {})
     # Phase 2D: CS feature overlay config
     cs_cfg = cfg.get("cs_feature_overlay", {})
+    # MinVar weight optimization config
+    portfolio_cfg = portfolio
 
     return ProductionV2RunConfig(
         long_count=portfolio.get("long_count", 5),
@@ -109,6 +112,8 @@ def parse_run_config(cfg: dict) -> ProductionV2RunConfig:
         mh_weights=tuple(mh_cfg.get("weights", [0.8, 0.1, 0.1])),
         cs_overlay_enabled=cs_cfg.get("enabled", False),
         cs_overlay_weight=cs_cfg.get("weight", 0.05),
+        minvar_enabled=portfolio_cfg.get("minvar_enabled", False),
+        minvar_alpha=portfolio_cfg.get("minvar_alpha", 0.5),
     )
 
 
@@ -508,10 +513,27 @@ def generate_v2_production_portfolio(
     short_idx = sorted_idx[:run_cfg.short_count]
     long_idx = sorted_idx[-run_cfg.long_count:]
 
-    # 8. Compute pre-gross weights (baseline_style) using run_cfg gross
-    w_pre = solve_baseline_style(
-        scores, long_idx, short_idx, baseline_gross=run_cfg.baseline_gross
-    )
+    # 8. Compute pre-gross weights
+    if run_cfg.minvar_enabled:
+        # MinVar: use Omega_gap as predicted covariance for weight optimization
+        w_minvar = build_weights_minvar(
+            signal=scores,
+            q=float(run_cfg.long_count) / n_j,
+            n_j=n_j,
+            Sigma_YY=Omega_gap,
+            alpha=run_cfg.minvar_alpha,
+            enforce_sign=False,
+        )
+        # Scale to baseline_gross (build_weights_minvar normalizes each side to 1)
+        w_pre = w_minvar * (run_cfg.baseline_gross / 2.0)
+        logger.info(
+            "[%s] MinVar weights applied: alpha=%.2f, gross=%.4f",
+            date_str, run_cfg.minvar_alpha, float(np.sum(np.abs(w_pre))),
+        )
+    else:
+        w_pre = solve_baseline_style(
+            scores, long_idx, short_idx, baseline_gross=run_cfg.baseline_gross
+        )
 
     # 9. PIT binning for RuleD — load history, compute current IR
     history_ir = np.array([])

@@ -89,8 +89,10 @@ class BacktestEngine:
 
         # Generate weights
         sre_weights = np.zeros((T, model.n_j))
+        sigma_yy_array = pred.get("sigma_yy", None)
         for i in range(start_idx, end_idx + 1):
-            sre_weights[i] = model.build_weights(sre_signals_df.iloc[i].values)
+            sigma_yy_i = sigma_yy_array[i] if sigma_yy_array is not None else None
+            sre_weights[i] = model.build_weights(sre_signals_df.iloc[i].values, Sigma_YY=sigma_yy_i)
 
         sre_weights_df = pd.DataFrame(
             sre_weights[start_idx : end_idx + 1], index=sim_dates_slice, columns=JP_TICKERS

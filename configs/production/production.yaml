@@ -101,6 +101,11 @@ blpx:
   execution_target_cost_adjustment: none
   target: topix_residual
   use_raw_target: false
+  # --- Macro Confidence (Factor-Specific Kappa) ---
+  macro_confidence_enabled: true
+  macro_kappas: [3.0, 0.5, 0.5]   # [USDJPY, CLF, TNX]
+  macro_surprise_halflife_mean: 20.0
+  macro_surprise_halflife_vol: 60.0
 
 residualization:
   enabled_for_p3: true

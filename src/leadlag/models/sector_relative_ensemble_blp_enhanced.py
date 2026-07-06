@@ -16,7 +16,14 @@ import pandas as pd
 from leadlag.core.correlation import (
     build_c0_from_v0,
     compute_correlation,
+    compute_stress_weight,
     regularize_correlation,
+)
+from leadlag.core.macro import (
+    MACRO_NAMES,
+    MACRO_SENS_MATRIX,
+    compute_factor_kappa_scale,
+    compute_macro_surprise,
 )
 from leadlag.data.tickers import JP_TICKERS, US_TICKERS
 from leadlag.models.blp_base import _BLPBase
@@ -126,6 +133,30 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
         self.M_sector = self._build_sector_prior()
         self._M_sector_fixed = self.M_sector.copy()
 
+        # Copula parameters
+        self.copula_enabled = bool(self._resolve_val("copula_enabled", False))
+        self.copula_blend_weight = float(self._resolve_val("copula_blend_weight", 0.3))
+        self.copula_dynamic_blend = bool(self._resolve_val("copula_dynamic_blend", True))
+        self.copula_stress_threshold = float(self._resolve_val("copula_stress_threshold", 1.5))
+        self.copula_nu_init = float(self._resolve_val("copula_nu_init", 5.0))
+        self.copula_marginal_method = str(self._resolve_val("copula_marginal_method", "empirical"))
+
+        # Covariance-aware weight optimization
+        self.minvar_enabled = bool(self._resolve_val("minvar_enabled", False))
+        self.minvar_alpha = float(self._resolve_val("minvar_alpha", 0.5))
+
+        # Macro confidence (Factor-Specific Kappa) parameters
+        self.macro_confidence_enabled = bool(self._resolve_val("macro_confidence_enabled", False))
+        self.macro_kappas = self._resolve_val("macro_kappas", None)
+        if self.macro_kappas is not None and not isinstance(self.macro_kappas, (list, tuple, np.ndarray)):
+            self.macro_kappas = None
+        if isinstance(self.macro_kappas, (list, tuple)):
+            self.macro_kappas = np.array(self.macro_kappas, dtype=float)
+        self.macro_surprise_halflife_mean = float(self._resolve_val("macro_surprise_halflife_mean", 20.0))
+        self.macro_surprise_halflife_vol = float(self._resolve_val("macro_surprise_halflife_vol", 60.0))
+        self._macro_surprise_raw: np.ndarray | None = None
+        self._macro_scales: np.ndarray | None = None
+
         # Slippage cost parameter resolution
         self.slippage_bps = self._resolve_slippage_bps()
 
@@ -153,6 +184,36 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
                 M[:, u_idx] /= col_sums[u_idx]
 
         return M
+
+    def _load_macro_returns(self, df_exec: pd.DataFrame) -> pd.DataFrame | None:
+        """Load macro factor returns aligned to df_exec index.
+
+        Attempts to download macro data (USDJPY, CLF, TNX) via yfinance and
+        align it to the trading dates in df_exec. If download fails or the
+        resulting data is too short, returns None.
+
+        The macro returns are forward-filled to match df_exec's trading days
+        (macro markets may not trade on all days that JP markets are open).
+        """
+        try:
+            from leadlag.core.macro import MACRO_NAMES, download_macro_data
+
+            sim_dates = df_exec.index
+            start = sim_dates[0].strftime("%Y-%m-%d")
+            end = sim_dates[-1].strftime("%Y-%m-%d")
+
+            macro_df = download_macro_data(start=start, end=end)
+            if macro_df is None or len(macro_df) < 30:
+                logger.warning("Macro data too short (%d rows); skipping.", len(macro_df) if macro_df is not None else 0)
+                return None
+
+            # Reindex to df_exec dates, forward-fill missing values
+            macro_aligned = macro_df.reindex(sim_dates, method="ffill")
+            macro_aligned = macro_aligned.fillna(0.0)
+            return macro_aligned[MACRO_NAMES]
+        except Exception as e:
+            logger.warning("Failed to load macro data: %s", e)
+            return None
 
     # Structural mapping: which JP tickers relate to which US tickers
     _SECTOR_MAPPING_STRUCTURE = {
@@ -258,12 +319,40 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
     def _estimate_correlation(
         self, window_returns: np.ndarray, current_index: int, is_residual: bool
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """Estimate rolling mean, std, and correlation with caching."""
-        cache_key = (current_index, self.blp_window, self.winsor_sigma, self.exec_adjustment, self.blp_ewma_halflife, is_residual, id(window_returns))
+        """Estimate rolling mean, std, and correlation with caching.
+
+        When copula_enabled is True, the Pearson correlation is blended with
+        a t-copula correlation matrix. The blend weight is either fixed
+        (copula_dynamic_blend=False) or dynamically increased during stress
+        periods (copula_dynamic_blend=True).
+        """
+        cache_key = (current_index, self.blp_window, self.winsor_sigma, self.exec_adjustment, self.blp_ewma_halflife, is_residual, id(window_returns), self.copula_enabled)
         if cache_key in _BLP_CORR_CACHE:
             return _BLP_CORR_CACHE[cache_key]
 
-        mu, sigma, corr = compute_correlation(window_returns, self.blp_ewma_halflife)
+        use_copula = False
+        copula_weight = 0.0
+
+        if self.copula_enabled and self.copula_blend_weight > 0.0:
+            if self.copula_dynamic_blend:
+                w_stress = compute_stress_weight(
+                    window_returns,
+                    threshold=self.copula_stress_threshold,
+                )
+                copula_weight = self.copula_blend_weight * w_stress
+            else:
+                copula_weight = self.copula_blend_weight
+
+            if copula_weight > 0.05:
+                use_copula = True
+
+        mu, sigma, corr = compute_correlation(
+            window_returns,
+            self.blp_ewma_halflife,
+            use_copula=use_copula,
+            copula_blend_weight=copula_weight,
+            copula_nu_init=self.copula_nu_init,
+        )
         mu = np.nan_to_num(mu, nan=0.0, posinf=0.0, neginf=0.0)
         sigma = np.nan_to_num(sigma, nan=1.0, posinf=1.0, neginf=1.0)
         corr = np.nan_to_num(corr, nan=0.0, posinf=1.0, neginf=-1.0)
@@ -446,6 +535,7 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
             "num_pred_var_floored": num_floored,
             "pinv_fallback": pinv_fallback,
             "num_training_samples": num_training_samples,
+            "sigma_Y_cov": Sigma_YY_reg,
         }
         if return_matrices:
             diag.update({
@@ -609,6 +699,29 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
                 rolling_std[nan_mask, col_idx] = overall_std[col_idx]
             rolling_std = np.maximum(rolling_std, 1e-8)
 
+        # Precompute macro confidence scales if enabled
+        if self.macro_confidence_enabled and self.macro_kappas is not None:
+            macro_returns = self._load_macro_returns(df_exec)
+            if macro_returns is not None:
+                surprise_raw = compute_macro_surprise(
+                    macro_returns,
+                    halflife_mean=self.macro_surprise_halflife_mean,
+                    halflife_vol=self.macro_surprise_halflife_vol,
+                )
+                self._macro_surprise_raw = surprise_raw
+                self._macro_scales = compute_factor_kappa_scale(
+                    surprise_raw, self.macro_kappas, MACRO_SENS_MATRIX,
+                )
+                logger.info(
+                    "Macro confidence enabled: kappas=%s, halflife_mean=%.1f, halflife_vol=%.1f",
+                    self.macro_kappas.tolist(),
+                    self.macro_surprise_halflife_mean,
+                    self.macro_surprise_halflife_vol,
+                )
+            else:
+                logger.warning("Macro confidence enabled but macro data unavailable; skipping.")
+                self.macro_confidence_enabled = False
+
         # Setup output arrays
         raw_pca_signals = np.zeros((T, self.n_j))
         residual_pca_signals = np.zeros((T, self.n_j))
@@ -616,6 +729,7 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
         residual_blpx_signals = np.zeros((T, self.n_j))
         combined_signals = np.zeros((T, self.n_j))
         normalized_combined_signals = np.zeros((T, self.n_j))
+        sigma_yy_array = np.zeros((T, self.n_j, self.n_j))
 
         # Track BLP diagnostics
         blp_diagnostics = []
@@ -701,6 +815,8 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
                     is_residual=True,
                 )
                 residual_blpx_signals[i] = residual_blpx_res["signal"]
+                if self.minvar_enabled and "sigma_Y_cov" in residual_blpx_res:
+                    sigma_yy_array[i] = residual_blpx_res["sigma_Y_cov"]
             else:
                 residual_blpx_res = {**self._ZERO_BLP_DIAGNOSTICS, "signal": np.zeros(self.n_j)}
 
@@ -712,6 +828,13 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
 
             # Combined PCA-BLPX Ensemble signal
             s_ens = self.combine_signals(z0, z3, z_raw_blpx, z_residual_blpx)
+
+            # Apply macro confidence scaling (Factor-Specific Kappa)
+            if self.macro_confidence_enabled and self._macro_scales is not None:
+                scale_t = self._macro_scales[i]
+                s_ens = s_ens / scale_t
+                s_ens = np.nan_to_num(s_ens, nan=0.0, posinf=0.0, neginf=0.0)
+
             combined_signals[i] = s_ens
             normalized_combined_signals[i] = self.normalize_signals(
                 s_ens, self.normalization_method
@@ -761,6 +884,7 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
             "residual_blpx_signals": residual_blpx_df,
             "signals": combined_df,
             "normalized_signals": normalized_df,
+            "sigma_yy": sigma_yy_array,
             "y_jp_oc_df": inputs["y_jp_oc_df"],
             "blp_diagnostics": pd.DataFrame(blp_diagnostics).set_index("date"),
         }

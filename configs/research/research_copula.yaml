@@ -1,0 +1,59 @@
+model:
+  name: sector_relative_ensemble_blp_enhanced
+  display_name: "SRE-BLPX with t-Copula Correlation"
+  short_name: "SRE-BLPX-Copula"
+
+portfolio:
+  long_short_frac: 0.3
+  n_assets: 17
+  weight_mode: signal
+  net_target: 0.0
+
+costs:
+  slippage_bps_per_side: 5.0
+
+residualization:
+  enabled_for_p3: true
+  jp_market_proxy: TOPIX
+  beta_window: 60
+  method: rolling_ols
+  lookahead_safe: true
+
+# Copula correlation blending
+copula:
+  copula_enabled: true
+  copula_blend_weight: 0.3
+  copula_dynamic_blend: true
+  copula_stress_threshold: 1.5
+  copula_nu_init: 5.0
+  copula_marginal_method: empirical
+
+# BLPX parameters (matching production baseline)
+blpx:
+  blp_window: 252
+  blp_ewma_halflife: 45
+  alpha_xx: 0.50
+  alpha_yx: 0.05
+  alpha_yy: 0.50
+  rho: 0.01
+  rank: full
+  lambda_pca: 0.10
+  lambda_sector: 0.40
+  beta_conf: 0.25
+  winsor_sigma: 3.0
+
+# Ensemble weights (Residual-BLPX focus, matching production)
+ensembles:
+  - name: Residual-BLPX-Copula
+    raw_pca: 0.00
+    residual_pca: 0.00
+    raw_blpx: 0.00
+    residual_blpx: 1.00
+
+# Research grids for copula parameter sweep
+grids:
+  copula_sweep:
+    copula_blend_weight_grid: [0.0, 0.1, 0.3, 0.5]
+    copula_dynamic_blend_grid: [true, false]
+    copula_stress_threshold_grid: [1.3, 1.5, 2.0]
+    copula_nu_init_grid: [3.0, 5.0, 10.0]

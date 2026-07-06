@@ -228,6 +228,115 @@ def build_weights(
     return weights
 
 
+def _solve_minvar_sub(
+    Sigma_sub: np.ndarray,
+    raw_weights: np.ndarray,
+    alpha: float,
+    max_abs_weight: float = 0.35,
+) -> np.ndarray:
+    """Solve min-variance within a single basket, blended with signal weights.
+
+    Minimizes: alpha * w' Sigma w + (1-alpha) * ||w - w_signal||^2
+
+    Args:
+        Sigma_sub: (k, k) covariance sub-matrix for the basket.
+        raw_weights: (k,) signal-proportional weights (positive, sum to 1).
+        alpha: 0=pure signal, 1=pure minvar.
+        max_abs_weight: Cap on individual weight.
+
+    Returns:
+        (k,) optimized weights (positive, sum to 1).
+    """
+    k = len(raw_weights)
+    if k == 0:
+        return np.array([])
+    if k == 1:
+        return np.array([1.0])
+
+    Sigma_sub = np.nan_to_num(Sigma_sub, nan=0.0, posinf=0.0, neginf=0.0)
+    # Ensure PSD
+    try:
+        eigvals = np.linalg.eigvalsh(Sigma_sub)
+        if eigvals.min() < 1e-10:
+            Sigma_sub = Sigma_sub + (1e-10 - eigvals.min()) * np.eye(k)
+    except np.linalg.LinAlgError:
+        Sigma_sub = np.eye(k)
+
+    # Closed-form: (alpha*Sigma + (1-alpha)*I) w = (1-alpha) * w_signal
+    A = alpha * Sigma_sub + (1.0 - alpha) * np.eye(k)
+    try:
+        w = np.linalg.solve(A, (1.0 - alpha) * raw_weights)
+    except np.linalg.LinAlgError:
+        w = raw_weights.copy()
+
+    w = np.clip(w, 1e-8, max_abs_weight)
+    total = w.sum()
+    if total > 0:
+        w = w / total
+    else:
+        w = raw_weights / raw_weights.sum() if raw_weights.sum() > 0 else np.ones(k) / k
+
+    return w
+
+
+def build_weights_minvar(
+    signal: np.ndarray,
+    q: float,
+    n_j: int,
+    Sigma_YY: np.ndarray | None = None,
+    alpha: float = 0.5,
+    enforce_sign: bool = False,
+) -> np.ndarray:
+    """Build portfolio weights using covariance-aware optimization.
+
+    Blends signal-proportional weights with minimum-variance weights.
+    Long and short baskets are optimized independently.
+
+    Args:
+        signal: (n_j,) signal array.
+        q: Fraction of assets for long/short.
+        n_j: Number of JP assets.
+        Sigma_YY: (n_j, n_j) predicted covariance matrix. If None, falls back to signal weights.
+        alpha: Blending parameter. 0=pure signal, 1=pure minvar.
+        enforce_sign: Whether to enforce signal direction.
+
+    Returns:
+        Weight array of shape (n_j,).
+    """
+    weights = np.zeros(n_j)
+    long_idx, short_idx = select_long_short_indices(signal, q, n_j, enforce_sign)
+
+    if len(long_idx) == 0 or len(short_idx) == 0:
+        return weights
+
+    s_centered = signal - np.median(signal)
+
+    # Signal-proportional raw weights
+    long_raw = np.maximum(s_centered[long_idx], EPSILON_SIGMA)
+    long_raw = long_raw / long_raw.sum() if long_raw.sum() > 0 else np.ones(len(long_idx)) / len(long_idx)
+
+    short_raw = np.maximum(-s_centered[short_idx], EPSILON_SIGMA)
+    short_raw = short_raw / short_raw.sum() if short_raw.sum() > 0 else np.ones(len(short_idx)) / len(short_idx)
+
+    if Sigma_YY is None or alpha <= 0.0:
+        weights[long_idx] = long_raw
+        weights[short_idx] = -short_raw
+        return weights
+
+    # Extract sub-covariance matrices
+    Sigma_long = Sigma_YY[np.ix_(long_idx, long_idx)]
+    Sigma_short = Sigma_YY[np.ix_(short_idx, short_idx)]
+
+    # Solve min-var blend for each basket
+    w_long = _solve_minvar_sub(Sigma_long, long_raw, alpha)
+    w_short = _solve_minvar_sub(Sigma_short, short_raw, alpha)
+
+    weights[long_idx] = w_long
+    weights[short_idx] = -w_short
+
+    return weights
+
+
 def compute_dispersion_indicator(
     signal: np.ndarray,
     q: float,

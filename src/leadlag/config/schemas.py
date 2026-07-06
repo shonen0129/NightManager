@@ -62,6 +62,19 @@ class StrategyConfig(BaseModel):
     gamma: float = Field(default=0.5, description="US 残差化ブレンド係数")
     slippage_bps: float = Field(default=5.0, ge=0.0, description="片道スリッページ (basis points)")
     vol_adjusted_target: bool = Field(default=True, description="ボラティリティ調整ターゲット有効フラグ")
+
+    # --- Copula correlation blending ---
+    copula_enabled: bool = Field(default=False, description="t-copula相関ブレンド有効フラグ")
+    copula_blend_weight: float = Field(default=0.3, ge=0.0, le=1.0, description="Copula相関の固定ブレンド重み (0=Pearsonのみ, 1=Copulaのみ)")
+    copula_dynamic_blend: bool = Field(default=True, description="ストレス期にCopula重みを動的増加")
+    copula_stress_threshold: float = Field(default=1.5, ge=1.0, description="ストレス判定のボラティリティ比率閾値")
+    copula_nu_init: float = Field(default=5.0, ge=2.1, le=30.0, description="t-copula自由度の初期値")
+    copula_marginal_method: str = Field(default="empirical", description="周辺分布推定法 (empirical | skewt)")
+
+    # --- Covariance-aware weight optimization ---
+    minvar_enabled: bool = Field(default=False, description="共分散対応最小分散weight最適化有効フラグ")
+    minvar_alpha: float = Field(default=0.5, ge=0.0, le=1.0, description="最小分散ブレンド係数 (0=signal比例, 1=純最小分散)")
+
     overnight_alpha_long: float = Field(
         default=0.75,
         ge=0.0,
@@ -202,3 +215,7 @@ class ProductionV2RunConfig(BaseModel):
     # --- Phase 2D: Cross-Sectional Rank Reversal Overlay ---
     cs_overlay_enabled: bool = Field(default=False, description="CS特徴量オーバーレイ有効フラグ")
     cs_overlay_weight: float = Field(default=0.05, ge=0.0, description="ランク反転オーバーレイ重み")
+
+    # --- MinVar weight optimization ---
+    minvar_enabled: bool = Field(default=False, description="共分散対応最小分散weight最適化有効フラグ")
+    minvar_alpha: float = Field(default=0.5, ge=0.0, le=1.0, description="最小分散ブレンド係数 (0=signal比例, 1=純最小分散)")

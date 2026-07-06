@@ -143,9 +143,24 @@ class BaseModel(ABC):
         else:
             raise ValueError(f"Unknown normalization method: {method}")
 
-    def build_weights(self, signal: np.ndarray, q: float | None = None) -> np.ndarray:
+    def build_weights(
+        self, signal: np.ndarray, q: float | None = None,
+        Sigma_YY: np.ndarray | None = None,
+    ) -> np.ndarray:
         """Construct portfolio weights from combined signal."""
         q_val = q if q is not None else self.q
+
+        if getattr(self, "minvar_enabled", False) and Sigma_YY is not None:
+            from leadlag.core.signal import build_weights_minvar
+            return build_weights_minvar(
+                signal=signal,
+                q=q_val,
+                n_j=self.n_j,
+                Sigma_YY=Sigma_YY,
+                alpha=getattr(self, "minvar_alpha", 0.5),
+                enforce_sign=False,
+            )
+
         return signals.build_weights(
             signal=signal,
             q=q_val,
