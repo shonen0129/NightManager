@@ -22,15 +22,27 @@ from __future__ import annotations
 
 import argparse
 import logging
+import sys
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "src"))
+
+from experiments.backtest_common import (
+    TRADING_DAYS,
+    CostParams,
+    extended_metrics,
+    load_execution_data,
+    prepare_target_and_gap_returns,
+    run_baseline_backtest,
+    simulate_overnight_holding,
+)
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
-
-TRADING_DAYS = 245
 
 
 def parse_args():
@@ -50,165 +62,13 @@ def parse_args():
     return p.parse_args()
 
 
-def run_overnight_backtest(
-    weights_df: pd.DataFrame,
-    target_returns_df: pd.DataFrame,
-    gap_returns_df: pd.DataFrame,
-    alpha: float,
-    slippage_bps: float,
-    buy_interest_annual: float = 0.025,
-    borrow_fee_annual: float = 0.0115,
-    reverse_fee_bps: float = 2.0,
-) -> dict:
-    """Run backtest with overnight holding fraction alpha and realistic costs.
-
-    Args:
-        weights_df: Daily portfolio weights (T, N)
-        target_returns_df: 9:10-to-close returns (T, N)
-        gap_returns_df: Overnight gap returns (T, N), gap(t) = open(t)/close(t-1) - 1
-        alpha: Overnight holding fraction (0=no hold, 1=full hold)
-        slippage_bps: One-way slippage in bps
-        buy_interest_annual: Annual financing rate for long positions
-        borrow_fee_annual: Annual stock borrow fee for short positions
-        reverse_fee_bps: Daily reverse stock lending fee (逆日歩) in bps
-
-    Returns:
-        Dict with daily returns, costs, turnover, etc.
-    """
-    slip = slippage_bps / 10000.0
-    financing_daily = buy_interest_annual / 365.0
-    borrow_daily = borrow_fee_annual / 365.0
-    reverse_daily = reverse_fee_bps / 10000.0
-
-    intraday_rets = []
-    overnight_rets = []
-    slip_cost_list = []
-    financing_cost_list = []
-    borrow_cost_list = []
-    reverse_cost_list = []
-    turnover_list = []
-    gross_exp_list = []
-    long_exp_list = []
-    short_exp_list = []
-
-    w_prev = np.zeros(weights_df.shape[1])
-
-    dates = weights_df.index
-    for i, date in enumerate(dates):
-        w_t = weights_df.loc[date].values
-        r_target = target_returns_df.loc[date].values
-
-        # Intraday return (9:10-to-close) — same for all alpha
-        intraday = float(np.sum(w_t * r_target))
-
-        # Overnight return: w_t * gap(t+1) * alpha
-        overnight = 0.0
-        if alpha > 0 and i < len(dates) - 1:
-            next_date = dates[i + 1]
-            if next_date in gap_returns_df.index:
-                r_gap_next = gap_returns_df.loc[next_date].values
-                overnight = alpha * float(np.sum(w_t * r_gap_next))
-
-        # Exposures
-        gross_exp = float(np.sum(np.abs(w_t)))
-        long_exp = float(np.sum(np.maximum(w_t, 0.0)))
-        short_exp = float(np.sum(np.maximum(-w_t, 0.0)))
-        turnover = float(np.sum(np.abs(w_t - w_prev)) / 2.0)
-
-        # Slippage cost:
-        # (1-alpha) fraction: full round-trip (close at 15:00, reopen at 9:10)
-        # alpha fraction: only rebalance cost (hold overnight, adjust at 9:10)
-        slip_cost = slip * (2.0 * (1.0 - alpha) * gross_exp + alpha * turnover)
-
-        # Overnight holding costs (only on carried portion):
-        # Long side: financing (buy interest)
-        # Short side: borrow fee + reverse fee (逆日歩)
-        fin_cost = alpha * long_exp * financing_daily
-        borrow_cost = alpha * short_exp * borrow_daily
-        reverse_cost = alpha * short_exp * reverse_daily
-
-        total_cost = slip_cost + fin_cost + borrow_cost + reverse_cost
-        total_ret = intraday + overnight - total_cost
-
-        intraday_rets.append(intraday)
-        overnight_rets.append(overnight)
-        slip_cost_list.append(slip_cost)
-        financing_cost_list.append(fin_cost)
-        borrow_cost_list.append(borrow_cost)
-        reverse_cost_list.append(reverse_cost)
-        turnover_list.append(turnover)
-        gross_exp_list.append(gross_exp)
-        long_exp_list.append(long_exp)
-        short_exp_list.append(short_exp)
-
-        w_prev = w_t
-
-    idx = dates
-    daily_intraday = pd.Series(intraday_rets, index=idx)
-    daily_overnight = pd.Series(overnight_rets, index=idx)
-    daily_slip = pd.Series(slip_cost_list, index=idx)
-    daily_financing = pd.Series(financing_cost_list, index=idx)
-    daily_borrow = pd.Series(borrow_cost_list, index=idx)
-    daily_reverse = pd.Series(reverse_cost_list, index=idx)
-    daily_costs = daily_slip + daily_financing + daily_borrow + daily_reverse
-    daily_turnover = pd.Series(turnover_list, index=idx)
-    daily_gross = pd.Series(gross_exp_list, index=idx)
-    daily_long = pd.Series(long_exp_list, index=idx)
-    daily_short = pd.Series(short_exp_list, index=idx)
-    daily_returns = daily_intraday + daily_overnight - daily_costs
-
-    wealth = (1.0 + daily_returns).cumprod()
-    drawdown = (wealth / wealth.cummax()) - 1.0
-
-    return {
-        "daily_returns": daily_returns,
-        "daily_intraday": daily_intraday,
-        "daily_overnight": daily_overnight,
-        "daily_costs": daily_costs,
-        "daily_slip": daily_slip,
-        "daily_financing": daily_financing,
-        "daily_borrow": daily_borrow,
-        "daily_reverse": daily_reverse,
-        "daily_turnover": daily_turnover,
-        "daily_gross": daily_gross,
-        "daily_long": daily_long,
-        "daily_short": daily_short,
-        "equity_curve": wealth,
-        "drawdown": drawdown,
-    }
-
-
-def metrics_dict(daily_returns: pd.Series) -> dict:
-    from leadlag.reporting.metrics import calculate_metrics
-    m = calculate_metrics(daily_returns)
-    dr = daily_returns.dropna()
-    if len(dr) > 0:
-        m["Hit Rate"] = float((dr > 0).mean())
-        m["Avg Daily Return"] = float(dr.mean())
-        m["Calmar"] = float(m.get("AR", 0) / abs(m.get("MDD", -1))) if m.get("MDD", 0) != 0 else np.nan
-    return m
-
-
 def main():
     args = parse_args()
 
     logger.info("[1/4] Loading data and running baseline backtest...")
-    from leadlag.data.fetcher import download_data
-    from leadlag.data.preprocessor import preprocess_data
-    from leadlag.data.tickers import JP_TICKERS
-    from leadlag.execution.config import StrategyConfig as ProductionConfig
-    from leadlag.execution.helpers import build_strategy
-    from leadlag.execution.backtester import BacktestEngine
-    from leadlag.models.sre import compute_jp_target_returns
-
-    data = download_data(beta_window=60)
-    df_exec = preprocess_data(data, beta_window=60)
-
-    config = ProductionConfig(start_date=args.start_date, slippage_bps=args.slippage_bps)
-    model = build_strategy(config, df_exec)
-
-    baseline = BacktestEngine.run_backtest(
-        model, df_exec=df_exec, start_date=args.start_date, slippage_bps=args.slippage_bps
+    df_exec = load_execution_data(beta_window=60)
+    baseline = run_baseline_backtest(
+        df_exec, start_date=args.start_date, slippage_bps=args.slippage_bps
     )
 
     weights = baseline["weights"]
@@ -217,16 +77,14 @@ def main():
 
     logger.info("Baseline: %d trading days", len(daily_returns))
 
-    # Prepare return data
-    y_jp_target = compute_jp_target_returns(df_exec, JP_TICKERS)
-    target_returns_df = pd.DataFrame(y_jp_target, index=df_exec.index, columns=JP_TICKERS)
-    target_returns_df = target_returns_df.loc[sim_dates]
+    target_returns_df, gap_returns_df = prepare_target_and_gap_returns(df_exec, sim_dates)
 
-    # Gap returns (overnight: open(t)/close(t-1) - 1)
-    gap_cols = [f"jp_gap_{tk}" for tk in JP_TICKERS]
-    gap_returns_df = df_exec[gap_cols].copy()
-    gap_returns_df.columns = JP_TICKERS
-    gap_returns_df = gap_returns_df.loc[sim_dates]
+    costs = CostParams(
+        slippage_bps=args.slippage_bps,
+        buy_interest_annual=args.buy_interest_annual,
+        borrow_fee_annual=args.borrow_fee_annual,
+        reverse_fee_bps=args.reverse_fee_bps,
+    )
 
     logger.info("[2/4] Running overnight holding backtests for multiple alpha values...")
 
@@ -234,27 +92,24 @@ def main():
     results = {}
 
     for alpha in alphas:
-        res = run_overnight_backtest(
-            weights, target_returns_df, gap_returns_df,
-            alpha=alpha, slippage_bps=args.slippage_bps,
-            buy_interest_annual=args.buy_interest_annual,
-            borrow_fee_annual=args.borrow_fee_annual,
-            reverse_fee_bps=args.reverse_fee_bps,
+        res = simulate_overnight_holding(
+            weights, target_returns_df, gap_returns_df, alpha=alpha, costs=costs
         )
         results[alpha] = res
+        m = extended_metrics(res["daily_returns"])
         label = "current" if alpha == 0 else f"α={alpha}"
         logger.info("  %s: AR=%.2f%%  Sharpe=%.4f  MDD=%.2f%%  Cost=%.4f%%/day  Turnover=%.3f",
                      label,
-                     metrics_dict(res["daily_returns"]).get("AR", 0) * 100,
-                     metrics_dict(res["daily_returns"]).get("Sharpe", 0),
-                     metrics_dict(res["daily_returns"]).get("MDD", 0) * 100,
+                     m.get("AR", 0) * 100,
+                     m.get("Sharpe", 0),
+                     m.get("MDD", 0) * 100,
                      res["daily_costs"].mean() * 100,
                      res["daily_turnover"].mean())
 
     logger.info("[3/4] Computing comparison metrics...")
     all_metrics = {}
     for alpha in alphas:
-        all_metrics[alpha] = metrics_dict(results[alpha]["daily_returns"])
+        all_metrics[alpha] = extended_metrics(results[alpha]["daily_returns"])
 
     logger.info("[4/4] Generating report...")
 

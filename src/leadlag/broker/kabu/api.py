@@ -3,6 +3,8 @@ kabuステーション API クライアント
 株価情報の取得と売買注文実行機能を提供する
 """
 
+from __future__ import annotations
+
 import logging
 import os
 import time

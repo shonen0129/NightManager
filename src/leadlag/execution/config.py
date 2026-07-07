@@ -8,7 +8,12 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from dotenv import load_dotenv
+
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    def load_dotenv(*args, **kwargs):
+        pass
 
 from leadlag.config.schemas import AppConfig, KabuApiConfig, RiskConfig, StrategyConfig, TachibanaApiConfig
 

@@ -22,8 +22,11 @@ import yaml
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
+from experiments.backtest_common import (
+    load_config,
+    run_backtest_with_costs,
+)
 from leadlag.data.preprocessor import preprocess_data
-from leadlag.execution.backtester import BacktestEngine
 from leadlag.models.sector_relative_ensemble_blp_enhanced import (
     SectorRelativeEnsembleBLPEnhancedModel,
 )
@@ -57,11 +60,8 @@ def run_single_backtest(
 ) -> dict:
     """Run a single backtest with given config and return results dict."""
     model = SectorRelativeEnsembleBLPEnhancedModel(cfg)
-
-    results = BacktestEngine.run_backtest(
-        model,
-        df_exec=df_exec,
-        start_date=start_date,
+    return run_backtest_with_costs(
+        model, df_exec, start_date=start_date,
         slippage_bps=float(costs.get("slippage_bps_per_side", 5.0)),
         overnight_alpha_long=float(costs.get("overnight_alpha_long", 0.75)),
         overnight_alpha_short=float(costs.get("overnight_alpha_short", 0.5)),
@@ -69,7 +69,6 @@ def run_single_backtest(
         borrow_fee_annual=float(costs.get("borrow_fee_annual", 0.0115)),
         reverse_fee_bps=float(costs.get("reverse_fee_bps", 2.0)),
     )
-    return results
 
 
 def print_metrics(label: str, metrics: dict) -> None:
@@ -114,8 +113,7 @@ def main():
 
     config_path = ROOT / args.config
     logger.info("Loading base config from %s", config_path)
-    with open(config_path) as f:
-        base_cfg = yaml.safe_load(f)
+    base_cfg = load_config(config_path)
 
     costs = base_cfg.get("costs", {})
     beta_window = base_cfg.get("residualization", {}).get("beta_window", 60)

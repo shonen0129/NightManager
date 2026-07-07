@@ -188,29 +188,35 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
     def _load_macro_returns(self, df_exec: pd.DataFrame) -> pd.DataFrame | None:
         """Load macro factor returns aligned to df_exec index.
 
-        Attempts to download macro data (USDJPY, CLF, TNX) via yfinance and
-        align it to the trading dates in df_exec. If download fails or the
-        resulting data is too short, returns None.
+        Downloads macro close prices (USDJPY, CLF, TNX) via yfinance,
+        aligns them to the trading dates in df_exec with forward-fill,
+        then computes daily returns. This ensures that non-trading days
+        (e.g. JP market open but US market closed) produce zero returns
+        rather than carrying forward the previous day's return.
 
-        The macro returns are forward-filled to match df_exec's trading days
-        (macro markets may not trade on all days that JP markets are open).
+        If download fails or the resulting data is too short, returns None.
         """
         try:
-            from leadlag.core.macro import MACRO_NAMES, download_macro_data
+            from leadlag.core.macro import MACRO_NAMES, download_macro_prices
 
             sim_dates = df_exec.index
             start = sim_dates[0].strftime("%Y-%m-%d")
             end = sim_dates[-1].strftime("%Y-%m-%d")
 
-            macro_df = download_macro_data(start=start, end=end)
-            if macro_df is None or len(macro_df) < 30:
-                logger.warning("Macro data too short (%d rows); skipping.", len(macro_df) if macro_df is not None else 0)
+            close_prices = download_macro_prices(start=start, end=end)
+            if close_prices is None or len(close_prices) < 30:
+                logger.warning("Macro data too short (%d rows); skipping.", len(close_prices) if close_prices is not None else 0)
                 return None
 
-            # Reindex to df_exec dates, forward-fill missing values
-            macro_aligned = macro_df.reindex(sim_dates, method="ffill")
-            macro_aligned = macro_aligned.fillna(0.0)
-            return macro_aligned[MACRO_NAMES]
+            # Align prices to df_exec dates, forward-fill missing values
+            prices_aligned = close_prices.reindex(sim_dates, method="ffill")
+            prices_aligned = prices_aligned.fillna(method="ffill").fillna(0.0)
+
+            # Compute returns AFTER alignment so non-trading days get zero return
+            macro_returns = prices_aligned.pct_change()
+            macro_returns = macro_returns.replace([np.inf, -np.inf], np.nan)
+            macro_returns = macro_returns.fillna(0.0)
+            return macro_returns[MACRO_NAMES]
         except Exception as e:
             logger.warning("Failed to load macro data: %s", e)
             return None

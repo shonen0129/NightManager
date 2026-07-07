@@ -29,7 +29,7 @@ class DummyModel(BaseModel):
             "y_jp_oc_df": y_jp_oc_df,
         }
 
-    def build_weights(self, signal):
+    def build_weights(self, signal, q=None, Sigma_YY=None):
         w = np.zeros(self.n_j)
         w[0] = 1.0
         w[-1] = -1.0

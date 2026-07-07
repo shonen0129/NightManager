@@ -14,12 +14,10 @@ from pathlib import Path
 
 import yaml
 
-# Add src/ to path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
-from leadlag.data.fetcher import download_data
-from leadlag.data.preprocessor import preprocess_data
+from experiments.backtest_common import load_execution_data
 from leadlag.execution.backtester import BacktestEngine
 from leadlag.models.sector_relative_ensemble_blp_enhanced import (
     SectorRelativeEnsembleBLPEnhancedModel,
@@ -60,21 +58,17 @@ def main():
     beta_winsor_sigma = cfg.get("residualization", {}).get("beta_winsor_sigma")
 
     logger.info("[1/4] Downloading/loading market data...")
-    raw_data = download_data(beta_window=beta_window)
-
-    logger.info("[2/4] Preprocessing aligned execution dataset...")
-    df_exec = preprocess_data(
-        raw_data,
+    df_exec = load_execution_data(
         beta_window=beta_window,
         beta_ewma_halflife=beta_ewma_halflife,
         beta_shrinkage=beta_shrinkage,
         beta_winsor_sigma=beta_winsor_sigma,
     )
 
-    logger.info("[3/4] Building production model (Residual-BLPX)...")
+    logger.info("[2/4] Building production model (Residual-BLPX)...")
     model = SectorRelativeEnsembleBLPEnhancedModel(cfg)
 
-    logger.info("Running backtest: start=%s, slippage=%.1f bps, alpha_long=%.2f, alpha_short=%.2f",
+    logger.info("[3/4] Running backtest: start=%s, slippage=%.1f bps, alpha_long=%.2f, alpha_short=%.2f",
                 args.start_date, slippage_bps, overnight_alpha_long, overnight_alpha_short)
     results = BacktestEngine.run_backtest(
         model,

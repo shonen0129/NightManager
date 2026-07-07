@@ -15,8 +15,10 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
-from leadlag.data.cache import load_df_exec_from_local_cache
-from leadlag.execution.backtester import BacktestEngine
+from experiments.backtest_common import (
+    load_cached_df_exec,
+    run_backtest_with_costs,
+)
 from leadlag.models.sector_relative_ensemble_blp_enhanced import (
     SectorRelativeEnsembleBLPEnhancedModel,
 )
@@ -35,7 +37,7 @@ def main():
     print("=" * 80)
 
     print("\n[Loading data...]")
-    df_exec = load_df_exec_from_local_cache()
+    df_exec = load_cached_df_exec()
     print(f"  shape: {df_exec.shape}")
 
     results_all = {}
@@ -48,17 +50,7 @@ def main():
             "min_raw_weight": 0.0,  # disable guardrail to test pure parameter effect
         }
         model = SectorRelativeEnsembleBLPEnhancedModel(cfg)
-        results = BacktestEngine.run_backtest(
-            model,
-            df_exec,
-            start_date="2015-01-05",
-            slippage_bps=5.0,
-            overnight_alpha_long=0.75,
-            overnight_alpha_short=0.5,
-            buy_interest_annual=0.025,
-            borrow_fee_annual=0.0115,
-            reverse_fee_bps=2.0,
-        )
+        results = run_backtest_with_costs(model, df_exec, start_date="2015-01-05")
         daily_ret = results["daily_returns"]
         metrics = calculate_metrics(daily_ret)
         results_all[label] = {
@@ -103,17 +95,7 @@ def main():
         "min_raw_weight": 0.30,
     }
     model_g = SectorRelativeEnsembleBLPEnhancedModel(cfg_guard)
-    results_g = BacktestEngine.run_backtest(
-        model_g,
-        df_exec,
-        start_date="2015-01-05",
-        slippage_bps=5.0,
-        overnight_alpha_long=0.75,
-        overnight_alpha_short=0.5,
-        buy_interest_annual=0.025,
-        borrow_fee_annual=0.0115,
-        reverse_fee_bps=2.0,
-    )
+    results_g = run_backtest_with_costs(model_g, df_exec, start_date="2015-01-05")
     metrics_g = calculate_metrics(results_g["daily_returns"])
     print(f"  AR:      {metrics_g['AR']:.4f}")
     print(f"  RISK:    {metrics_g['RISK']:.4f}")
@@ -143,17 +125,7 @@ def main():
             "min_raw_weight": 0.0,
         }
         model = SectorRelativeEnsembleModel(cfg)
-        results = BacktestEngine.run_backtest(
-            model,
-            df_exec,
-            start_date="2015-01-05",
-            slippage_bps=5.0,
-            overnight_alpha_long=0.75,
-            overnight_alpha_short=0.5,
-            buy_interest_annual=0.025,
-            borrow_fee_annual=0.0115,
-            reverse_fee_bps=2.0,
-        )
+        results = run_backtest_with_costs(model, df_exec, start_date="2015-01-05")
         daily_ret = results["daily_returns"]
         metrics = calculate_metrics(daily_ret)
         sre_results[label] = metrics
@@ -172,17 +144,7 @@ def main():
         "min_raw_weight": 0.30,
     }
     model_g_sre = SectorRelativeEnsembleModel(cfg_guard_sre)
-    results_g_sre = BacktestEngine.run_backtest(
-        model_g_sre,
-        df_exec,
-        start_date="2015-01-05",
-        slippage_bps=5.0,
-        overnight_alpha_long=0.75,
-        overnight_alpha_short=0.5,
-        buy_interest_annual=0.025,
-        borrow_fee_annual=0.0115,
-        reverse_fee_bps=2.0,
-    )
+    results_g_sre = run_backtest_with_costs(model_g_sre, df_exec, start_date="2015-01-05")
     metrics_g_sre = calculate_metrics(results_g_sre["daily_returns"])
     print(f"  AR:      {metrics_g_sre['AR']:.4f}")
     print(f"  RISK:    {metrics_g_sre['RISK']:.4f}")

@@ -24,6 +24,7 @@ US ETF と TOPIX-17 セクター ETF のリードラグ相関を利用した、
 - **Phase 10 (2026-06-27)**: モデル層の継承階層をリファクタリング。`BaseModel` に共通ユーティリティメソッド（`_resolve_val`, `_resolve_nested`, `normalize_signals`, `build_weights`, `_resolve_slippage_bps`）を集約し、新規中間クラス `_BLPBase`（`blp_base.py`）に BLP 系モデル共通メソッド（`_prepare_common_inputs`, `compute_production_signal`, `compute_residual_signal`, `_denormalize_signal`, `_apply_gap_adjustment`）を集約。`SectorRelativeEnsembleBLPEnhancedModel`, `SectorRelativeEnsembleBLPModel`, `SectorRelativeEnsembleRRRModel` は `_BLPBase` を継承するよう変更。`compute_blp_signal` を7つのヘルパーメソッドに分割し、実験スクリプトの重複モデル定義を `scripts/experiment_models.py` に共通化。
 - **Phase 11 (2026-07-01)**: アーキテクチャ文書を実態に合わせて全面更新。未記載だった `src/features/`、`src/models/`、`src/reports/` 実験パッケージ、`leadlag/cost/`、`leadlag/diagnostics/` サブパッケージ、`execution/` のLOB/スリッページ関連5ファイル、`compliance/v2_auditor.py`、`core/market_calendar.py`、`models/signal_enhancement.py`、`models/production_v2.py`、`models/net_score_ranking_lob.py`、`reporting/production_v2_writer.py`、`reporting/sprint2c_lob_report.py` を文書に反映。Repository Root に `Papers/`、`artifacts/`、`reports/`、`kabu_auto_login/`、`scratch/`、`archive/`、`live/`、`logs/`、`shadow_runs/`、`data/`、`creds/` 等の未記載ディレクトリを追加。
 - **Phase 12 (2026-07-01)**: ディレクトリ構造リファクタリング実施。実験パッケージ(`features/`, `models/`, `reports/`, `diagnostics/`)を `src/experiments/` に統合。`cost/cost_calculator.py` を `execution/` に移動。LOB/スリッページ関連5ファイルを `execution/microstructure/` サブパッケージに整理。`scripts/` を `experiments/`, `sprint/`, `backtest/`, `batch/`, `test/` に分割。`tools/` を `production/`, `validation/`, `research/` に分離。`configs/` を `production/`, `research/` に分離。`scratch/` を `archive/` に移動し `.gitignore` に追加。
+- **Phase 13 (2026-07-06)**: Macro Confidence（Factor-Specific Kappa）を本番モデルに統合。`core/macro.py` 新設 — マクロ因子（USDJPY, CLF, TNX）のEWMAベース・ボラティリティ調整サプライズ計算、感度行列を用いた銘柄別リスクスケーリング。`SectorRelativeEnsembleBLPEnhancedModel.predict_signals` 内でアンサンブル結合シグナルに対して `s_ens / scale_j` を適用。シグナル方向はBLPXのまま維持し、ポジションサイズのみマクロ環境に適応。YAML設定に `macro_confidence_enabled`, `macro_kappas`, `macro_surprise_halflife_mean`, `macro_surprise_halflife_vol` を追加。
 
 ---
 
@@ -73,7 +74,8 @@ src/
 │   │   ├── portfolio.py     # ウェイト計算、Gross Exposure 調整
 │   │   ├── allocator.py     # 資金・ロット配分
 │   │   ├── risk.py          # VaR/ES 計算、リスクブリーチ判定
-│   │   └── market_calendar.py  # 営業日カレンダー・日付判定
+│   │   ├── market_calendar.py  # 営業日カレンダー・日付判定
+│   │   └── macro.py         # マクロ因子（USDJPY/CLF/TNX）のボラティリティ調整サプライズ・Factor-Specific Kappa スケーリング
 │   │
 │   ├── config/              # 設定スキーマ定義・バリデーション層
 │   │   ├── __init__.py
@@ -191,7 +193,7 @@ ABC (abc.ABC)
 | `blp_base.py` | _BLPBase 中間クラス — BLP系モデル共通メソッド（`_prepare_common_inputs`, `_compute_pca_signal`, `compute_production_signal`, `compute_residual_signal`, `_denormalize_signal`, `_apply_gap_adjustment`） |
 | `sre.py` | SectorRelativeEnsembleModel (PCA-Ensemble) ロジック（Raw-PCA/Residual-PCA/P4 シグナル生成、Zスコア正規化、アンサンブル、ウェイト算出）の正本 |
 | `sector_relative_ensemble_blp.py` | SectorRelativeEnsembleBLPModel (BLP v1) — `_BLPBase` 継承、BLP シグナル生成 |
-| `sector_relative_ensemble_blp_enhanced.py` | SectorRelativeEnsembleBLPEnhancedModel （本番 v2 基盤の BLPX 構造化投影および確信度調整モデル） — `_BLPBase` 継承、`compute_blp_signal` を7つのヘルパーメソッドに分割 |
+| `sector_relative_ensemble_blp_enhanced.py` | SectorRelativeEnsembleBLPEnhancedModel （本番 v2 基盤の BLPX 構造化投影および確信度調整モデル） — `_BLPBase` 継承、`compute_blp_signal` を7つのヘルパーメソッドに分割、Factor-Specific Kappa によるマクロコンファイアンススケーリング統合 |
 | `sector_relative_ensemble_rrr.py` | SectorRelativeEnsembleRRRModel — `_BLPBase` 継承、キャッシュ機能付き PCA シグナル計算 |
 | `production_v2.py` | ProductionV2Model (Residual-BLPX-RA v2) — 本番モデル。ギャップ調整予測分布・mu_over_sigma ランキング・PITビニング (RuleD) 統合 |
 | `signal_enhancement.py` | マルチホライズンブレンド (`apply_multi_horizon_blend`)・ランク反転オーバーレイ (`apply_rank_reversal_overlay`) — Phase 2A/2D 成果物 |
@@ -211,6 +213,7 @@ ABC (abc.ABC)
 | `allocator.py` | 株数への変換（予算制約付き、1629.T 10株ロット対応） |
 | `risk.py` | VaR/ES 計算、リスクブリーチ判定 |
 | `market_calendar.py` | 営業日カレンダー・日付判定（米国・日本市場休場日判定） |
+| `macro.py` | マクロ因子（USDJPY, CLF, TNX）のボラティリティ調整サプライズ計算、感度行列（`MACRO_SENS_MATRIX`）、Factor-Specific Kappa リスクスケーリング |
 
 ### 3. Data Layer (`data/`)
 市場データのライフサイクル全体を管理。

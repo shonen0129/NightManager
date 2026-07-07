@@ -19,6 +19,10 @@ import numpy as np
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
+from experiments.backtest_common import (
+    load_cached_df_exec,
+)
+
 from leadlag.core.correlation import (
     build_c0_from_v0,
     build_lw_target_correlation,
@@ -27,7 +31,6 @@ from leadlag.core.correlation import (
     build_v3_static,
     compute_baseline_correlation,
 )
-from leadlag.data.cache import load_df_exec_from_local_cache
 from leadlag.data.tickers import JP_TICKERS, US_TICKERS
 from leadlag.models.sre import compute_jp_target_returns
 
@@ -75,7 +78,7 @@ def main():
 
     # --- Load real data ---
     print("\n[Loading data...]")
-    df_exec = load_df_exec_from_local_cache()
+    df_exec = load_cached_df_exec()
     n_u = len(US_TICKERS)
     n_j = len(JP_TICKERS)
     n_total = n_u + n_j

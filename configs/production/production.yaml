@@ -102,6 +102,9 @@ blpx:
   target: topix_residual
   use_raw_target: false
   # --- Macro Confidence (Factor-Specific Kappa) ---
+  # NOTE: これらのパラメータは v1 フォールバックパス（SectorRelativeEnsembleBLPEnhancedModel）
+  # でのみ有効です。v2 プライマリパス（ProductionV2Model）は gap-adjusted distribution
+  # matrices を使用するため、この設定は v1 フォールバック時にのみ適用されます。
   macro_confidence_enabled: true
   macro_kappas: [3.0, 0.5, 0.5]   # [USDJPY, CLF, TNX]
   macro_surprise_halflife_mean: 20.0

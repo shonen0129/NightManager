@@ -5,7 +5,8 @@ Provides:
   macro factors (USDJPY, crude oil futures, 10-year Treasury yield).
 - MACRO_SENS_MATRIX: (n_j, n_macro) domain-knowledge sensitivity weights mapping
   each JP sector ETF to each macro factor.
-- download_macro_data: fetch daily returns for the three macro factors.
+- download_macro_prices: fetch daily close prices for the three macro factors.
+- download_macro_data: fetch daily returns for the three macro factors (wrapper).
 - compute_macro_surprise: EWMA-based volatility-adjusted surprise (z-score)
   with per-factor independent mean and variance tracking.
 - compute_factor_kappa_scale: per-stock risk-scaling vector from factor-specific
@@ -18,6 +19,8 @@ data from t-1 and earlier.
 from __future__ import annotations
 
 import logging
+from concurrent.futures import ThreadPoolExecutor
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -25,6 +28,12 @@ import pandas as pd
 from leadlag.data.tickers import JP_TICKERS
 
 logger = logging.getLogger(__name__)
+
+# Default timeout for yfinance downloads (seconds)
+_MACRO_DOWNLOAD_TIMEOUT: float = 30.0
+
+# Module-level cache: (start, end, period) -> DataFrame of close prices
+_MACRO_PRICE_CACHE: dict[tuple[str | None, str | None, str], pd.DataFrame] = {}
 
 # ---------------------------------------------------------------------------
 # Macro factor definitions
@@ -76,26 +85,53 @@ for _j_idx, _jp_tk in enumerate(JP_TICKERS):
 # Macro data download
 # ---------------------------------------------------------------------------
 
-def download_macro_data(
+def clear_macro_cache() -> None:
+    """Clear the module-level macro price cache."""
+    _MACRO_PRICE_CACHE.clear()
+
+
+def download_macro_prices(
     start: str | None = None,
     end: str | None = None,
     period: str = "10y",
+    timeout: float = _MACRO_DOWNLOAD_TIMEOUT,
 ) -> pd.DataFrame:
-    """Download daily macro factor returns aligned to trading days.
+    """Download daily close prices for the three macro factors.
+
+    Uses a module-level cache to avoid redundant downloads within the same
+    session.  If the download does not complete within *timeout* seconds,
+    a TimeoutError is raised.
 
     Returns a DataFrame with columns MACRO_NAMES and a DatetimeIndex.
-    Values are daily percentage returns.
+    Values are daily close prices.
     """
+    cache_key = (start, end, period)
+    if cache_key in _MACRO_PRICE_CACHE:
+        return _MACRO_PRICE_CACHE[cache_key].copy()
+
     import yfinance as yf
 
-    raw = yf.download(
-        MACRO_TICKERS,
-        start=start,
-        end=end,
-        period=period if start is None else None,
-        progress=False,
-        auto_adjust=False,
-    )
+    def _do_download() -> Any:
+        return yf.download(
+            MACRO_TICKERS,
+            start=start,
+            end=end,
+            period=period if start is None else None,
+            progress=False,
+            auto_adjust=False,
+        )
+
+    try:
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(_do_download)
+            raw = future.result(timeout=timeout)
+    except Exception as exc:
+        if isinstance(exc, TimeoutError) or "timeout" in type(exc).__name__.lower():
+            raise TimeoutError(
+                f"yfinance download did not complete within {timeout}s "
+                f"(tickers={MACRO_TICKERS}, start={start}, end={end})"
+            ) from exc
+        raise
 
     # Extract Close prices
     if isinstance(raw.columns, pd.MultiIndex):
@@ -106,7 +142,23 @@ def download_macro_data(
     close.columns = MACRO_NAMES
     close = close.dropna(how="all")
 
-    # Daily returns
+    _MACRO_PRICE_CACHE[cache_key] = close.copy()
+    return close
+
+
+def download_macro_data(
+    start: str | None = None,
+    end: str | None = None,
+    period: str = "10y",
+    timeout: float = _MACRO_DOWNLOAD_TIMEOUT,
+) -> pd.DataFrame:
+    """Download daily macro factor returns aligned to trading days.
+
+    Returns a DataFrame with columns MACRO_NAMES and a DatetimeIndex.
+    Values are daily percentage returns.
+    """
+    close = download_macro_prices(start=start, end=end, period=period, timeout=timeout)
+
     macro_returns = close.pct_change()
     macro_returns = macro_returns.replace([np.inf, -np.inf], np.nan)
     macro_returns = macro_returns.fillna(0.0)

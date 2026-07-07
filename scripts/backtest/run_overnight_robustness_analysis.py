@@ -8,136 +8,51 @@ are not period-specific artifacts.
 from __future__ import annotations
 
 import logging
+import sys
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
-logger = logging.getLogger(__name__)
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "src"))
 
-TRADING_DAYS = 245
-
+from experiments.backtest_common import (
+    TRADING_DAYS,
+    CostParams,
+    load_execution_data,
+    prepare_target_and_gap_returns,
+    run_baseline_backtest,
+    simulate_overnight_holding,
+    yearly_metrics,
+)
 from leadlag.reporting.metrics import calculate_metrics
 
-
-def compute_overnight_series(weights, target_returns_df, gap_returns_df):
-    """Compute intraday and overnight return series for alpha=1.0."""
-    dates = weights.index
-    intraday_list = []
-    overnight_list = []
-    for i, date in enumerate(dates):
-        w_t = weights.loc[date].values
-        r_target = target_returns_df.loc[date].values
-        intraday = float(np.sum(w_t * r_target))
-        overnight = 0.0
-        if i < len(dates) - 1:
-            next_date = dates[i + 1]
-            if next_date in gap_returns_df.index:
-                r_gap_next = gap_returns_df.loc[next_date].values
-                overnight = float(np.sum(w_t * r_gap_next))
-        intraday_list.append(intraday)
-        overnight_list.append(overnight)
-    return pd.Series(intraday_list, index=dates), pd.Series(overnight_list, index=dates)
-
-
-def yearly_stats(returns: pd.Series, label: str) -> pd.DataFrame:
-    """Compute yearly statistics for a return series."""
-    rows = []
-    for year in sorted(returns.index.year.unique()):
-        yr_ret = returns[returns.index.year == year]
-        if len(yr_ret) < 20:
-            continue
-        m = calculate_metrics(yr_ret)
-        m["Year"] = year
-        m["Label"] = label
-        m["Days"] = len(yr_ret)
-        m["HitRate"] = float((yr_ret > 0).mean())
-        rows.append(m)
-    return pd.DataFrame(rows)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+logger = logging.getLogger(__name__)
 
 
 def main():
     logger.info("[1/3] Loading data and running baseline backtest...")
-    from leadlag.data.fetcher import download_data
-    from leadlag.data.preprocessor import preprocess_data
-    from leadlag.data.tickers import JP_TICKERS
-    from leadlag.execution.config import StrategyConfig as ProductionConfig
-    from leadlag.execution.helpers import build_strategy
-    from leadlag.execution.backtester import BacktestEngine
-    from leadlag.models.sre import compute_jp_target_returns
-
-    data = download_data(beta_window=60)
-    df_exec = preprocess_data(data, beta_window=60)
-
-    config = ProductionConfig(start_date="2015-01-05", slippage_bps=5.0)
-    model = build_strategy(config, df_exec)
-
-    baseline = BacktestEngine.run_backtest(
-        model, df_exec=df_exec, start_date="2015-01-05", slippage_bps=5.0
-    )
+    df_exec = load_execution_data(beta_window=60)
+    baseline = run_baseline_backtest(df_exec, start_date="2015-01-05", slippage_bps=5.0)
 
     weights = baseline["weights"]
     sim_dates = weights.index
 
-    y_jp_target = compute_jp_target_returns(df_exec, JP_TICKERS)
-    target_returns_df = pd.DataFrame(y_jp_target, index=df_exec.index, columns=JP_TICKERS)
-    target_returns_df = target_returns_df.loc[sim_dates]
+    target_returns_df, gap_returns_df = prepare_target_and_gap_returns(df_exec, sim_dates)
 
-    gap_cols = [f"jp_gap_{tk}" for tk in JP_TICKERS]
-    gap_returns_df = df_exec[gap_cols].copy()
-    gap_returns_df.columns = JP_TICKERS
-    gap_returns_df = gap_returns_df.loc[sim_dates]
+    costs = CostParams()
 
-    intraday_daily, overnight_daily = compute_overnight_series(
-        weights, target_returns_df, gap_returns_df
-    )
+    res0 = simulate_overnight_holding(weights, target_returns_df, gap_returns_df, alpha=0.0, costs=costs)
+    res05 = simulate_overnight_holding(weights, target_returns_df, gap_returns_df, alpha=0.5, costs=costs)
+    res1 = simulate_overnight_holding(weights, target_returns_df, gap_returns_df, alpha=1.0, costs=costs)
 
-    # Cost parameters
-    slip = 5.0 / 10000.0
-    financing_daily = 0.025 / 365.0
-    borrow_daily = 0.0115 / 365.0
-    reverse_daily = 2.0 / 10000.0
-
-    # Compute returns for alpha=0 (current) and alpha=1.0 (full hold) with realistic costs
-    w_prev = np.zeros(weights.shape[1])
-    alpha0_returns = []
-    alpha1_returns = []
-    alpha05_returns = []
-
-    for i, date in enumerate(sim_dates):
-        w_t = weights.loc[date].values
-        gross_exp = float(np.sum(np.abs(w_t)))
-        long_exp = float(np.sum(np.maximum(w_t, 0.0)))
-        short_exp = float(np.sum(np.maximum(-w_t, 0.0)))
-        turnover = float(np.sum(np.abs(w_t - w_prev)) / 2.0)
-
-        intraday = intraday_daily.iloc[i]
-        overnight = overnight_daily.iloc[i]
-
-        # alpha=0: slippage only
-        cost0 = slip * 2.0 * gross_exp
-        alpha0_returns.append(intraday - cost0)
-
-        # alpha=0.5
-        cost05 = slip * (2.0 * 0.5 * gross_exp + 0.5 * turnover)
-        cost05 += 0.5 * long_exp * financing_daily
-        cost05 += 0.5 * short_exp * borrow_daily
-        cost05 += 0.5 * short_exp * reverse_daily
-        alpha05_returns.append(intraday + 0.5 * overnight - cost05)
-
-        # alpha=1.0: rebalance + full financing/borrow/reverse
-        cost1 = slip * turnover
-        cost1 += long_exp * financing_daily
-        cost1 += short_exp * borrow_daily
-        cost1 += short_exp * reverse_daily
-        alpha1_returns.append(intraday + overnight - cost1)
-
-        w_prev = w_t
-
-    alpha0_ret = pd.Series(alpha0_returns, index=sim_dates)
-    alpha05_ret = pd.Series(alpha05_returns, index=sim_dates)
-    alpha1_ret = pd.Series(alpha1_returns, index=sim_dates)
+    alpha0_ret = res0["daily_returns"]
+    alpha05_ret = res05["daily_returns"]
+    alpha1_ret = res1["daily_returns"]
+    intraday_daily = res1["daily_intraday"]
+    overnight_daily = res1["daily_overnight"]
 
     logger.info("[2/3] Computing year-by-year statistics...")
 
@@ -317,7 +232,7 @@ def main():
     # Yearly metrics
     yearly_dfs = []
     for label, rets in [("alpha0", alpha0_ret), ("alpha05", alpha05_ret), ("alpha1", alpha1_ret)]:
-        df = yearly_stats(rets, label)
+        df = yearly_metrics(rets, label)
         yearly_dfs.append(df)
     pd.concat(yearly_dfs).to_csv(output_dir / "yearly_metrics.csv", index=False)
 
