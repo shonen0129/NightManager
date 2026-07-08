@@ -360,10 +360,23 @@ def test_baseline_sre_reproduction(blpx_sample_config, sample_df_exec):
     sre_model = SectorRelativeEnsembleModel(prod_cfg)
 
     blpx_cfg = blpx_sample_config.copy()
+    if "ensemble" not in blpx_cfg:
+        blpx_cfg["ensemble"] = {}
     blpx_cfg["ensemble"]["raw_pca_weight"] = 0.5
     blpx_cfg["ensemble"]["residual_pca_weight"] = 0.5
     blpx_cfg["ensemble"]["raw_blpx_weight"] = 0.0
     blpx_cfg["ensemble"]["residual_blpx_weight"] = 0.0
+    # Disable enhanced features to match SRE baseline
+    blpx_cfg["lambda_pca"] = 0.0
+    blpx_cfg["lambda_sector"] = 0.0
+    blpx_cfg["beta_conf"] = 0.0
+    blpx_cfg["winsor_sigma"] = None
+    blpx_cfg["exec_adjustment"] = "none"
+    blpx_cfg["ewma_halflife"] = 60
+    blpx_cfg["asymmetry_mode"] = None
+    blpx_cfg["asymmetry_delta"] = 0.0
+    blpx_cfg["gap_open_coef_neg"] = None
+    blpx_cfg["topix_beta_coef_neg"] = None
 
     blpx_model = SectorRelativeEnsembleBLPEnhancedModel(blpx_cfg)
 
@@ -397,6 +410,8 @@ def test_previous_blp_reproduction(blpx_sample_config, sample_df_exec):
 
     # Enhanced PCA-BLPX Ensemble config configured to match legacy baseline
     blpx_cfg = blpx_sample_config.copy()
+    if "ensemble" not in blpx_cfg:
+        blpx_cfg["ensemble"] = {}
     blpx_cfg["ensemble"]["raw_pca_weight"] = 0.4
     blpx_cfg["ensemble"]["residual_pca_weight"] = 0.4
     blpx_cfg["ensemble"]["raw_blpx_weight"] = 0.1
@@ -414,6 +429,12 @@ def test_previous_blp_reproduction(blpx_sample_config, sample_df_exec):
     blpx_cfg["beta_conf"] = 0.0
     blpx_cfg["winsor_sigma"] = None
     blpx_cfg["exec_adjustment"] = "none"
+    # Disable asymmetric propagation to match legacy baseline
+    blpx_cfg["ewma_halflife"] = 60
+    blpx_cfg["asymmetry_mode"] = None
+    blpx_cfg["asymmetry_delta"] = 0.0
+    blpx_cfg["gap_open_coef_neg"] = None
+    blpx_cfg["topix_beta_coef_neg"] = None
 
     blpx_model = SectorRelativeEnsembleBLPEnhancedModel(blpx_cfg)
 

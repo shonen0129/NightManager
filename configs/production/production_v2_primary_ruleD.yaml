@@ -101,6 +101,10 @@ blpx:
   execution_target_cost_adjustment: none
   target: topix_residual
   use_raw_target: false
+  asymmetry_mode: "scalar"
+  asymmetry_delta: 0.30
+  gap_open_coef_neg: 0.60
+  topix_beta_coef_neg: 0.60
   # --- Macro Confidence (Factor-Specific Kappa) ---
   # When enabled, scales the BLPX signal by per-stock macro risk:
   #   scale_j = 1 + sum_m kappa_m * |surprise_m| * |sensitivity_jm|

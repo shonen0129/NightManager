@@ -61,6 +61,10 @@ blpx:
   execution_target_cost_adjustment: none
   target: topix_residual
   use_raw_target: false
+  asymmetry_mode: "scalar"
+  asymmetry_delta: 0.30
+  gap_open_coef_neg: 0.60
+  topix_beta_coef_neg: 0.60
 
 residualization:
   enabled_for_p3: true

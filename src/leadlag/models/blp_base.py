@@ -198,8 +198,13 @@ class _BLPBase(BaseModel):
         gap_override: np.ndarray | None,
         betas_t: np.ndarray | None,
         topix_night_t: float | None,
+        gap_open_coef_override: float | None = None,
+        topix_beta_coef_override: float | None = None,
     ) -> np.ndarray:
         """Apply gap override adjustment to the predicted signal."""
+        gap_coef = gap_open_coef_override if gap_open_coef_override is not None else self.gap_open_coef
+        beta_coef = topix_beta_coef_override if topix_beta_coef_override is not None else self.topix_beta_coef
+
         if gap_override is not None:
             gap_vec = np.asarray(gap_override, dtype=float).reshape(-1)
             use_topix = False
@@ -216,13 +221,13 @@ class _BLPBase(BaseModel):
                 gap_syst = betas_vec * float(topix_night_t)
                 gap_idio = gap_vec - gap_syst
                 gap_filt = (
-                    self.gap_open_coef * gap_idio
-                    + (self.gap_open_coef - self.topix_beta_coef) * gap_syst
+                    gap_coef * gap_idio
+                    + (gap_coef - beta_coef) * gap_syst
                 )
                 denom = np.maximum(1.0 + gap_filt, 0.1)
                 signal = (1.0 + r_hat_jp_cc) / denom - 1.0
             else:
-                signal = r_hat_jp_cc - self.gap_open_coef * gap_vec
+                signal = r_hat_jp_cc - gap_coef * gap_vec
         else:
             signal = z_hat_j_t1
         return signal

@@ -12,6 +12,8 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
+from scipy.stats import spearmanr
+from sklearn.linear_model import LogisticRegression, Ridge
 
 from leadlag.core.correlation import (
     build_c0_from_v0,
@@ -31,7 +33,8 @@ from leadlag.models.blp_base import _BLPBase
 logger = logging.getLogger(__name__)
 
 # Caches to speed up grid search backtesting by avoiding redundant calculations
-_RAW_PCA_RESIDUAL_PCA_CACHE: dict = {}
+_RAW_PCA_CACHE: dict = {}
+_RESIDUAL_PCA_CACHE: dict = {}
 _BLP_CORR_CACHE: dict = {}
 
 
@@ -112,18 +115,29 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
         self.exec_adjustment = self._resolve_val("exec_adjustment", "none")
 
         # Ensemble weights
-        sig_comps = self._resolve_val("signal_components", None)
-        if isinstance(sig_comps, dict):
-            self.raw_pca_weight = float(sig_comps.get("raw_pca", {}).get("weight", 0.0)) if sig_comps.get("raw_pca", {}).get("enabled", False) else 0.0
-            self.residual_pca_weight = float(sig_comps.get("residual_pca", {}).get("weight", 0.0)) if sig_comps.get("residual_pca", {}).get("enabled", False) else 0.0
-            self.raw_blpx_weight = float(sig_comps.get("raw_blpx", {}).get("weight", 0.0)) if sig_comps.get("raw_blpx", {}).get("enabled", False) else 0.0
-            self.residual_blpx_weight = float(sig_comps.get("residual_blpx", {}).get("weight", 0.0)) if sig_comps.get("residual_blpx", {}).get("enabled", False) else 0.0
+        # Support both direct ensemble parameters (common in tests/legacy config) and signal_components (production yaml config)
+        raw_pca_val = self._resolve_val("raw_pca_weight", None)
+        residual_pca_val = self._resolve_val("residual_pca_weight", None)
+        raw_blpx_val = self._resolve_val("raw_blpx_weight", None) or self._resolve_val("p5_weight", None)
+        residual_blpx_val = self._resolve_val("residual_blpx_weight", None) or self._resolve_val("p5p3_weight", None)
+
+        if raw_pca_val is not None or residual_pca_val is not None or raw_blpx_val is not None or residual_blpx_val is not None:
+            self.raw_pca_weight = float(raw_pca_val) if raw_pca_val is not None else 0.0
+            self.residual_pca_weight = float(residual_pca_val) if residual_pca_val is not None else 0.0
+            self.raw_blpx_weight = float(raw_blpx_val) if raw_blpx_val is not None else 0.0
+            self.residual_blpx_weight = float(residual_blpx_val) if residual_blpx_val is not None else 0.0
         else:
-            self.raw_pca_weight = float(self._resolve_val("raw_pca_weight", 0.4))
-            self.residual_pca_weight = float(self._resolve_val("residual_pca_weight", 0.4))
-            # Support both raw_blpx_weight and legacy p5_weight naming
-            self.raw_blpx_weight = float(self._resolve_val("raw_blpx_weight", self._resolve_val("p5_weight", 0.1)))
-            self.residual_blpx_weight = float(self._resolve_val("residual_blpx_weight", self._resolve_val("p5p3_weight", 0.1)))
+            sig_comps = self._resolve_val("signal_components", None)
+            if isinstance(sig_comps, dict):
+                self.raw_pca_weight = float(sig_comps.get("raw_pca", {}).get("weight", 0.0)) if sig_comps.get("raw_pca", {}).get("enabled", False) else 0.0
+                self.residual_pca_weight = float(sig_comps.get("residual_pca", {}).get("weight", 0.0)) if sig_comps.get("residual_pca", {}).get("enabled", False) else 0.0
+                self.raw_blpx_weight = float(sig_comps.get("raw_blpx", {}).get("weight", 0.0)) if sig_comps.get("raw_blpx", {}).get("enabled", False) else 0.0
+                self.residual_blpx_weight = float(sig_comps.get("residual_blpx", {}).get("weight", 0.0)) if sig_comps.get("residual_blpx", {}).get("enabled", False) else 0.0
+            else:
+                self.raw_pca_weight = 0.4
+                self.residual_pca_weight = 0.4
+                self.raw_blpx_weight = 0.1
+                self.residual_blpx_weight = 0.1
 
         # Continuous M_sector parameters
         self.sector_eta = float(self._resolve_val("sector_eta", 0.0))
@@ -132,6 +146,17 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
         # Precompute the fixed Sector Mapping matrix M_sector
         self.M_sector = self._build_sector_prior()
         self._M_sector_fixed = self.M_sector.copy()
+
+        # Precompute sector mapping indices to avoid list.index lookups in hot loops
+        self._sector_mapping_indices = {}
+        for us_tk, jp_tks in self._SECTOR_MAPPING_STRUCTURE.items():
+            if us_tk in US_TICKERS:
+                u_idx = US_TICKERS.index(us_tk)
+                j_indices = []
+                for jp_tk in jp_tks:
+                    if jp_tk in JP_TICKERS:
+                        j_indices.append(JP_TICKERS.index(jp_tk))
+                self._sector_mapping_indices[u_idx] = j_indices
 
         # Copula parameters
         self.copula_enabled = bool(self._resolve_val("copula_enabled", False))
@@ -174,6 +199,25 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
 
         # Slippage cost parameter resolution
         self.slippage_bps = self._resolve_slippage_bps()
+
+        # Asymmetric propagation parameters
+        self.asymmetry_delta = float(self._resolve_val("asymmetry_delta", 0.0))
+        self.asymmetry_mode = str(self._resolve_val("asymmetry_mode", "scalar"))
+        
+        gap_neg = self._resolve_val("gap_open_coef_neg", None)
+        self.gap_open_coef_neg = float(gap_neg) if gap_neg is not None and str(gap_neg).lower() != "none" else None
+        
+        beta_neg = self._resolve_val("topix_beta_coef_neg", None)
+        self.topix_beta_coef_neg = float(beta_neg) if beta_neg is not None and str(beta_neg).lower() != "none" else None
+        
+        self.asymmetry_post_gap_delta = float(self._resolve_val("asymmetry_post_gap_delta", 0.0))
+        self.asymmetry_post_gap_mode = str(self._resolve_val("asymmetry_post_gap_mode", "signal_split"))
+
+        # Meta-learning parameters
+        self.meta_enabled = bool(self._resolve_val("meta_learning_enabled", False))
+        self.meta_model_type = str(self._resolve_val("meta_learning_model_type", "logistic_regression"))
+        self.meta_train_window = int(self._resolve_val("meta_learning_train_window", 252))
+        self.meta_smooth_factor = float(self._resolve_val("meta_learning_smooth_factor", 1.0))
 
     def _build_sector_prior(self) -> np.ndarray:
         """Build the fixed 日米業種対応行列 M_sector of size (n_j x n_u).
@@ -282,16 +326,11 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
         c_xy = corr[: self.n_u, self.n_u:]  # (n_u, n_j) — US vs JP cross-corr
 
         M_data = np.zeros((self.n_j, self.n_u))
-        for u_idx, us_tk in enumerate(US_TICKERS):
-            if us_tk not in self._SECTOR_MAPPING_STRUCTURE:
-                continue
-            jp_tickers = self._SECTOR_MAPPING_STRUCTURE[us_tk]
+        for u_idx, j_indices in self._sector_mapping_indices.items():
             weights = []
-            for jp_tk in jp_tickers:
-                if jp_tk in JP_TICKERS:
-                    j_idx = JP_TICKERS.index(jp_tk)
-                    raw_corr = c_xy[u_idx, j_idx]
-                    weights.append((j_idx, max(0.0, raw_corr) ** self.sector_gamma))
+            for j_idx in j_indices:
+                raw_corr = c_xy[u_idx, j_idx]
+                weights.append((j_idx, max(0.0, raw_corr) ** self.sector_gamma))
             if not weights:
                 continue
             total = sum(w for _, w in weights)
@@ -318,22 +357,20 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
         window_returns = all_returns[window_start:current_index].copy()
 
         if self.exec_adjustment == "vol_scale" and rolling_std is not None:
-            for idx_local in range(len(window_returns)):
-                idx_global = window_start + idx_local
-                vol_factor = rolling_std[idx_global]
-                window_returns[idx_local, self.n_u:] /= vol_factor
+            vol_factors = rolling_std[window_start:current_index]
+            window_returns[:, self.n_u:] /= vol_factors
 
         window_returns = np.nan_to_num(window_returns, nan=0.0, posinf=0.0, neginf=0.0)
 
         if self.winsor_sigma is not None:
+            mus = np.mean(window_returns, axis=0)
+            stds = np.std(window_returns, axis=0)
             for c in range(window_returns.shape[1]):
-                mu_c = np.mean(window_returns[:, c])
-                std_c = np.std(window_returns[:, c])
-                if std_c > 1e-8:
+                if stds[c] > 1e-8:
                     window_returns[:, c] = np.clip(
                         window_returns[:, c],
-                        mu_c - self.winsor_sigma * std_c,
-                        mu_c + self.winsor_sigma * std_c,
+                        mus[c] - self.winsor_sigma * stds[c],
+                        mus[c] + self.winsor_sigma * stds[c],
                     )
         return window_returns
 
@@ -582,6 +619,84 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
             })
         return diag
 
+    def _estimate_asymmetric_covariance(
+        self, window_returns: np.ndarray, corr: np.ndarray
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        """Estimate asymmetric covariance/correlation matrices based on US market factor sign.
+
+        Returns:
+            C_YX_pos, C_YX_neg, C_XX, C_YY
+        """
+        C_XX = corr[:self.n_u, :self.n_u]
+        C_YY = corr[self.n_u:, self.n_u:]
+
+        # US market factor: average of all US assets (first n_u columns)
+        us_factor = np.mean(window_returns[:, :self.n_u], axis=1)
+        pos_mask = us_factor >= 0.0
+        neg_mask = us_factor < 0.0
+
+        n_pos = np.sum(pos_mask)
+        n_neg = np.sum(neg_mask)
+
+        if n_pos < 30 or n_neg < 30:
+            C_YX = corr[self.n_u:, :self.n_u]
+            return C_YX.copy(), C_YX.copy(), C_XX, C_YY
+
+        from leadlag.core.correlation import compute_correlation
+
+        try:
+            _, _, corr_pos = compute_correlation(
+                window_returns[pos_mask], self.blp_ewma_halflife
+            )
+            C_YX_pos = corr_pos[self.n_u:, :self.n_u]
+        except Exception as e:
+            logger.warning(f"Failed to compute positive subset correlation: {e}. Falling back.")
+            C_YX_pos = corr[self.n_u:, :self.n_u].copy()
+
+        try:
+            _, _, corr_neg = compute_correlation(
+                window_returns[neg_mask], self.blp_ewma_halflife
+            )
+            C_YX_neg = corr_neg[self.n_u:, :self.n_u]
+        except Exception as e:
+            logger.warning(f"Failed to compute negative subset correlation: {e}. Falling back.")
+            C_YX_neg = corr[self.n_u:, :self.n_u].copy()
+
+        return C_YX_pos, C_YX_neg, C_XX, C_YY
+
+    def _solve_asymmetric_blp(
+        self,
+        C_YX_pos: np.ndarray,
+        C_YX_neg: np.ndarray,
+        C_XX: np.ndarray,
+        C_YY: np.ndarray,
+        B_pca: np.ndarray,
+        M_sector: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        """Solve BLP coefficients separately for positive and negative regimes.
+
+        Returns:
+            B_pos_struct, B_neg_struct, inv_A_avg, Sigma_YX_reg_avg
+        """
+        Sigma_XX_reg = (1.0 - self.alpha_xx) * C_XX + self.alpha_xx * np.eye(self.n_u)
+        Sigma_YX_reg_pos = (1.0 - self.alpha_yx) * C_YX_pos
+        Sigma_YX_reg_neg = (1.0 - self.alpha_yx) * C_YX_neg
+        Sigma_YY_reg = (1.0 - self.alpha_yy) * C_YY + self.alpha_yy * np.eye(self.n_j)
+
+        diag_mean = float(np.mean(np.diag(Sigma_XX_reg)))
+
+        B_pos_struct, inv_A_pos = self._solve_tikhonov(
+            Sigma_XX_reg, Sigma_YX_reg_pos, B_pca, M_sector, diag_mean
+        )
+        B_neg_struct, inv_A_neg = self._solve_tikhonov(
+            Sigma_XX_reg, Sigma_YX_reg_neg, B_pca, M_sector, diag_mean
+        )
+
+        inv_A_avg = 0.5 * (inv_A_pos + inv_A_neg)
+        Sigma_YX_reg_avg = 0.5 * (Sigma_YX_reg_pos + Sigma_YX_reg_neg)
+
+        return B_pos_struct, B_neg_struct, inv_A_avg, Sigma_YX_reg_avg
+
     def compute_blp_signal(
         self,
         all_returns: np.ndarray,
@@ -626,7 +741,23 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
         sigma_X_safe = np.where(sigma_X > 1e-8, sigma_X, 1.0)
         z_U_t = (X_t - mu_X) / sigma_X_safe
 
-        z_hat_j_t1 = B_struct @ z_U_t
+        # Step 5a: Input asymmetric propagation
+        z_U_pos = np.maximum(z_U_t, 0.0)
+        z_U_neg = np.minimum(z_U_t, 0.0)
+        z_U_neg_scaled = (1.0 + self.asymmetry_delta) * z_U_neg
+
+        if self.asymmetry_mode == "covariance":
+            C_YX_pos, C_YX_neg, C_XX, C_YY = self._estimate_asymmetric_covariance(window_returns, corr)
+            B_pos_struct, B_neg_struct, inv_A_tikh, Sigma_YX_reg = self._solve_asymmetric_blp(
+                C_YX_pos, C_YX_neg, C_XX, C_YY, B_pca, M_sector
+            )
+            z_hat_j_t1 = B_pos_struct @ z_U_pos + B_neg_struct @ z_U_neg_scaled
+            B_struct_diag = 0.5 * (B_pos_struct + B_neg_struct)
+        else:
+            z_U_asym = z_U_pos + z_U_neg_scaled
+            z_hat_j_t1 = B_struct @ z_U_asym
+            B_struct_diag = B_struct
+
         z_hat_j_t1 = np.nan_to_num(z_hat_j_t1, nan=0.0, posinf=0.0, neginf=0.0)
 
         # 6. Confidence weighting
@@ -646,9 +777,32 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
         else:
             sigma_j_t = sigma[self.n_u :]
 
+        # Determine US market direction
+        us_market_mean = np.nanmean(z_U_t)
+        us_negative = us_market_mean < 0.0
+
+        gap_coef_override = None
+        beta_coef_override = None
+        if us_negative and self.gap_open_coef_neg is not None:
+            gap_coef_override = self.gap_open_coef_neg
+            beta_coef_override = self.topix_beta_coef_neg
+
         signal = self._apply_gap_adjustment(
-            r_hat_jp_cc, z_hat_j_t1, gap_override, betas_t, topix_night_t
+            r_hat_jp_cc,
+            z_hat_j_t1,
+            gap_override,
+            betas_t,
+            topix_night_t,
+            gap_open_coef_override=gap_coef_override,
+            topix_beta_coef_override=beta_coef_override,
         )
+
+        if self.asymmetry_post_gap_delta != 0.0:
+            if self.asymmetry_post_gap_mode == "signal_split":
+                signal = np.maximum(signal, 0.0) + (1.0 + self.asymmetry_post_gap_delta) * np.minimum(signal, 0.0)
+            elif self.asymmetry_post_gap_mode == "us_direction":
+                if us_negative:
+                    signal = signal * (1.0 + self.asymmetry_post_gap_delta)
 
         # 8. Build diagnostics
         C_XX = corr[: self.n_u, : self.n_u]
@@ -663,7 +817,7 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
             B_blp=B_blp,
             B_pca=B_pca,
             M_sector=M_sector,
-            B_struct=B_struct,
+            B_struct=B_struct_diag,
             C_XX=C_XX,
             C_YX=C_YX,
             C_YY=C_YY,
@@ -693,6 +847,97 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
             + self.raw_blpx_weight * z_raw_blpx
             + self.residual_blpx_weight * z_residual_blpx
         )
+
+    def _predict_meta_weight(
+        self,
+        i: int,
+        us_dispersions: list[float],
+        cond_nums: list[float],
+        vix_vals: list[float],
+        ic_blpx_vals: list[float],
+        ic_pca_vals: list[float],
+    ) -> float:
+        """Fit a low-capacity meta-model and predict tomorrow's ensemble weight w_t.
+
+        Uses expanding/rolling window up to day i-1.
+        """
+        # We need at least some minimum number of samples to train, say 100 days
+        min_samples = 100
+
+        # Let's collect training features and targets
+        X_train = []
+        Y_train = []
+
+        start_train = max(self.corr_window + 10, i - self.meta_train_window)
+        for j in range(start_train, i):
+            if j - 10 < 0 or j >= len(ic_blpx_vals):
+                continue
+            rec_ic_blpx = np.nanmean(ic_blpx_vals[j - 10 : j])
+            rec_ic_pca = np.nanmean(ic_pca_vals[j - 10 : j])
+
+            if np.isnan(rec_ic_blpx) or np.isnan(rec_ic_pca):
+                continue
+
+            f_j = [
+                us_dispersions[j],
+                cond_nums[j],
+                vix_vals[j],
+                rec_ic_blpx,
+                rec_ic_pca,
+            ]
+
+            target_j = ic_blpx_vals[j] - ic_pca_vals[j]
+            if np.isnan(target_j):
+                continue
+
+            X_train.append(f_j)
+            Y_train.append(target_j)
+
+        if len(X_train) < min_samples:
+            return 0.8  # Fallback to static weight
+
+        X_train = np.array(X_train)
+        Y_train = np.array(Y_train)
+
+        # Current features at day i (to predict for tomorrow)
+        rec_ic_blpx_i = np.nanmean(ic_blpx_vals[i - 10 : i])
+        rec_ic_pca_i = np.nanmean(ic_pca_vals[i - 10 : i])
+        F_i = np.array([[
+            us_dispersions[i],
+            cond_nums[i],
+            vix_vals[i],
+            rec_ic_blpx_i,
+            rec_ic_pca_i,
+        ]])
+
+        if np.isnan(F_i).any():
+            return 0.8
+
+        try:
+            if self.meta_model_type == "logistic_regression":
+                # Binary target: 1 if blpx outperformed, 0 otherwise
+                Y_train_bin = (Y_train > 0).astype(int)
+                if len(np.unique(Y_train_bin)) < 2:
+                    model = Ridge(alpha=1.0)
+                    model.fit(X_train, Y_train)
+                    y_pred = float(model.predict(F_i)[0])
+                    w_t = np.clip(0.8 + y_pred, 0.6, 1.0)
+                else:
+                    model = LogisticRegression(C=1.0, solver="liblinear")
+                    model.fit(X_train, Y_train_bin)
+                    prob = float(model.predict_proba(F_i)[0, 1])
+                    w_t = 0.6 + 0.4 * prob
+            else:
+                # Default: Ridge Regression
+                model = Ridge(alpha=1.0)
+                model.fit(X_train, Y_train)
+                y_pred = float(model.predict(F_i)[0])
+                w_t = np.clip(0.8 + y_pred, 0.6, 1.0)
+        except Exception as e:
+            logger.warning(f"Meta-model training failed at index {i}: {e}. Using static weight 0.8.")
+            w_t = 0.8
+
+        return w_t
 
     def predict_signals(self, df_exec: pd.DataFrame) -> dict[str, Any]:
         """Generate component and ensemble signals for all rows in df_exec."""
@@ -755,6 +1000,24 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
                 logger.warning("Macro confidence enabled but macro data unavailable; skipping.")
                 self.macro_confidence_enabled = False
 
+        # Load VIX if meta-learning is enabled
+        vix_series = None
+        if self.meta_enabled:
+            from pathlib import Path
+            macro_path = Path("/Users/shonen/日米ラグ/market_data/macro_data.pkl")
+            if macro_path.exists():
+                try:
+                    macro_df = pd.read_pickle(macro_path)
+                    macro_df.index = pd.to_datetime(macro_df.index).tz_localize(None).normalize()
+                    # Safe ffill + bfill
+                    vix_series = macro_df["^VIX"].reindex(sim_dates).ffill()
+                    vix_series = vix_series.bfill()
+                    logger.info("Successfully loaded VIX from macro_data.pkl for meta-learning.")
+                except Exception as e:
+                    logger.warning(f"Failed to load VIX from macro_data.pkl: {e}")
+            if vix_series is None:
+                vix_series = pd.Series(20.0, index=sim_dates)
+
         # Setup output arrays
         raw_pca_signals = np.zeros((T, self.n_j))
         residual_pca_signals = np.zeros((T, self.n_j))
@@ -764,11 +1027,32 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
         normalized_combined_signals = np.zeros((T, self.n_j))
         sigma_yy_array = np.zeros((T, self.n_j, self.n_j))
 
+        # Setup arrays for meta-learning tracking
+        us_dispersions = [0.0] * T
+        cond_nums = [0.0] * T
+        vix_vals = [20.0] * T
+        ic_blpx_vals = [0.0] * T
+        ic_pca_vals = [0.0] * T
+        meta_weights = [0.8] * T
+
         # Track BLP diagnostics
         blp_diagnostics = []
 
-        start_idx = self.corr_window
-        cache_key_raw_pca_residual_pca = (
+        # Optimize: skip loop iterations before warmup if _start_date is specified
+        start_date_str = getattr(self, "_start_date", None)
+        if start_date_str is not None:
+            start_dt = pd.to_datetime(start_date_str)
+            start_idx_raw = df_exec.index.searchsorted(start_dt)
+            start_idx = max(self.corr_window, start_idx_raw - self.blp_window)
+        else:
+            start_idx = self.corr_window
+        # Determine which components to compute (skip zero-weight for speed)
+        need_raw_pca = (self.raw_pca_weight > 0.0) or self.meta_enabled
+        need_residual_pca = self.residual_pca_weight > 0.0
+        need_raw_blpx = (self.raw_blpx_weight > 0.0) or self.meta_enabled
+        need_residual_blpx = self.residual_blpx_weight > 0.0
+
+        cache_key = (
             len(df_exec),
             df_exec.index[0],
             df_exec.index[-1],
@@ -782,17 +1066,26 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
             self.topix_beta_coef,
             self.vol_adjusted_target,
         )
-        if cache_key_raw_pca_residual_pca in _RAW_PCA_RESIDUAL_PCA_CACHE:
-            raw_pca_signals, residual_pca_signals = _RAW_PCA_RESIDUAL_PCA_CACHE[cache_key_raw_pca_residual_pca]
-            raw_pca_cached = True
-        else:
-            raw_pca_cached = False
 
-        # Determine which components to compute (skip zero-weight for speed)
-        need_raw_pca = self.raw_pca_weight > 0.0
-        need_residual_pca = self.residual_pca_weight > 0.0
-        need_raw_blpx = self.raw_blpx_weight > 0.0
-        need_residual_blpx = self.residual_blpx_weight > 0.0
+        raw_pca_cached = False
+        if need_raw_pca:
+            if cache_key in _RAW_PCA_CACHE:
+                raw_pca_signals = _RAW_PCA_CACHE[cache_key]
+                raw_pca_cached = True
+            else:
+                raw_pca_signals = np.zeros((T, self.n_j))
+        else:
+            raw_pca_signals = np.zeros((T, self.n_j))
+
+        residual_pca_cached = False
+        if need_residual_pca:
+            if cache_key in _RESIDUAL_PCA_CACHE:
+                residual_pca_signals = _RESIDUAL_PCA_CACHE[cache_key]
+                residual_pca_cached = True
+            else:
+                residual_pca_signals = np.zeros((T, self.n_j))
+        else:
+            residual_pca_signals = np.zeros((T, self.n_j))
 
         for i in range(start_idx, T):
             # 1. Raw-PCA (skip if weight=0 and not cached)
@@ -805,7 +1098,7 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
                 raw_pca_sig = raw_pca_signals[i]
 
             # 2. Residual-PCA (skip if weight=0 and not cached)
-            if need_residual_pca and not raw_pca_cached:
+            if need_residual_pca and not residual_pca_cached:
                 residual_pca_sig = self.compute_residual_signal(
                     jp_res_returns_p3, i, c_full_p3, v0_static, v1, v2, jp_gap, jp_beta, topix_night
                 )
@@ -859,8 +1152,59 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
             z_raw_blpx = self.normalize_signals(raw_blpx_res["signal"], self.normalization_method)
             z_residual_blpx = self.normalize_signals(residual_blpx_res["signal"], self.normalization_method)
 
+            # Store dispersion, condition number, VIX
+            us_returns = all_returns_raw[i, :self.n_u]
+            us_dispersions[i] = float(np.nanvar(us_returns))
+            cond_nums[i] = float(raw_blpx_res["cond_num"])
+            vix_vals[i] = float(vix_series.iloc[i]) if vix_series is not None else 20.0
+
+            # Calculate actual daily ICs for row i-1
+            if i - 1 >= start_idx:
+                y_prev = y_jp_target[i-1]
+                sig_blpx_prev = raw_blpx_signals[i-1]
+                sig_pca_prev = raw_pca_signals[i-1]
+
+                valid_blpx = np.isfinite(sig_blpx_prev) & np.isfinite(y_prev)
+                if np.sum(valid_blpx) >= 5 and np.std(sig_blpx_prev[valid_blpx]) > 1e-8 and np.std(y_prev[valid_blpx]) > 1e-8:
+                    ic_blpx_vals[i-1] = float(spearmanr(sig_blpx_prev[valid_blpx], y_prev[valid_blpx])[0])
+                else:
+                    ic_blpx_vals[i-1] = 0.0
+
+                valid_pca = np.isfinite(sig_pca_prev) & np.isfinite(y_prev)
+                if np.sum(valid_pca) >= 5 and np.std(sig_pca_prev[valid_pca]) > 1e-8 and np.std(y_prev[valid_pca]) > 1e-8:
+                    ic_pca_vals[i-1] = float(spearmanr(sig_pca_prev[valid_pca], y_prev[valid_pca])[0])
+                else:
+                    ic_pca_vals[i-1] = 0.0
+
+            # Predict daily ensemble weight w_t
+            w_t = 0.8
+            if self.meta_enabled:
+                if i >= start_idx + self.meta_train_window:
+                    w_t = self._predict_meta_weight(
+                        i, us_dispersions, cond_nums, vix_vals, ic_blpx_vals, ic_pca_vals
+                    )
+                    if self.meta_smooth_factor < 1.0 and i - 1 >= start_idx:
+                        w_prev_meta = meta_weights[i-1]
+                        w_t = self.meta_smooth_factor * w_t + (1.0 - self.meta_smooth_factor) * w_prev_meta
+                meta_weights[i] = w_t
+
             # Combined PCA-BLPX Ensemble signal
-            s_ens = self.combine_signals(z0, z3, z_raw_blpx, z_residual_blpx)
+            if self.meta_enabled:
+                pca_denom = self.raw_pca_weight + self.residual_pca_weight
+                if pca_denom > 0.0:
+                    s_pca = (self.raw_pca_weight * z0 + self.residual_pca_weight * z3) / pca_denom
+                else:
+                    s_pca = 0.5 * z0 + 0.5 * z3
+
+                blpx_denom = self.raw_blpx_weight + self.residual_blpx_weight
+                if blpx_denom > 0.0:
+                    s_blpx = (self.raw_blpx_weight * z_raw_blpx + self.residual_blpx_weight * z_residual_blpx) / blpx_denom
+                else:
+                    s_blpx = 0.5 * z_raw_blpx + 0.5 * z_residual_blpx
+
+                s_ens = (1.0 - w_t) * s_pca + w_t * s_blpx
+            else:
+                s_ens = self.combine_signals(z0, z3, z_raw_blpx, z_residual_blpx)
 
             # Apply macro confidence scaling (Factor-Specific Kappa)
             if self.macro_confidence_enabled and self._macro_scales is not None:
@@ -897,11 +1241,14 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
                     "raw_blpx_num_pred_var_floored": raw_blpx_res["num_pred_var_floored"],
                     "raw_blpx_pinv_fallback": int(raw_blpx_res["pinv_fallback"]),
                     "raw_blpx_num_training_samples": raw_blpx_res["num_training_samples"],
+                    "meta_ensemble_weight": w_t,
                 }
             )
 
-        if not raw_pca_cached:
-            _RAW_PCA_RESIDUAL_PCA_CACHE[cache_key_raw_pca_residual_pca] = (raw_pca_signals.copy(), residual_pca_signals.copy())
+        if need_raw_pca and not raw_pca_cached:
+            _RAW_PCA_CACHE[cache_key] = raw_pca_signals.copy()
+        if need_residual_pca and not residual_pca_cached:
+            _RESIDUAL_PCA_CACHE[cache_key] = residual_pca_signals.copy()
 
         # Build DataFrames
         raw_pca_df = pd.DataFrame(raw_pca_signals, index=sim_dates, columns=JP_TICKERS)
