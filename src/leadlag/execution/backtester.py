@@ -121,6 +121,12 @@ class BacktestEngine:
         borrow_daily = borrow_annual / 365.0
         reverse_daily = rev_bps / 10000.0
 
+        # Convert to numpy arrays for faster access
+        sre_weights_arr = sre_weights_df.values
+        y_jp_target_arr = y_jp_target_df.loc[sim_dates_slice].values
+        y_jp_oc_arr = y_jp_oc_df.loc[sim_dates_slice].values
+        gap_returns_arr = gap_returns_df.loc[sim_dates_slice].values if gap_returns_df is not None else np.zeros((len(sim_dates_slice), model.n_j))
+
         # Returns and Cost drag calculations
         gross_returns_list = []
         net_returns_list = []
@@ -136,11 +142,11 @@ class BacktestEngine:
         turnover_list = []
 
         w_prev = np.zeros(model.n_j)
-        dates_list = list(sim_dates_slice)
-        for i, date in enumerate(dates_list):
-            w_t = sre_weights_df.loc[date].values
-            r_target_t = y_jp_target_df.loc[date].values
-            r_oc_t = y_jp_oc_df.loc[date].values
+        n_sim_days = len(sim_dates_slice)
+        for i in range(n_sim_days):
+            w_t = sre_weights_arr[i]
+            r_target_t = y_jp_target_arr[i]
+            r_oc_t = y_jp_oc_arr[i]
 
             # Intraday return (9:10-to-Close) — same for all alpha
             gross_ret = float(np.sum(w_t * r_target_t))
@@ -153,11 +159,9 @@ class BacktestEngine:
 
             # Overnight return: sum over assets of alpha_mask[j] * w_t[j] * gap(t+1)[j]
             overnight_ret = 0.0
-            if (alpha_long > 0 or alpha_short > 0) and i < len(dates_list) - 1:
-                next_date = dates_list[i + 1]
-                if next_date in gap_returns_df.index:
-                    r_gap_next = gap_returns_df.loc[next_date].values
-                    overnight_ret = float(np.sum(alpha_mask * w_t * r_gap_next))
+            if (alpha_long > 0 or alpha_short > 0) and i < n_sim_days - 1:
+                r_gap_next = gap_returns_arr[i + 1]
+                overnight_ret = float(np.sum(alpha_mask * w_t * r_gap_next))
 
             # Cost model:
             # (1-alpha_mask[j]) fraction: full round-trip (close at 15:00, reopen at 9:10)

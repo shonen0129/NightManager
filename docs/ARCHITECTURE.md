@@ -25,6 +25,7 @@ US ETF と TOPIX-17 セクター ETF のリードラグ相関を利用した、
 - **Phase 11 (2026-07-01)**: アーキテクチャ文書を実態に合わせて全面更新。未記載だった `src/features/`、`src/models/`、`src/reports/` 実験パッケージ、`leadlag/cost/`、`leadlag/diagnostics/` サブパッケージ、`execution/` のLOB/スリッページ関連5ファイル、`compliance/v2_auditor.py`、`core/market_calendar.py`、`models/signal_enhancement.py`、`models/production_v2.py`、`models/net_score_ranking_lob.py`、`reporting/production_v2_writer.py`、`reporting/sprint2c_lob_report.py` を文書に反映。Repository Root に `Papers/`、`artifacts/`、`reports/`、`kabu_auto_login/`、`scratch/`、`archive/`、`live/`、`logs/`、`shadow_runs/`、`data/`、`creds/` 等の未記載ディレクトリを追加。
 - **Phase 12 (2026-07-01)**: ディレクトリ構造リファクタリング実施。実験パッケージ(`features/`, `models/`, `reports/`, `diagnostics/`)を `src/experiments/` に統合。`cost/cost_calculator.py` を `execution/` に移動。LOB/スリッページ関連5ファイルを `execution/microstructure/` サブパッケージに整理。`scripts/` を `experiments/`, `sprint/`, `backtest/`, `batch/`, `test/` に分割。`tools/` を `production/`, `validation/`, `research/` に分離。`configs/` を `production/`, `research/` に分離。`scratch/` を `archive/` に移動し `.gitignore` に追加。
 - **Phase 13 (2026-07-06)**: Macro Confidence（Factor-Specific Kappa）を本番モデルに統合。`core/macro.py` 新設 — マクロ因子（USDJPY, CLF, TNX）のEWMAベース・ボラティリティ調整サプライズ計算、感度行列を用いた銘柄別リスクスケーリング。`SectorRelativeEnsembleBLPEnhancedModel.predict_signals` 内でアンサンブル結合シグナルに対して `s_ens / scale_j` を適用。シグナル方向はBLPXのまま維持し、ポジションサイズのみマクロ環境に適応。YAML設定に `macro_confidence_enabled`, `macro_kappas`, `macro_surprise_halflife_mean`, `macro_surprise_halflife_vol` を追加。
+- **Phase 14 (2026-07-08)**: ディレクトリ構造の完全統合リファクタリング実施。`src/experiments/` を `src/research/` にリネーム。`scripts/experiments/`（マクロ因子・BLPX実験）を `src/research/scripts/macro/` および `src/research/scripts/blpx/` に移動。`scripts/sprint/` を `src/research/scripts/sprint/` に移動。`scripts/backtest/` を `src/research/scripts/backtest/` に移動。全てのインポートパスを `from experiments.` から `from research.` に更新。研究関連コードを `src/research/` パッケージに完全統合し、Pythonパッケージとしての一貫性を確保。
 
 ---
 
@@ -35,12 +36,14 @@ pyproject.toml      # ビルド設定・依存関係・ruff/mypy/pytest 設定
 requirements.txt    # pip 互換依存一覧
 .env / .env.example # 環境変数テンプレート (BROKER_PROVIDER, API認証情報等)
 日米ラグ.code-workspace  # VS Code ワークスペース設定
+.agents/            # AIエージェントスキル定義 (skills/leadlag-fund-improvement/)
+_check_syntax.py   # Python構文チェックスクリプト
 docs/               # 運用方針書、モデル技術仕様書、日次運用手順書などの設計・運用ドキュメント群
 Papers/             # 原論文 (日米業種リードラグ.pdf / .md)
 configs/            # パラメータ設定ファイル (YAML) — configs/production/, configs/research/, configs/archive/
 src/                # Pythonソースコード正本 (PYTHONPATH の起点)
 tests/              # ユニットテスト・統合テスト群 (unit/, integration/, fixtures/)
-scripts/            # スクリプト群 — scripts/experiments/, scripts/sprint/, scripts/backtest/, scripts/batch/, scripts/test/
+scripts/            # 本番・バッチ・テストスクリプト — scripts/batch/, scripts/test/
 tools/              # コマンドツール — tools/production/, tools/validation/, tools/research/
 kabu_auto_login/    # kabuステーション自動ログインユーティリティ (独立要件)
 market_data/        # 市場データキャッシュ 及び 1629.T NAV パッチ用 CSV
@@ -54,6 +57,102 @@ shadow_runs/        # シャドウ実行結果
 scratch/            # 一時分析スクリプト (gitignore対象、中身はarchive/に移動済み)
 archive/            # 廃止済みコード保管庫
 creds/              # 認証情報ディレクトリ (gitignore対象)
+```
+
+---
+
+## scripts/ ディレクトリ構造
+
+```
+scripts/
+├── batch/               # バッチ実行・スケジューラ設定
+│   ├── com.leadlag.close.plist
+│   ├── com.leadlag.decision.plist
+│   ├── com.leadlag.gap-distribution.plist
+│   ├── run_auto_login.bat
+│   ├── run_close_positions.bat
+│   ├── run_close_positions.sh
+│   ├── run_decision.bat
+│   ├── run_decision.sh
+│   ├── run_decision_v2.sh
+│   ├── run_gap_distribution.sh
+│   ├── setup_scheduler.ps1
+│   └── setup_scheduler_macos.sh
+│
+└── test/                # 立花証券API接続テスト
+    ├── test_tachibana_connection.py
+    ├── test_tachibana_demo_order.py
+    └── test_tachibana_login.py
+```
+
+---
+
+## src/research/ ディレクトリ構造
+
+```
+src/research/            # 研究パッケージ（本番実行パスに含まれない）
+├── __init__.py
+├── backtest_common.py   # バックテスト共通ユーティリティ
+│
+├── diagnostics/         # モデル診断・sprint実験モジュール
+│   ├── __init__.py
+│   ├── sprint0.py             # sprint0 診断計算ロジック
+│   ├── sprint0_qa.py          # sprint0 QA診断
+│   └── sprint1_experiments.py # sprint1 実験ロジック
+│
+├── features/            # 実験用特徴量エンジニアリング
+│   ├── __init__.py
+│   ├── asset_exposures.py       # 資産エクスポージャー特徴量
+│   ├── feature_selection_fdr.py # FDRベース特徴量選択
+│   ├── hinge_features.py        # ヒンジ特徴量生成
+│   └── hinge_interactions.py    # ヒンジ交互作用特徴量生成
+│
+├── models/              # 実験用オーバーレイモデル
+│   ├── __init__.py
+│   ├── hinge_elasticnet_overlay.py       # Hinge + ElasticNet オーバーレイ
+│   ├── hinge_interaction_elasticnet.py   # Hinge交互作用 + ElasticNet
+│   ├── hinge_interaction_gbdt.py         # Hinge交互作用 + GBDT
+│   ├── hinge_interaction_overlay.py      # Hinge交互作用オーバーレイ
+│   ├── hinge_interaction_ridge.py        # Hinge交互作用 + Ridge
+│   ├── hinge_overlay.py                  # Hingeオーバーレイ
+│   └── hinge_ridge_overlay.py            # Hinge + Ridge オーバーレイ
+│
+├── reports/             # 実験レポート生成スクリプト
+│   ├── __init__.py
+│   ├── sprint3a_hinge_report.py        # sprint3a ヒンジ特徴量レポート
+│   └── sprint3b_hinge_interaction_report.py  # sprint3b ヒンジ交互作用レポート
+│
+└── scripts/             # 研究スクリプト（実行可能な研究スクリプト）
+    ├── macro/           # マクロ因子実験スクリプト
+    │   ├── analyze_gold_correlation.py
+    │   ├── analyze_steel_metal_factors.py
+    │   ├── compare_gold_factor_kappa.py
+    │   └── sensitivity_factor_kappa.py
+    │
+    ├── blpx/            # BLPX実験スクリプト
+    │   ├── compare_sensitivity_matrix.py
+    │   ├── compare_shrinkage_ab_backtest.py
+    │   ├── diagnose_shrinkage_attenuation.py
+    │   ├── experiment_bayesian_blpx.py
+    │   └── experiment_copula.py
+    │
+    ├── sprint/          # sprint実験スクリプト（sprint0-3b）
+    │   ├── finalize_sprint2_report.py
+    │   ├── run_sprint0_diagnostics.py
+    │   ├── run_sprint0_qa.py
+    │   ├── run_sprint1_aum1m_tachibana.py
+    │   ├── run_sprint1_experiments.py
+    │   ├── run_sprint2_cost_aware_aum1m.py
+    │   ├── run_sprint2b_qa.py
+    │   ├── run_sprint2c_lob_slippage.py
+    │   ├── run_sprint3a_hinge_features.py
+    │   └── run_sprint3b_hinge_interactions.py
+    │
+    └── backtest/        # バックテスト実行スクリプト
+        ├── run_overnight_holding_backtest.py
+        ├── run_overnight_robustness_analysis.py
+        ├── run_production_backtest.py
+        └── run_selective_overnight_backtest.py
 ```
 
 ---
@@ -141,32 +240,7 @@ src/
 │       ├── production_v2_writer.py  # v2本番実行結果ライター
 │       └── sprint2c_lob_report.py   # sprint2c LOBスリッページ分析レポート
 │
-└── experiments/             # 実験パッケージ (本番実行パスに含まれない)
-    ├── __init__.py
-    ├── diagnostics/         # モデル診断・sprint実験モジュール
-    │   ├── __init__.py
-    │   ├── sprint0.py             # sprint0 診断計算ロジック
-    │   ├── sprint0_qa.py          # sprint0 QA診断
-    │   └── sprint1_experiments.py # sprint1 実験ロジック
-    ├── features/            # 実験用特徴量エンジニアリング
-    │   ├── __init__.py
-    │   ├── asset_exposures.py       # 資産エクスポージャー特徴量
-    │   ├── feature_selection_fdr.py # FDRベース特徴量選択
-    │   ├── hinge_features.py        # ヒンジ特徴量生成
-    │   └── hinge_interactions.py    # ヒンジ交互作用特徴量生成
-    ├── models/              # 実験用オーバーレイモデル
-    │   ├── __init__.py
-    │   ├── hinge_elasticnet_overlay.py       # Hinge + ElasticNet オーバーレイ
-    │   ├── hinge_interaction_elasticnet.py   # Hinge交互作用 + ElasticNet
-    │   ├── hinge_interaction_gbdt.py         # Hinge交互作用 + GBDT
-    │   ├── hinge_interaction_overlay.py      # Hinge交互作用オーバーレイ
-    │   ├── hinge_interaction_ridge.py        # Hinge交互作用 + Ridge
-    │   ├── hinge_overlay.py                  # Hingeオーバーレイ
-    │   └── hinge_ridge_overlay.py            # Hinge + Ridge オーバーレイ
-    └── reports/             # 実験レポート生成スクリプト
-        ├── __init__.py
-        ├── sprint3a_hinge_report.py        # sprint3a ヒンジ特徴量レポート
-        └── sprint3b_hinge_interaction_report.py  # sprint3b ヒンジ交互作用レポート
+└── research/             # 研究パッケージ (本番実行パスに含まれない) — 詳細は「src/research/ ディレクトリ構造」セクション参照
 ```
 
 ---
@@ -295,15 +369,16 @@ LOB・スリッページ・執行制御関連モジュール。
 | `production_v2_writer.py` | v2本番実行結果ライター — 日次実行結果のファイル出力 |
 | `sprint2c_lob_report.py` | sprint2c LOBスリッページ分析レポート生成 |
 
-### 9. Experimental Packages (`src/experiments/`)
-`leadlag/` パッケージ外に存在する実験用モジュール群。`scripts/` から `from experiments...` として参照される。本番実行パスには含まれない。
+### 9. Research Package (`src/research/`)
+研究用モジュール群。本番実行パスには含まれない。`src/research/scripts/` から `from research...` として参照される。
 
 | サブパッケージ | 内容 |
 |---|---|
-| `experiments/diagnostics/` | sprint0/sprint0_qa/sprint1_experiments — モデル診断・分布診断・AUM1億シミュレーション |
-| `experiments/features/` | ヒンジ特徴量・交互作用特徴量・FDR特徴量選択・資産エクスポージャー |
-| `experiments/models/` | Hinge + ElasticNet/Ridge/GBDT オーバーレイモデル（Phase 2C実験成果物） |
-| `experiments/reports/` | sprint3a/3b ヒンジ特徴量・交互作用レポート生成 |
+| `research/diagnostics/` | sprint0/sprint0_qa/sprint1_experiments — モデル診断・分布診断・AUM1億シミュレーション |
+| `research/features/` | ヒンジ特徴量・交互作用特徴量・FDR特徴量選択・資産エクスポージャー |
+| `research/models/` | Hinge + ElasticNet/Ridge/GBDT オーバーレイモデル（Phase 2C実験成果物） |
+| `research/reports/` | sprint3a/3b ヒンジ特徴量・交互作用レポート生成 |
+| `research/scripts/` | 研究スクリプト（macro/, blpx/, sprint/, backtest/） |
 
 ---
 

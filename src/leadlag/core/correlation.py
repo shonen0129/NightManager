@@ -152,6 +152,7 @@ def compute_correlation(
     use_copula: bool = False,
     copula_blend_weight: float = 0.0,
     copula_nu_init: float = 5.0,
+    use_cache: bool = True,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Compute rolling mean, std, and correlation (equal-weight or EWMA).
 
@@ -166,10 +167,18 @@ def compute_correlation(
         copula_blend_weight: Blend weight in [0, 1]. 0 = Pearson only,
             1 = copula only. Ignored when use_copula=False.
         copula_nu_init: Initial degrees-of-freedom for t-copula estimation.
+        use_cache: If True, cache correlation matrices to avoid recomputation.
 
     Returns:
         mu, sigma, correlation_matrix
     """
+    # Create cache key from input parameters
+    if use_cache:
+        cache_key = (window_returns.shape, ewma_half_life, use_copula, copula_blend_weight, copula_nu_init, hash(window_returns.tobytes()))
+        if cache_key in _ROLLING_CORR_CACHE:
+            cached_result = _ROLLING_CORR_CACHE[cache_key]
+            return cached_result[0].copy(), cached_result[1].copy(), cached_result[2].copy()
+
     with np.errstate(invalid="ignore"):
         if ewma_half_life is None:
             mu = np.mean(window_returns, axis=0)
@@ -202,10 +211,17 @@ def compute_correlation(
             )
             corr = blend_correlation(corr, corr_copula, copula_blend_weight)
 
-        return mu, sigma, corr
+    if use_cache:
+        _ROLLING_CORR_CACHE[cache_key] = (mu.copy(), sigma.copy(), corr.copy())
+        # Limit cache size to prevent memory bloat
+        if len(_ROLLING_CORR_CACHE) > 1000:
+            _ROLLING_CORR_CACHE.clear()
+
+    return mu, sigma, corr
 
 
 _BASELINE_CORR_CACHE: dict = {}
+_ROLLING_CORR_CACHE: dict = {}
 
 
 def compute_baseline_correlation(
@@ -241,14 +257,15 @@ def compute_baseline_correlation(
 
 def build_c0_from_v0(v0: np.ndarray, c_full: np.ndarray) -> np.ndarray:
     """Construct target correlation matrix C0 from V0 and C_full."""
-    mat = v0.T @ c_full @ v0
-    d_vals = np.diag(mat)
-    d0 = np.diag(d_vals)
-    c0_raw = v0 @ d0 @ v0.T
-    delta = np.diag(c0_raw)
-    delta = np.maximum(delta, 1e-10)
-    delta_inv_sqrt = np.diag(1.0 / np.sqrt(delta))
-    c0 = delta_inv_sqrt @ c0_raw @ delta_inv_sqrt
+    with np.errstate(divide='ignore', invalid='ignore', over='ignore'):
+        mat = v0.T @ c_full @ v0
+        d_vals = np.diag(mat)
+        d0 = np.diag(d_vals)
+        c0_raw = v0 @ d0 @ v0.T
+        delta = np.diag(c0_raw)
+        delta = np.maximum(delta, 1e-10)
+        delta_inv_sqrt = np.diag(1.0 / np.sqrt(delta))
+        c0 = delta_inv_sqrt @ c0_raw @ delta_inv_sqrt
     np.fill_diagonal(c0, 1.0)
     return c0
 

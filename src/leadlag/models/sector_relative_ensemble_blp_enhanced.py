@@ -225,7 +225,7 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
 
             # Align prices to df_exec dates, forward-fill missing values
             prices_aligned = close_prices.reindex(sim_dates, method="ffill")
-            prices_aligned = prices_aligned.fillna(method="ffill").fillna(0.0)
+            prices_aligned = prices_aligned.ffill().fillna(0.0)
 
             # Compute returns AFTER alignment so non-trading days get zero return
             macro_returns = prices_aligned.pct_change()
@@ -388,13 +388,15 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
         try:
             if not np.isfinite(A).all():
                 raise ValueError(f"{label} contains NaNs or Infs")
-            inv_A = np.linalg.inv(A)
-            result = B @ inv_A
+            with np.errstate(divide='ignore', invalid='ignore', over='ignore'):
+                inv_A = np.linalg.inv(A)
+                result = B @ inv_A
         except Exception:
             pinv_fallback = True
             try:
-                inv_A = np.linalg.pinv(A)
-                result = B @ inv_A
+                with np.errstate(divide='ignore', invalid='ignore', over='ignore'):
+                    inv_A = np.linalg.pinv(A)
+                    result = B @ inv_A
             except Exception:
                 result = np.zeros((B.shape[0], A.shape[1]))
                 inv_A = np.zeros((A.shape[0], A.shape[1]))
@@ -456,7 +458,8 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
             v_t_k = eigvecs[:, : self.k]
             v_u_t_k = v_t_k[: self.n_u, :]
             v_j_t_k = v_t_k[self.n_u :, :]
-            B_pca = v_j_t_k @ v_u_t_k.T
+            with np.errstate(divide='ignore', invalid='ignore', over='ignore'):
+                B_pca = v_j_t_k @ v_u_t_k.T
         return B_pca
 
     def _solve_tikhonov(
@@ -498,7 +501,8 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
         Returns (z_hat_j_t1_weighted, pred_var, num_floored).
         """
         Sigma_XY_reg = Sigma_YX_reg.T
-        Sigma_Y_given_X = Sigma_YY_reg - Sigma_YX_reg @ inv_A_tikh @ Sigma_XY_reg
+        with np.errstate(divide='ignore', invalid='ignore', over='ignore'):
+            Sigma_Y_given_X = Sigma_YY_reg - Sigma_YX_reg @ inv_A_tikh @ Sigma_XY_reg
 
         pred_var = np.maximum(np.diag(Sigma_Y_given_X), 0.0)
         var_floor = 1e-8

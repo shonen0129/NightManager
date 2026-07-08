@@ -331,6 +331,53 @@ model = SectorRelativeEnsembleBLPEnhancedModel(config)
 
 ---
 
+## 7. 研究スクリプト実行
+
+研究用スクリプト（マクロ因子分析、BLPX実験、sprint実験、バックテスト）は `src/research/scripts/` に統合されています。実行には `run_research.py` エイリアスを使用します。
+
+### 7.1 実行方法
+
+```bash
+# マクロ因子実験
+python run_research.py macro analyze_gold_correlation
+python run_research.py macro compare_gold_factor_kappa
+python run_research.py macro sensitivity_factor_kappa
+
+# BLPX実験
+python run_research.py blpx experiment_bayesian_blpx
+python run_research.py blpx experiment_copula
+python run_research.py blpx compare_sensitivity_matrix
+
+# sprint実験
+python run_research.py sprint run_sprint0_diagnostics
+python run_research.py sprint run_sprint1_experiments
+python run_research.py sprint run_sprint2_cost_aware_aum1m
+
+# バックテスト実験
+python run_research.py backtest run_overnight_holding_backtest
+python run_research.py backtest run_production_backtest
+```
+
+### 7.2 引数の渡し方
+
+```bash
+# スクリプトに引数を渡す
+python run_research.py macro compare_gold_factor_kappa --start-date 2015-01-05
+python run_research.py blpx experiment_bayesian_blpx --config configs/production/production.yaml
+```
+
+### 7.3 利用可能なスクリプト一覧
+
+```bash
+# カテゴリごとのスクリプト一覧を表示
+python run_research.py macro
+python run_research.py blpx
+python run_research.py sprint
+python run_research.py backtest
+```
+
+---
+
 ## 8. トラブルシューティング
 
 | エラー | 原因 | 対処 |

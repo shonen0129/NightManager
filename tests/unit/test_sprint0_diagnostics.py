@@ -10,7 +10,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
-from experiments.diagnostics.sprint0 import run_sprint0_calculations
+from research.diagnostics.sprint0 import run_sprint0_calculations
 
 
 def test_sprint0_calculations_subset():
