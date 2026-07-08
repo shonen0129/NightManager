@@ -57,7 +57,7 @@ N_MACRO: int = len(MACRO_NAMES)
 
 MACRO_SECTOR_MAPPING: dict[str, dict[str, float]] = {
     "1617.T": {"USDJPY": 0.2, "CLF": 0.0, "TNX": 0.0},   # 食品 (defensive)
-    "1618.T": {"USDJPY": 0.8, "CLF": 1.0, "TNX": 0.0},   # エネルギー資源
+    "1618.T": {"USDJPY": 0.8, "CLF": 1.0, "TNX": 0.0},   # エネルギー資源 (commodity linkage)
     "1619.T": {"USDJPY": 0.5, "CLF": 0.0, "TNX": 0.0},   # 建設・資材
     "1620.T": {"USDJPY": 0.5, "CLF": 0.2, "TNX": 0.0},   # 素材・化学
     "1621.T": {"USDJPY": 0.3, "CLF": 0.0, "TNX": 0.0},   # 医薬品 (defensive)
@@ -68,17 +68,26 @@ MACRO_SECTOR_MAPPING: dict[str, dict[str, float]] = {
     "1626.T": {"USDJPY": 0.6, "CLF": 0.0, "TNX": 0.0},   # 情報通信・サービス
     "1627.T": {"USDJPY": 0.3, "CLF": 0.6, "TNX": 0.1},   # 電力・ガス
     "1628.T": {"USDJPY": 0.5, "CLF": 0.4, "TNX": 0.0},   # 運輸・物流
-    "1629.T": {"USDJPY": 0.7, "CLF": 0.2, "TNX": 0.0},   # 商社・卸売
+    "1629.T": {"USDJPY": 0.7, "CLF": 0.2, "TNX": 0.0},   # 商社・卸売 (commodity trading)
     "1630.T": {"USDJPY": 0.5, "CLF": 0.0, "TNX": 0.0},   # 小売
-    "1631.T": {"USDJPY": 0.6, "CLF": 0.0, "TNX": 1.0},   # 銀行
+    "1631.T": {"USDJPY": 0.6, "CLF": 0.0, "TNX": 1.0},   # 銀行 (asset price sensitivity)
     "1632.T": {"USDJPY": 0.5, "CLF": 0.0, "TNX": 0.8},   # 金融（除く銀行）
     "1633.T": {"USDJPY": 0.3, "CLF": 0.0, "TNX": 0.3},   # 不動産
 }
+
 
 MACRO_SENS_MATRIX: np.ndarray = np.zeros((len(JP_TICKERS), N_MACRO))
 for _j_idx, _jp_tk in enumerate(JP_TICKERS):
     for _m_idx, _m_name in enumerate(MACRO_NAMES):
         MACRO_SENS_MATRIX[_j_idx, _m_idx] = MACRO_SECTOR_MAPPING.get(_jp_tk, {}).get(_m_name, 0.0)
+
+# Validate sensitivity matrix consistency
+_missing_sectors = set(JP_TICKERS) - set(MACRO_SECTOR_MAPPING.keys())
+if _missing_sectors:
+    logger.warning(
+        f"Sectors missing from MACRO_SECTOR_MAPPING: {_missing_sectors}. "
+        f"These sectors will have zero sensitivity to all macro factors."
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -275,7 +284,7 @@ def compute_macro_surprise(
 
 def compute_factor_kappa_scale(
     surprise_raw: np.ndarray,
-    kappas: np.ndarray | tuple[float, float, float],
+    kappas: np.ndarray | tuple[float, ...],
     sens_matrix: np.ndarray | None = None,
 ) -> np.ndarray:
     """Compute per-stock risk-scaling factor from macro surprise.
@@ -302,6 +311,18 @@ def compute_factor_kappa_scale(
 
     kappas_arr = np.asarray(kappas, dtype=float)
     abs_sens = np.abs(sens_matrix)  # (n_j, n_macro)
+    
+    # Adjust sensitivity matrix dimensions to match kappas length
+    n_kappas = len(kappas_arr)
+    n_factors = abs_sens.shape[1]
+    if n_kappas != n_factors:
+        if n_kappas > n_factors:
+            raise ValueError(
+                f"Number of kappas ({n_kappas}) exceeds number of factors ({n_factors}). "
+                f"Cannot adjust sensitivity matrix dimensions."
+            )
+        # Use only the first n_kappas factors
+        abs_sens = abs_sens[:, :n_kappas]
 
     T = surprise_raw.shape[0]
     n_j = abs_sens.shape[0]
@@ -309,6 +330,8 @@ def compute_factor_kappa_scale(
 
     for t in range(T):
         abs_surprise = np.abs(surprise_raw[t])  # (n_macro,)
+        # Use only the first n_kappas surprise values
+        abs_surprise = abs_surprise[:n_kappas]
         scales[t] = 1.0 + abs_sens @ (kappas_arr * abs_surprise)
 
     return scales
@@ -316,7 +339,7 @@ def compute_factor_kappa_scale(
 
 def compute_macro_direction_adjustment(
     surprise_raw: np.ndarray,
-    kappas: np.ndarray | tuple[float, float, float],
+    kappas: np.ndarray | tuple[float, ...],
     sens_matrix: np.ndarray | None = None,
 ) -> np.ndarray:
     """Compute per-stock directional adjustment from signed macro surprise.
@@ -345,6 +368,18 @@ def compute_macro_direction_adjustment(
 
     kappas_arr = np.asarray(kappas, dtype=float)
     signed_sens = sens_matrix  # Keep signs (do NOT take abs)
+    
+    # Adjust sensitivity matrix dimensions to match kappas length
+    n_kappas = len(kappas_arr)
+    n_factors = signed_sens.shape[1]
+    if n_kappas != n_factors:
+        if n_kappas > n_factors:
+            raise ValueError(
+                f"Number of kappas ({n_kappas}) exceeds number of factors ({n_factors}). "
+                f"Cannot adjust sensitivity matrix dimensions."
+            )
+        # Use only the first n_kappas factors
+        signed_sens = signed_sens[:, :n_kappas]
 
     T = surprise_raw.shape[0]
     n_j = signed_sens.shape[0]
@@ -352,6 +387,8 @@ def compute_macro_direction_adjustment(
 
     for t in range(T):
         signed_surprise = surprise_raw[t]  # (n_macro,) with signs
+        # Use only the first n_kappas surprise values
+        signed_surprise = signed_surprise[:n_kappas]
         adjustments[t] = 1.0 + signed_sens @ (kappas_arr * signed_surprise)
 
     return adjustments
@@ -359,7 +396,7 @@ def compute_macro_direction_adjustment(
 
 def compute_sigma_yy_inflation(
     surprise_raw: np.ndarray,
-    kappas: np.ndarray | tuple[float, float, float],
+    kappas: np.ndarray | tuple[float, ...],
     sens_matrix: np.ndarray | None = None,
     sigma_yy_base: np.ndarray | None = None,
 ) -> np.ndarray:
