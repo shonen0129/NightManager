@@ -36,6 +36,7 @@ def compute_signal(
     topix_night_t: float | None = None,
     vol_adjusted_target: bool = False,
     min_raw_weight: float = 0.0,
+    c0_override: np.ndarray | None = None,
 ) -> dict[str, np.ndarray | float]:
     """Compute the lead-lag signal for a single time step.
 
@@ -59,6 +60,7 @@ def compute_signal(
         betas_t: Rolling beta values for JP assets (N_J,)
         topix_night_t: TOPIX night return for trade date
         vol_adjusted_target: If True, use 20-day rolling vol-adjusted target Z-score.
+        c0_override: Optional override for the target correlation matrix C0.
 
     Returns:
         Dict with: signal (N_J,), sigma_s, r_hat_jp_cc (N_J,)
@@ -70,7 +72,9 @@ def compute_signal(
     mu_w, sigma_w, c_t = compute_correlation(window_returns, ewma_half_life)
 
     # Determine C_0 for this time step
-    if v3_dynamic:
+    if c0_override is not None:
+        c0_t = c0_override
+    elif v3_dynamic:
         mkt_ret = np.mean(window_returns, axis=1)
         mkt_var = np.var(mkt_ret, ddof=0)
         if mkt_var < 1e-16:

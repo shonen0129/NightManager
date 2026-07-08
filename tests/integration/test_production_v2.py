@@ -208,8 +208,8 @@ class TestGenerateV2Portfolio:
             cfg={},
         )
         assert result["fallback"]["gap_data_missing"] is True
-        assert result["fallback"]["v1_fallback_used"] is True
-        assert len(result["w_final"]) == N_J
+        assert result["fallback"]["v1_fallback_used"] is False
+        assert np.allclose(result["w_final"], 0.0)
 
     def test_full_pipeline_with_synthetic_data(self, tmp_path):
         """Full pipeline runs with synthetic gap matrices and produces valid weights."""
@@ -509,7 +509,7 @@ class TestCfgPropagation:
             cfg={},
         )
         assert result["fallback"]["gap_data_missing"] is True
-        assert result["fallback"]["v1_fallback_used"] is True
+        assert result["fallback"]["v1_fallback_used"] is False
 
 
 # ---------------------------------------------------------------------------

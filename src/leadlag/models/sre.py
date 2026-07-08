@@ -499,6 +499,7 @@ class SectorRelativeEnsembleModel(BaseModel):
         jp_beta: np.ndarray | None,
         topix_night: np.ndarray | None,
         is_p4: bool = False,
+        c0_override: np.ndarray | None = None,
     ) -> np.ndarray:
         """Compute the Residual-PCA (JP Residual target) or P4 signal at index i."""
         _signal_params = (
@@ -551,6 +552,7 @@ class SectorRelativeEnsembleModel(BaseModel):
             topix_night_t=topix_night_t,
             vol_adjusted_target=self.vol_adjusted_target,
             min_raw_weight=getattr(self, "min_raw_weight", 0.0),
+            c0_override=c0_override,
         )
         sig = np.asarray(sig_res["signal"], dtype=float)
         _RESIDUAL_SIGNAL_CACHE[cache_key] = sig
@@ -597,6 +599,7 @@ class SectorRelativeEnsembleModel(BaseModel):
         # Clear per-run signal caches to prevent cross-run contamination
         _PRODUCTION_SIGNAL_CACHE.clear()
         _RESIDUAL_SIGNAL_CACHE.clear()
+        _COMMON_INPUTS_CACHE.clear()
 
         # Setup arrays
         raw_pca_signals = np.zeros((T, self.n_j))
@@ -626,8 +629,6 @@ class SectorRelativeEnsembleModel(BaseModel):
             # P4
             if self.us_res_enabled or self.p4_weight > 0.0:
                 if self.prior_variant is not None:
-                    orig_build_c0 = signals.build_c0_from_v0
-                    signals.build_c0_from_v0 = lambda v0, c: C0_resid
                     orig_k = self.k
                     self.k = k_p4
                     try:
@@ -643,9 +644,9 @@ class SectorRelativeEnsembleModel(BaseModel):
                             jp_beta=jp_beta,
                             topix_night=topix_night,
                             is_p4=True,
+                            c0_override=C0_resid,
                         )
                     finally:
-                        signals.build_c0_from_v0 = orig_build_c0
                         self.k = orig_k
                 else:
                     p4_sig = self.compute_residual_signal(

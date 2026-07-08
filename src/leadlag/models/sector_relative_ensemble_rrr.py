@@ -506,6 +506,7 @@ class SectorRelativeEnsembleRRRModel(_BLPBase):
         _PRODUCTION_SIGNAL_CACHE.clear()
         _RESIDUAL_SIGNAL_CACHE.clear()
         _CORR_MATRIX_CACHE.clear()
+        _PREPARE_COMMON_INPUTS_CACHE.clear()
 
         inputs = self._prepare_common_inputs(df_exec)
         all_returns_raw = inputs["all_returns_raw"]

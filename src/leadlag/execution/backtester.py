@@ -143,10 +143,19 @@ class BacktestEngine:
 
         w_prev = np.zeros(model.n_j)
         n_sim_days = len(sim_dates_slice)
+
+        # Calculate calendar days between trading dates to scale financing/borrow fees correctly.
+        # For the last trading day, assume 1 calendar day as fallback.
+        calendar_days = np.ones(n_sim_days)
+        sim_dates_pd = pd.to_datetime(sim_dates_slice)
+        for i in range(n_sim_days - 1):
+            calendar_days[i] = (sim_dates_pd[i + 1] - sim_dates_pd[i]).days
+
         for i in range(n_sim_days):
             w_t = sre_weights_arr[i]
             r_target_t = y_jp_target_arr[i]
             r_oc_t = y_jp_oc_arr[i]
+            days_held = calendar_days[i]
 
             # Intraday return (9:10-to-Close) — same for all alpha
             gross_ret = float(np.sum(w_t * r_target_t))
@@ -171,9 +180,9 @@ class BacktestEngine:
             slip_cost = slip * (2.0 * np.sum((1.0 - alpha_mask) * np.abs(w_t)) + np.sum(alpha_mask * np.abs(w_t - w_prev) / 2.0))
             held_long = float(np.sum(alpha_mask * np.maximum(w_t, 0.0)))
             held_short = float(np.sum(alpha_mask * np.maximum(-w_t, 0.0)))
-            fin_cost = held_long * financing_daily
-            borrow_cost = held_short * borrow_daily
-            reverse_cost = held_short * reverse_daily
+            fin_cost = held_long * financing_daily * days_held
+            borrow_cost = held_short * borrow_daily * days_held
+            reverse_cost = held_short * reverse_daily * days_held
             cost = slip_cost + fin_cost + borrow_cost + reverse_cost
 
             # Net return = intraday + overnight - total cost
