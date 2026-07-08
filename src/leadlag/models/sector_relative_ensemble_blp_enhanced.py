@@ -157,6 +157,21 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
         self._macro_surprise_raw: np.ndarray | None = None
         self._macro_scales: np.ndarray | None = None
 
+        # Extension A: Directional adjustment (signed surprise * signed sensitivity)
+        self.macro_direction_enabled = bool(self._resolve_val("macro_direction_enabled", False))
+        self._macro_direction_adj: np.ndarray | None = None
+
+        # Extension E: Sigma_YY inflation (adjust predictive covariance)
+        self.macro_sigma_yy_inflation_enabled = bool(self._resolve_val("macro_sigma_yy_inflation_enabled", False))
+
+        # Sensitivity matrix override (for experimentation); defaults to MACRO_SENS_MATRIX
+        _sens_override = self._resolve_val("macro_sens_matrix", None)
+        if _sens_override == "derived":
+            from leadlag.core.macro import MACRO_SENS_MATRIX_DERIVED
+            self._macro_sens_matrix = MACRO_SENS_MATRIX_DERIVED
+        else:
+            self._macro_sens_matrix = MACRO_SENS_MATRIX
+
         # Slippage cost parameter resolution
         self.slippage_bps = self._resolve_slippage_bps()
 
@@ -716,13 +731,21 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
                 )
                 self._macro_surprise_raw = surprise_raw
                 self._macro_scales = compute_factor_kappa_scale(
-                    surprise_raw, self.macro_kappas, MACRO_SENS_MATRIX,
+                    surprise_raw, self.macro_kappas, self._macro_sens_matrix,
                 )
+                if self.macro_direction_enabled:
+                    from leadlag.core.macro import compute_macro_direction_adjustment
+                    self._macro_direction_adj = compute_macro_direction_adjustment(
+                        surprise_raw, self.macro_kappas, self._macro_sens_matrix,
+                    )
                 logger.info(
-                    "Macro confidence enabled: kappas=%s, halflife_mean=%.1f, halflife_vol=%.1f",
+                    "Macro confidence enabled: kappas=%s, halflife_mean=%.1f, halflife_vol=%.1f, "
+                    "direction=%s, sigma_yy_inflation=%s",
                     self.macro_kappas.tolist(),
                     self.macro_surprise_halflife_mean,
                     self.macro_surprise_halflife_vol,
+                    self.macro_direction_enabled,
+                    self.macro_sigma_yy_inflation_enabled,
                 )
             else:
                 logger.warning("Macro confidence enabled but macro data unavailable; skipping.")
@@ -841,6 +864,12 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
                 s_ens = s_ens / scale_t
                 s_ens = np.nan_to_num(s_ens, nan=0.0, posinf=0.0, neginf=0.0)
 
+                # Extension A: Directional adjustment (signed surprise * signed sensitivity)
+                if self._macro_direction_adj is not None:
+                    dir_adj_t = self._macro_direction_adj[i]
+                    s_ens = s_ens * dir_adj_t
+                    s_ens = np.nan_to_num(s_ens, nan=0.0, posinf=0.0, neginf=0.0)
+
             combined_signals[i] = s_ens
             normalized_combined_signals[i] = self.normalize_signals(
                 s_ens, self.normalization_method
@@ -881,6 +910,18 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
         normalized_df = pd.DataFrame(
             normalized_combined_signals, index=sim_dates, columns=JP_TICKERS
         )
+
+        # Extension E: Inflate Sigma_YY based on macro surprise
+        if (self.macro_confidence_enabled and self.macro_sigma_yy_inflation_enabled
+                and self._macro_surprise_raw is not None
+                and np.any(sigma_yy_array)):
+            from leadlag.core.macro import compute_sigma_yy_inflation
+            sigma_yy_array = compute_sigma_yy_inflation(
+                self._macro_surprise_raw,
+                self.macro_kappas,
+                self._macro_sens_matrix,
+                sigma_yy_base=sigma_yy_array,
+            )
 
         return {
             "raw_pca_signals": raw_pca_df,

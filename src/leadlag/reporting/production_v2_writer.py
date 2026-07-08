@@ -80,19 +80,8 @@ def write_production_files(
     pd.DataFrame(rows).to_csv(live_dir / "latest_weights.csv", index=False)
     logger.info("Written: latest_weights.csv  (gross=%.4f)", float(np.sum(np.abs(w_final))))
 
-    # 2. v1_baseline_weights.csv
-    v1_rows = []
-    for j, tk in enumerate(JP_TICKERS):
-        side = "LONG" if w_v1[j] > 1e-8 else ("SHORT" if w_v1[j] < -1e-8 else "NEUTRAL")
-        v1_rows.append({
-            "trade_date": trade_date,
-            "ticker": tk,
-            "weight": float(w_v1[j]),
-            "side": side,
-            "version": "production_residual_blpx_v1",
-        })
-    pd.DataFrame(v1_rows).to_csv(live_dir / "v1_baseline_weights.csv", index=False)
-    logger.info("Written: v1_baseline_weights.csv")
+    # 2. v1_baseline_weights.csv - REMOVED: circular reference issue
+    # V1 fallback is no longer supported; gap data missing results in flat position (w_final=0)
 
     # 3. production_scores.csv
     score_rows = [

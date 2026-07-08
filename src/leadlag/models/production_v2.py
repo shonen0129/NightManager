@@ -35,6 +35,13 @@ import pandas as pd
 
 from leadlag.compliance.v2_auditor import run_leakage_audit, run_numerical_audit
 from leadlag.config.schemas import ProductionV2RunConfig
+from leadlag.core.macro import (
+    MACRO_NAMES,
+    MACRO_SENS_MATRIX,
+    compute_macro_surprise,
+    compute_sigma_yy_inflation,
+    download_macro_prices,
+)
 from leadlag.core.portfolio import get_rolling_pit_bin, solve_baseline_style
 from leadlag.core.signal import build_weights_minvar
 from leadlag.data.tickers import JP_TICKERS
@@ -114,6 +121,10 @@ def parse_run_config(cfg: dict) -> ProductionV2RunConfig:
         cs_overlay_weight=cs_cfg.get("weight", 0.05),
         minvar_enabled=portfolio_cfg.get("minvar_enabled", False),
         minvar_alpha=portfolio_cfg.get("minvar_alpha", 0.5),
+        macro_kappa_enabled=portfolio_cfg.get("macro_kappa_enabled", False),
+        macro_kappas=tuple(portfolio_cfg.get("macro_kappas", [3.0, 0.5, 0.5])),
+        macro_surprise_halflife_mean=float(portfolio_cfg.get("macro_surprise_halflife_mean", 20.0)),
+        macro_surprise_halflife_vol=float(portfolio_cfg.get("macro_surprise_halflife_vol", 60.0)),
     )
 
 
@@ -412,27 +423,23 @@ def generate_v2_production_portfolio(
     else:
         alerts.append("--gap-input-dir not specified. Using v1 fallback.")
 
-    # 4. Fallback: gap data missing → use v1 weights (if configured)
+    # 4. Fallback: gap data missing → flat position (no trading)
     if mu_gap is None or Omega_gap is None:
         fallback["gap_data_missing"] = True
-        if run_cfg.fallback_on_gap_data_missing:
-            fallback["v1_fallback_used"] = True
-            logger.warning("[%s] Gap data missing — activating v1 fallback.", date_str)
-        else:
-            logger.error(
-                "[%s] Gap data missing and fallback_on_gap_data_missing=False. "
-                "Returning zero weights.",
-                date_str,
-            )
+        logger.error(
+            "[%s] Gap data missing. Returning flat position (w_final=0). No trading today.",
+            date_str,
+        )
+        alerts.append("Gap data missing. Flat position (w_final=0) returned.")
 
         dummy_scores = np.zeros(n_j)
         dummy_Omega = np.eye(n_j) * 0.01
         leakage = run_leakage_audit(date_str, date_str)
-        numerical = run_numerical_audit(w_v1, dummy_scores, dummy_Omega)
+        numerical = run_numerical_audit(np.zeros(n_j), dummy_scores, dummy_Omega)
 
         return {
-            "w_final": w_v1.copy(),
-            "w_v1": w_v1.copy(),
+            "w_final": np.zeros(n_j),
+            "w_v1": w_v1.copy(),  # kept for PIT IR historical reference
             "scores": dummy_scores,
             "mu_gap": np.zeros(n_j),
             "sigma_gap": np.ones(n_j) * 0.1,
@@ -462,6 +469,52 @@ def generate_v2_production_portfolio(
     if min_eig < 0.0:
         Omega_gap = Omega_gap + (abs(min_eig) + 1e-8) * np.eye(n_j)
         alerts.append("Omega_gap repaired to PSD.")
+
+    # 5a. Macro Factor-Kappa: Inflate Omega_gap based on macro surprise
+    if run_cfg.macro_kappa_enabled:
+        try:
+            macro_start = (pd.to_datetime(date_str) - pd.Timedelta(days=365 * 2)).strftime("%Y-%m-%d")
+            macro_end = date_str
+            close_prices = download_macro_prices(start=macro_start, end=macro_end)
+            if close_prices is not None and len(close_prices) >= 30:
+                macro_returns = close_prices.pct_change()
+                macro_returns = macro_returns.replace([np.inf, -np.inf], np.nan)
+                macro_returns = macro_returns.fillna(0.0)
+                macro_returns = macro_returns[MACRO_NAMES]
+
+                surprise = compute_macro_surprise(
+                    macro_returns,
+                    halflife_mean=run_cfg.macro_surprise_halflife_mean,
+                    halflife_vol=run_cfg.macro_surprise_halflife_vol,
+                )
+                surprise_t = surprise[-1:]  # (1, n_macro) — use only the latest day
+
+                kappas_arr = np.array(run_cfg.macro_kappas, dtype=float)
+                scales_t = compute_sigma_yy_inflation(
+                    surprise_t, kappas_arr, MACRO_SENS_MATRIX,
+                )  # (1, n_j)
+                d = np.sqrt(scales_t[0])  # (n_j,)
+
+                Omega_gap = Omega_gap * np.outer(d, d)
+                alerts.append(
+                    f"Macro kappa Omega_gap inflation applied: "
+                    f"scales_mean={float(np.mean(scales_t[0])):.3f}, "
+                    f"scales_max={float(np.max(scales_t[0])):.3f}"
+                )
+                logger.info(
+                    "[%s] Macro kappa: Omega_gap inflated. "
+                    "surprise=%s, scales_mean=%.3f, scales_max=%.3f",
+                    date_str,
+                    np.round(surprise_t[0], 3),
+                    float(np.mean(scales_t[0])),
+                    float(np.max(scales_t[0])),
+                )
+            else:
+                alerts.append("Macro kappa enabled but data insufficient; skipping.")
+                logger.warning("[%s] Macro kappa: data insufficient (%d rows).", date_str, len(close_prices) if close_prices is not None else 0)
+        except Exception as e:
+            alerts.append(f"Macro kappa inflation failed: {e}")
+            logger.warning("[%s] Macro kappa inflation failed: %s", date_str, e)
 
     # 6. Compute mu_over_sigma scores
     sigma_gap = np.sqrt(np.maximum(np.diag(Omega_gap), 1e-6))

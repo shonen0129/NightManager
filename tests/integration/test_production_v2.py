@@ -513,6 +513,116 @@ class TestCfgPropagation:
 
 
 # ---------------------------------------------------------------------------
+# Macro Factor-Kappa (Omega_gap inflation)
+# ---------------------------------------------------------------------------
+
+class TestMacroKappaOmegaGapInflation:
+    """Test that macro kappa inflates Omega_gap and affects scores/weights."""
+
+    def _make_files(self, tmp_path, trade_date="2026-06-16"):
+        import pandas as pd
+        mu_gap, Omega_gap = _make_synthetic_gap_data()
+        matrices_dir = tmp_path / "matrices"
+        matrices_dir.mkdir(exist_ok=True)
+        date_num = trade_date.replace("-", "")
+        np.save(matrices_dir / f"mu_gap_{date_num}.npy", mu_gap)
+        np.save(matrices_dir / f"omega_gap_{date_num}.npy", Omega_gap)
+        v1_file = tmp_path / "v1_baseline_weights.csv"
+        pd.DataFrame([
+            {"trade_date": trade_date, "ticker": tk, "weight": 0.0}
+            for tk in JP_TICKERS
+        ]).to_csv(v1_file, index=False)
+        return v1_file, mu_gap, Omega_gap
+
+    def test_macro_kappa_disabled_by_default(self):
+        rc = parse_run_config({})
+        assert rc.macro_kappa_enabled is False
+
+    def test_macro_kappa_enabled_from_cfg(self):
+        rc = parse_run_config({"portfolio": {"macro_kappa_enabled": True}})
+        assert rc.macro_kappa_enabled is True
+
+    def test_macro_kappas_parsed_from_cfg(self):
+        rc = parse_run_config({"portfolio": {"macro_kappas": [5.0, 1.0, 2.0]}})
+        assert rc.macro_kappas == (5.0, 1.0, 2.0)
+
+    def test_inflation_changes_omega_gap(self, tmp_path, monkeypatch):
+        """When macro kappa is enabled, Omega_gap is inflated (diagonal increases)."""
+        import pandas as pd
+        from leadlag.models import production_v2 as pv2_mod
+
+        v1_file, mu_gap, Omega_gap_orig = self._make_files(tmp_path)
+
+        # Mock download_macro_prices to return synthetic data
+        dates = pd.date_range("2025-01-01", "2026-06-16", freq="B")
+        rng = np.random.default_rng(123)
+        close_data = {
+            "USDJPY": 150.0 + rng.normal(0, 0.5, len(dates)).cumsum(),
+            "CLF": 70.0 + rng.normal(0, 0.3, len(dates)).cumsum(),
+            "TNX": 4.0 + rng.normal(0, 0.05, len(dates)).cumsum(),
+        }
+        mock_prices = pd.DataFrame(close_data, index=dates, columns=["USDJPY", "CLF", "TNX"])
+        monkeypatch.setattr(pv2_mod, "download_macro_prices", lambda **kw: mock_prices.copy())
+
+        cfg = {"portfolio": {"macro_kappa_enabled": True, "macro_kappas": [3.0, 0.5, 0.5]}}
+        result = generate_v2_production_portfolio(
+            trade_date="2026-06-16",
+            gap_input_dir=tmp_path,
+            v1_weights_file=v1_file,
+            cfg=cfg,
+        )
+
+        omega_result = result["Omega_gap"]
+        orig_diag = np.diag(Omega_gap_orig)
+        result_diag = np.diag(omega_result)
+        # At least some diagonal entries should be inflated
+        assert np.any(result_diag > orig_diag + 1e-10), \
+            "Omega_gap diagonal should be inflated by macro kappa"
+        # Check alert was added
+        assert any("Macro kappa" in a for a in result["alerts"])
+
+    def test_inflation_preserves_psd(self, tmp_path, monkeypatch):
+        """Inflated Omega_gap remains PSD."""
+        import pandas as pd
+        from leadlag.models import production_v2 as pv2_mod
+
+        v1_file, _, _ = self._make_files(tmp_path)
+
+        dates = pd.date_range("2025-01-01", "2026-06-16", freq="B")
+        rng = np.random.default_rng(456)
+        close_data = {
+            "USDJPY": 150.0 + rng.normal(0, 0.5, len(dates)).cumsum(),
+            "CLF": 70.0 + rng.normal(0, 0.3, len(dates)).cumsum(),
+            "TNX": 4.0 + rng.normal(0, 0.05, len(dates)).cumsum(),
+        }
+        mock_prices = pd.DataFrame(close_data, index=dates, columns=["USDJPY", "CLF", "TNX"])
+        monkeypatch.setattr(pv2_mod, "download_macro_prices", lambda **kw: mock_prices.copy())
+
+        cfg = {"portfolio": {"macro_kappa_enabled": True, "macro_kappas": [3.0, 0.5, 0.5]}}
+        result = generate_v2_production_portfolio(
+            trade_date="2026-06-16",
+            gap_input_dir=tmp_path,
+            v1_weights_file=v1_file,
+            cfg=cfg,
+        )
+
+        omega = result["Omega_gap"]
+        min_eig = np.min(np.linalg.eigvalsh(omega))
+        assert min_eig > -1e-10, "Inflated Omega_gap should remain PSD"
+
+    def test_disabled_does_not_inflate(self, tmp_path):
+        """When macro kappa is disabled, Omega_gap is unchanged from input."""
+        v1_file, mu_gap, Omega_gap_orig = self._make_files(tmp_path)
+        result = generate_v2_production_portfolio(
+            trade_date="2026-06-16",
+            gap_input_dir=tmp_path,
+            v1_weights_file=v1_file,
+            cfg={},
+        )
+        assert np.allclose(result["Omega_gap"], Omega_gap_orig, atol=1e-10)
+
+
+# ---------------------------------------------------------------------------
 # Self-test parity (entry-point self-test exits 0)
 # ---------------------------------------------------------------------------
 

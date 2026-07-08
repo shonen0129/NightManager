@@ -63,4 +63,7 @@ market_data/
 !results/**/*.md
 !results/**/*.patch
 !shadow_runs/**/*.md
+# Protect operational pipeline data from accidental cleanup
+!live/pipeline_data/
+!live/pipeline_data/**
 

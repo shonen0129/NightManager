@@ -219,3 +219,9 @@ class ProductionV2RunConfig(BaseModel):
     # --- MinVar weight optimization ---
     minvar_enabled: bool = Field(default=False, description="共分散対応最小分散weight最適化有効フラグ")
     minvar_alpha: float = Field(default=0.5, ge=0.0, le=1.0, description="最小分散ブレンド係数 (0=signal比例, 1=純最小分散)")
+
+    # --- Macro Factor-Kappa (Omega_gap inflation) ---
+    macro_kappa_enabled: bool = Field(default=False, description="マクロサプライズによるOmega_gap膨張有効フラグ")
+    macro_kappas: tuple[float, float, float] = Field(default=(3.0, 0.5, 0.5), description="因子別kappa [USDJPY, CLF, TNX]")
+    macro_surprise_halflife_mean: float = Field(default=20.0, ge=1.0, description="EWMA平均推定半減期")
+    macro_surprise_halflife_vol: float = Field(default=60.0, ge=1.0, description="EWMAボラティリティ推定半減期")

@@ -48,7 +48,7 @@ gross_scaling:
 gap_distribution:
   # 日次更新される latest/ シンボリックリンクを参照
   # run_daily_production_v2.py --gap-input-dir で上書き可能
-  dir: results/gap_adjusted_distribution/latest
+  dir: live/pipeline_data/gap_adjusted_distribution/latest
   mu_file_pattern: "matrices/mu_gap_{date}.npy"    # date = YYYYMMDD
   omega_file_pattern: "matrices/omega_gap_{date}.npy"
   diagnostics_file: "portfolio_gap_distribution_diagnostics.csv"
@@ -60,6 +60,12 @@ portfolio:
   net_target: 0.0
   long_count: 5
   short_count: 5
+  # --- MinVar weight optimization (Step 2: portfolio construction) ---
+  # When enabled, uses Omega_gap (predicted covariance) to minimize portfolio variance
+  # within long/short baskets. Blends signal-proportional weights with min-variance weights.
+  # alpha=0.8 is the optimal balance (0=signal only, 1=pure minvar).
+  minvar_enabled: true
+  minvar_alpha: 0.8             # 0=signal比例, 1=純最小分散, 0.8=最適バランス
 
 risk:
   max_gross_exposure: 3.0       # RuleD 乗数適用後の上限（side_leverage=1.5 × gross_abs_sum=2.0 = 3.0）
@@ -110,6 +116,15 @@ blpx:
   macro_surprise_halflife_mean: 20.0
   macro_surprise_halflife_vol: 60.0
 
+  # --- Copula correlation blending (Step 1: signal generation) ---
+  # t-copula captures tail dependence that Pearson correlation misses.
+  # Dynamic blend activates copula only during stress periods.
+  copula_enabled: true
+  copula_blend_weight: 1.0        # Copula weight in blended correlation (1.0 = full copula when active)
+  copula_dynamic_blend: true      # Stress-activated blending (recommended)
+  copula_stress_threshold: 1.5    # Volatility ratio threshold for stress detection
+  copula_nu_init: 5.0             # t-copula degrees of freedom (lower = stronger tail dependence)
+
 residualization:
   enabled_for_p3: true
   jp_market_proxy: TOPIX
@@ -139,18 +154,14 @@ cs_feature_overlay:
   rank_reversal_file_pattern: "matrices/rank_reversal_{date}.npy"
 
 # --- v2: フォールバック階層 ---
-# 第1フォールバック: 旧 Residual-BLPX v1（gap data 欠損時）
-# 第2フォールバック: PCA-Ensemble（v1 も利用不可の場合）
+# gap data 欠損時はフラットポジション（w_final=0）を返す
+# 監査失敗時も同様にフラット化
 fallback:
   enabled: true
-  # v2 固有: gap data 欠損時は v1 ウェイトファイルを使用
-  v1_weights_file: live/production_residual_blpx/v1_baseline_weights.csv
-  fallback_model: SRE           # v1 も利用不可の場合の最終フォールバック
   fallback_on_audit_failure: true
   fallback_on_missing_data: true
   fallback_on_invalid_confidence_variance: true
   fallback_on_sector_prior_error: true
-  fallback_on_gap_data_missing: true   # v2 追加: gap data 欠損時に v1 フォールバック
 
 audit:
   enforce_signal_weighting: true

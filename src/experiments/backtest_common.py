@@ -126,7 +126,7 @@ def prepare_target_and_gap_returns(
 
 
 # alpha_mask_fn(i, date, w_t, r_target, signals_row) -> np.ndarray of per-asset alpha
-AlphaMaskFn = Callable[[int, pd.Timestamp, np.ndarray, np.ndarray, np.ndarray | None], np.ndarray]
+AlphaMaskFn = Callable[[int, pd.Timestamp, np.ndarray, np.ndarray, "np.ndarray | None"], np.ndarray]
 
 
 def simulate_overnight_holding(

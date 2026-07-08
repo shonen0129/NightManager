@@ -3,66 +3,67 @@
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.leadlag.decision</string>
+    <string>com.leadlag.gap-distribution</string>
 
     <key>ProgramArguments</key>
     <array>
         <string>/bin/bash</string>
-        <string>__PROJECT_DIR__/scripts/batch/run_decision_v2.sh</string>
+        <string>__PROJECT_DIR__/scripts/batch/run_gap_distribution.sh</string>
     </array>
 
     <key>WorkingDirectory</key>
     <string>__PROJECT_DIR__</string>
 
+    <!-- 米国市場クローズ後（日本時間 6:00頃）に実行 -->
     <key>StartCalendarInterval</key>
     <array>
         <dict>
             <key>Weekday</key>
-            <integer>1</integer>
-            <key>Hour</key>
-            <integer>9</integer>
-            <key>Minute</key>
-            <integer>5</integer>
-        </dict>
-        <dict>
-            <key>Weekday</key>
             <integer>2</integer>
             <key>Hour</key>
-            <integer>9</integer>
+            <integer>6</integer>
             <key>Minute</key>
-            <integer>5</integer>
+            <integer>30</integer>
         </dict>
         <dict>
             <key>Weekday</key>
             <integer>3</integer>
             <key>Hour</key>
-            <integer>9</integer>
+            <integer>6</integer>
             <key>Minute</key>
-            <integer>5</integer>
+            <integer>30</integer>
         </dict>
         <dict>
             <key>Weekday</key>
             <integer>4</integer>
             <key>Hour</key>
-            <integer>9</integer>
+            <integer>6</integer>
             <key>Minute</key>
-            <integer>5</integer>
+            <integer>30</integer>
         </dict>
         <dict>
             <key>Weekday</key>
             <integer>5</integer>
             <key>Hour</key>
-            <integer>9</integer>
+            <integer>6</integer>
             <key>Minute</key>
-            <integer>5</integer>
+            <integer>30</integer>
+        </dict>
+        <dict>
+            <key>Weekday</key>
+            <integer>6</integer>
+            <key>Hour</key>
+            <integer>6</integer>
+            <key>Minute</key>
+            <integer>30</integer>
         </dict>
     </array>
 
     <key>StandardOutPath</key>
-    <string>__PROJECT_DIR__/logs/decision_launchd.log</string>
+    <string>__PROJECT_DIR__/logs/gap_distribution_launchd.log</string>
 
     <key>StandardErrorPath</key>
-    <string>__PROJECT_DIR__/logs/decision_launchd.log</string>
+    <string>__PROJECT_DIR__/logs/gap_distribution_launchd.log</string>
 
     <key>EnvironmentVariables</key>
     <dict>
