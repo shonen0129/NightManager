@@ -1,9 +1,4 @@
----
-name: leadlag-fund-improvement
-description: 日米セクター・リードラグ市場中立ファンド（Residual-BLPX-RA v2）の改善作業を行う際のガイド。モデル改善・バックテスト・検証・本番昇格のワークフロー、データ整合規約、リーク防止の不変条件、既知の落とし穴を記載。モデル変更・パラメータ調整・新シグナル追加・バックテスト実行時に必ず参照すること。
----
-
-# 日米リードラグ・ファンド改善スキル
+# 日米リードラグ・ファンド改善ガイド
 
 ## 戦略概要
 
@@ -52,17 +47,6 @@ description: 日米セクター・リードラグ市場中立ファンド（Resi
 - **ハング既知パターン**（CLI実行時）: yfinance ダウンロード、`cache.py` の fcntl ファイルロック、`close.py` の auto-close 無限待機、API再試行バックオフ。詳細は `docs/スタック再発防止策.md`。長時間実行はタイムアウト付きで
 - **config dictのshallow copy**: `base_cfg.copy()` はネストした dict（`cfg["blpx"]` 等）を共有参照する。比較実験で2つのモデルに異なるconfigを渡す際は `copy.deepcopy(base_cfg)` を使うこと。shallow copy だと一方の変更が他方に伝播し、両モデルが同一設定になる（実例: Robust PCA 比較実験で両モデルが Robust PCA 有効化されシグナルが完全一致した）
 
-## ワークフロー（スラッシュコマンド）
-
-以下のワークフローが `.windsurf/workflows/` に登録済み:
-
-- **/backtest**: 本番configでバックテストを実行し、net Sharpe・最大DD・ターンオーバー等の指標を確認する
-- **/run-tests**: pytest でユニットテスト・統合テストを実行し、リーク監査・コンプライアンスを確認する
-- **/daily-production**: 日次の本番実行（v2）— gap調整分布の事前計算とデイリー意思決定パイプラインを実行する
-- **/walkforward-validation**: ウォークフォワード検証でOOS性能を確認し、過学習を防ぐ
-- **/shadow-monitor**: シャドー運用でライブ整合性を確認し、本番昇格前の検証を行う
-- **/syntax-check**: Pythonファイルの構文チェックをスクリプト経由で実行し、CLIスタックを防止する
-
 ## よく使うコマンド
 
 ```bash
@@ -76,7 +60,7 @@ python3 tools/production/run_daily_production_v2.py
 python3 tools/production/compute_gap_adjusted_distribution.py
 
 # 本番バックテスト
-python3 src/research/scripts/backtest/run_production_backtest.py --config configs/production/production.yaml --start-date 2015-01-05
+python3 scripts/backtest/run_production_backtest.py
 
 # 構文チェック（CLIスタック防止: python3 -c は使わずスクリプト経由で）
 python3 _check_syntax.py
