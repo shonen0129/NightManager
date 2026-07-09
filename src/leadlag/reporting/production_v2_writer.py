@@ -53,7 +53,6 @@ def write_production_files(
     run_cfg = result["run_config"]
     cost_bps_per_gross = run_cfg.cost_bps_per_gross
     w_final = result["w_final"]
-    w_v1 = result["w_v1"]
     scores = result["scores"]
     mu_gap = result["mu_gap"]
     sigma_gap = result["sigma_gap"]
@@ -75,7 +74,7 @@ def write_production_files(
             "gross_multiplier": float(pit["multiplier"]),
             "pit_bin": pit["assigned_bin"],
             "version": VERSION,
-            "fallback_flag": int(result["fallback"]["v1_fallback_used"]),
+            "fallback_flag": int(result["fallback"]["gap_data_missing"]),
         })
     pd.DataFrame(rows).to_csv(live_dir / "latest_weights.csv", index=False)
     logger.info("Written: latest_weights.csv  (gross=%.4f)", float(np.sum(np.abs(w_final))))
@@ -121,7 +120,7 @@ def write_production_files(
         "all_passed": all_passed,
         "leakage_status": result["leakage"]["status"],
         "numerical_status": result["numerical"]["status"],
-        "fallback_triggered": result["fallback"]["v1_fallback_used"],
+        "fallback_triggered": result["fallback"]["gap_data_missing"],
         "alerts": result["alerts"],
         "timestamp": datetime.now().isoformat(),
     }
@@ -160,7 +159,7 @@ def _print_dry_run_summary(trade_date: str, result: dict) -> None:
     logger.info("  Target Gross  : %.4f", s["target_gross"])
     logger.info("  Target Net    : %.6f", s["target_net"])
     logger.info("  Ex-Ante IR    : %.4f", s["predicted_portfolio_ir"])
-    logger.info("  Fallback      : %s", result["fallback"]["v1_fallback_used"])
+    logger.info("  Fallback      : %s", result["fallback"]["gap_data_missing"])
     logger.info("  Leakage Audit : %s", result["leakage"]["status"])
     logger.info("  Numerical Audit: %s", result["numerical"]["status"])
     logger.info("  Alerts        : %s", result["alerts"])
@@ -186,10 +185,10 @@ def _write_daily_report(trade_date: str, live_dir: Path, result: dict) -> None:
     short_weights.sort(key=lambda x: x[1])
 
     fallback_note = ""
-    if fb["v1_fallback_used"]:
+    if fb["gap_data_missing"]:
         fallback_note = (
             "\n\n> [!WARNING]\n> **フォールバック発動**: gap data 未利用。"
-            "v1 Residual-BLPX ウェイトを使用しています。\n"
+            "flat position (w_final=0) を返しています。\n"
         )
 
     alert_text = ""
@@ -220,7 +219,7 @@ def _write_daily_report(trade_date: str, live_dir: Path, result: dict) -> None:
 | Expected Cost (bps) | {s['expected_cost_bps']:.1f} |
 | Longs | {s['long_count']} |
 | Shorts | {s['short_count']} |
-| Fallback Triggered | {"YES ⚠️" if fb['v1_fallback_used'] else "No"} |
+| Fallback Triggered | {"YES ⚠️" if fb['gap_data_missing'] else "No"} |
 
 ## 2. RuleD Dynamic Gross Binning
 

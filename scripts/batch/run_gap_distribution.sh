@@ -78,6 +78,7 @@ PYTHONPATH=src "${PYTHON_BIN}" tools/production/compute_gap_adjusted_distributio
     --save-daily-matrices true \
     --save-multi-horizon false \
     --save-rank-reversal false \
+    --compare-pre-gap false \
     >> "${LOG_FILE}" 2>&1
 
 EXIT_CODE=$?
@@ -98,10 +99,39 @@ fi
 # 当日の行列ファイルが生成されたか確認（非営業日などで空の場合はフォールバック）
 MU_FILE="${PIPELINE_DIR}/gap_adjusted_distribution/latest/matrices/mu_gap_${TODAY_NUMERIC}.npy"
 if [ ! -f "${MU_FILE}" ] && [ -n "${PREV_LATEST}" ]; then
-    echo "[WARN] Today's mu_gap not found. Copying from previous latest: ${PREV_LATEST}" >> "${LOG_FILE}"
+    echo "[ALERT] Fallback triggered: Today's mu_gap not found. Copying from previous latest: ${PREV_LATEST}" >> "${LOG_FILE}"
+    echo "[ALERT] This indicates the gap distribution computation may have failed or today is a non-trading day." >> "${LOG_FILE}"
     PREV_DIR="${PIPELINE_DIR}/gap_adjusted_distribution/${PREV_LATEST}"
     if [ -d "${PREV_DIR}/matrices" ]; then
+        # 過去ファイルをコピー
         cp "${PREV_DIR}/matrices/"*.npy ${PIPELINE_DIR}/gap_adjusted_distribution/latest/matrices/ 2>/dev/null || true
+        
+        # コピーされた中で最新の日付のファイルを探し、TODAY_NUMERIC にコピーして配置する
+        LATEST_MAT_DIR="${PIPELINE_DIR}/gap_adjusted_distribution/latest/matrices"
+        PREV_DATE_FILE=$(ls -t "${LATEST_MAT_DIR}"/mu_gap_*.npy 2>/dev/null | grep -v "${TODAY_NUMERIC}" | head -1 || true)
+        if [ -n "${PREV_DATE_FILE}" ]; then
+            PREV_DATE=$(basename "${PREV_DATE_FILE}" | grep -o '[0-9]\{8\}' || true)
+            if [ -n "${PREV_DATE}" ] && [ "${PREV_DATE}" != "${TODAY_NUMERIC}" ]; then
+                echo "[INFO] Copying matrices from ${PREV_DATE} to ${TODAY_NUMERIC}..." >> "${LOG_FILE}"
+                # Core matrices (always required)
+                cp "${LATEST_MAT_DIR}/mu_gap_${PREV_DATE}.npy" "${LATEST_MAT_DIR}/mu_gap_${TODAY_NUMERIC}.npy" 2>/dev/null || true
+                cp "${LATEST_MAT_DIR}/omega_gap_${PREV_DATE}.npy" "${LATEST_MAT_DIR}/omega_gap_${TODAY_NUMERIC}.npy" 2>/dev/null || true
+                # Multi-horizon matrices (optional - only if they exist)
+                if [ -f "${LATEST_MAT_DIR}/mu_gap_h3_${PREV_DATE}.npy" ]; then
+                    cp "${LATEST_MAT_DIR}/mu_gap_h3_${PREV_DATE}.npy" "${LATEST_MAT_DIR}/mu_gap_h3_${TODAY_NUMERIC}.npy" 2>/dev/null || true
+                    cp "${LATEST_MAT_DIR}/omega_gap_h3_${PREV_DATE}.npy" "${LATEST_MAT_DIR}/omega_gap_h3_${TODAY_NUMERIC}.npy" 2>/dev/null || true
+                fi
+                if [ -f "${LATEST_MAT_DIR}/mu_gap_h5_${PREV_DATE}.npy" ]; then
+                    cp "${LATEST_MAT_DIR}/mu_gap_h5_${PREV_DATE}.npy" "${LATEST_MAT_DIR}/mu_gap_h5_${TODAY_NUMERIC}.npy" 2>/dev/null || true
+                    cp "${LATEST_MAT_DIR}/omega_gap_h5_${PREV_DATE}.npy" "${LATEST_MAT_DIR}/omega_gap_h5_${TODAY_NUMERIC}.npy" 2>/dev/null || true
+                fi
+                # Rank reversal signal (optional - only if it exists)
+                if [ -f "${LATEST_MAT_DIR}/rank_reversal_${PREV_DATE}.npy" ]; then
+                    cp "${LATEST_MAT_DIR}/rank_reversal_${PREV_DATE}.npy" "${LATEST_MAT_DIR}/rank_reversal_${TODAY_NUMERIC}.npy" 2>/dev/null || true
+                fi
+                echo "[ALERT] Fallback completed: Copied matrices from ${PREV_DATE} to ${TODAY_NUMERIC}" >> "${LOG_FILE}"
+            fi
+        fi
     fi
 fi
 

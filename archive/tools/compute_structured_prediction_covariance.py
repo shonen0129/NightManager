@@ -26,7 +26,9 @@ import matplotlib.pyplot as plt
 from scipy.stats import spearmanr, skew, kurtosis, norm
 
 # Add src/ to path
-ROOT = Path(__file__).resolve().parents[1]
+# Script is in archive/tools/, so we need to go up 2 levels to reach project root
+# archive/tools/compute_structured_prediction_covariance.py -> archive/ -> project root
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 from leadlag.data.fetcher import download_data
@@ -55,7 +57,7 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument("--model", default="production_residual_blpx", help="Model name")
     parser.add_argument("--start", default="2020-01-01", help="Start date (YYYY-MM-DD)")
     parser.add_argument("--end", default="2026-06-14", help="End date (YYYY-MM-DD)")
-    parser.add_argument("--results-dir", default="live/pipeline_data/v1_backtest", help="Validation outputs directory")
+    parser.add_argument("--results-dir", default="live/pipeline_data/diagnostics_weights", help="Validation outputs directory")
     parser.add_argument("--output-dir", default="live/pipeline_data/distribution_diagnostics", help="Output directory")
     parser.add_argument("--slippage-bps", type=float, default=5.0, help="Slippage bps per side")
     parser.add_argument("--save-daily-matrices", type=str, default="true", help="Save daily matrices (true/false)")
@@ -159,8 +161,15 @@ def main():
     logger.info(f"Output directory established: {out_dir}")
     
     # 1. Load config
-    cfg_path = ROOT / args.config
+    cfg_path = Path(args.config)
+    if not cfg_path.is_absolute():
+        cfg_path = ROOT / args.config
     logger.info(f"Loading config from {cfg_path}")
+    if not cfg_path.exists():
+        logger.error(f"Config file not found: {cfg_path}")
+        logger.error(f"ROOT: {ROOT}")
+        logger.error(f"Script location: {Path(__file__).resolve()}")
+        sys.exit(1)
     with open(cfg_path) as f:
         cfg = yaml.safe_load(f)
         

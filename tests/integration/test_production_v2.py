@@ -32,7 +32,6 @@ from leadlag.models.production_v2 import (
     VERSION,
     generate_v2_production_portfolio,
     load_gap_matrices,
-    load_v1_fallback_weights,
     parse_run_config,
 )
 
@@ -185,36 +184,18 @@ class TestNumericalAudit:
 # ---------------------------------------------------------------------------
 
 class TestGenerateV2Portfolio:
-    def test_v1_fallback_when_no_gap_dir(self, tmp_path):
-        """When gap_input_dir is None the function returns v1 fallback weights."""
-        # Create a fake v1 weights file
-        import pandas as pd
-        rows = [
-            {"trade_date": "2026-06-16", "ticker": tk, "weight": 0.0}
-            for tk in JP_TICKERS
-        ]
-        # Set a few non-zero weights to simulate v1
-        rows[0]["weight"] = 0.2
-        rows[1]["weight"] = 0.2
-        rows[-1]["weight"] = -0.2
-        rows[-2]["weight"] = -0.2
-        v1_file = tmp_path / "v1_baseline_weights.csv"
-        pd.DataFrame(rows).to_csv(v1_file, index=False)
-
+    def test_flat_position_when_no_gap_dir(self, tmp_path):
+        """When gap_input_dir is None the function returns flat position (w_final=0)."""
         result = generate_v2_production_portfolio(
             trade_date="2026-06-16",
             gap_input_dir=None,
-            v1_weights_file=v1_file,
             cfg={},
         )
         assert result["fallback"]["gap_data_missing"] is True
-        assert result["fallback"]["v1_fallback_used"] is False
         assert np.allclose(result["w_final"], 0.0)
 
     def test_full_pipeline_with_synthetic_data(self, tmp_path):
         """Full pipeline runs with synthetic gap matrices and produces valid weights."""
-        import pandas as pd
-
         mu_gap, Omega_gap = _make_synthetic_gap_data()
 
         # Write synthetic gap matrices
@@ -223,18 +204,9 @@ class TestGenerateV2Portfolio:
         np.save(matrices_dir / "mu_gap_20260616.npy", mu_gap)
         np.save(matrices_dir / "omega_gap_20260616.npy", Omega_gap)
 
-        # Create dummy v1 weights
-        rows = [
-            {"trade_date": "2026-06-16", "ticker": tk, "weight": 0.0}
-            for tk in JP_TICKERS
-        ]
-        v1_file = tmp_path / "v1_baseline_weights.csv"
-        pd.DataFrame(rows).to_csv(v1_file, index=False)
-
         result = generate_v2_production_portfolio(
             trade_date="2026-06-16",
             gap_input_dir=tmp_path,
-            v1_weights_file=v1_file,
             cfg={},
         )
 
@@ -251,24 +223,15 @@ class TestGenerateV2Portfolio:
 
     def test_summary_fields_present(self, tmp_path):
         """Summary dict contains all expected fields."""
-        import pandas as pd
-
         mu_gap, Omega_gap = _make_synthetic_gap_data()
         matrices_dir = tmp_path / "matrices"
         matrices_dir.mkdir()
         np.save(matrices_dir / "mu_gap_20260616.npy", mu_gap)
         np.save(matrices_dir / "omega_gap_20260616.npy", Omega_gap)
 
-        v1_file = tmp_path / "v1_baseline_weights.csv"
-        pd.DataFrame([
-            {"trade_date": "2026-06-16", "ticker": tk, "weight": 0.0}
-            for tk in JP_TICKERS
-        ]).to_csv(v1_file, index=False)
-
         result = generate_v2_production_portfolio(
             trade_date="2026-06-16",
             gap_input_dir=tmp_path,
-            v1_weights_file=v1_file,
             cfg={},
         )
         s = result["summary"]
@@ -285,24 +248,15 @@ class TestGenerateV2Portfolio:
 
     def test_pit_binning_keys_present(self, tmp_path):
         """pit_binning result contains required keys."""
-        import pandas as pd
-
         mu_gap, Omega_gap = _make_synthetic_gap_data()
         matrices_dir = tmp_path / "matrices"
         matrices_dir.mkdir()
         np.save(matrices_dir / "mu_gap_20260616.npy", mu_gap)
         np.save(matrices_dir / "omega_gap_20260616.npy", Omega_gap)
 
-        v1_file = tmp_path / "v1_baseline_weights.csv"
-        pd.DataFrame([
-            {"trade_date": "2026-06-16", "ticker": tk, "weight": 0.0}
-            for tk in JP_TICKERS
-        ]).to_csv(v1_file, index=False)
-
         result = generate_v2_production_portfolio(
             trade_date="2026-06-16",
             gap_input_dir=tmp_path,
-            v1_weights_file=v1_file,
             cfg={},
         )
         pit = result["pit_binning"]
@@ -336,16 +290,10 @@ class TestGenerateV2Portfolio:
         np.save(matrices_dir / "mu_gap_20260615.npy", mu_gap)
         np.save(matrices_dir / "omega_gap_20260615.npy", Omega_gap)
 
-        v1_file = tmp_path / "v1_baseline_weights.csv"
-        pd.DataFrame([
-            {"trade_date": "2026-06-16", "ticker": tk, "weight": 0.0}
-            for tk in JP_TICKERS
-        ]).to_csv(v1_file, index=False)
 
         result = generate_v2_production_portfolio(
             trade_date="2026-06-16",
             gap_input_dir=tmp_path,
-            v1_weights_file=v1_file,
             cfg={},
         )
         assert result["fallback"]["gap_data_missing"] is False, \
@@ -431,20 +379,13 @@ class TestCfgPropagation:
         date_num = trade_date.replace("-", "")
         np.save(matrices_dir / f"mu_gap_{date_num}.npy", mu_gap)
         np.save(matrices_dir / f"omega_gap_{date_num}.npy", Omega_gap)
-        v1_file = tmp_path / "v1_baseline_weights.csv"
-        pd.DataFrame([
-            {"trade_date": trade_date, "ticker": tk, "weight": 0.0}
-            for tk in JP_TICKERS
-        ]).to_csv(v1_file, index=False)
-        return v1_file
 
     def test_run_config_in_result(self, tmp_path):
         """result['run_config'] is a ProductionV2RunConfig instance."""
-        v1_file = self._make_files(tmp_path)
+        self._make_files(tmp_path)
         result = generate_v2_production_portfolio(
             trade_date="2026-06-16",
             gap_input_dir=tmp_path,
-            v1_weights_file=v1_file,
             cfg={},
         )
         assert "run_config" in result
@@ -452,12 +393,11 @@ class TestCfgPropagation:
 
     def test_custom_long_short_count_respected(self, tmp_path):
         """Custom long_count=3/short_count=3 produces exactly 3 longs and 3 shorts."""
-        v1_file = self._make_files(tmp_path)
+        self._make_files(tmp_path)
         cfg = {"portfolio": {"long_count": 3, "short_count": 3}}
         result = generate_v2_production_portfolio(
             trade_date="2026-06-16",
             gap_input_dir=tmp_path,
-            v1_weights_file=v1_file,
             cfg=cfg,
         )
         w = result["w_final"]
@@ -466,12 +406,11 @@ class TestCfgPropagation:
 
     def test_custom_baseline_gross_respected(self, tmp_path):
         """Custom baseline_gross=1.5 yields gross <= 1.5 (RuleD may reduce further)."""
-        v1_file = self._make_files(tmp_path)
+        self._make_files(tmp_path)
         cfg = {"gross_scaling": {"baseline_gross": 1.5, "multipliers": {"Low": 1.0, "Medium": 1.0, "High": 1.0}}}
         result = generate_v2_production_portfolio(
             trade_date="2026-06-16",
             gap_input_dir=tmp_path,
-            v1_weights_file=v1_file,
             cfg=cfg,
         )
         gross = float(np.sum(np.abs(result["w_final"])))
@@ -479,7 +418,7 @@ class TestCfgPropagation:
 
     def test_cost_bps_in_summary(self, tmp_path):
         """Custom cost_bps_per_gross=20.0 is reflected in summary expected_cost_bps."""
-        v1_file = self._make_files(tmp_path)
+        self._make_files(tmp_path)
         cfg = {
             "costs": {"cost_bps_per_gross": 20.0},
             "gross_scaling": {"multipliers": {"Low": 1.0, "Medium": 1.0, "High": 1.0}},
@@ -487,7 +426,6 @@ class TestCfgPropagation:
         result = generate_v2_production_portfolio(
             trade_date="2026-06-16",
             gap_input_dir=tmp_path,
-            v1_weights_file=v1_file,
             cfg=cfg,
         )
         gross = result["summary"]["target_gross"]
@@ -495,21 +433,13 @@ class TestCfgPropagation:
         assert abs(expected_cost - gross * 20.0) < 1e-9
 
     def test_fallback_flag_respected(self, tmp_path):
-        """fallback_on_gap_data_missing=True (default) activates v1 fallback when gap dir is None."""
-        import pandas as pd
-        v1_file = tmp_path / "v1_baseline_weights.csv"
-        pd.DataFrame([
-            {"trade_date": "2026-06-16", "ticker": tk, "weight": 0.0}
-            for tk in JP_TICKERS
-        ]).to_csv(v1_file, index=False)
+        """fallback_on_gap_data_missing=True (default) returns flat position when gap dir is None."""
         result = generate_v2_production_portfolio(
             trade_date="2026-06-16",
             gap_input_dir=None,
-            v1_weights_file=v1_file,
             cfg={},
         )
         assert result["fallback"]["gap_data_missing"] is True
-        assert result["fallback"]["v1_fallback_used"] is False
 
 
 # ---------------------------------------------------------------------------
@@ -527,12 +457,7 @@ class TestMacroKappaOmegaGapInflation:
         date_num = trade_date.replace("-", "")
         np.save(matrices_dir / f"mu_gap_{date_num}.npy", mu_gap)
         np.save(matrices_dir / f"omega_gap_{date_num}.npy", Omega_gap)
-        v1_file = tmp_path / "v1_baseline_weights.csv"
-        pd.DataFrame([
-            {"trade_date": trade_date, "ticker": tk, "weight": 0.0}
-            for tk in JP_TICKERS
-        ]).to_csv(v1_file, index=False)
-        return v1_file, mu_gap, Omega_gap
+        return mu_gap, Omega_gap
 
     def test_macro_kappa_disabled_by_default(self):
         rc = parse_run_config({})
@@ -551,7 +476,7 @@ class TestMacroKappaOmegaGapInflation:
         import pandas as pd
         from leadlag.models import production_v2 as pv2_mod
 
-        v1_file, mu_gap, Omega_gap_orig = self._make_files(tmp_path)
+        mu_gap, Omega_gap_orig = self._make_files(tmp_path)
 
         # Mock download_macro_prices to return synthetic data
         dates = pd.date_range("2025-01-01", "2026-06-16", freq="B")
@@ -568,7 +493,6 @@ class TestMacroKappaOmegaGapInflation:
         result = generate_v2_production_portfolio(
             trade_date="2026-06-16",
             gap_input_dir=tmp_path,
-            v1_weights_file=v1_file,
             cfg=cfg,
         )
 
@@ -586,7 +510,7 @@ class TestMacroKappaOmegaGapInflation:
         import pandas as pd
         from leadlag.models import production_v2 as pv2_mod
 
-        v1_file, _, _ = self._make_files(tmp_path)
+        _, _ = self._make_files(tmp_path)
 
         dates = pd.date_range("2025-01-01", "2026-06-16", freq="B")
         rng = np.random.default_rng(456)
@@ -602,7 +526,6 @@ class TestMacroKappaOmegaGapInflation:
         result = generate_v2_production_portfolio(
             trade_date="2026-06-16",
             gap_input_dir=tmp_path,
-            v1_weights_file=v1_file,
             cfg=cfg,
         )
 
@@ -612,11 +535,10 @@ class TestMacroKappaOmegaGapInflation:
 
     def test_disabled_does_not_inflate(self, tmp_path):
         """When macro kappa is disabled, Omega_gap is unchanged from input."""
-        v1_file, mu_gap, Omega_gap_orig = self._make_files(tmp_path)
+        mu_gap, Omega_gap_orig = self._make_files(tmp_path)
         result = generate_v2_production_portfolio(
             trade_date="2026-06-16",
             gap_input_dir=tmp_path,
-            v1_weights_file=v1_file,
             cfg={},
         )
         assert np.allclose(result["Omega_gap"], Omega_gap_orig, atol=1e-10)

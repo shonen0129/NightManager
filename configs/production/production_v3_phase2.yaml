@@ -129,15 +129,15 @@ residualization:
   topix_beta_coef: 0.6
 
 # --- v2: フォールバック階層 ---
+# 注意: v1 fallback (Residual-BLPX) は2026-07-09に廃止されました
+# gap data欠損時はflat position (w_final=0) を返します
 fallback:
   enabled: true
-  v1_weights_file: live/production_residual_blpx/v1_baseline_weights.csv
-  fallback_model: SRE
   fallback_on_audit_failure: true
   fallback_on_missing_data: true
   fallback_on_invalid_confidence_variance: true
   fallback_on_sector_prior_error: true
-  fallback_on_gap_data_missing: true
+  fallback_on_gap_data_missing: true   # gap data 欠損時に flat position を返す
 
 audit:
   enforce_signal_weighting: true
@@ -156,6 +156,5 @@ output:
   save_weights: true
   save_plots: true
   run_audit: true
-  save_v1_baseline: true
   save_pit_binning: true
   save_scores: true

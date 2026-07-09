@@ -158,14 +158,15 @@ cs_feature_overlay:
   rank_reversal_file_pattern: "matrices/rank_reversal_{date}.npy"
 
 # --- v2: フォールバック階層 ---
-# gap data 欠損時はフラットポジション（w_final=0）を返す
-# 監査失敗時も同様にフラット化
+# 注意: v1 fallback (Residual-BLPX) は2026-07-09に廃止されました
+# gap data欠損時はflat position (w_final=0) を返します
 fallback:
   enabled: true
   fallback_on_audit_failure: true
   fallback_on_missing_data: true
   fallback_on_invalid_confidence_variance: true
   fallback_on_sector_prior_error: true
+  fallback_on_gap_data_missing: true   # gap data 欠損時に flat position を返す
 
 audit:
   enforce_signal_weighting: true
@@ -186,6 +187,5 @@ output:
   save_plots: true
   run_audit: true
   # v2 追加出力
-  save_v1_baseline: true              # v1 ベースラインウェイトを v1_baseline_weights.csv に保存
   save_pit_binning: true              # PIT ビニング詳細を pit_binning.json に保存
   save_scores: true                   # mu_over_sigma スコアを production_scores.csv に保存

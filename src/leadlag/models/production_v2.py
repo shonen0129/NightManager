@@ -11,18 +11,18 @@ Public API
 parse_run_config(cfg)
     Convert a YAML cfg dict to a validated ``ProductionV2RunConfig``.
 
-generate_v2_production_portfolio(trade_date, gap_input_dir, v1_weights_file, cfg)
+generate_v2_production_portfolio(trade_date, gap_input_dir, cfg)
     Core orchestrator.  Returns a result dict including ``run_config`` for the
     writer layer.
 
 load_gap_matrices(gap_input_dir, date_str)
     Load mu_gap / Omega_gap ``.npy`` files.
 
-load_v1_fallback_weights(v1_weights_file, date_str, n_j)
-    Load v1 Residual-BLPX baseline weights.
-
 load_pit_ir_history(gap_input_dir, trade_date)
     Load historical ex-ante IR series for PIT binning.
+
+NOTE: v1 fallback mechanism was DEPRECATED on 2026-07-09 due to circular dependency.
+Gap data missing now results in flat position (w_final=0).
 """
 
 from __future__ import annotations
@@ -163,53 +163,6 @@ def load_gap_matrices(
     mu_gap = np.load(mu_file)
     Omega_gap = np.load(omega_file)
     return mu_gap, Omega_gap, alerts
-
-
-def load_v1_fallback_weights(
-    v1_weights_file: Path,
-    date_str: str,
-    n_j: int,
-) -> tuple[np.ndarray, list[str]]:
-    """Load v1 Residual-BLPX baseline weights as fallback.
-
-    Args:
-        v1_weights_file: Path to ``v1_baseline_weights.csv``.
-        date_str: Expected trade date in the file (for alignment check).
-        n_j: Number of JP tickers (determines output array length).
-
-    Returns:
-        Tuple of (w_v1 array, alerts list).
-    """
-    alerts: list[str] = []
-    w_v1 = np.zeros(n_j)
-
-    if not v1_weights_file.exists():
-        alerts.append(f"v1 weights file not found: {v1_weights_file}. Using zero weights.")
-        return w_v1, alerts
-
-    df = pd.read_csv(v1_weights_file)
-    if len(df) == 0:
-        alerts.append("v1 weights file is empty. Using zero weights.")
-        return w_v1, alerts
-
-    # Verify date alignment
-    file_date = str(df.iloc[0].get("trade_date", ""))
-    if file_date != date_str:
-        alerts.append(
-            f"v1 weights date mismatch: file has {file_date}, expected {date_str}. "
-            "Using stale v1 weights (caution)."
-        )
-
-    for _, row in df.iterrows():
-        tk = str(row.get("ticker", ""))
-        if tk in JP_TICKERS:
-            idx = JP_TICKERS.index(tk)
-            w_v1[idx] = float(row.get("weight", 0.0))
-
-    if np.sum(np.abs(w_v1)) < 1e-8:
-        alerts.append("v1 weights loaded but all zero. Using zero weights.")
-
-    return w_v1, alerts
 
 
 def load_pit_ir_history(
@@ -364,7 +317,6 @@ def _build_summary(
 def generate_v2_production_portfolio(
     trade_date: str,
     gap_input_dir: Path | None,
-    v1_weights_file: Path,
     cfg: dict,
 ) -> dict:
     """Core v2 production portfolio construction.
@@ -374,27 +326,25 @@ def generate_v2_production_portfolio(
 
     Pipeline:
       1. Parse ``cfg`` → ``ProductionV2RunConfig`` (single source of truth).
-      2. Load v1 baseline weights (fallback source + PIT IR base).
-      3. Load gap-adjusted distribution matrices (mu_gap, Omega_gap).
-      4. If gap data missing and ``run_cfg.fallback_on_gap_data_missing`` → return v1.
-      5. Ensure Omega_gap is PSD (eigenvalue repair if needed).
-      6. Compute mu_over_sigma scores.
-      7. Select top-``long_count`` long / bottom-``short_count`` short by score.
-      8. Compute pre-gross weights via ``solve_baseline_style(baseline_gross)``.
-      9. PIT binning (RuleD) using strictly historical IR history.
-      10. Apply RuleD gross multiplier (from ``run_cfg`` multiplier table).
-      11. Safety audits; if numerical audit fails and ``fallback_on_audit_failure`` → v1.
+      2. Load gap-adjusted distribution matrices (mu_gap, Omega_gap).
+      3. If gap data missing → return flat position (w_final=0).
+      4. Ensure Omega_gap is PSD (eigenvalue repair if needed).
+      5. Compute mu_over_sigma scores.
+      6. Select top-``long_count`` long / bottom-``short_count`` short by score.
+      7. Compute pre-gross weights via ``solve_baseline_style(baseline_gross)``.
+      8. PIT binning (RuleD) using strictly historical IR history.
+      9. Apply RuleD gross multiplier (from ``run_cfg`` multiplier table).
+      10. Safety audits; if numerical audit fails → return flat position.
 
     Args:
         trade_date: Execution date in 'YYYY-MM-DD' format.
         gap_input_dir: Directory containing gap distribution outputs, or None.
-        v1_weights_file: Path to ``v1_baseline_weights.csv``.
         cfg: Raw YAML config dict.  Parsed into ``ProductionV2RunConfig``
              internally; all runtime values come from here.
 
     Returns:
         Dict with keys:
-          w_final, w_v1, scores, mu_gap, sigma_gap, Omega_gap,
+          w_final, scores, mu_gap, sigma_gap, Omega_gap,
           fallback, pit_binning, leakage, numerical, alerts, summary,
           run_config (ProductionV2RunConfig — passed to writer layer)
     """
@@ -406,24 +356,18 @@ def generate_v2_production_portfolio(
     alerts: list[str] = []
     fallback = {
         "gap_data_missing": False,
-        "v1_fallback_used": False,
-        "sre_fallback_used": False,
     }
 
-    # 2. Load v1 baseline weights (always needed for PIT IR + fallback)
-    w_v1, v1_alerts = load_v1_fallback_weights(v1_weights_file, date_str, n_j)
-    alerts.extend(v1_alerts)
-
-    # 3. Load gap-adjusted distribution matrices
+    # 2. Load gap-adjusted distribution matrices
     mu_gap: np.ndarray | None = None
     Omega_gap: np.ndarray | None = None
     if gap_input_dir is not None:
         mu_gap, Omega_gap, gap_alerts = load_gap_matrices(gap_input_dir, date_str)
         alerts.extend(gap_alerts)
     else:
-        alerts.append("--gap-input-dir not specified. Using v1 fallback.")
+        alerts.append("--gap-input-dir not specified.")
 
-    # 4. Fallback: gap data missing → flat position (no trading)
+    # 3. Fallback: gap data missing → flat position (no trading)
     if mu_gap is None or Omega_gap is None:
         fallback["gap_data_missing"] = True
         logger.error(
@@ -439,7 +383,6 @@ def generate_v2_production_portfolio(
 
         return {
             "w_final": np.zeros(n_j),
-            "w_v1": w_v1.copy(),  # kept for PIT IR historical reference
             "scores": dummy_scores,
             "mu_gap": np.zeros(n_j),
             "sigma_gap": np.ones(n_j) * 0.1,
@@ -457,9 +400,9 @@ def generate_v2_production_portfolio(
             "numerical": numerical,
             "alerts": alerts,
             "summary": _build_summary(
-                w_v1, date_str, run_cfg.fallback_multiplier, "Medium",
+                np.zeros(n_j), date_str, run_cfg.fallback_multiplier, "Medium",
                 float("nan"), float("nan"), run_cfg,
-                fallback=True, candidate="v1_fallback",
+                fallback=True, candidate="flat_position",
             ),
             "run_config": run_cfg,
         }
@@ -594,15 +537,13 @@ def generate_v2_production_portfolio(
         history_ir, pit_alerts = load_pit_ir_history(gap_input_dir, date_str)
         alerts.extend(pit_alerts)
 
-    if np.sum(np.abs(w_v1)) > 1e-8:
-        p_mean_v1 = np.dot(w_v1, mu_gap)
-        p_var_v1 = np.dot(w_v1, np.dot(Omega_gap, w_v1))
-        p_vol_v1 = np.sqrt(max(0.0, p_var_v1))
-        # Ex-ante cost in decimal units
-        ex_ante_cost = run_cfg.baseline_gross * (run_cfg.cost_bps_per_gross / 10000.0)
-        current_ir = (p_mean_v1 - ex_ante_cost) / p_vol_v1 if p_vol_v1 > 1e-6 else 0.0
-    else:
-        current_ir = 0.0
+    # For PIT binning, use the baseline style weights as reference
+    p_mean_baseline = np.dot(w_pre, mu_gap)
+    p_var_baseline = np.dot(w_pre, np.dot(Omega_gap, w_pre))
+    p_vol_baseline = np.sqrt(max(0.0, p_var_baseline))
+    # Ex-ante cost in decimal units
+    ex_ante_cost = run_cfg.baseline_gross * (run_cfg.cost_bps_per_gross / 10000.0)
+    current_ir = (p_mean_baseline - ex_ante_cost) / p_vol_baseline if p_vol_baseline > 1e-6 else 0.0
 
     # Use PIT parameters from run_cfg (not hardcoded)
     assigned_bin, lo_thresh, hi_thresh, mult = get_rolling_pit_bin(
@@ -647,9 +588,9 @@ def generate_v2_production_portfolio(
 
     numerical = run_numerical_audit(w_final, scores, Omega_gap)
     if numerical["status"] == "FAILED" and run_cfg.fallback_on_audit_failure:
-        alerts.append(f"Numerical audit FAILED: {numerical}. Falling back to v1.")
-        fallback["v1_fallback_used"] = True
-        w_final = w_v1.copy()
+        alerts.append(f"Numerical audit FAILED: {numerical}. Falling back to flat position.")
+        fallback["gap_data_missing"] = True
+        w_final = np.zeros(n_j)
         numerical = run_numerical_audit(w_final, scores, Omega_gap)
     elif numerical["status"] == "FAILED":
         alerts.append(
@@ -659,13 +600,12 @@ def generate_v2_production_portfolio(
 
     summary = _build_summary(
         w_final, date_str, mult, assigned_bin, lo_thresh, hi_thresh, run_cfg,
-        fallback=fallback["v1_fallback_used"], candidate="primary_ruleD",
+        fallback=fallback["gap_data_missing"], candidate="primary_ruleD",
         scores=scores, mu_gap=mu_gap, Omega_gap=Omega_gap,
     )
 
     return {
         "w_final": w_final,
-        "w_v1": w_v1,
         "scores": scores,
         "mu_gap": mu_gap,
         "sigma_gap": sigma_gap,

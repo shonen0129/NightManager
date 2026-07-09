@@ -41,7 +41,6 @@ logger = logging.getLogger(__name__)
 def run_v2_decision(
     config_path: str | Path,
     gap_input_dir: str | Path | None = None,
-    v1_weights_file: str | Path = "live/production_residual_blpx/v1_baseline_weights.csv",
     live_dir: str | Path = "live/production_residual_blpx",
     trade_date: str | None = None,
     api_enable: bool = False,
@@ -57,7 +56,6 @@ def run_v2_decision(
     Args:
         config_path: Path to V2 production YAML config.
         gap_input_dir: Directory containing mu_gap/omega_gap .npy files.
-        v1_weights_file: Path to v1 baseline weights CSV (fallback).
         live_dir: Live output directory for V2 artifacts.
         trade_date: Trade date string (YYYY-MM-DD). Defaults to today.
         api_enable: If True, submit orders to broker API.
@@ -94,7 +92,7 @@ def run_v2_decision(
         if not gap_dir.is_absolute():
             gap_dir = ROOT / gap_dir
         if not gap_dir.exists():
-            logger.warning("Gap input dir not found: %s. Will use v1 fallback.", gap_dir)
+            logger.warning("Gap input dir not found: %s. Will use flat position.", gap_dir)
             gap_dir = None
     else:
         # Try default from config
@@ -104,13 +102,8 @@ def run_v2_decision(
             if gap_dir.exists():
                 logger.info("Using gap_distribution.dir from config: %s", gap_dir)
             else:
-                logger.warning("Config gap dir not found: %s. Will use v1 fallback.", gap_dir)
+                logger.warning("Config gap dir not found: %s. Will use flat position.", gap_dir)
                 gap_dir = None
-
-    # Resolve v1 weights file
-    v1_path = Path(v1_weights_file)
-    if not v1_path.is_absolute():
-        v1_path = ROOT / v1_path
 
     # Resolve live dir
     live_path = Path(live_dir)
@@ -122,16 +115,15 @@ def run_v2_decision(
     result = generate_v2_production_portfolio(
         trade_date=trade_date,
         gap_input_dir=gap_dir,
-        v1_weights_file=v1_path,
         cfg=cfg,
     )
 
     # Write V2 production files (latest_weights.csv, audit, etc.)
     write_production_files(trade_date, live_path, result, dry_run=False)
 
-    fallback_used = result["fallback"]["v1_fallback_used"]
+    fallback_used = result["fallback"]["gap_data_missing"]
     if fallback_used:
-        logger.warning("[V2] v1 FALLBACK activated. Using v1 baseline weights for execution.")
+        logger.warning("[V2] Gap data missing. Flat position (w_final=0) returned.")
     else:
         logger.info(
             "[V2] Portfolio OK. Bin=%s, Mult=%.2f, Gross=%.4f, IR=%.4f",

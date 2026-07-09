@@ -36,7 +36,6 @@ from leadlag.execution.v2_bridge import run_v2_decision
 run_v2_decision(
     config_path='configs/production/production.yaml',
     gap_input_dir='live/pipeline_data/gap_adjusted_distribution/latest',
-    v1_weights_file='live/production_residual_blpx/v1_baseline_weights.csv',
     live_dir='live/production_residual_blpx',
     api_enable=True,
     api_dry_run=False,

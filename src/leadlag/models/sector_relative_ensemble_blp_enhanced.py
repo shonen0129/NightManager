@@ -1046,6 +1046,7 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
             start_idx = max(self.corr_window, start_idx_raw - self.blp_window)
         else:
             start_idx = self.corr_window
+            start_idx_raw = self.corr_window
         # Determine which components to compute (skip zero-weight for speed)
         need_raw_pca = (self.raw_pca_weight > 0.0) or self.meta_enabled
         need_residual_pca = self.residual_pca_weight > 0.0
@@ -1111,7 +1112,7 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
             betas_t = np.asarray(jp_beta[i], dtype=float) if jp_beta is not None else None
             topix_night_t = float(topix_night[i]) if topix_night is not None else None
 
-            if need_raw_blpx:
+            if need_raw_blpx and (i >= start_idx_raw):
                 raw_blpx_res = self.compute_blp_signal(
                     all_returns_raw,
                     i,
@@ -1128,7 +1129,7 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
                 raw_blpx_res = {**self._ZERO_BLP_DIAGNOSTICS, "signal": np.zeros(self.n_j)}
 
             # 4. Residual-BLPX (skip if weight=0)
-            if need_residual_blpx:
+            if need_residual_blpx and (i >= start_idx_raw):
                 residual_blpx_res = self.compute_blp_signal(
                     jp_res_returns_p3,
                     i,

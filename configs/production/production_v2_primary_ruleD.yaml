@@ -133,18 +133,15 @@ residualization:
   lookahead_safe: true
 
 # --- v2: フォールバック階層 ---
-# 第1フォールバック: 旧 Residual-BLPX v1（gap data 欠損時）
-# 第2フォールバック: PCA-Ensemble（v1 も利用不可の場合）
+# 注意: v1 fallback (Residual-BLPX) は2026-07-09に廃止されました
+# gap data欠損時はflat position (w_final=0) を返します
 fallback:
   enabled: true
-  # v2 固有: gap data 欠損時は v1 ウェイトファイルを使用
-  v1_weights_file: live/production_residual_blpx/v1_baseline_weights.csv
-  fallback_model: SRE           # v1 も利用不可の場合の最終フォールバック
   fallback_on_audit_failure: true
   fallback_on_missing_data: true
   fallback_on_invalid_confidence_variance: true
   fallback_on_sector_prior_error: true
-  fallback_on_gap_data_missing: true   # v2 追加: gap data 欠損時に v1 フォールバック
+  fallback_on_gap_data_missing: true   # gap data 欠損時に flat position を返す
 
 audit:
   enforce_signal_weighting: true
@@ -165,6 +162,5 @@ output:
   save_plots: true
   run_audit: true
   # v2 追加出力
-  save_v1_baseline: true              # v1 ベースラインウェイトを v1_baseline_weights.csv に保存
   save_pit_binning: true              # PIT ビニング詳細を pit_binning.json に保存
   save_scores: true                   # mu_over_sigma スコアを production_scores.csv に保存

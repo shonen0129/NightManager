@@ -56,7 +56,7 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument("--vol-state-panel", default="live/pipeline_data/vol_state_diagnostics/20260614_115821/state_panel.csv", help="US Vol State Panel CSV path")
     parser.add_argument("--config", default="configs/production/production.yaml", help="Path to production YAML config")
     parser.add_argument("--model", default="production_residual_blpx", help="Model identifier")
-    parser.add_argument("--results-dir", default="live/pipeline_data/v1_backtest", help="Validation/weights folder")
+    parser.add_argument("--results-dir", default="live/pipeline_data/diagnostics_weights", help="Validation/weights folder")
     parser.add_argument("--output-dir", default="live/pipeline_data/gap_adjusted_distribution", help="Output directory")
     parser.add_argument("--start", default="2020-01-01", help="Start date (YYYY-MM-DD)")
     parser.add_argument("--end", default="2026-06-14", help="End date (YYYY-MM-DD)")
@@ -830,6 +830,12 @@ def main():
             
     df_port.to_csv(out_dir / "portfolio_gap_distribution_diagnostics.csv", index=False)
     
+    if not compare_pre or len(df_port) < 10:
+        logger.info("Skipping diagnostic comparison and plotting due to compare_pre_gap=False or insufficient data points.")
+        logger.info("Report and diagnostic suite executed successfully (skipped plotting/reporting).")
+        print(f"Diagnostics files written to output directory: {out_dir}")
+        return
+        
     # 6. Pre-gap vs Post-gap IR comparison
     logger.info("Computing pre-gap vs post-gap comparisons...")
     ir_columns = [
@@ -841,7 +847,7 @@ def main():
     
     # Compute rolling and expanding PIT bins
     for col_name, col_key in ir_columns:
-        df_port[f"bin_{col_name}_fullsample"] = pd.qcut(df_port[col_key], 3 if args.bin_method == "tertile" else 5, labels=["Low", "Medium", "High"] if args.bin_method == "tertile" else ["Very Low", "Low", "Medium", "High", "Very High"])
+        df_port[f"bin_{col_name}_fullsample"] = pd.qcut(df_port[col_key], 3 if args.bin_method == "tertile" else 5, labels=["Low", "Medium", "High"] if args.bin_method == "tertile" else ["Very Low", "Low", "Medium", "High", "Very High"], duplicates='drop')
         df_port[f"bin_{col_name}_rolling"] = compute_pit_bins(df_port[col_key], args.bin_method, rolling_window=args.rolling_bin_window)
         df_port[f"bin_{col_name}_expanding"] = compute_pit_bins(df_port[col_key], args.bin_method, expanding_min_window=args.expanding_min_window)
         
@@ -974,7 +980,7 @@ def main():
     # 7. Japanese Gap State interaction diagnostics
     logger.info("Computing Japanese gap state interactions...")
     # Compute tertiles of gap state variables
-    df_port["bin_pred_ir_gap"] = pd.qcut(df_port["pred_ir_gap"], 3, labels=["Low", "Medium", "High"])
+    df_port["bin_pred_ir_gap"] = pd.qcut(df_port["pred_ir_gap"], 3, labels=["Low", "Medium", "High"], duplicates='drop')
     
     gap_state_vars = [
         "mean_abs_GapOpen_filt",
@@ -985,7 +991,7 @@ def main():
     
     interaction_summary = []
     for gv in gap_state_vars:
-        df_port[f"bin_{gv}"] = pd.qcut(df_port[gv], 3, labels=["Small Gap", "Medium Gap", "Large Gap"])
+        df_port[f"bin_{gv}"] = pd.qcut(df_port[gv], 3, labels=["Small Gap", "Medium Gap", "Large Gap"], duplicates='drop')
         
         # 3x3 Grid statistics
         for ir_lbl in ["Low", "Medium", "High"]:
@@ -1003,8 +1009,8 @@ def main():
     pd.DataFrame(interaction_summary).to_csv(out_dir / "gap_state_interaction_diagnostics.csv", index=False)
     
     # Transition of IR bin from raw to gap
-    df_port["bin_pred_ir_raw"] = pd.qcut(df_port["pred_ir_raw"], 3, labels=["Low", "Medium", "High"])
-    df_port["bin_pred_ir_gap_tertile"] = pd.qcut(df_port["pred_ir_gap"], 3, labels=["Low", "Medium", "High"])
+    df_port["bin_pred_ir_raw"] = pd.qcut(df_port["pred_ir_raw"], 3, labels=["Low", "Medium", "High"], duplicates='drop')
+    df_port["bin_pred_ir_gap_tertile"] = pd.qcut(df_port["pred_ir_gap"], 3, labels=["Low", "Medium", "High"], duplicates='drop')
     
     transition_matrix = df_port.groupby(["bin_pred_ir_raw", "bin_pred_ir_gap_tertile"])["net_return"].agg(["count", "mean", "std"])
     transition_matrix = transition_matrix.reset_index()
@@ -1069,7 +1075,7 @@ def main():
         for v_col in vol_cols:
             if v_col == "VIX_level":
                 continue
-            df_port[f"bin_{v_col}"] = pd.qcut(df_port[v_col].fillna(0.0), 3, labels=["Low State", "Medium State", "High State"])
+            df_port[f"bin_{v_col}"] = pd.qcut(df_port[v_col].fillna(0.0), 3, labels=["Low State", "Medium State", "High State"], duplicates='drop')
             
             # Cross-tabulation
             for ir_lbl in ["Low", "Medium", "High"]:

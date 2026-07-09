@@ -81,11 +81,6 @@ def parse_arguments() -> argparse.Namespace:
         help="Directory containing mu_gap_{YYYYMMDD}.npy and omega_gap_{YYYYMMDD}.npy",
     )
     p.add_argument(
-        "--v1-weights-file",
-        default="live/production_residual_blpx/v1_baseline_weights.csv",
-        help="Path to v1 baseline weights CSV (fallback when gap data missing)",
-    )
-    p.add_argument(
         "--live-dir",
         default="live/production_residual_blpx",
         help="Live output directory",
@@ -189,11 +184,6 @@ def main() -> None:
     live_dir = (
         ROOT / args.live_dir if not args.live_dir.startswith("/") else Path(args.live_dir)
     )
-    v1_weights_file = (
-        ROOT / args.v1_weights_file
-        if not args.v1_weights_file.startswith("/")
-        else Path(args.v1_weights_file)
-    )
 
     gap_input_dir: Path | None = None
     if args.gap_input_dir:
@@ -206,7 +196,7 @@ def main() -> None:
             gap_input_dir = gap_path
         else:
             logger.warning(
-                "--gap-input-dir does not exist: %s. Will use v1 fallback.", gap_path
+                "--gap-input-dir does not exist: %s. Will use flat position.", gap_path
             )
     else:
         # Try default from config
@@ -222,7 +212,7 @@ def main() -> None:
                 logger.info("Using gap_distribution.dir from config: %s", gap_path)
             else:
                 logger.warning(
-                    "Config gap_distribution.dir not found: %s. Will use v1 fallback.",
+                    "Config gap_distribution.dir not found: %s. Will use flat position.",
                     gap_path,
                 )
 
@@ -245,14 +235,12 @@ def main() -> None:
 
     logger.info("Trade date: %s", trade_date)
     logger.info("Gap input dir: %s", gap_input_dir)
-    logger.info("v1 weights file: %s", v1_weights_file)
     logger.info("Live dir: %s", live_dir)
 
     # Run core logic (delegated to the package)
     result = generate_v2_production_portfolio(
         trade_date=trade_date,
         gap_input_dir=gap_input_dir,
-        v1_weights_file=v1_weights_file,
         cfg=cfg,
     )
 
@@ -265,11 +253,11 @@ def main() -> None:
         result["leakage"]["status"] == "PASSED"
         and result["numerical"]["status"] == "PASSED"
     )
-    fallback_used = result["fallback"]["v1_fallback_used"]
+    fallback_used = result["fallback"]["gap_data_missing"]
 
     if fallback_used:
         logger.warning(
-            "[%s] Production v2 COMPLETED with v1 FALLBACK. Gross=%.4f  Leakage=%s  Numerical=%s",
+            "[%s] Production v2 COMPLETED with flat position (gap data missing). Gross=%.4f  Leakage=%s  Numerical=%s",
             trade_date,
             float(np.sum(np.abs(result["w_final"]))),
             result["leakage"]["status"],
