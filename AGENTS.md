@@ -6,7 +6,7 @@
 
 - **本番モデル**: `ProductionV2Model` (Residual-BLPX-RA v2) — `src/leadlag/models/production_v2.py`
   - BLPX 構造化投影シグナル + gap調整予測分布 + `mu_over_sigma` ランキング + RuleD 動的グロス（PIT三分位: Low→0.75x, Mid/High→1.00x）
-- **フォールバック階層**: v2 → Residual-BLPX v1 (`sector_relative_ensemble_blp.py`) → PCA-Ensemble (`sre.py`)
+- **フォールバック**: gapデータ欠損時・監査失敗時は **フラットポジション（w_final=0）** を返す（V1フォールバックは2026-07に廃止）
 - **本番config**: `configs/production/production.yaml`（正本）。`production_v2_primary_ruleD.yaml` は旧版（overnight holding・multi-horizon blend・rank reversal overlay 未含む）
 - **アーキテクチャ詳細**: `docs/ARCHITECTURE.md`、数理仕様: `docs/モデル技術仕様書.md`
 
@@ -34,7 +34,7 @@
    - このリポジトリには過去の実験config・スクリプトが大量にあり（`archive/experiments/` 約30本）、同一ヒストリー上での反復選択が既に多い。**新パラメータ追加は原則避け、追加時はパラメータ±摂動の感度分析と Deflated Sharpe（試行回数補正）を必ずレポートに含める**
    - ウォークフォワード検証（先例: `reports/phase3_walkforward_validation_report.md`）で OOS 確認
 4. **シャドー運用**: 昇格前に `tools/validation/monitor_residual_blpx_shadow_performance.py` / `shadow_runs/` でライブ整合を確認
-5. **本番昇格**: `configs/production/` の config 更新 + フォールバック階層の維持 + `docs/ARCHITECTURE.md` のリファクタリング履歴へ追記
+5. **本番昇格**: `configs/production/` の config 更新 + `docs/ARCHITECTURE.md` のリファクタリング履歴へ追記
 6. **レポート**: `reports/<sprint名>/` に markdown で結果を残す（既存 sprint0–3b の形式に倣う）
 
 ## 既知の落とし穴（コードレビュー指摘済み）
@@ -45,6 +45,7 @@
 - **金利コスト日割り**: `backtester.py` は `annual/365` を営業日課金 → 週末分が過小。オーバーナイト保有の実験では暦日補正を検討
 - **VaR99 の不安定性**: 250日窓の99%は尾部標本 ~2.5個。stop 判定の変更時は注意
 - **ハング既知パターン**（CLI実行時）: yfinance ダウンロード、`cache.py` の fcntl ファイルロック、`close.py` の auto-close 無限待機、API再試行バックオフ。詳細は `docs/スタック再発防止策.md`。長時間実行はタイムアウト付きで
+- **yfinanceのティッカー別NaN欠損**: yfinanceダウンロード時に特定ティッカー（IJR等）のデータが日付以降全てNaNになることがある。`preprocess_data()` のNaNチェック（`preprocessor.py:264-272`）で1ティッカーでもNaNがあると該当日の全レコードがスキップされ、df_execが途中で切断される。`etf_data.pkl` の異常は `preprocess_data` 呼び出し前に検査・修正すること
 - **config dictのshallow copy**: `base_cfg.copy()` はネストした dict（`cfg["blpx"]` 等）を共有参照する。比較実験で2つのモデルに異なるconfigを渡す際は `copy.deepcopy(base_cfg)` を使うこと。shallow copy だと一方の変更が他方に伝播し、両モデルが同一設定になる（実例: Robust PCA 比較実験で両モデルが Robust PCA 有効化されシグナルが完全一致した）
 
 ## よく使うコマンド
@@ -73,3 +74,4 @@ python3 _check_syntax.py
 - 「Sharpe改善なし」の結論も価値がある（例: Health Score によるサイズ調整は検証の結果不採用、`docs/ARCHITECTURE.md` Phase 9 参照）。不採用の実験も必ずレポート化して二重検証を防ぐ
 - **不採用実験の記録**（再検証防止用）:
   - **Robust PCA伝播行列**（2026-07）: B_struct を低ランク+スパース分解（L+S）で置換する方針を検証。セクター事前知識（M_sector）とPCA事前分布（B_pca）の統合が失われ、confidence weighting の inv_A_tikh も単位行列フォールバックになった結果、Sharpe -35%、IC -32%と大幅劣化。チューニングでは埋められない構造的欠陥が原因。コードは全て破棄済み
+  - **V1フォールバック廃止**（2026-07）: gapデータ欠損時のV1ウェイトフォールバックを廃止しフラットポジション化。理由: (1) `production_v2_writer.py` がV2実行のたびに `v1_baseline_weights.csv` を `w_v1` で上書きする循環参照があり、V1ウェイトが新規計算されず凍結化していた (2) 一度ゼロになると永久にゼロになる（実例あり） (3) データパイプライン障害時に古いシグナルで取引するより取引を見送る方がリスク管理として健全
