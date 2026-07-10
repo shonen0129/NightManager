@@ -12,9 +12,8 @@ import glob
 import numpy as np
 import pandas as pd
 import scipy.stats as stats
-import yfinance as yf
-
 from leadlag.data.cache import load_df_exec_from_local_cache, load_intraday_cache
+from leadlag.data.fetcher import _yf_download_with_timeout
 from leadlag.data.tickers import JP_TICKERS, US_TICKERS, TOPIX_TICKER
 from leadlag.models.sector_relative_ensemble_blp_enhanced import SectorRelativeEnsembleBLPEnhancedModel
 from leadlag.models.sre import compute_jp_target_returns
@@ -455,7 +454,12 @@ def run_sprint0_calculations(
     # Download Volume from yfinance
     logger.info("Downloading daily trading Volume and Close prices from yfinance for liquidity diagnostics...")
     start_yf = sim_dates.min().strftime("%Y-%m-%d")
-    yf_data = yf.download(JP_TICKERS, start=start_yf, end=sim_dates.max().strftime("%Y-%m-%d"), auto_adjust=False)
+    yf_data = _yf_download_with_timeout(
+        tickers=JP_TICKERS,
+        start=start_yf,
+        end=sim_dates.max().strftime("%Y-%m-%d"),
+        auto_adjust=False,
+    )
     
     volume_df = yf_data["Volume"].reindex(sim_dates).ffill()
     close_df = yf_data["Close"].reindex(sim_dates).ffill()

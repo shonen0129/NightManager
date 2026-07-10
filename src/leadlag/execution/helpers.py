@@ -803,6 +803,7 @@ def fetch_fill_prices(
         return order_results
 
     eigyou_day = datetime.now().strftime("%Y%m%d")
+    logger.info("[HEARTBEAT] Waiting %.1f seconds before fetching fill prices", wait_seconds)
     time.sleep(wait_seconds)
 
     for result in order_results:

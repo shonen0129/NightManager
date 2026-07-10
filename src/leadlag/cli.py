@@ -351,14 +351,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                 logger.info("Fast decision completed. Output: %s", result_path)
 
                 if args.auto_close:
-                    from leadlag.execution.close import wait_and_auto_close
-
-                    wait_and_auto_close(
-                        api_client=api_client,
-                        output_dir=output_dir,
-                        auto_close_time=args.auto_close_time,
-                        dry_run=args.api_dry_run,
-                        close_position_order=args.close_position_order,
+                    logger.warning(
+                        "--auto-close is no longer supported inside the decision subcommand. "
+                        "Use the separate 'close' subcommand (scheduled via launchd/cron) instead."
                     )
             finally:
                 if api_client is not None:
@@ -385,28 +380,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
 
             if args.auto_close:
-                from leadlag.execution.close import wait_and_auto_close
-                from leadlag.execution.helpers import build_api_client, build_output_dir
-
-                api_client = None
-                output_dir = build_output_dir(
-                    args.output_root, args.run_tag, run_name="production_decision"
+                logger.warning(
+                    "--auto-close is no longer supported inside the decision subcommand. "
+                    "Use the separate 'close' subcommand (scheduled via launchd/cron) instead."
                 )
-                try:
-                    if args.api_enable:
-                        api_client = build_api_client(
-                            args.api_url, args.api_token, args.api_dry_run
-                        )
-                        wait_and_auto_close(
-                            api_client=api_client,
-                            output_dir=output_dir,
-                            auto_close_time=args.auto_close_time,
-                            dry_run=args.api_dry_run,
-                            close_position_order=args.close_position_order,
-                        )
-                finally:
-                    if api_client is not None:
-                        api_client.close()
 
     elif args.command == "backtest":
         from leadlag.execution.backtest import run_production

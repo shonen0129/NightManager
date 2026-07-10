@@ -11,9 +11,8 @@ import os
 import numpy as np
 import pandas as pd
 import scipy.stats as stats
-import yfinance as yf
-
 from leadlag.data.cache import load_df_exec_from_local_cache, load_intraday_cache
+from leadlag.data.fetcher import _yf_download_with_timeout
 from leadlag.data.tickers import JP_TICKERS, US_TICKERS, TOPIX_TICKER
 from research.diagnostics.sprint0 import run_sprint0_calculations, find_latest_distribution_diagnostics
 
@@ -439,7 +438,12 @@ def run_qa6_capacity_units(
 ) -> dict:
     """QA 6: Capacity calculation unit audit by ticker."""
     logger.info("Downloading daily price and volume data from yfinance for Capacity unit check...")
-    yf_data = yf.download(JP_TICKERS, start=valid_dates_beta.min().strftime("%Y-%m-%d"), end=valid_dates_beta.max().strftime("%Y-%m-%d"), auto_adjust=False)
+    yf_data = _yf_download_with_timeout(
+        tickers=JP_TICKERS,
+        start=valid_dates_beta.min().strftime("%Y-%m-%d"),
+        end=valid_dates_beta.max().strftime("%Y-%m-%d"),
+        auto_adjust=False,
+    )
     
     volume_df = yf_data["Volume"].reindex(valid_dates_beta).ffill()
     close_df = yf_data["Close"].reindex(valid_dates_beta).ffill()
@@ -506,7 +510,12 @@ def run_qa7_cost_consistency(
     aum_scenarios = [100000000, 1000000000, 10000000000] # 100M, 1B, 10B JPY
     
     # Reload ADV
-    yf_data = yf.download(JP_TICKERS, start=valid_dates_beta.min().strftime("%Y-%m-%d"), end=valid_dates_beta.max().strftime("%Y-%m-%d"), auto_adjust=False)
+    yf_data = _yf_download_with_timeout(
+        tickers=JP_TICKERS,
+        start=valid_dates_beta.min().strftime("%Y-%m-%d"),
+        end=valid_dates_beta.max().strftime("%Y-%m-%d"),
+        auto_adjust=False,
+    )
     volume_df = yf_data["Volume"].reindex(valid_dates_beta).ffill()
     close_df = yf_data["Close"].reindex(valid_dates_beta).ffill()
     adtv_daily = volume_df * close_df

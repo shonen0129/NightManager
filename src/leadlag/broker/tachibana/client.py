@@ -212,17 +212,30 @@ class TachibanaBrokerClient(BrokerClient):
         returns: dict[str, float] = {}
         failed: list[str] = []
 
+        import threading
+
         for ticker in us_tickers:
             try:
                 t_obj = yf.Ticker(ticker)
-                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-                    future = executor.submit(t_obj.history, period="5d")
+                result_box: dict = {}
+
+                def _worker(_tobj=t_obj):
                     try:
-                        hist = future.result(timeout=_YF_TIMEOUT)
-                    except concurrent.futures.TimeoutError:
-                        logger.error("yfinance history() timed out for %s after %ds", ticker, _YF_TIMEOUT)
-                        failed.append(ticker)
-                        continue
+                        result_box["value"] = _tobj.history(period="5d")
+                    except Exception as e:
+                        result_box["error"] = e
+
+                th = threading.Thread(target=_worker, daemon=True)
+                th.start()
+                th.join(timeout=_YF_TIMEOUT)
+
+                if th.is_alive():
+                    logger.error("yfinance history() timed out for %s after %ds", ticker, _YF_TIMEOUT)
+                    failed.append(ticker)
+                    continue
+                if "error" in result_box:
+                    raise result_box["error"]
+                hist = result_box["value"]
 
                 if len(hist) >= 2:
                     last_close = hist["Close"].iloc[-1]

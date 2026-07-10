@@ -242,6 +242,7 @@ def wait_and_auto_close(
     auto_close_time: str,
     dry_run: bool = False,
     close_position_order: int = 0,
+    max_wait_hours: float = 6.0,
 ) -> None:
     """Wait until ``auto_close_time`` and automatically close all positions.
 
@@ -251,6 +252,9 @@ def wait_and_auto_close(
         auto_close_time: Time to close positions (HH:MM format)
         dry_run: If True, simulate without actual submission
         close_position_order: Close priority (0-7) for credit repayment
+        max_wait_hours: Maximum wall-clock hours to wait before aborting.
+            Prevents a decision process launched far before the close time
+            from running indefinitely.
     """
     config = load_config_from_yaml()
     alpha_long = config.strategy.overnight_alpha_long
@@ -284,6 +288,17 @@ def wait_and_auto_close(
         return
 
     wait_seconds = (target - now).total_seconds()
+    max_wait_seconds = max_wait_hours * 3600.0
+    if wait_seconds > max_wait_seconds:
+        logger.error(
+            "Auto-close time %s is %.1f hours in the future ( exceeds max_wait_hours=%.1f ). "
+            "Aborting in-process wait. Run the 'close' subcommand separately instead.",
+            auto_close_time,
+            wait_seconds / 3600.0,
+            max_wait_hours,
+        )
+        return
+
     logger.info(
         "=== AUTO-CLOSE SCHEDULED ===\n"
         "  Positions will be automatically closed at %s\n"
@@ -300,10 +315,12 @@ def wait_and_auto_close(
         if remaining <= 0:
             break
         if remaining <= check_interval:
+            logger.info("[HEARTBEAT] Auto-close: sleeping final %.0f seconds", remaining)
             time_module.sleep(remaining)
             break
+        logger.info("[HEARTBEAT] Auto-close: sleeping %d seconds (%.0f minutes remaining)",
+                    check_interval, remaining / 60)
         time_module.sleep(check_interval)
-        logger.info("  Auto-close countdown: %.0f minutes remaining", remaining / 60)
 
     logger.info("=== AUTO-CLOSE EXECUTION ===")
     close_all_positions(

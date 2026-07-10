@@ -1004,7 +1004,7 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
         vix_series = None
         if self.meta_enabled:
             from pathlib import Path
-            macro_path = Path("/Users/shonen/日米ラグ/market_data/macro_data.pkl")
+            macro_path = Path(__file__).resolve().parents[3] / "market_data" / "macro_data.pkl"
             if macro_path.exists():
                 try:
                     macro_df = pd.read_pickle(macro_path)

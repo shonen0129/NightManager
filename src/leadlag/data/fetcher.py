@@ -13,10 +13,10 @@ Public API::
 
 from __future__ import annotations
 
-import concurrent.futures
 import io
 import logging
 import os
+import threading
 from datetime import datetime
 
 import numpy as np
@@ -32,23 +32,34 @@ def _yf_download_with_timeout(timeout: int = _YF_DOWNLOAD_TIMEOUT_SECONDS, **kwa
     """Wrap yf.download with a timeout to prevent indefinite hangs.
 
     yfinance does not support a native timeout parameter, so we run it in a
-    background thread and cancel if it exceeds ``timeout`` seconds.
+    daemon background thread and abandon it if it exceeds ``timeout`` seconds.
     """
-    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-        future = executor.submit(yf.download, **kwargs)
+    result_box: dict = {}
+
+    def _worker() -> None:
         try:
-            return future.result(timeout=timeout)
-        except concurrent.futures.TimeoutError:
-            logger.error(
-                "yf.download timed out after %ds (tickers=%s). "
-                "Yahoo Finance may be rate-limiting or unavailable.",
-                timeout,
-                kwargs.get("tickers", "?"),
-            )
-            raise TimeoutError(
-                f"yf.download exceeded {timeout}s timeout — "
-                "Yahoo Finance may be rate-limiting or under maintenance."
-            )
+            result_box["value"] = yf.download(**kwargs)
+        except Exception as e:
+            result_box["error"] = e
+
+    t = threading.Thread(target=_worker, daemon=True)
+    t.start()
+    t.join(timeout=timeout)
+
+    if t.is_alive():
+        logger.error(
+            "yf.download timed out after %ds (tickers=%s). "
+            "Yahoo Finance may be rate-limiting or unavailable.",
+            timeout,
+            kwargs.get("tickers", "?"),
+        )
+        raise TimeoutError(
+            f"yf.download exceeded {timeout}s timeout — "
+            "Yahoo Finance may be rate-limiting or under maintenance."
+        )
+    if "error" in result_box:
+        raise result_box["error"]
+    return result_box["value"]
 
 from leadlag.data.cache import (
     etf_pkl_path,
