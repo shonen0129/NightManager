@@ -17,15 +17,18 @@ import time as time_module
 from datetime import datetime
 
 from leadlag.broker.base import BrokerClient
-from leadlag.core.types import OrderRequest, OrderSide, OrderType
+from leadlag.core.types import OrderRequest, OrderSide, OrderStatus, OrderType
 from leadlag.data.tickers import lot_size_for
 from leadlag.execution.config import load_config_from_yaml
 from leadlag.execution.helpers import (
+    SPLIT_DELAY_SECONDS,
     build_api_client,
     build_output_dir,
+    fetch_fill_prices,
     save_position_snapshot,
     save_wallet_snapshot,
     save_daily_journal,
+    split_large_orders,
 )
 
 logger = logging.getLogger(__name__)
@@ -135,8 +138,8 @@ def close_all_positions(
                 "exchange": pos.exchange or 27,
                 "side": close_side_str,
                 "quantity": close_qty,
-                "margin_trade_type": pos.margin_trade_type or margin_trade_type,
-                "account_type": pos.account_type or account_type,
+                "margin_trade_type": pos.margin_trade_type,
+                "account_type": pos.account_type,
                 "order_type": "CLO",
                 "original_side": pos.side,
                 "original_price": pos.price,
@@ -194,13 +197,20 @@ def close_all_positions(
             )
             summary["close_results"].append(simulated)
     else:
-        logger.info("[LIVE MODE] Submitting position close orders...")
+        # Split large 1629.T close orders into immediate + delayed batches
+        # close_order_requests already contains OrderRequest objects with metadata
+        immediate_close, delayed_close = split_large_orders(close_order_requests)
+
+        immediate_requests = list(immediate_close)
+
+        logger.info("[LIVE MODE] Submitting %d position close orders...", len(immediate_requests))
         close_results = api_client.submit_orders_batch(
-            close_order_requests,
+            immediate_requests,
             delay_ms=250,
             is_close=True,
             close_position_order=close_position_order,
         )
+        first_batch_failed = False
         for result in close_results:
             logger.info(
                 "  [CLOSE SUBMITTED] %s: %d shares (Order ID: %s)",
@@ -218,6 +228,64 @@ def close_all_positions(
                     "message": result.message,
                 }
             )
+            if result.status == OrderStatus.FAILED:
+                first_batch_failed = True
+
+        # Delayed close batch (1629.T second half)
+        if delayed_close:
+            if first_batch_failed:
+                logger.warning(
+                    "[DELAYED CLOSE] Skipping %d delayed close order(s) — first batch had failures",
+                    len(delayed_close),
+                )
+                for req in delayed_close:
+                    summary["close_results"].append({
+                        "order_id": "",
+                        "status": "SKIPPED",
+                        "ticker": req.ticker,
+                        "side": req.side.value,
+                        "quantity": req.quantity,
+                        "message": "Skipped due to first batch failure",
+                        "delayed": True,
+                    })
+            else:
+                delayed_requests = list(delayed_close)
+                logger.info(
+                    "[DELAYED CLOSE] Waiting %d seconds before submitting %d delayed close order(s)...",
+                    SPLIT_DELAY_SECONDS, len(delayed_requests),
+                )
+                time_module.sleep(SPLIT_DELAY_SECONDS)
+                logger.info("[DELAYED CLOSE] Submitting %d delayed close orders...", len(delayed_requests))
+                delayed_results = api_client.submit_orders_batch(
+                    delayed_requests,
+                    delay_ms=250,
+                    is_close=True,
+                    close_position_order=close_position_order,
+                )
+                for result in delayed_results:
+                    logger.info(
+                        "  [DELAYED CLOSE SUBMITTED] %s: %d shares (Order ID: %s)",
+                        result.ticker,
+                        result.quantity,
+                        result.order_id,
+                    )
+                    summary["close_results"].append(
+                        {
+                            "order_id": result.order_id,
+                            "status": result.status.value,
+                            "ticker": result.ticker,
+                            "side": result.side.value,
+                            "quantity": result.quantity,
+                            "message": result.message,
+                            "delayed": True,
+                        }
+                    )
+
+    # Fetch fill prices for close orders (約定価格取得)
+    if not dry_run and summary["close_results"]:
+        from leadlag.broker.dry_run import DryRunBrokerClient
+        if not isinstance(api_client, DryRunBrokerClient):
+            fetch_fill_prices(api_client, summary["close_results"], wait_seconds=5.0)
 
     log_path = os.path.join(output_dir, "close_execution_log.json")
     with open(log_path, "w", encoding="utf-8") as f:

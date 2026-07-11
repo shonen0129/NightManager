@@ -235,18 +235,29 @@ class TestOrderRequestPropagation:
     """Test that margin_trade_type and account_type are propagated to OrderRequest."""
 
     def test_margin_trade_type_propagated(self):
-        """Position with margin_trade_type=1 (制度) should propagate to OrderRequest."""
+        """Position with margin_trade_type=1 (制度) should propagate to OrderRequest.
+
+        Note: 1629.T x300 >= 100 threshold → split into 2 batches (150+150).
+        Both batches should carry margin_trade_type=1.
+        """
         positions = [_make_position("1629.T", "SELL", 300, margin_trade_type=1, account_type=4)]
         client = MockBrokerClient(positions)
         with tempfile.TemporaryDirectory() as tmpdir:
-            from leadlag.execution.close import close_all_positions
-            close_all_positions(
-                client, tmpdir, dry_run=False,
-                overnight_alpha_long=0.0, overnight_alpha_short=0.0,
-            )
-        assert len(client.submitted) == 1
-        assert client.submitted[0].margin_trade_type == 1
-        assert client.submitted[0].account_type == 4
+            import leadlag.execution.close as close_mod
+            _orig_sleep = close_mod.time_module.sleep
+            close_mod.time_module.sleep = lambda *a, **kw: None
+            try:
+                from leadlag.execution.close import close_all_positions
+                close_all_positions(
+                    client, tmpdir, dry_run=False,
+                    overnight_alpha_long=0.0, overnight_alpha_short=0.0,
+                )
+            finally:
+                close_mod.time_module.sleep = _orig_sleep
+        assert len(client.submitted) == 2  # split into 2 batches
+        for req in client.submitted:
+            assert req.margin_trade_type == 1
+            assert req.account_type == 4
 
     def test_margin_trade_type_default_when_none(self):
         """Position with margin_trade_type=None should not set it on OrderRequest."""

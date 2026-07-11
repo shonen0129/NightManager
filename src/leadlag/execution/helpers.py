@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 import os
 from dataclasses import asdict
 from datetime import datetime
@@ -24,10 +25,12 @@ from leadlag.core.types import (
     OrderRequest,
     OrderResult,
     OrderSide,
+    OrderStatus,
     OrderType,
     RiskConfig,
 )
 from leadlag.data.cache import get_hist_returns_for_risk as _get_hist_returns_for_risk
+from leadlag.data.tickers import lot_size_for
 from leadlag.execution.config import StrategyConfig as ProductionConfig
 from leadlag.execution.config import load_config_from_yaml
 from leadlag.models.sre import SectorRelativeEnsembleModel
@@ -307,6 +310,66 @@ def save_decision_output(
 # Order submission via broker
 # ---------------------------------------------------------------------------
 
+SPLIT_TICKER = "1629.T"
+SPLIT_THRESHOLD = 100
+SPLIT_DELAY_SECONDS = 60
+
+
+def split_large_orders(
+    orders: list[OrderRequest],
+) -> tuple[list[OrderRequest], list[OrderRequest]]:
+    """Split large orders for SPLIT_TICKER into immediate and delayed batches.
+
+    Only applies when qty >= SPLIT_THRESHOLD (100 shares). Smaller orders
+    are kept in the immediate batch unchanged. All OrderRequest fields
+    (including margin_trade_type and account_type) are preserved.
+
+    Returns:
+        (immediate_orders, delayed_orders)
+    """
+    immediate: list[OrderRequest] = []
+    delayed: list[OrderRequest] = []
+    for req in orders:
+        ticker = req.ticker
+        side = req.side
+        qty = req.quantity
+        if ticker == SPLIT_TICKER and qty >= SPLIT_THRESHOLD:
+            lot = lot_size_for(SPLIT_TICKER)
+            first_qty = (qty // 2 // lot) * lot
+            second_qty = qty - first_qty
+            if first_qty > 0 and second_qty > 0:
+                logger.info(
+                    "[SPLIT] %s: splitting %d shares → first=%d (immediate), second=%d (delayed %ds)",
+                    ticker, qty, first_qty, second_qty, SPLIT_DELAY_SECONDS,
+                )
+                immediate.append(
+                    OrderRequest(
+                        ticker=req.ticker,
+                        side=req.side,
+                        quantity=first_qty,
+                        order_type=req.order_type,
+                        limit_price=req.limit_price,
+                        margin_trade_type=req.margin_trade_type,
+                        account_type=req.account_type,
+                    )
+                )
+                delayed.append(
+                    OrderRequest(
+                        ticker=req.ticker,
+                        side=req.side,
+                        quantity=second_qty,
+                        order_type=req.order_type,
+                        limit_price=req.limit_price,
+                        margin_trade_type=req.margin_trade_type,
+                        account_type=req.account_type,
+                    )
+                )
+            else:
+                immediate.append(req)
+        else:
+            immediate.append(req)
+    return immediate, delayed
+
 
 def submit_orders_via_api(
     decision_df: pd.DataFrame,
@@ -440,7 +503,9 @@ def submit_orders_via_api(
             })
 
     # --- Phase 2: Submit new orders (新規) after close orders ---
-    new_order_requests = [
+    # 1629.T (商社・卸売, lot_size=10) の大口注文は価格インパクトを抑えるため
+    # 2分割し、第1弾を即時発注、第2弾を60秒後に発注する
+    new_order_requests_pre = [
         OrderRequest(
             ticker=ticker,
             side=side,
@@ -449,9 +514,13 @@ def submit_orders_via_api(
         )
         for ticker, side, qty in new_orders
     ]
-    expected_orders_count = len(close_order_requests) + len(new_order_requests)
+    immediate_orders, delayed_orders = split_large_orders(new_order_requests_pre)
+
+    new_order_requests = list(immediate_orders)
+    expected_orders_count = len(close_order_requests) + len(immediate_orders) + len(delayed_orders)
     summary["expected_orders_count"] = expected_orders_count
 
+    first_batch_failed = False
     if new_order_requests:
         logger.info("[NEW PHASE] Submitting %d new (新規) orders...", len(new_order_requests))
         results = api_client.submit_orders_batch(new_order_requests, delay_ms=250)
@@ -477,6 +546,62 @@ def submit_orders_via_api(
                 summary["buy_results"].append(result_dict)
             elif side == "SELL":
                 summary["sell_results"].append(result_dict)
+            if result.status == OrderStatus.FAILED:
+                first_batch_failed = True
+
+    # --- Phase 2b: Submit delayed orders (1629.T second batch) ---
+    if delayed_orders:
+        if first_batch_failed:
+            logger.warning(
+                "[DELAYED PHASE] Skipping %d delayed order(s) — first batch had failures",
+                len(delayed_orders),
+            )
+            for req in delayed_orders:
+                result_dict = {
+                    "order_id": "",
+                    "status": "SKIPPED",
+                    "ticker": req.ticker,
+                    "side": req.side.value,
+                    "quantity": req.quantity,
+                    "message": "Skipped due to first batch failure",
+                    "delayed": True,
+                }
+                if req.side == OrderSide.BUY:
+                    summary["buy_results"].append(result_dict)
+                elif req.side == OrderSide.SELL:
+                    summary["sell_results"].append(result_dict)
+        else:
+            delayed_requests = list(delayed_orders)
+            logger.info(
+                "[DELAYED PHASE] Waiting %d seconds before submitting %d delayed order(s)...",
+                SPLIT_DELAY_SECONDS, len(delayed_requests),
+            )
+            time.sleep(SPLIT_DELAY_SECONDS)
+            logger.info("[DELAYED PHASE] Submitting %d delayed (新規) orders...", len(delayed_requests))
+            delayed_results = api_client.submit_orders_batch(delayed_requests, delay_ms=250)
+            for result in delayed_results:
+                side = result.side.value
+                logger.info(
+                    "  [DELAYED %s] %s: %d shares (Order ID: %s, Status: %s)",
+                    side,
+                    result.ticker,
+                    result.quantity,
+                    result.order_id,
+                    result.status.value,
+                )
+                result_dict = {
+                    "order_id": result.order_id,
+                    "status": result.status.value,
+                    "ticker": result.ticker,
+                    "side": side,
+                    "quantity": result.quantity,
+                    "message": result.message,
+                    "delayed": True,
+                }
+                if side == "BUY":
+                    summary["buy_results"].append(result_dict)
+                elif side == "SELL":
+                    summary["sell_results"].append(result_dict)
 
     submitted_orders_count = len(summary["buy_results"]) + len(summary["sell_results"]) + len(summary["close_results"])
     summary["submitted_orders_count"] = submitted_orders_count
@@ -791,8 +916,6 @@ def fetch_fill_prices(
     Returns:
         Enriched order_results with fill information.
     """
-    import time
-
     from leadlag.broker.tachibana.client import TachibanaBrokerClient
 
     if not isinstance(api_client, TachibanaBrokerClient):
