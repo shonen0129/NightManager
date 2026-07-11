@@ -505,7 +505,7 @@ def submit_orders_via_api(
     # --- Phase 2: Submit new orders (新規) after close orders ---
     # 1629.T (商社・卸売, lot_size=10) の大口注文は価格インパクトを抑えるため
     # 2分割し、第1弾を即時発注、第2弾を60秒後に発注する
-    new_order_requests_pre = [
+    unsplit_new_order_requests = [
         OrderRequest(
             ticker=ticker,
             side=side,
@@ -514,7 +514,7 @@ def submit_orders_via_api(
         )
         for ticker, side, qty in new_orders
     ]
-    immediate_orders, delayed_orders = split_large_orders(new_order_requests_pre)
+    immediate_orders, delayed_orders = split_large_orders(unsplit_new_order_requests)
 
     new_order_requests = list(immediate_orders)
     expected_orders_count = len(close_order_requests) + len(immediate_orders) + len(delayed_orders)
@@ -541,6 +541,7 @@ def submit_orders_via_api(
                 "side": side,
                 "quantity": result.quantity,
                 "message": result.message,
+                "delayed": False,
             }
             if side == "BUY":
                 summary["buy_results"].append(result_dict)

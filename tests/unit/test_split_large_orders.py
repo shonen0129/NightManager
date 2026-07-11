@@ -7,9 +7,10 @@ from __future__ import annotations
 
 import tempfile
 
+import pandas as pd
 from leadlag.broker.base import BrokerClient, Position
 from leadlag.core.types import OrderRequest, OrderResult, OrderSide, OrderStatus, OrderType
-from leadlag.execution.helpers import split_large_orders
+from leadlag.execution.helpers import split_large_orders, submit_orders_via_api
 
 
 def _req(ticker: str, side: OrderSide, qty: int, mtt: int | None = None, at: int | None = None) -> OrderRequest:
@@ -134,6 +135,99 @@ class TestSplitLargeOrders:
         imm, delayed = split_large_orders(orders)
         assert imm[0].quantity == 150
         assert delayed[0].quantity == 155
+
+
+class TestSubmitOrdersViaApiSplit:
+    """Test that submit_orders_via_api splits 1629.T new orders."""
+
+    def _make_decision_df(self, rows: list[tuple[str, str, int]]) -> pd.DataFrame:
+        return pd.DataFrame(rows, columns=["ticker", "action", "quantity"])
+
+    def test_1629_large_new_order_split_into_two_batches(self):
+        """1629.T BUY 300 → 150 immediate + 150 delayed."""
+        decision_df = self._make_decision_df([("1629.T", "BUY", 300)])
+        client = _MockBroker([])
+        import leadlag.execution.helpers as helpers_mod
+        _orig_sleep = helpers_mod.time.sleep
+        helpers_mod.time.sleep = lambda *a, **kw: None
+        try:
+            with tempfile.TemporaryDirectory() as tmpdir:
+                submit_orders_via_api(decision_df, client, tmpdir)
+        finally:
+            helpers_mod.time.sleep = _orig_sleep
+        assert len(client.batches) == 2
+        assert client.batches[0][0].quantity == 150
+        assert client.batches[1][0].quantity == 150
+
+    def test_1629_first_batch_failure_skips_delayed(self):
+        """If immediate batch fails, delayed batch should be skipped."""
+        decision_df = self._make_decision_df([("1629.T", "BUY", 300)])
+        client = _FailingMockBroker([])
+        import leadlag.execution.helpers as helpers_mod
+        _orig_sleep = helpers_mod.time.sleep
+        helpers_mod.time.sleep = lambda *a, **kw: None
+        try:
+            with tempfile.TemporaryDirectory() as tmpdir:
+                summary = submit_orders_via_api(decision_df, client, tmpdir)
+        finally:
+            helpers_mod.time.sleep = _orig_sleep
+        # Only first batch attempted; delayed skipped
+        assert len(client.batches) == 1
+        assert len(summary["buy_results"]) == 2  # FAILED + SKIPPED
+        assert summary["buy_results"][0]["status"] == "FAILED"
+        assert summary["buy_results"][1]["status"] == "SKIPPED"
+
+
+class _FailingMockBroker(BrokerClient):
+    """Mock that fails every immediate batch order."""
+
+    def __init__(self, positions: list[Position]) -> None:
+        self._positions = positions
+        self.batches: list[list[OrderRequest]] = []
+
+    def get_positions(self, **filters) -> list[Position]:
+        return list(self._positions)
+
+    def get_wallet(self) -> object:
+        raise NotImplementedError
+
+    def fetch_open_prices(self, tickers, allow_missing=False) -> dict:
+        return {}
+
+    def fetch_us_etf_returns(self, us_tickers, start_date, end_date) -> object:
+        raise NotImplementedError
+
+    def health_check(self) -> bool:
+        return True
+
+    def submit_order(self, order: OrderRequest, *, is_close=False, close_position_order=0) -> OrderResult:
+        return OrderResult(
+            order_id="MOCK-001",
+            status=OrderStatus.FAILED,
+            ticker=order.ticker,
+            side=order.side,
+            quantity=order.quantity,
+            order_type=order.order_type,
+            message="Mock failure",
+        )
+
+    def submit_orders_batch(self, orders, *, delay_ms=250, is_close=False, close_position_order=0) -> list[OrderResult]:
+        self.batches.append(list(orders))
+        return [
+            OrderResult(
+                order_id="MOCK-001",
+                status=OrderStatus.FAILED,
+                ticker=o.ticker,
+                side=o.side,
+                quantity=o.quantity,
+                order_type=o.order_type,
+                message="Mock failure",
+            )
+            for o in orders
+        ]
+
+    def close(self) -> None:
+        pass
 
 
 class TestCloseSplitIntegration:

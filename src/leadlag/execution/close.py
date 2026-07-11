@@ -296,10 +296,11 @@ def close_all_positions(
         1 for r in summary["close_results"]
         if r.get("status") != "FAILED"
     )
+    total_close_orders = len(summary["close_results"])
     logger.info(
         "Position close completed: %d/%d orders submitted",
         success_count,
-        len(close_order_requests),
+        total_close_orders,
     )
     return summary
 
