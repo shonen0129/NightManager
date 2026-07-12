@@ -38,6 +38,7 @@ from leadlag.config.schemas import ProductionV2RunConfig
 from leadlag.core.macro import (
     MACRO_NAMES,
     MACRO_SENS_MATRIX,
+    compute_macro_direction_adjustment,
     compute_macro_surprise,
     compute_sigma_yy_inflation,
     download_macro_prices,
@@ -125,6 +126,7 @@ def parse_run_config(cfg: dict) -> ProductionV2RunConfig:
         macro_kappas=tuple(portfolio_cfg.get("macro_kappas", [3.0, 0.5, 0.5])),
         macro_surprise_halflife_mean=float(portfolio_cfg.get("macro_surprise_halflife_mean", 20.0)),
         macro_surprise_halflife_vol=float(portfolio_cfg.get("macro_surprise_halflife_vol", 60.0)),
+        macro_direction_enabled=portfolio_cfg.get("macro_direction_enabled", False),
     )
 
 
@@ -413,8 +415,8 @@ def generate_v2_production_portfolio(
         Omega_gap = Omega_gap + (abs(min_eig) + 1e-8) * np.eye(n_j)
         alerts.append("Omega_gap repaired to PSD.")
 
-    # 5a. Macro Factor-Kappa: Inflate Omega_gap based on macro surprise
-    if run_cfg.macro_kappa_enabled:
+    # 5a. Macro adjustments (Omega_gap inflation and/or directional mu_gap adjustment)
+    if run_cfg.macro_kappa_enabled or run_cfg.macro_direction_enabled:
         try:
             macro_start = (pd.to_datetime(date_str) - pd.Timedelta(days=365 * 2)).strftime("%Y-%m-%d")
             macro_end = date_str
@@ -431,33 +433,53 @@ def generate_v2_production_portfolio(
                     halflife_vol=run_cfg.macro_surprise_halflife_vol,
                 )
                 surprise_t = surprise[-1:]  # (1, n_macro) — use only the latest day
-
                 kappas_arr = np.array(run_cfg.macro_kappas, dtype=float)
-                scales_t = compute_sigma_yy_inflation(
-                    surprise_t, kappas_arr, MACRO_SENS_MATRIX,
-                )  # (1, n_j)
-                d = np.sqrt(scales_t[0])  # (n_j,)
 
-                Omega_gap = Omega_gap * np.outer(d, d)
-                alerts.append(
-                    f"Macro kappa Omega_gap inflation applied: "
-                    f"scales_mean={float(np.mean(scales_t[0])):.3f}, "
-                    f"scales_max={float(np.max(scales_t[0])):.3f}"
-                )
-                logger.info(
-                    "[%s] Macro kappa: Omega_gap inflated. "
-                    "surprise=%s, scales_mean=%.3f, scales_max=%.3f",
-                    date_str,
-                    np.round(surprise_t[0], 3),
-                    float(np.mean(scales_t[0])),
-                    float(np.max(scales_t[0])),
-                )
+                # Factor-Kappa: inflate Omega_gap (|surprise| × |sensitivity|)
+                if run_cfg.macro_kappa_enabled:
+                    scales_t = compute_sigma_yy_inflation(
+                        surprise_t, kappas_arr, MACRO_SENS_MATRIX,
+                    )  # (1, n_j)
+                    d = np.sqrt(scales_t[0])  # (n_j,)
+                    Omega_gap = Omega_gap * np.outer(d, d)
+                    alerts.append(
+                        f"Macro kappa Omega_gap inflation applied: "
+                        f"scales_mean={float(np.mean(scales_t[0])):.3f}, "
+                        f"scales_max={float(np.max(scales_t[0])):.3f}"
+                    )
+                    logger.info(
+                        "[%s] Macro kappa: Omega_gap inflated. "
+                        "surprise=%s, scales_mean=%.3f, scales_max=%.3f",
+                        date_str,
+                        np.round(surprise_t[0], 3),
+                        float(np.mean(scales_t[0])),
+                        float(np.max(scales_t[0])),
+                    )
+
+                # Directional adjustment: signed surprise × signed sensitivity on mu_gap
+                if run_cfg.macro_direction_enabled:
+                    dir_adj_t = compute_macro_direction_adjustment(
+                        surprise_t, kappas_arr, MACRO_SENS_MATRIX,
+                    )  # (1, n_j)
+                    mu_gap = mu_gap * dir_adj_t[0]
+                    alerts.append(
+                        f"Macro direction adjustment applied: "
+                        f"adj_mean={float(np.mean(dir_adj_t[0])):.3f}, "
+                        f"adj_std={float(np.std(dir_adj_t[0])):.3f}"
+                    )
+                    logger.info(
+                        "[%s] Macro direction: mu_gap adjusted. "
+                        "adj_mean=%.3f, adj_std=%.3f",
+                        date_str,
+                        float(np.mean(dir_adj_t[0])),
+                        float(np.std(dir_adj_t[0])),
+                    )
             else:
-                alerts.append("Macro kappa enabled but data insufficient; skipping.")
-                logger.warning("[%s] Macro kappa: data insufficient (%d rows).", date_str, len(close_prices) if close_prices is not None else 0)
+                alerts.append("Macro enabled but data insufficient; skipping.")
+                logger.warning("[%s] Macro: data insufficient (%d rows).", date_str, len(close_prices) if close_prices is not None else 0)
         except Exception as e:
-            alerts.append(f"Macro kappa inflation failed: {e}")
-            logger.warning("[%s] Macro kappa inflation failed: %s", date_str, e)
+            alerts.append(f"Macro adjustment failed: {e}")
+            logger.warning("[%s] Macro adjustment failed: %s", date_str, e)
 
     # 6. Compute mu_over_sigma scores
     sigma_gap = np.sqrt(np.maximum(np.diag(Omega_gap), 1e-6))

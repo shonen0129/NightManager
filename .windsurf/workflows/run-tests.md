@@ -8,13 +8,22 @@ description: pytest でユニットテスト・統合テストを実行し、リ
 
 ## 手順
 
-1. 全テスト実行:
+1. 全テスト実行（並列・推奨、約8分）:
+
+```
+// turbo
+bash scripts/run_tests_parallel.sh
+```
+
+7プロセス並行実行: 重いテスト4つ（sprint0_diagnostics, sprint0_qa, sprint1::backtest, sprint1::calibration）を各1プロセスに分散し、残りをpytest-xdistで並列化。ログは `/tmp/pytest_parallel/` に出力。
+
+2. 全テスト実行（直列・非推奨、約32分）:
 
 ```
 python3 -m pytest tests/ -v
 ```
 
-2. 個別実行（必要に応じて）:
+3. 個別実行（必要に応じて）:
 
 ```
 # リーク監査テスト
@@ -27,7 +36,7 @@ python3 -m pytest tests/integration/test_production_residual_blpx.py -v
 python3 -m pytest tests/unit/test_backtester_910.py -v
 ```
 
-3. 構文チェック（CLIスタック防止）:
+4. 構文チェック（CLIスタック防止）:
 
 ```
 python3 _check_syntax.py

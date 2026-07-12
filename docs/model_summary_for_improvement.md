@@ -48,12 +48,13 @@
     $$A = \Sigma_{XX} + \rho \cdot \text{mean}(\text{diag}(\Sigma_{XX})) \cdot I_{15}$$
 
 ### 2.3 構造的縮小（Structured Shrinkage）
-基本BLPX予測行列 $B_{\text{blp}} = \Sigma_{YX} A^{-1} \in \mathbb{R}^{17 \times 15}$ に対し、ノイズの低減と事前知識の注入のために以下の構造的縮小（凸結合）を行う。
-$$B_{\text{struct}} = (1 - \lambda_{\text{pca}} - \lambda_{\text{sector}}) B_{\text{blp}} + \lambda_{\text{pca}} B_{\text{pca\_scaled}} + \lambda_{\text{sector}} B_{\text{sector\_scaled}}$$
-*   **本番設定パラメータ**: $\lambda_{\text{pca}} = 0.10, \lambda_{\text{sector}} = 0.40$
+基本BLPX予測行列 $B_{\text{blp}} = \Sigma_{YX} A^{-1} \in \mathbb{R}^{17 \times 15}$ に対し、ノイズの低減と事前知識の注入のために多ターゲットTikhonov正則化を行う。
+$$A_{\text{tikh}} = \Sigma_{XX}^{\text{reg}} + (\rho \cdot \bar{d} + \lambda_{\text{pca}} + \lambda_{\text{sector}}) I$$
+$$B_{\text{struct}} = (\Sigma_{YX}^{\text{reg}} + \lambda_{\text{pca}} B_{\text{pca}} + \lambda_{\text{sector}} M_{\text{sector}}) \, A_{\text{tikh}}^{-1}$$
+*   **本番設定パラメータ**: $\lambda_{\text{pca}} = 0.10, \lambda_{\text{sector}} = 0.60$
 *   **PCA事前分布 $B_{\text{pca}}$**: 後述する部分空間正則化PCA（6成分）から算出される予測伝播行列。
-*   **セクター事前分布 $B_{\text{sector}}$**: 日米の類似業種を1対1で対応させた固定マッピング行列 $M_{\text{sector}}$。
-*   ※ 各事前分布行列は、Frobeniusノルムが基本予測行列 $\|B_{\text{blp}}\|_F$ と一致するように事前にスケール調整される。
+*   **セクター事前分布 $M_{\text{sector}}$**: 日米の類似業種を1対1で対応させた固定マッピング行列。
+*   ※ Frobeniusノルムスケーリングは2026-07のバックテスト比較で非採用（raw priorsが優位: net Sharpe 8.35 vs 8.03）。Tikhonov定式化では共分散構造を通じた正則化が行われるため、凸結合で必要なノルム正規化は不要。
 
 この構造化予測行列を用いて、日本側の予測Zスコア期待値を算出する：
 $$\hat{z}_{J,t+1} = B_{\text{struct}} z_{U,t}$$

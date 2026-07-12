@@ -56,16 +56,21 @@ class _BLPBase(BaseModel):
             columns=lambda c: c.replace("jp_oc_", "")
         )
 
-        topix_cc_trade = (
-            df_exec["topix_cc_trade"].values
-            if "topix_cc_trade" in df_exec.columns
-            else df_exec["topix_night_return"].values + df_exec["topix_oc_return"].values
-        )
+        # Use open-to-close TOPIX return for residualization (same time window as target).
+        # Falls back to close-to-close if topix_oc_return is unavailable.
+        if "topix_oc_return" in df_exec.columns:
+            topix_for_beta = df_exec["topix_oc_return"].values
+        else:
+            topix_for_beta = (
+                df_exec["topix_cc_trade"].values
+                if "topix_cc_trade" in df_exec.columns
+                else df_exec["topix_night_return"].values + df_exec["topix_oc_return"].values
+            )
 
         betas_jp_p3 = compute_rolling_ols_betas(
-            y_jp_target, topix_cc_trade.reshape(-1, 1), self.beta_window
+            y_jp_target, topix_for_beta.reshape(-1, 1), self.beta_window
         )
-        y_residuals_p3 = y_jp_target - betas_jp_p3[:, :, 0] * topix_cc_trade.reshape(-1, 1)
+        y_residuals_p3 = y_jp_target - betas_jp_p3[:, :, 0] * topix_for_beta.reshape(-1, 1)
 
         jp_res_returns_p3 = all_returns_raw.copy()
         jp_res_returns_p3[:, self.n_u :] = y_residuals_p3

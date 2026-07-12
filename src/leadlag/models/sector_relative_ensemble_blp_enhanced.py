@@ -105,6 +105,7 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
         self.lambda_pca = float(self._resolve_val("lambda_pca", 0.0))
         self.lambda_sector = float(self._resolve_val("lambda_sector", 0.0))
         self.beta_conf = float(self._resolve_val("beta_conf", 0.0))
+        self.frobenius_scale_priors = bool(self._resolve_val("frobenius_scale_priors", False))
 
         winsor_val = self._resolve_val("winsor_sigma", None)
         if winsor_val is not None and str(winsor_val).lower() != "none":
@@ -506,8 +507,12 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
         B_pca: np.ndarray,
         M_sector: np.ndarray,
         diag_mean: float,
+        B_blp: np.ndarray | None = None,
     ) -> tuple[np.ndarray, np.ndarray]:
         """Multi-target Tikhonov regularization solve.
+
+        When frobenius_scale_priors is True, B_pca and M_sector are scaled to
+        match ||B_blp||_F before being added to the RHS, per the model spec.
 
         Returns (B_struct, inv_A_tikh).
         """
@@ -518,9 +523,21 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
             l_pca = (self.lambda_pca / lambda_sum) * 0.75
             l_sec = (self.lambda_sector / lambda_sum) * 0.75
 
+        B_pca_used = B_pca
+        M_sector_used = M_sector
+        if self.frobenius_scale_priors and B_blp is not None:
+            b_blp_norm = np.linalg.norm(B_blp, "fro")
+            b_pca_norm = np.linalg.norm(B_pca, "fro")
+            m_sector_norm = np.linalg.norm(M_sector, "fro")
+            if b_blp_norm > 1e-12:
+                if b_pca_norm > 1e-12:
+                    B_pca_used = B_pca * (b_blp_norm / b_pca_norm)
+                if m_sector_norm > 1e-12:
+                    M_sector_used = M_sector * (b_blp_norm / m_sector_norm)
+
         lambda_tikh = self.rho * diag_mean + l_pca + l_sec
         A_tikh = Sigma_XX_reg + lambda_tikh * np.eye(self.n_u)
-        rhs = Sigma_YX_reg + l_pca * B_pca + l_sec * M_sector
+        rhs = Sigma_YX_reg + l_pca * B_pca_used + l_sec * M_sector_used
 
         B_struct, inv_A_tikh, _ = self._safe_solve_inv(A_tikh, rhs, label="A_tikh")
         return B_struct, inv_A_tikh
@@ -672,6 +689,7 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
         C_YY: np.ndarray,
         B_pca: np.ndarray,
         M_sector: np.ndarray,
+        B_blp: np.ndarray | None = None,
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """Solve BLP coefficients separately for positive and negative regimes.
 
@@ -686,10 +704,10 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
         diag_mean = float(np.mean(np.diag(Sigma_XX_reg)))
 
         B_pos_struct, inv_A_pos = self._solve_tikhonov(
-            Sigma_XX_reg, Sigma_YX_reg_pos, B_pca, M_sector, diag_mean
+            Sigma_XX_reg, Sigma_YX_reg_pos, B_pca, M_sector, diag_mean, B_blp
         )
         B_neg_struct, inv_A_neg = self._solve_tikhonov(
-            Sigma_XX_reg, Sigma_YX_reg_neg, B_pca, M_sector, diag_mean
+            Sigma_XX_reg, Sigma_YX_reg_neg, B_pca, M_sector, diag_mean, B_blp
         )
 
         inv_A_avg = 0.5 * (inv_A_pos + inv_A_neg)
@@ -730,7 +748,7 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
         M_sector = self._get_sector_prior(current_index, all_returns, corr, B_blp)
         diag_mean = float(np.mean(np.diag(Sigma_XX_reg)))
         B_struct, inv_A_tikh = self._solve_tikhonov(
-            Sigma_XX_reg, Sigma_YX_reg, B_pca, M_sector, diag_mean
+            Sigma_XX_reg, Sigma_YX_reg, B_pca, M_sector, diag_mean, B_blp
         )
 
         # 5. Predict standardized JP returns
@@ -749,7 +767,7 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
         if self.asymmetry_mode == "covariance":
             C_YX_pos, C_YX_neg, C_XX, C_YY = self._estimate_asymmetric_covariance(window_returns, corr)
             B_pos_struct, B_neg_struct, inv_A_tikh, Sigma_YX_reg = self._solve_asymmetric_blp(
-                C_YX_pos, C_YX_neg, C_XX, C_YY, B_pca, M_sector
+                C_YX_pos, C_YX_neg, C_XX, C_YY, B_pca, M_sector, B_blp
             )
             z_hat_j_t1 = B_pos_struct @ z_U_pos + B_neg_struct @ z_U_neg_scaled
             B_struct_diag = 0.5 * (B_pos_struct + B_neg_struct)

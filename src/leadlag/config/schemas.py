@@ -225,3 +225,6 @@ class ProductionV2RunConfig(BaseModel):
     macro_kappas: tuple[float, float, float] = Field(default=(3.0, 0.5, 0.5), description="因子別kappa [USDJPY, CLF, TNX]")
     macro_surprise_halflife_mean: float = Field(default=20.0, ge=1.0, description="EWMA平均推定半減期")
     macro_surprise_halflife_vol: float = Field(default=60.0, ge=1.0, description="EWMAボラティリティ推定半減期")
+
+    # --- Macro Directional Adjustment (signed surprise × signed sensitivity) ---
+    macro_direction_enabled: bool = Field(default=False, description="符号付きマクロサプライズによる方向調整有効フラグ")
