@@ -319,13 +319,15 @@ def main():
     if save_mh and mh_horizons:
         from leadlag.models.sector_relative_ensemble_blp_enhanced import (
             _BLP_CORR_CACHE,
-            _RAW_PCA_RESIDUAL_PCA_CACHE,
+            _RAW_PCA_CACHE,
+            _RESIDUAL_PCA_CACHE,
         )
         for h in mh_horizons:
             logger.info(f"Setting up multi-horizon model for h={h}...")
             df_exec_h = compute_cumulative_returns(df_exec, h)
             _BLP_CORR_CACHE.clear()
-            _RAW_PCA_RESIDUAL_PCA_CACHE.clear()
+            _RAW_PCA_CACHE.clear()
+            _RESIDUAL_PCA_CACHE.clear()
             model_h = SectorRelativeEnsembleBLPEnhancedModel(cfg)
             inputs_h = model_h._prepare_common_inputs(df_exec_h)
             mh_models[h] = model_h
