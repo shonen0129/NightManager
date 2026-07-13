@@ -156,6 +156,8 @@ def preprocess_data(
         df_exec DataFrame indexed by trade_date
     """
     us_c = data["us_close"].copy()
+    if isinstance(us_c, pd.DataFrame):
+        us_c = us_c[US_TICKERS].copy()
     jp_c = data["jp_close"].copy()
     jp_o = data["jp_open"].copy()
 

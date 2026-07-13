@@ -8,10 +8,10 @@ description: pytest でユニットテスト・統合テストを実行し、リ
 
 ## 手順
 
+// turbo
 1. 全テスト実行（並列・推奨、約8分）:
 
 ```
-// turbo
 bash scripts/run_tests_parallel.sh
 ```
 
@@ -44,7 +44,7 @@ python3 _check_syntax.py
 
 ## 注意事項
 
-- unit 26本 + integration テストが全て通ることを確認
+- unit + integration の全テストが通ることを確認（並列実行時は `/tmp/pytest_parallel/` の全ログで failed=0 を確認）
 - テストを弱めたり削除したりしない
 - `ComplianceAuditor` の監査項目（`check_pit_binning_lookahead`, `check_residualization_leakage` 等）を無効化しない
 - `python3 -c "..."` はスタックしやすいので避け、スクリプト経由で実行すること

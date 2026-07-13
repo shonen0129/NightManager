@@ -61,9 +61,9 @@ description: バックテスト結果をAGENTS.mdの約束事に沿った標準m
 - Long/Short balance: <特徴>
 
 ### フォールバック分析
-- v2 発動率: x.x%
-- v1 (Residual-BLPX) フォールバック率: x.x%
-- PCA-Ensemble フォールバック率: x.x%
+（V1フォールバックは2026-07に廃止。現行はフラットポジション w_final=0 のみ）
+- フラットポジション発動率: x.x%（gapデータ欠損 / 監査失敗の内訳）
+- PIT履歴不足による fallback_multiplier 適用率: x.x%
 - フォールバック要因: <理由>
 
 ## 監査結果

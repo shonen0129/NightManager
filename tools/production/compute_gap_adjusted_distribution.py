@@ -66,6 +66,7 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument("--save-daily-matrices", type=str, default="true", help="Save daily matrices (true/false)")
     parser.add_argument("--compare-pre-gap", type=str, default="true", help="Compare with pre-gap metrics (true/false)")
     parser.add_argument("--save-multi-horizon", type=str, default="true", help="Save h=3/h=5 gap matrices for multi-horizon blend (true/false)")
+    parser.add_argument("--cumulative-method", choices=["sum", "cumprod"], default="cumprod", help="Method for multi-horizon cumulative returns")
     parser.add_argument("--save-rank-reversal", type=str, default="true", help="Save daily rank reversal signal for CS overlay (true/false)")
     parser.add_argument("--mh-horizons", type=str, default="3,5", help="Comma-separated multi-horizon days to compute")
     parser.add_argument("--self-test", action="store_true", help="Run self-tests and exit")
@@ -127,11 +128,18 @@ def compute_pit_bins(series: pd.Series, bin_method: str, rolling_window: int = N
     return bins
 
 
-def compute_cumulative_returns(df_exec: pd.DataFrame, horizon: int) -> pd.DataFrame:
+def compute_cumulative_returns(
+    df_exec: pd.DataFrame,
+    horizon: int,
+    method: str = "cumprod",
+) -> pd.DataFrame:
     """Create a modified df_exec with cumulative h-day returns for US and JP.
 
     Used for multi-horizon signal blending (Phase 2A).
-    Rolling sum over *horizon* days for all return columns.
+    For ``method="cumprod"`` (default) the exact compounded return is used:
+        (1 + r_1) * (1 + r_2) * ... * (1 + r_h) - 1
+    For ``method="sum"`` the legacy simple-sum approximation is retained for
+    comparison/backward compatibility.
     """
     from leadlag.data.tickers import US_TICKERS as _US_TICKERS
     df_mod = df_exec.copy()
@@ -139,22 +147,26 @@ def compute_cumulative_returns(df_exec: pd.DataFrame, horizon: int) -> pd.DataFr
     us_cols = [f"us_cc_{tk}" for tk in _US_TICKERS]
     jp_oc_cols = [f"jp_oc_{tk}" for tk in JP_TICKERS]
     jp_gap_cols = [f"jp_gap_{tk}" for tk in JP_TICKERS]
+    return_cols = us_cols + jp_oc_cols + jp_gap_cols + [
+        "topix_night_return", "topix_oc_return", "topix_cc_trade"
+    ]
 
-    for col in us_cols:
-        if col in df_exec.columns:
-            df_mod[col] = df_exec[col].rolling(horizon).sum()
+    if method == "cumprod":
+        def _cumprod_window(x):
+            return np.prod(1.0 + x) - 1.0
 
-    for col in jp_oc_cols:
-        if col in df_exec.columns:
-            df_mod[col] = df_exec[col].rolling(horizon).sum()
-
-    for col in jp_gap_cols:
-        if col in df_exec.columns:
-            df_mod[col] = df_exec[col].rolling(horizon).sum()
-
-    for col in ["topix_night_return", "topix_oc_return", "topix_cc_trade"]:
-        if col in df_exec.columns:
-            df_mod[col] = df_exec[col].rolling(horizon).sum()
+        for col in return_cols:
+            if col in df_exec.columns:
+                df_mod[col] = (
+                    df_exec[col]
+                    .rolling(horizon, min_periods=horizon)
+                    .apply(_cumprod_window, raw=True)
+                )
+    else:
+        # Legacy simple-sum approximation
+        for col in return_cols:
+            if col in df_exec.columns:
+                df_mod[col] = df_exec[col].rolling(horizon).sum()
 
     return df_mod
 
@@ -324,7 +336,7 @@ def main():
         )
         for h in mh_horizons:
             logger.info(f"Setting up multi-horizon model for h={h}...")
-            df_exec_h = compute_cumulative_returns(df_exec, h)
+            df_exec_h = compute_cumulative_returns(df_exec, h, method=args.cumulative_method)
             _BLP_CORR_CACHE.clear()
             _RAW_PCA_CACHE.clear()
             _RESIDUAL_PCA_CACHE.clear()

@@ -22,7 +22,7 @@
 
 1. **ルックアヘッド禁止**: すべてのローリング統計・ベータ・PITビニングは strictly historical。`ComplianceAuditor`（`src/leadlag/compliance/auditor.py`, `v2_auditor.py`）の監査項目（`check_pit_binning_lookahead`, `check_residualization_leakage` 等）を無効化しない
 2. **ベースライン期間の分離**: 事前分布・基準相関 `c_full` は 2010–2014 固定（`compute_baseline_correlation`）。バックテスト `start_date` は 2015-01-05 以降を維持。`_prepare_residual_prior` のフォールバック（先頭1260行）が発動する構成は作らない
-3. **テストを弱めない**: `python3 -m pytest tests/ -v` を変更後必ず通す。unit 26本 + integration（`test_leakage_audit.py`, `test_production_residual_blpx.py` 等）
+3. **テストを弱めない**: 変更後必ず全テストを通す。推奨は並列実行 `bash scripts/run_tests_parallel.sh`（約8分、ログは `/tmp/pytest_parallel/`）。直列 `python3 -m pytest tests/ -v` は約32分。unit + integration（`test_leakage_audit.py`, `test_production_residual_blpx.py` 等）
 4. **市場中立制約**: net exposure ±0.05、gross ≤ 2.0（RuleD 適用後）。リスク正本は `src/leadlag/core/risk.py`、グロス調整正本は `src/leadlag/core/portfolio.py::adjust_gross_exposure()`
 5. **ティッカー定義**: `src/leadlag/data/tickers.py` が単一正本（N_U=15, N_J=17, 計32次元）。`core/correlation.py` の感応度ラベル `w3`–`w6` は32次元ハードコードなので、ユニバース変更時は必ず同時更新
 
@@ -51,7 +51,10 @@
 ## よく使うコマンド
 
 ```bash
-# テスト
+# テスト（並列・推奨、約8分）
+bash scripts/run_tests_parallel.sh
+
+# テスト（直列、約32分）
 python3 -m pytest tests/ -v
 
 # 日次本番実行（v2）
@@ -60,8 +63,11 @@ python3 tools/production/run_daily_production_v2.py
 # gap調整分布の事前計算（v2 の入力）
 python3 tools/production/compute_gap_adjusted_distribution.py
 
-# 本番バックテスト
-python3 scripts/backtest/run_production_backtest.py
+# 本番バックテスト（対応引数: --config / --start-date / --output-dir のみ）
+python3 src/research/scripts/backtest/run_production_backtest.py
+
+# CLI経由バックテスト（--slippage-bps 等の追加引数はこちら）
+python3 -m leadlag.cli backtest --start-date 2015-01-05
 
 # 構文チェック（CLIスタック防止: python3 -c は使わずスクリプト経由で）
 python3 _check_syntax.py

@@ -90,7 +90,7 @@ python3 -m pytest tests/integration/test_production_residual_blpx.py -v
 
 ### v2監査失敗時
 
-- `run_numerical_audit` が FAILED の場合、`fallback_on_audit_failure=True` ならフラットポジションにフォールバック（`production_v2.py:590-594`）
+- `run_numerical_audit` が FAILED の場合、`fallback_on_audit_failure=True` ならフラットポジション（w_final=0）にフォールバック（`production_v2.py` の numerical audit 判定部）
 - `fallback_on_audit_failure=False` の場合は v2 ウェイトを保持し alerts に記録
 
 ## 出力ファイル
