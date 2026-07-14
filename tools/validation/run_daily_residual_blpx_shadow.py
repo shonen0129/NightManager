@@ -25,6 +25,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 from leadlag.data.tickers import JP_TICKERS
+from leadlag.models.production_v2 import load_pit_ir_history
 
 logging.basicConfig(
     level=logging.INFO,
@@ -507,19 +508,17 @@ def generate_daily_shadow_portfolio(
     if gap_input_dir is not None:
         diag_file = gap_input_dir / "portfolio_gap_distribution_diagnostics.csv"
         if diag_file.exists():
-            df_diag = pd.read_csv(diag_file)
-            df_diag["trade_date"] = pd.to_datetime(df_diag["trade_date"]).dt.strftime("%Y-%m-%d")
-            # Slice historical IRs before trade_date
-            df_hist = df_diag[df_diag["trade_date"] < date_str]
-            history_ir = df_hist["pred_ir_gap_exante_cost"].values
+            history_ir, pit_alerts = load_pit_ir_history(gap_input_dir, date_str)
+            alerts.extend(pit_alerts)
             history_count = len(history_ir)
             
             # Reconstruct current ex-ante IR of baseline portfolio
             p_mean_base = np.dot(w_base_final, mu_gap)
             p_var_base = np.dot(w_base_final, np.dot(Omega_gap, w_base_final))
             p_vol_base = np.sqrt(max(0.0, p_var_base))
-            # 20 bps ex-ante execution cost
-            current_ir = (p_mean_base - 0.002) / p_vol_base if p_vol_base > 1e-6 else 0.0
+            # Ex-ante cost consistent with production_v2.py
+            ex_ante_cost = baseline_gross * (cost_bps / 10000.0)
+            current_ir = (p_mean_base - ex_ante_cost) / p_vol_base if p_vol_base > 1e-6 else 0.0
             
             assigned_bin, low_thresh, high_thresh, mult_RuleD = get_rolling_pit_bin(history_ir, current_ir, rolling_window=252)
             if history_count >= 252:

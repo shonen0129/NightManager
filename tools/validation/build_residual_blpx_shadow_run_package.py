@@ -90,6 +90,7 @@ def run_self_tests() -> int:
     for dt in dates:
         diag_records.append({
             "trade_date": dt,
+            "pred_ir_gap_baseline_cost": 2.0,
             "pred_ir_gap_exante_cost": 2.0
         })
     pd.DataFrame(diag_records).to_csv(temp_out / "portfolio_gap_distribution_diagnostics.csv", index=False)
