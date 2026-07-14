@@ -11,25 +11,14 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from leadlag.core import signal as signals
 from leadlag.core.correlation import (
-    build_base_vectors,
-    build_v3_static,
-    compute_baseline_correlation,
     compute_correlation,
     get_static_sensitivity_labels,
 )
-from leadlag.core.residualize import compute_rolling_ols_betas
-from leadlag.data.preprocessor import compute_us_residualized_returns
 from leadlag.data.tickers import JP_TICKERS, US_TICKERS
 from leadlag.models.base import BaseModel
 
 logger = logging.getLogger(__name__)
-
-_COMMON_INPUTS_CACHE = {}
-_PRODUCTION_SIGNAL_CACHE = {}
-_RESIDUAL_SIGNAL_CACHE = {}
-_RESIDUAL_PRIOR_CACHE = {}
 
 
 def compute_jp_target_returns(df_exec: pd.DataFrame, jp_tickers: list[str]) -> np.ndarray:
@@ -149,6 +138,12 @@ class SectorRelativeEnsembleModel(BaseModel):
         self.borrow_fee_annual = self._resolve_val("borrow_fee_annual", 0.0)
         self.reverse_fee_bps = self._resolve_val("reverse_fee_bps", 0.0)
 
+        # Per-instance caches (replaces module-level globals for thread safety)
+        self._common_inputs_cache: dict = {}
+        self._production_signal_cache: dict = {}
+        self._residual_signal_cache: dict = {}
+        self._residual_prior_cache: dict = {}
+
     def _prepare_common_inputs(self, df_exec: pd.DataFrame) -> dict:
         """Prepare and compute arrays and target matrices common to backtesting and live run."""
         cache_key = (
@@ -162,114 +157,31 @@ class SectorRelativeEnsembleModel(BaseModel):
             self.us_res_gamma,
             self.us_res_beta_window,
         )
-        global _COMMON_INPUTS_CACHE
-        if cache_key in _COMMON_INPUTS_CACHE:
-            cached_val = _COMMON_INPUTS_CACHE[cache_key]
+        if cache_key in self._common_inputs_cache:
+            cached_val = self._common_inputs_cache[cache_key]
             self.v0_static_obj = cached_val["v0_static"]
             return cached_val.copy()
 
-        sim_dates = df_exec.index
-
-        # Target returns for JP on trade_date (D_t+1)
         y_jp_target = compute_jp_target_returns(df_exec, JP_TICKERS)
 
-        # Build all_returns_raw: US columns are us_cc_* (on D_t), JP columns are y_jp_target (on D_t+1)
-        us_returns_raw = df_exec[[f"us_cc_{tk}" for tk in US_TICKERS]].values
-        all_returns_raw = np.column_stack([us_returns_raw, y_jp_target])
-
-        c_full = compute_baseline_correlation(
-            all_returns_raw, sim_dates.values, self.ewma_half_life
+        from leadlag.core.pipeline import build_common_inputs
+        inputs = build_common_inputs(
+            df_exec,
+            y_jp_target,
+            n_u=self.n_u,
+            n_j=self.n_j,
+            ewma_half_life=self.ewma_half_life,
+            beta_window=self.beta_window,
+            include_v4_prior=self.include_v4_prior,
+            us_res_enabled=self.us_res_enabled,
+            us_res_gamma=self.us_res_gamma,
+            us_res_beta_window=self.us_res_beta_window,
         )
+        self.v0_static_obj = inputs.v0_static
+        out = inputs.to_dict()
+        out["y_jp_target"] = y_jp_target
 
-        v0_static = build_v3_static(self.n_u, self.n_j, self.include_v4_prior)
-        self.v0_static_obj = v0_static
-        base_vectors = build_base_vectors(self.n_u, self.n_j)
-        v1, v2 = base_vectors["v1"], base_vectors["v2"]
-
-        # Parse arrays
-        jp_gap = df_exec[[f"jp_gap_{tk}" for tk in JP_TICKERS]].values
-        jp_beta = (
-            df_exec[[f"jp_beta_{tk}" for tk in JP_TICKERS]].values
-            if any(c.startswith("jp_beta_") for c in df_exec.columns)
-            else None
-        )
-        topix_night = (
-            df_exec["topix_night_return"].values
-            if "topix_night_return" in df_exec.columns
-            else None
-        )
-
-        # Build trade date returns
-        y_jp_oc_df = df_exec[[f"jp_oc_{tk}" for tk in JP_TICKERS]].rename(
-            columns=lambda c: c.replace("jp_oc_", "")
-        )
-
-        # Use open-to-close TOPIX return for residualization (same time window as target).
-        # Falls back to close-to-close if topix_oc_return is unavailable.
-        if "topix_oc_return" in df_exec.columns:
-            topix_for_beta = df_exec["topix_oc_return"].values
-        else:
-            topix_for_beta = (
-                df_exec["topix_cc_trade"].values
-                if "topix_cc_trade" in df_exec.columns
-                else df_exec["topix_night_return"].values + df_exec["topix_oc_return"].values
-            )
-
-        # Rolling OLS residualization for Residual-PCA (lookahead-safe) using target returns
-        betas_jp_p3 = compute_rolling_ols_betas(
-            y_jp_target, topix_for_beta.reshape(-1, 1), self.beta_window
-        )
-        y_residuals_p3 = y_jp_target - betas_jp_p3[:, :, 0] * topix_for_beta.reshape(-1, 1)
-
-        # Replace JP columns with residuals for PCA (no shifting needed under new alignment)
-        jp_res_returns_p3 = all_returns_raw.copy()
-        jp_res_returns_p3[:, self.n_u :] = y_residuals_p3
-
-        c_full_p3 = compute_baseline_correlation(
-            jp_res_returns_p3, sim_dates.values, self.ewma_half_life
-        )
-
-        out = {
-            "all_returns_raw": all_returns_raw,
-            "c_full": c_full,
-            "c_full_p3": c_full_p3,
-            "v0_static": v0_static,
-            "v1": v1,
-            "v2": v2,
-            "jp_gap": jp_gap,
-            "jp_beta": jp_beta,
-            "topix_night": topix_night,
-            "y_jp_oc_df": y_jp_oc_df,
-            "jp_res_returns_p3": jp_res_returns_p3,
-        }
-
-        # US Residualization P4 logic
-        if self.us_res_enabled:
-            spy_col = None
-            for col in ["spy_cc", "SPY_cc", "SPY", "spy", "r_US_MKT"]:
-                if col in df_exec.columns:
-                    spy_col = col
-                    break
-            if spy_col is None:
-                raise ValueError("SPY benchmark return column not found in df_exec")
-            spy_returns = df_exec[spy_col].values
-
-            us_returns_raw = all_returns_raw[:, : self.n_u]
-            r_us_adj = compute_us_residualized_returns(
-                us_returns_raw,
-                spy_returns,
-                beta_window=self.us_res_beta_window,
-                gamma=self.us_res_gamma,
-            )
-
-            all_returns_p4 = jp_res_returns_p3.copy()
-            all_returns_p4[:, : self.n_u] = r_us_adj
-
-            out["all_returns_p4"] = all_returns_p4
-            out["r_us_adj"] = r_us_adj
-            out["spy_returns"] = spy_returns
-
-        _COMMON_INPUTS_CACHE[cache_key] = out
+        self._common_inputs_cache[cache_key] = out
         return out
 
     def _prepare_residual_prior(self, df_exec: pd.DataFrame, inputs: dict) -> dict:
@@ -292,7 +204,6 @@ class SectorRelativeEnsembleModel(BaseModel):
         baseline_returns_p4 = all_returns_p4[baseline_indices]
         baseline_returns_raw = all_returns_raw[baseline_indices]
 
-        global _RESIDUAL_PRIOR_CACHE
         cache_key = (
             self.prior_variant,
             self.ewma_half_life,
@@ -303,8 +214,8 @@ class SectorRelativeEnsembleModel(BaseModel):
             baseline_returns_raw.shape,
             hash(baseline_returns_raw.tobytes()),
         )
-        if cache_key in _RESIDUAL_PRIOR_CACHE:
-            cached = _RESIDUAL_PRIOR_CACHE[cache_key]
+        if cache_key in self._residual_prior_cache:
+            cached = self._residual_prior_cache[cache_key]
             return {
                 k: v.copy() if isinstance(v, np.ndarray) else v
                 for k, v in cached.items()
@@ -425,11 +336,35 @@ class SectorRelativeEnsembleModel(BaseModel):
             "v1_new": v1_new,
             "v2_new": v2_new,
         }
-        _RESIDUAL_PRIOR_CACHE[cache_key] = result_dict
+        self._residual_prior_cache[cache_key] = result_dict
         return {
             k: v.copy() if isinstance(v, np.ndarray) else v
             for k, v in result_dict.items()
         }
+
+    def _get_pca_component(self, k_override: int | None = None, use_c0_override: bool = False):
+        """Lazily create and cache a PCAComponent for PCA signal computation."""
+        cache_attr = f"_pca_component_{k_override}_{use_c0_override}"
+        if not hasattr(self, cache_attr):
+            from leadlag.core.pipeline import PCAComponent
+            setattr(self, cache_attr, PCAComponent(
+                name="pca",
+                n_u=self.n_u,
+                n_j=self.n_j,
+                corr_window=self.corr_window,
+                k=self.k,
+                lambda_reg=self.lambda_reg,
+                lambda_lw=self.lambda_lw,
+                lw_target=self.lw_target,
+                ewma_half_life=self.ewma_half_life,
+                gap_open_coef=self.gap_open_coef,
+                topix_beta_coef=self.topix_beta_coef,
+                vol_adjusted_target=self.vol_adjusted_target,
+                min_raw_weight=getattr(self, "min_raw_weight", 0.0),
+                k_override=k_override,
+                use_c0_override=use_c0_override,
+            ))
+        return getattr(self, cache_attr)
 
     def compute_production_signal(
         self,
@@ -457,38 +392,22 @@ class SectorRelativeEnsembleModel(BaseModel):
             self.topix_beta_coef,
             self.vol_adjusted_target,
         )
-        global _PRODUCTION_SIGNAL_CACHE
-        if cache_key in _PRODUCTION_SIGNAL_CACHE:
-            return _PRODUCTION_SIGNAL_CACHE[cache_key].copy()
-        gap_t1 = np.nan_to_num(jp_gap[i], nan=0.0) if jp_gap is not None else np.zeros(self.n_j)
-        betas_t = np.asarray(jp_beta[i], dtype=float) if jp_beta is not None else None
-        topix_night_t = float(topix_night[i]) if topix_night is not None else None
-
-        sig_res = signals.compute_signal(
+        if cache_key in self._production_signal_cache:
+            return self._production_signal_cache[cache_key].copy()
+        comp = self._get_pca_component()
+        result = comp.compute_standalone(
+            i=i,
             all_returns=all_returns,
-            current_index=i,
-            n_u=self.n_u,
-            corr_window=self.corr_window,
             c_full=c_full,
             v0_static=v0_static,
             v1=v1,
             v2=v2,
-            k=self.k,
-            lambda_reg=self.lambda_reg,
-            lambda_lw=self.lambda_lw,
-            lw_target=self.lw_target,
-            ewma_half_life=self.ewma_half_life,
-            v3_dynamic=False,
-            gap_override=gap_t1,
-            gap_open_coef=self.gap_open_coef,
-            topix_beta_coef=self.topix_beta_coef,
-            betas_t=betas_t,
-            topix_night_t=topix_night_t,
-            vol_adjusted_target=self.vol_adjusted_target,
-            min_raw_weight=getattr(self, "min_raw_weight", 0.0),
+            jp_gap=jp_gap,
+            jp_beta=jp_beta,
+            topix_night=topix_night,
         )
-        sig = np.asarray(sig_res["signal"], dtype=float)
-        _PRODUCTION_SIGNAL_CACHE[cache_key] = sig
+        sig = result.signal
+        self._production_signal_cache[cache_key] = sig
         return sig
 
     def compute_residual_signal(
@@ -505,11 +424,13 @@ class SectorRelativeEnsembleModel(BaseModel):
         topix_night: np.ndarray | None,
         is_p4: bool = False,
         c0_override: np.ndarray | None = None,
+        k_override: int | None = None,
     ) -> np.ndarray:
         """Compute the Residual-PCA (JP Residual target) or P4 signal at index i."""
+        k_eff = k_override if k_override is not None else self.k
         _signal_params = (
             self.lambda_reg,
-            self.k,
+            k_eff,
             self.corr_window,
             self.ewma_half_life,
             self.lambda_lw,
@@ -528,39 +449,23 @@ class SectorRelativeEnsembleModel(BaseModel):
                 getattr(self, "us_res_gamma", None),
                 _signal_params,
             )
-        global _RESIDUAL_SIGNAL_CACHE
-        if cache_key in _RESIDUAL_SIGNAL_CACHE:
-            return _RESIDUAL_SIGNAL_CACHE[cache_key].copy()
-        gap_t1 = np.nan_to_num(jp_gap[i], nan=0.0) if jp_gap is not None else np.zeros(self.n_j)
-        betas_t = np.asarray(jp_beta[i], dtype=float) if jp_beta is not None else None
-        topix_night_t = float(topix_night[i]) if topix_night is not None else None
-
-        sig_res = signals.compute_signal(
+        if cache_key in self._residual_signal_cache:
+            return self._residual_signal_cache[cache_key].copy()
+        comp = self._get_pca_component(k_override=k_override, use_c0_override=c0_override is not None)
+        result = comp.compute_standalone(
+            i=i,
             all_returns=jp_res_returns_p3,
-            current_index=i,
-            n_u=self.n_u,
-            corr_window=self.corr_window,
             c_full=c_full,
             v0_static=v0_static,
             v1=v1,
             v2=v2,
-            k=self.k,
-            lambda_reg=self.lambda_reg,
-            lambda_lw=self.lambda_lw,
-            lw_target=self.lw_target,
-            ewma_half_life=self.ewma_half_life,
-            v3_dynamic=False,
-            gap_override=gap_t1,
-            gap_open_coef=self.gap_open_coef,
-            topix_beta_coef=self.topix_beta_coef,
-            betas_t=betas_t,
-            topix_night_t=topix_night_t,
-            vol_adjusted_target=self.vol_adjusted_target,
-            min_raw_weight=getattr(self, "min_raw_weight", 0.0),
+            jp_gap=jp_gap,
+            jp_beta=jp_beta,
+            topix_night=topix_night,
             c0_override=c0_override,
         )
-        sig = np.asarray(sig_res["signal"], dtype=float)
-        _RESIDUAL_SIGNAL_CACHE[cache_key] = sig
+        sig = result.signal
+        self._residual_signal_cache[cache_key] = sig
         return sig
 
     def combine_signals(self, z0: np.ndarray, z3: np.ndarray) -> np.ndarray:
@@ -576,128 +481,147 @@ class SectorRelativeEnsembleModel(BaseModel):
         Returns:
             Dict of DataFrames/arrays.
         """
+        from leadlag.core.pipeline import (
+            PCAComponent,
+            SignalPipeline,
+            SRECombiner,
+            SREOutputAdapter,
+            _SREP4Component,
+            _SRERawPCAComponent,
+            _SREResidualPCAComponent,
+        )
+
         T = len(df_exec)
-        sim_dates = df_exec.index
 
-        inputs = self._prepare_common_inputs(df_exec)
-        all_returns_raw = inputs["all_returns_raw"]
-        c_full = inputs["c_full"]
-        c_full_p3 = inputs["c_full_p3"]
-        v0_static = inputs["v0_static"]
-        v1 = inputs["v1"]
-        v2 = inputs["v2"]
-        jp_gap = inputs["jp_gap"]
-        jp_beta = inputs["jp_beta"]
-        topix_night = inputs["topix_night"]
-        jp_res_returns_p3 = inputs["jp_res_returns_p3"]
+        inputs_dict = self._prepare_common_inputs(df_exec)
 
-        # Optional Residualized US/JP signal (P4)
+        # Reconstruct CommonInputs from dict for pipeline
+        from leadlag.core.pipeline import CommonInputs, P4Inputs
+        inputs = CommonInputs(
+            all_returns_raw=inputs_dict["all_returns_raw"],
+            c_full=inputs_dict["c_full"],
+            c_full_p3=inputs_dict["c_full_p3"],
+            v0_static=inputs_dict["v0_static"],
+            v1=inputs_dict["v1"],
+            v2=inputs_dict["v2"],
+            jp_gap=inputs_dict["jp_gap"],
+            jp_beta=inputs_dict["jp_beta"],
+            topix_night=inputs_dict["topix_night"],
+            y_jp_oc_df=inputs_dict["y_jp_oc_df"],
+            jp_res_returns_p3=inputs_dict["jp_res_returns_p3"],
+            y_jp_target=inputs_dict["y_jp_target"],
+            n_u=self.n_u,
+            n_j=self.n_j,
+            dates=df_exec.index,
+            p4=P4Inputs(
+                all_returns_p4=inputs_dict["all_returns_p4"],
+                r_us_adj=inputs_dict["r_us_adj"],
+                spy_returns=inputs_dict["spy_returns"],
+            ) if "all_returns_p4" in inputs_dict else None,
+        )
+
+        # Optional P4 prior
         prior_info = None
         if self.us_res_enabled or self.p4_weight > 0.0:
-            all_returns_p4 = inputs["all_returns_p4"]
             if self.prior_variant is not None:
-                prior_info = self._prepare_residual_prior(df_exec, inputs)
+                prior_info = self._prepare_residual_prior(df_exec, inputs_dict)
+
+        # Clear per-run signal caches to prevent cross-run contamination
+        self._production_signal_cache.clear()
+        self._residual_signal_cache.clear()
+        self._common_inputs_cache.clear()
+
+        # Build PCA components
+        raw_pca_comp = PCAComponent(
+            name="raw_pca",
+            n_u=self.n_u, n_j=self.n_j,
+            corr_window=self.corr_window, k=self.k,
+            lambda_reg=self.lambda_reg, lambda_lw=self.lambda_lw,
+            lw_target=self.lw_target, ewma_half_life=self.ewma_half_life,
+            gap_open_coef=self.gap_open_coef, topix_beta_coef=self.topix_beta_coef,
+            vol_adjusted_target=self.vol_adjusted_target,
+            min_raw_weight=getattr(self, "min_raw_weight", 0.0),
+        )
+        residual_pca_comp = PCAComponent(
+            name="residual_pca",
+            n_u=self.n_u, n_j=self.n_j,
+            corr_window=self.corr_window, k=self.k,
+            lambda_reg=self.lambda_reg, lambda_lw=self.lambda_lw,
+            lw_target=self.lw_target, ewma_half_life=self.ewma_half_life,
+            gap_open_coef=self.gap_open_coef, topix_beta_coef=self.topix_beta_coef,
+            vol_adjusted_target=self.vol_adjusted_target,
+            min_raw_weight=getattr(self, "min_raw_weight", 0.0),
+        )
+
+        components = [
+            _SRERawPCAComponent(raw_pca_comp),
+            _SREResidualPCAComponent(residual_pca_comp),
+        ]
+
+        # Optional P4 component
+        if self.us_res_enabled or self.p4_weight > 0.0:
+            if self.prior_variant is not None:
                 C0_resid = prior_info["C0_resid"]
                 V0_resid = prior_info["V0_resid"]
                 k_p4 = prior_info["k_expected"]
-
-        # Clear per-run signal caches to prevent cross-run contamination
-        _PRODUCTION_SIGNAL_CACHE.clear()
-        _RESIDUAL_SIGNAL_CACHE.clear()
-        _COMMON_INPUTS_CACHE.clear()
-
-        # Setup arrays
-        raw_pca_signals = np.zeros((T, self.n_j))
-        residual_pca_signals = np.zeros((T, self.n_j))
-        p4_signals = np.zeros((T, self.n_j))
-        sre_signals = np.zeros((T, self.n_j))
-
-        # Fill first corr_window rows with zeros, or run from corr_window
-        start_idx = self.corr_window
-        for i in range(start_idx, T):
-            # Raw-PCA
-            raw_pca_sig = self.compute_production_signal(
-                df_exec, i, c_full, v0_static, v1, v2, all_returns_raw, jp_gap, jp_beta, topix_night
-            )
-            raw_pca_signals[i] = raw_pca_sig
-
-            # Residual-PCA
-            residual_pca_sig = self.compute_residual_signal(
-                df_exec, jp_res_returns_p3, i, c_full_p3, v0_static, v1, v2, jp_gap, jp_beta, topix_night
-            )
-            residual_pca_signals[i] = residual_pca_sig
-
-            # Normalization
-            z0 = self.normalize_signals(raw_pca_sig, self.normalization_method)
-            z3 = self.normalize_signals(residual_pca_sig, self.normalization_method)
-
-            # P4
-            if self.us_res_enabled or self.p4_weight > 0.0:
-                if self.prior_variant is not None:
-                    orig_k = self.k
-                    self.k = k_p4
-                    try:
-                        p4_sig = self.compute_residual_signal(
-                            df_exec,
-                            all_returns_p4,
-                            i,
-                            c_full=C0_resid,
-                            v0_static=V0_resid,
-                            v1=V0_resid[:, 0],
-                            v2=V0_resid[:, 1] if V0_resid.shape[1] > 1 else V0_resid[:, 0],
-                            jp_gap=jp_gap,
-                            jp_beta=jp_beta,
-                            topix_night=topix_night,
-                            is_p4=True,
-                            c0_override=C0_resid,
-                        )
-                    finally:
-                        self.k = orig_k
-                else:
-                    p4_sig = self.compute_residual_signal(
-                        df_exec,
-                        all_returns_p4,
-                        i,
-                        c_full,
-                        v0_static,
-                        v1,
-                        v2,
-                        jp_gap,
-                        jp_beta,
-                        topix_night,
-                        is_p4=True,
-                    )
-                p4_signals[i] = p4_sig
-                z4 = self.normalize_signals(p4_sig, self.normalization_method)
+                p4_pca = PCAComponent(
+                    name="p4",
+                    n_u=self.n_u, n_j=self.n_j,
+                    corr_window=self.corr_window, k=self.k,
+                    lambda_reg=self.lambda_reg, lambda_lw=self.lambda_lw,
+                    lw_target=self.lw_target, ewma_half_life=self.ewma_half_life,
+                    gap_open_coef=self.gap_open_coef, topix_beta_coef=self.topix_beta_coef,
+                    vol_adjusted_target=self.vol_adjusted_target,
+                    min_raw_weight=getattr(self, "min_raw_weight", 0.0),
+                    k_override=k_p4,
+                    use_c0_override=True,
+                )
+                p4_comp = _SREP4Component(
+                    p4_pca,
+                    c_full=C0_resid,
+                    v0_static=V0_resid,
+                    v1=V0_resid[:, 0],
+                    v2=V0_resid[:, 1] if V0_resid.shape[1] > 1 else V0_resid[:, 0],
+                    all_returns_p4=inputs.p4.all_returns_p4,
+                    jp_gap=inputs.jp_gap,
+                    jp_beta=inputs.jp_beta,
+                    topix_night=inputs.topix_night,
+                )
             else:
-                z4 = np.zeros(self.n_j)
+                p4_pca = PCAComponent(
+                    name="p4",
+                    n_u=self.n_u, n_j=self.n_j,
+                    corr_window=self.corr_window, k=self.k,
+                    lambda_reg=self.lambda_reg, lambda_lw=self.lambda_lw,
+                    lw_target=self.lw_target, ewma_half_life=self.ewma_half_life,
+                    gap_open_coef=self.gap_open_coef, topix_beta_coef=self.topix_beta_coef,
+                    vol_adjusted_target=self.vol_adjusted_target,
+                    min_raw_weight=getattr(self, "min_raw_weight", 0.0),
+                )
+                p4_comp = _SREP4Component(
+                    p4_pca,
+                    c_full=inputs.c_full,
+                    v0_static=inputs.v0_static,
+                    v1=inputs.v1,
+                    v2=inputs.v2,
+                    all_returns_p4=inputs.p4.all_returns_p4,
+                    jp_gap=inputs.jp_gap,
+                    jp_beta=inputs.jp_beta,
+                    topix_night=inputs.topix_night,
+                )
+            components.append(p4_comp)
 
-            # Ensemble
-            s_ens = self.raw_pca_weight * z0 + self.residual_pca_weight * z3 + self.p4_weight * z4
-            sre_signals[i] = s_ens
+        combiner = SRECombiner(
+            raw_pca_weight=self.raw_pca_weight,
+            residual_pca_weight=self.residual_pca_weight,
+            p4_weight=self.p4_weight,
+            normalization_method=self.normalization_method,
+            n_j=self.n_j,
+            normalize_fn=self.normalize_signals,
+        )
 
-        # Create DataFrames
-        raw_pca_df = pd.DataFrame(raw_pca_signals, index=sim_dates, columns=JP_TICKERS)
-        residual_pca_df = pd.DataFrame(residual_pca_signals, index=sim_dates, columns=JP_TICKERS)
-        p4_df = pd.DataFrame(p4_signals, index=sim_dates, columns=JP_TICKERS)
-        sre_df = pd.DataFrame(sre_signals, index=sim_dates, columns=JP_TICKERS)
+        pipeline = SignalPipeline(components=components, combiner=combiner)
+        pipeline_results = pipeline.run(inputs, start_idx=self.corr_window, T=T)
 
-        sre_normalized_df = pd.DataFrame(index=sim_dates, columns=JP_TICKERS)
-        for date in sim_dates:
-            idx = df_exec.index.get_loc(date)
-            sre_normalized_df.loc[date] = self.normalize_signals(
-                sre_signals[idx], self.normalization_method
-            )
-
-        out_res = {
-            "raw_pca_signals": raw_pca_df,
-            "residual_pca_signals": residual_pca_df,
-            "p4_signals": p4_df,
-            "signals": sre_df,
-            "normalized_signals": sre_normalized_df,
-            "y_jp_oc_df": inputs["y_jp_oc_df"],
-        }
-        if prior_info is not None:
-            out_res["prior_info"] = prior_info
-
-        return out_res
+        adapter = SREOutputAdapter(n_j=self.n_j, jp_tickers=JP_TICKERS)
+        return adapter.adapt(pipeline_results, inputs, prior_info=prior_info)

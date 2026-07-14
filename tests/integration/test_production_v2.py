@@ -32,6 +32,7 @@ from leadlag.models.production_v2 import (
     VERSION,
     generate_v2_production_portfolio,
     load_gap_matrices,
+    load_pit_ir_history,
     parse_run_config,
 )
 
@@ -122,6 +123,68 @@ class TestGetRollingPitBin:
         b, lo, hi, m = get_rolling_pit_bin(np.array([]), 1.0, rolling_window=252)
         assert b == "Medium"
         assert np.isnan(lo) and np.isnan(hi)
+
+
+# ---------------------------------------------------------------------------
+# load_pit_ir_history
+# ---------------------------------------------------------------------------
+
+class TestLoadPitIrHistory:
+    """Tests for load_pit_ir_history column preference and PIT filtering."""
+
+    def _write_diag_csv(self, tmp_path, rows):
+        import pandas as pd
+        df = pd.DataFrame(rows)
+        df.to_csv(tmp_path / "portfolio_gap_distribution_diagnostics.csv", index=False)
+
+    def test_prefers_baseline_cost_column(self, tmp_path):
+        """When pred_ir_gap_baseline_cost exists, it is used over legacy column."""
+        rows = []
+        for i in range(300):
+            d = f"2025-01-{i+1:02d}" if i < 30 else f"2025-02-{i-29+1:02d}"
+            rows.append({
+                "trade_date": f"2025-{(i // 28) + 1:02d}-{(i % 28) + 1:02d}",
+                "pred_ir_gap_exante_cost": float(i + 1) * 0.01,
+                "pred_ir_gap_baseline_cost": float(i + 1) * 0.02,
+            })
+        self._write_diag_csv(tmp_path, rows)
+        hist, alerts = load_pit_ir_history(tmp_path, "2026-01-01")
+        assert len(alerts) == 0
+        # Should use baseline_cost column (0.02 multiplier)
+        assert abs(hist[0] - 0.02) < 1e-9
+        assert abs(hist[1] - 0.04) < 1e-9
+
+    def test_falls_back_to_legacy_column_with_alert(self, tmp_path):
+        """When pred_ir_gap_baseline_cost is absent, falls back to exante_cost and alerts."""
+        rows = []
+        for i in range(300):
+            rows.append({
+                "trade_date": f"2025-{(i // 28) + 1:02d}-{(i % 28) + 1:02d}",
+                "pred_ir_gap_exante_cost": float(i + 1) * 0.01,
+            })
+        self._write_diag_csv(tmp_path, rows)
+        hist, alerts = load_pit_ir_history(tmp_path, "2026-01-01")
+        assert len(hist) > 0
+        assert any("pred_ir_gap_baseline_cost" in a for a in alerts)
+        assert abs(hist[0] - 0.01) < 1e-9
+
+    def test_missing_file_returns_empty(self, tmp_path):
+        """Missing diagnostics file returns empty array and alert."""
+        hist, alerts = load_pit_ir_history(tmp_path, "2026-01-01")
+        assert len(hist) == 0
+        assert any("missing" in a.lower() for a in alerts)
+
+    def test_filters_future_dates(self, tmp_path):
+        """Rows >= trade_date are excluded (PIT integrity)."""
+        rows = [
+            {"trade_date": "2025-06-01", "pred_ir_gap_baseline_cost": 0.1},
+            {"trade_date": "2025-06-02", "pred_ir_gap_baseline_cost": 0.2},
+            {"trade_date": "2025-06-03", "pred_ir_gap_baseline_cost": 0.3},
+        ]
+        self._write_diag_csv(tmp_path, rows)
+        hist, alerts = load_pit_ir_history(tmp_path, "2025-06-02")
+        assert len(hist) == 1
+        assert abs(hist[0] - 0.1) < 1e-9
 
 
 # ---------------------------------------------------------------------------

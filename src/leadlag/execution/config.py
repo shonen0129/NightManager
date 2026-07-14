@@ -49,6 +49,7 @@ def _map_risk_section(risk_data: dict) -> dict:
     return {
         "var_confidence": risk_data.get("var_confidence", 0.99),
         "var_window": risk_data.get("var_window", 250),
+        "var_method": risk_data.get("var_method", "historical"),
         "var_warning": risk_data.get("var_warning", 0.02),
         "var_stop": risk_data.get("var_stop", 0.03),
         "es_warning": risk_data.get("es_warning", 0.025),

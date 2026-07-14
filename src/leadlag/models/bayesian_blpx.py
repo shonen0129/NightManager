@@ -103,27 +103,52 @@ class BayesianBLPXModel(SectorRelativeEnsembleBLPEnhancedModel):
         where Q_j = variance of B_struct changes (process noise)
               R_j = variance of prediction errors (observation noise)
 
+        Q estimation: uses non-overlapping subsamples of B_struct changes to avoid
+        autocorrelation bias from overlapping rolling window estimates.
+        R estimation: bias-corrects total prediction error variance by subtracting
+        the Q contribution (Var(ΔB̂) ≈ Q + 2R/window → R = (Var(ΔB̂) - Q) * window / 2).
+
         Returns vector of shape (n_j,) — one gain per JP asset.
         """
         n_j = self.n_j
 
-        # Observation noise: per-asset rolling prediction error variance
         if len(self._error_history) < self.bayesian_warmup:
             return np.full(n_j, self.bayesian_eta_base)
 
-        errors = np.array(list(self._error_history))  # (T, n_j)
-        R = np.var(errors, axis=0, ddof=1)  # (n_j,)
-        R = np.maximum(R, self.bayesian_kalman_r_floor)
-
-        # Process noise: per-asset variance of B_struct row changes
         if len(self._B_struct_history) < 3:
             return np.full(n_j, self.bayesian_eta_base)
 
-        B_arr = np.array(list(self._B_struct_history))  # (T, n_j, n_u)
-        delta_B = np.diff(B_arr, axis=0)  # (T-1, n_j, n_u)
-        Q = np.var(delta_B, axis=0)  # (n_j, n_u) — variance across time of each element
-        Q_per_asset = np.mean(Q, axis=1) * self.bayesian_kalman_q_scale  # (n_j,) — average over US factors
+        B_arr = np.array(list(self._B_struct_history))  # (T_hist, n_j, n_u)
+        blp_window = getattr(self, "blp_window", 252)
+
+        # --- Process noise Q: non-overlapping subsampling ---
+        # Use every blp_window-th sample to avoid autocorrelation from overlapping rolling estimates
+        step = max(blp_window, 2)
+        B_sub = B_arr[::step]
+        if len(B_sub) < 3:
+            # Fallback: use all but with larger stride
+            step = max(len(B_arr) // 3, 2)
+            B_sub = B_arr[::step]
+        if len(B_sub) < 2:
+            return np.full(n_j, self.bayesian_eta_base)
+
+        delta_B_nonoverlap = np.diff(B_sub, axis=0)  # (n_sub-1, n_j, n_u)
+        Q = np.var(delta_B_nonoverlap, axis=0, ddof=1) if len(delta_B_nonoverlap) >= 2 else np.zeros((n_j, B_arr.shape[2]))
+        Q_per_asset = np.mean(Q, axis=1) * self.bayesian_kalman_q_scale  # (n_j,)
         Q_per_asset = np.maximum(Q_per_asset, 1e-12)
+
+        # --- Observation noise R: bias-corrected ---
+        # Total prediction error variance = R_true + model_residual_var
+        # Model residual is irreducible; we estimate R_true from B_struct changes:
+        #   Var(ΔB̂_consecutive) ≈ Q + 2*R/blp_window
+        # So R ≈ (Var(ΔB̂_consecutive) - Q) * blp_window / 2
+        delta_B_all = np.diff(B_arr, axis=0)  # (T-1, n_j, n_u) — consecutive (overlapping)
+        var_delta_all = np.var(delta_B_all, axis=0, ddof=1) if len(delta_B_all) >= 2 else np.zeros_like(Q)
+        var_delta_per_asset = np.mean(var_delta_all, axis=1)  # (n_j,)
+        R_theoretical = np.maximum((var_delta_per_asset - Q_per_asset) * blp_window / 2.0, self.bayesian_kalman_r_floor)
+
+        # Use theoretical R (not raw error variance) for Kalman gain
+        R = R_theoretical
 
         K = Q_per_asset / (Q_per_asset + R)  # (n_j,)
         return np.clip(K, self.bayesian_eta_min, self.bayesian_eta_max)
@@ -238,6 +263,14 @@ class BayesianBLPXModel(SectorRelativeEnsembleBLPEnhancedModel):
         if not self.bayesian_enabled:
             return super().predict_signals(df_exec)
 
+        from leadlag.core.pipeline import (
+            BayesianCombiner,
+            BayesianOutputAdapter,
+            CallableComponent,
+            CommonInputs,
+            SignalPipeline,
+        )
+
         self._B_bayes_prev = None
         self._ic_history = []
         self._eta_history = []
@@ -248,6 +281,7 @@ class BayesianBLPXModel(SectorRelativeEnsembleBLPEnhancedModel):
 
         T = len(df_exec)
         sim_dates = df_exec.index
+
         inputs = self._prepare_common_inputs(df_exec)
         jp_res_returns_p3 = inputs["jp_res_returns_p3"]
         c_full_p3 = inputs["c_full_p3"]
@@ -269,59 +303,65 @@ class BayesianBLPXModel(SectorRelativeEnsembleBLPEnhancedModel):
                 rolling_std[nan_mask, c] = overall_std[c]
             rolling_std = np.maximum(rolling_std, 1e-8)
 
-        residual_blpx_signals = np.zeros((T, self.n_j))
-        combined_signals = np.zeros((T, self.n_j))
-        normalized_combined_signals = np.zeros((T, self.n_j))
-        sigma_yy_array = np.zeros((T, self.n_j, self.n_j))
-        eta_records = []
+        common_inputs = CommonInputs(
+            all_returns_raw=inputs["all_returns_raw"],
+            c_full=inputs["c_full"],
+            c_full_p3=c_full_p3,
+            v0_static=v0_static,
+            v1=v1,
+            v2=v2,
+            jp_gap=jp_gap,
+            jp_beta=jp_beta,
+            topix_night=topix_night,
+            y_jp_oc_df=inputs["y_jp_oc_df"],
+            jp_res_returns_p3=jp_res_returns_p3,
+            y_jp_target=y_jp_target,
+            n_u=self.n_u,
+            n_j=self.n_j,
+            dates=sim_dates,
+            p4=None,
+        )
 
         start_idx = self.corr_window
-        for i in range(start_idx, T):
-            gap_override = np.nan_to_num(jp_gap[i], nan=0.0) if jp_gap is not None else None
-            betas_t = np.asarray(jp_beta[i], dtype=float) if jp_beta is not None else None
-            topix_night_t = float(topix_night[i]) if topix_night is not None else None
-            y_actual_prev = y_jp_target[i] if i > start_idx else None
+        sigma_yy_array = np.zeros((T, self.n_j, self.n_j))
+
+        def _bayesian_fn(ctx):
+            i = ctx.i
+            inp = ctx.inputs
+            gap_override = np.nan_to_num(inp.jp_gap[i], nan=0.0) if inp.jp_gap is not None else None
+            betas_t = np.asarray(inp.jp_beta[i], dtype=float) if inp.jp_beta is not None else None
+            topix_night_t = float(inp.topix_night[i]) if inp.topix_night is not None else None
+            y_actual_prev = inp.y_jp_target[i - 1] if i > start_idx + 1 else None
 
             result = self.compute_blp_signal_bayesian(
-                all_returns=jp_res_returns_p3, current_index=i,
+                all_returns=inp.jp_res_returns_p3, current_index=i,
                 gap_override=gap_override, betas_t=betas_t,
                 topix_night_t=topix_night_t, rolling_std=rolling_std,
-                v0_static=v0_static, c_full=c_full_p3,
+                v0_static=inp.v0_static, c_full=inp.c_full_p3,
                 is_residual=True, y_actual=y_actual_prev,
             )
-            residual_blpx_signals[i] = result["signal"]
+
             if self.minvar_enabled and "sigma_Y_cov" in result:
                 sigma_yy_array[i] = result["sigma_Y_cov"]
 
-            z_res = self.normalize_signals(result["signal"], self.normalization_method)
-            combined_signals[i] = z_res
-            normalized_combined_signals[i] = z_res
+            result["ic"] = self._ic_history[-1] if self._ic_history else 0.0
+            result["rolling_ic"] = float(np.mean(self._ic_history[-self.bayesian_ic_window:])) if self._ic_history else 0.0
+            result["cs_var"] = float(self._cs_var_history[-1]) if self._cs_var_history else 0.0
+            result["mode"] = self.bayesian_mode
+            return result
 
-            eta_records.append({
-                "date": sim_dates[i].strftime("%Y-%m-%d"),
-                "eta": result.get("eta_t", 0.0),
-                "ic": self._ic_history[-1] if self._ic_history else 0.0,
-                "rolling_ic": float(np.mean(self._ic_history[-self.bayesian_ic_window:])) if self._ic_history else 0.0,
-                "cs_var": float(self._cs_var_history[-1]) if self._cs_var_history else 0.0,
-                "mode": self.bayesian_mode,
-            })
+        components = [
+            CallableComponent("residual_blpx_bayesian", _bayesian_fn),
+        ]
 
-        sim_dates_idx = sim_dates
-        residual_blpx_df = pd.DataFrame(residual_blpx_signals, index=sim_dates_idx, columns=JP_TICKERS)
-        combined_df = pd.DataFrame(combined_signals, index=sim_dates_idx, columns=JP_TICKERS)
-        normalized_df = pd.DataFrame(normalized_combined_signals, index=sim_dates_idx, columns=JP_TICKERS)
-        eta_df = pd.DataFrame(eta_records).set_index("date") if eta_records else pd.DataFrame()
+        combiner = BayesianCombiner(
+            normalization_method=self.normalization_method,
+            n_j=self.n_j,
+            normalize_fn=self.normalize_signals,
+        )
 
-        return {
-            "signals": combined_df,
-            "normalized_signals": normalized_df,
-            "residual_blpx_signals": residual_blpx_df,
-            "raw_pca_signals": residual_blpx_df,
-            "residual_pca_signals": residual_blpx_df,
-            "p4_signals": residual_blpx_df,
-            "raw_blpx_signals": residual_blpx_df,
-            "sigma_yy": sigma_yy_array,
-            "y_jp_oc_df": inputs["y_jp_oc_df"],
-            "blp_diagnostics": eta_df,
-            "bayesian_diagnostics": eta_df,
-        }
+        pipeline = SignalPipeline(components=components, combiner=combiner)
+        pipeline_results = pipeline.run(common_inputs, start_idx=start_idx, T=T)
+
+        adapter = BayesianOutputAdapter(n_j=self.n_j, jp_tickers=JP_TICKERS)
+        return adapter.adapt(pipeline_results, common_inputs, sigma_yy=sigma_yy_array)

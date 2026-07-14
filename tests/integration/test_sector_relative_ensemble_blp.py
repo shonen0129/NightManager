@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import sys
 from pathlib import Path
 
@@ -236,7 +237,7 @@ def test_baseline_sre_reproduction(blp_sample_config, sample_df_exec):
     sre_model = SectorRelativeEnsembleModel(prod_cfg)
 
     # PCA-Ensemble-BLP configured to match PCA-Ensemble (p5_weight=0.0, p5p3_weight=0.0, raw_pca_weight=0.5, residual_pca_weight=0.5)
-    blp_cfg = blp_sample_config.copy()
+    blp_cfg = copy.deepcopy(blp_sample_config)
     blp_cfg["ensemble"]["raw_pca_weight"] = 0.5
     blp_cfg["ensemble"]["residual_pca_weight"] = 0.5
     blp_cfg["ensemble"]["p5_weight"] = 0.0

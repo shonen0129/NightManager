@@ -196,13 +196,25 @@ def load_pit_ir_history(
     df["trade_date"] = pd.to_datetime(df["trade_date"]).dt.strftime("%Y-%m-%d")
     df_hist = df[df["trade_date"] < trade_date]
 
-    if "pred_ir_gap_exante_cost" not in df_hist.columns:
+    # Prefer pred_ir_gap_baseline_cost (computed with same weight construction
+    # and cost formula as current_ir) over pred_ir_gap_exante_cost (legacy,
+    # uses different weights and rolling realized cost).
+    ir_col = "pred_ir_gap_baseline_cost"
+    if ir_col not in df_hist.columns:
+        ir_col = "pred_ir_gap_exante_cost"
         alerts.append(
-            "pred_ir_gap_exante_cost column missing. PIT binning falls back to Medium/1.0."
+            "pred_ir_gap_baseline_cost not found in diagnostics CSV, falling back to "
+            "pred_ir_gap_exante_cost. Historical IR may be inconsistent with current_ir. "
+            "Regenerate diagnostics with updated compute_gap_adjusted_distribution.py."
+        )
+
+    if ir_col not in df_hist.columns:
+        alerts.append(
+            f"No IR column found in diagnostics. PIT binning falls back to Medium/1.0."
         )
         return np.array([]), alerts
 
-    history_ir = df_hist["pred_ir_gap_exante_cost"].values
+    history_ir = df_hist[ir_col].values
     return history_ir, alerts
 
 

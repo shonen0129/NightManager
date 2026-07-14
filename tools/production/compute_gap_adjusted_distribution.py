@@ -33,7 +33,10 @@ sys.path.insert(0, str(ROOT / "src"))
 from leadlag.data.fetcher import download_data
 from leadlag.data.preprocessor import preprocess_data
 from leadlag.data.tickers import JP_TICKERS, US_TICKERS, TOPIX_TICKER
+from leadlag.core.portfolio import solve_baseline_style
+from leadlag.core.signal import build_weights_minvar
 from leadlag.models.sector_relative_ensemble_blp_enhanced import SectorRelativeEnsembleBLPEnhancedModel
+from leadlag.models.signal_enhancement import apply_multi_horizon_blend, apply_rank_reversal_overlay
 from leadlag.models.sre import compute_jp_target_returns
 
 # Setup logging
@@ -281,6 +284,32 @@ def main():
         
     results_dir = Path(args.results_dir) if args.results_dir.startswith("results") else ROOT / args.results_dir
     dist_in_dir = Path(args.distribution_input_dir) if args.distribution_input_dir.startswith("results") else ROOT / args.distribution_input_dir
+
+    # Extract config params for baseline IR (must match production_v2.py exactly)
+    _pf_cfg = cfg.get("portfolio", {})
+    _gs_cfg = cfg.get("gross_scaling", {})
+    _cs_cfg = cfg.get("costs", {})
+    _mh_cfg = cfg.get("multi_horizon_blend", {})
+    _cs_overlay_cfg = cfg.get("cs_feature_overlay", {})
+    bl_long_count = _pf_cfg.get("long_count", 5)
+    bl_short_count = _pf_cfg.get("short_count", 5)
+    bl_baseline_gross = _gs_cfg.get("baseline_gross", 2.0)
+    bl_cost_bps_per_gross = _cs_cfg.get("cost_bps_per_gross", 10.0)
+    bl_minvar_enabled = _pf_cfg.get("minvar_enabled", False)
+    bl_minvar_alpha = _pf_cfg.get("minvar_alpha", 0.5)
+    bl_mh_enabled = _mh_cfg.get("enabled", False)
+    bl_mh_horizons = tuple(_mh_cfg.get("horizons", [1, 3, 5]))
+    bl_mh_weights = tuple(_mh_cfg.get("weights", [0.8, 0.1, 0.1]))
+    bl_mh_mu_pattern = _mh_cfg.get("mu_file_pattern_h", "matrices/mu_gap_h{h}_{date}.npy")
+    bl_mh_omega_pattern = _mh_cfg.get("omega_file_pattern_h", "matrices/omega_gap_h{h}_{date}.npy")
+    bl_cs_overlay_enabled = _cs_overlay_cfg.get("enabled", False)
+    bl_cs_overlay_weight = _cs_overlay_cfg.get("weight", 0.05)
+    bl_rr_pattern = _cs_overlay_cfg.get("rank_reversal_file_pattern", "matrices/rank_reversal_{date}.npy")
+    logger.info(
+        "Baseline IR config: long=%d short=%d gross=%.1f cost_bps=%.1f minvar=%s alpha=%.2f mh=%s cs=%s",
+        bl_long_count, bl_short_count, bl_baseline_gross, bl_cost_bps_per_gross,
+        bl_minvar_enabled, bl_minvar_alpha, bl_mh_enabled, bl_cs_overlay_enabled,
+    )
     
     # 2. Download and Preprocess market data
     logger.info("Loading market data...")
@@ -329,17 +358,9 @@ def main():
     mh_inputs = {}   # {h: inputs_dict}
 
     if save_mh and mh_horizons:
-        from leadlag.models.sector_relative_ensemble_blp_enhanced import (
-            _BLP_CORR_CACHE,
-            _RAW_PCA_CACHE,
-            _RESIDUAL_PCA_CACHE,
-        )
         for h in mh_horizons:
             logger.info(f"Setting up multi-horizon model for h={h}...")
             df_exec_h = compute_cumulative_returns(df_exec, h, method=args.cumulative_method)
-            _BLP_CORR_CACHE.clear()
-            _RAW_PCA_CACHE.clear()
-            _RESIDUAL_PCA_CACHE.clear()
             model_h = SectorRelativeEnsembleBLPEnhancedModel(cfg)
             inputs_h = model_h._prepare_common_inputs(df_exec_h)
             mh_models[h] = model_h
@@ -736,7 +757,62 @@ def main():
         
         # Realized Cost Diagnostic-Only IR
         pred_ir_gap_realized_cost_diagnostic = (pred_mean_gap - costs_t) / pred_vol_gap if pred_vol_gap > 0 else 0.0
-        
+
+        # --- Baseline IR (consistent with production_v2.py current_ir) ---
+        # Uses same weight construction (solve_baseline_style/minvar) and same
+        # fixed ex-ante cost formula, so historical and current IR are comparable.
+        sigma_gap_bl = np.sqrt(np.maximum(np.diag(Omega_gap), 1e-6))
+        scores_bl = mu_gap / sigma_gap_bl
+
+        if bl_mh_enabled and len(bl_mh_horizons) > 1:
+            scores_bl, _ = apply_multi_horizon_blend(
+                scores_h1=scores_bl,
+                gap_input_dir=out_dir,
+                date_str=date_str,
+                horizons=bl_mh_horizons,
+                weights=bl_mh_weights,
+                mu_pattern=bl_mh_mu_pattern,
+                omega_pattern=bl_mh_omega_pattern,
+            )
+
+        if bl_cs_overlay_enabled:
+            scores_bl, _ = apply_rank_reversal_overlay(
+                scores=scores_bl,
+                gap_input_dir=out_dir,
+                date_str=date_str,
+                weight=bl_cs_overlay_weight,
+                file_pattern=bl_rr_pattern,
+            )
+
+        sorted_idx_bl = np.argsort(scores_bl)
+        short_idx_bl = sorted_idx_bl[:bl_short_count]
+        long_idx_bl = sorted_idx_bl[-bl_long_count:]
+
+        if bl_minvar_enabled:
+            w_minvar_bl = build_weights_minvar(
+                signal=scores_bl,
+                q=float(bl_long_count) / model.n_j,
+                n_j=model.n_j,
+                Sigma_YY=Omega_gap,
+                alpha=bl_minvar_alpha,
+                enforce_sign=False,
+            )
+            w_baseline = w_minvar_bl * (bl_baseline_gross / 2.0)
+        else:
+            w_baseline = solve_baseline_style(
+                scores_bl, long_idx_bl, short_idx_bl, baseline_gross=bl_baseline_gross
+            )
+
+        pred_mean_gap_baseline = float(np.sum(w_baseline * mu_gap))
+        pred_var_gap_baseline = float(w_baseline @ Omega_gap @ w_baseline)
+        pred_vol_gap_baseline = float(np.sqrt(np.maximum(pred_var_gap_baseline, 1e-10)))
+        bl_ex_ante_cost = bl_baseline_gross * (bl_cost_bps_per_gross / 10000.0)
+        pred_ir_gap_baseline_cost = (
+            (pred_mean_gap_baseline - bl_ex_ante_cost) / pred_vol_gap_baseline
+            if pred_vol_gap_baseline > 1e-6
+            else 0.0
+        )
+
         portfolio_diagnostics_records.append({
             "signal_date": sig_date,
             "trade_date": date_str,
@@ -750,6 +826,9 @@ def main():
             "pred_vol_gap": pred_vol_gap,
             "pred_ir_gap": pred_ir_gap,
             "pred_ir_gap_realized_cost_diagnostic": pred_ir_gap_realized_cost_diagnostic,
+            "pred_mean_gap_baseline": pred_mean_gap_baseline,
+            "pred_vol_gap_baseline": pred_vol_gap_baseline,
+            "pred_ir_gap_baseline_cost": pred_ir_gap_baseline_cost,
             "turnover": turnover,
             "gross_exposure": gross_exposure,
             "net_exposure": float(np.sum(w_t)),

@@ -16,8 +16,9 @@ def compute_var_es(
     daily_returns: pd.Series,
     confidence: float = 0.99,
     window: int = 250,
+    var_method: str = "historical",
 ) -> VarEsResult:
-    """Compute one-day historical VaR/ES as positive loss ratios.
+    """Compute one-day VaR/ES as positive loss ratios.
 
     Uses linear interpolation for VaR percentile calculation as per
     standard financial risk management practices (e.g., Basel guidelines).
@@ -26,6 +27,9 @@ def compute_var_es(
         daily_returns: Series of daily returns
         confidence: Confidence level (e.g., 0.99 for 99%)
         window: Lookback window in trading days
+        var_method: "historical" for empirical quantile, "cornish_fisher"
+            for Cornish-Fisher expansion (uses skewness & kurtosis to
+            adjust the Gaussian quantile, more stable with small tail samples)
 
     Returns:
         VarEsResult with VaR/ES computation results
@@ -38,13 +42,33 @@ def compute_var_es(
             window=int(window),
             var_loss=np.nan,
             es_loss=np.nan,
+            var_method=var_method,
         )
 
     sample = series.iloc[-window:].to_numpy(dtype=float)
     alpha = 1.0 - float(confidence)
+    z_alpha = float(np.percentile(sample, alpha * 100.0, method="linear"))
 
-    # Use linear interpolation for VaR (consistent with numpy default behavior)
-    q = float(np.percentile(sample, alpha * 100.0, method="linear"))
+    if var_method == "cornish_fisher":
+        from scipy.stats import norm
+
+        mu = float(np.mean(sample))
+        sigma = float(np.std(sample, ddof=1))
+        if sigma < 1e-12:
+            sigma = 1e-12
+        skew = float(np.mean(((sample - mu) / sigma) ** 3))
+        kurt = float(np.mean(((sample - mu) / sigma) ** 4) - 3.0)
+
+        z = norm.ppf(alpha)
+        z_cf = (
+            z
+            + (z**2 - 1) * skew / 6
+            + (z**3 - 3 * z) * kurt / 24
+            - (2 * z**3 - 5 * z) * skew**2 / 36
+        )
+        q = mu + z_cf * sigma
+    else:
+        q = z_alpha
 
     # ES: average of all losses beyond VaR threshold
     tail = sample[sample <= q]
@@ -58,6 +82,7 @@ def compute_var_es(
         es_loss=max(0.0, -es_raw),
         var_quantile=float(q),
         tail_count=int(len(tail)),
+        var_method=var_method,
     )
 
 
@@ -99,6 +124,7 @@ def evaluate_risk_checks(
         hist_daily_returns,
         confidence=config.var_confidence,
         window=config.var_window,
+        var_method=getattr(config, "var_method", "historical"),
     )
 
     warning_breaches: list[str] = []

@@ -32,10 +32,7 @@ from leadlag.models.blp_base import _BLPBase
 
 logger = logging.getLogger(__name__)
 
-# Caches to speed up grid search backtesting by avoiding redundant calculations
-_RAW_PCA_CACHE: dict = {}
-_RESIDUAL_PCA_CACHE: dict = {}
-_BLP_CORR_CACHE: dict = {}
+# Module-level caches removed — moved to per-instance attributes for thread safety
 
 
 class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
@@ -182,6 +179,11 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
         self.macro_surprise_halflife_vol = float(self._resolve_val("macro_surprise_halflife_vol", 60.0))
         self._macro_surprise_raw: np.ndarray | None = None
         self._macro_scales: np.ndarray | None = None
+
+        # Per-instance caches (replaces module-level globals)
+        self._raw_pca_cache: dict = {}
+        self._residual_pca_cache: dict = {}
+        self._blp_corr_cache: dict = {}
 
         # Extension A: Directional adjustment (signed surprise * signed sensitivity)
         self.macro_direction_enabled = bool(self._resolve_val("macro_direction_enabled", False))
@@ -386,8 +388,8 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
         periods (copula_dynamic_blend=True).
         """
         cache_key = (current_index, self.blp_window, self.winsor_sigma, self.exec_adjustment, self.blp_ewma_halflife, is_residual, id(window_returns), self.copula_enabled)
-        if cache_key in _BLP_CORR_CACHE:
-            return _BLP_CORR_CACHE[cache_key]
+        if cache_key in self._blp_corr_cache:
+            return self._blp_corr_cache[cache_key]
 
         use_copula = False
         copula_weight = 0.0
@@ -416,7 +418,7 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
         sigma = np.nan_to_num(sigma, nan=1.0, posinf=1.0, neginf=1.0)
         corr = np.nan_to_num(corr, nan=0.0, posinf=1.0, neginf=-1.0)
         np.fill_diagonal(corr, 1.0)
-        _BLP_CORR_CACHE[cache_key] = (mu, sigma, corr)
+        self._blp_corr_cache[cache_key] = (mu, sigma, corr)
         return mu, sigma, corr
 
     @staticmethod
@@ -959,6 +961,14 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
 
     def predict_signals(self, df_exec: pd.DataFrame) -> dict[str, Any]:
         """Generate component and ensemble signals for all rows in df_exec."""
+        from leadlag.core.pipeline import (
+            BLPXCombiner,
+            BLPXOutputAdapter,
+            CallableComponent,
+            CommonInputs,
+            SignalPipeline,
+        )
+
         T = len(df_exec)
         sim_dates = df_exec.index
 
@@ -1027,7 +1037,6 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
                 try:
                     macro_df = pd.read_pickle(macro_path)
                     macro_df.index = pd.to_datetime(macro_df.index).tz_localize(None).normalize()
-                    # Safe ffill + bfill
                     vix_series = macro_df["^VIX"].reindex(sim_dates).ffill()
                     vix_series = vix_series.bfill()
                     logger.info("Successfully loaded VIX from macro_data.pkl for meta-learning.")
@@ -1035,26 +1044,6 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
                     logger.warning(f"Failed to load VIX from macro_data.pkl: {e}")
             if vix_series is None:
                 vix_series = pd.Series(20.0, index=sim_dates)
-
-        # Setup output arrays
-        raw_pca_signals = np.zeros((T, self.n_j))
-        residual_pca_signals = np.zeros((T, self.n_j))
-        raw_blpx_signals = np.zeros((T, self.n_j))
-        residual_blpx_signals = np.zeros((T, self.n_j))
-        combined_signals = np.zeros((T, self.n_j))
-        normalized_combined_signals = np.zeros((T, self.n_j))
-        sigma_yy_array = np.zeros((T, self.n_j, self.n_j))
-
-        # Setup arrays for meta-learning tracking
-        us_dispersions = [0.0] * T
-        cond_nums = [0.0] * T
-        vix_vals = [20.0] * T
-        ic_blpx_vals = [0.0] * T
-        ic_pca_vals = [0.0] * T
-        meta_weights = [0.8] * T
-
-        # Track BLP diagnostics
-        blp_diagnostics = []
 
         # Optimize: skip loop iterations before warmup if _start_date is specified
         start_date_str = getattr(self, "_start_date", None)
@@ -1065,6 +1054,7 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
         else:
             start_idx = self.corr_window
             start_idx_raw = self.corr_window
+
         # Determine which components to compute (skip zero-weight for speed)
         need_raw_pca = (self.raw_pca_weight > 0.0) or self.meta_enabled
         need_residual_pca = self.residual_pca_weight > 0.0
@@ -1086,200 +1076,144 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
             self.vol_adjusted_target,
         )
 
+        # PCA caching
         raw_pca_cached = False
+        raw_pca_cache_arr = None
         if need_raw_pca:
-            if cache_key in _RAW_PCA_CACHE:
-                raw_pca_signals = _RAW_PCA_CACHE[cache_key]
+            if cache_key in self._raw_pca_cache:
+                raw_pca_cache_arr = self._raw_pca_cache[cache_key]
                 raw_pca_cached = True
-            else:
-                raw_pca_signals = np.zeros((T, self.n_j))
-        else:
-            raw_pca_signals = np.zeros((T, self.n_j))
-
         residual_pca_cached = False
+        residual_pca_cache_arr = None
         if need_residual_pca:
-            if cache_key in _RESIDUAL_PCA_CACHE:
-                residual_pca_signals = _RESIDUAL_PCA_CACHE[cache_key]
+            if cache_key in self._residual_pca_cache:
+                residual_pca_cache_arr = self._residual_pca_cache[cache_key]
                 residual_pca_cached = True
-            else:
-                residual_pca_signals = np.zeros((T, self.n_j))
-        else:
-            residual_pca_signals = np.zeros((T, self.n_j))
 
-        for i in range(start_idx, T):
-            # 1. Raw-PCA (skip if weight=0 and not cached)
-            if need_raw_pca and not raw_pca_cached:
-                raw_pca_sig = self.compute_production_signal(
-                    i, c_full, v0_static, v1, v2, all_returns_raw, jp_gap, jp_beta, topix_night
-                )
-                raw_pca_signals[i] = raw_pca_sig
-            else:
-                raw_pca_sig = raw_pca_signals[i]
-
-            # 2. Residual-PCA (skip if weight=0 and not cached)
-            if need_residual_pca and not residual_pca_cached:
-                residual_pca_sig = self.compute_residual_signal(
-                    jp_res_returns_p3, i, c_full_p3, v0_static, v1, v2, jp_gap, jp_beta, topix_night
-                )
-                residual_pca_signals[i] = residual_pca_sig
-            else:
-                residual_pca_sig = residual_pca_signals[i]
-
-            # 3. Raw-BLPX (skip if weight=0)
-            gap_override = np.nan_to_num(jp_gap[i], nan=0.0) if jp_gap is not None else None
-            betas_t = np.asarray(jp_beta[i], dtype=float) if jp_beta is not None else None
-            topix_night_t = float(topix_night[i]) if topix_night is not None else None
-
-            if need_raw_blpx and (i >= start_idx_raw):
-                raw_blpx_res = self.compute_blp_signal(
-                    all_returns_raw,
-                    i,
-                    gap_override=gap_override,
-                    betas_t=betas_t,
-                    topix_night_t=topix_night_t,
-                    rolling_std=rolling_std,
-                    v0_static=v0_static,
-                    c_full=c_full,
-                    is_residual=False,
-                )
-                raw_blpx_signals[i] = raw_blpx_res["signal"]
-            else:
-                raw_blpx_res = {**self._ZERO_BLP_DIAGNOSTICS, "signal": np.zeros(self.n_j)}
-
-            # 4. Residual-BLPX (skip if weight=0)
-            if need_residual_blpx and (i >= start_idx_raw):
-                residual_blpx_res = self.compute_blp_signal(
-                    jp_res_returns_p3,
-                    i,
-                    gap_override=gap_override,
-                    betas_t=betas_t,
-                    topix_night_t=topix_night_t,
-                    rolling_std=rolling_std,
-                    v0_static=v0_static,
-                    c_full=c_full_p3,
-                    is_residual=True,
-                )
-                residual_blpx_signals[i] = residual_blpx_res["signal"]
-                if self.minvar_enabled and "sigma_Y_cov" in residual_blpx_res:
-                    sigma_yy_array[i] = residual_blpx_res["sigma_Y_cov"]
-            else:
-                residual_blpx_res = {**self._ZERO_BLP_DIAGNOSTICS, "signal": np.zeros(self.n_j)}
-
-            # Standard Z-score normalization of component signals
-            z0 = self.normalize_signals(raw_pca_sig, self.normalization_method)
-            z3 = self.normalize_signals(residual_pca_sig, self.normalization_method)
-            z_raw_blpx = self.normalize_signals(raw_blpx_res["signal"], self.normalization_method)
-            z_residual_blpx = self.normalize_signals(residual_blpx_res["signal"], self.normalization_method)
-
-            # Store dispersion, condition number, VIX
-            us_returns = all_returns_raw[i, :self.n_u]
-            us_dispersions[i] = float(np.nanvar(us_returns))
-            cond_nums[i] = float(raw_blpx_res["cond_num"])
-            vix_vals[i] = float(vix_series.iloc[i]) if vix_series is not None else 20.0
-
-            # Calculate actual daily ICs for row i-1
-            if i - 1 >= start_idx:
-                y_prev = y_jp_target[i-1]
-                sig_blpx_prev = raw_blpx_signals[i-1]
-                sig_pca_prev = raw_pca_signals[i-1]
-
-                valid_blpx = np.isfinite(sig_blpx_prev) & np.isfinite(y_prev)
-                if np.sum(valid_blpx) >= 5 and np.std(sig_blpx_prev[valid_blpx]) > 1e-8 and np.std(y_prev[valid_blpx]) > 1e-8:
-                    ic_blpx_vals[i-1] = float(spearmanr(sig_blpx_prev[valid_blpx], y_prev[valid_blpx])[0])
-                else:
-                    ic_blpx_vals[i-1] = 0.0
-
-                valid_pca = np.isfinite(sig_pca_prev) & np.isfinite(y_prev)
-                if np.sum(valid_pca) >= 5 and np.std(sig_pca_prev[valid_pca]) > 1e-8 and np.std(y_prev[valid_pca]) > 1e-8:
-                    ic_pca_vals[i-1] = float(spearmanr(sig_pca_prev[valid_pca], y_prev[valid_pca])[0])
-                else:
-                    ic_pca_vals[i-1] = 0.0
-
-            # Predict daily ensemble weight w_t
-            w_t = 0.8
-            if self.meta_enabled:
-                if i >= start_idx + self.meta_train_window:
-                    w_t = self._predict_meta_weight(
-                        i, us_dispersions, cond_nums, vix_vals, ic_blpx_vals, ic_pca_vals
-                    )
-                    if self.meta_smooth_factor < 1.0 and i - 1 >= start_idx:
-                        w_prev_meta = meta_weights[i-1]
-                        w_t = self.meta_smooth_factor * w_t + (1.0 - self.meta_smooth_factor) * w_prev_meta
-                meta_weights[i] = w_t
-
-            # Combined PCA-BLPX Ensemble signal
-            if self.meta_enabled:
-                pca_denom = self.raw_pca_weight + self.residual_pca_weight
-                if pca_denom > 0.0:
-                    s_pca = (self.raw_pca_weight * z0 + self.residual_pca_weight * z3) / pca_denom
-                else:
-                    s_pca = 0.5 * z0 + 0.5 * z3
-
-                blpx_denom = self.raw_blpx_weight + self.residual_blpx_weight
-                if blpx_denom > 0.0:
-                    s_blpx = (self.raw_blpx_weight * z_raw_blpx + self.residual_blpx_weight * z_residual_blpx) / blpx_denom
-                else:
-                    s_blpx = 0.5 * z_raw_blpx + 0.5 * z_residual_blpx
-
-                s_ens = (1.0 - w_t) * s_pca + w_t * s_blpx
-            else:
-                s_ens = self.combine_signals(z0, z3, z_raw_blpx, z_residual_blpx)
-
-            # Apply macro confidence scaling (Factor-Specific Kappa)
-            if self.macro_confidence_enabled and self._macro_scales is not None:
-                scale_t = self._macro_scales[i]
-                s_ens = s_ens / scale_t
-                s_ens = np.nan_to_num(s_ens, nan=0.0, posinf=0.0, neginf=0.0)
-
-                # Extension A: Directional adjustment (signed surprise * signed sensitivity)
-                if self._macro_direction_adj is not None:
-                    dir_adj_t = self._macro_direction_adj[i]
-                    s_ens = s_ens * dir_adj_t
-                    s_ens = np.nan_to_num(s_ens, nan=0.0, posinf=0.0, neginf=0.0)
-
-            combined_signals[i] = s_ens
-            normalized_combined_signals[i] = self.normalize_signals(
-                s_ens, self.normalization_method
-            )
-
-            # Diagnostics recording
-            date_str = sim_dates[i].strftime("%Y-%m-%d")
-            blp_diagnostics.append(
-                {
-                    "date": date_str,
-                    "raw_blpx_cond_num": raw_blpx_res["cond_num"],
-                    "raw_blpx_b_norm": raw_blpx_res["b_norm"],
-                    "raw_blpx_b_pca_norm": raw_blpx_res["b_pca_norm"],
-                    "raw_blpx_b_sector_norm": raw_blpx_res["b_sector_norm"],
-                    "raw_blpx_b_struct_norm": raw_blpx_res["b_struct_norm"],
-                    "raw_blpx_sigma_xx_trace": raw_blpx_res["sigma_xx_trace"],
-                    "raw_blpx_sigma_yx_norm": raw_blpx_res["sigma_yx_norm"],
-                    "raw_blpx_sigma_yy_trace": raw_blpx_res["sigma_yy_trace"],
-                    "raw_blpx_min_pred_var": raw_blpx_res["min_pred_var"],
-                    "raw_blpx_max_pred_var": raw_blpx_res["max_pred_var"],
-                    "raw_blpx_num_pred_var_floored": raw_blpx_res["num_pred_var_floored"],
-                    "raw_blpx_pinv_fallback": int(raw_blpx_res["pinv_fallback"]),
-                    "raw_blpx_num_training_samples": raw_blpx_res["num_training_samples"],
-                    "meta_ensemble_weight": w_t,
-                }
-            )
-
-        if need_raw_pca and not raw_pca_cached:
-            _RAW_PCA_CACHE[cache_key] = raw_pca_signals.copy()
-        if need_residual_pca and not residual_pca_cached:
-            _RESIDUAL_PCA_CACHE[cache_key] = residual_pca_signals.copy()
-
-        # Build DataFrames
-        raw_pca_df = pd.DataFrame(raw_pca_signals, index=sim_dates, columns=JP_TICKERS)
-        residual_pca_df = pd.DataFrame(residual_pca_signals, index=sim_dates, columns=JP_TICKERS)
-        p4_signals = np.zeros((T, self.n_j))
-        p4_df = pd.DataFrame(p4_signals, index=sim_dates, columns=JP_TICKERS)
-        raw_blpx_df = pd.DataFrame(raw_blpx_signals, index=sim_dates, columns=JP_TICKERS)
-        residual_blpx_df = pd.DataFrame(residual_blpx_signals, index=sim_dates, columns=JP_TICKERS)
-        combined_df = pd.DataFrame(combined_signals, index=sim_dates, columns=JP_TICKERS)
-        normalized_df = pd.DataFrame(
-            normalized_combined_signals, index=sim_dates, columns=JP_TICKERS
+        # Build CommonInputs
+        common_inputs = CommonInputs(
+            all_returns_raw=all_returns_raw,
+            c_full=c_full,
+            c_full_p3=c_full_p3,
+            v0_static=v0_static,
+            v1=v1,
+            v2=v2,
+            jp_gap=jp_gap,
+            jp_beta=jp_beta,
+            topix_night=topix_night,
+            y_jp_oc_df=inputs["y_jp_oc_df"],
+            jp_res_returns_p3=jp_res_returns_p3,
+            y_jp_target=y_jp_target,
+            n_u=self.n_u,
+            n_j=self.n_j,
+            dates=sim_dates,
+            p4=None,
         )
+
+        # Build component closures
+        def _raw_pca_fn(ctx):
+            i = ctx.i
+            if not need_raw_pca:
+                return {"signal": np.zeros(self.n_j)}
+            if raw_pca_cached and raw_pca_cache_arr is not None:
+                return {"signal": raw_pca_cache_arr[i]}
+            inp = ctx.inputs
+            sig = self.compute_production_signal(
+                i, inp.c_full, inp.v0_static, inp.v1, inp.v2,
+                inp.all_returns_raw, inp.jp_gap, inp.jp_beta, inp.topix_night,
+            )
+            return {"signal": sig}
+
+        def _residual_pca_fn(ctx):
+            i = ctx.i
+            if not need_residual_pca:
+                return {"signal": np.zeros(self.n_j)}
+            if residual_pca_cached and residual_pca_cache_arr is not None:
+                return {"signal": residual_pca_cache_arr[i]}
+            inp = ctx.inputs
+            sig = self.compute_residual_signal(
+                inp.jp_res_returns_p3, i, inp.c_full_p3, inp.v0_static, inp.v1, inp.v2,
+                inp.jp_gap, inp.jp_beta, inp.topix_night,
+            )
+            return {"signal": sig}
+
+        def _raw_blpx_fn(ctx):
+            i = ctx.i
+            if not need_raw_blpx or i < start_idx_raw:
+                return {**self._ZERO_BLP_DIAGNOSTICS, "signal": np.zeros(self.n_j)}
+            inp = ctx.inputs
+            gap_override = np.nan_to_num(inp.jp_gap[i], nan=0.0) if inp.jp_gap is not None else None
+            betas_t = np.asarray(inp.jp_beta[i], dtype=float) if inp.jp_beta is not None else None
+            topix_night_t = float(inp.topix_night[i]) if inp.topix_night is not None else None
+            return self.compute_blp_signal(
+                inp.all_returns_raw, i,
+                gap_override=gap_override, betas_t=betas_t, topix_night_t=topix_night_t,
+                rolling_std=rolling_std, v0_static=inp.v0_static, c_full=inp.c_full,
+                is_residual=False,
+            )
+
+        def _residual_blpx_fn(ctx):
+            i = ctx.i
+            if not need_residual_blpx or i < start_idx_raw:
+                return {**self._ZERO_BLP_DIAGNOSTICS, "signal": np.zeros(self.n_j)}
+            inp = ctx.inputs
+            gap_override = np.nan_to_num(inp.jp_gap[i], nan=0.0) if inp.jp_gap is not None else None
+            betas_t = np.asarray(inp.jp_beta[i], dtype=float) if inp.jp_beta is not None else None
+            topix_night_t = float(inp.topix_night[i]) if inp.topix_night is not None else None
+            result = self.compute_blp_signal(
+                inp.jp_res_returns_p3, i,
+                gap_override=gap_override, betas_t=betas_t, topix_night_t=topix_night_t,
+                rolling_std=rolling_std, v0_static=inp.v0_static, c_full=inp.c_full_p3,
+                is_residual=True,
+            )
+            if self.minvar_enabled and "sigma_Y_cov" in result:
+                sigma_yy_array[i] = result["sigma_Y_cov"]
+            return result
+
+        components = [
+            CallableComponent("raw_pca", _raw_pca_fn),
+            CallableComponent("residual_pca", _residual_pca_fn),
+            CallableComponent("raw_blpx", _raw_blpx_fn),
+            CallableComponent("residual_blpx", _residual_blpx_fn),
+        ]
+
+        # Prepare signal arrays for IC tracking
+        raw_pca_signals_arr = np.zeros((T, self.n_j))
+        raw_blpx_signals_arr = np.zeros((T, self.n_j))
+        sigma_yy_array = np.zeros((T, self.n_j, self.n_j))
+
+        combiner = BLPXCombiner(
+            raw_pca_weight=self.raw_pca_weight,
+            residual_pca_weight=self.residual_pca_weight,
+            raw_blpx_weight=self.raw_blpx_weight,
+            residual_blpx_weight=self.residual_blpx_weight,
+            normalization_method=self.normalization_method,
+            n_j=self.n_j,
+            n_u=self.n_u,
+            normalize_fn=self.normalize_signals,
+            meta_enabled=self.meta_enabled,
+            meta_train_window=self.meta_train_window,
+            meta_smooth_factor=self.meta_smooth_factor,
+            corr_window=self.corr_window,
+            meta_predict_fn=self._predict_meta_weight if self.meta_enabled else None,
+            macro_confidence_enabled=self.macro_confidence_enabled,
+            macro_scales=self._macro_scales,
+            macro_direction_adj=self._macro_direction_adj,
+            vix_series=vix_series,
+            y_jp_target=y_jp_target,
+            all_returns_raw=all_returns_raw,
+        )
+        combiner._raw_pca_signals = raw_pca_signals_arr
+        combiner._raw_blpx_signals = raw_blpx_signals_arr
+
+        pipeline = SignalPipeline(components=components, combiner=combiner)
+        pipeline_results = pipeline.run(common_inputs, start_idx=start_idx, T=T, start_idx_raw=start_idx_raw)
+
+        # Update PCA caches
+        if need_raw_pca and not raw_pca_cached:
+            self._raw_pca_cache[cache_key] = pipeline_results["raw_pca"].copy()
+        if need_residual_pca and not residual_pca_cached:
+            self._residual_pca_cache[cache_key] = pipeline_results["residual_pca"].copy()
 
         # Extension E: Inflate Sigma_YY based on macro surprise
         if (self.macro_confidence_enabled and self.macro_sigma_yy_inflation_enabled
@@ -1293,15 +1227,5 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
                 sigma_yy_base=sigma_yy_array,
             )
 
-        return {
-            "raw_pca_signals": raw_pca_df,
-            "residual_pca_signals": residual_pca_df,
-            "p4_signals": p4_df,
-            "raw_blpx_signals": raw_blpx_df,
-            "residual_blpx_signals": residual_blpx_df,
-            "signals": combined_df,
-            "normalized_signals": normalized_df,
-            "sigma_yy": sigma_yy_array,
-            "y_jp_oc_df": inputs["y_jp_oc_df"],
-            "blp_diagnostics": pd.DataFrame(blp_diagnostics).set_index("date"),
-        }
+        adapter = BLPXOutputAdapter(n_j=self.n_j, jp_tickers=JP_TICKERS)
+        return adapter.adapt(pipeline_results, common_inputs, sigma_yy=sigma_yy_array)

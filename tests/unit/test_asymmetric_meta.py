@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import copy
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -115,7 +117,7 @@ def test_solve_asymmetric_blp(base_config):
 
 def test_predict_meta_weight(base_config):
     """Verify that _predict_meta_weight correctly runs models and yields weights in [0.6, 1.0]."""
-    cfg = base_config.copy()
+    cfg = copy.deepcopy(base_config)
     cfg["meta_learning_enabled"] = True
     model = SectorRelativeEnsembleBLPEnhancedModel(cfg)
     

@@ -25,6 +25,7 @@
 3. **テストを弱めない**: 変更後必ず全テストを通す。推奨は並列実行 `bash scripts/run_tests_parallel.sh`（約8分、ログは `/tmp/pytest_parallel/`）。直列 `python3 -m pytest tests/ -v` は約32分。unit + integration（`test_leakage_audit.py`, `test_production_residual_blpx.py` 等）
 4. **市場中立制約**: net exposure ±0.05、gross ≤ 2.0（RuleD 適用後）。リスク正本は `src/leadlag/core/risk.py`、グロス調整正本は `src/leadlag/core/portfolio.py::adjust_gross_exposure()`
 5. **ティッカー定義**: `src/leadlag/data/tickers.py` が単一正本（N_U=15, N_J=17, 計32次元）。`core/correlation.py` の感応度ラベル `w3`–`w6` は32次元ハードコードなので、ユニバース変更時は必ず同時更新
+6. **前日gap行列の使用禁止**: 当日のgap行列（`mu_gap_{YYYYMMDD}.npy` / `omega_gap_{YYYYMMDD}.npy`）が存在しない場合は **フラットポジション（w_final=0）** を返すこと。前日行列をコピーして当日日付で使用してはならない（誤ったポジションで発注するリスクがある）。`load_gap_matrices`（`production_v2.py`）は当日日付のファイルのみを検索し、シェルスクリプト側のフォールバックコピー（2026-07-14に廃止）に依存しない
 
 ## 改善ワークフロー
 
@@ -39,10 +40,10 @@
 
 ## 既知の落とし穴（コードレビュー指摘済み）
 
-- **`sre.py` のモンキーパッチ**: `predict_signals` 内で `signals.build_c0_from_v0` をグローバル差し替えしている（P4シグナル計算）。スレッド非安全。触る場合は `compute_signal` に `c0_override` 引数を追加して除去する方向で
-- **グローバルキャッシュ**: `_PRODUCTION_SIGNAL_CACHE` 等のキーにデータ識別子が無い。`predict_signals` 経由以外で `compute_production_signal` を呼ぶと汚染リスク。`_COMMON_INPUTS_CACHE` は clear されないためメモリ単調増加
+- **`sre.py` のインスタンス状態一時書き換え（解決済み）**: `build_c0_from_v0` グローバル差し替えは `c0_override` 引数経由に修正済み。`self.k` の一時書き換えも `k_override` 引数経由に修正済み（2026-07-13）
+- **グローバルキャッシュ（解決済み）**: `_PRODUCTION_SIGNAL_CACHE` 等のモジュールレベルdictはインスタンス属性 (`self._production_signal_cache` 等) に移行済み（2026-07-13）。`predict_signals` 開始時にインスタンスキャッシュは clear される。`core/correlation.py` の `_ROLLING_CORR_CACHE` / `_BASELINE_CORR_CACHE` は関数レベルで管理されサイズ上限あり
 - **9:10 価格近似**: 5分足 09:10 バーの (High+Low)/2 を執行価格としており楽観側。コスト検証時は実約定ログと突合すること
-- **金利コスト日割り**: `backtester.py` は `annual/365` を営業日課金 → 週末分が過小。オーバーナイト保有の実験では暦日補正を検討
+- **金利コスト日割り（解決済み）**: `backtester.py` は `calendar_days` で暦日数を計算し、`financing_daily * days_held` で課金。週末（金曜→月曜=3日）も正しく加算される
 - **VaR99 の不安定性**: 250日窓の99%は尾部標本 ~2.5個。stop 判定の変更時は注意
 - **ハング既知パターン**（CLI実行時）: yfinance ダウンロード、`cache.py` の fcntl ファイルロック、`close.py` の auto-close 無限待機、API再試行バックオフ。詳細は `docs/スタック再発防止策.md`。長時間実行はタイムアウト付きで
 - **yfinanceのティッカー別NaN欠損**: yfinanceダウンロード時に特定ティッカー（IJR等）のデータが日付以降全てNaNになることがある。`preprocess_data()` のNaNチェック（`preprocessor.py:264-272`）で1ティッカーでもNaNがあると該当日の全レコードがスキップされ、df_execが途中で切断される。`etf_data.pkl` の異常は `preprocess_data` 呼び出し前に検査・修正すること
@@ -81,3 +82,4 @@ python3 _check_syntax.py
 - **不採用実験の記録**（再検証防止用）:
   - **Robust PCA伝播行列**（2026-07）: B_struct を低ランク+スパース分解（L+S）で置換する方針を検証。セクター事前知識（M_sector）とPCA事前分布（B_pca）の統合が失われ、confidence weighting の inv_A_tikh も単位行列フォールバックになった結果、Sharpe -35%、IC -32%と大幅劣化。チューニングでは埋められない構造的欠陥が原因。コードは全て破棄済み
   - **V1フォールバック廃止**（2026-07）: gapデータ欠損時のV1ウェイトフォールバックを廃止しフラットポジション化。理由: (1) `production_v2_writer.py` がV2実行のたびに `v1_baseline_weights.csv` を `w_v1` で上書きする循環参照があり、V1ウェイトが新規計算されず凍結化していた (2) 一度ゼロになると永久にゼロになる（実例あり） (3) データパイプライン障害時に古いシグナルで取引するより取引を見送る方がリスク管理として健全
+  - **前日gap行列フォールバック廃止**（2026-07-14）: `run_gap_distribution.sh` の前日行列コピー機能を廃止。当日のgap行列が生成できない場合、前日行列を当日日付でコピーして使用していたが、これにより誤ったポジションで発注するリスクがあった（2026-07-14に発生: 手動フル再計算が `latest` シンボリックリンクを上書きし、フォールバックなしで `mu_gap_20260714.npy` が不在になりフラットポジション化）。廃止後は当日行列不在時にフラットポジションを返すのが正しい挙動。`preprocess_data` を修正し `r_oc` NaNの行も0埋めで残すことで、大引け前に当日のgap行列を計算可能にしたことで再発防止

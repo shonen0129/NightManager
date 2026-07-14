@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import sys
 from pathlib import Path
 
@@ -96,7 +97,7 @@ def test_blpx_matrix_dimensions(blpx_sample_config, sample_df_exec):
 
 def test_structured_lambda_constraints(blpx_sample_config):
     """3. test_structured_lambda_constraints: Verify lambda_pca + lambda_sector <= 0.75 constraint."""
-    cfg = blpx_sample_config.copy()
+    cfg = copy.deepcopy(blpx_sample_config)
     cfg["lambda_pca"] = 0.5
     cfg["lambda_sector"] = 0.5  # sum is 1.0 > 0.75
     model = SectorRelativeEnsembleBLPEnhancedModel(cfg)
@@ -246,7 +247,7 @@ def test_cost_consistency(blpx_sample_config, sample_df_exec):
 
 def test_continuous_m_sector_positive_corr_only(blpx_sample_config):
     """Verify continuous M_sector uses max(0, corr) — negative correlations get zero weight."""
-    cfg = blpx_sample_config.copy()
+    cfg = copy.deepcopy(blpx_sample_config)
     cfg["sector_eta"] = 1.0
     cfg["sector_gamma"] = 2.0
     model = SectorRelativeEnsembleBLPEnhancedModel(cfg)
@@ -270,7 +271,7 @@ def test_continuous_m_sector_positive_corr_only(blpx_sample_config):
 
 def test_continuous_m_sector_mixed_corr(blpx_sample_config):
     """Verify continuous M_sector assigns weight only to positively correlated tickers."""
-    cfg = blpx_sample_config.copy()
+    cfg = copy.deepcopy(blpx_sample_config)
     cfg["sector_eta"] = 1.0
     cfg["sector_gamma"] = 1.0
     model = SectorRelativeEnsembleBLPEnhancedModel(cfg)
@@ -300,7 +301,7 @@ def test_continuous_m_sector_mixed_corr(blpx_sample_config):
 def test_tikhonov_no_scaling(blpx_sample_config, sample_df_exec):
     """Verify Tikhonov uses priors directly without norm-based rescaling."""
     df_exec, _ = sample_df_exec
-    cfg = blpx_sample_config.copy()
+    cfg = copy.deepcopy(blpx_sample_config)
     cfg["lambda_pca"] = 0.2
     cfg["lambda_sector"] = 0.3
     model = SectorRelativeEnsembleBLPEnhancedModel(cfg)
@@ -359,7 +360,7 @@ def test_baseline_sre_reproduction(blpx_sample_config, sample_df_exec):
         prod_cfg = yaml.safe_load(f)
     sre_model = SectorRelativeEnsembleModel(prod_cfg)
 
-    blpx_cfg = blpx_sample_config.copy()
+    blpx_cfg = copy.deepcopy(blpx_sample_config)
     if "ensemble" not in blpx_cfg:
         blpx_cfg["ensemble"] = {}
     blpx_cfg["ensemble"]["raw_pca_weight"] = 0.5
@@ -409,7 +410,7 @@ def test_previous_blp_reproduction(blpx_sample_config, sample_df_exec):
     legacy_model = SectorRelativeEnsembleBLPModel(legacy_cfg)
 
     # Enhanced PCA-BLPX Ensemble config configured to match legacy baseline
-    blpx_cfg = blpx_sample_config.copy()
+    blpx_cfg = copy.deepcopy(blpx_sample_config)
     if "ensemble" not in blpx_cfg:
         blpx_cfg["ensemble"] = {}
     blpx_cfg["ensemble"]["raw_pca_weight"] = 0.4

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import sys
 from pathlib import Path
 
@@ -260,7 +261,7 @@ def test_baseline_sre_reproduction(rrr_sample_config, sample_df_exec):
         prod_cfg = yaml.safe_load(f)
     sre_model = SectorRelativeEnsembleModel(prod_cfg)
 
-    rrr_cfg = rrr_sample_config.copy()
+    rrr_cfg = copy.deepcopy(rrr_sample_config)
     rrr_cfg["ensemble"]["raw_pca_weight"] = 0.5
     rrr_cfg["ensemble"]["residual_pca_weight"] = 0.5
     rrr_cfg["ensemble"]["p6_weight"] = 0.0

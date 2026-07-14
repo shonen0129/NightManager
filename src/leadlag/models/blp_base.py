@@ -5,16 +5,8 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from leadlag.core import signal as signals
-from leadlag.core.correlation import (
-    build_base_vectors,
-    build_v3_static,
-    compute_baseline_correlation,
-)
-from leadlag.core.residualize import compute_rolling_ols_betas
 from leadlag.data.tickers import JP_TICKERS, US_TICKERS
 from leadlag.models.base import BaseModel
-from leadlag.models.sre import compute_jp_target_returns
 
 
 class _BLPBase(BaseModel):
@@ -26,73 +18,44 @@ class _BLPBase(BaseModel):
 
     def _prepare_common_inputs(self, df_exec: pd.DataFrame) -> dict:
         """Prepare inputs common to signal computation (raw targets, residuals, betas)."""
-        sim_dates = df_exec.index
+        from leadlag.core.pipeline import build_common_inputs
+        from leadlag.models.sre import compute_jp_target_returns
 
         y_jp_target = compute_jp_target_returns(df_exec, JP_TICKERS)
 
-        us_returns_raw = df_exec[[f"us_cc_{tk}" for tk in US_TICKERS]].values
-        all_returns_raw = np.column_stack([us_returns_raw, y_jp_target])
-
-        c_full = compute_baseline_correlation(
-            all_returns_raw, sim_dates.values, self.ewma_half_life
+        inputs = build_common_inputs(
+            df_exec,
+            y_jp_target,
+            n_u=self.n_u,
+            n_j=self.n_j,
+            ewma_half_life=self.ewma_half_life,
+            beta_window=self.beta_window,
+            include_v4_prior=self.include_v4_prior,
         )
-        v0_static = build_v3_static(self.n_u, self.n_j, self.include_v4_prior)
-        base_vectors = build_base_vectors(self.n_u, self.n_j)
-        v1, v2 = base_vectors["v1"], base_vectors["v2"]
+        out = inputs.to_dict()
+        out["y_jp_target"] = y_jp_target
+        return out
 
-        jp_gap = df_exec[[f"jp_gap_{tk}" for tk in JP_TICKERS]].values
-        jp_beta = (
-            df_exec[[f"jp_beta_{tk}" for tk in JP_TICKERS]].values
-            if any(c.startswith("jp_beta_") for c in df_exec.columns)
-            else None
-        )
-        topix_night = (
-            df_exec["topix_night_return"].values
-            if "topix_night_return" in df_exec.columns
-            else None
-        )
-
-        y_jp_oc_df = df_exec[[f"jp_oc_{tk}" for tk in JP_TICKERS]].rename(
-            columns=lambda c: c.replace("jp_oc_", "")
-        )
-
-        # Use open-to-close TOPIX return for residualization (same time window as target).
-        # Falls back to close-to-close if topix_oc_return is unavailable.
-        if "topix_oc_return" in df_exec.columns:
-            topix_for_beta = df_exec["topix_oc_return"].values
-        else:
-            topix_for_beta = (
-                df_exec["topix_cc_trade"].values
-                if "topix_cc_trade" in df_exec.columns
-                else df_exec["topix_night_return"].values + df_exec["topix_oc_return"].values
+    def _get_pca_component(self) -> PCAComponent:
+        """Lazily create and cache a PCAComponent for PCA signal computation."""
+        if not hasattr(self, "_pca_component"):
+            from leadlag.core.pipeline import PCAComponent
+            self._pca_component = PCAComponent(
+                name="pca",
+                n_u=self.n_u,
+                n_j=self.n_j,
+                corr_window=self.corr_window,
+                k=self.k,
+                lambda_reg=self.lambda_reg,
+                lambda_lw=self.lambda_lw,
+                lw_target=self.lw_target,
+                ewma_half_life=self.ewma_half_life,
+                gap_open_coef=self.gap_open_coef,
+                topix_beta_coef=self.topix_beta_coef,
+                vol_adjusted_target=self.vol_adjusted_target,
+                min_raw_weight=getattr(self, "min_raw_weight", 0.0),
             )
-
-        betas_jp_p3 = compute_rolling_ols_betas(
-            y_jp_target, topix_for_beta.reshape(-1, 1), self.beta_window
-        )
-        y_residuals_p3 = y_jp_target - betas_jp_p3[:, :, 0] * topix_for_beta.reshape(-1, 1)
-
-        jp_res_returns_p3 = all_returns_raw.copy()
-        jp_res_returns_p3[:, self.n_u :] = y_residuals_p3
-
-        c_full_p3 = compute_baseline_correlation(
-            jp_res_returns_p3, sim_dates.values, self.ewma_half_life
-        )
-
-        return {
-            "all_returns_raw": all_returns_raw,
-            "c_full": c_full,
-            "c_full_p3": c_full_p3,
-            "v0_static": v0_static,
-            "v1": v1,
-            "v2": v2,
-            "jp_gap": jp_gap,
-            "jp_beta": jp_beta,
-            "topix_night": topix_night,
-            "y_jp_oc_df": y_jp_oc_df,
-            "jp_res_returns_p3": jp_res_returns_p3,
-            "y_jp_target": y_jp_target,
-        }
+        return self._pca_component
 
     def _compute_pca_signal(
         self,
@@ -107,34 +70,19 @@ class _BLPBase(BaseModel):
         topix_night: np.ndarray | None,
     ) -> np.ndarray:
         """Compute a PCA-based signal (Raw-PCA or Residual-PCA) at index i."""
-        gap_t1 = np.nan_to_num(jp_gap[i], nan=0.0) if jp_gap is not None else np.zeros(self.n_j)
-        betas_t = np.asarray(jp_beta[i], dtype=float) if jp_beta is not None else None
-        topix_night_t = float(topix_night[i]) if topix_night is not None else None
-
-        sig_res = signals.compute_signal(
+        comp = self._get_pca_component()
+        result = comp.compute_standalone(
+            i=i,
             all_returns=all_returns,
-            current_index=i,
-            n_u=self.n_u,
-            corr_window=self.corr_window,
             c_full=c_full,
             v0_static=v0_static,
             v1=v1,
             v2=v2,
-            k=self.k,
-            lambda_reg=self.lambda_reg,
-            lambda_lw=self.lambda_lw,
-            lw_target=self.lw_target,
-            ewma_half_life=self.ewma_half_life,
-            v3_dynamic=False,
-            gap_override=gap_t1,
-            gap_open_coef=self.gap_open_coef,
-            topix_beta_coef=self.topix_beta_coef,
-            betas_t=betas_t,
-            topix_night_t=topix_night_t,
-            vol_adjusted_target=self.vol_adjusted_target,
-            min_raw_weight=getattr(self, "min_raw_weight", 0.0),
+            jp_gap=jp_gap,
+            jp_beta=jp_beta,
+            topix_night=topix_night,
         )
-        return np.asarray(sig_res["signal"], dtype=float)
+        return result.signal
 
     def compute_production_signal(
         self,

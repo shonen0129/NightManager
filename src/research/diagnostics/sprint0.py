@@ -6,6 +6,7 @@ long-short contribution, liquidity ADV, cost scenarios, and capacity limits.
 
 from __future__ import annotations
 
+import copy
 import logging
 import os
 import glob
@@ -246,7 +247,7 @@ def run_sprint0_calculations(
     residual_blpx_signals = pred_gap["residual_blpx_signals"]
 
     # Model without gap adjustment
-    prod_config_no_gap = prod_config.copy()
+    prod_config_no_gap = copy.deepcopy(prod_config)
     prod_config_no_gap["blpx"]["gap_open_coef"] = 0.0
     model_no_gap = SectorRelativeEnsembleBLPEnhancedModel(prod_config_no_gap)
     pred_no_gap = model_no_gap.predict_signals(df_exec)

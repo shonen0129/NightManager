@@ -266,12 +266,16 @@ def preprocess_data(
         if (
             r_us.isna().any()
             or r_jp.isna().any()
-            or r_oc.isna().any()
             or r_gap.isna().any()
             or jp_close_sig.isna().any()
             or jp_open_trade.isna().any()
         ):
             continue
+
+        # r_oc (target return) may be NaN for today (close not yet available).
+        # Fill with 0.0 so the row is kept — mu_gap computation does not use r_oc.
+        if r_oc.isna().any():
+            r_oc = r_oc.fillna(0.0)
 
         record: dict = {"trade_date": trade_date, "sig_date": sig_date}
         for tk in US_TICKERS:

@@ -98,6 +98,7 @@ class StrategyConfig(BaseModel):
     start_date: str = Field(default="2015-01-01", description="バックテスト開始日")
     var_confidence: float = Field(default=0.99, ge=0.0, le=1.0, description="VaR 信頼水準")
     var_window: int = Field(default=250, ge=1, description="VaR/ES 計算ウィンドウ (日数)")
+    var_method: str = Field(default="historical", description="VaR 計算手法: historical or cornish_fisher")
     var_warning: float = Field(default=0.02, ge=0.0, le=1.0, description="VaR 警告閾値")
     var_stop: float = Field(default=0.03, ge=0.0, le=1.0, description="VaR 停止閾値")
     es_warning: float = Field(default=0.025, ge=0.0, le=1.0, description="ES 警告閾値")
@@ -119,6 +120,7 @@ class RiskConfig(BaseModel):
 
     var_confidence: float = Field(default=0.99, ge=0.0, le=1.0, description="VaR 信頼水準")
     var_window: int = Field(default=250, ge=1, description="VaR/ES 計算ウィンドウ (日数)")
+    var_method: str = Field(default="historical", description="VaR 計算手法: historical or cornish_fisher")
     var_warning: float = Field(default=0.02, ge=0.0, le=1.0, description="VaR 警告閾値")
     var_stop: float = Field(default=0.03, ge=0.0, le=1.0, description="VaR 停止閾値")
     es_warning: float = Field(default=0.025, ge=0.0, le=1.0, description="ES 警告閾値")

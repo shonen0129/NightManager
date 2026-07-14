@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import sys
 from pathlib import Path
 
@@ -120,7 +121,7 @@ def test_blpx_matrix_dimensions(residual_blpx_prod_config, sample_df_exec):
 
 def test_structured_lambda_constraints(residual_blpx_prod_config):
     """8. Verify PCA + Sector priors weight constraints sum strictly to <= 0.75."""
-    cfg = residual_blpx_prod_config.copy()
+    cfg = copy.deepcopy(residual_blpx_prod_config)
     cfg["blpx"]["lambda_pca"] = 0.50
     cfg["blpx"]["lambda_sector"] = 0.50  # sum = 1.0 > 0.75
     model = SectorRelativeEnsembleBLPEnhancedModel(cfg)

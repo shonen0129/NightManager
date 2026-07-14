@@ -18,11 +18,6 @@ from leadlag.models.blp_base import _BLPBase
 
 logger = logging.getLogger(__name__)
 
-_PRODUCTION_SIGNAL_CACHE = {}
-_RESIDUAL_SIGNAL_CACHE = {}
-_CORR_MATRIX_CACHE = {}
-_PREPARE_COMMON_INPUTS_CACHE = {}
-
 
 
 
@@ -90,6 +85,10 @@ class SectorRelativeEnsembleRRRModel(_BLPBase):
         self._rrr_signal_cache = {}
         self._pca_prior_matrix_cache = {}
         self._blp_prior_matrix_cache = {}
+        self._production_signal_cache: dict = {}
+        self._residual_signal_cache: dict = {}
+        self._corr_matrix_cache: dict = {}
+        self._prepare_common_inputs_cache: dict = {}
 
     def _prepare_common_inputs(self, df_exec: pd.DataFrame) -> dict:
         """Prepare inputs common to signal computation (raw targets, residuals, betas)."""
@@ -101,12 +100,11 @@ class SectorRelativeEnsembleRRRModel(_BLPBase):
             self.beta_window,
             self.include_v4_prior,
         )
-        global _PREPARE_COMMON_INPUTS_CACHE
-        if cache_key in _PREPARE_COMMON_INPUTS_CACHE:
-            return _PREPARE_COMMON_INPUTS_CACHE[cache_key]
+        if cache_key in self._prepare_common_inputs_cache:
+            return self._prepare_common_inputs_cache[cache_key]
 
         res = super()._prepare_common_inputs(df_exec)
-        _PREPARE_COMMON_INPUTS_CACHE[cache_key] = res
+        self._prepare_common_inputs_cache[cache_key] = res
         return res
 
     def compute_production_signal(
@@ -134,14 +132,13 @@ class SectorRelativeEnsembleRRRModel(_BLPBase):
             self.topix_beta_coef,
             self.vol_adjusted_target,
         )
-        global _PRODUCTION_SIGNAL_CACHE
-        if cache_key in _PRODUCTION_SIGNAL_CACHE:
-            return _PRODUCTION_SIGNAL_CACHE[cache_key].copy()
+        if cache_key in self._production_signal_cache:
+            return self._production_signal_cache[cache_key].copy()
 
         sig = self._compute_pca_signal(
             all_returns, i, c_full, v0_static, v1, v2, jp_gap, jp_beta, topix_night
         )
-        _PRODUCTION_SIGNAL_CACHE[cache_key] = sig
+        self._production_signal_cache[cache_key] = sig
         return sig
 
     def compute_residual_signal(
@@ -169,14 +166,13 @@ class SectorRelativeEnsembleRRRModel(_BLPBase):
             self.topix_beta_coef,
             self.vol_adjusted_target,
         )
-        global _RESIDUAL_SIGNAL_CACHE
-        if cache_key in _RESIDUAL_SIGNAL_CACHE:
-            return _RESIDUAL_SIGNAL_CACHE[cache_key].copy()
+        if cache_key in self._residual_signal_cache:
+            return self._residual_signal_cache[cache_key].copy()
 
         sig = self._compute_pca_signal(
             jp_res_returns_p3, i, c_full_p3, v0_static, v1, v2, jp_gap, jp_beta, topix_night
         )
-        _RESIDUAL_SIGNAL_CACHE[cache_key] = sig
+        self._residual_signal_cache[cache_key] = sig
         return sig
 
     def compute_rrr_signal(
@@ -222,16 +218,15 @@ class SectorRelativeEnsembleRRRModel(_BLPBase):
 
         # Estimate rolling mean, std, and correlation
         corr_cache_key = (current_index, self.rrr_window, self.rrr_ewma_halflife, id(all_returns))
-        global _CORR_MATRIX_CACHE
-        if corr_cache_key in _CORR_MATRIX_CACHE:
-            mu, sigma, corr = _CORR_MATRIX_CACHE[corr_cache_key]
+        if corr_cache_key in self._corr_matrix_cache:
+            mu, sigma, corr = self._corr_matrix_cache[corr_cache_key]
         else:
             mu, sigma, corr = compute_correlation(window_returns, self.rrr_ewma_halflife)
             mu = np.nan_to_num(mu, nan=0.0, posinf=0.0, neginf=0.0)
             sigma = np.nan_to_num(sigma, nan=1.0, posinf=1.0, neginf=1.0)
             corr = np.nan_to_num(corr, nan=0.0, posinf=1.0, neginf=-1.0)
             np.fill_diagonal(corr, 1.0)
-            _CORR_MATRIX_CACHE[corr_cache_key] = (mu.copy(), sigma.copy(), corr.copy())
+            self._corr_matrix_cache[corr_cache_key] = (mu.copy(), sigma.copy(), corr.copy())
 
         C_XX = corr[: self.n_u, : self.n_u]
         C_YX = corr[self.n_u :, : self.n_u]
@@ -499,169 +494,103 @@ class SectorRelativeEnsembleRRRModel(_BLPBase):
 
     def predict_signals(self, df_exec: pd.DataFrame) -> dict[str, Any]:
         """Generate component and ensemble signals for all rows in df_exec."""
-        T = len(df_exec)
-        sim_dates = df_exec.index
-
-        # Clear per-run signal caches to prevent cross-run contamination
-        _PRODUCTION_SIGNAL_CACHE.clear()
-        _RESIDUAL_SIGNAL_CACHE.clear()
-        _CORR_MATRIX_CACHE.clear()
-        _PREPARE_COMMON_INPUTS_CACHE.clear()
-
-        inputs = self._prepare_common_inputs(df_exec)
-        all_returns_raw = inputs["all_returns_raw"]
-        c_full = inputs["c_full"]
-        c_full_p3 = inputs["c_full_p3"]
-        v0_static = inputs["v0_static"]
-        v1 = inputs["v1"]
-        v2 = inputs["v2"]
-        jp_gap = inputs["jp_gap"]
-        jp_beta = inputs["jp_beta"]
-        topix_night = inputs["topix_night"]
-        jp_res_returns_p3 = inputs["jp_res_returns_p3"]
-
-        # Setup output arrays
-        raw_pca_signals = np.zeros((T, self.n_j))
-        residual_pca_signals = np.zeros((T, self.n_j))
-        p6_signals = np.zeros((T, self.n_j))
-        p6p3_signals = np.zeros((T, self.n_j))
-        p7_signals = np.zeros((T, self.n_j))
-        p7p3_signals = np.zeros((T, self.n_j))
-        combined_signals = np.zeros((T, self.n_j))
-        normalized_combined_signals = np.zeros((T, self.n_j))
-
-        # Diagnostics logs
-        rrr_diagnostics = []
-
-        start_idx = self.corr_window
-        for i in range(start_idx, T):
-            # 1. Raw-PCA (Production PCA)
-            raw_pca_sig = self.compute_production_signal(
-                i, c_full, v0_static, v1, v2, all_returns_raw, jp_gap, jp_beta, topix_night
-            )
-            raw_pca_signals[i] = raw_pca_sig
-
-            # 2. Residual-PCA (Residual target PCA)
-            residual_pca_sig = self.compute_residual_signal(
-                jp_res_returns_p3, i, c_full_p3, v0_static, v1, v2, jp_gap, jp_beta, topix_night
-            )
-            residual_pca_signals[i] = residual_pca_sig
-
-            # 3. P6 (RRR Raw target)
-            gap_override = np.nan_to_num(jp_gap[i], nan=0.0) if jp_gap is not None else None
-            betas_t = np.asarray(jp_beta[i], dtype=float) if jp_beta is not None else None
-            topix_night_t = float(topix_night[i]) if topix_night is not None else None
-
-            p6_res = self.compute_rrr_signal(
-                all_returns_raw,
-                i,
-                c_full_prior=c_full,
-                v0_static=v0_static,
-                gap_override=gap_override,
-                betas_t=betas_t,
-                topix_night_t=topix_night_t,
-            )
-            p6_signals[i] = p6_res["signal"]
-
-            # 4. P6P3 (RRR Residual target)
-            p6p3_res = self.compute_rrr_signal(
-                jp_res_returns_p3,
-                i,
-                c_full_prior=c_full_p3,
-                v0_static=v0_static,
-                gap_override=gap_override,
-                betas_t=betas_t,
-                topix_night_t=topix_night_t,
-            )
-            p6p3_signals[i] = p6p3_res["signal"]
-
-            # 5. P7 (Lowrank_BLP Raw target)
-            p7_res = self.compute_rrr_signal(
-                all_returns_raw,
-                i,
-                c_full_prior=c_full,
-                v0_static=v0_static,
-                gap_override=gap_override,
-                betas_t=betas_t,
-                topix_night_t=topix_night_t,
-                variant_override="Lowrank_BLP",
-            )
-            p7_signals[i] = p7_res["signal"]
-
-            # 6. P7P3 (Lowrank_BLP Residual target)
-            p7p3_res = self.compute_rrr_signal(
-                jp_res_returns_p3,
-                i,
-                c_full_prior=c_full_p3,
-                v0_static=v0_static,
-                gap_override=gap_override,
-                betas_t=betas_t,
-                topix_night_t=topix_night_t,
-                variant_override="Lowrank_BLP",
-            )
-            p7p3_signals[i] = p7p3_res["signal"]
-
-            # Normalization
-            z0 = self.normalize_signals(raw_pca_sig, self.normalization_method)
-            z3 = self.normalize_signals(residual_pca_sig, self.normalization_method)
-            z6 = self.normalize_signals(p6_res["signal"], self.normalization_method)
-            z6p3 = self.normalize_signals(p6p3_res["signal"], self.normalization_method)
-            z7 = self.normalize_signals(p7_res["signal"], self.normalization_method)
-            z7p3 = self.normalize_signals(p7p3_res["signal"], self.normalization_method)
-
-            # Combined PCA-Ensemble-RRR signal
-            s_ens = self.combine_signals(z0, z3, z6, z6p3, z7, z7p3)
-            combined_signals[i] = s_ens
-            normalized_combined_signals[i] = self.normalize_signals(
-                s_ens, self.normalization_method
-            )
-
-            # Diagnostics log daily
-            date_str = sim_dates[i].strftime("%Y-%m-%d")
-            s_vals = p6_res["singular_values"]
-            s_top = float(s_vals[0]) if len(s_vals) > 0 else 0.0
-
-            rrr_diagnostics.append(
-                {
-                    "date": date_str,
-                    "variant": self.variant,
-                    "rank": self.rank,
-                    "effective_rank": p6_res["effective_rank"],
-                    "singular_values_top": s_top,
-                    "condition_number": p6_res["cond_num"],
-                    "b_norm": p6_res["b_norm"],
-                    "prior_norm": p6_res["prior_norm"],
-                    "b_minus_prior_norm": p6_res["b_minus_prior_norm"],
-                    "lambda_ridge": self.lambda_ridge,
-                    "lambda_prior": self.lambda_prior,
-                    "num_training_samples": p6_res["num_training_samples"],
-                    "pinv_fallback": int(p6_res["pinv_fallback"]),
-                }
-            )
-
-        raw_pca_df = pd.DataFrame(raw_pca_signals, index=sim_dates, columns=JP_TICKERS)
-        residual_pca_df = pd.DataFrame(residual_pca_signals, index=sim_dates, columns=JP_TICKERS)
-        p6_df = pd.DataFrame(p6_signals, index=sim_dates, columns=JP_TICKERS)
-        p6p3_df = pd.DataFrame(p6p3_signals, index=sim_dates, columns=JP_TICKERS)
-        p7_df = pd.DataFrame(p7_signals, index=sim_dates, columns=JP_TICKERS)
-        p7p3_df = pd.DataFrame(p7p3_signals, index=sim_dates, columns=JP_TICKERS)
-        combined_df = pd.DataFrame(combined_signals, index=sim_dates, columns=JP_TICKERS)
-        normalized_df = pd.DataFrame(
-            normalized_combined_signals, index=sim_dates, columns=JP_TICKERS
+        from leadlag.core.pipeline import (
+            CallableComponent,
+            CommonInputs,
+            PCAComponent,
+            RRRCombiner,
+            RRROutputAdapter,
+            SignalPipeline,
+            _SRERawPCAComponent,
+            _SREResidualPCAComponent,
         )
 
-        p4_df = pd.DataFrame(np.zeros((T, self.n_j)), index=sim_dates, columns=JP_TICKERS)
+        T = len(df_exec)
 
-        return {
-            "raw_pca_signals": raw_pca_df,
-            "residual_pca_signals": residual_pca_df,
-            "p4_signals": p4_df,
-            "p6_signals": p6_df,
-            "p6p3_signals": p6p3_df,
-            "p7_signals": p7_df,
-            "p7p3_signals": p7p3_df,
-            "signals": combined_df,
-            "normalized_signals": normalized_df,
-            "y_jp_oc_df": inputs["y_jp_oc_df"],
-            "rrr_diagnostics": pd.DataFrame(rrr_diagnostics).set_index("date") if len(rrr_diagnostics) > 0 else pd.DataFrame(),
-        }
+        # Clear per-run signal caches to prevent cross-run contamination
+        self._production_signal_cache.clear()
+        self._residual_signal_cache.clear()
+        self._corr_matrix_cache.clear()
+        self._prepare_common_inputs_cache.clear()
+
+        inputs_dict = self._prepare_common_inputs(df_exec)
+        inputs = CommonInputs(
+            all_returns_raw=inputs_dict["all_returns_raw"],
+            c_full=inputs_dict["c_full"],
+            c_full_p3=inputs_dict["c_full_p3"],
+            v0_static=inputs_dict["v0_static"],
+            v1=inputs_dict["v1"],
+            v2=inputs_dict["v2"],
+            jp_gap=inputs_dict["jp_gap"],
+            jp_beta=inputs_dict["jp_beta"],
+            topix_night=inputs_dict["topix_night"],
+            y_jp_oc_df=inputs_dict["y_jp_oc_df"],
+            jp_res_returns_p3=inputs_dict["jp_res_returns_p3"],
+            y_jp_target=inputs_dict["y_jp_target"],
+            n_u=self.n_u,
+            n_j=self.n_j,
+            dates=df_exec.index,
+            p4=None,
+        )
+
+        pca_comp = PCAComponent(
+            name="pca",
+            n_u=self.n_u, n_j=self.n_j,
+            corr_window=self.corr_window, k=self.k,
+            lambda_reg=self.lambda_reg, lambda_lw=self.lambda_lw,
+            lw_target=self.lw_target, ewma_half_life=self.ewma_half_life,
+            gap_open_coef=self.gap_open_coef, topix_beta_coef=self.topix_beta_coef,
+            vol_adjusted_target=self.vol_adjusted_target,
+            min_raw_weight=getattr(self, "min_raw_weight", 0.0),
+        )
+
+        def _make_rrr_fn(all_returns_key, c_full_prior_key, variant_override=None):
+            def _fn(ctx):
+                i = ctx.i
+                inp = ctx.inputs
+                all_returns = getattr(inp, all_returns_key)
+                c_full_prior = getattr(inp, c_full_prior_key)
+                gap_override = np.nan_to_num(inp.jp_gap[i], nan=0.0) if inp.jp_gap is not None else None
+                betas_t = np.asarray(inp.jp_beta[i], dtype=float) if inp.jp_beta is not None else None
+                topix_night_t = float(inp.topix_night[i]) if inp.topix_night is not None else None
+                return self.compute_rrr_signal(
+                    all_returns, i,
+                    c_full_prior=c_full_prior,
+                    v0_static=inp.v0_static,
+                    gap_override=gap_override,
+                    betas_t=betas_t,
+                    topix_night_t=topix_night_t,
+                    variant_override=variant_override,
+                )
+            return _fn
+
+        components = [
+            _SRERawPCAComponent(pca_comp),
+            _SREResidualPCAComponent(pca_comp),
+            CallableComponent("p6", _make_rrr_fn("all_returns_raw", "c_full")),
+            CallableComponent("p6p3", _make_rrr_fn("jp_res_returns_p3", "c_full_p3")),
+            CallableComponent("p7", _make_rrr_fn("all_returns_raw", "c_full", "Lowrank_BLP")),
+            CallableComponent("p7p3", _make_rrr_fn("jp_res_returns_p3", "c_full_p3", "Lowrank_BLP")),
+        ]
+
+        combiner = RRRCombiner(
+            raw_pca_weight=self.raw_pca_weight,
+            residual_pca_weight=self.residual_pca_weight,
+            p6_weight=self.p6_weight,
+            p6p3_weight=self.p6p3_weight,
+            p7_weight=self.p7_weight,
+            p7p3_weight=self.p7p3_weight,
+            normalization_method=self.normalization_method,
+            n_j=self.n_j,
+            normalize_fn=self.normalize_signals,
+            variant=self.variant,
+            rank=self.rank,
+            lambda_ridge=self.lambda_ridge,
+            lambda_prior=self.lambda_prior,
+        )
+
+        pipeline = SignalPipeline(components=components, combiner=combiner)
+        pipeline_results = pipeline.run(inputs, start_idx=self.corr_window, T=T)
+
+        adapter = RRROutputAdapter(n_j=self.n_j, jp_tickers=JP_TICKERS)
+        return adapter.adapt(pipeline_results, inputs)

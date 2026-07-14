@@ -76,6 +76,7 @@ def run_production(
         results["daily_returns"],
         confidence=config.var_confidence,
         window=config.var_window,
+        var_method=getattr(config, "var_method", "historical"),
     )
 
     if not skip_chart:

@@ -192,6 +192,7 @@ def build_risk_config(config: ProductionConfig) -> RiskConfig:
     return RiskConfig(
         var_confidence=config.var_confidence,
         var_window=config.var_window,
+        var_method=config.var_method,
         var_warning=config.var_warning,
         var_stop=config.var_stop,
         es_warning=config.es_warning,

@@ -188,123 +188,91 @@ class SectorRelativeEnsembleBLPModel(_BLPBase):
 
     def predict_signals(self, df_exec: pd.DataFrame) -> dict[str, Any]:
         """Generate component and ensemble signals for all rows in df_exec."""
-        T = len(df_exec)
-        sim_dates = df_exec.index
-
-        inputs = self._prepare_common_inputs(df_exec)
-        all_returns_raw = inputs["all_returns_raw"]
-        c_full = inputs["c_full"]
-        c_full_p3 = inputs["c_full_p3"]
-        v0_static = inputs["v0_static"]
-        v1 = inputs["v1"]
-        v2 = inputs["v2"]
-        jp_gap = inputs["jp_gap"]
-        jp_beta = inputs["jp_beta"]
-        topix_night = inputs["topix_night"]
-        jp_res_returns_p3 = inputs["jp_res_returns_p3"]
-
-        # Setup output arrays
-        raw_pca_signals = np.zeros((T, self.n_j))
-        residual_pca_signals = np.zeros((T, self.n_j))
-        p5_signals = np.zeros((T, self.n_j))
-        p5p3_signals = np.zeros((T, self.n_j))
-        combined_signals = np.zeros((T, self.n_j))
-        normalized_combined_signals = np.zeros((T, self.n_j))
-
-        # Track BLP diagnostics
-        blp_diagnostics = []
-
-        start_idx = self.corr_window
-        for i in range(start_idx, T):
-            # 1. Raw-PCA (Production PCA)
-            raw_pca_sig = self.compute_production_signal(
-                i, c_full, v0_static, v1, v2, all_returns_raw, jp_gap, jp_beta, topix_night
-            )
-            raw_pca_signals[i] = raw_pca_sig
-
-            # 2. Residual-PCA (Residual target PCA)
-            residual_pca_sig = self.compute_residual_signal(
-                jp_res_returns_p3, i, c_full_p3, v0_static, v1, v2, jp_gap, jp_beta, topix_night
-            )
-            residual_pca_signals[i] = residual_pca_sig
-
-            # 3. P5 (Raw target BLP)
-            gap_override = np.nan_to_num(jp_gap[i], nan=0.0) if jp_gap is not None else None
-            betas_t = np.asarray(jp_beta[i], dtype=float) if jp_beta is not None else None
-            topix_night_t = float(topix_night[i]) if topix_night is not None else None
-
-            p5_res = self.compute_blp_signal(
-                all_returns_raw,
-                i,
-                gap_override=gap_override,
-                betas_t=betas_t,
-                topix_night_t=topix_night_t,
-            )
-            p5_signals[i] = p5_res["signal"]
-
-            # 4. P5P3 (Residual target BLP)
-            p5p3_res = self.compute_blp_signal(
-                jp_res_returns_p3,
-                i,
-                gap_override=gap_override,
-                betas_t=betas_t,
-                topix_night_t=topix_night_t,
-            )
-            p5p3_signals[i] = p5p3_res["signal"]
-
-            # Standard Z-score normalization of component signals
-            z0 = self.normalize_signals(raw_pca_sig, self.normalization_method)
-            z3 = self.normalize_signals(residual_pca_sig, self.normalization_method)
-            z5 = self.normalize_signals(p5_res["signal"], self.normalization_method)
-            z5p3 = self.normalize_signals(p5p3_res["signal"], self.normalization_method)
-
-            # Combined PCA-Ensemble-BLP signal
-            s_ens = self.combine_signals(z0, z3, z5, z5p3)
-            combined_signals[i] = s_ens
-            normalized_combined_signals[i] = self.normalize_signals(
-                s_ens, self.normalization_method
-            )
-
-            # Diagnostics recording (e.g. log daily BLP states)
-            date_str = sim_dates[i].strftime("%Y-%m-%d")
-            blp_diagnostics.append(
-                {
-                    "date": date_str,
-                    "p5_cond_num": p5_res["cond_num"],
-                    "p5_b_norm": p5_res["b_norm"],
-                    "p5_sigma_xx_trace": p5_res["sigma_xx_trace"],
-                    "p5_sigma_yx_norm": p5_res["sigma_yx_norm"],
-                    "p5_pinv_fallback": int(p5_res["pinv_fallback"]),
-                    "p5_num_training_samples": p5_res["num_training_samples"],
-                    "p5p3_cond_num": p5p3_res["cond_num"],
-                    "p5p3_b_norm": p5p3_res["b_norm"],
-                    "p5p3_sigma_xx_trace": p5p3_res["sigma_xx_trace"],
-                    "p5p3_sigma_yx_norm": p5p3_res["sigma_yx_norm"],
-                    "p5p3_pinv_fallback": int(p5p3_res["pinv_fallback"]),
-                    "p5p3_num_training_samples": p5p3_res["num_training_samples"],
-                }
-            )
-
-        # Build DataFrames
-        raw_pca_df = pd.DataFrame(raw_pca_signals, index=sim_dates, columns=JP_TICKERS)
-        residual_pca_df = pd.DataFrame(residual_pca_signals, index=sim_dates, columns=JP_TICKERS)
-        p4_signals = np.zeros((T, self.n_j))
-        p4_df = pd.DataFrame(p4_signals, index=sim_dates, columns=JP_TICKERS)
-        p5_df = pd.DataFrame(p5_signals, index=sim_dates, columns=JP_TICKERS)
-        p5p3_df = pd.DataFrame(p5p3_signals, index=sim_dates, columns=JP_TICKERS)
-        combined_df = pd.DataFrame(combined_signals, index=sim_dates, columns=JP_TICKERS)
-        normalized_df = pd.DataFrame(
-            normalized_combined_signals, index=sim_dates, columns=JP_TICKERS
+        from leadlag.core.pipeline import (
+            BLPCombiner,
+            BLPOutputAdapter,
+            CallableComponent,
+            CommonInputs,
+            PCAComponent,
+            SignalPipeline,
+            _SRERawPCAComponent,
+            _SREResidualPCAComponent,
         )
 
-        return {
-            "raw_pca_signals": raw_pca_df,
-            "residual_pca_signals": residual_pca_df,
-            "p4_signals": p4_df,
-            "p5_signals": p5_df,
-            "p5p3_signals": p5p3_df,
-            "signals": combined_df,
-            "normalized_signals": normalized_df,
-            "y_jp_oc_df": inputs["y_jp_oc_df"],
-            "blp_diagnostics": pd.DataFrame(blp_diagnostics).set_index("date"),
-        }
+        T = len(df_exec)
+
+        inputs_dict = self._prepare_common_inputs(df_exec)
+        inputs = CommonInputs(
+            all_returns_raw=inputs_dict["all_returns_raw"],
+            c_full=inputs_dict["c_full"],
+            c_full_p3=inputs_dict["c_full_p3"],
+            v0_static=inputs_dict["v0_static"],
+            v1=inputs_dict["v1"],
+            v2=inputs_dict["v2"],
+            jp_gap=inputs_dict["jp_gap"],
+            jp_beta=inputs_dict["jp_beta"],
+            topix_night=inputs_dict["topix_night"],
+            y_jp_oc_df=inputs_dict["y_jp_oc_df"],
+            jp_res_returns_p3=inputs_dict["jp_res_returns_p3"],
+            y_jp_target=inputs_dict["y_jp_target"],
+            n_u=self.n_u,
+            n_j=self.n_j,
+            dates=df_exec.index,
+            p4=None,
+        )
+
+        pca_comp = PCAComponent(
+            name="pca",
+            n_u=self.n_u, n_j=self.n_j,
+            corr_window=self.corr_window, k=self.k,
+            lambda_reg=self.lambda_reg, lambda_lw=self.lambda_lw,
+            lw_target=self.lw_target, ewma_half_life=self.ewma_half_life,
+            gap_open_coef=self.gap_open_coef, topix_beta_coef=self.topix_beta_coef,
+            vol_adjusted_target=self.vol_adjusted_target,
+            min_raw_weight=getattr(self, "min_raw_weight", 0.0),
+        )
+
+        def _p5_fn(ctx):
+            i = ctx.i
+            inp = ctx.inputs
+            gap_override = np.nan_to_num(inp.jp_gap[i], nan=0.0) if inp.jp_gap is not None else None
+            betas_t = np.asarray(inp.jp_beta[i], dtype=float) if inp.jp_beta is not None else None
+            topix_night_t = float(inp.topix_night[i]) if inp.topix_night is not None else None
+            return self.compute_blp_signal(
+                inp.all_returns_raw, i,
+                gap_override=gap_override, betas_t=betas_t, topix_night_t=topix_night_t,
+            )
+
+        def _p5p3_fn(ctx):
+            i = ctx.i
+            inp = ctx.inputs
+            gap_override = np.nan_to_num(inp.jp_gap[i], nan=0.0) if inp.jp_gap is not None else None
+            betas_t = np.asarray(inp.jp_beta[i], dtype=float) if inp.jp_beta is not None else None
+            topix_night_t = float(inp.topix_night[i]) if inp.topix_night is not None else None
+            return self.compute_blp_signal(
+                inp.jp_res_returns_p3, i,
+                gap_override=gap_override, betas_t=betas_t, topix_night_t=topix_night_t,
+            )
+
+        components = [
+            _SRERawPCAComponent(pca_comp),
+            _SREResidualPCAComponent(pca_comp),
+            CallableComponent("p5", _p5_fn),
+            CallableComponent("p5p3", _p5p3_fn),
+        ]
+
+        combiner = BLPCombiner(
+            raw_pca_weight=self.raw_pca_weight,
+            residual_pca_weight=self.residual_pca_weight,
+            p5_weight=self.p5_weight,
+            p5p3_weight=self.p5p3_weight,
+            normalization_method=self.normalization_method,
+            n_j=self.n_j,
+            normalize_fn=self.normalize_signals,
+        )
+
+        pipeline = SignalPipeline(components=components, combiner=combiner)
+        pipeline_results = pipeline.run(inputs, start_idx=self.corr_window, T=T)
+
+        adapter = BLPOutputAdapter(n_j=self.n_j, jp_tickers=JP_TICKERS)
+        return adapter.adapt(pipeline_results, inputs)

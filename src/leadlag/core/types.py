@@ -131,6 +131,7 @@ class VarEsResult:
     es_loss: float
     var_quantile: float = 0.0
     tail_count: int = 0
+    var_method: str = "historical"
 
 
 @dataclass(frozen=True)

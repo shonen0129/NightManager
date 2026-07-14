@@ -16,10 +16,8 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
-from leadlag.models.sre import (
-    SectorRelativeEnsembleModel,
-    compute_us_residualized_returns,
-)
+from leadlag.data.preprocessor import compute_us_residualized_returns
+from leadlag.models.sre import SectorRelativeEnsembleModel
 
 
 def test_us_beta_shift_no_lookahead():
