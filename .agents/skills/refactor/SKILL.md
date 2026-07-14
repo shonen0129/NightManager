@@ -1,70 +1,54 @@
 ---
 name: refactor
-description: 重複排除・関数分割・責務整理を提案・実装する。日米リードラグ戦略コードの既知の技術的負債（モンキーパッチ・グローバルキャッシュ・shallow copy問題等）の解消を含む。リファクタリング時は不変条件を維持し、テストを弱めないことを前提とする。
+description: 重複排除・関数分割・責務整理を提案・実装する。日米リードラグ戦略コードのリファクタリング時に不変条件を維持し、テストを弱めないことを前提とする。モデル変更・パラメータ調整・コード整理時に必ず参照すること。
 ---
 
 # Refactor スキル
 
 ## 目的
 
-日米リードラグ戦略コードの重複排除・関数分割・責務整理を行い、既知の技術的負債を解消する。
+日米リードラグ戦略コードの重複排除・関数分割・責務整理を行い、技術的負債を解消する。
 
 ## 前提
 
 - **不変条件を維持**: リーク防止・ベースライン分離・市場中立制約・ティッカー定義を崩さない
-- **テストを弱めない**: リファクタリング後に全テストが通ること（推奨: `bash scripts/run_tests_parallel.sh`、約8分）
+- **テストを弱めない**: リファクタリング後に全テストが通ること
 - **振る舞いを保持**: リファクタリングは振る舞い変更を伴わない。シグナル・ポートフォリオ出力が一致することを確認
-
-## 既知の技術的負債（優先度順）
-
-### P1: `sre.py` のモンキーパッチ
-
-- **問題**: `predict_signals` 内で `signals.build_c0_from_v0` をグローバル差し替え（P4シグナル計算）。スレッド非安全
-- **方針**: `compute_signal` に `c0_override` 引数を追加し、グローバル差し替えを除去
-- **影響範囲**: `src/leadlag/models/sre.py`, `src/leadlag/core/signal.py`
-- **検証**: モンキーパッチ除去前後でシグナル出力が一致することを確認
-
-### P2: グローバルキャッシュの汚染リスク
-
-- **問題**: `_PRODUCTION_SIGNAL_CACHE` 等のキーにデータ識別子が無い。`predict_signals` 経由以外で呼ぶと汚染
-- **問題**: `_COMMON_INPUTS_CACHE` は clear されないためメモリ単調増加
-- **方針**: キーにデータ識別子（ハッシュ等）を含める。またはキャッシュをクラスインスタンス化してスコープ管理
-- **影響範囲**: `src/leadlag/models/production_v2.py`, `src/leadlag/models/sre.py`
-
-### P3: config dictのshallow copy問題
-
-- **問題**: `base_cfg.copy()` がネストした dict を共有参照する。比較実験で両モデルが同一設定になる
-- **方針**: `copy.deepcopy(base_cfg)` を徹底。または config の不変化（frozen dataclass等）を検討
-- **影響範囲**: 実験スクリプト全般、`src/leadlag/cli.py`
-
-### P4: 金利コスト日割り
-
-- **問題**: `backtester.py` が `annual/365` を営業日課金 → 週末分が過小
-- **方針**: 暦日ベースの課金に変更。オーバーナイト保有の実験で影響確認
-- **影響範囲**: `src/leadlag/execution/backtester.py`
+- **lint を通す**: リファクタリング後に `ruff check src/leadlag/ --select E,F,W --ignore E501` でエラーが出ないこと
 
 ## リファクタリング手順
 
-1. **対象特定**: 重複コード・長関数・責務混在を特定
-2. **影響分析**: 変更が及ぶファイル・関数を列挙。上記技術的負債との関連を確認
-3. **テスト確認**: リファクタリング前に全テストが通ることを確認（`bash scripts/run_tests_parallel.sh`）
+1. **対象特定**: 重複コード・長関数・責務混在・グローバル状態・未クリアキャッシュ等を特定
+2. **影響分析**: 変更が及ぶファイル・関数を列挙。不変条件（リーク防止・ベースライン分離・市場中立・ティッカー定義）への影響を確認
+3. **テスト確認**: リファクタリング前にテストが通ることを確認:
+   - 並列（要 `pytest-xdist`）: `bash scripts/run_tests_parallel.sh`（約8分）
+   - 直列（フォールバック）: `python3 -m pytest tests/ -v --timeout=300`（約22分）
 4. **実装**: 最小限の変更で実装。1関数の責務が1つのことになるよう分割
-5. **振る舞い検証**: リファクタリング前後でバックテスト出力（シグナル・ポートフォリオ・net Sharpe）が一致することを確認
-6. **テスト実行**: `bash scripts/run_tests_parallel.sh` で回帰確認
-7. **レポート**: `reports/<sprint名>/` に変更内容・影響範囲・検証結果を記録
+5. **振る舞い検証**: リファクタリング前後で出力（シグナル・ポートフォリオ・net Sharpe）が一致することを確認（検証コードは下記参照）
+6. **lint 実行**: `python3 -m ruff check src/leadlag/ --select E,F,W --ignore E501` でエラーが出ないこと
+7. **テスト実行**: 手順3のコマンドで回帰確認
+8. **レポート**: `reports/<sprint名>/` に変更内容・影響範囲・検証結果を記録
 
 ## 振る舞い一致の検証方法
 
-```python
-# リファクタリング前のシグナルを保存
-import json
-before_signals = model.predict_signals(df_exec)
-with open("/tmp/before_signals.json", "w") as f:
-    json.dump(before_signals.to_dict(), f)
+`predict_signals` は dict を返すため、DataFrame の比較には `signals` キーを取り出す必要がある:
 
-# リファクタリング後のシグナルと比較
-after_signals = model.predict_signals(df_exec)
-assert before_signals.equals(after_signals), "Signal mismatch after refactor"
+```python
+import numpy as np
+
+# リファクタリング前
+before = model.predict_signals(df_exec)
+
+# リファクタリング後
+after = model.predict_signals(df_exec)
+
+# シグナルの完全一致を検証
+for key in ["signals", "raw_pca_signals", "residual_pca_signals",
+            "raw_blpx_signals", "residual_blpx_signals"]:
+    np.testing.assert_array_equal(
+        before[key].values, after[key].values,
+        err_msg=f"{key} mismatch after refactor"
+    )
 ```
 
 ## 注意事項
@@ -73,3 +57,6 @@ assert before_signals.equals(after_signals), "Signal mismatch after refactor"
 - **段階的実施**: 1回のリファクタリングで複数の技術的負債を同時に解消しない。1つずつ検証
 - **`ComplianceAuditor` の監査項目を無効化しない**: リーク監査は維持
 - **ARCHITECTURE.md の更新**: リファクタリング完了後、`docs/ARCHITECTURE.md` のリファクタリング履歴に追記
+- **config の不変性を維持**: `ProductionV2RunConfig` の `frozen=True` 等、既存の不変性担保を崩さない
+- **技術的負債の最新状況**: コードレビューレポート（`reports/code_review_*.md`）または AGENTS.md の「既知の落とし穴」セクションを参照
+- **事前調査**: リファクタリング対象の特定には `code-review` スキルの使用を推奨。レビュー結果に基づいて優先度を決定する
