@@ -194,6 +194,59 @@ class TachibanaBrokerClient(BrokerClient):
 
         return opens
 
+    def fetch_current_prices(
+        self,
+        tickers: list[str],
+        *,
+        allow_missing: bool = False,
+    ) -> dict[str, float]:
+        """Fetch current real-time prices for JP tickers (e.g. '1617.T')."""
+        prices: dict[str, float] = {}
+        missing_tickers: list[str] = []
+
+        mapping = {tk.replace(".T", ""): tk for tk in tickers}
+        clean_codes = list(mapping.keys())
+
+        chunk_size = 100
+        for i in range(0, len(clean_codes), chunk_size):
+            chunk = clean_codes[i : i + chunk_size]
+            try:
+                res = self._client.get_price(chunk)
+                for item in res:
+                    code = item.get("sIssueCode")
+                    p_dpp_str = item.get("pDPP")  # Current Price
+                    original_ticker = mapping.get(code)
+                    if not original_ticker:
+                        continue
+
+                    try:
+                        p_dpp = float(p_dpp_str) if p_dpp_str and p_dpp_str != "0.0000" else 0.0
+                    except ValueError:
+                        p_dpp = 0.0
+
+                    if p_dpp > 0.0:
+                        prices[original_ticker] = p_dpp
+                    else:
+                        missing_tickers.append(original_ticker)
+            except Exception as e:
+                logger.error("Failed to fetch price chunk %s: %s", chunk, e)
+                for code in chunk:
+                    missing_tickers.append(mapping[code])
+
+        for tk in tickers:
+            if tk not in prices and tk not in missing_tickers:
+                missing_tickers.append(tk)
+
+        if missing_tickers:
+            msg = f"Failed to fetch current prices for {len(missing_tickers)} ticker(s): {', '.join(missing_tickers)}"
+            if allow_missing:
+                logger.warning(msg)
+            else:
+                logger.error(msg)
+                raise ValueError(msg)
+
+        return prices
+
     def fetch_us_etf_returns(
         self,
         us_tickers: list[str],

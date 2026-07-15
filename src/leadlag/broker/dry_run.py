@@ -95,6 +95,30 @@ class DryRunBrokerClient(BrokerClient):
                 raise ValueError(f"DryRunBrokerClient has no open prices for: {', '.join(missing)}")
         return result
 
+    def fetch_current_prices(
+        self,
+        tickers: list[str],
+        *,
+        allow_missing: bool = False,
+    ) -> dict[str, float]:
+        result = {}
+        missing = []
+        for tk in tickers:
+            if tk in self._open_prices:
+                result[tk] = self._open_prices[tk]
+            else:
+                missing.append(tk)
+
+        if missing:
+            if allow_missing:
+                logger.warning(
+                    "[DRY RUN] Missing simulated current prices for: %s",
+                    ", ".join(missing),
+                )
+            else:
+                raise ValueError(f"DryRunBrokerClient has no current prices for: {', '.join(missing)}")
+        return result
+
     def fetch_us_etf_returns(
         self,
         us_tickers: list[str],

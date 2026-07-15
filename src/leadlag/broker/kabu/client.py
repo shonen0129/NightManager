@@ -128,6 +128,17 @@ class KabuBrokerClient(BrokerClient):
             allow_missing=allow_missing,
         )
 
+    def fetch_current_prices(
+        self,
+        tickers: list[str],
+        *,
+        allow_missing: bool = False,
+    ) -> dict[str, float]:
+        return self.inner.fetch_jp_current_prices(
+            tickers,
+            allow_missing=allow_missing,
+        )
+
     def fetch_us_etf_returns(
         self,
         us_tickers: list[str],

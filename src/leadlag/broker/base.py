@@ -175,6 +175,23 @@ class BrokerClient(ABC):
             Dict mapping ticker → close-to-close return
         """
 
+    @abstractmethod
+    def fetch_current_prices(
+        self,
+        tickers: list[str],
+        *,
+        allow_missing: bool = False,
+    ) -> dict[str, float]:
+        """Fetch current real-time prices for the given tickers.
+
+        Args:
+            tickers: List of tickers in yfinance format (e.g. "1617.T")
+            allow_missing: If True, return partial results instead of raising
+
+        Returns:
+            Dict mapping ticker → current price
+        """
+
     # -- Positions -----------------------------------------------------------
 
     @abstractmethod

@@ -14,56 +14,56 @@
     <key>WorkingDirectory</key>
     <string>__PROJECT_DIR__</string>
 
-    <!-- 米国市場クローズ後（日本時間 6:00頃）に実行 -->
+    <!-- JP市場寄付後（日本時間 9:02）に実行。JP寄付データ確保後にgap行列を計算 -->
     <key>StartCalendarInterval</key>
     <array>
         <dict>
             <key>Weekday</key>
             <integer>1</integer>
             <key>Hour</key>
-            <integer>6</integer>
+            <integer>9</integer>
             <key>Minute</key>
-            <integer>30</integer>
+            <integer>2</integer>
         </dict>
         <dict>
             <key>Weekday</key>
             <integer>2</integer>
             <key>Hour</key>
-            <integer>6</integer>
+            <integer>9</integer>
             <key>Minute</key>
-            <integer>30</integer>
+            <integer>2</integer>
         </dict>
         <dict>
             <key>Weekday</key>
             <integer>3</integer>
             <key>Hour</key>
-            <integer>6</integer>
+            <integer>9</integer>
             <key>Minute</key>
-            <integer>30</integer>
+            <integer>2</integer>
         </dict>
         <dict>
             <key>Weekday</key>
             <integer>4</integer>
             <key>Hour</key>
-            <integer>6</integer>
+            <integer>9</integer>
             <key>Minute</key>
-            <integer>30</integer>
+            <integer>2</integer>
         </dict>
         <dict>
             <key>Weekday</key>
             <integer>5</integer>
             <key>Hour</key>
-            <integer>6</integer>
+            <integer>9</integer>
             <key>Minute</key>
-            <integer>30</integer>
+            <integer>2</integer>
         </dict>
         <dict>
             <key>Weekday</key>
             <integer>6</integer>
             <key>Hour</key>
-            <integer>6</integer>
+            <integer>9</integer>
             <key>Minute</key>
-            <integer>30</integer>
+            <integer>2</integer>
         </dict>
     </array>
 

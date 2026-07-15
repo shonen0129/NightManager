@@ -1,7 +1,7 @@
 #!/bin/bash
 # ============================================================
-# macOS用 V2発注自動化スクリプト
-# leadlag decision v2 (朝9:00実行)
+# macOS用 V2発注自動化スクリプト（gap distribution + decision 統合）
+# 朝9:10実行: 立花API価格でgap行列生成 → 発注
 # Production Residual-BLPX-RA v2 (mu_over_sigma + RuleD)
 # ============================================================
 set -euo pipefail
@@ -26,8 +26,22 @@ else
     exit 1
 fi
 
-# スクリプト実行
 cd "${PROJECT_DIR}"
+
+# --- Step 1: gap distribution（立花API価格注入） ---
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] [1/2] gap distribution 開始" >> "${LOG_FILE}"
+set +e
+bash scripts/batch/run_gap_distribution.sh >> "${LOG_FILE}" 2>&1
+GAP_EXIT=$?
+set -e
+if [ ${GAP_EXIT} -ne 0 ]; then
+    echo "[ERROR] gap distribution failed (exit=${GAP_EXIT}). Proceeding to decision (will be flat)." >> "${LOG_FILE}"
+else
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [1/2] gap distribution 完了" >> "${LOG_FILE}"
+fi
+
+# --- Step 2: decision v2 ---
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] [2/2] decision v2 開始" >> "${LOG_FILE}"
 set +e
 PYTHONPATH=src "${PYTHON_BIN}" -c "
 import sys

@@ -72,6 +72,7 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument("--cumulative-method", choices=["sum", "cumprod"], default="cumprod", help="Method for multi-horizon cumulative returns")
     parser.add_argument("--save-rank-reversal", type=str, default="true", help="Save daily rank reversal signal for CS overlay (true/false)")
     parser.add_argument("--mh-horizons", type=str, default="3,5", help="Comma-separated multi-horizon days to compute")
+    parser.add_argument("--use-tachibana-prices", type=str, default="false", help="Inject real-time prices from Tachibana API for today's gap computation (true/false)")
     parser.add_argument("--self-test", action="store_true", help="Run self-tests and exit")
     return parser.parse_args()
 
@@ -79,6 +80,173 @@ def parse_arguments() -> argparse.Namespace:
 def str_to_bool(val: str) -> bool:
     """Convert string to boolean."""
     return str(val).lower() in ("true", "1", "yes", "t", "y")
+
+
+def inject_tachibana_realtime_prices(
+    df_exec: pd.DataFrame,
+    raw_data: dict,
+    today: pd.Timestamp,
+) -> pd.DataFrame:
+    """Inject or override today's row in df_exec using Tachibana API real-time prices.
+
+    Fetches current prices (pDPP) for all JP tickers + TOPIX at ~9:10 JST,
+    computes gap returns against previous JP close, and either appends a new
+    row or overrides the gap values if today's row already exists (e.g. from
+    yfinance 9:00 open).
+
+    The correct sig_date (most recent US trading day before today) and US
+    close-to-close returns are computed from raw_data, not carried over from
+    the previous row.
+
+    Args:
+        df_exec: Execution DataFrame from preprocess_data().
+        raw_data: Raw data dict with jp_close, jp_open, us_close.
+        today: Today's date (tz-naive, normalized).
+
+    Returns:
+        df_exec with today's row added or updated.
+    """
+    today = pd.Timestamp(today).tz_localize(None).normalize()
+
+    logger.info("Injecting Tachibana real-time prices for %s...", today.date())
+
+    from leadlag.execution.helpers import build_api_client
+    from leadlag.data.tickers import JP_TICKERS, US_TICKERS, TOPIX_TICKER
+
+    # --- 1. Fetch current prices from Tachibana API ---
+    api_client = build_api_client(api_url=None, api_token=None, api_dry_run=False)
+
+    tickers_to_fetch = JP_TICKERS + [TOPIX_TICKER]
+    current_prices = api_client.fetch_current_prices(tickers_to_fetch, allow_missing=True)
+
+    if not current_prices:
+        logger.error("Failed to fetch any prices from Tachibana API.")
+        try:
+            api_client.close()
+        except Exception:
+            pass
+        return df_exec
+
+    logger.info("Fetched %d/%d prices from Tachibana API.", len(current_prices), len(tickers_to_fetch))
+
+    # --- 2. Determine sig_date: most recent US trading day before today ---
+    us_close = raw_data["us_close"].copy()
+    us_close.index = pd.to_datetime(us_close.index).tz_localize(None).normalize()
+    if isinstance(us_close, pd.DataFrame):
+        us_close = us_close[US_TICKERS]
+
+    us_dates_before_today = us_close.index[us_close.index < today]
+    if len(us_dates_before_today) == 0:
+        logger.error("No US trading data before %s.", today.date())
+        try:
+            api_client.close()
+        except Exception:
+            pass
+        return df_exec
+    sig_date = us_dates_before_today[-1]
+    logger.info("sig_date=%s (most recent US trading day before %s)", sig_date.date(), today.date())
+
+    # Compute US close-to-close returns for sig_date
+    sig_idx = us_close.index.get_loc(sig_date)
+    if sig_idx > 0:
+        us_returns = us_close.iloc[sig_idx] / us_close.iloc[sig_idx - 1] - 1.0
+    else:
+        us_returns = pd.Series(0.0, index=us_close.columns)
+
+    # --- 3. Determine previous JP close date ---
+    jp_close = raw_data["jp_close"].copy()
+    jp_close.index = pd.to_datetime(jp_close.index).tz_localize(None).normalize()
+
+    prev_dates = jp_close.index[jp_close.index < today]
+    if len(prev_dates) == 0:
+        logger.error("No historical JP close data before %s.", today.date())
+        try:
+            api_client.close()
+        except Exception:
+            pass
+        return df_exec
+    prev_date = prev_dates[-1]
+
+    # JP close on sig_date (for jp_close_sig): use the closest JP trading day
+    # on or before sig_date
+    jp_dates_on_sig = jp_close.index[jp_close.index <= sig_date]
+    jp_close_sig_date = jp_dates_on_sig[-1] if len(jp_dates_on_sig) > 0 else prev_date
+
+    # --- 4. Get beta from last row (carried over) ---
+    last_row = df_exec.iloc[-1]
+
+    # --- 5. Build the record ---
+    record: dict = {"trade_date": today, "sig_date": sig_date}
+
+    for tk in JP_TICKERS:
+        prev_close = float(jp_close.loc[prev_date, tk]) if tk in jp_close.columns else np.nan
+        curr_price = current_prices.get(tk, np.nan)
+
+        if pd.notna(prev_close) and prev_close > 0 and pd.notna(curr_price) and curr_price > 0:
+            gap_ret = curr_price / prev_close - 1.0
+        else:
+            gap_ret = 0.0
+
+        record[f"jp_gap_{tk}"] = gap_ret
+        record[f"jp_open_trade_{tk}"] = curr_price if pd.notna(curr_price) else 0.0
+
+        # jp_close_sig: JP close on sig_date (or nearest JP trading day)
+        sig_close = float(jp_close.loc[jp_close_sig_date, tk]) if tk in jp_close.columns else np.nan
+        record[f"jp_close_sig_{tk}"] = sig_close if pd.notna(sig_close) else 0.0
+
+        record[f"jp_cc_{tk}"] = 0.0  # not available yet
+        record[f"jp_oc_{tk}"] = 0.0  # not available yet (close unknown)
+
+        # Carry over beta from last row
+        beta_col = f"jp_beta_{tk}"
+        if beta_col in df_exec.columns:
+            record[beta_col] = last_row[beta_col]
+
+    # US returns for sig_date
+    for tk in US_TICKERS:
+        col = f"us_cc_{tk}"
+        if col in df_exec.columns:
+            record[col] = float(us_returns.get(tk, 0.0))
+
+    # TOPIX overnight return
+    topix_prev_close = float(jp_close.loc[prev_date, TOPIX_TICKER]) if TOPIX_TICKER in jp_close.columns else np.nan
+    topix_curr = current_prices.get(TOPIX_TICKER, np.nan)
+    if pd.notna(topix_prev_close) and topix_prev_close > 0 and pd.notna(topix_curr) and topix_curr > 0:
+        topix_night = topix_curr / topix_prev_close - 1.0
+    else:
+        topix_night = 0.0
+
+    record["topix_night_return"] = topix_night
+    record["topix_oc_return"] = 0.0  # not available yet
+    record["topix_cc_trade"] = topix_night  # approximate
+
+    # --- 6. Add or override today's row ---
+    new_row = pd.DataFrame([record])
+    new_row = new_row.set_index("trade_date")
+    new_row.index = pd.to_datetime(new_row.index).tz_localize(None).normalize()
+
+    if today in df_exec.index:
+        logger.info("Today (%s) already in df_exec, overriding gap values with Tachibana prices.", today.date())
+        df_exec = df_exec.drop(index=today)
+        df_exec = pd.concat([df_exec, new_row])
+    else:
+        df_exec = pd.concat([df_exec, new_row])
+
+    df_exec = df_exec.sort_index()
+
+    logger.info(
+        "Injected row for %s: sig_date=%s, topix_night=%.4f, %d gap returns computed.",
+        today.date(), sig_date.date(), topix_night,
+        sum(1 for tk in JP_TICKERS if record.get(f"jp_gap_{tk}", 0.0) != 0.0),
+    )
+
+    # Close API client
+    try:
+        api_client.close()
+    except Exception:
+        pass
+
+    return df_exec
 
 
 def compute_mdd(returns: np.ndarray) -> float:
@@ -316,6 +484,11 @@ def main():
     raw_data = download_data(beta_window=60)
     logger.info("Preprocessing market data...")
     df_exec = preprocess_data(raw_data, beta_window=60)
+
+    # Inject Tachibana real-time prices for today if enabled
+    if str_to_bool(args.use_tachibana_prices):
+        today = pd.Timestamp.now().tz_localize(None).normalize()
+        df_exec = inject_tachibana_realtime_prices(df_exec, raw_data, today)
     
     # Compute TOPIX returns
     topix_close = raw_data["jp_close"][TOPIX_TICKER].copy()
@@ -324,6 +497,11 @@ def main():
     topix_open.index = pd.to_datetime(topix_open.index).tz_localize(None).normalize()
     r_topix_oc = topix_close / topix_open - 1.0
     df_exec["topix_oc_return"] = r_topix_oc.reindex(df_exec.index).values
+    # Preserve injected 0.0 for today (Tachibana real-time prices do not have today's close)
+    if str_to_bool(args.use_tachibana_prices):
+        today = pd.Timestamp.now().tz_localize(None).normalize()
+        if today in df_exec.index and pd.isna(df_exec.loc[today, "topix_oc_return"]):
+            df_exec.loc[today, "topix_oc_return"] = 0.0
     df_exec["topix_cc_trade"] = (1.0 + df_exec["topix_night_return"]) * (1.0 + df_exec["topix_oc_return"]) - 1.0
     
     # Setup model
@@ -427,11 +605,27 @@ def main():
         # Load matrices from Step 1 directory
         omega_struct_file = dist_in_dir / "matrices" / f"omega_struct_{dt_str}.npy"
         if not omega_struct_file.exists():
-            logger.warning(f"Step 1 omega matrix file missing on {date_str}: {omega_struct_file}")
-            missing_data_count += 1
-            continue
-            
-        Omega_struct = np.load(omega_struct_file)
+            # Fallback: use most recent available omega_struct (strictly before current date)
+            fallback_files = sorted(
+                (dist_in_dir / "matrices").glob("omega_struct_*.npy")
+            )
+            fallback_files = [
+                f for f in fallback_files
+                if f.stem.split("_")[-1] < dt_str
+            ]
+            if fallback_files:
+                omega_struct_file = fallback_files[-1]
+                logger.warning(
+                    f"omega_struct for {date_str} not found, "
+                    f"using fallback: {omega_struct_file.name}"
+                )
+                Omega_struct = np.load(omega_struct_file)
+            else:
+                logger.warning(f"Step 1 omega matrix file missing on {date_str}: {omega_struct_file}")
+                missing_data_count += 1
+                continue
+        else:
+            Omega_struct = np.load(omega_struct_file)
         
         if not np.isfinite(Omega_struct).all():
             nan_inf_count += 1

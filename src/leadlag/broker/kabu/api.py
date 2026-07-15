@@ -584,6 +584,64 @@ class KabuClient:
         logger.info(f"Successfully fetched open prices for {len(opens)} tickers")
         return opens
 
+    def fetch_jp_current_prices(
+        self,
+        jp_tickers: list[str],
+        delay_ms: int = 50,
+        parallel: bool = True,
+        max_workers: int = 5,
+        allow_missing: bool = False,
+    ) -> dict[str, float]:
+        """Fetch current real-time prices for JP tickers via kabuステーション /board API."""
+        prices: dict[str, float] = {}
+        failed: list[str] = []
+
+        logger.info(f"Fetching current prices for {len(jp_tickers)} tickers (parallel={parallel})...")
+
+        if parallel:
+
+            def _fetch_single(ticker: str) -> tuple:
+                kabu_sym = self._to_kabu_symbol(ticker)
+                price_info = self.get_price(kabu_sym)
+                if price_info is not None and price_info["last"] > 0:
+                    return (ticker, price_info["last"])
+                else:
+                    return (ticker, None)
+
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                futures = {executor.submit(_fetch_single, tk): tk for tk in jp_tickers}
+                for future in as_completed(futures):
+                    ticker, price = future.result()
+                    if price is not None:
+                        prices[ticker] = price
+                    else:
+                        failed.append(ticker)
+        else:
+            for i, ticker in enumerate(jp_tickers):
+                if i > 0:
+                    time.sleep(delay_ms / 1000.0)
+
+                kabu_sym = self._to_kabu_symbol(ticker)
+                price_info = self.get_price(kabu_sym)
+
+                if price_info is not None and price_info["last"] > 0:
+                    prices[ticker] = price_info["last"]
+                else:
+                    failed.append(ticker)
+
+        if failed:
+            message = (
+                f"Failed to fetch current prices for {len(failed)} ticker(s): {', '.join(failed)}"
+            )
+            if allow_missing:
+                logger.warning(message)
+            else:
+                logger.error(message)
+                raise ValueError(message)
+
+        logger.info(f"Successfully fetched current prices for {len(prices)} tickers")
+        return prices
+
     def get_positions(
         self,
         product: int = 0,

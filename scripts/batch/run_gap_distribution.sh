@@ -79,6 +79,7 @@ PYTHONPATH=src "${PYTHON_BIN}" tools/production/compute_gap_adjusted_distributio
     --save-multi-horizon false \
     --save-rank-reversal false \
     --compare-pre-gap false \
+    --use-tachibana-prices true \
     >> "${LOG_FILE}" 2>&1
 
 EXIT_CODE=$?
