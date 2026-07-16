@@ -189,6 +189,7 @@ class OrderResult:
     limit_price: float | None = None
     margin_trade_type: int = 3
     message: str = ""
+    eigyou_day: str = ""
 
 
 @dataclass(frozen=True)

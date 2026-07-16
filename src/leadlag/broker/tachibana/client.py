@@ -372,6 +372,7 @@ class TachibanaBrokerClient(BrokerClient):
             )
 
             order_id = str(res.get("sOrderNumber", ""))
+            eigyou_day = str(res.get("sEigyouDay", ""))
             return OrderResult(
                 order_id=order_id,
                 status=OrderStatus.SUBMITTED,
@@ -381,6 +382,7 @@ class TachibanaBrokerClient(BrokerClient):
                 order_type=order.order_type,
                 limit_price=order.limit_price,
                 margin_trade_type=self._broker_config.margin_trade_type,
+                eigyou_day=eigyou_day,
             )
 
         except (TachibanaApiError, ValueError) as e:
@@ -462,16 +464,16 @@ class TachibanaBrokerClient(BrokerClient):
             manual_interventions = []
 
             # Try to cancel successful orders
-            # Since Tachibana cancel requires sEigyouDay, we get it from orders list or use current date
-            current_date_str = datetime.now().strftime("%Y%m%d")
-
+            # Tachibana cancel requires sEigyouDay from the order response;
+            # fall back to system date if not available.
             for r in results:
                 if r.status != OrderStatus.SUBMITTED or not r.order_id:
                     continue
 
+                eigyou_day = r.eigyou_day or datetime.now().strftime("%Y%m%d")
                 try:
                     # Cancel order
-                    self._client.cancel_order(r.order_id, current_date_str)
+                    self._client.cancel_order(r.order_id, eigyou_day)
                     logger.info("Cancelled order: %s", r.order_id)
                 except Exception as e:
                     logger.error("Failed to cancel order %s: %s", r.order_id, e)

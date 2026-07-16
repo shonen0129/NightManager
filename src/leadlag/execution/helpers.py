@@ -501,6 +501,7 @@ def submit_orders_via_api(
                 "side": result.side.value,
                 "quantity": result.quantity,
                 "message": result.message,
+                "eigyou_day": result.eigyou_day,
             })
 
     # --- Phase 2: Submit new orders (新規) after close orders ---
@@ -543,6 +544,7 @@ def submit_orders_via_api(
                 "quantity": result.quantity,
                 "message": result.message,
                 "delayed": False,
+                "eigyou_day": result.eigyou_day,
             }
             if side == "BUY":
                 summary["buy_results"].append(result_dict)
@@ -927,7 +929,6 @@ def fetch_fill_prices(
     if not order_results:
         return order_results
 
-    eigyou_day = datetime.now().strftime("%Y%m%d")
     logger.info("[HEARTBEAT] Waiting %.1f seconds before fetching fill prices", wait_seconds)
     time.sleep(wait_seconds)
 
@@ -939,6 +940,7 @@ def fetch_fill_prices(
             result["fill_status"] = "NOT_SUBMITTED"
             continue
 
+        eigyou_day = result.get("eigyou_day") or datetime.now().strftime("%Y%m%d")
         try:
             detail = api_client.get_order_detail(order_id, eigyou_day)
             fill_price_str = detail.get("sYakuzyouPrice", "0.0000")

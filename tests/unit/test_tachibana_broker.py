@@ -209,6 +209,7 @@ class TestTachibanaBrokerClient:
         mock_response.json.return_value = {
             "sResultCode": "0",
             "sOrderNumber": "887766",
+            "sEigyouDay": "20260717",
         }
         mock_get.return_value = mock_response
 
@@ -226,6 +227,7 @@ class TestTachibanaBrokerClient:
         res = client.submit_order(order)
         assert res.status == OrderStatus.SUBMITTED
         assert res.order_id == "887766"
+        assert res.eigyou_day == "20260717"
 
     @patch("requests.Session.get")
     def test_submit_orders_batch_rollback(self, mock_get, broker_config):
@@ -235,6 +237,7 @@ class TestTachibanaBrokerClient:
         mock_success.json.return_value = {
             "sResultCode": "0",
             "sOrderNumber": "1111",
+            "sEigyouDay": "20260717",
         }
 
         mock_fail = MagicMock()
