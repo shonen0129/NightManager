@@ -170,7 +170,7 @@ def load_gap_matrices(
 def load_pit_ir_history(
     gap_input_dir: Path,
     trade_date: str,
-) -> tuple[np.ndarray, list[str]]:
+) -> tuple[np.ndarray, list[str], np.ndarray]:
     """Load historical ex-ante IR series for PIT binning.
 
     Reads ``portfolio_gap_distribution_diagnostics.csv`` and returns only
@@ -181,7 +181,7 @@ def load_pit_ir_history(
         trade_date: Trade execution date (rows >= this date are excluded).
 
     Returns:
-        Tuple of (history_ir array, alerts list).
+        Tuple of (history_ir array, alerts list, history_trade_dates array).
     """
     alerts: list[str] = []
     diag_file = gap_input_dir / "portfolio_gap_distribution_diagnostics.csv"
@@ -190,7 +190,7 @@ def load_pit_ir_history(
         alerts.append(
             f"Diagnostics file missing: {diag_file}. PIT binning falls back to Medium/1.0."
         )
-        return np.array([]), alerts
+        return np.array([]), alerts, np.array([])
 
     df = pd.read_csv(diag_file)
     df["trade_date"] = pd.to_datetime(df["trade_date"]).dt.strftime("%Y-%m-%d")
@@ -212,10 +212,11 @@ def load_pit_ir_history(
         alerts.append(
             f"No IR column found in diagnostics. PIT binning falls back to Medium/1.0."
         )
-        return np.array([]), alerts
+        return np.array([]), alerts, np.array([])
 
     history_ir = df_hist[ir_col].values
-    return history_ir, alerts
+    history_dates = pd.to_datetime(df_hist["trade_date"]).values
+    return history_ir, alerts, history_dates
 
 
 def _derive_signal_date(gap_input_dir: Path | None, trade_date: str) -> str:
@@ -392,7 +393,11 @@ def generate_v2_production_portfolio(
 
         dummy_scores = np.zeros(n_j)
         dummy_Omega = np.eye(n_j) * 0.01
-        leakage = run_leakage_audit(date_str, date_str)
+        leakage = run_leakage_audit(
+            date_str, date_str,
+            gap_data_loaded=False,
+            pit_history_trade_dates=None,
+        )
         numerical = run_numerical_audit(np.zeros(n_j), dummy_scores, dummy_Omega)
 
         return {
@@ -567,8 +572,9 @@ def generate_v2_production_portfolio(
 
     # 9. PIT binning for RuleD — load history, compute current IR
     history_ir = np.array([])
+    pit_history_dates = np.array([])
     if gap_input_dir is not None:
-        history_ir, pit_alerts = load_pit_ir_history(gap_input_dir, date_str)
+        history_ir, pit_alerts, pit_history_dates = load_pit_ir_history(gap_input_dir, date_str)
         alerts.extend(pit_alerts)
 
     # For PIT binning, use the baseline style weights as reference
@@ -618,7 +624,11 @@ def generate_v2_production_portfolio(
 
     # 11. Safety audits
     signal_date_str = _derive_signal_date(gap_input_dir, date_str)
-    leakage = run_leakage_audit(signal_date_str, date_str)
+    leakage = run_leakage_audit(
+        signal_date_str, date_str,
+        gap_data_loaded=(mu_gap is not None and Omega_gap is not None),
+        pit_history_trade_dates=pit_history_dates if gap_input_dir is not None else None,
+    )
 
     numerical = run_numerical_audit(w_final, scores, Omega_gap)
     if numerical["status"] == "FAILED" and run_cfg.fallback_on_audit_failure:

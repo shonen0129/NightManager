@@ -148,7 +148,7 @@ class TestLoadPitIrHistory:
                 "pred_ir_gap_baseline_cost": float(i + 1) * 0.02,
             })
         self._write_diag_csv(tmp_path, rows)
-        hist, alerts = load_pit_ir_history(tmp_path, "2026-01-01")
+        hist, alerts, dates = load_pit_ir_history(tmp_path, "2026-01-01")
         assert len(alerts) == 0
         # Should use baseline_cost column (0.02 multiplier)
         assert abs(hist[0] - 0.02) < 1e-9
@@ -163,14 +163,14 @@ class TestLoadPitIrHistory:
                 "pred_ir_gap_exante_cost": float(i + 1) * 0.01,
             })
         self._write_diag_csv(tmp_path, rows)
-        hist, alerts = load_pit_ir_history(tmp_path, "2026-01-01")
+        hist, alerts, dates = load_pit_ir_history(tmp_path, "2026-01-01")
         assert len(hist) > 0
         assert any("pred_ir_gap_baseline_cost" in a for a in alerts)
         assert abs(hist[0] - 0.01) < 1e-9
 
     def test_missing_file_returns_empty(self, tmp_path):
         """Missing diagnostics file returns empty array and alert."""
-        hist, alerts = load_pit_ir_history(tmp_path, "2026-01-01")
+        hist, alerts, dates = load_pit_ir_history(tmp_path, "2026-01-01")
         assert len(hist) == 0
         assert any("missing" in a.lower() for a in alerts)
 
@@ -182,7 +182,7 @@ class TestLoadPitIrHistory:
             {"trade_date": "2025-06-03", "pred_ir_gap_baseline_cost": 0.3},
         ]
         self._write_diag_csv(tmp_path, rows)
-        hist, alerts = load_pit_ir_history(tmp_path, "2025-06-02")
+        hist, alerts, dates = load_pit_ir_history(tmp_path, "2025-06-02")
         assert len(hist) == 1
         assert abs(hist[0] - 0.1) < 1e-9
 

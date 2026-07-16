@@ -43,6 +43,9 @@ class _MockBroker(BrokerClient):
     def fetch_us_etf_returns(self, us_tickers, start_date, end_date) -> object:
         raise NotImplementedError
 
+    def fetch_current_prices(self, tickers, *, allow_missing=False) -> dict:
+        return {}
+
     def health_check(self) -> bool:
         return True
 
@@ -196,6 +199,9 @@ class _FailingMockBroker(BrokerClient):
 
     def fetch_us_etf_returns(self, us_tickers, start_date, end_date) -> object:
         raise NotImplementedError
+
+    def fetch_current_prices(self, tickers, *, allow_missing=False) -> dict:
+        return {}
 
     def health_check(self) -> bool:
         return True

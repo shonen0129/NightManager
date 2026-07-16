@@ -38,13 +38,39 @@ class TestLeakageAudit:
         assert result["status"] == "FAILED"
         assert result["signal_date_strictly_before_trade_date"] is False
 
-    def test_post_open_timing_always_true(self):
-        result = run_leakage_audit("2026-06-12", "2026-06-16")
+    def test_post_open_timing_respected_when_gap_loaded(self):
+        result = run_leakage_audit("2026-06-12", "2026-06-16", gap_data_loaded=True)
         assert result["post_open_timing_respected"] is True
+        assert result["status"] == "PASSED"
 
-    def test_pit_binning_historical(self):
-        result = run_leakage_audit("2026-06-12", "2026-06-16")
+    def test_post_open_timing_fails_when_gap_not_loaded(self):
+        result = run_leakage_audit("2026-06-12", "2026-06-16", gap_data_loaded=False)
+        assert result["post_open_timing_respected"] is False
+        assert result["status"] == "FAILED"
+
+    def test_pit_binning_historical_when_all_before_trade(self):
+        dates = np.array(["2026-06-10", "2026-06-11", "2026-06-12"], dtype="datetime64[ns]")
+        result = run_leakage_audit("2026-06-12", "2026-06-16", pit_history_trade_dates=dates)
         assert result["pit_binning_strictly_historical"] is True
+        assert result["status"] == "PASSED"
+
+    def test_pit_binning_fails_when_trade_date_in_history(self):
+        dates = np.array(["2026-06-10", "2026-06-16", "2026-06-15"], dtype="datetime64[ns]")
+        result = run_leakage_audit("2026-06-12", "2026-06-16", pit_history_trade_dates=dates)
+        assert result["pit_binning_strictly_historical"] is False
+        assert result["status"] == "FAILED"
+
+    def test_pit_binning_vacuously_true_when_none(self):
+        result = run_leakage_audit("2026-06-12", "2026-06-16", pit_history_trade_dates=None)
+        assert result["pit_binning_strictly_historical"] is True
+
+    def test_realized_returns_not_used_when_dates_ok(self):
+        result = run_leakage_audit("2026-06-12", "2026-06-16")
+        assert result["realized_returns_not_used_in_signal"] is True
+
+    def test_realized_returns_flagged_when_dates_equal(self):
+        result = run_leakage_audit("2026-06-16", "2026-06-16")
+        assert result["realized_returns_not_used_in_signal"] is False
 
 
 # ---------------------------------------------------------------------------

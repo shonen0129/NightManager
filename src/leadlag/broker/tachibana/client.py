@@ -136,71 +136,25 @@ class TachibanaBrokerClient(BrokerClient):
             },
         )
 
-    def fetch_open_prices(
+    def _fetch_prices(
         self,
         tickers: list[str],
+        price_field: str,
+        label: str,
         *,
         allow_missing: bool = False,
     ) -> dict[str, float]:
-        """Fetch today's open prices for JP tickers (e.g. '1617.T')."""
-        opens: dict[str, float] = {}
-        missing_tickers: list[str] = []
+        """Fetch prices from Tachibana API for JP tickers.
 
-        # Map to Tachibana symbols (without suffix)
-        mapping = {tk.replace(".T", ""): tk for tk in tickers}
-        clean_codes = list(mapping.keys())
+        Args:
+            tickers: List of tickers in yfinance format (e.g. '1617.T')
+            price_field: API field name ('pDOP' for open, 'pDPP' for current)
+            label: Label for log messages (e.g. 'open', 'current')
+            allow_missing: If True, return partial results instead of raising
 
-        # Tachibana accepts up to 120 codes per query
-        chunk_size = 100
-        for i in range(0, len(clean_codes), chunk_size):
-            chunk = clean_codes[i : i + chunk_size]
-            try:
-                res = self._client.get_price(chunk)
-                for item in res:
-                    code = item.get("sIssueCode")
-                    p_dop_str = item.get("pDOP") # Opening Price
-                    original_ticker = mapping.get(code)
-                    if not original_ticker:
-                        continue
-
-                    try:
-                        p_dop = float(p_dop_str) if p_dop_str and p_dop_str != "0.0000" else 0.0
-                    except ValueError:
-                        p_dop = 0.0
-
-                    if p_dop > 0.0:
-                        opens[original_ticker] = p_dop
-                    else:
-                        missing_tickers.append(original_ticker)
-            except Exception as e:
-                logger.error("Failed to fetch price chunk %s: %s", chunk, e)
-                for code in chunk:
-                    missing_tickers.append(mapping[code])
-
-        # If any ticker was missed or had <= 0 open price
-        # Make a second pass to record missing ones
-        for tk in tickers:
-            if tk not in opens:
-                if tk not in missing_tickers:
-                    missing_tickers.append(tk)
-
-        if missing_tickers:
-            msg = f"Failed to fetch open prices for {len(missing_tickers)} ticker(s): {', '.join(missing_tickers)}"
-            if allow_missing:
-                logger.warning(msg)
-            else:
-                logger.error(msg)
-                raise ValueError(msg)
-
-        return opens
-
-    def fetch_current_prices(
-        self,
-        tickers: list[str],
-        *,
-        allow_missing: bool = False,
-    ) -> dict[str, float]:
-        """Fetch current real-time prices for JP tickers (e.g. '1617.T')."""
+        Returns:
+            Dict mapping ticker → price
+        """
         prices: dict[str, float] = {}
         missing_tickers: list[str] = []
 
@@ -214,18 +168,18 @@ class TachibanaBrokerClient(BrokerClient):
                 res = self._client.get_price(chunk)
                 for item in res:
                     code = item.get("sIssueCode")
-                    p_dpp_str = item.get("pDPP")  # Current Price
+                    price_str = item.get(price_field)
                     original_ticker = mapping.get(code)
                     if not original_ticker:
                         continue
 
                     try:
-                        p_dpp = float(p_dpp_str) if p_dpp_str and p_dpp_str != "0.0000" else 0.0
+                        price = float(price_str) if price_str and price_str != "0.0000" else 0.0
                     except ValueError:
-                        p_dpp = 0.0
+                        price = 0.0
 
-                    if p_dpp > 0.0:
-                        prices[original_ticker] = p_dpp
+                    if price > 0.0:
+                        prices[original_ticker] = price
                     else:
                         missing_tickers.append(original_ticker)
             except Exception as e:
@@ -238,7 +192,7 @@ class TachibanaBrokerClient(BrokerClient):
                 missing_tickers.append(tk)
 
         if missing_tickers:
-            msg = f"Failed to fetch current prices for {len(missing_tickers)} ticker(s): {', '.join(missing_tickers)}"
+            msg = f"Failed to fetch {label} prices for {len(missing_tickers)} ticker(s): {', '.join(missing_tickers)}"
             if allow_missing:
                 logger.warning(msg)
             else:
@@ -246,6 +200,24 @@ class TachibanaBrokerClient(BrokerClient):
                 raise ValueError(msg)
 
         return prices
+
+    def fetch_open_prices(
+        self,
+        tickers: list[str],
+        *,
+        allow_missing: bool = False,
+    ) -> dict[str, float]:
+        """Fetch today's open prices for JP tickers (e.g. '1617.T')."""
+        return self._fetch_prices(tickers, "pDOP", "open", allow_missing=allow_missing)
+
+    def fetch_current_prices(
+        self,
+        tickers: list[str],
+        *,
+        allow_missing: bool = False,
+    ) -> dict[str, float]:
+        """Fetch current real-time prices for JP tickers (e.g. '1617.T')."""
+        return self._fetch_prices(tickers, "pDPP", "current", allow_missing=allow_missing)
 
     def fetch_us_etf_returns(
         self,
@@ -255,8 +227,6 @@ class TachibanaBrokerClient(BrokerClient):
 
         Tachibana API is JP only; uses yfinance dynamically as a fallback.
         """
-        import concurrent.futures
-
         logger.info("[TachibanaBroker] Fetching US ETF returns via yfinance fallback...")
         import yfinance as yf
 

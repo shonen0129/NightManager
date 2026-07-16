@@ -252,6 +252,8 @@ def compute_baseline_correlation(
 
     _, _, corr = compute_correlation(base_returns, ewma_half_life)
     _BASELINE_CORR_CACHE[cache_key] = corr
+    if len(_BASELINE_CORR_CACHE) > 100:
+        _BASELINE_CORR_CACHE.clear()
     return corr.copy()
 
 

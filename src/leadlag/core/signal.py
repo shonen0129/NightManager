@@ -65,7 +65,6 @@ def compute_signal(
     Returns:
         Dict with: signal (N_J,), sigma_s, r_hat_jp_cc (N_J,)
     """
-    all_returns.shape[1] - n_u
     window_start = max(0, current_index - corr_window)
     window_returns = all_returns[window_start:current_index]
 

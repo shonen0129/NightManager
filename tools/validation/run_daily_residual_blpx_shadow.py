@@ -508,7 +508,7 @@ def generate_daily_shadow_portfolio(
     if gap_input_dir is not None:
         diag_file = gap_input_dir / "portfolio_gap_distribution_diagnostics.csv"
         if diag_file.exists():
-            history_ir, pit_alerts = load_pit_ir_history(gap_input_dir, date_str)
+            history_ir, pit_alerts, _ = load_pit_ir_history(gap_input_dir, date_str)
             alerts.extend(pit_alerts)
             history_count = len(history_ir)
             

@@ -14,31 +14,61 @@ import numpy as np
 import pandas as pd
 
 
-def run_leakage_audit(sig_date: str, trade_date: str) -> dict:
-    """Verify that *sig_date* is strictly before *trade_date* (no lookahead).
+def run_leakage_audit(
+    sig_date: str,
+    trade_date: str,
+    *,
+    gap_data_loaded: bool = True,
+    pit_history_trade_dates: np.ndarray | None = None,
+) -> dict:
+    """Verify no lookahead leakage in signal computation.
 
     Args:
         sig_date: Signal computation date (end of prior US close) as a
             date-string in any format parseable by ``pd.to_datetime``.
         trade_date: Trade execution date as a date-string.
+        gap_data_loaded: Whether gap matrices (mu_gap, Omega_gap) were
+            successfully loaded. These are only available after the JP
+            market open, so this verifies post-open timing.
+        pit_history_trade_dates: Trade dates of the PIT IR history rows
+            used for binning. Verified to be strictly before *trade_date*.
+            If None, the check is skipped (vacuously True).
 
     Returns:
         Dict with keys:
           status: 'PASSED' or 'FAILED'
           signal_date_strictly_before_trade_date: bool
-          post_open_timing_respected: bool (always True — caller's responsibility)
-          realized_returns_not_used_in_signal: bool (always True)
-          pit_binning_strictly_historical: bool (always True)
+          post_open_timing_respected: bool
+          realized_returns_not_used_in_signal: bool
+          pit_binning_strictly_historical: bool
     """
     sig_dt = pd.to_datetime(sig_date).tz_localize(None).normalize()
     trade_dt = pd.to_datetime(trade_date).tz_localize(None).normalize()
     dates_ok = sig_dt < trade_dt
+
+    # Gap data is only available after JP market open (9:00 JST).
+    # If gap matrices were not loaded, post-open timing was not respected.
+    post_open_ok = bool(gap_data_loaded)
+
+    # If signal date is strictly before trade date, the trade date's
+    # realized returns (jp_oc_*) cannot be part of the signal input.
+    realized_ok = bool(dates_ok)
+
+    # PIT IR history must not include the current trade date.
+    if pit_history_trade_dates is not None and len(pit_history_trade_dates) > 0:
+        hist_dts = pd.to_datetime(pit_history_trade_dates).normalize()
+        pit_ok = bool((hist_dts < trade_dt).all())
+    else:
+        pit_ok = True
+
+    all_passed = dates_ok and post_open_ok and realized_ok and pit_ok
+
     return {
-        "status": "PASSED" if dates_ok else "FAILED",
+        "status": "PASSED" if all_passed else "FAILED",
         "signal_date_strictly_before_trade_date": bool(dates_ok),
-        "post_open_timing_respected": True,
-        "realized_returns_not_used_in_signal": True,
-        "pit_binning_strictly_historical": True,
+        "post_open_timing_respected": post_open_ok,
+        "realized_returns_not_used_in_signal": realized_ok,
+        "pit_binning_strictly_historical": pit_ok,
     }
 
 
