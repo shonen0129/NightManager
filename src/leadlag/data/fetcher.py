@@ -16,12 +16,13 @@ from __future__ import annotations
 import io
 import logging
 import os
-import threading
 from datetime import datetime
 
 import numpy as np
 import pandas as pd
 import yfinance as yf
+
+from leadlag.utils.threading import run_with_timeout
 
 logger = logging.getLogger(__name__)
 
@@ -34,32 +35,11 @@ def _yf_download_with_timeout(timeout: int = _YF_DOWNLOAD_TIMEOUT_SECONDS, **kwa
     yfinance does not support a native timeout parameter, so we run it in a
     daemon background thread and abandon it if it exceeds ``timeout`` seconds.
     """
-    result_box: dict = {}
-
-    def _worker() -> None:
-        try:
-            result_box["value"] = yf.download(**kwargs)
-        except Exception as e:
-            result_box["error"] = e
-
-    t = threading.Thread(target=_worker, daemon=True)
-    t.start()
-    t.join(timeout=timeout)
-
-    if t.is_alive():
-        logger.error(
-            "yf.download timed out after %ds (tickers=%s). "
-            "Yahoo Finance may be rate-limiting or unavailable.",
-            timeout,
-            kwargs.get("tickers", "?"),
-        )
-        raise TimeoutError(
-            f"yf.download exceeded {timeout}s timeout — "
-            "Yahoo Finance may be rate-limiting or under maintenance."
-        )
-    if "error" in result_box:
-        raise result_box["error"]
-    return result_box["value"]
+    return run_with_timeout(
+        lambda: yf.download(**kwargs),
+        timeout,
+        label=f"yf.download(tickers={kwargs.get('tickers', '?')})",
+    )
 
 from leadlag.data.cache import (
     etf_pkl_path,

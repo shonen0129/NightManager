@@ -230,35 +230,22 @@ class TachibanaBrokerClient(BrokerClient):
         logger.info("[TachibanaBroker] Fetching US ETF returns via yfinance fallback...")
         import yfinance as yf
 
+        from leadlag.utils.threading import run_with_timeout
+
         _YF_TIMEOUT = 30
 
         returns: dict[str, float] = {}
         failed: list[str] = []
 
-        import threading
-
         for ticker in us_tickers:
             try:
                 t_obj = yf.Ticker(ticker)
-                result_box: dict = {}
 
-                def _worker(_tobj=t_obj):
-                    try:
-                        result_box["value"] = _tobj.history(period="5d")
-                    except Exception as e:
-                        result_box["error"] = e
-
-                th = threading.Thread(target=_worker, daemon=True)
-                th.start()
-                th.join(timeout=_YF_TIMEOUT)
-
-                if th.is_alive():
-                    logger.error("yfinance history() timed out for %s after %ds", ticker, _YF_TIMEOUT)
-                    failed.append(ticker)
-                    continue
-                if "error" in result_box:
-                    raise result_box["error"]
-                hist = result_box["value"]
+                hist = run_with_timeout(
+                    lambda _tobj=t_obj: _tobj.history(period="5d"),
+                    _YF_TIMEOUT,
+                    label=f"yf.Ticker({ticker}).history()",
+                )
 
                 if len(hist) >= 2:
                     last_close = hist["Close"].iloc[-1]

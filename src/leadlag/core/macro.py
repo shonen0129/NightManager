@@ -19,13 +19,13 @@ data from t-1 and earlier.
 from __future__ import annotations
 
 import logging
-import threading
 from typing import Any
 
 import numpy as np
 import pandas as pd
 
 from leadlag.data.tickers import JP_TICKERS
+from leadlag.utils.threading import run_with_timeout
 
 logger = logging.getLogger(__name__)
 
@@ -176,26 +176,11 @@ def download_macro_prices(
             auto_adjust=False,
         )
 
-    result_box: dict[str, Any] = {}
-
-    def _worker() -> None:
-        try:
-            result_box["value"] = _do_download()
-        except Exception as e:
-            result_box["error"] = e
-
-    t = threading.Thread(target=_worker, daemon=True)
-    t.start()
-    t.join(timeout=timeout)
-
-    if t.is_alive():
-        raise TimeoutError(
-            f"yfinance download did not complete within {timeout}s "
-            f"(tickers={MACRO_TICKERS}, start={start}, end={end})"
-        )
-    if "error" in result_box:
-        raise result_box["error"]
-    raw = result_box["value"]
+    raw = run_with_timeout(
+        _do_download,
+        timeout,
+        label=f"yf.download(tickers={MACRO_TICKERS}, start={start}, end={end})",
+    )
 
     # Extract Close prices
     if isinstance(raw.columns, pd.MultiIndex):
