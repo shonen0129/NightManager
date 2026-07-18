@@ -76,8 +76,8 @@ PYTHONPATH=src "${PYTHON_BIN}" tools/production/compute_gap_adjusted_distributio
     --start "${START_DATE}" \
     --end "${TODAY}" \
     --save-daily-matrices true \
-    --save-multi-horizon false \
-    --save-rank-reversal false \
+    --save-multi-horizon true \
+    --save-rank-reversal true \
     --compare-pre-gap false \
     --use-tachibana-prices true \
     >> "${LOG_FILE}" 2>&1
@@ -95,6 +95,56 @@ LATEST_DIR=$(ls -td ${PIPELINE_DIR}/gap_adjusted_distribution/*/ 2>/dev/null | g
 if [ -n "${LATEST_DIR}" ]; then
     ln -sfn "$(basename ${LATEST_DIR})" ${PIPELINE_DIR}/gap_adjusted_distribution/latest
     echo "[INFO] Updated latest symlink -> ${LATEST_DIR}" >> "${LOG_FILE}"
+fi
+
+# PIT IR履歴のマージ: 過去のdiagnostics CSVを新しいlatestに統合
+# compute_gap_adjusted_distribution.pyは過去3日分のみ計算するため、
+# 新しいdiagnostics CSVには数行しかない。RuleD PIT binningは252日以上の
+# 履歴を必要とするため、前回のlatestのdiagnostics CSVをマージする。
+NEW_DIAG="${LATEST_DIR}/portfolio_gap_distribution_diagnostics.csv"
+if [ -n "${PREV_LATEST}" ] && [ -f "${PIPELINE_DIR}/gap_adjusted_distribution/${PREV_LATEST}/portfolio_gap_distribution_diagnostics.csv" ]; then
+    PREV_DIAG="${PIPELINE_DIR}/gap_adjusted_distribution/${PREV_LATEST}/portfolio_gap_distribution_diagnostics.csv"
+    if [ -f "${NEW_DIAG}" ]; then
+        PYTHONPATH=src "${PYTHON_BIN}" -c "
+import pandas as pd
+old = pd.read_csv('${PREV_DIAG}')
+new = pd.read_csv('${NEW_DIAG}')
+combined = pd.concat([old, new], ignore_index=True)
+combined = combined.drop_duplicates(subset='trade_date', keep='last')
+combined = combined.sort_values('trade_date').reset_index(drop=True)
+combined.to_csv('${NEW_DIAG}', index=False)
+print(f'Merged diagnostics: {len(old)} old + {len(new)} new -> {len(combined)} total')
+" >> "${LOG_FILE}" 2>&1
+        echo "[INFO] Merged PIT IR history into new diagnostics CSV" >> "${LOG_FILE}"
+    else
+        cp "${PREV_DIAG}" "${NEW_DIAG}"
+        echo "[INFO] Copied previous diagnostics CSV (new one not found)" >> "${LOG_FILE}"
+    fi
+fi
+
+# 過去のmh行列・rank_reversal行列を前回latestからコピー
+# ライブ実行は過去3日分のみ計算するため、それ以前のmh行列・rank_reversal行列は
+# 前回のlatestからコピーする。これらはPIT-safe（一度計算されると不変）。
+if [ -n "${PREV_LATEST}" ] && [ -d "${PIPELINE_DIR}/gap_adjusted_distribution/${PREV_LATEST}/matrices" ]; then
+    PREV_MAT="${PIPELINE_DIR}/gap_adjusted_distribution/${PREV_LATEST}/matrices"
+    NEW_MAT="${LATEST_DIR}/matrices"
+    # mh行列（mu_gap_h*, omega_gap_h*）
+    for f in "${PREV_MAT}"/mu_gap_h*_2*.npy "${PREV_MAT}"/omega_gap_h*_2*.npy; do
+        [ -f "$f" ] || continue
+        fname=$(basename "$f")
+        if [ ! -f "${NEW_MAT}/${fname}" ]; then
+            cp "$f" "${NEW_MAT}/${fname}"
+        fi
+    done
+    # rank_reversal行列
+    for f in "${PREV_MAT}"/rank_reversal_2*.npy; do
+        [ -f "$f" ] || continue
+        fname=$(basename "$f")
+        if [ ! -f "${NEW_MAT}/${fname}" ]; then
+            cp "$f" "${NEW_MAT}/${fname}"
+        fi
+    done
+    echo "[INFO] Copied historical mh and rank_reversal matrices from ${PREV_LATEST}" >> "${LOG_FILE}"
 fi
 
 # 当日の行列ファイルが生成されたか確認
