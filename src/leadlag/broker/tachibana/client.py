@@ -48,7 +48,7 @@ class TachibanaBrokerClient(BrokerClient):
             config.extra.get("private_key_path")
             or os.environ.get("TACHIBANA_PRIVATE_KEY_PATH", "")
         )
-        
+
         # Security check: verify private key file has restrictive permissions
         if private_key_path and os.path.exists(private_key_path):
             import stat

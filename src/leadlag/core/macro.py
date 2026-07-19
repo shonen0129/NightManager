@@ -305,7 +305,7 @@ def compute_factor_kappa_scale(
 
     kappas_arr = np.asarray(kappas, dtype=float)
     abs_sens = np.abs(sens_matrix)  # (n_j, n_macro)
-    
+
     # Adjust sensitivity matrix dimensions to match kappas length
     n_kappas = len(kappas_arr)
     n_factors = abs_sens.shape[1]
@@ -362,7 +362,7 @@ def compute_macro_direction_adjustment(
 
     kappas_arr = np.asarray(kappas, dtype=float)
     signed_sens = sens_matrix  # Keep signs (do NOT take abs)
-    
+
     # Adjust sensitivity matrix dimensions to match kappas length
     n_kappas = len(kappas_arr)
     n_factors = signed_sens.shape[1]

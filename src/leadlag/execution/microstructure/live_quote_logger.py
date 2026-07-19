@@ -7,7 +7,7 @@ from datetime import datetime, time as dt_time
 from typing import Any
 import pandas as pd
 
-from .order_book_schema import OrderBookSnapshot, from_api_price_response, validate_quote
+from .order_book_schema import OrderBookSnapshot, from_api_price_response
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +40,7 @@ def fetch_quote_snapshot(
         # Strip '.T' for the Tachibana API request if necessary
         api_codes = [t.replace(".T", "") for t in tickers]
         raw_quotes = api_client.get_price(api_codes)
-        
+
         # Build map of returned codes to quickly locate items
         quote_map = {item.get("sIssueCode"): item for item in raw_quotes if item.get("sIssueCode")}
 
@@ -113,7 +113,7 @@ def log_quote_loop(
     Returns execution statistics.
     """
     logger.info(f"Starting quote log loop. Schedule: {start_time} to {end_time}. Interval: {interval_sec}s. Enabled: {enabled}")
-    
+
     lob_available_count = 0
     api_error_count = 0
     not_configured_count = 0
@@ -131,7 +131,7 @@ def log_quote_loop(
 
         start_loop = time.time()
         snapshots = fetch_quote_snapshot(api_client, tickers, enabled=enabled)
-        
+
         # Update statistics
         for s in snapshots:
             if s.lob_available:

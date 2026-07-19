@@ -18,7 +18,7 @@ import numpy as np
 import pandas as pd
 from scipy import stats
 
-from leadlag.data.tickers import JP_TICKERS, US_TICKERS
+from leadlag.data.tickers import JP_TICKERS
 from leadlag.models.sector_relative_ensemble_blp_enhanced import (
     SectorRelativeEnsembleBLPEnhancedModel,
 )

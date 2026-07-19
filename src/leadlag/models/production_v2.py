@@ -210,7 +210,7 @@ def load_pit_ir_history(
 
     if ir_col not in df_hist.columns:
         alerts.append(
-            f"No IR column found in diagnostics. PIT binning falls back to Medium/1.0."
+            "No IR column found in diagnostics. PIT binning falls back to Medium/1.0."
         )
         return np.array([]), alerts, np.array([])
 
@@ -240,12 +240,13 @@ def _derive_signal_date(gap_input_dir: Path | None, trade_date: str) -> str:
     if not matrices_dir.exists():
         return fallback_sig_date
 
+    import re
     candidate_dates = []
     for f in matrices_dir.glob("mu_gap_*.npy"):
         stem = f.stem  # e.g. "mu_gap_20260612"
-        parts = stem.split("_")
-        if len(parts) >= 3:
-            date_str_candidate = parts[2]
+        match = re.search(r"(\d{8})", stem)
+        if match:
+            date_str_candidate = match.group(1)
             try:
                 cdt = pd.to_datetime(date_str_candidate, format="%Y%m%d").normalize()
                 if cdt < trade_dt:
@@ -367,7 +368,7 @@ def generate_v2_production_portfolio(
     run_cfg = parse_run_config(cfg)
 
     n_j = len(JP_TICKERS)
-    date_str = str(trade_date)
+    date_str = pd.to_datetime(trade_date).strftime("%Y-%m-%d")
     alerts: list[str] = []
     fallback = {
         "gap_data_missing": False,

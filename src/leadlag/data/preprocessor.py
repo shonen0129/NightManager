@@ -348,7 +348,7 @@ def compute_us_residualized_returns(
     # Any non-finite values (NaN/inf) should be treated as NaN to be filled
     betas_shifted = betas_shifted.where(np.isfinite(betas_shifted), np.nan)
 
-    betas_val = betas_shifted.values
+    betas_val = betas_shifted.values.copy()
 
     # Also ensure first beta_window rows are 0.0
     betas_val[:beta_window] = 0.0

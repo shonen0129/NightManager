@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
 from .order_book_schema import OrderBookSnapshot
 
 logger = logging.getLogger(__name__)

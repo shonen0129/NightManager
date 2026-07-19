@@ -12,7 +12,6 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-from scipy.stats import spearmanr
 from sklearn.linear_model import LogisticRegression, Ridge
 
 from leadlag.core.correlation import (
@@ -22,7 +21,6 @@ from leadlag.core.correlation import (
     regularize_correlation,
 )
 from leadlag.core.macro import (
-    MACRO_NAMES,
     MACRO_SENS_MATRIX,
     compute_factor_kappa_scale,
     compute_macro_surprise,
@@ -206,13 +204,13 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
         # Asymmetric propagation parameters
         self.asymmetry_delta = float(self._resolve_val("asymmetry_delta", 0.0))
         self.asymmetry_mode = str(self._resolve_val("asymmetry_mode", "scalar"))
-        
+
         gap_neg = self._resolve_val("gap_open_coef_neg", None)
         self.gap_open_coef_neg = float(gap_neg) if gap_neg is not None and str(gap_neg).lower() != "none" else None
-        
+
         beta_neg = self._resolve_val("topix_beta_coef_neg", None)
         self.topix_beta_coef_neg = float(beta_neg) if beta_neg is not None and str(beta_neg).lower() != "none" else None
-        
+
         self.asymmetry_post_gap_delta = float(self._resolve_val("asymmetry_post_gap_delta", 0.0))
         self.asymmetry_post_gap_mode = str(self._resolve_val("asymmetry_post_gap_mode", "signal_split"))
 

@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from enum import Enum
 from typing import Any
 
 from leadlag.execution.microstructure.order_book_schema import OrderBookSnapshot
@@ -21,7 +20,6 @@ from leadlag.execution.microstructure.slippage_model import (
     compute_exit_cost_bps,
     compute_financing_bps_daily,
     compute_borrow_bps_daily,
-    compute_reverse_fee_bps,
 )
 
 logger = logging.getLogger(__name__)

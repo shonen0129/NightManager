@@ -3,7 +3,6 @@ from __future__ import annotations
 import logging
 import os
 import pandas as pd
-from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -11,10 +10,10 @@ def generate_historical_fixed_section(summary_df: pd.DataFrame | None) -> str:
     """Generates markdown section for historical fixed spread results."""
     if summary_df is None or summary_df.empty:
         return "No historical fixed spread simulation data available.\n"
-    
+
     # Format columns nicely
     df_formatted = summary_df.copy()
-    
+
     # Find any float columns and format them
     for col in df_formatted.columns:
         if col in ["annualized_net_return", "annualized_volatility", "max_drawdown", "hit_rate", "approx_after_tax_return"]:

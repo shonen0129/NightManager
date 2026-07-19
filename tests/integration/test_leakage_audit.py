@@ -72,6 +72,16 @@ class TestLeakageAudit:
         result = run_leakage_audit("2026-06-16", "2026-06-16")
         assert result["realized_returns_not_used_in_signal"] is False
 
+    def test_gap_freshness_passes_within_10_days(self):
+        result = run_leakage_audit("2026-06-12", "2026-06-15")
+        assert result["gap_data_freshness_ok"] is True
+        assert result["status"] == "PASSED"
+
+    def test_gap_freshness_fails_if_too_old(self):
+        result = run_leakage_audit("2026-06-04", "2026-06-15")
+        assert result["gap_data_freshness_ok"] is False
+        assert result["status"] == "FAILED"
+
 
 # ---------------------------------------------------------------------------
 # v2_auditor: run_numerical_audit

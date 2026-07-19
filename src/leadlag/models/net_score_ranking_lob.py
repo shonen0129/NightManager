@@ -6,8 +6,8 @@ import pandas as pd
 from typing import Any
 
 from leadlag.execution.microstructure.order_book_schema import OrderBookSnapshot
-from leadlag.execution.microstructure.slippage_model import compute_entry_cost_bps, compute_exit_cost_bps, CostSource
-from leadlag.execution.microstructure.execution_constraints import apply_hard_rules, replace_unavailable_short, ExecutionDecision
+from leadlag.execution.microstructure.slippage_model import compute_entry_cost_bps, compute_exit_cost_bps
+from leadlag.execution.microstructure.execution_constraints import apply_hard_rules, replace_unavailable_short
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +47,7 @@ class NetScoreRankingLob:
         fallback_spread = cost_opt.get("default_spread_fallback_roundtrip_bps", 15.0)
         buy_interest = cost_opt.get("buy_interest_rate_annual", 0.025)
         borrow_fee = cost_opt.get("stock_borrow_fee_annual", 0.0115)
-        
+
         # Calculate daily financing & borrow rate in decimal
         financing_rate_daily = buy_interest / 365.0
         borrow_fee_daily = borrow_fee / 365.0
@@ -60,7 +60,7 @@ class NetScoreRankingLob:
 
             # We estimate entry cost assuming the base case position size (1/N of AUM)
             base_position_jpy = (self.aum * gross_target) / (2.0 * max(1, self.n_long))
-            
+
             # Entry cost
             entry_cost_long_bps, cost_src_long = compute_entry_cost_bps(
                 snapshot, base_position_jpy, "BUY", fallback_spread, self.config
@@ -173,11 +173,11 @@ class NetScoreRankingLob:
         df["weight_before_lob"] = np.sign(df["weight_before_lob"]) * np.minimum(
             np.abs(df["weight_before_lob"]), np.maximum(weight_cap, 0.05)
         )
-        
+
         # 2. Apply LOB overlay constraints & short replacements
         # Build lists of all valid candidates (reserve lists for replacements)
         reserve_longs = [t for t in long_candidates["ticker"].tolist() if t not in initial_longs]
-        
+
         # Available shorts pool (all borrowable short candidates, ordered by score)
         available_shorts_pool = []
         if not short_candidates.empty:
@@ -196,11 +196,11 @@ class NetScoreRankingLob:
             snapshot = snapshots.get(ticker)
             est_weight = df.loc[df["ticker"] == ticker, "weight_before_lob"].values[0]
             order_jpy = abs(est_weight) * self.aum
-            
+
             decision = apply_hard_rules(
                 snapshot, "BUY", order_jpy, True, 0.0, self.config
             )
-            
+
             if decision.selected:
                 final_longs.append(ticker)
             else:
@@ -235,7 +235,7 @@ class NetScoreRankingLob:
             decision = apply_hard_rules(
                 snapshot, "SELL", order_jpy, is_avail, rev_fee, self.config
             )
-            
+
             if decision.selected:
                 final_shorts_checked.append(ticker)
             else:
@@ -269,14 +269,14 @@ class NetScoreRankingLob:
         for ticker in final_longs:
             snapshot = snapshots.get(ticker)
             score = df.loc[df["ticker"] == ticker, "score_long"].values[0]
-            
+
             # Target weight allocation
             df.loc[df["ticker"] == ticker, "selected_after_lob"] = True
             raw_w = (gross_target / 2.0) * (score / (df.loc[df["ticker"].isin(final_longs), "score_long"].sum() or 1.0))
             order_jpy = raw_w * self.aum
-            
+
             decision = apply_hard_rules(snapshot, "BUY", order_jpy, True, 0.0, self.config)
-            
+
             df.loc[df["ticker"] == ticker, "weight_after_lob"] = raw_w * decision.scale_factor
             df.loc[df["ticker"] == ticker, "scale_factor"] = decision.scale_factor
             df.loc[df["ticker"] == ticker, "scale_reason"] = decision.scale_reason
@@ -293,9 +293,9 @@ class NetScoreRankingLob:
             df.loc[df["ticker"] == ticker, "selected_after_lob"] = True
             raw_w = -(gross_target / 2.0) * (score / (df.loc[df["ticker"].isin(final_shorts_checked), "score_short"].sum() or 1.0))
             order_jpy = abs(raw_w) * self.aum
-            
+
             decision = apply_hard_rules(snapshot, "SELL", order_jpy, is_avail, rev_fee, self.config)
-            
+
             df.loc[df["ticker"] == ticker, "weight_after_lob"] = raw_w * decision.scale_factor
             df.loc[df["ticker"] == ticker, "scale_factor"] = decision.scale_factor
             df.loc[df["ticker"] == ticker, "scale_reason"] = decision.scale_reason
@@ -333,13 +333,13 @@ def restore_dollar_neutrality_array(w: np.ndarray) -> np.ndarray:
     w_new = w.copy()
     long_mask = w_new > 0.0
     short_mask = w_new < 0.0
-    
+
     long_sum = np.sum(w_new[long_mask])
     short_sum = np.abs(np.sum(w_new[short_mask]))
-    
+
     if long_sum == 0.0 or short_sum == 0.0:
         return np.zeros_like(w_new)
-        
+
     target_gross = min(long_sum, short_sum)
     w_new[long_mask] = w_new[long_mask] * (target_gross / long_sum)
     w_new[short_mask] = w_new[short_mask] * (target_gross / short_sum)

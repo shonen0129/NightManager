@@ -61,7 +61,12 @@ def run_leakage_audit(
     else:
         pit_ok = True
 
-    all_passed = dates_ok and post_open_ok and realized_ok and pit_ok
+    # Gap data freshness check (1 to 10 calendar days difference)
+    # Upper bound accommodates JP long holidays (Golden Week etc.)
+    days_diff = (trade_dt - sig_dt).days
+    freshness_ok = 1 <= days_diff <= 10
+
+    all_passed = dates_ok and post_open_ok and realized_ok and pit_ok and freshness_ok
 
     return {
         "status": "PASSED" if all_passed else "FAILED",
@@ -69,6 +74,7 @@ def run_leakage_audit(
         "post_open_timing_respected": post_open_ok,
         "realized_returns_not_used_in_signal": realized_ok,
         "pit_binning_strictly_historical": pit_ok,
+        "gap_data_freshness_ok": bool(freshness_ok),
     }
 
 

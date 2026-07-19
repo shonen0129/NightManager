@@ -58,7 +58,7 @@ class TestHealthScoreCalculator:
         assert to_comp.score == 100.0
         # Gross is exactly 2.0 → high gross score
         gross_comp = [c for c in score.components if c.name == "gross_deviation"][0]
-        assert gross_comp.score == 100.0
+        assert gross_comp.score == pytest.approx(100.0)
         # No fallback → 100
         fb_comp = [c for c in score.components if c.name == "fallback_rate"][0]
         assert fb_comp.score == 100.0

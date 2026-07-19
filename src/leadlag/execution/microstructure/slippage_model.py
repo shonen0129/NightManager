@@ -4,7 +4,7 @@ import logging
 from enum import Enum
 from typing import Any
 from .order_book_schema import OrderBookSnapshot
-from .order_book_cost import estimate_lob_slippage_bps, compute_quoted_spread_bps, LobNotAvailable
+from .order_book_cost import estimate_lob_slippage_bps, compute_quoted_spread_bps
 
 logger = logging.getLogger(__name__)
 

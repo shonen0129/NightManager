@@ -6,8 +6,7 @@ from typing import Any
 from .order_book_schema import OrderBookSnapshot
 from .order_book_cost import (
     compute_quoted_spread_bps,
-    estimate_lob_slippage_bps,
-    compute_order_to_depth_ratio
+    estimate_lob_slippage_bps
 )
 
 logger = logging.getLogger(__name__)
