@@ -92,6 +92,10 @@ def build_common_inputs(
     us_res_enabled: bool = False,
     us_res_gamma: float = 0.5,
     us_res_beta_window: int = 60,
+    frac_diff_enabled: bool = False,
+    frac_diff_d: float = 0.5,
+    frac_diff_threshold: float = 1e-5,
+    frac_diff_window: int = 100,
 ) -> CommonInputs:
     """Build CommonInputs from df_exec and pre-computed y_jp_target.
 
@@ -109,6 +113,10 @@ def build_common_inputs(
         us_res_enabled: Whether to compute US residualized (P4) inputs.
         us_res_gamma: Gamma for US residualization.
         us_res_beta_window: Beta window for US residualization.
+        frac_diff_enabled: Whether to apply fractional differencing to US returns.
+        frac_diff_d: Fractional differencing order (0 < d < 1).
+        frac_diff_threshold: Weight cutoff for binomial expansion.
+        frac_diff_window: Maximum lookback for fractional diff filter.
 
     Returns:
         CommonInputs dataclass instance.
@@ -116,6 +124,17 @@ def build_common_inputs(
     sim_dates = df_exec.index
 
     us_returns_raw = df_exec[[f"us_cc_{tk}" for tk in US_TICKERS]].values
+
+    # Apply fractional differencing to US returns if enabled
+    if frac_diff_enabled and frac_diff_d > 0.0:
+        from leadlag.features.fractional_diff import fractional_diff_df
+        us_cols = [f"us_cc_{tk}" for tk in US_TICKERS]
+        us_df = pd.DataFrame(us_returns_raw, columns=us_cols, index=df_exec.index)
+        fd_df = fractional_diff_df(
+            us_df, d=frac_diff_d, threshold=frac_diff_threshold, window=frac_diff_window
+        ).fillna(0.0)
+        us_returns_raw = fd_df.values
+
     all_returns_raw = np.column_stack([us_returns_raw, y_jp_target])
 
     c_full = compute_baseline_correlation(

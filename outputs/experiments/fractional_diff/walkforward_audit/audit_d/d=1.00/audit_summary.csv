@@ -1,0 +1,33 @@
+check_name,status,explanation,recommended_fix
+Beta Shift Is One,PASS,Verified.,Inspect config.
+No Lookahead Detected,PASS,Verified.,Inspect config.
+Signal Date Lt Trade Date,PASS,Verified.,Inspect config.
+Us Beta Uses T Minus 1 Window,PASS,Verified.,Inspect config.
+Jp Beta Uses T Minus 1 Window,PASS,Verified.,Inspect config.
+P4 Uses Us Residualized Input,PASS,Verified.,Inspect config.
+Us Residualization Formula Passed,PASS,Verified.,Inspect config.
+P4 Uses Jp Topix Residual Target,PASS,Verified.,Inspect config.
+Jp Residual Matches P3 Target,PASS,Verified.,Inspect config.
+Jp Residualization Formula Passed,PASS,Verified.,Inspect config.
+Gamma Zero Matches Raw Us,PASS,Verified.,Inspect config.
+Gamma One Matches Full Residual Us,PASS,Verified.,Inspect config.
+Ensemble Weights Sum To One,PASS,Verified.,Inspect config.
+No Nan Inf In Signals,PASS,Verified.,Inspect config.
+No Nan Inf In Weights,PASS,Verified.,Inspect config.
+Net Exposure Within Limit,PASS,Verified.,Inspect config.
+Gross Exposure Within Limit,PASS,Verified.,Inspect config.
+Cost Consistency Passed,PASS,Verified.,Inspect config.
+Prior Variant Valid,PASS,Verified.,Inspect config.
+V2 Removed When Expected,PASS,Verified.,Inspect config.
+V1 Removed When Expected,PASS,Verified.,Inspect config.
+V1 V2 Scaled When Expected,PASS,Verified.,Inspect config.
+Gram Schmidt Recomputed,PASS,Verified.,Inspect config.
+V0 Columns Orthonormal,PASS,Verified.,Inspect config.
+C0 Source Correct,PASS,Verified.,Inspect config.
+C0 Built From Residualized Returns When Expected,PASS,Verified.,Inspect config.
+C0 Diag Is One,PASS,Verified.,Inspect config.
+C0 No Nan Inf,PASS,Verified.,Inspect config.
+C0 Positive Semidefinite Or Tolerated,PASS,Verified.,Inspect config.
+Raw Pca Weight Ok,FAIL,Verified.,Inspect config.
+Residual Pca Weight Ok,FAIL,Verified.,Inspect config.
+All Passed,FAIL,Verified.,Inspect config.

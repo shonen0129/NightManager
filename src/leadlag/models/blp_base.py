@@ -27,6 +27,15 @@ class _BLPBase(BaseModel):
 
         y_jp_target = compute_jp_target_returns(df_exec, JP_TICKERS)
 
+        # Read fractional diff config from the features section
+        frac_cfg = {}
+        if isinstance(self.config, dict):
+            frac_cfg = self.config.get("features", {}).get("fractional_diff", {})
+        frac_diff_enabled = bool(frac_cfg.get("enabled", False))
+        frac_diff_d = float(frac_cfg.get("d", 0.5))
+        frac_diff_threshold = float(frac_cfg.get("threshold", 1e-5))
+        frac_diff_window = int(frac_cfg.get("window", 100))
+
         inputs = build_common_inputs(
             df_exec,
             y_jp_target,
@@ -35,6 +44,10 @@ class _BLPBase(BaseModel):
             ewma_half_life=self.ewma_half_life,
             beta_window=self.beta_window,
             include_v4_prior=self.include_v4_prior,
+            frac_diff_enabled=frac_diff_enabled,
+            frac_diff_d=frac_diff_d,
+            frac_diff_threshold=frac_diff_threshold,
+            frac_diff_window=frac_diff_window,
         )
         out = inputs.to_dict()
         out["y_jp_target"] = y_jp_target
