@@ -125,7 +125,12 @@ def build_common_inputs(
 
     us_returns_raw = df_exec[[f"us_cc_{tk}" for tk in US_TICKERS]].values
 
-    # Apply fractional differencing to US returns if enabled
+    # Apply fractional differencing to US returns if enabled.
+    # The expanding-window filter introduces NaN only when input contains NaN;
+    # if any remain (e.g. leading NaNs in a column) we fill with 0.0 so that
+    # downstream correlation / residualization receives a clean matrix.  This
+    # only affects rows where US close-to-close return is missing; the warmup
+    # period uses partial weights and does not produce NaNs by design.
     if frac_diff_enabled and frac_diff_d > 0.0:
         from leadlag.features.fractional_diff import fractional_diff_df
         us_cols = [f"us_cc_{tk}" for tk in US_TICKERS]

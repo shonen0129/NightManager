@@ -93,7 +93,10 @@ def fractional_diff(
         window: Maximum lookback for the filter (limits computational cost).
 
     Returns:
-        Transformed series of same length, with NaN for initial warmup period.
+        Transformed series of same length. The first `window` points use an
+        expanding window (partial weights) rather than NaN padding, so NaNs
+        only occur if the input contains NaNs. This preserves every observation
+        while keeping the filter lookahead-free.
     """
     if d == 0.0:
         return series.copy()
@@ -189,15 +192,45 @@ def adf_test(series: pd.Series | np.ndarray, max_lags: int = 1) -> dict:
     X = np.column_stack(X_cols)
     y_dep = dy
 
-    # OLS
+    # Standardize y and non-constant columns of X to avoid ill-conditioning / overflow.
+    # The t-statistic for the lagged level coefficient is invariant under these scalings.
+    y_scale = np.std(y_dep)
+    if y_scale < 1e-12 or not np.isfinite(y_scale):
+        return {"statistic": -np.inf, "p_value": 0.0, "is_stationary": True}
+    y_dep = y_dep / y_scale
+
+    scales = np.ones(X.shape[1])
+    for col_idx in range(1, X.shape[1]):
+        col = X[:, col_idx]
+        std_col = np.std(col)
+        if std_col > 1e-12:
+            scales[col_idx] = std_col
+            X[:, col_idx] = col / std_col
+
+    # OLS with a stricter rcond to suppress small singular values.
+    # np.matmul on macOS/Accelerate can emit spurious overflow/divide-by-zero
+    # warnings even when inputs and outputs are finite; we silence them and
+    # validate finiteness explicitly.
     try:
-        beta = np.linalg.lstsq(X, y_dep, rcond=None)[0]
-        resid = y_dep - X @ beta
+        beta = np.linalg.lstsq(X, y_dep, rcond=1e-12)[0]
+        if not np.all(np.isfinite(beta)):
+            return {"statistic": np.nan, "p_value": 1.0, "is_stationary": False}
+        with np.errstate(over="ignore", invalid="ignore", divide="ignore"):
+            resid = y_dep - X @ beta
+        if not np.all(np.isfinite(resid)):
+            return {"statistic": np.nan, "p_value": 1.0, "is_stationary": False}
         n_obs = len(y_dep)
         k = X.shape[1]
-        sigma2 = np.sum(resid**2) / (n_obs - k)
-        cov = sigma2 * np.linalg.inv(X.T @ X)
-        t_stat = beta[1] / np.sqrt(cov[1, 1])
+        df = max(n_obs - k, 1)
+        sigma2 = np.sum(resid**2) / df
+        if sigma2 < 0.0 or not np.isfinite(sigma2):
+            return {"statistic": np.nan, "p_value": 1.0, "is_stationary": False}
+        XtX = X.T @ X
+        # Use pseudo-inverse for covariance when XtX is near-singular
+        XtX_inv = np.linalg.pinv(XtX)
+        cov = sigma2 * XtX_inv
+        se = np.sqrt(np.maximum(np.diag(cov), 0.0))
+        t_stat = beta[1] / se[1]
         if not np.isfinite(t_stat):
             return {"statistic": np.nan, "p_value": 1.0, "is_stationary": False}
     except Exception:

@@ -92,15 +92,15 @@ class TestFractionalDiff:
         assert (result.index == idx).all()
         assert result.name == "test"
 
-    def test_warmup_nans(self):
-        """First few values should be NaN when window > 1."""
+    def test_expanding_window_no_leak(self):
+        """Expanding-window partial weights preserve all values without lookahead."""
         s = pd.Series(np.random.randn(50), name="test")
         result = fractional_diff(s, d=0.5, threshold=1e-5)
-        # With d=0.5, weights have length > 1, so first value should be NaN
-        # (only one data point available, but weights need more)
-        # Actually with our implementation, first value uses lookback=1
-        # so it's not NaN. Let's check that values are finite after warmup.
-        assert result.isna().sum() >= 0  # No hard requirement on NaN count
+        # Implementation uses lookback=min(width, i+1, window) so no NaNs
+        # are introduced by the filter itself (only by input NaNs).
+        assert not result.isna().any()
+        assert len(result) == len(s)
+        assert result.index.equals(s.index)
 
     def test_constant_series(self):
         """Fractional diff of a constant should be ~0 for d > 0."""

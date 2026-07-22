@@ -124,6 +124,15 @@ class SectorRelativeEnsembleModel(BaseModel):
         self.us_res_beta_shift = int(self._resolve_nested("us_residualization.beta_shift", 1))
         self.us_res_gamma = float(self._resolve_nested("us_residualization.gamma", 0.5))
 
+        # Resolve fractional differencing config (align with _BLPBase models)
+        frac_cfg = {}
+        if isinstance(self.config, dict):
+            frac_cfg = self.config.get("features", {}).get("fractional_diff", {})
+        self.frac_diff_enabled = bool(frac_cfg.get("enabled", False))
+        self.frac_diff_d = float(frac_cfg.get("d", 0.5))
+        self.frac_diff_threshold = float(frac_cfg.get("threshold", 1e-5))
+        self.frac_diff_window = int(frac_cfg.get("window", 100))
+
         # Resolve US Residual Prior config
         self.prior_variant = self._resolve_nested("prior.variant", None)
         self.normalization_method = self._resolve_val("normalization", "zscore")
@@ -156,6 +165,10 @@ class SectorRelativeEnsembleModel(BaseModel):
             self.us_res_enabled,
             self.us_res_gamma,
             self.us_res_beta_window,
+            self.frac_diff_enabled,
+            self.frac_diff_d,
+            self.frac_diff_threshold,
+            self.frac_diff_window,
         )
         if cache_key in self._common_inputs_cache:
             cached_val = self._common_inputs_cache[cache_key]
@@ -176,6 +189,10 @@ class SectorRelativeEnsembleModel(BaseModel):
             us_res_enabled=self.us_res_enabled,
             us_res_gamma=self.us_res_gamma,
             us_res_beta_window=self.us_res_beta_window,
+            frac_diff_enabled=self.frac_diff_enabled,
+            frac_diff_d=self.frac_diff_d,
+            frac_diff_threshold=self.frac_diff_threshold,
+            frac_diff_window=self.frac_diff_window,
         )
         self.v0_static_obj = inputs.v0_static
         out = inputs.to_dict()

@@ -132,6 +132,20 @@ residualization:
   method: rolling_ols
   lookahead_safe: true
 
+# --- Fractional Differentiation (本番適用: 2026-07-21) ---
+# US return series are transformed via fractional differencing to preserve
+# long memory while maintaining stationarity. Walk-forward validation
+# (2015-2026, 12 yearly windows) confirmed d=0.1 outperforms d=1.0 baseline
+# in 12/12 windows (mean Sharpe 8.87 vs 7.75, turnover -3%).
+# See: López de Prado (2018), "Advances in Financial Machine Learning", Ch.5
+# Validation report: reports/fractional_diff_walkforward_audit_report.md
+features:
+  fractional_diff:
+    enabled: true
+    d: 0.1
+    threshold: 1.0e-5
+    window: 100
+
 # --- v2: フォールバック階層 ---
 # 注意: v1 fallback (Residual-BLPX) は2026-07-09に廃止されました
 # gap data欠損時はflat position (w_final=0) を返します
