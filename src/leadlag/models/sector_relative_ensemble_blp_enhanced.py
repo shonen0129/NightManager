@@ -385,7 +385,7 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
         (copula_dynamic_blend=False) or dynamically increased during stress
         periods (copula_dynamic_blend=True).
         """
-        cache_key = (current_index, self.blp_window, self.winsor_sigma, self.exec_adjustment, self.blp_ewma_halflife, is_residual, id(window_returns), self.copula_enabled)
+        cache_key = (current_index, self.blp_window, self.winsor_sigma, self.exec_adjustment, self.blp_ewma_halflife, is_residual, self.copula_enabled)
         if cache_key in self._blp_corr_cache:
             return self._blp_corr_cache[cache_key]
 
@@ -411,6 +411,7 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
             use_copula=use_copula,
             copula_blend_weight=copula_weight,
             copula_nu_init=self.copula_nu_init,
+            use_cache=False,
         )
         mu = np.nan_to_num(mu, nan=0.0, posinf=0.0, neginf=0.0)
         sigma = np.nan_to_num(sigma, nan=1.0, posinf=1.0, neginf=1.0)
