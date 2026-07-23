@@ -489,11 +489,12 @@ class SectorRelativeEnsembleModel(BaseModel):
         """Combine Raw-PCA and Residual-PCA signals (signal-level 50/50 ensemble)."""
         return 0.5 * z0 + 0.5 * z3
 
-    def predict_signals(self, df_exec: pd.DataFrame) -> dict[str, Any]:
+    def predict_signals(self, df_exec: pd.DataFrame, n_jobs: int = 1) -> dict[str, Any]:
         """Generate raw signals for all rows in df_exec from corr_window index onwards.
 
         Args:
             df_exec: Execution DataFrame containing historical data.
+            n_jobs: Number of parallel workers for signal computation. 1 = sequential.
 
         Returns:
             Dict of DataFrames/arrays.
@@ -638,7 +639,7 @@ class SectorRelativeEnsembleModel(BaseModel):
         )
 
         pipeline = SignalPipeline(components=components, combiner=combiner)
-        pipeline_results = pipeline.run(inputs, start_idx=self.corr_window, T=T)
+        pipeline_results = pipeline.run(inputs, start_idx=self.corr_window, T=T, n_jobs=n_jobs)
 
         adapter = SREOutputAdapter(n_j=self.n_j, jp_tickers=JP_TICKERS)
         return adapter.adapt(pipeline_results, inputs, prior_info=prior_info)

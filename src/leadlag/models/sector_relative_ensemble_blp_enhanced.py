@@ -957,7 +957,7 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
 
         return w_t
 
-    def predict_signals(self, df_exec: pd.DataFrame) -> dict[str, Any]:
+    def predict_signals(self, df_exec: pd.DataFrame, n_jobs: int = 1) -> dict[str, Any]:
         """Generate component and ensemble signals for all rows in df_exec."""
         from leadlag.core.pipeline import (
             BLPXCombiner,
@@ -1205,7 +1205,7 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
         combiner._raw_blpx_signals = raw_blpx_signals_arr
 
         pipeline = SignalPipeline(components=components, combiner=combiner)
-        pipeline_results = pipeline.run(common_inputs, start_idx=start_idx, T=T, start_idx_raw=start_idx_raw)
+        pipeline_results = pipeline.run(common_inputs, start_idx=start_idx, T=T, start_idx_raw=start_idx_raw, n_jobs=n_jobs)
 
         # Update PCA caches
         if need_raw_pca and not raw_pca_cached:

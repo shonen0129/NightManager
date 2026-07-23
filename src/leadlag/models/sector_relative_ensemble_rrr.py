@@ -492,7 +492,7 @@ class SectorRelativeEnsembleRRRModel(_BLPBase):
             + self.p7p3_weight * z7p3
         )
 
-    def predict_signals(self, df_exec: pd.DataFrame) -> dict[str, Any]:
+    def predict_signals(self, df_exec: pd.DataFrame, n_jobs: int = 1) -> dict[str, Any]:
         """Generate component and ensemble signals for all rows in df_exec."""
         from leadlag.core.pipeline import (
             CallableComponent,
@@ -590,7 +590,7 @@ class SectorRelativeEnsembleRRRModel(_BLPBase):
         )
 
         pipeline = SignalPipeline(components=components, combiner=combiner)
-        pipeline_results = pipeline.run(inputs, start_idx=self.corr_window, T=T)
+        pipeline_results = pipeline.run(inputs, start_idx=self.corr_window, T=T, n_jobs=n_jobs)
 
         adapter = RRROutputAdapter(n_j=self.n_j, jp_tickers=JP_TICKERS)
         return adapter.adapt(pipeline_results, inputs)

@@ -14,7 +14,7 @@ class DummyModel(BaseModel):
         self.corr_window = 0
         self.slippage_bps = 5.0
 
-    def predict_signals(self, df_exec):
+    def predict_signals(self, df_exec, n_jobs=1):
         T = len(df_exec)
         sigs = pd.DataFrame(np.zeros((T, self.n_j)), index=df_exec.index, columns=JP_TICKERS)
         y_jp_oc_df = df_exec[[f"jp_oc_{tk}" for tk in JP_TICKERS]].rename(

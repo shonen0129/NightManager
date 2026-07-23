@@ -66,11 +66,12 @@ class BaseModel(ABC):
     _config_aliases: dict[str, list[str]] = {}
 
     @abstractmethod
-    def predict_signals(self, df_exec: pd.DataFrame) -> dict[str, np.ndarray]:
+    def predict_signals(self, df_exec: pd.DataFrame, n_jobs: int = 1) -> dict[str, np.ndarray]:
         """Generate raw signals from the execution dataset.
 
         Args:
             df_exec: Execution DataFrame.
+            n_jobs: Number of parallel workers for signal computation. 1 = sequential.
 
         Returns:
             Dict containing the final signal array (shape N_J,) and other component signals.

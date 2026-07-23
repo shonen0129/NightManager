@@ -259,9 +259,9 @@ class BayesianBLPXModel(SectorRelativeEnsembleBLPEnhancedModel):
         self._B_bayes_prev = B_bayes.copy()
         return result
 
-    def predict_signals(self, df_exec: pd.DataFrame) -> dict[str, Any]:
+    def predict_signals(self, df_exec: pd.DataFrame, n_jobs: int = 1) -> dict[str, Any]:
         if not self.bayesian_enabled:
-            return super().predict_signals(df_exec)
+            return super().predict_signals(df_exec, n_jobs=n_jobs)
 
         from leadlag.core.pipeline import (
             BayesianCombiner,
@@ -361,7 +361,7 @@ class BayesianBLPXModel(SectorRelativeEnsembleBLPEnhancedModel):
         )
 
         pipeline = SignalPipeline(components=components, combiner=combiner)
-        pipeline_results = pipeline.run(common_inputs, start_idx=start_idx, T=T)
+        pipeline_results = pipeline.run(common_inputs, start_idx=start_idx, T=T, n_jobs=n_jobs)
 
         adapter = BayesianOutputAdapter(n_j=self.n_j, jp_tickers=JP_TICKERS)
         return adapter.adapt(pipeline_results, common_inputs, sigma_yy=sigma_yy_array)

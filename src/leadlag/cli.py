@@ -145,6 +145,12 @@ def setup_parser() -> argparse.ArgumentParser:
         default=None,
         help="Slippage cost per side in bps. If omitted, YAML default is used.",
     )
+    backtest_parser.add_argument(
+        "--n-jobs",
+        type=int,
+        default=1,
+        help="Number of parallel workers for signal computation (1=sequential, -1=all cores).",
+    )
 
     # --- CLOSE SUBCOMMAND ---
     close_parser = subparsers.add_parser("close", help="Run end-of-day position closing logic")
@@ -391,6 +397,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         backtest_kwargs: dict = {}
         if args.slippage_bps is not None:
             backtest_kwargs["slippage_bps"] = args.slippage_bps
+        if hasattr(args, "n_jobs") and args.n_jobs != 1:
+            backtest_kwargs["n_jobs"] = args.n_jobs
         run_production(
             start_date=args.start_date,
             output_root=args.output_root,

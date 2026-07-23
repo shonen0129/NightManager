@@ -73,6 +73,7 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument("--save-rank-reversal", type=str, default="true", help="Save daily rank reversal signal for CS overlay (true/false)")
     parser.add_argument("--mh-horizons", type=str, default="3,5", help="Comma-separated multi-horizon days to compute")
     parser.add_argument("--use-tachibana-prices", type=str, default="false", help="Inject real-time prices from Tachibana API for today's gap computation (true/false)")
+    parser.add_argument("--n-jobs", type=int, default=1, help="Number of parallel workers for per-date computation. 1 = sequential, -1 = all cores")
     parser.add_argument("--self-test", action="store_true", help="Run self-tests and exit")
     return parser.parse_args()
 
@@ -582,13 +583,24 @@ def main():
     b = model.topix_beta_coef
     logger.info(f"Model parameters: gap_open_coef c={c:.2f}, topix_beta_coef b={b:.2f}")
     
-    w_prev = np.zeros(model.n_j)
+    # Pre-compute turnovers from weights_df (removes sequential w_prev dependency for parallelization)
+    turnover_map: dict[pd.Timestamp, float] = {}
+    _w_prev = np.zeros(model.n_j)
+    for _dt in sim_dates_slice:
+        _w_t = np.zeros(model.n_j)
+        if _dt in weights_df.index:
+            _w_t = weights_df.loc[_dt, JP_TICKERS].values
+        turnover_map[_dt] = float(np.sum(np.abs(_w_t - _w_prev)) / 2.0)
+        _w_prev = _w_t.copy()
     
-    for dt in sim_dates_slice:
+    n_jobs = args.n_jobs
+    
+    def _process_date(dt):
+        """Process a single date. Returns None for skipped dates."""
         i = df_exec.index.get_indexer([dt])[0]
         if i < model.corr_window:
             dropped_count += 1
-            continue
+            return
             
         sig_date = df_exec["sig_date"].values[i]
         sig_date_dt = pd.to_datetime(sig_date).tz_localize(None).normalize()
@@ -623,14 +635,14 @@ def main():
             else:
                 logger.warning(f"Step 1 omega matrix file missing on {date_str}: {omega_struct_file}")
                 missing_data_count += 1
-                continue
+                return
         else:
             Omega_struct = np.load(omega_struct_file)
         
         if not np.isfinite(Omega_struct).all():
             nan_inf_count += 1
             logger.warning(f"NaN or Inf detected in Omega_struct on {date_str}")
-            continue
+            return
         
         # Daily parameters
         gap_override = np.nan_to_num(jp_gap[i], nan=0.0) if jp_gap is not None else np.zeros(model.n_j)
@@ -654,7 +666,7 @@ def main():
         except Exception as e:
             missing_data_count += 1
             logger.warning(f"Error calling compute_blp_signal on {date_str}: {e}")
-            continue
+            return
             
         z_hat_j = residual_blpx_res["z_hat_j_t1"]
         sigma_Y_denorm = residual_blpx_res["sigma_Y_denorm"]
@@ -705,7 +717,7 @@ def main():
         if not (np.isfinite(mu_raw).all() and np.isfinite(Omega_raw).all() and np.isfinite(mu_gap).all() and np.isfinite(Omega_gap).all()):
             nan_inf_count += 1
             logger.warning(f"NaN or Inf detected in transformed variables on {date_str}")
-            continue
+            return
             
         # Eigenvalue decomposition
         try:
@@ -713,7 +725,7 @@ def main():
         except np.linalg.LinAlgError as e:
             logger.warning(f"Eigenvalues did not converge for Omega_gap on {date_str}: {e}")
             missing_data_count += 1
-            continue
+            return
             
         min_eig_gap = float(np.min(eigvals_gap))
         max_eig_gap = float(np.max(eigvals_gap))
@@ -742,7 +754,7 @@ def main():
         except np.linalg.LinAlgError as e:
             logger.warning(f"Eigenvalues did not converge for Omega_raw on {date_str}: {e}")
             missing_data_count += 1
-            continue
+            return
             
         min_eig_raw = float(np.min(eigvals_raw))
         max_eig_raw = float(np.max(eigvals_raw))
@@ -934,8 +946,7 @@ def main():
         gross_exposure = float(np.sum(np.abs(w_t)))
         costs_t = float(2.0 * (cfg["costs"]["slippage_bps_per_side"] / 10000.0) * gross_exposure)
         realized_portfolio_return_net = realized_portfolio_return_gross - costs_t
-        turnover = float(np.sum(np.abs(w_t - w_prev)) / 2.0)
-        w_prev = w_t.copy()
+        turnover = turnover_map.get(dt, 0.0)
         
         # Portfolio diagnostics pre-gap
         pred_mean_raw = float(np.sum(w_t * mu_raw))
@@ -1037,7 +1048,17 @@ def main():
             "denominator_min": denom_min_t,
             "denominator_floor_hit_count": floor_hits_t,
         })
-        
+
+    if n_jobs == 1 or len(sim_dates_slice) <= 1:
+        for dt in sim_dates_slice:
+            _process_date(dt)
+    else:
+        from joblib import Parallel, delayed
+
+        Parallel(n_jobs=n_jobs, backend="threading", verbose=10)(
+            delayed(_process_date)(dt) for dt in sim_dates_slice
+        )
+
     logger.info("Reconstruction loops completed.")
     
     # Save ticker level summary

@@ -26,6 +26,7 @@ def run_production(
     run_tag: str | None,
     skip_chart: bool,
     slippage_bps: float | None = None,
+    n_jobs: int = 1,
 ) -> str:
     """Run the full backtest and save performance artifacts.
 
@@ -69,6 +70,7 @@ def run_production(
         buy_interest_annual=config.buy_interest_annual,
         borrow_fee_annual=config.borrow_fee_annual,
         reverse_fee_bps=config.reverse_fee_bps,
+        n_jobs=n_jobs,
     )
 
     metrics = calculate_metrics(results["daily_returns"])

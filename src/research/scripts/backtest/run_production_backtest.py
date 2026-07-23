@@ -37,6 +37,8 @@ def main():
     parser.add_argument("--config", default="configs/production/production.yaml", help="Path to config YAML")
     parser.add_argument("--start-date", default="2015-01-05", help="Backtest start date")
     parser.add_argument("--output-dir", default="results/production_backtest", help="Output directory")
+    parser.add_argument("--n-jobs", type=int, default=1,
+                        help="Number of parallel workers for signal computation (1=sequential, -1=all cores)")
     args = parser.parse_args()
 
     config_path = ROOT / args.config
@@ -80,6 +82,7 @@ def main():
         buy_interest_annual=buy_interest_annual,
         borrow_fee_annual=borrow_fee_annual,
         reverse_fee_bps=reverse_fee_bps,
+        n_jobs=args.n_jobs,
     )
 
     logger.info("[4/4] Computing metrics...")

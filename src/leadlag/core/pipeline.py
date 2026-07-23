@@ -482,8 +482,17 @@ class SignalPipeline:
         start_idx: int,
         T: int,
         start_idx_raw: int | None = None,
+        n_jobs: int = 1,
     ) -> dict[str, np.ndarray]:
         """Run the pipeline and return dict of signal arrays.
+
+        Args:
+            inputs: CommonInputs dataclass with all required data.
+            start_idx: Start index for the simulation loop.
+            T: Total number of rows.
+            start_idx_raw: Raw start index (defaults to start_idx).
+            n_jobs: Number of parallel workers. 1 = sequential. -1 = all cores.
+                Uses joblib threading backend (numpy releases GIL for heavy ops).
 
         Returns:
             Dict with keys: component names → (T, n_j) arrays,
@@ -512,21 +521,20 @@ class SignalPipeline:
         results["normalized"] = np.zeros((T, n_j))
         diagnostics_list: list[dict] = []
 
-        for i in range(start_idx, T):
-            step_ctx = StepContext(run=run_ctx, inputs=inputs, i=i)
+        indices = list(range(start_idx, T))
 
-            comp_results: dict[str, ComponentResult] = {}
+        if n_jobs == 1 or len(indices) <= 1:
+            step_results = self._run_sequential(indices, run_ctx, inputs)
+        else:
+            step_results = self._run_parallel(indices, run_ctx, inputs, n_jobs)
+
+        for i, comp_signals, combined_signal, normalized_signal, step_diag in step_results:
             for comp in self._components:
-                cr = comp.compute(step_ctx)
-                comp_results[comp.name] = cr
-                results[comp.name][i] = cr.signal
-
-            combined = self._combiner.combine(step_ctx, comp_results)
-            results["combined"][i] = combined.signal
-            if combined.diagnostics.get("normalized") is not None:
-                results["normalized"][i] = combined.diagnostics["normalized"]
-
-            step_diag = {k: v for k, v in combined.diagnostics.items() if k != "normalized"}
+                if comp.name in comp_signals:
+                    results[comp.name][i] = comp_signals[comp.name]
+            results["combined"][i] = combined_signal
+            if normalized_signal is not None:
+                results["normalized"][i] = normalized_signal
             if step_diag:
                 diagnostics_list.append(step_diag)
 
@@ -541,6 +549,56 @@ class SignalPipeline:
         if diagnostics_list:
             results["_step_diagnostics"] = diagnostics_list
 
+        return results
+
+    def _run_sequential(
+        self,
+        indices: list[int],
+        run_ctx: RunContext,
+        inputs: CommonInputs,
+    ) -> list[tuple[int, dict[str, np.ndarray], np.ndarray, np.ndarray | None, dict]]:
+        """Run the pipeline sequentially for the given indices."""
+        out = []
+        for i in indices:
+            step_ctx = StepContext(run=run_ctx, inputs=inputs, i=i)
+            comp_signals: dict[str, np.ndarray] = {}
+            comp_results: dict[str, ComponentResult] = {}
+            for comp in self._components:
+                cr = comp.compute(step_ctx)
+                comp_results[comp.name] = cr
+                comp_signals[comp.name] = cr.signal
+            combined = self._combiner.combine(step_ctx, comp_results)
+            normalized = combined.diagnostics.get("normalized")
+            step_diag = {k: v for k, v in combined.diagnostics.items() if k != "normalized"}
+            out.append((i, comp_signals, combined.signal, normalized, step_diag))
+        return out
+
+    def _run_parallel(
+        self,
+        indices: list[int],
+        run_ctx: RunContext,
+        inputs: CommonInputs,
+        n_jobs: int,
+    ) -> list[tuple[int, dict[str, np.ndarray], np.ndarray, np.ndarray | None, dict]]:
+        """Run the pipeline in parallel using joblib threading backend."""
+        from joblib import Parallel, delayed
+
+        def _compute_step(i: int):
+            step_ctx = StepContext(run=run_ctx, inputs=inputs, i=i)
+            comp_signals: dict[str, np.ndarray] = {}
+            comp_results: dict[str, ComponentResult] = {}
+            for comp in self._components:
+                cr = comp.compute(step_ctx)
+                comp_results[comp.name] = cr
+                comp_signals[comp.name] = cr.signal
+            combined = self._combiner.combine(step_ctx, comp_results)
+            normalized = combined.diagnostics.get("normalized")
+            step_diag = {k: v for k, v in combined.diagnostics.items() if k != "normalized"}
+            return (i, comp_signals, combined.signal, normalized, step_diag)
+
+        results = Parallel(n_jobs=n_jobs, backend="threading", verbose=10)(
+            delayed(_compute_step)(i) for i in indices
+        )
         return results
 
 

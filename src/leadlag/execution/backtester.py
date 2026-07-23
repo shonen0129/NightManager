@@ -31,6 +31,7 @@ class BacktestEngine:
         buy_interest_annual: float | None = None,
         borrow_fee_annual: float | None = None,
         reverse_fee_bps: float | None = None,
+        n_jobs: int = 1,
     ) -> dict:
         """Run a historical backtest of the model on the execution dataset.
 
@@ -47,6 +48,7 @@ class BacktestEngine:
             buy_interest_annual: Annual financing rate for long positions.
             borrow_fee_annual: Annual stock borrow fee for short positions.
             reverse_fee_bps: Daily reverse stock lending fee (bps).
+            n_jobs: Number of parallel workers for signal computation. 1 = sequential.
 
         Returns:
             Dict containing backtest results and metrics.
@@ -73,7 +75,7 @@ class BacktestEngine:
         sim_dates = df_exec.index
 
         # Predict signals for the entire dataset
-        pred = model.predict_signals(df_exec)
+        pred = model.predict_signals(df_exec, n_jobs=n_jobs)
         sre_signals_df = pred["signals"]
 
         # Setup simulation indexes
@@ -273,6 +275,7 @@ class BacktestEngine:
         borrow_fee_annual: float | None = None,
         reverse_fee_bps: float | None = None,
         side_leverage: float = 1.5,
+        n_jobs: int = 1,
     ) -> dict:
         """Run a historical backtest using the V2 production model.
 
@@ -297,6 +300,8 @@ class BacktestEngine:
             side_leverage: Notional leverage applied to returns and costs,
                 matching ``allocator.DEFAULT_SIDE_LEVERAGE`` in live trading.
                 Gross exposure and turnover are reported at raw weight values.
+            n_jobs: Number of parallel workers for per-date portfolio generation.
+                1 = sequential. -1 = all cores.
 
         Returns:
             Dict with the same keys as ``run_backtest``, plus
@@ -369,9 +374,10 @@ class BacktestEngine:
         # Per-date V2 weight generation
         sre_weights = np.zeros((n_sim_days, n_j))
         fallback_flags = np.zeros(n_sim_days, dtype=bool)
-        v2_summaries: list[dict] = []
+        v2_summaries: list[dict] = [None] * n_sim_days  # type: ignore
 
-        for i, dt in enumerate(sim_dates_slice):
+        def _process_date(i_dt: tuple[int, pd.Timestamp]) -> tuple[int, np.ndarray, bool, dict]:
+            i, dt = i_dt
             date_str = dt.strftime("%Y-%m-%d")
             try:
                 result = generate_v2_production_portfolio(
@@ -379,23 +385,39 @@ class BacktestEngine:
                     gap_input_dir=gap_dir,
                     cfg=cfg,
                 )
+                w = result["w_final"]
+                fb = result["fallback"]["gap_data_missing"]
+                summary = result.get("summary", {})
+                return i, w, fb, summary
             except Exception as e:
                 logger.warning("[%s] V2 generation failed: %s — flat position", date_str, e)
-                fallback_flags[i] = True
-                v2_summaries.append({"trade_date": date_str, "error": str(e)})
-                continue
+                return i, np.zeros(n_j), True, {"trade_date": date_str, "error": str(e)}
 
-            w = result["w_final"]
-            sre_weights[i] = w
-            fb = result["fallback"]["gap_data_missing"]
-            fallback_flags[i] = fb
-            v2_summaries.append(result.get("summary", {}))
+        date_index_pairs = list(enumerate(sim_dates_slice))
 
-            if fb:
-                logger.debug("[%s] V2 fallback (gap data missing)", date_str)
+        if n_jobs == 1 or n_sim_days <= 1:
+            for pair in date_index_pairs:
+                i, w, fb, summary = _process_date(pair)
+                sre_weights[i] = w
+                fallback_flags[i] = fb
+                v2_summaries[i] = summary
+                if fb:
+                    logger.debug("[%s] V2 fallback (gap data missing)", sim_dates_slice[i].strftime("%Y-%m-%d"))
+                if (i + 1) % 200 == 0:
+                    logger.info("V2 backtest: processed %d/%d dates", i + 1, n_sim_days)
+        else:
+            from joblib import Parallel, delayed
 
-            if (i + 1) % 200 == 0:
-                logger.info("V2 backtest: processed %d/%d dates", i + 1, n_sim_days)
+            results = Parallel(n_jobs=n_jobs, backend="threading", verbose=10)(
+                delayed(_process_date)(pair) for pair in date_index_pairs
+            )
+            for i, w, fb, summary in results:
+                sre_weights[i] = w
+                fallback_flags[i] = fb
+                v2_summaries[i] = summary
+                if fb:
+                    logger.debug("[%s] V2 fallback (gap data missing)", sim_dates_slice[i].strftime("%Y-%m-%d"))
+            logger.info("V2 backtest: processed %d/%d dates (parallel, n_jobs=%d)", n_sim_days, n_sim_days, n_jobs)
 
         sre_weights_df = pd.DataFrame(sre_weights, index=sim_dates_slice, columns=JP_TICKERS)
         sre_weights_arr = sre_weights

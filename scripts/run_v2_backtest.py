@@ -30,6 +30,8 @@ def main():
     parser.add_argument("--output-dir", default="src/results/v2_backtest", help="Output directory")
     parser.add_argument("--side-leverage", type=float, default=1.5,
                         help="Notional leverage matching allocator DEFAULT_SIDE_LEVERAGE (default: 1.5)")
+    parser.add_argument("--n-jobs", type=int, default=1,
+                        help="Number of parallel workers for per-date computation (1=sequential, -1=all cores)")
     args = parser.parse_args()
 
     config_path = ROOT / args.config
@@ -52,6 +54,7 @@ def main():
         start_date=args.start_date,
         end_date=args.end_date,
         side_leverage=args.side_leverage,
+        n_jobs=args.n_jobs,
     )
 
     # Save artifacts
