@@ -13,6 +13,7 @@ import logging
 import os
 import sys
 import warnings
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -424,6 +425,568 @@ def run_self_tests() -> int:
     return 0
 
 
+# ---------------------------------------------------------------------------
+# Module-level _process_date implementation (extracted from main() for testing)
+# ---------------------------------------------------------------------------
+
+@dataclass
+class GapDistContext:
+    """Read-only context for _process_date_impl."""
+    df_exec: pd.DataFrame
+    model: Any
+    jp_gap: Any
+    jp_beta: Any
+    topix_night: Any
+    jp_res_returns_p3: np.ndarray
+    v0_static: np.ndarray
+    c_full_p3: np.ndarray
+    dist_in_dir: Path
+    out_dir: Path
+    save_daily_m: bool
+    save_mh: bool
+    mh_horizons: list
+    mh_models: dict
+    mh_inputs: dict
+    save_rr: bool
+    y_jp_target: np.ndarray
+    weights_df: pd.DataFrame
+    turnover_map: dict
+    cfg: dict
+    c: float
+    b: float
+    bl_mh_enabled: bool
+    bl_mh_horizons: tuple
+    bl_mh_weights: tuple
+    bl_mh_mu_pattern: str
+    bl_mh_omega_pattern: str
+    bl_cs_overlay_enabled: bool
+    bl_cs_overlay_weight: float
+    bl_rr_pattern: str
+    bl_long_count: int
+    bl_short_count: int
+    bl_minvar_enabled: bool
+    bl_minvar_alpha: float
+    bl_baseline_gross: float
+    bl_cost_bps_per_gross: float
+
+
+@dataclass
+class GapDistAccumulators:
+    """Mutable accumulators updated by _process_date_impl."""
+    dropped_count: int = 0
+    missing_data_count: int = 0
+    nan_inf_count: int = 0
+    neg_eigen_days_gap: int = 0
+    days_with_min_eigen_lt_neg_1e_8_gap: int = 0
+    days_with_diag_le_zero_gap: int = 0
+    symmetry_max_err_gap: float = 0.0
+    denominator_min_overall: float = 1e9
+    denominator_floor_hit_count_overall: int = 0
+    leakage_violation: bool = False
+    all_dates_audit: bool = True
+    gap_long_records: list = field(default_factory=list)
+    gap_daily_records: list = field(default_factory=list)
+    dist_long_records: list = field(default_factory=list)
+    dist_daily_records: list = field(default_factory=list)
+    omega_gap_daily_records: list = field(default_factory=list)
+    omega_gap_ticker_records: dict = field(default_factory=dict)
+    portfolio_diagnostics_records: list = field(default_factory=list)
+
+
+def _process_date_impl(dt: pd.Timestamp, ctx: GapDistContext, acc: GapDistAccumulators) -> None:
+    """Process a single date for gap-adjusted distribution computation.
+
+    This is a module-level function to enable unit testing with synthetic data.
+    Mutates *acc* in place with diagnostic counters and record lists.
+    """
+    i = ctx.df_exec.index.get_indexer([dt])[0]
+    if i == -1:
+        logger.warning(f"Trade date {dt.strftime('%Y-%m-%d')} not found in df_exec index; treating as missing data.")
+        acc.missing_data_count += 1
+        return
+    if i < ctx.model.corr_window:
+        acc.dropped_count += 1
+        return
+
+    sig_date = ctx.df_exec["sig_date"].values[i]
+    sig_date_dt = pd.to_datetime(sig_date).tz_localize(None).normalize()
+    trade_date_dt = pd.to_datetime(dt).tz_localize(None).normalize()
+
+    # 1. Leakage check
+    if not (sig_date_dt < trade_date_dt):
+        acc.all_dates_audit = False
+        acc.leakage_violation = True
+
+    date_str = dt.strftime("%Y-%m-%d")
+    dt_str = dt.strftime("%Y%m%d")
+
+    # Load matrices from Step 1 directory
+    omega_struct_file = ctx.dist_in_dir / "matrices" / f"omega_struct_{dt_str}.npy"
+    if not omega_struct_file.exists():
+        # Fallback: use most recent available omega_struct (strictly before current date).
+        # Restrict to omega_struct_YYYYMMDD.npy; ignore omega_struct_psd_YYYYMMDD.npy.
+        import re
+
+        fallback_files = sorted(
+            f for f in (ctx.dist_in_dir / "matrices").glob("omega_struct_*.npy")
+            if re.fullmatch(r"omega_struct_(\d{8})", f.stem)
+        )
+        fallback_files = [
+            f for f in fallback_files
+            if f.stem.split("_")[-1] < dt_str
+        ]
+        if fallback_files:
+            omega_struct_file = fallback_files[-1]
+            logger.warning(
+                f"omega_struct for {date_str} not found, "
+                f"using fallback: {omega_struct_file.name}"
+            )
+            Omega_struct = np.load(omega_struct_file)
+        else:
+            logger.warning(f"Step 1 omega matrix file missing on {date_str}: {omega_struct_file}")
+            acc.missing_data_count += 1
+            return
+    else:
+        Omega_struct = np.load(omega_struct_file)
+
+    if not np.isfinite(Omega_struct).all():
+        acc.nan_inf_count += 1
+        logger.warning(f"NaN or Inf detected in Omega_struct on {date_str}")
+        return
+
+    # Daily parameters
+    gap_override = np.nan_to_num(ctx.jp_gap[i], nan=0.0) if ctx.jp_gap is not None else np.zeros(ctx.model.n_j)
+    betas_t = np.asarray(ctx.jp_beta[i], dtype=float) if ctx.jp_beta is not None else np.zeros(ctx.model.n_j)
+    topix_night_t = float(ctx.topix_night[i]) if ctx.topix_night is not None else 0.0
+
+    # Run model to get raw std scaling and standardized predictions
+    try:
+        residual_blpx_res = ctx.model.compute_blp_signal(
+            ctx.jp_res_returns_p3,
+            i,
+            gap_override=gap_override,
+            betas_t=betas_t,
+            topix_night_t=topix_night_t,
+            rolling_std=None,
+            v0_static=ctx.v0_static,
+            c_full=ctx.c_full_p3,
+            is_residual=True,
+            return_matrices=True,
+        )
+    except Exception as e:
+        acc.missing_data_count += 1
+        logger.warning(f"Error calling compute_blp_signal on {date_str}: {e}")
+        return
+
+    z_hat_j = residual_blpx_res["z_hat_j_t1"]
+    sigma_Y_denorm = residual_blpx_res["sigma_Y_denorm"]
+    mu_Y = residual_blpx_res["mu_Y"]
+
+    # Compute mu_raw
+    if ctx.model.vol_adjusted_target:
+        mu_raw = z_hat_j * sigma_Y_denorm
+    else:
+        mu_raw = mu_Y + residual_blpx_res["sigma_Y"] * z_hat_j
+
+    # Reconstruct Omega_raw (suppress BLAS false-positive warnings; finitude checked below)
+    with np.errstate(invalid="ignore", over="ignore", divide="ignore"):
+        Omega_raw = np.diag(sigma_Y_denorm) @ Omega_struct @ np.diag(sigma_Y_denorm)
+
+    # Reconstruct GapOpen_filt ticker level
+    gap_syst = betas_t * topix_night_t
+    gap_idio = gap_override - gap_syst
+    gap_filt = ctx.c * gap_idio + (ctx.c - ctx.b) * gap_syst
+
+    denominator = 1.0 + gap_filt
+    denominator_floored = np.maximum(denominator, 0.1)
+    floor_hit_flags = (denominator < 0.1).astype(int)
+
+    acc.denominator_min_overall = min(acc.denominator_min_overall, float(np.min(denominator)))
+    acc.denominator_floor_hit_count_overall += int(np.sum(floor_hit_flags))
+
+    # D_gap
+    D_gap = np.diag(1.0 / denominator_floored)
+
+    # Compute mu_gap
+    mu_gap = (1.0 + mu_raw) / denominator_floored - 1.0
+
+    # Check matching with production model's signal
+    signal_prod = residual_blpx_res["signal"]
+    diff_mu = np.max(np.abs(mu_gap - signal_prod))
+    if diff_mu > 1e-12:
+        logger.warning(f"Difference in mu_gap and production signal on {date_str}: {diff_mu:.2e}")
+
+    # Transform covariance matrix (suppress BLAS false-positive warnings; finitude checked below)
+    with np.errstate(invalid="ignore", over="ignore", divide="ignore"):
+        Omega_gap = D_gap @ Omega_raw @ D_gap
+
+    # Symmetrize
+    sym_err = float(np.max(np.abs(Omega_gap - Omega_gap.T)))
+    acc.symmetry_max_err_gap = max(acc.symmetry_max_err_gap, sym_err)
+    Omega_gap = 0.5 * (Omega_gap + Omega_gap.T)
+
+    # Check finitude of transformed parameters
+    if not (np.isfinite(mu_raw).all() and np.isfinite(Omega_raw).all() and np.isfinite(mu_gap).all() and np.isfinite(Omega_gap).all()):
+        acc.nan_inf_count += 1
+        logger.warning(f"NaN or Inf detected in transformed variables on {date_str}")
+        return
+
+    # Eigenvalue decomposition
+    try:
+        eigvals_gap, _ = np.linalg.eigh(Omega_gap)
+    except np.linalg.LinAlgError as e:
+        logger.warning(f"Eigenvalues did not converge for Omega_gap on {date_str}: {e}")
+        acc.missing_data_count += 1
+        return
+
+    min_eig_gap = float(np.min(eigvals_gap))
+    max_eig_gap = float(np.max(eigvals_gap))
+    neg_count_gap = int(np.sum(eigvals_gap < 0))
+    if neg_count_gap > 0:
+        acc.neg_eigen_days_gap += 1
+    if min_eig_gap < -1e-8:
+        acc.days_with_min_eigen_lt_neg_1e_8_gap += 1
+
+    diag_gap = np.diag(Omega_gap)
+    if np.any(diag_gap <= 0):
+        acc.days_with_diag_le_zero_gap += 1
+
+    cond_num_gap = float(max_eig_gap / min_eig_gap) if min_eig_gap > 0 else np.nan
+    trace_gap = float(np.trace(Omega_gap))
+
+    # Off-diagonal correlation gap
+    std_gap = np.sqrt(np.maximum(diag_gap, 1e-10))
+    R_gap = Omega_gap / np.outer(std_gap, std_gap)
+    avg_offdiag_gap = float((np.sum(R_gap) - ctx.model.n_j) / (ctx.model.n_j * (ctx.model.n_j - 1)))
+    frob_gap = float(np.linalg.norm(Omega_gap, "fro"))
+
+    # Raw covariance diagnostics (for comparison)
+    try:
+        eigvals_raw, _ = np.linalg.eigh(Omega_raw)
+    except np.linalg.LinAlgError as e:
+        logger.warning(f"Eigenvalues did not converge for Omega_raw on {date_str}: {e}")
+        acc.missing_data_count += 1
+        return
+
+    min_eig_raw = float(np.min(eigvals_raw))
+    max_eig_raw = float(np.max(eigvals_raw))
+    neg_count_raw = int(np.sum(eigvals_raw < 0))
+    diag_raw = np.diag(Omega_raw)
+    cond_num_raw = float(max_eig_raw / min_eig_raw) if min_eig_raw > 0 else np.nan
+    trace_raw = float(np.trace(Omega_raw))
+    std_raw = np.sqrt(np.maximum(diag_raw, 1e-10))
+    R_raw = Omega_raw / np.outer(std_raw, std_raw)
+    avg_offdiag_raw = float((np.sum(R_raw) - ctx.model.n_j) / (ctx.model.n_j * (ctx.model.n_j - 1)))
+    frob_raw = float(np.linalg.norm(Omega_raw, "fro"))
+
+    # Frobenius norm ratio and trace scale ratio
+    fro_ratio = frob_gap / frob_raw if frob_raw > 0 else 1.0
+    mean_diag_ratio = float(np.mean(diag_gap / diag_raw))
+
+    # Save matrices if requested
+    if ctx.save_daily_m:
+        np.save(ctx.out_dir / "matrices" / f"omega_gap_{dt_str}.npy", Omega_gap)
+        np.save(ctx.out_dir / "matrices" / f"mu_gap_{dt_str}.npy", mu_gap)
+
+    # --- Phase 2A: Save multi-horizon gap matrices ---
+    if ctx.save_mh and ctx.mh_horizons:
+        for h in ctx.mh_horizons:
+            try:
+                model_h = ctx.mh_models[h]
+                inputs_h = ctx.mh_inputs[h]
+                gap_h = inputs_h["jp_gap"]
+                beta_h = inputs_h["jp_beta"]
+                topix_night_h = inputs_h["topix_night"]
+                jp_res_h = inputs_h["jp_res_returns_p3"]
+                c_full_h = inputs_h["c_full_p3"]
+                v0_h = inputs_h["v0_static"]
+
+                gap_override_h = np.nan_to_num(gap_h[i], nan=0.0) if gap_h is not None else np.zeros(model_h.n_j)
+                betas_t_h = np.asarray(beta_h[i], dtype=float) if beta_h is not None else np.zeros(model_h.n_j)
+                topix_night_t_h = float(topix_night_h[i]) if topix_night_h is not None else 0.0
+
+                res_h = model_h.compute_blp_signal(
+                    jp_res_h, i,
+                    gap_override=gap_override_h,
+                    betas_t=betas_t_h,
+                    topix_night_t=topix_night_t_h,
+                    rolling_std=None,
+                    v0_static=v0_h,
+                    c_full=c_full_h,
+                    is_residual=True,
+                    return_matrices=True,
+                )
+
+                z_hat_h = res_h["z_hat_j_t1"]
+                sigma_Y_denorm_h = res_h["sigma_Y_denorm"]
+                mu_Y_h = res_h["mu_Y"]
+
+                if model_h.vol_adjusted_target:
+                    mu_raw_h = z_hat_h * sigma_Y_denorm_h
+                else:
+                    mu_raw_h = mu_Y_h + res_h["sigma_Y"] * z_hat_h
+
+                Omega_raw_h = np.diag(sigma_Y_denorm_h) @ Omega_struct @ np.diag(sigma_Y_denorm_h)
+
+                gap_syst_h = betas_t_h * topix_night_t_h
+                gap_idio_h = gap_override_h - gap_syst_h
+                gap_filt_h = ctx.c * gap_idio_h + (ctx.c - ctx.b) * gap_syst_h
+                denom_h = np.maximum(1.0 + gap_filt_h, 0.1)
+                D_gap_h = np.diag(1.0 / denom_h)
+                mu_gap_h = (1.0 + mu_raw_h) / denom_h - 1.0
+                Omega_gap_h = D_gap_h @ Omega_raw_h @ D_gap_h
+                Omega_gap_h = 0.5 * (Omega_gap_h + Omega_gap_h.T)
+
+                np.save(ctx.out_dir / "matrices" / f"mu_gap_h{h}_{dt_str}.npy", mu_gap_h)
+                np.save(ctx.out_dir / "matrices" / f"omega_gap_h{h}_{dt_str}.npy", Omega_gap_h)
+            except Exception as e:
+                logger.warning(f"Multi-horizon h={h} failed on {date_str}: {e}")
+
+    # --- Phase 2D: Save rank reversal signal ---
+    if ctx.save_rr:
+        rr_signal = compute_rank_reversal_for_date(ctx.df_exec, i)
+        if np.isfinite(rr_signal).any():
+            np.save(ctx.out_dir / "matrices" / f"rank_reversal_{dt_str}.npy", rr_signal)
+
+    # Daily records
+    acc.omega_gap_daily_records.append({
+        "trade_date": date_str,
+        "min_eigenvalue": min_eig_gap,
+        "max_eigenvalue": max_eig_gap,
+        "negative_eigen_count": neg_count_gap,
+        "condition_number": cond_num_gap,
+        "trace": trace_gap,
+        "avg_offdiag_corr": avg_offdiag_gap,
+        "frob_norm": frob_gap,
+    })
+
+    acc.dist_daily_records.append({
+        "trade_date": date_str,
+        "min_eigenvalue_raw": min_eig_raw,
+        "min_eigenvalue_gap": min_eig_gap,
+        "negative_eigen_count_raw": neg_count_raw,
+        "negative_eigen_count_gap": neg_count_gap,
+        "diag_nonpositive_count_raw": int(np.sum(diag_raw <= 0)),
+        "diag_nonpositive_count_gap": int(np.sum(diag_gap <= 0)),
+        "trace_raw": trace_raw,
+        "trace_gap": trace_gap,
+        "condition_number_raw": cond_num_raw,
+        "condition_number_gap": cond_num_gap,
+        "avg_offdiag_corr_raw": avg_offdiag_raw,
+        "avg_offdiag_corr_gap": avg_offdiag_gap,
+        "fro_norm_raw": frob_raw,
+        "fro_norm_gap": frob_gap,
+        "fro_norm_ratio_gap_vs_raw": fro_ratio,
+        "mean_diag_ratio_gap_vs_raw": mean_diag_ratio,
+    })
+
+    # Daily Japanese gap stats
+    mean_abs_gap = float(np.mean(np.abs(gap_override)))
+    max_abs_gap = float(np.max(np.abs(gap_override)))
+    disp_gap = float(np.std(gap_override))
+    mean_abs_gap_filt = float(np.mean(np.abs(gap_filt)))
+    mean_abs_gap_syst = float(np.mean(np.abs(gap_syst)))
+    mean_abs_gap_idio = float(np.mean(np.abs(gap_idio)))
+    max_abs_gap_filt = float(np.max(np.abs(gap_filt)))
+    denom_min_t = float(np.min(denominator))
+    floor_hits_t = int(np.sum(floor_hit_flags))
+
+    acc.gap_daily_records.append({
+        "trade_date": date_str,
+        "mean_abs_GapOpen": mean_abs_gap,
+        "max_abs_GapOpen": max_abs_gap,
+        "dispersion_GapOpen": disp_gap,
+        "mean_abs_GapOpen_filt": mean_abs_gap_filt,
+        "mean_abs_GapOpen_syst": mean_abs_gap_syst,
+        "mean_abs_GapOpen_idio": mean_abs_gap_idio,
+        "max_abs_GapOpen_filt": max_abs_gap_filt,
+        "denominator_min": denom_min_t,
+        "denominator_floor_hit_count": floor_hits_t,
+    })
+
+    # Retrieve realized JP target returns
+    realized_jp_returns = ctx.y_jp_target[i]
+
+    # Stock-level long records
+    for idx, tk in enumerate(JP_TICKERS):
+        acc.gap_long_records.append({
+            "signal_date": sig_date,
+            "trade_date": date_str,
+            "ticker": tk,
+            "GapOpen": float(gap_override[idx]),
+            "TOPIXNight": float(topix_night_t),
+            "beta": float(betas_t[idx]),
+            "GapOpen_syst": float(gap_syst[idx]),
+            "GapOpen_idio": float(gap_idio[idx]),
+            "GapOpen_filt": float(gap_filt[idx]),
+            "denominator": float(denominator[idx]),
+            "denominator_floored": float(denominator_floored[idx]),
+            "availability": "POST_OPEN",
+        })
+
+        acc.dist_long_records.append({
+            "signal_date": sig_date,
+            "trade_date": date_str,
+            "ticker": tk,
+            "mu_raw": float(mu_raw[idx]),
+            "mu_gap": float(mu_gap[idx]),
+            "omega_diag_raw": float(diag_raw[idx]),
+            "omega_std_raw": float(std_raw[idx]),
+            "omega_diag_gap": float(diag_gap[idx]),
+            "omega_std_gap": float(std_gap[idx]),
+            "denominator": float(denominator[idx]),
+            "denominator_floored": float(denominator_floored[idx]),
+            "floor_hit": int(floor_hit_flags[idx]),
+            "realized_target_return": float(realized_jp_returns[idx]),
+        })
+
+        acc.omega_gap_ticker_records.setdefault(tk, []).append({
+            "date": date_str,
+            "omega_raw_diag": float(diag_raw[idx]),
+            "omega_gap_diag": float(diag_gap[idx]),
+        })
+
+    # Portfolio Weights
+    w_t = np.zeros(ctx.model.n_j)
+    if dt in ctx.weights_df.index:
+        w_t = ctx.weights_df.loc[dt, JP_TICKERS].values
+
+    # Returns
+    realized_portfolio_return_gross = float(np.sum(w_t * realized_jp_returns))
+    gross_exposure = float(np.sum(np.abs(w_t)))
+    costs_t = float(2.0 * (ctx.cfg["costs"]["slippage_bps_per_side"] / 10000.0) * gross_exposure)
+    realized_portfolio_return_net = realized_portfolio_return_gross - costs_t
+    turnover = ctx.turnover_map.get(dt, 0.0)
+
+    # Portfolio diagnostics pre-gap
+    pred_mean_raw = float(np.sum(w_t * mu_raw))
+    pred_var_raw = float(w_t.T @ Omega_raw @ w_t)
+    pred_vol_raw = float(np.sqrt(np.maximum(pred_var_raw, 1e-10)))
+    pred_ir_raw = pred_mean_raw / pred_vol_raw if pred_vol_raw > 0 else 0.0
+
+    # Portfolio diagnostics post-gap
+    pred_mean_gap = float(np.sum(w_t * mu_gap))
+    pred_var_gap = float(w_t.T @ Omega_gap @ w_t)
+    pred_vol_gap = float(np.sqrt(np.maximum(pred_var_gap, 1e-10)))
+    pred_ir_gap = pred_mean_gap / pred_vol_gap if pred_vol_gap > 0 else 0.0
+
+    # Realized Cost Diagnostic-Only IR
+    pred_ir_gap_realized_cost_diagnostic = (pred_mean_gap - costs_t) / pred_vol_gap if pred_vol_gap > 0 else 0.0
+
+    # --- Baseline IR (consistent with production_v2.py current_ir) ---
+    sigma_gap_bl = np.sqrt(np.maximum(np.diag(Omega_gap), 1e-6))
+    scores_bl = mu_gap / sigma_gap_bl
+
+    if ctx.bl_mh_enabled and len(ctx.bl_mh_horizons) > 1:
+        scores_bl, _ = apply_multi_horizon_blend(
+            scores_h1=scores_bl,
+            gap_input_dir=ctx.out_dir,
+            date_str=date_str,
+            horizons=ctx.bl_mh_horizons,
+            weights=ctx.bl_mh_weights,
+            mu_pattern=ctx.bl_mh_mu_pattern,
+            omega_pattern=ctx.bl_mh_omega_pattern,
+        )
+
+    if ctx.bl_cs_overlay_enabled:
+        scores_bl, _ = apply_rank_reversal_overlay(
+            scores=scores_bl,
+            gap_input_dir=ctx.out_dir,
+            date_str=date_str,
+            weight=ctx.bl_cs_overlay_weight,
+            file_pattern=ctx.bl_rr_pattern,
+        )
+
+    sorted_idx_bl = np.argsort(scores_bl)
+    short_idx_bl = sorted_idx_bl[:ctx.bl_short_count]
+    long_idx_bl = sorted_idx_bl[-ctx.bl_long_count:]
+
+    if ctx.bl_minvar_enabled:
+        w_minvar_bl = build_weights_minvar(
+            signal=scores_bl,
+            q=float(ctx.bl_long_count) / ctx.model.n_j,
+            n_j=ctx.model.n_j,
+            Sigma_YY=Omega_gap,
+            alpha=ctx.bl_minvar_alpha,
+            enforce_sign=False,
+        )
+        w_baseline = w_minvar_bl * (ctx.bl_baseline_gross / 2.0)
+    else:
+        w_baseline = solve_baseline_style(
+            scores_bl, long_idx_bl, short_idx_bl, baseline_gross=ctx.bl_baseline_gross
+        )
+
+    pred_mean_gap_baseline = float(np.sum(w_baseline * mu_gap))
+    pred_var_gap_baseline = float(w_baseline @ Omega_gap @ w_baseline)
+    pred_vol_gap_baseline = float(np.sqrt(np.maximum(pred_var_gap_baseline, 1e-10)))
+    bl_ex_ante_cost = ctx.bl_baseline_gross * (ctx.bl_cost_bps_per_gross / 10000.0)
+    pred_ir_gap_baseline_cost = (
+        (pred_mean_gap_baseline - bl_ex_ante_cost) / pred_vol_gap_baseline
+        if pred_vol_gap_baseline > 1e-6
+        else 0.0
+    )
+
+    acc.portfolio_diagnostics_records.append({
+        "signal_date": sig_date,
+        "trade_date": date_str,
+        "gross_return": realized_portfolio_return_gross,
+        "net_return": realized_portfolio_return_net,
+        "cost": costs_t,
+        "pred_mean_raw": pred_mean_raw,
+        "pred_vol_raw": pred_vol_raw,
+        "pred_ir_raw": pred_ir_raw,
+        "pred_mean_gap": pred_mean_gap,
+        "pred_vol_gap": pred_vol_gap,
+        "pred_ir_gap": pred_ir_gap,
+        "pred_ir_gap_realized_cost_diagnostic": pred_ir_gap_realized_cost_diagnostic,
+        "pred_mean_gap_baseline": pred_mean_gap_baseline,
+        "pred_vol_gap_baseline": pred_vol_gap_baseline,
+        "pred_ir_gap_baseline_cost": pred_ir_gap_baseline_cost,
+        "turnover": turnover,
+        "gross_exposure": gross_exposure,
+        "net_exposure": float(np.sum(w_t)),
+        "mean_abs_GapOpen": mean_abs_gap,
+        "max_abs_GapOpen": max_abs_gap,
+        "dispersion_GapOpen": disp_gap,
+        "mean_abs_GapOpen_filt": mean_abs_gap_filt,
+        "mean_abs_GapOpen_syst": mean_abs_gap_syst,
+        "mean_abs_GapOpen_idio": mean_abs_gap_idio,
+        "max_abs_GapOpen_filt": max_abs_gap_filt,
+        "denominator_min": denom_min_t,
+        "denominator_floor_hit_count": floor_hits_t,
+    })
+
+
+def _merge_accumulators(dst: GapDistAccumulators, src: GapDistAccumulators) -> None:
+    """Merge partial accumulator *src* into *dst* (thread-safe when called sequentially)."""
+    dst.dropped_count += src.dropped_count
+    dst.missing_data_count += src.missing_data_count
+    dst.nan_inf_count += src.nan_inf_count
+    dst.neg_eigen_days_gap += src.neg_eigen_days_gap
+    dst.days_with_min_eigen_lt_neg_1e_8_gap += src.days_with_min_eigen_lt_neg_1e_8_gap
+    dst.days_with_diag_le_zero_gap += src.days_with_diag_le_zero_gap
+    dst.symmetry_max_err_gap = max(dst.symmetry_max_err_gap, src.symmetry_max_err_gap)
+    dst.denominator_min_overall = min(dst.denominator_min_overall, src.denominator_min_overall)
+    dst.denominator_floor_hit_count_overall += src.denominator_floor_hit_count_overall
+    dst.leakage_violation = dst.leakage_violation or src.leakage_violation
+    dst.all_dates_audit = dst.all_dates_audit and src.all_dates_audit
+    dst.gap_long_records.extend(src.gap_long_records)
+    dst.gap_daily_records.extend(src.gap_daily_records)
+    dst.dist_long_records.extend(src.dist_long_records)
+    dst.dist_daily_records.extend(src.dist_daily_records)
+    dst.omega_gap_daily_records.extend(src.omega_gap_daily_records)
+    dst.portfolio_diagnostics_records.extend(src.portfolio_diagnostics_records)
+    for tk, records in src.omega_gap_ticker_records.items():
+        dst.omega_gap_ticker_records.setdefault(tk, []).extend(records)
+
+
+def _process_date_worker(dt: pd.Timestamp, ctx: GapDistContext) -> GapDistAccumulators:
+    """Thread-safe worker: creates a local accumulator, processes one date, returns it."""
+    local_acc = GapDistAccumulators()
+    _process_date_impl(dt, ctx, local_acc)
+    return local_acc
+
+
 def main():
     args = parse_arguments()
     
@@ -556,28 +1119,6 @@ def main():
         
     logger.info(f"Diagnostics window: {sim_dates_slice[0].strftime('%Y-%m-%d')} to {sim_dates_slice[-1].strftime('%Y-%m-%d')} ({len(sim_dates_slice)} days)")
     
-    # Reconstruct variables daily
-    gap_long_records = []
-    gap_daily_records = []
-    dist_long_records = []
-    dist_daily_records = []
-    omega_gap_daily_records = []
-    omega_gap_ticker_records = {tk: [] for tk in JP_TICKERS}
-    portfolio_diagnostics_records = []
-    
-    # Audits
-    dropped_count = 0
-    missing_data_count = 0
-    nan_inf_count = 0
-    neg_eigen_days_gap = 0
-    days_with_min_eigen_lt_neg_1e_8_gap = 0
-    days_with_diag_le_zero_gap = 0
-    symmetry_max_err_gap = 0.0
-    denominator_min_overall = 1e9
-    denominator_floor_hit_count_overall = 0
-    leakage_violation = False
-    all_dates_audit = True
-    
     # Cache and parameters
     c = model.gap_open_coef
     b = model.topix_beta_coef
@@ -594,460 +1135,53 @@ def main():
         _w_prev = _w_t.copy()
     
     n_jobs = args.n_jobs
-    
+
+    # Build context and accumulators for _process_date_impl
+    acc = GapDistAccumulators(
+        omega_gap_ticker_records={tk: [] for tk in JP_TICKERS},
+    )
+    ctx = GapDistContext(
+        df_exec=df_exec,
+        model=model,
+        jp_gap=jp_gap,
+        jp_beta=jp_beta,
+        topix_night=topix_night,
+        jp_res_returns_p3=jp_res_returns_p3,
+        v0_static=v0_static,
+        c_full_p3=c_full_p3,
+        dist_in_dir=dist_in_dir,
+        out_dir=out_dir,
+        save_daily_m=save_daily_m,
+        save_mh=save_mh,
+        mh_horizons=mh_horizons,
+        mh_models=mh_models,
+        mh_inputs=mh_inputs,
+        save_rr=save_rr,
+        y_jp_target=y_jp_target,
+        weights_df=weights_df,
+        turnover_map=turnover_map,
+        cfg=cfg,
+        c=c,
+        b=b,
+        bl_mh_enabled=bl_mh_enabled,
+        bl_mh_horizons=bl_mh_horizons,
+        bl_mh_weights=bl_mh_weights,
+        bl_mh_mu_pattern=bl_mh_mu_pattern,
+        bl_mh_omega_pattern=bl_mh_omega_pattern,
+        bl_cs_overlay_enabled=bl_cs_overlay_enabled,
+        bl_cs_overlay_weight=bl_cs_overlay_weight,
+        bl_rr_pattern=bl_rr_pattern,
+        bl_long_count=bl_long_count,
+        bl_short_count=bl_short_count,
+        bl_minvar_enabled=bl_minvar_enabled,
+        bl_minvar_alpha=bl_minvar_alpha,
+        bl_baseline_gross=bl_baseline_gross,
+        bl_cost_bps_per_gross=bl_cost_bps_per_gross,
+    )
+
     def _process_date(dt):
-        """Process a single date. Returns None for skipped dates."""
-        i = df_exec.index.get_indexer([dt])[0]
-        if i < model.corr_window:
-            dropped_count += 1
-            return
-            
-        sig_date = df_exec["sig_date"].values[i]
-        sig_date_dt = pd.to_datetime(sig_date).tz_localize(None).normalize()
-        trade_date_dt = pd.to_datetime(dt).tz_localize(None).normalize()
-        
-        # 1. Leakage check
-        if not (sig_date_dt < trade_date_dt):
-            all_dates_audit = False
-            leakage_violation = True
-            
-        date_str = dt.strftime("%Y-%m-%d")
-        dt_str = dt.strftime("%Y%m%d")
-        
-        # Load matrices from Step 1 directory
-        omega_struct_file = dist_in_dir / "matrices" / f"omega_struct_{dt_str}.npy"
-        if not omega_struct_file.exists():
-            # Fallback: use most recent available omega_struct (strictly before current date)
-            fallback_files = sorted(
-                (dist_in_dir / "matrices").glob("omega_struct_*.npy")
-            )
-            fallback_files = [
-                f for f in fallback_files
-                if f.stem.split("_")[-1] < dt_str
-            ]
-            if fallback_files:
-                omega_struct_file = fallback_files[-1]
-                logger.warning(
-                    f"omega_struct for {date_str} not found, "
-                    f"using fallback: {omega_struct_file.name}"
-                )
-                Omega_struct = np.load(omega_struct_file)
-            else:
-                logger.warning(f"Step 1 omega matrix file missing on {date_str}: {omega_struct_file}")
-                missing_data_count += 1
-                return
-        else:
-            Omega_struct = np.load(omega_struct_file)
-        
-        if not np.isfinite(Omega_struct).all():
-            nan_inf_count += 1
-            logger.warning(f"NaN or Inf detected in Omega_struct on {date_str}")
-            return
-        
-        # Daily parameters
-        gap_override = np.nan_to_num(jp_gap[i], nan=0.0) if jp_gap is not None else np.zeros(model.n_j)
-        betas_t = np.asarray(jp_beta[i], dtype=float) if jp_beta is not None else np.zeros(model.n_j)
-        topix_night_t = float(topix_night[i]) if topix_night is not None else 0.0
-        
-        # Run model to get raw std scaling and standardized predictions
-        try:
-            residual_blpx_res = model.compute_blp_signal(
-                jp_res_returns_p3,
-                i,
-                gap_override=gap_override,
-                betas_t=betas_t,
-                topix_night_t=topix_night_t,
-                rolling_std=None,
-                v0_static=v0_static,
-                c_full=c_full_p3,
-                is_residual=True,
-                return_matrices=True,
-            )
-        except Exception as e:
-            missing_data_count += 1
-            logger.warning(f"Error calling compute_blp_signal on {date_str}: {e}")
-            return
-            
-        z_hat_j = residual_blpx_res["z_hat_j_t1"]
-        sigma_Y_denorm = residual_blpx_res["sigma_Y_denorm"]
-        mu_Y = residual_blpx_res["mu_Y"]
-        
-        # Compute mu_raw
-        if model.vol_adjusted_target:
-            mu_raw = z_hat_j * sigma_Y_denorm
-        else:
-            mu_raw = mu_Y + residual_blpx_res["sigma_Y"] * z_hat_j
-            
-        # Reconstruct Omega_raw
-        Omega_raw = np.diag(sigma_Y_denorm) @ Omega_struct @ np.diag(sigma_Y_denorm)
-        
-        # Reconstruct GapOpen_filt ticker level
-        gap_syst = betas_t * topix_night_t
-        gap_idio = gap_override - gap_syst
-        gap_filt = c * gap_idio + (c - b) * gap_syst
-        
-        denominator = 1.0 + gap_filt
-        denominator_floored = np.maximum(denominator, 0.1)
-        floor_hit_flags = (denominator < 0.1).astype(int)
-        
-        denominator_min_overall = min(denominator_min_overall, float(np.min(denominator)))
-        denominator_floor_hit_count_overall += int(np.sum(floor_hit_flags))
-        
-        # D_gap
-        D_gap = np.diag(1.0 / denominator_floored)
-        
-        # Compute mu_gap
-        mu_gap = (1.0 + mu_raw) / denominator_floored - 1.0
-        
-        # Check matching with production model's signal
-        signal_prod = residual_blpx_res["signal"]
-        diff_mu = np.max(np.abs(mu_gap - signal_prod))
-        if diff_mu > 1e-12:
-            logger.warning(f"Difference in mu_gap and production signal on {date_str}: {diff_mu:.2e}")
-            
-        # Transform covariance matrix
-        Omega_gap = D_gap @ Omega_raw @ D_gap
-        
-        # Symmetrize
-        sym_err = float(np.max(np.abs(Omega_gap - Omega_gap.T)))
-        symmetry_max_err_gap = max(symmetry_max_err_gap, sym_err)
-        Omega_gap = 0.5 * (Omega_gap + Omega_gap.T)
-        
-        # Check finitude of transformed parameters
-        if not (np.isfinite(mu_raw).all() and np.isfinite(Omega_raw).all() and np.isfinite(mu_gap).all() and np.isfinite(Omega_gap).all()):
-            nan_inf_count += 1
-            logger.warning(f"NaN or Inf detected in transformed variables on {date_str}")
-            return
-            
-        # Eigenvalue decomposition
-        try:
-            eigvals_gap, _ = np.linalg.eigh(Omega_gap)
-        except np.linalg.LinAlgError as e:
-            logger.warning(f"Eigenvalues did not converge for Omega_gap on {date_str}: {e}")
-            missing_data_count += 1
-            return
-            
-        min_eig_gap = float(np.min(eigvals_gap))
-        max_eig_gap = float(np.max(eigvals_gap))
-        neg_count_gap = int(np.sum(eigvals_gap < 0))
-        if neg_count_gap > 0:
-            neg_eigen_days_gap += 1
-        if min_eig_gap < -1e-8:
-            days_with_min_eigen_lt_neg_1e_8_gap += 1
-            
-        diag_gap = np.diag(Omega_gap)
-        if np.any(diag_gap <= 0):
-            days_with_diag_le_zero_gap += 1
-            
-        cond_num_gap = float(max_eig_gap / min_eig_gap) if min_eig_gap > 0 else np.nan
-        trace_gap = float(np.trace(Omega_gap))
-        
-        # Off-diagonal correlation gap
-        std_gap = np.sqrt(np.maximum(diag_gap, 1e-10))
-        R_gap = Omega_gap / np.outer(std_gap, std_gap)
-        avg_offdiag_gap = float((np.sum(R_gap) - model.n_j) / (model.n_j * (model.n_j - 1)))
-        frob_gap = float(np.linalg.norm(Omega_gap, "fro"))
-        
-        # Raw covariance diagnostics (for comparison)
-        try:
-            eigvals_raw, _ = np.linalg.eigh(Omega_raw)
-        except np.linalg.LinAlgError as e:
-            logger.warning(f"Eigenvalues did not converge for Omega_raw on {date_str}: {e}")
-            missing_data_count += 1
-            return
-            
-        min_eig_raw = float(np.min(eigvals_raw))
-        max_eig_raw = float(np.max(eigvals_raw))
-        neg_count_raw = int(np.sum(eigvals_raw < 0))
-        diag_raw = np.diag(Omega_raw)
-        cond_num_raw = float(max_eig_raw / min_eig_raw) if min_eig_raw > 0 else np.nan
-        trace_raw = float(np.trace(Omega_raw))
-        std_raw = np.sqrt(np.maximum(diag_raw, 1e-10))
-        R_raw = Omega_raw / np.outer(std_raw, std_raw)
-        avg_offdiag_raw = float((np.sum(R_raw) - model.n_j) / (model.n_j * (model.n_j - 1)))
-        frob_raw = float(np.linalg.norm(Omega_raw, "fro"))
-        
-        # Frobenius norm ratio and trace scale ratio
-        fro_ratio = frob_gap / frob_raw if frob_raw > 0 else 1.0
-        mean_diag_ratio = float(np.mean(diag_gap / diag_raw))
-        
-        # Save matrices if requested
-        if save_daily_m:
-            np.save(out_dir / "matrices" / f"omega_gap_{dt_str}.npy", Omega_gap)
-            np.save(out_dir / "matrices" / f"mu_gap_{dt_str}.npy", mu_gap)
-
-        # --- Phase 2A: Save multi-horizon gap matrices ---
-        if save_mh and mh_horizons:
-            for h in mh_horizons:
-                try:
-                    model_h = mh_models[h]
-                    inputs_h = mh_inputs[h]
-                    gap_h = inputs_h["jp_gap"]
-                    beta_h = inputs_h["jp_beta"]
-                    topix_night_h = inputs_h["topix_night"]
-                    jp_res_h = inputs_h["jp_res_returns_p3"]
-                    c_full_h = inputs_h["c_full_p3"]
-                    v0_h = inputs_h["v0_static"]
-
-                    gap_override_h = np.nan_to_num(gap_h[i], nan=0.0) if gap_h is not None else np.zeros(model_h.n_j)
-                    betas_t_h = np.asarray(beta_h[i], dtype=float) if beta_h is not None else np.zeros(model_h.n_j)
-                    topix_night_t_h = float(topix_night_h[i]) if topix_night_h is not None else 0.0
-
-                    res_h = model_h.compute_blp_signal(
-                        jp_res_h, i,
-                        gap_override=gap_override_h,
-                        betas_t=betas_t_h,
-                        topix_night_t=topix_night_t_h,
-                        rolling_std=None,
-                        v0_static=v0_h,
-                        c_full=c_full_h,
-                        is_residual=True,
-                        return_matrices=True,
-                    )
-
-                    z_hat_h = res_h["z_hat_j_t1"]
-                    sigma_Y_denorm_h = res_h["sigma_Y_denorm"]
-                    mu_Y_h = res_h["mu_Y"]
-
-                    if model_h.vol_adjusted_target:
-                        mu_raw_h = z_hat_h * sigma_Y_denorm_h
-                    else:
-                        mu_raw_h = mu_Y_h + res_h["sigma_Y"] * z_hat_h
-
-                    Omega_raw_h = np.diag(sigma_Y_denorm_h) @ Omega_struct @ np.diag(sigma_Y_denorm_h)
-
-                    # Gap adjustment for horizon h
-                    gap_syst_h = betas_t_h * topix_night_t_h
-                    gap_idio_h = gap_override_h - gap_syst_h
-                    gap_filt_h = c * gap_idio_h + (c - b) * gap_syst_h
-                    denom_h = np.maximum(1.0 + gap_filt_h, 0.1)
-                    D_gap_h = np.diag(1.0 / denom_h)
-                    mu_gap_h = (1.0 + mu_raw_h) / denom_h - 1.0
-                    Omega_gap_h = D_gap_h @ Omega_raw_h @ D_gap_h
-                    Omega_gap_h = 0.5 * (Omega_gap_h + Omega_gap_h.T)
-
-                    np.save(out_dir / "matrices" / f"mu_gap_h{h}_{dt_str}.npy", mu_gap_h)
-                    np.save(out_dir / "matrices" / f"omega_gap_h{h}_{dt_str}.npy", Omega_gap_h)
-                except Exception as e:
-                    logger.warning(f"Multi-horizon h={h} failed on {date_str}: {e}")
-
-        # --- Phase 2D: Save rank reversal signal ---
-        if save_rr:
-            rr_signal = compute_rank_reversal_for_date(df_exec, i)
-            if np.isfinite(rr_signal).any():
-                np.save(out_dir / "matrices" / f"rank_reversal_{dt_str}.npy", rr_signal)
-            
-        # Daily records
-        omega_gap_daily_records.append({
-            "trade_date": date_str,
-            "min_eigenvalue": min_eig_gap,
-            "max_eigenvalue": max_eig_gap,
-            "negative_eigen_count": neg_count_gap,
-            "condition_number": cond_num_gap,
-            "trace": trace_gap,
-            "avg_offdiag_corr": avg_offdiag_gap,
-            "frob_norm": frob_gap,
-        })
-        
-        dist_daily_records.append({
-            "trade_date": date_str,
-            "min_eigenvalue_raw": min_eig_raw,
-            "min_eigenvalue_gap": min_eig_gap,
-            "negative_eigen_count_raw": neg_count_raw,
-            "negative_eigen_count_gap": neg_count_gap,
-            "diag_nonpositive_count_raw": int(np.sum(diag_raw <= 0)),
-            "diag_nonpositive_count_gap": int(np.sum(diag_gap <= 0)),
-            "trace_raw": trace_raw,
-            "trace_gap": trace_gap,
-            "condition_number_raw": cond_num_raw,
-            "condition_number_gap": cond_num_gap,
-            "avg_offdiag_corr_raw": avg_offdiag_raw,
-            "avg_offdiag_corr_gap": avg_offdiag_gap,
-            "fro_norm_raw": frob_raw,
-            "fro_norm_gap": frob_gap,
-            "fro_norm_ratio_gap_vs_raw": fro_ratio,
-            "mean_diag_ratio_gap_vs_raw": mean_diag_ratio,
-        })
-        
-        # Daily Japanese gap stats
-        mean_abs_gap = float(np.mean(np.abs(gap_override)))
-        max_abs_gap = float(np.max(np.abs(gap_override)))
-        disp_gap = float(np.std(gap_override))
-        mean_abs_gap_filt = float(np.mean(np.abs(gap_filt)))
-        mean_abs_gap_syst = float(np.mean(np.abs(gap_syst)))
-        mean_abs_gap_idio = float(np.mean(np.abs(gap_idio)))
-        max_abs_gap_filt = float(np.max(np.abs(gap_filt)))
-        denom_min_t = float(np.min(denominator))
-        floor_hits_t = int(np.sum(floor_hit_flags))
-        
-        gap_daily_records.append({
-            "trade_date": date_str,
-            "mean_abs_GapOpen": mean_abs_gap,
-            "max_abs_GapOpen": max_abs_gap,
-            "dispersion_GapOpen": disp_gap,
-            "mean_abs_GapOpen_filt": mean_abs_gap_filt,
-            "mean_abs_GapOpen_syst": mean_abs_gap_syst,
-            "mean_abs_GapOpen_idio": mean_abs_gap_idio,
-            "max_abs_GapOpen_filt": max_abs_gap_filt,
-            "denominator_min": denom_min_t,
-            "denominator_floor_hit_count": floor_hits_t,
-        })
-        
-        # Retrieve realized JP target returns
-        realized_jp_returns = y_jp_target[i]
-        
-        # Stock-level long records
-        for idx, tk in enumerate(JP_TICKERS):
-            gap_long_records.append({
-                "signal_date": sig_date,
-                "trade_date": date_str,
-                "ticker": tk,
-                "GapOpen": float(gap_override[idx]),
-                "TOPIXNight": float(topix_night_t),
-                "beta": float(betas_t[idx]),
-                "GapOpen_syst": float(gap_syst[idx]),
-                "GapOpen_idio": float(gap_idio[idx]),
-                "GapOpen_filt": float(gap_filt[idx]),
-                "denominator": float(denominator[idx]),
-                "denominator_floored": float(denominator_floored[idx]),
-                "availability": "POST_OPEN",
-            })
-            
-            dist_long_records.append({
-                "signal_date": sig_date,
-                "trade_date": date_str,
-                "ticker": tk,
-                "mu_raw": float(mu_raw[idx]),
-                "mu_gap": float(mu_gap[idx]),
-                "omega_diag_raw": float(diag_raw[idx]),
-                "omega_std_raw": float(std_raw[idx]),
-                "omega_diag_gap": float(diag_gap[idx]),
-                "omega_std_gap": float(std_gap[idx]),
-                "denominator": float(denominator[idx]),
-                "denominator_floored": float(denominator_floored[idx]),
-                "floor_hit": int(floor_hit_flags[idx]),
-                "realized_target_return": float(realized_jp_returns[idx]),
-            })
-            
-            # Stock daily metrics cache
-            omega_gap_ticker_records[tk].append({
-                "date": date_str,
-                "omega_raw_diag": float(diag_raw[idx]),
-                "omega_gap_diag": float(diag_gap[idx]),
-            })
-            
-        # Portfolio Weights
-        w_t = np.zeros(model.n_j)
-        if dt in weights_df.index:
-            w_t = weights_df.loc[dt, JP_TICKERS].values
-            
-        # Returns
-        realized_portfolio_return_gross = float(np.sum(w_t * realized_jp_returns))
-        gross_exposure = float(np.sum(np.abs(w_t)))
-        costs_t = float(2.0 * (cfg["costs"]["slippage_bps_per_side"] / 10000.0) * gross_exposure)
-        realized_portfolio_return_net = realized_portfolio_return_gross - costs_t
-        turnover = turnover_map.get(dt, 0.0)
-        
-        # Portfolio diagnostics pre-gap
-        pred_mean_raw = float(np.sum(w_t * mu_raw))
-        pred_var_raw = float(w_t.T @ Omega_raw @ w_t)
-        pred_vol_raw = float(np.sqrt(np.maximum(pred_var_raw, 1e-10)))
-        pred_ir_raw = pred_mean_raw / pred_vol_raw if pred_vol_raw > 0 else 0.0
-        
-        # Portfolio diagnostics post-gap
-        pred_mean_gap = float(np.sum(w_t * mu_gap))
-        pred_var_gap = float(w_t.T @ Omega_gap @ w_t)
-        pred_vol_gap = float(np.sqrt(np.maximum(pred_var_gap, 1e-10)))
-        pred_ir_gap = pred_mean_gap / pred_vol_gap if pred_vol_gap > 0 else 0.0
-        
-        # Realized Cost Diagnostic-Only IR
-        pred_ir_gap_realized_cost_diagnostic = (pred_mean_gap - costs_t) / pred_vol_gap if pred_vol_gap > 0 else 0.0
-
-        # --- Baseline IR (consistent with production_v2.py current_ir) ---
-        # Uses same weight construction (solve_baseline_style/minvar) and same
-        # fixed ex-ante cost formula, so historical and current IR are comparable.
-        sigma_gap_bl = np.sqrt(np.maximum(np.diag(Omega_gap), 1e-6))
-        scores_bl = mu_gap / sigma_gap_bl
-
-        if bl_mh_enabled and len(bl_mh_horizons) > 1:
-            scores_bl, _ = apply_multi_horizon_blend(
-                scores_h1=scores_bl,
-                gap_input_dir=out_dir,
-                date_str=date_str,
-                horizons=bl_mh_horizons,
-                weights=bl_mh_weights,
-                mu_pattern=bl_mh_mu_pattern,
-                omega_pattern=bl_mh_omega_pattern,
-            )
-
-        if bl_cs_overlay_enabled:
-            scores_bl, _ = apply_rank_reversal_overlay(
-                scores=scores_bl,
-                gap_input_dir=out_dir,
-                date_str=date_str,
-                weight=bl_cs_overlay_weight,
-                file_pattern=bl_rr_pattern,
-            )
-
-        sorted_idx_bl = np.argsort(scores_bl)
-        short_idx_bl = sorted_idx_bl[:bl_short_count]
-        long_idx_bl = sorted_idx_bl[-bl_long_count:]
-
-        if bl_minvar_enabled:
-            w_minvar_bl = build_weights_minvar(
-                signal=scores_bl,
-                q=float(bl_long_count) / model.n_j,
-                n_j=model.n_j,
-                Sigma_YY=Omega_gap,
-                alpha=bl_minvar_alpha,
-                enforce_sign=False,
-            )
-            w_baseline = w_minvar_bl * (bl_baseline_gross / 2.0)
-        else:
-            w_baseline = solve_baseline_style(
-                scores_bl, long_idx_bl, short_idx_bl, baseline_gross=bl_baseline_gross
-            )
-
-        pred_mean_gap_baseline = float(np.sum(w_baseline * mu_gap))
-        pred_var_gap_baseline = float(w_baseline @ Omega_gap @ w_baseline)
-        pred_vol_gap_baseline = float(np.sqrt(np.maximum(pred_var_gap_baseline, 1e-10)))
-        bl_ex_ante_cost = bl_baseline_gross * (bl_cost_bps_per_gross / 10000.0)
-        pred_ir_gap_baseline_cost = (
-            (pred_mean_gap_baseline - bl_ex_ante_cost) / pred_vol_gap_baseline
-            if pred_vol_gap_baseline > 1e-6
-            else 0.0
-        )
-
-        portfolio_diagnostics_records.append({
-            "signal_date": sig_date,
-            "trade_date": date_str,
-            "gross_return": realized_portfolio_return_gross,
-            "net_return": realized_portfolio_return_net,
-            "cost": costs_t,
-            "pred_mean_raw": pred_mean_raw,
-            "pred_vol_raw": pred_vol_raw,
-            "pred_ir_raw": pred_ir_raw,
-            "pred_mean_gap": pred_mean_gap,
-            "pred_vol_gap": pred_vol_gap,
-            "pred_ir_gap": pred_ir_gap,
-            "pred_ir_gap_realized_cost_diagnostic": pred_ir_gap_realized_cost_diagnostic,
-            "pred_mean_gap_baseline": pred_mean_gap_baseline,
-            "pred_vol_gap_baseline": pred_vol_gap_baseline,
-            "pred_ir_gap_baseline_cost": pred_ir_gap_baseline_cost,
-            "turnover": turnover,
-            "gross_exposure": gross_exposure,
-            "net_exposure": float(np.sum(w_t)),
-            # daily gap summaries
-            "mean_abs_GapOpen": mean_abs_gap,
-            "max_abs_GapOpen": max_abs_gap,
-            "dispersion_GapOpen": disp_gap,
-            "mean_abs_GapOpen_filt": mean_abs_gap_filt,
-            "mean_abs_GapOpen_syst": mean_abs_gap_syst,
-            "mean_abs_GapOpen_idio": mean_abs_gap_idio,
-            "max_abs_GapOpen_filt": max_abs_gap_filt,
-            "denominator_min": denom_min_t,
-            "denominator_floor_hit_count": floor_hits_t,
-        })
+        """Thin wrapper delegating to module-level _process_date_impl."""
+        _process_date_impl(dt, ctx, acc)
 
     if n_jobs == 1 or len(sim_dates_slice) <= 1:
         for dt in sim_dates_slice:
@@ -1055,16 +1189,18 @@ def main():
     else:
         from joblib import Parallel, delayed
 
-        Parallel(n_jobs=n_jobs, backend="threading", verbose=10)(
-            delayed(_process_date)(dt) for dt in sim_dates_slice
+        partial_results = Parallel(n_jobs=n_jobs, backend="threading", verbose=10)(
+            delayed(_process_date_worker)(dt, ctx) for dt in sim_dates_slice
         )
+        for partial_acc in partial_results:
+            _merge_accumulators(acc, partial_acc)
 
     logger.info("Reconstruction loops completed.")
     
     # Save ticker level summary
     ticker_gap_summary = []
     for tk in JP_TICKERS:
-        df_tk = pd.DataFrame(omega_gap_ticker_records[tk])
+        df_tk = pd.DataFrame(acc.omega_gap_ticker_records[tk])
         mean_raw = df_tk["omega_raw_diag"].mean()
         mean_gap = df_tk["omega_gap_diag"].mean()
         mean_ratio = (df_tk["omega_gap_diag"] / df_tk["omega_raw_diag"].replace(0.0, 1e-10)).mean()
@@ -1080,22 +1216,22 @@ def main():
     df_ticker_gap_summary.to_csv(out_dir / "omega_gap_summary_by_ticker.csv", index=False)
     
     # Build DataFrames
-    df_gap_long = pd.DataFrame(gap_long_records)
+    df_gap_long = pd.DataFrame(acc.gap_long_records)
     df_gap_long.to_csv(out_dir / "gap_components_long.csv", index=False)
     
-    df_gap_daily = pd.DataFrame(gap_daily_records)
+    df_gap_daily = pd.DataFrame(acc.gap_daily_records)
     df_gap_daily.to_csv(out_dir / "gap_components_daily.csv", index=False)
     
-    df_dist_long = pd.DataFrame(dist_long_records)
+    df_dist_long = pd.DataFrame(acc.dist_long_records)
     df_dist_long.to_csv(out_dir / "gap_adjusted_distribution_long.csv", index=False)
     
-    df_dist_daily = pd.DataFrame(dist_daily_records)
+    df_dist_daily = pd.DataFrame(acc.dist_daily_records)
     df_dist_daily.to_csv(out_dir / "gap_adjusted_distribution_daily.csv", index=False)
     
-    df_omega_daily = pd.DataFrame(omega_gap_daily_records)
+    df_omega_daily = pd.DataFrame(acc.omega_gap_daily_records)
     df_omega_daily.to_csv(out_dir / "omega_gap_summary_daily.csv", index=False)
     
-    df_port = pd.DataFrame(portfolio_diagnostics_records)
+    df_port = pd.DataFrame(acc.portfolio_diagnostics_records)
     
     # Compute ex-ante cost estimate: lookahead-free rolling 60 days shifted cost
     df_port["cost_estimate_exante"] = df_port["cost"].shift(1).rolling(60, min_periods=1).mean()
@@ -1537,35 +1673,35 @@ def main():
     logger.info("Executing audits...")
     # Leakage Audit
     leakage_audit = {
-        "signal_date_strictly_before_trade_date_passed": bool(all_dates_audit),
-        "leakage_violations_detected": bool(leakage_violation),
+        "signal_date_strictly_before_trade_date_passed": bool(acc.all_dates_audit),
+        "leakage_violations_detected": bool(acc.leakage_violation),
         "omega_point_in_time_only_passed": True,  # checked in Step 1
         "realized_target_return_excluded_from_omega_passed": True,
         "expected_cost_identified_as_realized_only": True,
         "rolling_pit_boundaries_leakage_free": True,
         "gap_treated_as_post_open_910_state": True,
-        "dropped_rows_count": dropped_count,
-        "missing_data_count": missing_data_count,
-        "nan_inf_count": nan_inf_count,
+        "dropped_rows_count": acc.dropped_count,
+        "missing_data_count": acc.missing_data_count,
+        "nan_inf_count": acc.nan_inf_count,
     }
     with open(out_dir / "leakage_audit.json", "w") as f:
         json.dump(leakage_audit, f, indent=4)
         
     # Numerical Audit
     numerical_audit = {
-        "Omega_gap_symmetry_max_abs_error": float(symmetry_max_err_gap),
+        "Omega_gap_symmetry_max_abs_error": float(acc.symmetry_max_err_gap),
         "min_eigenvalue_avg": float(df_dist_daily["min_eigenvalue_gap"].mean()),
         "max_eigenvalue_avg": float(df_omega_daily["max_eigenvalue"].mean()),
-        "negative_eigenvalue_days_pct": float(neg_eigen_days_gap / len(df_dist_daily)) if len(df_dist_daily) > 0 else 0.0,
-        "days_with_min_eigenvalue_lt_neg_1e_8": int(days_with_min_eigen_lt_neg_1e_8_gap),
-        "days_with_diag_le_zero": int(days_with_diag_le_zero_gap),
+        "negative_eigenvalue_days_pct": float(acc.neg_eigen_days_gap / len(df_dist_daily)) if len(df_dist_daily) > 0 else 0.0,
+        "days_with_min_eigenvalue_lt_neg_1e_8": int(acc.days_with_min_eigen_lt_neg_1e_8_gap),
+        "days_with_diag_le_zero": int(acc.days_with_diag_le_zero_gap),
         "condition_number_median": float(df_omega_daily["condition_number"].median()),
         "avg_offdiag_corr_mean": float(df_omega_daily["avg_offdiag_corr"].mean()),
         "frob_norm_mean": float(df_omega_daily["frob_norm"].mean()),
         "frob_norm_ratio_gap_vs_raw_mean": float(df_dist_daily["fro_norm_ratio_gap_vs_raw"].mean()),
         "mean_diag_ratio_gap_vs_raw_mean": float(df_dist_daily["mean_diag_ratio_gap_vs_raw"].mean()),
-        "denominator_min_overall": float(denominator_min_overall),
-        "denominator_floor_hit_count_overall": int(denominator_floor_hit_count_overall),
+        "denominator_min_overall": float(acc.denominator_min_overall),
+        "denominator_floor_hit_count_overall": int(acc.denominator_floor_hit_count_overall),
         "ticker_order_correct": bool(np.all(df_gap_long["ticker"].values[:model.n_j] == JP_TICKERS)),
         "psd_projection_applied": False,  # Not strictly applied here, checked via min eigenvalue
     }
@@ -1591,7 +1727,7 @@ def main():
     # Write data availability info
     data_avail = {
         "total_days_processed": len(df_dist_daily),
-        "missing_days": missing_data_count,
+        "missing_days": acc.missing_data_count,
         "vol_state_merged": bool(vol_state_merged),
         "ticker_ic_calculated": True,
         "standardized_residuals_calculated": True,
@@ -1830,10 +1966,10 @@ def main():
         f.write("$$\\Omega_{gap,t} = 0.5 \\times (\\Omega_{gap,t} + \\Omega_{gap,t}^T)$$\n\n")
         
         f.write("## Numerical Findings\n\n")
-        f.write(f"- **Denominator Safety Floor Hits**: {denominator_floor_hit_count_overall} total hits across all stocks/days (Min observed value: {denominator_min_overall:.4f}).\n")
-        f.write(f"- **Omega_gap PSD properties**: {days_with_min_eigen_lt_neg_1e_8_gap} days with minimum eigenvalue < -1e-8. Average min eigenvalue: {df_dist_daily['min_eigenvalue_gap'].mean():.4e}.\n")
+        f.write(f"- **Denominator Safety Floor Hits**: {acc.denominator_floor_hit_count_overall} total hits across all stocks/days (Min observed value: {acc.denominator_min_overall:.4f}).\n")
+        f.write(f"- **Omega_gap PSD properties**: {acc.days_with_min_eigen_lt_neg_1e_8_gap} days with minimum eigenvalue < -1e-8. Average min eigenvalue: {df_dist_daily['min_eigenvalue_gap'].mean():.4e}.\n")
         f.write(f"- **Omega_gap Trace reduction**: Average scale ratio of trace (gap vs raw): {df_dist_daily['trace_gap'].mean() / df_dist_daily['trace_raw'].mean():.4f}, demonstrating the dampening impact of positive opening gaps on predicted intraday volatility.\n")
-        f.write(f"- **Symmetry Audit Max Absolute Error**: {symmetry_max_err_gap:.2e}\n\n")
+        f.write(f"- **Symmetry Audit Max Absolute Error**: {acc.symmetry_max_err_gap:.2e}\n\n")
         
         f.write("## Pre-gap vs Post-gap IR Performance Comparison\n\n")
         f.write("Below is the comparison of pre-gap and post-gap predicted portfolio Information Ratios (Rolling PIT boundaries):\n\n")
