@@ -146,24 +146,6 @@ def build_v3_dynamic(betas: np.ndarray, v1: np.ndarray, v2: np.ndarray) -> np.nd
     return w3 / norm
 
 
-def _fast_array_hash(arr: np.ndarray) -> int:
-    """Fast content-based hash for cache keys.
-
-    Samples first/middle/last rows + total sum instead of hashing the entire
-    array, reducing from O(T*N) to O(N) per call.
-    """
-    if arr.shape[0] == 0:
-        return hash((arr.shape, arr.dtype.str))
-    n = arr.shape[0]
-    return hash((
-        arr.shape, arr.dtype.str,
-        arr[0].tobytes(),
-        arr[n // 2].tobytes(),
-        arr[-1].tobytes(),
-        float(np.sum(arr)),
-    ))
-
-
 def compute_correlation(
     window_returns: np.ndarray,
     ewma_half_life: float | None = None,
@@ -192,7 +174,7 @@ def compute_correlation(
     """
     # Create cache key from input parameters
     if use_cache:
-        cache_key = (window_returns.shape, ewma_half_life, use_copula, copula_blend_weight, copula_nu_init, _fast_array_hash(window_returns))
+        cache_key = (window_returns.shape, ewma_half_life, use_copula, copula_blend_weight, copula_nu_init, hash(window_returns.tobytes()))
         if cache_key in _ROLLING_CORR_CACHE:
             cached_result = _ROLLING_CORR_CACHE[cache_key]
             return cached_result[0].copy(), cached_result[1].copy(), cached_result[2].copy()
@@ -264,7 +246,7 @@ def compute_baseline_correlation(
     if base_returns.shape[0] == 0:
         raise ValueError(f"No rows found for baseline period ({baseline_start} to {baseline_end})")
 
-    cache_key = (ewma_half_life, baseline_start, baseline_end, base_returns.shape, _fast_array_hash(base_returns))
+    cache_key = (ewma_half_life, baseline_start, baseline_end, base_returns.shape, hash(base_returns.tobytes()))
     if cache_key in _BASELINE_CORR_CACHE:
         return _BASELINE_CORR_CACHE[cache_key].copy()
 
