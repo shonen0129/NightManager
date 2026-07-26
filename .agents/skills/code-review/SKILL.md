@@ -25,6 +25,27 @@ description: リリース前の最終監査として、コードベース全体�
 3. **外部APIのパラメータマッピングが仕様書と一致するか**: `docs/api/` 配下の仕様書を確認せず推測でマッピングを書いていないか
 4. **変更前後の実動作の差分**: どの入力条件で挙動が変わるかを明示する。変わらないなら変更の意義を疑う
 
+## 変更の影響半径（Blast Radius）分析
+
+`code_search` / `grep_search` を使い、変更ファイルの呼び出し元・被呼び出し先・テストを特定する。各変更に対して影響を受ける実行経路とテストギャップを報告する。
+
+1. **呼び出し元**: 変更した関数を呼んでいるコードを列挙
+2. **被呼び出し先**: 変更箇所から呼ばれる関数・外部APIの一覧
+3. **影響を受けるテスト**: 変更ファイルのテスト、および呼び出し元のテストを列挙
+4. **テストギャップ**: 上記実行経路に対するテストが不足していないか指摘
+
+## 差分レビューの2軸評価
+
+特定の変更に対するレビューには、要求実現（Spec）と実装規約（Standards）の2軸を並列で確認する。
+
+- **Spec 軸**: 変更が `AGENTS.md`・`docs/ARCHITECTURE.md`・本 Issue/PRD・ユーザー要求で示された仕様を満たしているか
+  - 欠けている要件、部分的実装、スコープクリープを特定
+- **Standards 軸**: `AGENTS.md` の不変条件、ドメイン規約、コードの臭い（Fowler 基準）に違反していないか
+  - 参考: Mysterious Name / Duplicated Code / Feature Envy / Data Clumps / Primitive Obsession / Repeated Switches / Shotgun Surgery / Divergent Change / Speculative Generality / Message Chains / Middle Man / Refused Bequest
+  - ただしリポジトリの明示的な規約があればそれを優先し、tooling で検出される項目は重複指摘しない
+
+2軸の結果は分離して報告し、混同しない。
+
 ## 調査手順
 
 ### Step 1: リポジトリ全体の把握（目安: 15分）
