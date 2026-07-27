@@ -519,11 +519,15 @@ def _process_date_impl(dt: pd.Timestamp, ctx: GapDistContext, acc: GapDistAccumu
 
     date_str = dt.strftime("%Y-%m-%d")
     dt_str = dt.strftime("%Y%m%d")
+    sig_dt_str = sig_date_dt.strftime("%Y%m%d")
 
-    # Load matrices from Step 1 directory
-    omega_struct_file = ctx.dist_in_dir / "matrices" / f"omega_struct_{dt_str}.npy"
+    # Step 1 DistributionDiagnostics names omega_struct by sig_date (the last US
+    # trading day in the window). Load that exact matrix first; only fall back to
+    # matrices dated on or before the signal date to avoid using a covariance
+    # computed from data observed after the signal was generated.
+    omega_struct_file = ctx.dist_in_dir / "matrices" / f"omega_struct_{sig_dt_str}.npy"
     if not omega_struct_file.exists():
-        # Fallback: use most recent available omega_struct (strictly before current date).
+        # Fallback: most recent available omega_struct on or before sig_date.
         # Restrict to omega_struct_YYYYMMDD.npy; ignore omega_struct_psd_YYYYMMDD.npy.
         import re
 
@@ -533,19 +537,25 @@ def _process_date_impl(dt: pd.Timestamp, ctx: GapDistContext, acc: GapDistAccumu
         )
         fallback_files = [
             f for f in fallback_files
-            if f.stem.split("_")[-1] < dt_str
+            if f.stem.split("_")[-1] <= sig_dt_str
         ]
         if fallback_files:
             omega_struct_file = fallback_files[-1]
             logger.warning(
-                f"omega_struct for {date_str} not found, "
+                f"omega_struct for signal date {sig_date_dt.date()} not found, "
                 f"using fallback: {omega_struct_file.name}"
             )
             Omega_struct = np.load(omega_struct_file)
         else:
-            logger.warning(f"Step 1 omega matrix file missing on {date_str}: {omega_struct_file}")
-            acc.missing_data_count += 1
-            return
+            # Backward compatibility: some historical runs / test fixtures named
+            # the matrix by trade date. This branch is a last-resort safety net
+            # and should not be exercised in normal live operation.
+            omega_struct_file = ctx.dist_in_dir / "matrices" / f"omega_struct_{dt_str}.npy"
+            if not omega_struct_file.exists():
+                logger.warning(f"Step 1 omega matrix file missing on {date_str}: {omega_struct_file}")
+                acc.missing_data_count += 1
+                return
+            Omega_struct = np.load(omega_struct_file)
     else:
         Omega_struct = np.load(omega_struct_file)
 

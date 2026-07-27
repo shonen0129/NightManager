@@ -5,6 +5,15 @@
 set -e
 cd "$(dirname "$0")/.."
 
+# Fail fast on undefined-name lint (prevents NameError regressions like 2026-07-27).
+RUFF=.venv-mac/bin/ruff
+if [ -x "$RUFF" ]; then
+    echo "Running ruff F821 lint (undefined names)..."
+    "$RUFF" check src/leadlag tools/production --select F821
+else
+    echo "WARNING: .venv-mac/bin/ruff not found, skipping F821 lint"
+fi
+
 LOGDIR=/tmp/pytest_parallel
 mkdir -p "$LOGDIR"
 
