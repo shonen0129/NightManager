@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 from scipy.optimize import minimize_scalar
+from scipy.special import gammaln
 from scipy.stats import kendalltau, t as student_t
 
 # Numeric constants
@@ -437,7 +438,35 @@ def estimate_t_copula(
         z = np.clip(z, -10.0, 10.0)
         z = np.nan_to_num(z, nan=0.0, posinf=10.0, neginf=-10.0)
 
+        # Precompute fixed quantities for nu optimization.
+        # Inside minimize_scalar, nu varies but z and R are constant —
+        # so Cholesky, log_det, R_inv, and quadratic forms need only
+        # be computed once per outer iteration.
+        jitter = 1e-6
+        L = None
+        for _attempt in range(5):
+            try:
+                L = np.linalg.cholesky(R + jitter * np.eye(N))
+                break
+            except np.linalg.LinAlgError:
+                jitter *= 10.0
+
+        if L is not None:
+            log_det_R = 2.0 * np.sum(np.log(np.diag(L)))
+            R_jittered = R + jitter * np.eye(N)
+            try:
+                R_inv = np.linalg.solve(R_jittered, np.eye(N))
+            except np.linalg.LinAlgError:
+                R_inv = np.linalg.pinv(R)
+            quad_all = np.einsum("ti,ij,tj->t", z, R_inv, z)
+            z_sq = z ** 2
+            _nu_precompute = (log_det_R, quad_all, z_sq, N)
+        else:
+            _nu_precompute = None
+
         def neg_loglik_nu(nu_val: float) -> float:
+            if _nu_precompute is not None:
+                return _t_copula_neg_loglik_fast(nu_val, *_nu_precompute)
             return _t_copula_neg_loglik(z, R, nu_val)
 
         res = minimize_scalar(
@@ -461,6 +490,45 @@ def estimate_t_copula(
         R = _make_psd_correlation(R_new)
 
     return R, nu
+
+
+def _t_copula_neg_loglik_fast(
+    nu: float,
+    log_det_R: float,
+    quad_all: np.ndarray,
+    z_sq: np.ndarray,
+    N: int,
+) -> float:
+    """Fast negative log-likelihood with precomputed quantities.
+
+    Same math as _t_copula_neg_loglik but skips Cholesky, R_inv, and einsum
+    on each call — those are computed once per outer iteration in
+    estimate_t_copula.
+    """
+    half_nu = nu / 2.0
+    half_nu_plus_N = (nu + N) / 2.0
+    half_nu_plus_1 = (nu + 1) / 2.0
+
+    const = (
+        gammaln(half_nu_plus_N)
+        + (N - 1) * gammaln(half_nu)
+        - N * gammaln(half_nu_plus_1)
+        - 0.5 * log_det_R
+    )
+
+    denom_all = np.sum(np.log1p(z_sq / nu), axis=1)
+
+    log_c_all = (
+        const
+        - half_nu_plus_N * np.log1p(quad_all / nu)
+        + half_nu_plus_1 * denom_all
+    )
+
+    total = float(np.sum(log_c_all))
+
+    if not np.isfinite(total):
+        return 1e15
+    return -total
 
 
 def _t_copula_neg_loglik(
@@ -498,35 +566,10 @@ def _t_copula_neg_loglik(
     except np.linalg.LinAlgError:
         R_inv = np.linalg.pinv(R)
 
-    half_nu = nu / 2.0
-    half_nu_plus_N = (nu + N) / 2.0
-    half_nu_plus_1 = (nu + 1) / 2.0
+    quad_all = np.einsum("ti,ij,tj->t", z, R_inv, z)
+    z_sq = z ** 2
 
-    from scipy.special import gammaln
-
-    const = (
-        gammaln(half_nu_plus_N)
-        + (N - 1) * gammaln(half_nu)
-        - N * gammaln(half_nu_plus_1)
-        - 0.5 * log_det_R
-    )
-
-    # Vectorized: compute all T rows at once
-    # quad[t] = z[t] @ R_inv @ z[t]  →  np.einsum over rows
-    quad_all = np.einsum("ti,ij,tj->t", z, R_inv, z)  # (T,)
-    denom_all = np.sum(np.log1p(z ** 2 / nu), axis=1)  # (T,)
-
-    log_c_all = (
-        const
-        - half_nu_plus_N * np.log1p(quad_all / nu)
-        + half_nu_plus_1 * denom_all
-    )
-
-    total = float(np.sum(log_c_all))
-
-    if not np.isfinite(total):
-        return 1e15
-    return -total
+    return _t_copula_neg_loglik_fast(nu, log_det_R, quad_all, z_sq, N)
 
 
 def blend_correlation(
