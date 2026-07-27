@@ -30,7 +30,7 @@ cd "${PROJECT_DIR}"
 # Step 1: distribution_diagnostics (Step 1) と distribution_validation は
 # 事前計算済みの結果を再利用するため、最新のものを検索
 PIPELINE_DIR="${PROJECT_DIR}/live/pipeline_data"
-DIST_DIR=$(ls -td ${PIPELINE_DIR}/distribution_diagnostics/*/ 2>/dev/null | head -1)
+DIST_DIR=$(ls -td ${PIPELINE_DIR}/distribution_diagnostics/*/ 2>/dev/null | grep -v '/latest/' | head -1)
 VAL_DIR=$(ls -td ${PIPELINE_DIR}/distribution_validation/*/ 2>/dev/null | head -1)
 VOL_STATE=$(ls -t ${PIPELINE_DIR}/vol_state_diagnostics/*/state_panel.csv 2>/dev/null | head -1)
 
@@ -53,10 +53,9 @@ echo "[INFO] Using distribution_diagnostics: ${DIST_DIR}" >> "${LOG_FILE}"
 echo "[INFO] Using distribution_validation: ${VAL_DIR}" >> "${LOG_FILE}"
 echo "[INFO] Using vol_state_panel: ${VOL_STATE}" >> "${LOG_FILE}"
 
-# 当日の日付を取得（過去3日間をカバーして週末実行時の欠落を防ぐ）
+# 当日の日付を取得
 TODAY=$(date +%Y-%m-%d)
 TODAY_NUMERIC=$(date +%Y%m%d)
-START_DATE=$(date -v-3d +%Y-%m-%d)
 
 # 前回のlatest実績ディレクトリを保存（フォールバック用）
 PREV_LATEST=""
@@ -64,8 +63,38 @@ if [ -L ${PIPELINE_DIR}/gap_adjusted_distribution/latest ]; then
     PREV_LATEST=$(readlink ${PIPELINE_DIR}/gap_adjusted_distribution/latest)
 fi
 
-# Step 2: gap調整済み分布の計算（過去3日間）
-# 過去3日をカバーして週末実行時の直近営業日データ欠落を防ぐ
+# 過去3日間をデフォルトの開始日とする（週末実行時の欠落を防ぐ）
+DEFAULT_START=$(date -v-3d +%Y-%m-%d)
+START_DATE="${DEFAULT_START}"
+
+# 前回のlatestに既存のmu_gap行列があれば、不足日のみ再計算するよう開始日を調整
+if [ -n "${PREV_LATEST}" ] && [ -d "${PIPELINE_DIR}/gap_adjusted_distribution/${PREV_LATEST}/matrices" ]; then
+    PREV_MAT="${PIPELINE_DIR}/gap_adjusted_distribution/${PREV_LATEST}/matrices"
+    # 過去5営業日のmu_gapファイルを確認し、最新の存在日を取得
+    LATEST_EXISTING_DATE=""
+    for d in $(date -v-0d +%Y%m%d) $(date -v-1d +%Y%m%d) $(date -v-2d +%Y%m%d) $(date -v-3d +%Y%m%d) $(date -v-4d +%Y%m%d) $(date -v-5d +%Y%m%d) $(date -v-6d +%Y%m%d) $(date -v-7d +%Y%m%d); do
+        if [ -f "${PREV_MAT}/mu_gap_${d}.npy" ]; then
+            LATEST_EXISTING_DATE="${d}"
+            break
+        fi
+    done
+    if [ -n "${LATEST_EXISTING_DATE}" ]; then
+        # 既存最新日の翌日を開始日とする（重複計算を避ける）
+        # date -v は BSD/macOS date
+        EXISTING_FMT="${LATEST_EXISTING_DATE:0:4}-${LATEST_EXISTING_DATE:4:2}-${LATEST_EXISTING_DATE:6:2}"
+        START_DATE=$(date -j -v+1d -f "%Y-%m-%d" "${EXISTING_FMT}" +%Y-%m-%d 2>/dev/null || echo "${DEFAULT_START}")
+        # 開始日が当日を超えないようクランプ（再実行時など）
+        if [[ "${START_DATE}" > "${TODAY}" ]]; then
+            START_DATE="${TODAY}"
+            echo "[INFO] Existing matrix found for today; recomputing from ${START_DATE}" >> "${LOG_FILE}"
+        else
+            echo "[INFO] Found existing mu_gap up to ${EXISTING_FMT}, starting from ${START_DATE}" >> "${LOG_FILE}"
+        fi
+    fi
+fi
+
+# Step 2: gap調整済み分布の計算
+# 不足営業日のみ再計算（前回latestにmu_gapが存在する日はスキップ）
 set +e
 PYTHONPATH=src "${PYTHON_BIN}" tools/production/compute_gap_adjusted_distribution.py \
     --distribution-input-dir "${DIST_DIR}" \
@@ -105,46 +134,12 @@ NEW_DIAG="${LATEST_DIR}/portfolio_gap_distribution_diagnostics.csv"
 if [ -n "${PREV_LATEST}" ] && [ -f "${PIPELINE_DIR}/gap_adjusted_distribution/${PREV_LATEST}/portfolio_gap_distribution_diagnostics.csv" ]; then
     PREV_DIAG="${PIPELINE_DIR}/gap_adjusted_distribution/${PREV_LATEST}/portfolio_gap_distribution_diagnostics.csv"
     if [ -f "${NEW_DIAG}" ]; then
-        PYTHONPATH=src "${PYTHON_BIN}" -c "
-import pandas as pd
-old = pd.read_csv('${PREV_DIAG}')
-new = pd.read_csv('${NEW_DIAG}')
-combined = pd.concat([old, new], ignore_index=True)
-combined = combined.drop_duplicates(subset='trade_date', keep='last')
-combined = combined.sort_values('trade_date').reset_index(drop=True)
-combined.to_csv('${NEW_DIAG}', index=False)
-print(f'Merged diagnostics: {len(old)} old + {len(new)} new -> {len(combined)} total')
-" >> "${LOG_FILE}" 2>&1
+        PYTHONPATH=src "${PYTHON_BIN}" scripts/batch/merge_gap_distribution_diagnostics.py "${PREV_DIAG}" "${NEW_DIAG}" >> "${LOG_FILE}" 2>&1
         echo "[INFO] Merged PIT IR history into new diagnostics CSV" >> "${LOG_FILE}"
     else
         cp "${PREV_DIAG}" "${NEW_DIAG}"
         echo "[INFO] Copied previous diagnostics CSV (new one not found)" >> "${LOG_FILE}"
     fi
-fi
-
-# 過去のmh行列・rank_reversal行列を前回latestからコピー
-# ライブ実行は過去3日分のみ計算するため、それ以前のmh行列・rank_reversal行列は
-# 前回のlatestからコピーする。これらはPIT-safe（一度計算されると不変）。
-if [ -n "${PREV_LATEST}" ] && [ -d "${PIPELINE_DIR}/gap_adjusted_distribution/${PREV_LATEST}/matrices" ]; then
-    PREV_MAT="${PIPELINE_DIR}/gap_adjusted_distribution/${PREV_LATEST}/matrices"
-    NEW_MAT="${LATEST_DIR}/matrices"
-    # mh行列（mu_gap_h*, omega_gap_h*）
-    for f in "${PREV_MAT}"/mu_gap_h*_2*.npy "${PREV_MAT}"/omega_gap_h*_2*.npy; do
-        [ -f "$f" ] || continue
-        fname=$(basename "$f")
-        if [ ! -f "${NEW_MAT}/${fname}" ]; then
-            cp "$f" "${NEW_MAT}/${fname}"
-        fi
-    done
-    # rank_reversal行列
-    for f in "${PREV_MAT}"/rank_reversal_2*.npy; do
-        [ -f "$f" ] || continue
-        fname=$(basename "$f")
-        if [ ! -f "${NEW_MAT}/${fname}" ]; then
-            cp "$f" "${NEW_MAT}/${fname}"
-        fi
-    done
-    echo "[INFO] Copied historical mh and rank_reversal matrices from ${PREV_LATEST}" >> "${LOG_FILE}"
 fi
 
 # 当日の行列ファイルが生成されたか確認

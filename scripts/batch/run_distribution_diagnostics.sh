@@ -40,8 +40,9 @@ PYTHONPATH=src "${PYTHON_BIN}" archive/tools/compute_structured_prediction_covar
     --save-daily-matrices true \
     --save-psd-projection true \
     --compare-existing-pred-var true \
-    --vol-state-panel null \
+    --vol-state-panel "" \
     --run-backtest-if-missing \
+    --incremental \
     >> "${LOG_FILE}" 2>&1
 
 EXIT_CODE=$?
@@ -50,6 +51,13 @@ set -e
 if [ ${EXIT_CODE} -ne 0 ]; then
     echo "[ERROR] distribution diagnostics computation failed (exit=${EXIT_CODE})" >> "${LOG_FILE}"
     exit ${EXIT_CODE}
+fi
+
+# Update latest symlink (exclude 'latest' from matching)
+LATEST_DIAG_DIR=$(ls -td ${PROJECT_DIR}/live/pipeline_data/distribution_diagnostics/*/ 2>/dev/null | grep -v '/latest/' | head -1)
+if [ -n "${LATEST_DIAG_DIR}" ]; then
+    ln -sfn "$(basename ${LATEST_DIAG_DIR})" ${PROJECT_DIR}/live/pipeline_data/distribution_diagnostics/latest
+    echo "[INFO] Updated latest symlink -> ${LATEST_DIAG_DIR}" >> "${LOG_FILE}"
 fi
 
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] === distribution diagnostics (Step 1) 終了コード: ${EXIT_CODE} ===" >> "${LOG_FILE}"

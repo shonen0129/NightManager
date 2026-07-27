@@ -11,6 +11,7 @@ import argparse
 import json
 import logging
 import os
+import shutil
 import sys
 import warnings
 from datetime import datetime
@@ -65,6 +66,7 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument("--run-backtest-if-missing", action="store_true", help="Run backtest if weights are missing")
     parser.add_argument("--compare-existing-pred-var", type=str, default="true", help="Compare with existing pred_var (true/false)")
     parser.add_argument("--vol-state-panel", default=None, help="Path to vol state panel CSV file")
+    parser.add_argument("--incremental", action="store_true", help="Skip dates with existing omega_struct matrices from previous run. Copies forward and only computes new dates.")
     parser.add_argument("--self-test", action="store_true", help="Run self-tests and exit")
     return parser.parse_args()
 
@@ -160,6 +162,36 @@ def main():
     
     logger.info(f"Output directory established: {out_dir}")
     
+    # Incremental mode: find previous run and identify already-computed dates
+    existing_dates: set[str] = set()
+    prev_dir: Path | None = None
+    if args.incremental:
+        output_base = Path(args.output_dir)
+        if not output_base.is_absolute():
+            output_base = ROOT / args.output_dir
+        # Check for 'latest' symlink first, then most recent dated directory
+        latest_link = output_base / "latest"
+        if latest_link.is_symlink() or latest_link.is_dir():
+            resolved = latest_link.resolve()
+            if resolved != out_dir and (resolved / "matrices").is_dir():
+                prev_dir = resolved
+        if prev_dir is None:
+            subdirs = sorted(
+                [
+                    d for d in output_base.iterdir()
+                    if d.is_dir() and d.name != "latest" and d.resolve() != out_dir.resolve()
+                ],
+                key=lambda d: d.name,
+                reverse=True,
+            )
+            if subdirs:
+                prev_dir = subdirs[0]
+        if prev_dir is not None and (prev_dir / "matrices").is_dir():
+            for f in (prev_dir / "matrices").glob("omega_struct_*.npy"):
+                date_str = f.stem.replace("omega_struct_", "")
+                existing_dates.add(date_str)
+            logger.info(f"Incremental mode: found {len(existing_dates)} existing matrices in {prev_dir}")
+    
     # 1. Load config
     cfg_path = Path(args.config)
     if not cfg_path.is_absolute():
@@ -253,10 +285,44 @@ def main():
     
     w_prev = np.zeros(model.n_j)
     
+    # Load previous CSV records for incremental mode
+    prev_diag_df = prev_comp_df = prev_panel_long_df = prev_panel_daily_df = None
+    if prev_dir is not None and existing_dates:
+        if (prev_dir / "omega_summary_daily.csv").exists():
+            prev_diag_df = pd.read_csv(prev_dir / "omega_summary_daily.csv")
+        if (prev_dir / "pred_var_comparison_daily.csv").exists():
+            prev_comp_df = pd.read_csv(prev_dir / "pred_var_comparison_daily.csv")
+        if (prev_dir / "distribution_panel_long.csv").exists():
+            prev_panel_long_df = pd.read_csv(prev_dir / "distribution_panel_long.csv")
+        if (prev_dir / "distribution_panel_daily.csv").exists():
+            prev_panel_daily_df = pd.read_csv(prev_dir / "distribution_panel_daily.csv")
+    
+    incremental_skipped = 0
+    
     for dt in sim_dates_slice:
         i = df_exec.index.get_indexer([dt])[0]
         if i < model.corr_window:
             dropped_count += 1
+            continue
+        
+        dt_str_compact = dt.strftime("%Y%m%d")
+        
+        # Incremental skip: copy existing matrices and load records
+        if dt_str_compact in existing_dates and prev_dir is not None:
+            # Copy matrix files forward
+            if save_daily_m:
+                src_mat = prev_dir / "matrices" / f"omega_struct_{dt_str_compact}.npy"
+                if src_mat.exists():
+                    shutil.copy2(src_mat, out_dir / "matrices" / f"omega_struct_{dt_str_compact}.npy")
+                    for suffix in [f"B_struct_{dt_str_compact}.npy", f"sigma_blocks_{dt_str_compact}.npz"]:
+                        src_f = prev_dir / "matrices" / suffix
+                        if src_f.exists():
+                            shutil.copy2(src_f, out_dir / "matrices" / suffix)
+                    if save_psd:
+                        psd_f = prev_dir / "matrices" / f"omega_struct_psd_{dt_str_compact}.npy"
+                        if psd_f.exists():
+                            shutil.copy2(psd_f, out_dir / "matrices" / f"omega_struct_psd_{dt_str_compact}.npy")
+            incremental_skipped += 1
             continue
             
         sig_date = df_exec["sig_date"].values[i]
@@ -485,15 +551,40 @@ def main():
             if save_psd and Omega_struct_psd is not None:
                 np.save(out_dir / "matrices" / f"omega_struct_psd_{dt_str}.npy", Omega_struct_psd)
                 
+    if incremental_skipped > 0:
+        logger.info(f"Incremental mode: skipped {incremental_skipped} dates, computed {len(diag_records)} new dates")
+    
     # Build dataframes
-    df_diag = pd.DataFrame(diag_records).set_index("date")
+    # In incremental mode, merge previous records with newly computed ones.
+    # drop_duplicates keeps the latest computation for any overlap.
+    # Sort by datetime to guarantee chronological order regardless of concat order.
+    if prev_diag_df is not None and incremental_skipped > 0:
+        new_diag_df = pd.DataFrame(diag_records)
+        df_diag = pd.concat([prev_diag_df, new_diag_df], ignore_index=True)
+        df_diag = df_diag.drop_duplicates(subset="date", keep="last")
+        df_diag["date"] = pd.to_datetime(df_diag["date"])
+        df_diag = df_diag.set_index("date").sort_index()
+    else:
+        df_diag = pd.DataFrame(diag_records).set_index("date")
+        df_diag.index = pd.to_datetime(df_diag.index)
+        df_diag = df_diag.sort_index()
     df_diag.to_csv(out_dir / "omega_summary_daily.csv")
     
     # Save ticker level summary of eigenvalues or trace
     df_comp = None
-    if compare_pred_var and comparison_records:
-        df_comp = pd.DataFrame(comparison_records)
-        df_comp.to_csv(out_dir / "pred_var_comparison_daily.csv", index=False)
+    if compare_pred_var:
+        if prev_comp_df is not None and incremental_skipped > 0:
+            new_comp_df = pd.DataFrame(comparison_records)
+            df_comp = pd.concat([prev_comp_df, new_comp_df], ignore_index=True)
+            df_comp = df_comp.drop_duplicates(subset=["date", "ticker"], keep="last")
+            df_comp["date"] = pd.to_datetime(df_comp["date"])
+            df_comp = df_comp.sort_values(["date", "ticker"]).reset_index(drop=True)
+        elif comparison_records:
+            df_comp = pd.DataFrame(comparison_records)
+            df_comp["date"] = pd.to_datetime(df_comp["date"])
+            df_comp = df_comp.sort_values(["date", "ticker"]).reset_index(drop=True)
+        if df_comp is not None and len(df_comp) > 0:
+            df_comp.to_csv(out_dir / "pred_var_comparison_daily.csv", index=False)
         
         ticker_comp = []
         for tk in JP_TICKERS:
@@ -517,11 +608,31 @@ def main():
         pd.DataFrame([summary_comp]).to_csv(out_dir / "pred_var_comparison_summary.csv", index=False)
         
     # Process Long Panel
-    df_panel_long = pd.DataFrame(panel_records)
+    if prev_panel_long_df is not None and incremental_skipped > 0:
+        new_panel_long = pd.DataFrame(panel_records)
+        df_panel_long = pd.concat([prev_panel_long_df, new_panel_long], ignore_index=True)
+        df_panel_long = df_panel_long.drop_duplicates(subset=["trade_date", "ticker"], keep="last")
+        df_panel_long["trade_date"] = pd.to_datetime(df_panel_long["trade_date"])
+        df_panel_long = df_panel_long.sort_values(["trade_date", "ticker"]).reset_index(drop=True)
+    else:
+        df_panel_long = pd.DataFrame(panel_records)
+        if len(df_panel_long) > 0:
+            df_panel_long["trade_date"] = pd.to_datetime(df_panel_long["trade_date"])
+            df_panel_long = df_panel_long.sort_values(["trade_date", "ticker"]).reset_index(drop=True)
     df_panel_long.to_csv(out_dir / "distribution_panel_long.csv", index=False)
     
     # Process Daily Panel
-    df_panel_daily = pd.DataFrame(daily_summary_records)
+    if prev_panel_daily_df is not None and incremental_skipped > 0:
+        new_panel_daily = pd.DataFrame(daily_summary_records)
+        df_panel_daily = pd.concat([prev_panel_daily_df, new_panel_daily], ignore_index=True)
+        df_panel_daily = df_panel_daily.drop_duplicates(subset=["trade_date"], keep="last")
+        df_panel_daily["trade_date"] = pd.to_datetime(df_panel_daily["trade_date"])
+        df_panel_daily = df_panel_daily.sort_values("trade_date").reset_index(drop=True)
+    else:
+        df_panel_daily = pd.DataFrame(daily_summary_records)
+        if len(df_panel_daily) > 0:
+            df_panel_daily["trade_date"] = pd.to_datetime(df_panel_daily["trade_date"])
+            df_panel_daily = df_panel_daily.sort_values("trade_date").reset_index(drop=True)
     df_panel_daily.to_csv(out_dir / "distribution_panel_daily.csv", index=False)
     
     # Parquet saving if possible
@@ -829,6 +940,8 @@ def main():
         "save_psd_projection": save_psd,
         "compare_existing_pred_var": compare_pred_var,
         "vol_state_panel": args.vol_state_panel,
+        "incremental": args.incremental,
+        "incremental_dates_skipped": incremental_skipped if args.incremental else 0,
     }
     with open(out_dir / "run_config.json", "w") as f:
         json.dump(run_config, f, indent=4)
@@ -840,6 +953,7 @@ def main():
         "dates_with_missing_data": missing_data_count,
         "dates_with_numerical_issues": nan_inf_count,
         "dates_omega_computed": len(df_diag),
+        "incremental_dates_skipped": incremental_skipped if args.incremental else 0,
         "dates_pred_var_compared": len(df_comp) // model.n_j if df_comp is not None else 0,
         "dates_realized_returns_merged": len(df_panel_daily),
         "vol_state_panel_merged": vol_state_merged,
