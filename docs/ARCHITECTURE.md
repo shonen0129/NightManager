@@ -74,7 +74,6 @@ scripts/
 ├── batch/               # バッチ実行・スケジューラ設定
 │   ├── com.leadlag.close.plist
 │   ├── com.leadlag.decision.plist
-│   ├── com.leadlag.gap-distribution.plist
 │   ├── run_auto_login.bat
 │   ├── run_close_positions.bat
 │   ├── run_close_positions.sh
