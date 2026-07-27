@@ -8,6 +8,7 @@ The existing model methods remain as thin delegates to preserve backward compati
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Protocol, runtime_checkable
 
@@ -23,6 +24,8 @@ from leadlag.core.correlation import (
 from leadlag.core.residualize import compute_rolling_ols_betas
 from leadlag.data.preprocessor import compute_us_residualized_returns
 from leadlag.data.tickers import JP_TICKERS, US_TICKERS
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -96,6 +99,7 @@ def build_common_inputs(
     frac_diff_d: float = 0.5,
     frac_diff_threshold: float = 1e-5,
     frac_diff_window: int = 100,
+    frac_diff_normalize: str | None = None,
 ) -> CommonInputs:
     """Build CommonInputs from df_exec and pre-computed y_jp_target.
 
@@ -117,6 +121,8 @@ def build_common_inputs(
         frac_diff_d: Fractional differencing order (0 < d < 1).
         frac_diff_threshold: Weight cutoff for binomial expansion.
         frac_diff_window: Maximum lookback for fractional diff filter.
+        frac_diff_normalize: Optional weight normalization for the truncated
+            window (see fractional_diff.normalize).
 
     Returns:
         CommonInputs dataclass instance.
@@ -126,18 +132,30 @@ def build_common_inputs(
     us_returns_raw = df_exec[[f"us_cc_{tk}" for tk in US_TICKERS]].values
 
     # Apply fractional differencing to US returns if enabled.
-    # The expanding-window filter introduces NaN only when input contains NaN;
-    # if any remain (e.g. leading NaNs in a column) we fill with 0.0 so that
-    # downstream correlation / residualization receives a clean matrix.  This
-    # only affects rows where US close-to-close return is missing; the warmup
-    # period uses partial weights and does not produce NaNs by design.
+    # The expanding-window filter itself does not introduce NaNs for valid
+    # inputs; any NaNs in the output come from NaNs in the input series.  If
+    # any remain, we fall back to 0.0 so that downstream correlation and
+    # residualization receive a clean matrix, while logging a warning so the
+    # data-quality issue is not silent.
     if frac_diff_enabled and frac_diff_d > 0.0:
         from leadlag.features.fractional_diff import fractional_diff_df
         us_cols = [f"us_cc_{tk}" for tk in US_TICKERS]
         us_df = pd.DataFrame(us_returns_raw, columns=us_cols, index=df_exec.index)
         fd_df = fractional_diff_df(
-            us_df, d=frac_diff_d, threshold=frac_diff_threshold, window=frac_diff_window
-        ).fillna(0.0)
+            us_df,
+            d=frac_diff_d,
+            threshold=frac_diff_threshold,
+            window=frac_diff_window,
+            normalize=frac_diff_normalize,
+        )
+        nan_count = fd_df.isna().sum().sum()
+        if nan_count > 0:
+            logger.warning(
+                "build_common_inputs: %d NaN values in fractional diff output "
+                "will be filled with 0.0; check upstream US return data.",
+                nan_count,
+            )
+            fd_df = fd_df.fillna(0.0)
         us_returns_raw = fd_df.values
 
     all_returns_raw = np.column_stack([us_returns_raw, y_jp_target])

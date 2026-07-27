@@ -73,6 +73,7 @@ def fractional_diff(
     d: float = 0.5,
     threshold: float = 1e-5,
     window: int = 100,
+    normalize: str | None = None,
 ) -> pd.Series:
     """Apply fractional differencing to a single time series.
 
@@ -91,6 +92,10 @@ def fractional_diff(
         d: Differencing order (0.0 = no differencing, 1.0 = full differencing).
         threshold: Weight cutoff for binomial expansion.
         window: Maximum lookback for the filter (limits computational cost).
+        normalize: Optional weight normalization for the truncated window.
+            - None: no normalization (López de Prado's formulation).
+            - 'zero': shift weights so they sum to zero (removes level bias).
+            - 'unit': scale weights so they sum to one (preserves level).
 
     Returns:
         Transformed series of same length. The first `window` points use an
@@ -113,9 +118,14 @@ def fractional_diff(
     for i in range(n):
         # Determine how many weights we can apply
         lookback = min(width, i + 1, window)
-        w_slice = weights[:lookback]
-        # Normalize weights to sum to 1 (optional but improves stability)
-        # We skip normalization to match López de Prado's formulation
+        w_slice = weights[:lookback].copy()
+        # Optional normalization to remove truncation bias for small d / window.
+        if normalize == "zero":
+            w_slice = w_slice - np.mean(w_slice)
+        elif normalize == "unit":
+            s = np.sum(w_slice)
+            if abs(s) > 1e-12:
+                w_slice = w_slice / s
         x_slice = values[i - lookback + 1 : i + 1][::-1]
         result[i] = np.dot(w_slice, x_slice)
 
@@ -127,6 +137,7 @@ def fractional_diff_df(
     d: float = 0.5,
     threshold: float = 1e-5,
     window: int = 100,
+    normalize: str | None = None,
 ) -> pd.DataFrame:
     """Apply fractional differencing to each column of a DataFrame.
 
@@ -135,13 +146,14 @@ def fractional_diff_df(
         d: Differencing order.
         threshold: Weight cutoff.
         window: Maximum lookback.
+        normalize: Optional weight normalization (see fractional_diff).
 
     Returns:
         DataFrame with same shape, each column fractionally differenced.
     """
     result = pd.DataFrame(index=df.index, columns=df.columns, dtype=float)
     for col in df.columns:
-        result[col] = fractional_diff(df[col], d=d, threshold=threshold, window=window)
+        result[col] = fractional_diff(df[col], d=d, threshold=threshold, window=window, normalize=normalize)
     return result
 
 
@@ -409,6 +421,7 @@ def apply_fractional_diff_to_df_exec(
     d: float = 0.5,
     threshold: float = 1e-5,
     window: int = 100,
+    normalize: str | None = None,
 ) -> pd.DataFrame:
     """Apply fractional differencing to US return columns in df_exec.
 
@@ -421,6 +434,7 @@ def apply_fractional_diff_to_df_exec(
         d: Differencing order.
         threshold: Weight cutoff.
         window: Maximum lookback.
+        normalize: Optional weight normalization (see fractional_diff).
 
     Returns:
         Modified copy of df_exec with fractionally differenced US returns.
@@ -428,8 +442,20 @@ def apply_fractional_diff_to_df_exec(
     df = df_exec.copy()
     us_cols = [f"us_cc_{tk}" for tk in us_tickers]
     us_df = df[us_cols]
-    fd_df = fractional_diff_df(us_df, d=d, threshold=threshold, window=window)
-    # Forward-fill the warmup NaNs with 0 to avoid losing data
-    fd_df = fd_df.fillna(0.0)
+    fd_df = fractional_diff_df(us_df, d=d, threshold=threshold, window=window, normalize=normalize)
+    # The expanding-window filter itself does not introduce NaNs for valid
+    # inputs; any NaNs in the output come from NaNs in the input series.  If
+    # NaNs remain, falling back to 0.0 is a conservative placeholder that keeps
+    # downstream correlation/portfolio math stable while producing a flat
+    # contribution from the missing observation.  We warn so data-quality
+    # issues upstream are not silent.
+    nan_count = fd_df.isna().sum().sum()
+    if nan_count > 0:
+        logger.warning(
+            "apply_fractional_diff_to_df_exec: %d NaN values in fractional diff "
+            "output will be filled with 0.0; check upstream US return data.",
+            nan_count,
+        )
+        fd_df = fd_df.fillna(0.0)
     df[us_cols] = fd_df
     return df

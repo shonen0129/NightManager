@@ -279,3 +279,43 @@ class TestApplyFractionalDiffToDfExec:
         np.testing.assert_array_almost_equal(
             result["us_cc_XLB"].values, expected.values, decimal=10
         )
+
+    def test_nan_input_is_filled_with_zero_and_warns(self, caplog):
+        """A single input NaN propagates through the lookback window and is filled."""
+        import logging
+        df = pd.DataFrame({"us_cc_XLB": np.cumsum(np.random.randn(100))})
+        df.iloc[50, 0] = np.nan
+        with caplog.at_level(logging.WARNING, logger="leadlag.features.fractional_diff"):
+            result = apply_fractional_diff_to_df_exec(df, us_tickers=["XLB"], d=0.5, window=10)
+        assert not result["us_cc_XLB"].isna().any()
+        # A NaN at index 50 affects indices 50..59 (window=10 lookback).
+        assert (result["us_cc_XLB"].iloc[50:60] == 0.0).all()
+        assert "NaN values in fractional diff output" in caplog.text
+
+    def test_window_truncate_bias_documented(self):
+        """With d=0.1 and a short window the filter is heavily truncated.
+
+        This is not a failure: true fractional differencing for small d requires
+        an extremely long weight tail.  The test records the expected bias so
+        future parameter changes can be evaluated against it.
+        """
+        n = 200
+        const = pd.Series(np.ones(n) * 5.0)
+        result = fractional_diff(const, d=0.1, threshold=1e-5, window=100)
+        # After warmup the output should be stable; for this configuration the
+        # truncated weight sum is ~0.6, so a constant-5 series yields ~3.0.
+        assert 2.0 < abs(result.iloc[-1]) < 4.0
+
+    def test_normalize_zero_removes_constant_bias(self):
+        """normalize='zero' shifts weights so a constant series yields ~0."""
+        n = 200
+        const = pd.Series(np.ones(n) * 5.0)
+        result = fractional_diff(const, d=0.1, threshold=1e-5, window=100, normalize="zero")
+        assert abs(result.iloc[-1]) < 0.5
+
+    def test_normalize_unit_preserves_constant_level(self):
+        """normalize='unit' scales weights so a constant series yields ~constant."""
+        n = 200
+        const = pd.Series(np.ones(n) * 5.0)
+        result = fractional_diff(const, d=0.1, threshold=1e-5, window=100, normalize="unit")
+        assert 4.5 < abs(result.iloc[-1]) < 5.5

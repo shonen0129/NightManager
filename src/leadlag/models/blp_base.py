@@ -35,6 +35,9 @@ class _BLPBase(BaseModel):
         frac_diff_d = float(frac_cfg.get("d", 0.5))
         frac_diff_threshold = float(frac_cfg.get("threshold", 1e-5))
         frac_diff_window = int(frac_cfg.get("window", 100))
+        frac_diff_normalize = frac_cfg.get("normalize", None)
+        if frac_diff_normalize is not None:
+            frac_diff_normalize = str(frac_diff_normalize)
 
         inputs = build_common_inputs(
             df_exec,
@@ -48,6 +51,7 @@ class _BLPBase(BaseModel):
             frac_diff_d=frac_diff_d,
             frac_diff_threshold=frac_diff_threshold,
             frac_diff_window=frac_diff_window,
+            frac_diff_normalize=frac_diff_normalize,
         )
         out = inputs.to_dict()
         out["y_jp_target"] = y_jp_target

@@ -132,6 +132,9 @@ class SectorRelativeEnsembleModel(BaseModel):
         self.frac_diff_d = float(frac_cfg.get("d", 0.5))
         self.frac_diff_threshold = float(frac_cfg.get("threshold", 1e-5))
         self.frac_diff_window = int(frac_cfg.get("window", 100))
+        self.frac_diff_normalize = frac_cfg.get("normalize", None)
+        if self.frac_diff_normalize is not None:
+            self.frac_diff_normalize = str(self.frac_diff_normalize)
 
         # Resolve US Residual Prior config
         self.prior_variant = self._resolve_nested("prior.variant", None)
@@ -169,6 +172,7 @@ class SectorRelativeEnsembleModel(BaseModel):
             self.frac_diff_d,
             self.frac_diff_threshold,
             self.frac_diff_window,
+            self.frac_diff_normalize,
         )
         if cache_key in self._common_inputs_cache:
             cached_val = self._common_inputs_cache[cache_key]
@@ -193,6 +197,7 @@ class SectorRelativeEnsembleModel(BaseModel):
             frac_diff_d=self.frac_diff_d,
             frac_diff_threshold=self.frac_diff_threshold,
             frac_diff_window=self.frac_diff_window,
+            frac_diff_normalize=self.frac_diff_normalize,
         )
         self.v0_static_obj = inputs.v0_static
         out = inputs.to_dict()
