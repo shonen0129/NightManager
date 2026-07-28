@@ -323,7 +323,6 @@ class NetScoreRankingLob:
 
         # Restore dollar neutrality for the final portfolio
         final_w = df["weight_after_lob"].values
-        from leadlag.models.net_score_ranking_lob import restore_dollar_neutrality_array
         df["weight_after_lob"] = restore_dollar_neutrality_array(final_w)
 
         return df
