@@ -968,6 +968,11 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
             SignalPipeline,
         )
 
+        # Clear per-run signal caches to prevent cross-run contamination
+        self._raw_pca_cache.clear()
+        self._residual_pca_cache.clear()
+        self._blp_corr_cache.clear()
+
         T = len(df_exec)
         sim_dates = df_exec.index
 

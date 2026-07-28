@@ -228,6 +228,30 @@ def test_no_nan_inf_signals(blpx_sample_config, sample_df_exec):
     assert not np.isinf(signals_slice.values).any()
 
 
+def test_predict_signals_clears_per_run_caches(blpx_sample_config, sample_df_exec):
+    """predict_signals should clear instance-level per-run caches to prevent cross-run contamination."""
+    df_exec, _ = sample_df_exec
+    model = SectorRelativeEnsembleBLPEnhancedModel(blpx_sample_config)
+
+    # First run populates caches
+    df1 = df_exec.iloc[:600]
+    _ = model.predict_signals(df1)
+
+    # Inject synthetic stale keys to simulate a previous run's residue
+    fake_key = ("__stale__",)
+    model._raw_pca_cache[fake_key] = np.zeros((model.n_j, model.n_u))
+    model._residual_pca_cache[fake_key] = np.zeros((model.n_j, model.n_u))
+    model._blp_corr_cache[fake_key] = (np.zeros(model.n_u), np.zeros(model.n_u), np.eye(model.n_u + model.n_j))
+
+    # Second run with a different slice should clear all stale keys before filling real ones
+    df2 = df_exec.iloc[100:700]
+    _ = model.predict_signals(df2)
+
+    assert fake_key not in model._raw_pca_cache
+    assert fake_key not in model._residual_pca_cache
+    assert fake_key not in model._blp_corr_cache
+
+
 def test_cost_consistency(blpx_sample_config, sample_df_exec):
     """11. test_cost_consistency: Verify net_return = gross_return - cost."""
     df_exec, _ = sample_df_exec
