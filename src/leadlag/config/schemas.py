@@ -6,7 +6,9 @@ All modules should import StrategyConfig / RiskConfig from here.
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from typing import Any, ClassVar
+
+from pydantic import BaseModel, Field, model_validator
 
 
 class StrategyConfig(BaseModel):
@@ -230,3 +232,72 @@ class ProductionV2RunConfig(BaseModel):
 
     # --- Macro Directional Adjustment (signed surprise × signed sensitivity) ---
     macro_direction_enabled: bool = Field(default=False, description="符号付きマクロサプライズによる方向調整有効フラグ")
+
+    #: Top-level YAML sections that this validator flattens into flat fields.
+    _NESTED_SECTIONS: ClassVar[tuple[str, ...]] = (
+        "portfolio", "gross_scaling", "costs", "fallback",
+        "multi_horizon_blend", "cs_feature_overlay", "blpx",
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def _flatten_nested_yaml(cls, data: Any) -> Any:
+        """Flatten the nested production YAML structure into flat fields.
+
+        Only keys explicitly present in the YAML are mapped; everything else
+        falls back to the ``Field`` defaults above (single source of truth).
+        Explicit top-level (flat) keys take precedence over nested sections.
+        """
+        if not isinstance(data, dict):
+            return data
+        portfolio = data.get("portfolio") or {}
+        gross_scaling = data.get("gross_scaling") or {}
+        costs = data.get("costs") or {}
+        fallback = data.get("fallback") or {}
+        mh = data.get("multi_horizon_blend") or {}
+        cs = data.get("cs_feature_overlay") or {}
+        blpx = data.get("blpx") or {}
+        multipliers = gross_scaling.get("multipliers") or {}
+        if not any([portfolio, gross_scaling, costs, fallback, mh, cs, blpx]):
+            return data
+
+        flat = {k: v for k, v in data.items() if k not in cls._NESTED_SECTIONS}
+        candidates = {
+            "long_count": portfolio.get("long_count"),
+            "short_count": portfolio.get("short_count"),
+            "baseline_gross": gross_scaling.get("baseline_gross"),
+            "cost_bps_per_gross": costs.get("cost_bps_per_gross"),
+            "pit_rolling_window": gross_scaling.get("pit_rolling_window"),
+            "tertile_low_pct": gross_scaling.get("tertile_low_pct"),
+            "tertile_high_pct": gross_scaling.get("tertile_high_pct"),
+            "mult_low": multipliers.get("Low"),
+            "mult_mid": multipliers.get("Medium"),
+            "mult_high": multipliers.get("High"),
+            "fallback_multiplier": gross_scaling.get("fallback_multiplier"),
+            "fallback_on_gap_data_missing": fallback.get("fallback_on_gap_data_missing"),
+            "fallback_on_audit_failure": fallback.get("fallback_on_audit_failure"),
+            "mh_blend_enabled": mh.get("enabled"),
+            "mh_horizons": mh.get("horizons"),
+            "mh_weights": mh.get("weights"),
+            "cs_overlay_enabled": cs.get("enabled"),
+            "cs_overlay_weight": cs.get("weight"),
+            "minvar_enabled": portfolio.get("minvar_enabled"),
+            "minvar_alpha": portfolio.get("minvar_alpha"),
+            # Macro keys: production.yaml places them under blpx: (not portfolio:).
+            # portfolio: takes precedence if both are present.
+            "macro_kappa_enabled": portfolio.get("macro_kappa_enabled", blpx.get("macro_kappa_enabled")),
+            "macro_kappas": portfolio.get("macro_kappas", blpx.get("macro_kappas")),
+            "macro_surprise_halflife_mean": portfolio.get(
+                "macro_surprise_halflife_mean", blpx.get("macro_surprise_halflife_mean")
+            ),
+            "macro_surprise_halflife_vol": portfolio.get(
+                "macro_surprise_halflife_vol", blpx.get("macro_surprise_halflife_vol")
+            ),
+            "macro_direction_enabled": portfolio.get(
+                "macro_direction_enabled", blpx.get("macro_direction_enabled")
+            ),
+        }
+        for key, value in candidates.items():
+            if value is not None and key not in flat:
+                flat[key] = value
+        return flat

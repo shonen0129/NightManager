@@ -7,6 +7,8 @@ from scipy.optimize import minimize_scalar
 from scipy.special import gammaln
 from scipy.stats import kendalltau, t as student_t
 
+from leadlag.data.tickers import JP_TICKERS, US_TICKERS
+
 # Numeric constants
 EPSILON_WEIGHT = 1e-12
 EPSILON_SIGMA = 1e-8
@@ -55,8 +57,15 @@ def get_static_sensitivity_labels() -> dict[str, np.ndarray]:
     -------
     dict with keys 'w3' (cyclical/defensive), 'w4' (FX),
     'w5' (energy), 'w6' (inflation), each (32,) ndarray.
+
+    Raises
+    ------
+    ValueError
+        If the label length does not match len(US_TICKERS) + len(JP_TICKERS).
+        The labels are hardcoded per-ticker, so any universe change in
+        tickers.py must update them here as well (AGENTS.md invariant #5).
     """
-    return {
+    labels = {
         "w3": np.array(
             [
                 1.0, 0.3, 0.3, 1.0, 1.0, 0.6, -1.0, 0.3, -1.0, -1.0, 1.0, 0.0, 0.6, -0.3, -0.6,
@@ -86,6 +95,15 @@ def get_static_sensitivity_labels() -> dict[str, np.ndarray]:
             dtype=float,
         ),
     }
+    expected = len(US_TICKERS) + len(JP_TICKERS)
+    for name, arr in labels.items():
+        if arr.shape[0] != expected:
+            raise ValueError(
+                f"Sensitivity label '{name}' has length {arr.shape[0]}, expected {expected} "
+                f"(len(US_TICKERS) + len(JP_TICKERS)). Update the hardcoded labels in "
+                f"get_static_sensitivity_labels() when changing the universe (AGENTS.md invariant #5)."
+            )
+    return labels
 
 
 def build_v3_static(

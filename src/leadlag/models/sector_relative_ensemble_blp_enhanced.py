@@ -484,7 +484,15 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
     ) -> np.ndarray:
         """Compute PCA prior B_pca from eigen decomposition of regularized correlation."""
         B_pca = np.zeros((self.n_j, self.n_u))
-        if v0_static is not None and c_full is not None and corr.shape == (32, 32) and v0_static.shape == (32, 6) and c_full.shape == (32, 32):
+        n = self.n_u + self.n_j
+        if (
+            v0_static is not None
+            and c_full is not None
+            and corr.shape == (n, n)
+            and v0_static.ndim == 2
+            and v0_static.shape[0] == n
+            and c_full.shape == (n, n)
+        ):
             c0_t = build_c0_from_v0(v0_static, c_full)
             c_t_reg = regularize_correlation(
                 corr, c0_t, self.lambda_reg, self.lambda_lw, self.lw_target,

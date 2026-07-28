@@ -88,6 +88,11 @@ class BacktestEngine:
         else:
             end_idx = T - 1
 
+        # Exclude provisional rows (today's close not yet available, r_oc=0.0)
+        if "is_provisional" in df_exec.columns:
+            while end_idx >= start_idx and bool(df_exec["is_provisional"].iloc[end_idx]):
+                end_idx -= 1
+
         sim_dates_slice = sim_dates[start_idx : end_idx + 1]
 
         # Generate weights
@@ -340,6 +345,11 @@ class BacktestEngine:
             end_idx = min(df_exec.index.searchsorted(end_dt), T - 1)
         else:
             end_idx = T - 1
+
+        # Exclude provisional rows (today's close not yet available, r_oc=0.0)
+        if "is_provisional" in df_exec.columns:
+            while end_idx >= start_idx and bool(df_exec["is_provisional"].iloc[end_idx]):
+                end_idx -= 1
 
         sim_dates_slice = sim_dates[start_idx : end_idx + 1]
         n_sim_days = len(sim_dates_slice)

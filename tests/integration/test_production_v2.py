@@ -426,6 +426,29 @@ class TestParseRunConfig:
         with pytest.raises(Exception):
             rc.long_count = 99  # type: ignore
 
+    def test_macro_keys_from_blpx_section(self):
+        """production.yaml places macro keys under blpx:, not portfolio:."""
+        cfg = {
+            "blpx": {
+                "macro_kappas": [5.0, 1.0, 2.0],
+                "macro_surprise_halflife_mean": 30.0,
+                "macro_surprise_halflife_vol": 90.0,
+            }
+        }
+        rc = parse_run_config(cfg)
+        assert rc.macro_kappas == (5.0, 1.0, 2.0)
+        assert abs(rc.macro_surprise_halflife_mean - 30.0) < 1e-12
+        assert abs(rc.macro_surprise_halflife_vol - 90.0) < 1e-12
+
+    def test_macro_keys_portfolio_takes_precedence_over_blpx(self):
+        """portfolio: macro keys override blpx: when both are present."""
+        cfg = {
+            "portfolio": {"macro_kappas": [9.0, 9.0, 9.0]},
+            "blpx": {"macro_kappas": [5.0, 1.0, 2.0]},
+        }
+        rc = parse_run_config(cfg)
+        assert rc.macro_kappas == (9.0, 9.0, 9.0)
+
 
 # ---------------------------------------------------------------------------
 # cfg propagation into generate_v2_production_portfolio

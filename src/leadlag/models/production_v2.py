@@ -80,7 +80,9 @@ def parse_run_config(cfg: dict) -> ProductionV2RunConfig:
       - ``fallback``      → fallback behavior flags
 
     Any missing key falls back to the Pydantic field default so the function
-    is safe to call with an empty dict (e.g. in tests).
+    is safe to call with an empty dict (e.g. in tests). Nested YAML sections
+    are flattened by ``ProductionV2RunConfig._flatten_nested_yaml`` so that
+    field defaults live only in the Pydantic schema (single source of truth).
 
     Args:
         cfg: Raw dict loaded from the production YAML file.
@@ -88,46 +90,7 @@ def parse_run_config(cfg: dict) -> ProductionV2RunConfig:
     Returns:
         Validated, frozen ``ProductionV2RunConfig`` instance.
     """
-    portfolio = cfg.get("portfolio", {})
-    gross_scaling = cfg.get("gross_scaling", {})
-    costs = cfg.get("costs", {})
-    fallback_cfg = cfg.get("fallback", {})
-    multipliers = gross_scaling.get("multipliers", {})
-
-    # Phase 2A: Multi-horizon blend config
-    mh_cfg = cfg.get("multi_horizon_blend", {})
-    # Phase 2D: CS feature overlay config
-    cs_cfg = cfg.get("cs_feature_overlay", {})
-    # MinVar weight optimization config
-    portfolio_cfg = portfolio
-
-    return ProductionV2RunConfig(
-        long_count=portfolio.get("long_count", 5),
-        short_count=portfolio.get("short_count", 5),
-        baseline_gross=gross_scaling.get("baseline_gross", 2.0),
-        cost_bps_per_gross=costs.get("cost_bps_per_gross", 10.0),
-        pit_rolling_window=gross_scaling.get("pit_rolling_window", 252),
-        tertile_low_pct=gross_scaling.get("tertile_low_pct", 33.3333),
-        tertile_high_pct=gross_scaling.get("tertile_high_pct", 66.6667),
-        mult_low=multipliers.get("Low", 0.75),
-        mult_mid=multipliers.get("Medium", 1.00),
-        mult_high=multipliers.get("High", 1.00),
-        fallback_multiplier=gross_scaling.get("fallback_multiplier", 1.00),
-        fallback_on_gap_data_missing=fallback_cfg.get("fallback_on_gap_data_missing", True),
-        fallback_on_audit_failure=fallback_cfg.get("fallback_on_audit_failure", True),
-        mh_blend_enabled=mh_cfg.get("enabled", False),
-        mh_horizons=tuple(mh_cfg.get("horizons", [1, 3, 5])),
-        mh_weights=tuple(mh_cfg.get("weights", [0.8, 0.1, 0.1])),
-        cs_overlay_enabled=cs_cfg.get("enabled", False),
-        cs_overlay_weight=cs_cfg.get("weight", 0.05),
-        minvar_enabled=portfolio_cfg.get("minvar_enabled", False),
-        minvar_alpha=portfolio_cfg.get("minvar_alpha", 0.5),
-        macro_kappa_enabled=portfolio_cfg.get("macro_kappa_enabled", False),
-        macro_kappas=tuple(portfolio_cfg.get("macro_kappas", [3.0, 0.5, 0.5])),
-        macro_surprise_halflife_mean=float(portfolio_cfg.get("macro_surprise_halflife_mean", 20.0)),
-        macro_surprise_halflife_vol=float(portfolio_cfg.get("macro_surprise_halflife_vol", 60.0)),
-        macro_direction_enabled=portfolio_cfg.get("macro_direction_enabled", False),
-    )
+    return ProductionV2RunConfig.model_validate(cfg or {})
 
 
 # ---------------------------------------------------------------------------

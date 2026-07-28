@@ -274,10 +274,13 @@ def preprocess_data(
 
         # r_oc (target return) may be NaN for today (close not yet available).
         # Fill with 0.0 so the row is kept — mu_gap computation does not use r_oc.
-        if r_oc.isna().any():
+        # Mark the row as provisional so consumers (backtest, PnL aggregation)
+        # can exclude it instead of treating today's return as a real 0.0.
+        is_provisional = bool(r_oc.isna().any())
+        if is_provisional:
             r_oc = r_oc.fillna(0.0)
 
-        record: dict = {"trade_date": trade_date, "sig_date": sig_date}
+        record: dict = {"trade_date": trade_date, "sig_date": sig_date, "is_provisional": is_provisional}
         for tk in US_TICKERS:
             record[f"us_cc_{tk}"] = r_us[tk]
         for tk in JP_TICKERS:
