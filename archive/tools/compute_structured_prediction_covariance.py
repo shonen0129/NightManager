@@ -32,6 +32,7 @@ from scipy.stats import spearmanr, skew, kurtosis, norm
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
+from leadlag.data.cache import save_decision_cache
 from leadlag.data.fetcher import download_data
 from leadlag.data.preprocessor import preprocess_data
 from leadlag.data.tickers import JP_TICKERS, US_TICKERS, TOPIX_TICKER
@@ -221,9 +222,16 @@ def main():
     r_topix_oc = topix_close / topix_open - 1.0
     df_exec["topix_oc_return"] = r_topix_oc.reindex(df_exec.index).values
     df_exec["topix_cc_trade"] = (1.0 + df_exec["topix_night_return"]) * (1.0 + df_exec["topix_oc_return"]) - 1.0
+
+    sim_dates = df_exec.index
+
+    # Save preprocessed data for Step 2 (gap distribution)
+    try:
+        save_decision_cache(df_exec)
+    except Exception as e:
+        logger.warning(f"Failed to save preprocessed data cache: {e}")
     
     # Filter dates
-    sim_dates = df_exec.index
     sim_dates_slice = sim_dates[sim_dates >= args.start]
     if args.end != "latest":
         sim_dates_slice = sim_dates_slice[sim_dates_slice <= args.end]

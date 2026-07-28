@@ -113,8 +113,27 @@ def build_api_client(
         extra=extra,
     )
 
+    # Try to restore a previously-saved Tachibana session to avoid re-login.
+    restored = False
+    restore_fn = getattr(client, "restore_session", None)
+    if restore_fn:
+        try:
+            restored = bool(restore_fn())
+            if restored:
+                logger.info("[API] Restored broker session from cache")
+        except Exception as e:
+            logger.warning("[API] Failed to restore broker session: %s", e)
+
     logger.info("[API] Checking API connectivity (provider=%s)...", provider)
-    if not client.health_check():
+    healthy = client.health_check()
+    if not healthy and restored:
+        logger.warning("[API] Restored session is invalid; retrying with fresh login")
+        discard_fn = getattr(client, "discard_restored_session", None)
+        if discard_fn:
+            discard_fn()
+        healthy = client.health_check()
+
+    if not healthy:
         if api_dry_run:
             logger.warning("[API] Health check failed, continuing in dry-run mode...")
         else:
@@ -332,7 +351,6 @@ def split_large_orders(
     delayed: list[OrderRequest] = []
     for req in orders:
         ticker = req.ticker
-        side = req.side
         qty = req.quantity
         if ticker == SPLIT_TICKER and qty >= SPLIT_THRESHOLD:
             lot = lot_size_for(SPLIT_TICKER)

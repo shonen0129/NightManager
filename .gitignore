@@ -66,4 +66,5 @@ market_data/
 # Protect operational pipeline data from accidental cleanup
 !live/pipeline_data/
 !live/pipeline_data/**
+live/pipeline_data/cache/
 

@@ -43,21 +43,15 @@ fi
 # --- Step 2: decision v2 ---
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] [2/2] decision v2 開始" >> "${LOG_FILE}"
 set +e
-PYTHONPATH=src "${PYTHON_BIN}" -c "
-import sys
-sys.path.insert(0, 'src')
-from leadlag.execution.v2_bridge import run_v2_decision
-run_v2_decision(
-    config_path='configs/production/production.yaml',
-    gap_input_dir='live/pipeline_data/gap_adjusted_distribution/latest',
-    live_dir='live/production_residual_blpx',
-    api_enable=True,
-    api_dry_run=False,
-    capital_from_wallet=True,
-    text_output=True,
-    output_root='results',
-)
-" >> "${LOG_FILE}" 2>&1
+PYTHONPATH=src "${PYTHON_BIN}" tools/production/run_v2_decision.py \
+    --config configs/production/production.yaml \
+    --gap-input-dir live/pipeline_data/gap_adjusted_distribution/latest \
+    --live-dir live/production_residual_blpx \
+    --api-enable \
+    --capital-from-wallet \
+    --text-output \
+    --output-root results \
+    >> "${LOG_FILE}" 2>&1
 EXIT_CODE=$?
 set -e
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] === 終了コード: ${EXIT_CODE} ===" >> "${LOG_FILE}"

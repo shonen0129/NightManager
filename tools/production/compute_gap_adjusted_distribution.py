@@ -21,6 +21,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 import yaml
+from concurrent.futures import ThreadPoolExecutor
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -31,6 +32,8 @@ from scipy.stats import spearmanr, pearsonr, norm
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
+from leadlag.broker.tachibana.session_cache import save_open_prices_cache
+from leadlag.data.cache import is_decision_cache_valid, load_decision_cache
 from leadlag.data.fetcher import download_data
 from leadlag.data.preprocessor import preprocess_data
 from leadlag.data.tickers import JP_TICKERS, US_TICKERS, TOPIX_TICKER
@@ -88,7 +91,8 @@ def inject_tachibana_realtime_prices(
     df_exec: pd.DataFrame,
     raw_data: dict,
     today: pd.Timestamp,
-) -> pd.DataFrame:
+    api_client: Any | None = None,
+) -> tuple[pd.DataFrame, Any]:
     """Inject or override today's row in df_exec using Tachibana API real-time prices.
 
     Fetches current prices (pDPP) for all JP tickers + TOPIX at ~9:10 JST,
@@ -104,9 +108,10 @@ def inject_tachibana_realtime_prices(
         df_exec: Execution DataFrame from preprocess_data().
         raw_data: Raw data dict with jp_close, jp_open, us_close.
         today: Today's date (tz-naive, normalized).
+        api_client: Optional pre-built broker client. If provided, it is not closed.
 
     Returns:
-        df_exec with today's row added or updated.
+        (df_exec with today's row added or updated, api_client used)
     """
     today = pd.Timestamp(today).tz_localize(None).normalize()
 
@@ -116,18 +121,22 @@ def inject_tachibana_realtime_prices(
     from leadlag.data.tickers import JP_TICKERS, US_TICKERS, TOPIX_TICKER
 
     # --- 1. Fetch current prices from Tachibana API ---
-    api_client = build_api_client(api_url=None, api_token=None, api_dry_run=False)
+    own_client = api_client is None
+    if own_client:
+        api_client = build_api_client(api_url=None, api_token=None, api_dry_run=False)
+    assert api_client is not None
 
     tickers_to_fetch = JP_TICKERS + [TOPIX_TICKER]
     current_prices = api_client.fetch_current_prices(tickers_to_fetch, allow_missing=True)
 
     if not current_prices:
         logger.error("Failed to fetch any prices from Tachibana API.")
-        try:
-            api_client.close()
-        except Exception:
-            pass
-        return df_exec
+        if own_client:
+            try:
+                api_client.close()
+            except Exception:
+                pass
+        return df_exec, api_client
 
     logger.info("Fetched %d/%d prices from Tachibana API.", len(current_prices), len(tickers_to_fetch))
 
@@ -140,11 +149,12 @@ def inject_tachibana_realtime_prices(
     us_dates_before_today = us_close.index[us_close.index < today]
     if len(us_dates_before_today) == 0:
         logger.error("No US trading data before %s.", today.date())
-        try:
-            api_client.close()
-        except Exception:
-            pass
-        return df_exec
+        if own_client:
+            try:
+                api_client.close()
+            except Exception:
+                pass
+        return df_exec, api_client
     sig_date = us_dates_before_today[-1]
     logger.info("sig_date=%s (most recent US trading day before %s)", sig_date.date(), today.date())
 
@@ -162,11 +172,12 @@ def inject_tachibana_realtime_prices(
     prev_dates = jp_close.index[jp_close.index < today]
     if len(prev_dates) == 0:
         logger.error("No historical JP close data before %s.", today.date())
-        try:
-            api_client.close()
-        except Exception:
-            pass
-        return df_exec
+        if own_client:
+            try:
+                api_client.close()
+            except Exception:
+                pass
+        return df_exec, api_client
     prev_date = prev_dates[-1]
 
     # JP close on sig_date (for jp_close_sig): use the closest JP trading day
@@ -242,13 +253,14 @@ def inject_tachibana_realtime_prices(
         sum(1 for tk in JP_TICKERS if record.get(f"jp_gap_{tk}", 0.0) != 0.0),
     )
 
-    # Close API client
-    try:
-        api_client.close()
-    except Exception:
-        pass
+    # Close API client only if we created it
+    if own_client:
+        try:
+            api_client.close()
+        except Exception:
+            pass
 
-    return df_exec
+    return df_exec, api_client
 
 
 def compute_mdd(returns: np.ndarray) -> float:
@@ -1053,16 +1065,41 @@ def main():
         bl_minvar_enabled, bl_minvar_alpha, bl_mh_enabled, bl_cs_overlay_enabled,
     )
     
-    # 2. Download and Preprocess market data
+    # 2. Load raw market data and reuse Step 1 preprocessing when valid
     logger.info("Loading market data...")
     raw_data = download_data(beta_window=60)
-    logger.info("Preprocessing market data...")
-    df_exec = preprocess_data(raw_data, beta_window=60)
+    if is_decision_cache_valid():
+        logger.info("Loading preprocessed market data from Step 1 cache...")
+        df_exec = load_decision_cache()
+    else:
+        logger.info("Preprocessing market data...")
+        df_exec = preprocess_data(raw_data, beta_window=60)
 
     # Inject Tachibana real-time prices for today if enabled
+    api_client = None
+    opens_executor = None
+    opens_future = None
     if str_to_bool(args.use_tachibana_prices):
         today = pd.Timestamp.now().tz_localize(None).normalize()
-        df_exec = inject_tachibana_realtime_prices(df_exec, raw_data, today)
+        from leadlag.execution.helpers import build_api_client
+
+        api_client = build_api_client(api_url=None, api_token=None, api_dry_run=False)
+        df_exec, api_client = inject_tachibana_realtime_prices(df_exec, raw_data, today, api_client=api_client)
+
+        # Start open-price fetch in parallel with the main computation.
+        # The decision step can then read these cached opens and skip an API call.
+        tickers_for_opens = JP_TICKERS + [TOPIX_TICKER]
+
+        def _fetch_and_cache_opens() -> None:
+            try:
+                opens = api_client.fetch_open_prices(tickers_for_opens, allow_missing=True)
+                topix_open = opens.pop(TOPIX_TICKER, None)
+                save_open_prices_cache(opens, topix_open, today.strftime("%Y%m%d"))
+            except Exception as e:
+                logger.warning("Parallel open-price fetch failed: %s", e)
+
+        opens_executor = ThreadPoolExecutor(max_workers=1)
+        opens_future = opens_executor.submit(_fetch_and_cache_opens)
     
     # Compute TOPIX returns
     topix_close = raw_data["jp_close"][TOPIX_TICKER].copy()
@@ -1283,6 +1320,26 @@ def main():
             logger.warning(f"Vol state panel file not found: {state_file}")
             
     df_port.to_csv(out_dir / "portfolio_gap_distribution_diagnostics.csv", index=False)
+
+    # --- Cleanup: parallel open fetch, session persistence, API client close ---
+    # Do this early because the following return may short-circuit the rest of main().
+    if opens_future is not None:
+        try:
+            opens_future.result(timeout=30.0)
+        except Exception as e:
+            logger.warning("Open-price fetch did not complete in time: %s", e)
+    if opens_executor is not None:
+        opens_executor.shutdown(wait=False, cancel_futures=True)
+
+    if api_client is not None:
+        release_fn = getattr(api_client, "release_session", None)
+        try:
+            if release_fn:
+                release_fn()
+            else:
+                api_client.close()
+        except Exception as e:
+            logger.warning("Failed to release broker session: %s", e)
     
     if not compare_pre or len(df_port) < 10:
         logger.info("Skipping diagnostic comparison and plotting due to compare_pre_gap=False or insufficient data points.")
@@ -2009,7 +2066,6 @@ def main():
         
     logger.info("Report and diagnostic suite executed successfully.")
     print(f"Diagnostics files written to output directory: {out_dir}")
-    
 
 if __name__ == "__main__":
     main()

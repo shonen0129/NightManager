@@ -13,6 +13,7 @@ from typing import Any
 
 from leadlag.broker.base import BrokerClient, BrokerConfig, Position, WalletInfo
 from leadlag.broker.tachibana.api import TachibanaApiError, TachibanaClient
+from leadlag.broker.tachibana import session_cache
 from leadlag.config import TachibanaApiConfig
 from leadlag.core.types import (
     OrderRequest,
@@ -79,6 +80,21 @@ class TachibanaBrokerClient(BrokerClient):
 
     def close(self) -> None:
         self._client.close()
+
+    def release_session(self) -> None:
+        """Hand the authenticated server session to the next pipeline process."""
+        self._client.release_session()
+
+    def restore_session(self) -> bool:
+        """Restore session state from disk if a cache exists."""
+        state = session_cache.load_session_cache()
+        if not state:
+            return False
+        return self._client.restore_session(state)
+
+    def discard_restored_session(self) -> None:
+        """Discard invalid restored state before a fresh login attempt."""
+        self._client.discard_restored_session()
 
     def get_order_detail(self, order_number: str, eigyou_day: str) -> dict[str, Any]:
         """Fetch order detail with fill information (約定価格、約定株数).

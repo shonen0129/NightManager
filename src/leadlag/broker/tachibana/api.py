@@ -15,6 +15,7 @@ from typing import Any
 
 import requests
 
+from leadlag.broker.tachibana import session_cache
 from leadlag.config import TachibanaApiConfig
 
 logger = logging.getLogger(__name__)
@@ -191,6 +192,44 @@ class TachibanaClient:
         finally:
             self.logged_in = False
             self.decrypted_urls = {}
+            session_cache.clear_session_cache()
+
+    def release_session(self) -> None:
+        """Persist the authenticated server session and close only local transport."""
+        self.save_session()
+        self.session.close()
+
+    def discard_restored_session(self) -> None:
+        """Discard invalid restored state so the next request performs a fresh login."""
+        self.logged_in = False
+        self.decrypted_urls = {}
+        session_cache.clear_session_cache()
+
+    def save_session(self) -> None:
+        """Persist decrypted virtual URLs and p_no to disk."""
+        session_cache.save_session_cache({
+            "decrypted_urls": self.decrypted_urls,
+            "p_no": self.p_no,
+            "logged_in": self.logged_in,
+        })
+
+    def restore_session(self, state: dict[str, Any]) -> bool:
+        """Restore session state from a previously saved cache.
+
+        Returns True if state was applied, False otherwise. The caller is
+        responsible for validating the restored session with a health check.
+        """
+        if not state:
+            return False
+        try:
+            self.decrypted_urls = dict(state.get("decrypted_urls", {}))
+            self.p_no = int(state.get("p_no", 1))
+            self.logged_in = bool(state.get("logged_in", False))
+            logger.info("[TachibanaAPI] Restored session state (p_no=%d)", self.p_no)
+            return True
+        except Exception as e:
+            logger.warning("[TachibanaAPI] Failed to restore session state: %s", e)
+            return False
 
     def _request(
         self,

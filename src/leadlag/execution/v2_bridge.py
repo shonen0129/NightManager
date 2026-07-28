@@ -21,7 +21,8 @@ import numpy as np
 import pandas as pd
 import yaml
 
-from leadlag.data.tickers import JP_TICKERS
+from leadlag.broker.tachibana.session_cache import load_open_prices_cache
+from leadlag.data.tickers import JP_TICKERS, TOPIX_TICKER
 from leadlag.execution.config import load_config_from_yaml
 from leadlag.execution.helpers import (
     build_api_client,
@@ -147,13 +148,36 @@ def run_v2_decision(
                 api_dry_run=api_dry_run,
             )
 
-            logger.info("[2/4] Fetching JP opens...")
-            manual_opens, topix_open = resolve_daily_open_prices(
-                api_client=api_client,
-                config=app_config.strategy,
-                opens_csv=jp_opens_csv,
-                use_google_opens=google_opens,
+            # Try cached opens first (saved by gap distribution step).
+            trade_date_str = t_trade.strftime("%Y%m%d")
+            cached_opens = (
+                load_open_prices_cache(trade_date_str)
+                if app_config.broker_provider == "tachibana"
+                else None
             )
+            if cached_opens is not None:
+                manual_opens, topix_open = cached_opens
+                missing = [tk for tk in JP_TICKERS if tk not in manual_opens]
+                if app_config.strategy.signal_mode == "gap_residual" and topix_open is None:
+                    missing.append(TOPIX_TICKER)
+                if not missing:
+                    logger.info("[2/4] Using cached JP opens from gap distribution step.")
+                else:
+                    logger.info("[2/4] Cached opens incomplete (%d missing); fetching from API...", len(missing))
+                    manual_opens, topix_open = resolve_daily_open_prices(
+                        api_client=api_client,
+                        config=app_config.strategy,
+                        opens_csv=jp_opens_csv,
+                        use_google_opens=google_opens,
+                    )
+            else:
+                logger.info("[2/4] Fetching JP opens...")
+                manual_opens, topix_open = resolve_daily_open_prices(
+                    api_client=api_client,
+                    config=app_config.strategy,
+                    opens_csv=jp_opens_csv,
+                    use_google_opens=google_opens,
+                )
 
             # Resolve capital
             if capital_from_wallet:
