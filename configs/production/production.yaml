@@ -193,6 +193,15 @@ audit:
   check_pit_binning_lookahead: true    # PIT ビニングが strictly historical であること
   check_gap_data_freshness: true       # gap data の日付が trade_date と整合すること
 
+ml_order_overlay:
+  enabled: true
+  model_dir: models/ml_order_overlay/phase2_8
+  use_ticker: true
+  use_classification: false
+  per_ticker_interactions: true
+  p_trade_ema_span: 0.0
+  fallback_to_baseline: true
+
 output:
   base_dir: results/production_residual_blpx
   live_dir: live/production_residual_blpx

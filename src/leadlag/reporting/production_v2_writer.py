@@ -53,7 +53,7 @@ def write_production_files(
     run_cfg = result["run_config"]
     cost_bps_per_gross = run_cfg.cost_bps_per_gross
     w_final = result["w_final"]
-    scores = result["scores"]
+    scores = result.get("scores_overlay", result["scores"])
     mu_gap = result["mu_gap"]
     sigma_gap = result["sigma_gap"]
     pit = result["pit_binning"]

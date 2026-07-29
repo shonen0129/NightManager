@@ -50,7 +50,10 @@ sys.path.insert(0, str(ROOT / "src"))
 # Import after path is set up
 from leadlag.compliance.v2_auditor import run_leakage_audit, run_numerical_audit
 from leadlag.core.portfolio import get_rolling_pit_bin, solve_baseline_style
-from leadlag.models.production_v2 import generate_v2_production_portfolio, VERSION
+from leadlag.models.ml_order_overlay import (
+    generate_v2_production_portfolio_with_overlay,
+    load_overlay_model,
+)
 from leadlag.reporting.production_v2_writer import write_production_files
 
 logging.basicConfig(
@@ -237,11 +240,41 @@ def main() -> None:
     logger.info("Gap input dir: %s", gap_input_dir)
     logger.info("Live dir: %s", live_dir)
 
+    # Load ML order-decision overlay if enabled
+    overlay_cfg = cfg.get("ml_order_overlay", {})
+    overlay_enabled = overlay_cfg.get("enabled", False)
+    overlay_model = None
+    df_exec = None
+    if overlay_enabled:
+        from leadlag.data.cache import load_df_exec_from_local_cache
+
+        model_dir = overlay_cfg.get("model_dir", "models/ml_order_overlay/phase2_8")
+        model_path = (
+            ROOT / model_dir if not model_dir.startswith("/") else Path(model_dir)
+        )
+        if model_path.exists():
+            try:
+                overlay_model = load_overlay_model(model_path)
+                df_exec = load_df_exec_from_local_cache()
+                logger.info(
+                    "ML order overlay enabled. Model loaded from %s", model_path
+                )
+            except Exception as e:
+                logger.warning("Failed to load overlay model or df_exec: %s", e)
+                overlay_model = None
+                df_exec = None
+        else:
+            logger.warning(
+                "ML order overlay enabled but model dir not found: %s", model_path
+            )
+
     # Run core logic (delegated to the package)
-    result = generate_v2_production_portfolio(
+    result = generate_v2_production_portfolio_with_overlay(
         trade_date=trade_date,
         gap_input_dir=gap_input_dir,
         cfg=cfg,
+        df_exec=df_exec,
+        overlay_model=overlay_model,
     )
 
     # Write files (delegated to the package)
