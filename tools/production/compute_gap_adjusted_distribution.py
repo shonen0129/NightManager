@@ -579,6 +579,11 @@ def _process_date_impl(dt: pd.Timestamp, ctx: GapDistContext, acc: GapDistAccumu
     # Daily parameters
     gap_override = np.nan_to_num(ctx.jp_gap[i], nan=0.0) if ctx.jp_gap is not None else np.zeros(ctx.model.n_j)
     betas_t = np.asarray(ctx.jp_beta[i], dtype=float) if ctx.jp_beta is not None else np.zeros(ctx.model.n_j)
+    # Clip NaN/Inf betas to 0.0 (no systematic gap exposure) to avoid NaN
+    # propagating into the denominator and gap-adjusted covariance.
+    if not np.isfinite(betas_t).all():
+        logger.warning(f"Non-finite betas_t on {date_str}; clipping NaN/Inf to 0.0")
+        betas_t = np.nan_to_num(betas_t, nan=0.0, posinf=0.0, neginf=0.0)
     topix_night_t = float(ctx.topix_night[i]) if ctx.topix_night is not None else 0.0
 
     # Run model to get raw std scaling and standardized predictions
@@ -725,6 +730,10 @@ def _process_date_impl(dt: pd.Timestamp, ctx: GapDistContext, acc: GapDistAccumu
 
                 gap_override_h = np.nan_to_num(gap_h[i], nan=0.0) if gap_h is not None else np.zeros(model_h.n_j)
                 betas_t_h = np.asarray(beta_h[i], dtype=float) if beta_h is not None else np.zeros(model_h.n_j)
+                # Clip NaN/Inf betas to 0.0 (no systematic gap exposure) for multi-horizon too.
+                if not np.isfinite(betas_t_h).all():
+                    logger.warning(f"Non-finite betas_t on {date_str} (h={h}); clipping NaN/Inf to 0.0")
+                    betas_t_h = np.nan_to_num(betas_t_h, nan=0.0, posinf=0.0, neginf=0.0)
                 topix_night_t_h = float(topix_night_h[i]) if topix_night_h is not None else 0.0
 
                 res_h = model_h.compute_blp_signal(

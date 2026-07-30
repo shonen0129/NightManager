@@ -145,6 +145,15 @@ def test_apply_overlay_adjusts_scores_and_weights():
     df_exec = _make_df_exec(date)
     scores = np.linspace(-1.0, 1.0, N_J)
     result = _base_result(scores)
+    # Provide a non-zero market-neutral w_final so the overlay has long/short sides to scale.
+    long_thr = np.percentile(scores, 100 * (1 - 5 / N_J))
+    short_thr = np.percentile(scores, 100 * (5 / N_J))
+    w_init = np.zeros(N_J)
+    w_init[scores >= long_thr] = 1.0
+    w_init[scores <= short_thr] = -1.0
+    if np.sum(np.abs(w_init)) > 0:
+        w_init *= 2.0 / np.sum(np.abs(w_init))
+    result["w_final"] = w_init
 
     model = MLOrderOverlayModel(
         lgbm=_DummyLGBM(),

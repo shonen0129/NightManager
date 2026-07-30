@@ -637,11 +637,11 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
                 "B_struct": B_struct,
                 "z_U": z_U_t,
                 "pred_var_vec": pred_var,
-                "sigma_X": sigma[:len(sigma)//2] if sigma is not None else None,
-                "sigma_Y": sigma[len(sigma)//2:] if sigma is not None else None,
+                "sigma_X": sigma[: len(US_TICKERS)] if sigma is not None else None,
+                "sigma_Y": sigma[len(US_TICKERS) :] if sigma is not None else None,
                 "sigma_Y_denorm": sigma_j_t,
-                "mu_X": mu[:len(mu)//2] if mu is not None else None,
-                "mu_Y": mu[len(mu)//2:] if mu is not None else None,
+                "mu_X": mu[: len(US_TICKERS)] if mu is not None else None,
+                "mu_Y": mu[len(US_TICKERS) :] if mu is not None else None,
             })
         return diag
 

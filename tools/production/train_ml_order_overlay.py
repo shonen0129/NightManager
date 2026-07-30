@@ -67,6 +67,18 @@ def parse_arguments() -> argparse.Namespace:
     p.add_argument("--reg-lambda", type=float, default=1.0)
     p.add_argument("--subsample", type=float, default=0.8)
     p.add_argument("--colsample-bytree", type=float, default=0.8)
+    p.add_argument(
+        "--p-trade-scale",
+        type=float,
+        default=1.0,
+        help="Multiplier for the p_trade sigmoid. Default 1.0 (legacy). 2.0 centers the neutral prediction at 1.0 instead of 0.5.",
+    )
+    p.add_argument(
+        "--target-type",
+        choices=["raw", "residual", "residual_sign", "classification"],
+        default="raw",
+        help="Target type for LGBM overlay. 'raw' = side*realized - cost, 'residual' = raw - OLS(score), 'residual_sign' = sign of residual, 'classification' = profitable or not.",
+    )
     return p.parse_args()
 
 
@@ -129,6 +141,8 @@ def main() -> int:
         use_ticker=not args.no_ticker,
         use_classification=args.use_classification,
         per_ticker_interactions=per_ticker,
+        p_trade_scale=args.p_trade_scale,
+        target_type=args.target_type,
     )
 
     logger.info("Training complete. Model saved to %s", output_dir)

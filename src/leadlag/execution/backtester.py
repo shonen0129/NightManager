@@ -10,6 +10,11 @@ import pandas as pd
 
 from leadlag.data.tickers import JP_TICKERS
 from leadlag.models.base import BaseModel
+from leadlag.models.ml_order_overlay import (
+    MLOrderOverlayModel,
+    generate_v2_production_portfolio_with_overlay,
+    load_overlay_model,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -281,6 +286,8 @@ class BacktestEngine:
         reverse_fee_bps: float | None = None,
         side_leverage: float = 1.5,
         n_jobs: int = 1,
+        overlay_model: MLOrderOverlayModel | None = None,
+        overlay_model_dir: Path | str | None = None,
     ) -> dict:
         """Run a historical backtest using the V2 production model.
 
@@ -315,6 +322,10 @@ class BacktestEngine:
         """
         from leadlag.models.production_v2 import generate_v2_production_portfolio
         from leadlag.models.sre import compute_jp_target_returns
+
+        if overlay_model is None and overlay_model_dir is not None:
+            overlay_model = load_overlay_model(Path(overlay_model_dir))
+            logger.info("Loaded overlay model from %s", overlay_model_dir)
 
         costs = cfg.get("costs", {})
         slip_bps = slippage_bps if slippage_bps is not None else float(costs.get("slippage_bps_per_side", 5.0))
@@ -390,11 +401,20 @@ class BacktestEngine:
             i, dt = i_dt
             date_str = dt.strftime("%Y-%m-%d")
             try:
-                result = generate_v2_production_portfolio(
-                    trade_date=date_str,
-                    gap_input_dir=gap_dir,
-                    cfg=cfg,
-                )
+                if overlay_model is not None:
+                    result = generate_v2_production_portfolio_with_overlay(
+                        trade_date=date_str,
+                        gap_input_dir=gap_dir,
+                        cfg=cfg,
+                        df_exec=df_exec,
+                        overlay_model=overlay_model,
+                    )
+                else:
+                    result = generate_v2_production_portfolio(
+                        trade_date=date_str,
+                        gap_input_dir=gap_dir,
+                        cfg=cfg,
+                    )
                 w = result["w_final"]
                 fb = result["fallback"]["gap_data_missing"]
                 summary = result.get("summary", {})

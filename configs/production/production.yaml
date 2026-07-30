@@ -111,6 +111,7 @@ blpx:
   asymmetry_delta: 0.30
   gap_open_coef_neg: 0.60
   topix_beta_coef_neg: 0.60
+  vol_adjusted_target: false       # インサンプル平均+標準偏差で mu_raw を復元 (2024-フル期間で Sharpe +1.33)
   # --- Macro Confidence (Factor-Specific Kappa) ---
   # NOTE: これらのパラメータは v1 フォールバックパス（SectorRelativeEnsembleBLPEnhancedModel）
   # でのみ有効です。v2 プライマリパス（ProductionV2Model）は gap-adjusted distribution
