@@ -62,5 +62,6 @@
   "use_ticker": true,
   "use_classification": false,
   "per_ticker_interactions": true,
-  "n_tickers": 17
+  "n_tickers": 17,
+  "p_trade_scale": 1.0
 }

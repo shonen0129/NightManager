@@ -64,9 +64,9 @@
     "ticker_1633.T_gap",
     "ticker_1633.T_score_x_gap"
   ],
-  "target_std": 0.4990774847459022,
+  "target_std": 0.011585649386951703,
   "use_ticker": true,
-  "use_classification": true,
+  "use_classification": false,
   "per_ticker_interactions": true,
   "n_tickers": 17,
   "p_trade_scale": 1.0

@@ -265,6 +265,7 @@ def save_overlay_model(model: MLOrderOverlayModel, output_dir: Path) -> None:
         "use_classification": model.use_classification,
         "per_ticker_interactions": model.per_ticker_interactions,
         "n_tickers": len(JP_TICKERS),
+        "p_trade_scale": float(getattr(model, "p_trade_scale", 1.0)),
     }
     (output_dir / "metadata.json").write_text(json.dumps(metadata, indent=2))
 
