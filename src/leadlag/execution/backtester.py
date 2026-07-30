@@ -438,7 +438,7 @@ class BacktestEngine:
         else:
             from joblib import Parallel, delayed
 
-            results = Parallel(n_jobs=n_jobs, backend="threading", verbose=10)(
+            results = Parallel(n_jobs=n_jobs, backend="loky", verbose=10)(
                 delayed(_process_date)(pair) for pair in date_index_pairs
             )
             for i, w, fb, summary in results:
