@@ -92,9 +92,17 @@ def main():
     out_dir.mkdir(parents=True, exist_ok=True)
 
     results["daily_returns"].to_csv(out_dir / "daily_net_returns.csv", header=["net_return"])
+    results["daily_returns_gross"].to_csv(out_dir / "daily_gross_returns.csv", header=["gross_return"])
     results["equity_curve"].to_csv(out_dir / "daily_equity_curve.csv", header=["equity"])
     results["drawdown"].to_csv(out_dir / "daily_drawdown.csv", header=["drawdown"])
     results["daily_turnover"].to_csv(out_dir / "daily_turnover.csv", header=["turnover"])
+    results["daily_gross_exps"].to_csv(out_dir / "daily_gross_exposure.csv", header=["gross_exposure"])
+    results["daily_costs"].to_csv(out_dir / "daily_costs.csv", header=["cost"])
+    results["daily_slip_costs"].to_csv(out_dir / "daily_slip_costs.csv", header=["slip_cost"])
+    results["daily_financing_costs"].to_csv(out_dir / "daily_financing_costs.csv", header=["financing_cost"])
+    results["daily_borrow_costs"].to_csv(out_dir / "daily_borrow_costs.csv", header=["borrow_cost"])
+    results["daily_reverse_costs"].to_csv(out_dir / "daily_reverse_costs.csv", header=["reverse_cost"])
+    results["weights"].to_csv(out_dir / "daily_weights.csv")
 
     print("\n=== Production Backtest Results (Residual-BLPX) ===")
     for key, v in metrics.items():

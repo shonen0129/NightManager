@@ -1,0 +1,32 @@
+{
+  "model": "SectorRelativeEnsembleBLPEnhancedModel",
+  "config": "configs/production/production.yaml",
+  "period": {
+    "start": "2015-01-05",
+    "end": "2026-07-31"
+  },
+  "samples": 2747,
+  "net": {
+    "ar_pct": 143.9387,
+    "vol_ann_pct": 16.4604,
+    "sharpe": 8.7446,
+    "total_return_pct": 539688217.2442,
+    "mdd_pct": -7.1989,
+    "avg_turnover": 1.6139,
+    "avg_gross_exposure": 2.0
+  },
+  "gross": {
+    "ar_pct": 179.0177,
+    "vol_ann_pct": 16.4578,
+    "sharpe": 10.8774,
+    "total_return_pct": 24124572504.96
+  },
+  "costs_bps_per_day": {
+    "slip": 11.3492,
+    "financing": 0.7903,
+    "borrow": 0.2424,
+    "reverse": 1.5384,
+    "total": 13.9203
+  },
+  "fallback_rate_pct": 0.0
+}
