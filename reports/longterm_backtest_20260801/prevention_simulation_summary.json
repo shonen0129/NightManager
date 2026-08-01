@@ -1,0 +1,125 @@
+[
+  {
+    "name": "baseline",
+    "params": "alpha_long=0.75, alpha_short=0.50, no stop",
+    "gross_5d_bps": -601.836666329374,
+    "net_5d_bps": -665.367861018566
+  },
+  {
+    "name": "alpha_long_0.5_short_0.25",
+    "params": "alpha_long=0.5, alpha_short=0.25",
+    "gross_5d_bps": -503.5952679160106,
+    "net_5d_bps": -581.2980979972582
+  },
+  {
+    "name": "alpha_long_0.0_short_0.0",
+    "params": "alpha_long=0.0, alpha_short=0.0",
+    "gross_5d_bps": -362.69903710636686,
+    "net_5d_bps": -462.6990371063668
+  },
+  {
+    "name": "daily_loss_stop_-0.5pct_scale0.0",
+    "params": "if prior net < -50 bps then scale=0.0",
+    "gross_5d_bps": -263.27012481902466,
+    "net_5d_bps": -300.42930631399986,
+    "hit_days_in_5d": 2
+  },
+  {
+    "name": "daily_loss_stop_-1.0pct_scale0.0",
+    "params": "if prior net < -100 bps then scale=0.0",
+    "gross_5d_bps": -263.27012481902466,
+    "net_5d_bps": -300.42930631399986,
+    "hit_days_in_5d": 2
+  },
+  {
+    "name": "daily_loss_stop_-1.5pct_scale0.0",
+    "params": "if prior net < -150 bps then scale=0.0",
+    "gross_5d_bps": -580.5410026284197,
+    "net_5d_bps": -631.9441525008739,
+    "hit_days_in_5d": 1
+  },
+  {
+    "name": "daily_loss_stop_-2.0pct_scale0.0",
+    "params": "if prior net < -200 bps then scale=0.0",
+    "gross_5d_bps": -580.5410026284197,
+    "net_5d_bps": -631.9441525008739,
+    "hit_days_in_5d": 1
+  },
+  {
+    "name": "daily_loss_stop_-0.5pct_scale0.5",
+    "params": "if prior net < -50 bps then scale=0.5",
+    "gross_5d_bps": -421.90556372372214,
+    "net_5d_bps": -467.35240293376364,
+    "hit_days_in_5d": 3
+  },
+  {
+    "name": "daily_loss_stop_-1.0pct_scale0.5",
+    "params": "if prior net < -100 bps then scale=0.5",
+    "gross_5d_bps": -421.90556372372214,
+    "net_5d_bps": -467.35240293376364,
+    "hit_days_in_5d": 3
+  },
+  {
+    "name": "daily_loss_stop_-1.5pct_scale0.5",
+    "params": "if prior net < -150 bps then scale=0.5",
+    "gross_5d_bps": -591.1888344788981,
+    "net_5d_bps": -648.9747806979899,
+    "hit_days_in_5d": 1
+  },
+  {
+    "name": "daily_loss_stop_-2.0pct_scale0.5",
+    "params": "if prior net < -200 bps then scale=0.5",
+    "gross_5d_bps": -591.1888344788981,
+    "net_5d_bps": -648.9747806979899,
+    "hit_days_in_5d": 1
+  },
+  {
+    "name": "drawdown_stop_3pct_scale0.0",
+    "params": "if DD < -3% then scale=0.0",
+    "gross_5d_bps": 0.0,
+    "net_5d_bps": 0.0,
+    "hit_days_in_5d": 5
+  },
+  {
+    "name": "drawdown_stop_5pct_scale0.0",
+    "params": "if DD < -5% then scale=0.0",
+    "gross_5d_bps": 0.0,
+    "net_5d_bps": 0.0,
+    "hit_days_in_5d": 5
+  },
+  {
+    "name": "drawdown_stop_3pct_scale0.5",
+    "params": "if DD < -3% then scale=0.5",
+    "gross_5d_bps": -436.1781422417419,
+    "net_5d_bps": -487.6837544816002,
+    "hit_days_in_5d": 2
+  },
+  {
+    "name": "drawdown_stop_5pct_scale0.5",
+    "params": "if DD < -5% then scale=0.5",
+    "gross_5d_bps": -591.1888344788981,
+    "net_5d_bps": -648.9747806979899,
+    "hit_days_in_5d": 1
+  },
+  {
+    "name": "ic20_stop_lt_0.0_scale0.0",
+    "params": "if 20-day IC < 0.0 then scale=0.0",
+    "gross_5d_bps": -601.8366663293766,
+    "net_5d_bps": -665.3678610185683,
+    "hit_days_in_5d": 0
+  },
+  {
+    "name": "ic20_stop_lt_0.0_scale0.5",
+    "params": "if 20-day IC < 0.0 then scale=0.5",
+    "gross_5d_bps": -601.8366663293766,
+    "net_5d_bps": -665.3678610185683,
+    "hit_days_in_5d": 0
+  },
+  {
+    "name": "ic20_stop_lt_-0.05_scale0.0",
+    "params": "if 20-day IC < -0.05 then scale=0.0",
+    "gross_5d_bps": -601.8366663293766,
+    "net_5d_bps": -665.3678610185683,
+    "hit_days_in_5d": 0
+  }
+]
