@@ -38,16 +38,23 @@ PLIST_CLOSE="${LAUNCH_AGENT_DIR}/com.leadlag.close.plist"
 sed "s|__PROJECT_DIR__|${PROJECT_DIR}|g" "${SCRIPT_DIR}/com.leadlag.close.plist" > "${PLIST_CLOSE}"
 echo "[OK] Close plist: ${PLIST_CLOSE} (毎日 14:50)"
 
+# --- タスク4: P&L レポート (毎日 15:40) ---
+PLIST_PNL_REPORT="${LAUNCH_AGENT_DIR}/com.leadlag.pnl_report.plist"
+sed "s|__PROJECT_DIR__|${PROJECT_DIR}|g" "${SCRIPT_DIR}/com.leadlag.pnl_report.plist" > "${PLIST_PNL_REPORT}"
+echo "[OK] P&L report plist: ${PLIST_PNL_REPORT} (毎日 15:40)"
+
 # --- launchd に登録 ---
 # 既存のものがあればアンロード
 launchctl unload "${PLIST_DIST_DIAG}" 2>/dev/null || true
 launchctl unload "${PLIST_DECISION}" 2>/dev/null || true
 launchctl unload "${PLIST_CLOSE}" 2>/dev/null || true
+launchctl unload "${PLIST_PNL_REPORT}" 2>/dev/null || true
 
 # ロード
 launchctl load "${PLIST_DIST_DIAG}"
 launchctl load "${PLIST_DECISION}"
 launchctl load "${PLIST_CLOSE}"
+launchctl load "${PLIST_PNL_REPORT}"
 
 echo ""
 echo "============================================"
@@ -58,6 +65,7 @@ echo "登録済みジョブ:"
 echo "  com.leadlag.distribution-diagnostics — 毎朝 6:00 (月-金)"
 echo "  com.leadlag.decision                  — 毎朝 9:05 (月-金)"
 echo "  com.leadlag.close                     — 毎日 14:50 (月-金)"
+echo "  com.leadlag.pnl_report                — 毎日 15:40 (月-金)"
 echo ""
 echo "ログ出力先: ${PROJECT_DIR}/logs/"
 echo ""
@@ -66,6 +74,7 @@ echo "  bash ${SCRIPT_DIR}/run_distribution_diagnostics.sh"
 echo "  bash ${SCRIPT_DIR}/run_gap_distribution.sh"
 echo "  bash ${SCRIPT_DIR}/run_decision.sh"
 echo "  bash ${SCRIPT_DIR}/run_close_positions.sh"
+echo "  bash ${SCRIPT_DIR}/run_pnl_report.sh"
 echo ""
 echo "launchd 状態確認:"
 echo "  launchctl list | grep leadlag"
@@ -74,4 +83,5 @@ echo "登録解除:"
 echo "  launchctl unload ${PLIST_DIST_DIAG}"
 echo "  launchctl unload ${PLIST_DECISION}"
 echo "  launchctl unload ${PLIST_CLOSE}"
+echo "  launchctl unload ${PLIST_PNL_REPORT}"
 echo ""

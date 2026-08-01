@@ -25,9 +25,9 @@ from leadlag.execution.helpers import (
     build_api_client,
     build_output_dir,
     fetch_fill_prices,
+    save_daily_journal,
     save_position_snapshot,
     save_wallet_snapshot,
-    save_daily_journal,
     split_large_orders,
 )
 
@@ -165,6 +165,8 @@ def close_all_positions(
             close_fraction * 100,
         )
 
+    close_meta_by_ticker = {m["ticker"]: m for m in close_order_meta}
+
     summary = {
         "timestamp": datetime.now().isoformat(timespec="seconds"),
         "dry_run": dry_run,
@@ -187,6 +189,7 @@ def close_all_positions(
                 "side": meta["side"],
                 "quantity": meta["quantity"],
                 "original_side": meta["original_side"],
+                "original_price": meta["original_price"],
             }
             logger.info(
                 "  [SIMULATED CLOSE] %s: %d shares (%s → %s)",
@@ -218,6 +221,7 @@ def close_all_positions(
                 result.quantity,
                 result.order_id,
             )
+            meta = close_meta_by_ticker.get(result.ticker, {})
             summary["close_results"].append(
                 {
                     "order_id": result.order_id,
@@ -226,6 +230,8 @@ def close_all_positions(
                     "side": result.side.value,
                     "quantity": result.quantity,
                     "message": result.message,
+                    "original_side": meta.get("original_side"),
+                    "original_price": meta.get("original_price"),
                 }
             )
             if result.status == OrderStatus.FAILED:
@@ -239,6 +245,7 @@ def close_all_positions(
                     len(delayed_close),
                 )
                 for req in delayed_close:
+                    meta = close_meta_by_ticker.get(req.ticker, {})
                     summary["close_results"].append({
                         "order_id": "",
                         "status": "SKIPPED",
@@ -247,6 +254,8 @@ def close_all_positions(
                         "quantity": req.quantity,
                         "message": "Skipped due to first batch failure",
                         "delayed": True,
+                        "original_side": meta.get("original_side"),
+                        "original_price": meta.get("original_price"),
                     })
             else:
                 delayed_requests = list(delayed_close)
@@ -269,6 +278,7 @@ def close_all_positions(
                         result.quantity,
                         result.order_id,
                     )
+                    meta = close_meta_by_ticker.get(result.ticker, {})
                     summary["close_results"].append(
                         {
                             "order_id": result.order_id,
@@ -278,6 +288,8 @@ def close_all_positions(
                             "quantity": result.quantity,
                             "message": result.message,
                             "delayed": True,
+                            "original_side": meta.get("original_side"),
+                            "original_price": meta.get("original_price"),
                         }
                     )
 
@@ -455,6 +467,7 @@ def run_close_positions_mode(
             position_snapshot_path=pos_snapshot_path,
             wallet_snapshot_path=wallet_snapshot_path,
         )
+
     finally:
         if api_client is not None:
             api_client.close()

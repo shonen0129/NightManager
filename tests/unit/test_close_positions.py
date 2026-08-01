@@ -5,15 +5,10 @@ Unit tests for close_all_positions lot-size rounding and OrderRequest propagatio
 
 from __future__ import annotations
 
-import json
-import os
 import tempfile
 
-import pytest
-
 from leadlag.broker.base import BrokerClient, Position
-from leadlag.core.types import OrderRequest, OrderResult, OrderSide, OrderStatus, OrderType
-
+from leadlag.core.types import OrderRequest, OrderResult, OrderStatus
 
 # ---------------------------------------------------------------------------
 # Mock broker client
@@ -105,12 +100,12 @@ class FailingBrokerClient(MockBrokerClient):
         return results
 
 
-def _make_position(ticker: str, side: str, qty: int, *, margin_trade_type: int = 3, account_type: int = 4) -> Position:
+def _make_position(ticker: str, side: str, qty: int, *, price: float = 1000.0, margin_trade_type: int = 3, account_type: int = 4) -> Position:
     return Position(
         ticker=ticker,
         side=side,
         quantity=qty,
-        price=1000.0,
+        price=price,
         exchange=27,
         execution_id="POS-001",
         margin_trade_type=margin_trade_type,
@@ -309,3 +304,26 @@ class TestSuccessCount:
         failed_count = sum(1 for s in statuses if s == "FAILED")
         assert submitted_count == 2
         assert failed_count == 2
+
+    def test_close_result_includes_original_price_and_side(self):
+        """Close results must carry original entry price and side for P&L reporting."""
+        positions = [
+            _make_position("1617.T", "BUY", 10, price=1234.0),
+            _make_position("1570.T", "SELL", 10, price=5678.0),
+        ]
+        client = MockBrokerClient(positions)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            from leadlag.execution.close import close_all_positions
+
+            summary = close_all_positions(
+                client, tmpdir, dry_run=False,
+                overnight_alpha_long=0.0, overnight_alpha_short=0.0,
+            )
+
+        by_ticker = {r["ticker"]: r for r in summary["close_results"]}
+        assert "1617.T" in by_ticker
+        assert "1570.T" in by_ticker
+        assert by_ticker["1617.T"]["original_side"] == "BUY"
+        assert by_ticker["1617.T"]["original_price"] == 1234.0
+        assert by_ticker["1570.T"]["original_side"] == "SELL"
+        assert by_ticker["1570.T"]["original_price"] == 5678.0

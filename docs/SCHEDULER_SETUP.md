@@ -9,6 +9,7 @@
 | `日米ラグ_AutoLogin` | 毎朝 7:00 | `run_auto_login.bat` | — | kabuステーション自動ログイン |
 | `日米ラグ_Decision` | 毎朝 9:05 | `run_decision.bat` | `run_decision.sh` | 売買判定 (`leadlag cli decision`) |
 | `日米ラグ_ClosePositions` | 毎日 14:50 | `run_close_positions.bat` | `run_close_positions.sh` | 引け反対売買 (`leadlag cli close`) |
+| `日米ラグ_PnlReport` | 毎日 15:40 | — | `run_pnl_report.sh` | 引け損益レポート作成・送信 (`send_daily_close_pnl_report.py`) |
 
 ## 前提条件
 
@@ -84,6 +85,7 @@ launchctl list | grep leadlag
 ```bash
 launchctl unload ~/Library/LaunchAgents/com.leadlag.decision.plist
 launchctl unload ~/Library/LaunchAgents/com.leadlag.close.plist
+launchctl unload ~/Library/LaunchAgents/com.leadlag.pnl_report.plist
 ```
 
 ## 動作確認
@@ -126,6 +128,7 @@ Unregister-ScheduledTask -TaskName "日米ラグ_ClosePositions" -Confirm:$false
 ```bash
 launchctl unload ~/Library/LaunchAgents/com.leadlag.decision.plist
 launchctl unload ~/Library/LaunchAgents/com.leadlag.close.plist
+launchctl unload ~/Library/LaunchAgents/com.leadlag.pnl_report.plist
 ```
 
 ## スクリプトのカスタマイズ
@@ -166,3 +169,41 @@ launchctl unload ~/Library/LaunchAgents/com.leadlag.close.plist
 | ログインが失敗する | kabuステーションがタスクバーにピン留めされているか確認 |
 | OTP取得に失敗 | `creds/token.json` が有効か確認（初回は手動で認証フローを実行） |
 | 土日祝に実行される | 現在は毎日実行。休日判定が必要な場合はスクリプトにロジック追加が必要 |
+
+## 引け損益レポート（オプション）
+
+大引け（15:30）後に当日の実現・未実現損益をまとめた Markdown レポートを作成し、Gmail API で送信できます。
+レポート処理は **15:40** に起動する `com.leadlag.pnl_report` として独立スケジュール化されており、`close` ジョブとは分離されています。
+
+### 準備
+
+1. スケジューラをセットアップし直します（新規ジョブを登録）：
+   ```bash
+   bash scripts/batch/setup_scheduler_macos.sh
+   ```
+
+2. Gmail 送信用 OAuth トークンを発行（初回のみ）:
+   ```bash
+   python tools/production/send_daily_close_pnl_report.py --authorize
+   ```
+   - 使用スコープは `https://www.googleapis.com/auth/gmail.send`
+   - トークンは `creds/token_gmail_send.json` に保存されます
+   - `creds/credentials.json` が必要です（OTP自動取得で使っているものを流用可能）
+
+3. `.env` に以下を追加:
+   ```bash
+   LEADLAG_PNL_REPORT_SEND=1
+   LEADLAG_PNL_REPORT_RECIPIENTS=you@example.com,ops@example.com
+   # LEADLAG_PNL_FROM_EMAIL=optional-sender@example.com
+   ```
+
+### 動作
+
+- `run_pnl_report.sh` は 15:40 に起動
+- 直近の `results/...production_close_positions` ディレクトリを自動検出
+- 約定情報をブローカー API から再取得し `close_execution_log.json` を更新
+- 引け後の残存ポジション・ウォレットスナップショットを取得（`positions_pnl_YYYYMMDD.json`, `wallet_pnl_YYYYMMDD.json`）
+- `daily_pnl_report_YYYYMMDD.md` を作成し、設定されていればメール送信
+- `LEADLAG_PNL_REPORT_SEND=1` かつ `LEADLAG_PNL_REPORT_RECIPIENTS` が設定されている場合のみメール送信されます
+- デフォルトは **dry-run / ファイル保存のみ** で、勝手にメールは送信されません
+- レポート失敗してもポジションクローズには影響しません
