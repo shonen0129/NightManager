@@ -106,7 +106,9 @@ def main():
     fin_annual = float(costs.get("buy_interest_annual", 0.025))
     borrow_annual = float(costs.get("borrow_fee_annual", 0.0115))
     rev_bps = float(costs.get("reverse_fee_bps", 2.0))
-    side_leverage = float(cfg.get("portfolio", {}).get("side_leverage", 1.5))
+    side_leverage = float(
+        cfg.get("execution", {}).get("side_leverage", cfg.get("portfolio", {}).get("side_leverage", 1.5))
+    )
 
     slip = slip_bps / 10000.0
     financing_daily = fin_annual / 365.0

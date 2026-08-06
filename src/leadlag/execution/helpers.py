@@ -726,7 +726,7 @@ def execute_post_decision_flow(
         manual_opens,
         max_capital,
         max_net_exposure=config.max_net_exposure,
-        side_leverage=config.side_leverage,
+        side_leverage=getattr(config, "side_leverage", domain_allocator.DEFAULT_SIDE_LEVERAGE),
     )
 
     decision_df = pd.DataFrame(

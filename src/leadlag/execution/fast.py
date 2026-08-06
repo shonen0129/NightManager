@@ -302,7 +302,7 @@ class PrecomputedLeadLagStrategy:
     def generate_trade_decision(
         self,
         trade_date=None,
-        start_date="2015-01-01",
+        start_date="2015-01-05",
         jp_gap_override=None,
         us_returns_override: np.ndarray | None = None,
         topix_night_override: float | None = None,
