@@ -363,29 +363,31 @@ class PrecomputedLeadLagStrategy:
 # ---------------------------------------------------------------------------
 
 
-def build_precomputed_cache(
-    config: ProductionConfig,
-    df_exec: pd.DataFrame,
-    cache_path: str,
-) -> str:
-    """Build and save the precomputed strategy cache to ``cache_path``."""
-    if config.v3_mode != "static":
-        raise ValueError(
-            f"FAST MODE currently supports v3_mode='static' only. Got v3_mode={config.v3_mode!r}."
-        )
-
+def _ensure_cache_dir(cache_path: str) -> None:
+    """Ensure the parent directory for ``cache_path`` exists."""
     cache_dir = os.path.dirname(cache_path)
     if cache_dir:
         os.makedirs(cache_dir, exist_ok=True)
 
-    # In PCA-Ensemble mode, PCA-Ensemble uses LeadLagStrategy static components inside Raw-PCA / Residual-PCA
-    # PCA-Ensemble model handles saving cache using nested strategies
-    from leadlag.models.sre import SectorRelativeEnsembleModel
 
-    SectorRelativeEnsembleModel(config)
+def _extract_cache_inputs(df_exec: pd.DataFrame) -> tuple:
+    """Extract the raw return columns and trade dates used by the cache."""
+    all_cc = df_exec[
+        [c for c in df_exec.columns if c.startswith("us_cc_") or c.startswith("jp_cc_")]
+    ].values
+    us_cc = df_exec[[c for c in df_exec.columns if c.startswith("us_cc_")]].values
+    jp_oc = df_exec[[c for c in df_exec.columns if c.startswith("jp_oc_")]].values
+    jp_gap = df_exec[[c for c in df_exec.columns if c.startswith("jp_gap_")]].values
+    sim_dates = df_exec.index.values
+    return all_cc, us_cc, jp_oc, jp_gap, sim_dates
 
-    # Adapt to save static cache fields
-    # We can reconstruct it matching LeadLagStrategy cache fields
+
+def _compute_static_cache_components(
+    all_cc: np.ndarray,
+    sim_dates: np.ndarray,
+    config: ProductionConfig,
+) -> tuple:
+    """Compute the static correlation / prior components for the cache."""
     from leadlag.core.correlation import (
         build_base_vectors,
         build_c0_from_v0,
@@ -393,25 +395,37 @@ def build_precomputed_cache(
         compute_baseline_correlation,
     )
 
-    all_cc_vals = df_exec[
-        [c for c in df_exec.columns if c.startswith("us_cc_") or c.startswith("jp_cc_")]
-    ].values
-    sim_dates = df_exec.index.values
-    C_full = compute_baseline_correlation(all_cc_vals, sim_dates, config.ewma_half_life)
+    C_full = compute_baseline_correlation(all_cc, sim_dates, config.ewma_half_life)
     V_0 = build_v3_static(len(US_TICKERS), len(JP_TICKERS), config.include_v4_prior)
     C_0 = build_c0_from_v0(V_0, C_full)
     base_vecs = build_base_vectors(len(US_TICKERS), len(JP_TICKERS))
+    return C_full, V_0, C_0, base_vecs
 
+
+def _build_cache_data(
+    config: ProductionConfig,
+    all_cc: np.ndarray,
+    us_cc: np.ndarray,
+    jp_oc: np.ndarray,
+    jp_gap: np.ndarray,
+    trade_dates: np.ndarray,
+    C_full: np.ndarray,
+    V_0: np.ndarray,
+    C_0: np.ndarray,
+    base_vecs: dict,
+    df_exec: pd.DataFrame,
+) -> dict:
+    """Assemble the cache dictionary written by ``build_precomputed_cache``."""
     cache_data = {
         "C_full": C_full,
         "v3_mode": config.v3_mode,
         "V_0": V_0,
         "C_0": C_0,
-        "all_cc": all_cc_vals,
-        "us_cc": df_exec[[c for c in df_exec.columns if c.startswith("us_cc_")]].values,
-        "jp_oc": df_exec[[c for c in df_exec.columns if c.startswith("jp_oc_")]].values,
-        "jp_gap": df_exec[[c for c in df_exec.columns if c.startswith("jp_gap_")]].values,
-        "trade_dates": df_exec.index.values,
+        "all_cc": all_cc,
+        "us_cc": us_cc,
+        "jp_oc": jp_oc,
+        "jp_gap": jp_gap,
+        "trade_dates": trade_dates,
         "ewma_half_life": float(config.ewma_half_life) if config.ewma_half_life else -1.0,
         "lambda_reg": config.lambda_reg,
         "lambda_lw": config.lambda_lw,
@@ -443,11 +457,53 @@ def build_precomputed_cache(
     if "topix_night_return" in df_exec.columns:
         cache_data["topix_night"] = df_exec["topix_night_return"].values
 
-    np.savez_compressed(cache_path, **cache_data)
-    logger.info(f"Precomputed cache saved to {cache_path}")
+    return cache_data
+
+
+def _save_cache(cache: dict, cache_path: str) -> str:
+    """Persist the cache dictionary to ``cache_path`` and return the path."""
+    np.savez_compressed(cache_path, **cache)
+    logger.info("Precomputed cache saved to %s", cache_path)
     return cache_path
 
 
+def build_precomputed_cache(
+    config: ProductionConfig,
+    df_exec: pd.DataFrame,
+    cache_path: str,
+) -> str:
+    """Build and save the precomputed strategy cache to ``cache_path``."""
+    if config.v3_mode != "static":
+        raise ValueError(
+            f"FAST MODE currently supports v3_mode='static' only. Got v3_mode={config.v3_mode!r}."
+        )
+
+    _ensure_cache_dir(cache_path)
+
+    # In PCA-Ensemble mode, PCA-Ensemble uses LeadLagStrategy static components inside Raw-PCA / Residual-PCA
+    # PCA-Ensemble model handles saving cache using nested strategies
+    from leadlag.models.sre import SectorRelativeEnsembleModel
+
+    SectorRelativeEnsembleModel(config)
+
+    all_cc, us_cc, jp_oc, jp_gap, sim_dates = _extract_cache_inputs(df_exec)
+    C_full, V_0, C_0, base_vecs = _compute_static_cache_components(
+        all_cc, sim_dates, config
+    )
+    cache_data = _build_cache_data(
+        config,
+        all_cc,
+        us_cc,
+        jp_oc,
+        jp_gap,
+        sim_dates,
+        C_full,
+        V_0,
+        C_0,
+        base_vecs,
+        df_exec,
+    )
+    return _save_cache(cache_data, cache_path)
 def fetch_us_returns_from_api(
     api_client: BrokerClient,
     output_root: str,

@@ -206,19 +206,180 @@ class SectorRelativeEnsembleModel(BaseModel):
         self._common_inputs_cache[cache_key] = out
         return out
 
-    def _prepare_residual_prior(self, df_exec: pd.DataFrame, inputs: dict) -> dict:
-        """Precompute the V0_resid and C0_resid matrices for the baseline period."""
-        sim_dates = df_exec.index
-        n = self.n_u + self.n_j
+    @staticmethod
+    def _orthogonalize_and_normalize(
+        vector: np.ndarray, basis: list[np.ndarray]
+    ) -> np.ndarray:
+        """Remove basis components from vector and normalize."""
+        result = vector.astype(float, copy=True)
+        for base in basis:
+            result = result - (result @ base) * base
+        norm = np.linalg.norm(result)
+        if norm <= 1e-10:
+            return np.asarray(np.zeros_like(result), dtype=float)
+        return np.asarray(result / norm, dtype=float)
 
-        # Slice baseline period: 2010-01-01 to 2014-12-31
-        baseline_mask = (sim_dates >= pd.to_datetime("2010-01-01")) & (
-            sim_dates <= pd.to_datetime("2014-12-31")
+    def _select_residual_window(
+        self,
+        df_exec: pd.DataFrame,
+        *,
+        baseline_start: str = "2010-01-01",
+        baseline_end: str = "2014-12-31",
+        fallback_size: int = 1260,
+    ) -> np.ndarray:
+        """Select the baseline-period row indices for residual prior estimation.
+
+        Falls back to the first `fallback_size` rows when the baseline period
+        is not present, preserving the original fallback behavior.
+        """
+        sim_dates = df_exec.index
+        baseline_mask = (sim_dates >= pd.to_datetime(baseline_start)) & (
+            sim_dates <= pd.to_datetime(baseline_end)
         )
         baseline_indices = np.where(baseline_mask)[0]
         if len(baseline_indices) == 0:
-            # Fallback if baseline period not found
-            baseline_indices = np.arange(min(len(df_exec), 1260))
+            baseline_indices = np.arange(min(len(df_exec), fallback_size))
+        return baseline_indices
+
+    def _build_residual_prior_vectors(self) -> tuple:
+        """Build V0_resid and related source/scaling metadata."""
+        n = self.n_u + self.n_j
+
+        _labels = get_static_sensitivity_labels()
+        w3 = _labels["w3"]
+        w4 = _labels["w4"]
+        w5 = _labels["w5"]
+        w6 = _labels["w6"]
+
+        v1_new = np.ones(n) / np.sqrt(n)
+        denom = np.sqrt(float(self.n_u * self.n_j * n))
+        v2_new = np.zeros(n)
+        v2_new[: self.n_u] = self.n_j / denom
+        v2_new[self.n_u :] = -self.n_u / denom
+
+        v1_v2_scale: float | None = None
+        c0_source = "residualized"
+        k_expected = 6
+
+        if self.prior_variant == "raw_v1_to_v6":
+            v3_new = self._orthogonalize_and_normalize(w3, [v1_new, v2_new])
+            v4_new = self._orthogonalize_and_normalize(w4, [v1_new, v2_new, v3_new])
+            v5_new = self._orthogonalize_and_normalize(w5, [v1_new, v2_new, v3_new, v4_new])
+            v6_new = self._orthogonalize_and_normalize(w6, [v1_new, v2_new, v3_new, v4_new, v5_new])
+            V0_resid = np.column_stack([v1_new, v2_new, v3_new, v4_new, v5_new, v6_new])
+            c0_source = "raw_existing"
+            k_expected = 6
+        elif self.prior_variant == "resid_v2_removed":
+            v3_new = self._orthogonalize_and_normalize(w3, [v1_new])
+            v4_new = self._orthogonalize_and_normalize(w4, [v1_new, v3_new])
+            v5_new = self._orthogonalize_and_normalize(w5, [v1_new, v3_new, v4_new])
+            v6_new = self._orthogonalize_and_normalize(w6, [v1_new, v3_new, v4_new, v5_new])
+            V0_resid = np.column_stack([v1_new, v3_new, v4_new, v5_new, v6_new])
+            k_expected = 5
+        elif self.prior_variant == "resid_v1_v2_removed":
+            v3_new = w3 / np.linalg.norm(w3)
+            v4_new = self._orthogonalize_and_normalize(w4, [v3_new])
+            v5_new = self._orthogonalize_and_normalize(w5, [v3_new, v4_new])
+            v6_new = self._orthogonalize_and_normalize(w6, [v3_new, v4_new, v5_new])
+            V0_resid = np.column_stack([v3_new, v4_new, v5_new, v6_new])
+            k_expected = 4
+        elif self.prior_variant == "resid_v1_v2_scaled_025":
+            v3_new = self._orthogonalize_and_normalize(w3, [v1_new, v2_new])
+            v4_new = self._orthogonalize_and_normalize(w4, [v1_new, v2_new, v3_new])
+            v5_new = self._orthogonalize_and_normalize(w5, [v1_new, v2_new, v3_new, v4_new])
+            v6_new = self._orthogonalize_and_normalize(w6, [v1_new, v2_new, v3_new, v4_new, v5_new])
+            V0_resid = np.column_stack([v1_new, v2_new, v3_new, v4_new, v5_new, v6_new])
+            v1_v2_scale = 0.25
+            k_expected = 6
+        elif self.prior_variant == "resid_v1_v2_scaled_050":
+            v3_new = self._orthogonalize_and_normalize(w3, [v1_new, v2_new])
+            v4_new = self._orthogonalize_and_normalize(w4, [v1_new, v2_new, v3_new])
+            v5_new = self._orthogonalize_and_normalize(w5, [v1_new, v2_new, v3_new, v4_new])
+            v6_new = self._orthogonalize_and_normalize(w6, [v1_new, v2_new, v3_new, v4_new, v5_new])
+            V0_resid = np.column_stack([v1_new, v2_new, v3_new, v4_new, v5_new, v6_new])
+            v1_v2_scale = 0.50
+            k_expected = 6
+        else:
+            raise ValueError(f"Unknown prior_variant: {self.prior_variant}")
+
+        return V0_resid, k_expected, c0_source, v1_v2_scale, v1_new, v2_new
+
+    def _compute_c_full_resid(
+        self,
+        baseline_returns_raw: np.ndarray,
+        baseline_returns_p4: np.ndarray,
+        c0_source: str,
+    ) -> np.ndarray:
+        """Compute C_full_resid from the chosen baseline source."""
+        if c0_source == "raw_existing":
+            _, _, C_full_resid = compute_correlation(baseline_returns_raw, self.ewma_half_life)
+        else:
+            _, _, C_full_resid = compute_correlation(baseline_returns_p4, self.ewma_half_life)
+        return C_full_resid
+
+    def _build_c0_resid(
+        self,
+        V0_resid: np.ndarray,
+        C_full_resid: np.ndarray,
+        v1_v2_scale: float | None,
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Build C0_resid from V0_resid and C_full_resid."""
+        mat = V0_resid.T @ C_full_resid @ V0_resid
+        d_vals = np.diag(mat)
+        d_vals = np.maximum(d_vals, 1e-10)
+
+        d_vals_orig = d_vals.copy()
+
+        if v1_v2_scale is not None:
+            d_vals[0] *= v1_v2_scale
+            d_vals[1] *= v1_v2_scale
+
+        d0 = np.diag(d_vals)
+        c0_raw = V0_resid @ d0 @ V0_resid.T
+
+        delta = np.diag(c0_raw)
+        delta = np.maximum(delta, 1e-10)
+        delta_inv_sqrt = np.diag(1.0 / np.sqrt(delta))
+        C0_resid = delta_inv_sqrt @ c0_raw @ delta_inv_sqrt
+        np.fill_diagonal(C0_resid, 1.0)
+
+        C0_resid = np.nan_to_num(C0_resid, nan=0.0, posinf=1.0, neginf=-1.0)
+        np.fill_diagonal(C0_resid, 1.0)
+        return C0_resid, d_vals_orig, d_vals
+
+    def _build_residual_summary_dict(
+        self,
+        V0_resid: np.ndarray,
+        C0_resid: np.ndarray,
+        C_full_resid: np.ndarray,
+        d_vals_orig: np.ndarray,
+        d_vals: np.ndarray,
+        c0_source: str,
+        k_expected: int,
+        v1_new: np.ndarray,
+        v2_new: np.ndarray,
+    ) -> dict:
+        """Assemble diagnostics and the final residual prior result dictionary."""
+        eigs = np.linalg.eigvalsh(C0_resid)
+        cond_num = float(np.max(eigs) / np.maximum(np.min(eigs), 1e-12))
+        return {
+            "V0_resid": V0_resid,
+            "C0_resid": C0_resid,
+            "C_full_resid": C_full_resid,
+            "d_vals_orig": d_vals_orig,
+            "d_vals_scaled": d_vals,
+            "min_eig": float(np.min(eigs)),
+            "max_eig": float(np.max(eigs)),
+            "cond_num": cond_num,
+            "c0_source": c0_source,
+            "k_expected": k_expected,
+            "v1_new": v1_new,
+            "v2_new": v2_new,
+        }
+
+    def _prepare_residual_prior(self, df_exec: pd.DataFrame, inputs: dict) -> dict:
+        """Precompute the V0_resid and C0_resid matrices for the baseline period."""
+        baseline_indices = self._select_residual_window(df_exec)
 
         all_returns_p4 = inputs["all_returns_p4"]
         all_returns_raw = inputs["all_returns_raw"]
@@ -243,127 +404,31 @@ class SectorRelativeEnsembleModel(BaseModel):
                 for k, v in cached.items()
             }
 
-        # Prior vectors (single source: correlation.get_static_sensitivity_labels)
-        _labels = get_static_sensitivity_labels()
-        w3 = _labels["w3"]
-        w4 = _labels["w4"]
-        w5 = _labels["w5"]
-        w6 = _labels["w6"]
-
-        def _orthogonalize_and_normalize(vector: np.ndarray, basis: list[np.ndarray]) -> np.ndarray:
-            result = vector.astype(float, copy=True)
-            for base in basis:
-                result = result - (result @ base) * base
-            norm = np.linalg.norm(result)
-            if norm <= 1e-10:
-                return np.zeros_like(result)
-            return result / norm
-
-        v1_new = np.ones(n) / np.sqrt(n)
-        denom = np.sqrt(float(self.n_u * self.n_j * n))
-        v2_new = np.zeros(n)
-        v2_new[: self.n_u] = self.n_j / denom
-        v2_new[self.n_u :] = -self.n_u / denom
-
-        v1_v2_scale = None
-        c0_source = "residualized"
-        k_expected = 6
-
-        if self.prior_variant == "raw_v1_to_v6":
-            v3_new = _orthogonalize_and_normalize(w3, [v1_new, v2_new])
-            v4_new = _orthogonalize_and_normalize(w4, [v1_new, v2_new, v3_new])
-            v5_new = _orthogonalize_and_normalize(w5, [v1_new, v2_new, v3_new, v4_new])
-            v6_new = _orthogonalize_and_normalize(w6, [v1_new, v2_new, v3_new, v4_new, v5_new])
-            V0_resid = np.column_stack([v1_new, v2_new, v3_new, v4_new, v5_new, v6_new])
-            c0_source = "raw_existing"
-            k_expected = 6
-        elif self.prior_variant == "resid_v2_removed":
-            v3_new = _orthogonalize_and_normalize(w3, [v1_new])
-            v4_new = _orthogonalize_and_normalize(w4, [v1_new, v3_new])
-            v5_new = _orthogonalize_and_normalize(w5, [v1_new, v3_new, v4_new])
-            v6_new = _orthogonalize_and_normalize(w6, [v1_new, v3_new, v4_new, v5_new])
-            V0_resid = np.column_stack([v1_new, v3_new, v4_new, v5_new, v6_new])
-            k_expected = 5
-        elif self.prior_variant == "resid_v1_v2_removed":
-            v3_new = w3 / np.linalg.norm(w3)
-            v4_new = _orthogonalize_and_normalize(w4, [v3_new])
-            v5_new = _orthogonalize_and_normalize(w5, [v3_new, v4_new])
-            v6_new = _orthogonalize_and_normalize(w6, [v3_new, v4_new, v5_new])
-            V0_resid = np.column_stack([v3_new, v4_new, v5_new, v6_new])
-            k_expected = 4
-        elif self.prior_variant == "resid_v1_v2_scaled_025":
-            v3_new = _orthogonalize_and_normalize(w3, [v1_new, v2_new])
-            v4_new = _orthogonalize_and_normalize(w4, [v1_new, v2_new, v3_new])
-            v5_new = _orthogonalize_and_normalize(w5, [v1_new, v2_new, v3_new, v4_new])
-            v6_new = _orthogonalize_and_normalize(w6, [v1_new, v2_new, v3_new, v4_new, v5_new])
-            V0_resid = np.column_stack([v1_new, v2_new, v3_new, v4_new, v5_new, v6_new])
-            v1_v2_scale = 0.25
-            k_expected = 6
-        elif self.prior_variant == "resid_v1_v2_scaled_050":
-            v3_new = _orthogonalize_and_normalize(w3, [v1_new, v2_new])
-            v4_new = _orthogonalize_and_normalize(w4, [v1_new, v2_new, v3_new])
-            v5_new = _orthogonalize_and_normalize(w5, [v1_new, v2_new, v3_new, v4_new])
-            v6_new = _orthogonalize_and_normalize(w6, [v1_new, v2_new, v3_new, v4_new, v5_new])
-            V0_resid = np.column_stack([v1_new, v2_new, v3_new, v4_new, v5_new, v6_new])
-            v1_v2_scale = 0.50
-            k_expected = 6
-        else:
-            raise ValueError(f"Unknown prior_variant: {self.prior_variant}")
-
-        # Compute C_full_resid
-        if c0_source == "raw_existing":
-            _, _, C_full_resid = compute_correlation(baseline_returns_raw, self.ewma_half_life)
-        else:
-            _, _, C_full_resid = compute_correlation(baseline_returns_p4, self.ewma_half_life)
-
-        # Build C0_resid
-        mat = V0_resid.T @ C_full_resid @ V0_resid
-        d_vals = np.diag(mat)
-        d_vals = np.maximum(d_vals, 1e-10)
-
-        # Record original eigenvalues before scale for diagnostics
-        d_vals_orig = d_vals.copy()
-
-        if v1_v2_scale is not None:
-            d_vals[0] *= v1_v2_scale
-            d_vals[1] *= v1_v2_scale
-
-        d0 = np.diag(d_vals)
-        c0_raw = V0_resid @ d0 @ V0_resid.T
-
-        delta = np.diag(c0_raw)
-        delta = np.maximum(delta, 1e-10)
-        delta_inv_sqrt = np.diag(1.0 / np.sqrt(delta))
-        C0_resid = delta_inv_sqrt @ c0_raw @ delta_inv_sqrt
-        np.fill_diagonal(C0_resid, 1.0)
-
-        C0_resid = np.nan_to_num(C0_resid, nan=0.0, posinf=1.0, neginf=-1.0)
-        np.fill_diagonal(C0_resid, 1.0)
-
-        # Diagnostics info
-        eigs = np.linalg.eigvalsh(C0_resid)
-        cond_num = float(np.max(eigs) / np.maximum(np.min(eigs), 1e-12))
-
-        result_dict = {
-            "V0_resid": V0_resid,
-            "C0_resid": C0_resid,
-            "C_full_resid": C_full_resid,
-            "d_vals_orig": d_vals_orig,
-            "d_vals_scaled": d_vals,
-            "min_eig": float(np.min(eigs)),
-            "max_eig": float(np.max(eigs)),
-            "cond_num": cond_num,
-            "c0_source": c0_source,
-            "k_expected": k_expected,
-            "v1_new": v1_new,
-            "v2_new": v2_new,
-        }
+        V0_resid, k_expected, c0_source, v1_v2_scale, v1_new, v2_new = (
+            self._build_residual_prior_vectors()
+        )
+        C_full_resid = self._compute_c_full_resid(
+            baseline_returns_raw, baseline_returns_p4, c0_source
+        )
+        C0_resid, d_vals_orig, d_vals = self._build_c0_resid(
+            V0_resid, C_full_resid, v1_v2_scale
+        )
+        result_dict = self._build_residual_summary_dict(
+            V0_resid,
+            C0_resid,
+            C_full_resid,
+            d_vals_orig,
+            d_vals,
+            c0_source,
+            k_expected,
+            v1_new,
+            v2_new,
+        )
         self._residual_prior_cache[cache_key] = result_dict
         return {
             k: v.copy() if isinstance(v, np.ndarray) else v
             for k, v in result_dict.items()
         }
-
     def _get_pca_component(self, k_override: int | None = None, use_c0_override: bool = False):
         """Lazily create and cache a PCAComponent for PCA signal computation."""
         cache_attr = f"_pca_component_{k_override}_{use_c0_override}"

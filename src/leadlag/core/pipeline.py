@@ -9,8 +9,9 @@ The existing model methods remain as thin delegates to preserve backward compati
 from __future__ import annotations
 
 import logging
+from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Any, Mapping, Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 import numpy as np
 import pandas as pd
@@ -83,6 +84,208 @@ class CommonInputs:
         return out
 
 
+def _load_us_returns(df_exec: pd.DataFrame) -> np.ndarray:
+    """Load raw US close-to-close returns from df_exec."""
+    return np.asarray(
+        df_exec[[f"us_cc_{tk}" for tk in US_TICKERS]].values, dtype=float
+    )
+
+
+def _apply_fractional_differencing(
+    us_returns_raw: np.ndarray,
+    df_exec: pd.DataFrame,
+    *,
+    frac_diff_enabled: bool,
+    frac_diff_d: float,
+    frac_diff_threshold: float,
+    frac_diff_window: int,
+    frac_diff_normalize: str | None,
+) -> np.ndarray:
+    """Apply optional fractional differencing to US returns."""
+    if not (frac_diff_enabled and frac_diff_d > 0.0):
+        return us_returns_raw
+
+    # Lazy import: this module is used only when fractional differencing is on.
+    from leadlag.features.fractional_diff import fractional_diff_df
+
+    us_cols = [f"us_cc_{tk}" for tk in US_TICKERS]
+    us_df = pd.DataFrame(us_returns_raw, columns=us_cols, index=df_exec.index)
+    fd_df = fractional_diff_df(
+        us_df,
+        d=frac_diff_d,
+        threshold=frac_diff_threshold,
+        window=frac_diff_window,
+        normalize=frac_diff_normalize,
+    )
+    nan_count = fd_df.isna().sum().sum()
+    if nan_count > 0:
+        logger.warning(
+            "build_common_inputs: %d NaN values in fractional diff output "
+            "will be filled with 0.0; check upstream US return data.",
+            nan_count,
+        )
+        fd_df = fd_df.fillna(0.0)
+    return np.asarray(fd_df.values, dtype=float)
+
+
+def _build_all_returns_raw(
+    us_returns_raw: np.ndarray,
+    y_jp_target: np.ndarray,
+) -> np.ndarray:
+    """Stack US and JP target returns into the full returns matrix."""
+    return np.column_stack([us_returns_raw, y_jp_target])
+
+
+def _compute_baseline_correlation_matrix(
+    returns: np.ndarray,
+    sim_dates: pd.DatetimeIndex,
+    ewma_half_life: int,
+) -> np.ndarray:
+    """Compute the baseline correlation matrix for a returns series."""
+    return compute_baseline_correlation(returns, sim_dates.values, ewma_half_life)
+
+
+def _build_static_vectors(
+    n_u: int,
+    n_j: int,
+    include_v4_prior: bool,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Build the static prior and base vectors."""
+    v0_static = build_v3_static(n_u, n_j, include_v4_prior)
+    base_vectors = build_base_vectors(n_u, n_j)
+    return v0_static, base_vectors["v1"], base_vectors["v2"]
+
+
+def _extract_jp_inputs(
+    df_exec: pd.DataFrame,
+) -> tuple[np.ndarray, np.ndarray | None, np.ndarray | None, pd.DataFrame]:
+    """Extract JP gap, beta, overnight and open-to-close inputs."""
+    jp_gap = df_exec[[f"jp_gap_{tk}" for tk in JP_TICKERS]].values
+    jp_beta = (
+        df_exec[[f"jp_beta_{tk}" for tk in JP_TICKERS]].values
+        if any(c.startswith("jp_beta_") for c in df_exec.columns)
+        else None
+    )
+    topix_night = (
+        df_exec["topix_night_return"].values
+        if "topix_night_return" in df_exec.columns
+        else None
+    )
+    y_jp_oc_df = df_exec[[f"jp_oc_{tk}" for tk in JP_TICKERS]].rename(
+        columns=lambda c: c.replace("jp_oc_", "")
+    )
+    return jp_gap, jp_beta, topix_night, y_jp_oc_df
+
+
+def _select_topix_for_beta(df_exec: pd.DataFrame) -> np.ndarray:
+    """Select the TOPIX benchmark used for rolling beta residualization."""
+    if "topix_oc_return" in df_exec.columns:
+        return np.asarray(df_exec["topix_oc_return"].values, dtype=float)
+    if "topix_cc_trade" in df_exec.columns:
+        return np.asarray(df_exec["topix_cc_trade"].values, dtype=float)
+    return np.asarray(
+        df_exec["topix_night_return"].values + df_exec["topix_oc_return"].values,
+        dtype=float,
+    )
+
+
+def _compute_jp_topix_residual_returns(
+    y_jp_target: np.ndarray,
+    topix_for_beta: np.ndarray,
+    beta_window: int,
+    all_returns_raw: np.ndarray,
+    n_u: int,
+) -> np.ndarray:
+    """Residualize JP target returns against TOPIX and build the P3 returns matrix."""
+    betas_jp_p3 = compute_rolling_ols_betas(
+        y_jp_target, topix_for_beta.reshape(-1, 1), beta_window
+    )
+    y_residuals_p3 = y_jp_target - betas_jp_p3[:, :, 0] * topix_for_beta.reshape(-1, 1)
+
+    jp_res_returns_p3 = all_returns_raw.copy()
+    jp_res_returns_p3[:, n_u:] = y_residuals_p3
+    return jp_res_returns_p3
+
+
+def _build_p4_inputs(
+    all_returns_raw: np.ndarray,
+    jp_res_returns_p3: np.ndarray,
+    df_exec: pd.DataFrame,
+    n_u: int,
+    us_res_enabled: bool,
+    us_res_gamma: float,
+    us_res_beta_window: int,
+) -> P4Inputs | None:
+    """Build the P4 (US/SPY residualized) inputs when enabled."""
+    if not us_res_enabled:
+        return None
+
+    spy_col = None
+    for col in ["spy_cc", "SPY_cc", "SPY", "spy", "r_US_MKT"]:
+        if col in df_exec.columns:
+            spy_col = col
+            break
+    if spy_col is None:
+        raise ValueError("SPY benchmark return column not found in df_exec")
+    spy_returns = df_exec[spy_col].values
+
+    us_returns = all_returns_raw[:, :n_u]
+    r_us_adj = compute_us_residualized_returns(
+        us_returns,
+        spy_returns,
+        beta_window=us_res_beta_window,
+        gamma=us_res_gamma,
+    )
+
+    all_returns_p4 = jp_res_returns_p3.copy()
+    all_returns_p4[:, :n_u] = r_us_adj
+
+    return P4Inputs(
+        all_returns_p4=all_returns_p4,
+        r_us_adj=r_us_adj,
+        spy_returns=spy_returns,
+    )
+
+
+def _assemble_common_inputs(
+    all_returns_raw: np.ndarray,
+    c_full: np.ndarray,
+    c_full_p3: np.ndarray,
+    v0_static: np.ndarray,
+    v1: np.ndarray,
+    v2: np.ndarray,
+    jp_gap: np.ndarray,
+    jp_beta: np.ndarray | None,
+    topix_night: np.ndarray | None,
+    y_jp_oc_df: pd.DataFrame,
+    jp_res_returns_p3: np.ndarray,
+    y_jp_target: np.ndarray,
+    n_u: int,
+    n_j: int,
+    dates: pd.DatetimeIndex,
+    p4: P4Inputs | None,
+) -> CommonInputs:
+    """Assemble the final CommonInputs dataclass."""
+    return CommonInputs(
+        all_returns_raw=all_returns_raw,
+        c_full=c_full,
+        c_full_p3=c_full_p3,
+        v0_static=v0_static,
+        v1=v1,
+        v2=v2,
+        jp_gap=jp_gap,
+        jp_beta=jp_beta,
+        topix_night=topix_night,
+        y_jp_oc_df=y_jp_oc_df,
+        jp_res_returns_p3=jp_res_returns_p3,
+        y_jp_target=y_jp_target,
+        n_u=n_u,
+        n_j=n_j,
+        dates=dates,
+        p4=p4,
+    )
+
+
 def build_common_inputs(
     df_exec: pd.DataFrame,
     y_jp_target: np.ndarray,
@@ -129,111 +332,44 @@ def build_common_inputs(
     """
     sim_dates = df_exec.index
 
-    us_returns_raw = df_exec[[f"us_cc_{tk}" for tk in US_TICKERS]].values
-
-    # Apply fractional differencing to US returns if enabled.
-    # The expanding-window filter itself does not introduce NaNs for valid
-    # inputs; any NaNs in the output come from NaNs in the input series.  If
-    # any remain, we fall back to 0.0 so that downstream correlation and
-    # residualization receive a clean matrix, while logging a warning so the
-    # data-quality issue is not silent.
-    if frac_diff_enabled and frac_diff_d > 0.0:
-        from leadlag.features.fractional_diff import fractional_diff_df
-        us_cols = [f"us_cc_{tk}" for tk in US_TICKERS]
-        us_df = pd.DataFrame(us_returns_raw, columns=us_cols, index=df_exec.index)
-        fd_df = fractional_diff_df(
-            us_df,
-            d=frac_diff_d,
-            threshold=frac_diff_threshold,
-            window=frac_diff_window,
-            normalize=frac_diff_normalize,
-        )
-        nan_count = fd_df.isna().sum().sum()
-        if nan_count > 0:
-            logger.warning(
-                "build_common_inputs: %d NaN values in fractional diff output "
-                "will be filled with 0.0; check upstream US return data.",
-                nan_count,
-            )
-            fd_df = fd_df.fillna(0.0)
-        us_returns_raw = fd_df.values
-
-    all_returns_raw = np.column_stack([us_returns_raw, y_jp_target])
-
-    c_full = compute_baseline_correlation(
-        all_returns_raw, sim_dates.values, ewma_half_life
+    us_returns_raw = _load_us_returns(df_exec)
+    us_returns_raw = _apply_fractional_differencing(
+        us_returns_raw,
+        df_exec,
+        frac_diff_enabled=frac_diff_enabled,
+        frac_diff_d=frac_diff_d,
+        frac_diff_threshold=frac_diff_threshold,
+        frac_diff_window=frac_diff_window,
+        frac_diff_normalize=frac_diff_normalize,
     )
 
-    v0_static = build_v3_static(n_u, n_j, include_v4_prior)
-    base_vectors = build_base_vectors(n_u, n_j)
-    v1, v2 = base_vectors["v1"], base_vectors["v2"]
-
-    jp_gap = df_exec[[f"jp_gap_{tk}" for tk in JP_TICKERS]].values
-    jp_beta = (
-        df_exec[[f"jp_beta_{tk}" for tk in JP_TICKERS]].values
-        if any(c.startswith("jp_beta_") for c in df_exec.columns)
-        else None
-    )
-    topix_night = (
-        df_exec["topix_night_return"].values
-        if "topix_night_return" in df_exec.columns
-        else None
+    all_returns_raw = _build_all_returns_raw(us_returns_raw, y_jp_target)
+    c_full = _compute_baseline_correlation_matrix(
+        all_returns_raw, sim_dates, ewma_half_life
     )
 
-    y_jp_oc_df = df_exec[[f"jp_oc_{tk}" for tk in JP_TICKERS]].rename(
-        columns=lambda c: c.replace("jp_oc_", "")
+    v0_static, v1, v2 = _build_static_vectors(n_u, n_j, include_v4_prior)
+    jp_gap, jp_beta, topix_night, y_jp_oc_df = _extract_jp_inputs(df_exec)
+    topix_for_beta = _select_topix_for_beta(df_exec)
+
+    jp_res_returns_p3 = _compute_jp_topix_residual_returns(
+        y_jp_target, topix_for_beta, beta_window, all_returns_raw, n_u
+    )
+    c_full_p3 = _compute_baseline_correlation_matrix(
+        jp_res_returns_p3, sim_dates, ewma_half_life
     )
 
-    if "topix_oc_return" in df_exec.columns:
-        topix_for_beta = df_exec["topix_oc_return"].values
-    else:
-        topix_for_beta = (
-            df_exec["topix_cc_trade"].values
-            if "topix_cc_trade" in df_exec.columns
-            else df_exec["topix_night_return"].values + df_exec["topix_oc_return"].values
-        )
-
-    betas_jp_p3 = compute_rolling_ols_betas(
-        y_jp_target, topix_for_beta.reshape(-1, 1), beta_window
-    )
-    y_residuals_p3 = y_jp_target - betas_jp_p3[:, :, 0] * topix_for_beta.reshape(-1, 1)
-
-    jp_res_returns_p3 = all_returns_raw.copy()
-    jp_res_returns_p3[:, n_u:] = y_residuals_p3
-
-    c_full_p3 = compute_baseline_correlation(
-        jp_res_returns_p3, sim_dates.values, ewma_half_life
+    p4_inputs = _build_p4_inputs(
+        all_returns_raw,
+        jp_res_returns_p3,
+        df_exec,
+        n_u,
+        us_res_enabled,
+        us_res_gamma,
+        us_res_beta_window,
     )
 
-    p4_inputs = None
-    if us_res_enabled:
-        spy_col = None
-        for col in ["spy_cc", "SPY_cc", "SPY", "spy", "r_US_MKT"]:
-            if col in df_exec.columns:
-                spy_col = col
-                break
-        if spy_col is None:
-            raise ValueError("SPY benchmark return column not found in df_exec")
-        spy_returns = df_exec[spy_col].values
-
-        us_returns = all_returns_raw[:, :n_u]
-        r_us_adj = compute_us_residualized_returns(
-            us_returns,
-            spy_returns,
-            beta_window=us_res_beta_window,
-            gamma=us_res_gamma,
-        )
-
-        all_returns_p4 = jp_res_returns_p3.copy()
-        all_returns_p4[:, :n_u] = r_us_adj
-
-        p4_inputs = P4Inputs(
-            all_returns_p4=all_returns_p4,
-            r_us_adj=r_us_adj,
-            spy_returns=spy_returns,
-        )
-
-    return CommonInputs(
+    return _assemble_common_inputs(
         all_returns_raw=all_returns_raw,
         c_full=c_full,
         c_full_p3=c_full_p3,
@@ -251,8 +387,6 @@ def build_common_inputs(
         dates=sim_dates,
         p4=p4_inputs,
     )
-
-
 # ---------------------------------------------------------------------------
 # Step 3: Component protocol and PCAComponent
 # ---------------------------------------------------------------------------
