@@ -189,6 +189,214 @@ def setup_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _handle_decision(args: argparse.Namespace) -> int:
+    """Run the one-day trade decision pipeline."""
+    if args.auto_close:
+        logger.warning(
+            "--auto-close is deprecated: the decision process will block until %s. "
+            "Use the separate 'close' subcommand via launchd/cron (com.leadlag.close) instead. "
+            "Remove --auto-close from batch scripts to avoid indefinite hangs.",
+            getattr(args, "auto_close_time", "14:50"),
+        )
+
+    if args.capital_from_wallet and not args.api_enable:
+        raise ValueError("--capital-from-wallet requires --api-enable")
+
+    if args.fast_mode:
+        logger.info("=== FAST MODE ENABLED (No yfinance) ===")
+        if not args.api_enable:
+            raise ValueError(
+                "FAST MODE requires --api-enable to fetch US returns and JP opens "
+                "from kabuステーション API (no yfinance dependency)."
+            )
+
+        # Lazy imports
+        from leadlag.data.cache import (
+            exclusive_lock as _exclusive_lock,
+        )
+        from leadlag.data.cache import (
+            is_strategy_cache_valid as _is_cache_valid,
+        )
+        from leadlag.data.cache import (
+            load_df_exec_from_local_cache as _load_df_exec_from_local_cache,
+        )
+        from leadlag.data.cache import load_jp_close_from_cache
+        from leadlag.data.market_data import (
+            compute_gap_from_jp_close as _compute_gap_from_jp_close,
+        )
+        from leadlag.data.market_data import (
+            compute_topix_night_override as _compute_topix_night_override,
+        )
+        from leadlag.data.market_data import (
+            normalize_to_tokyo_date as _normalize_to_tokyo_date,
+        )
+        from leadlag.execution.config import load_config_from_yaml
+        from leadlag.execution.fast import (
+            build_precomputed_cache,
+            fetch_jp_opens_for_fast_mode,
+            fetch_us_returns_from_api,
+            run_decision_fast,
+        )
+        from leadlag.execution.helpers import (
+            build_api_client,
+            build_output_dir,
+            fetch_current_positions,
+            resolve_wallet_capital,
+        )
+
+        # Load config from YAML
+        config = load_config_from_yaml()
+
+        output_dir = build_output_dir(
+            args.output_root,
+            args.run_tag,
+            run_name="production_decision_fast",
+        )
+        cache_path = os.path.join(args.output_root, ".cache", "strategy_cache.npz")
+
+        api_client = None
+        try:
+            api_client = build_api_client(args.api_url, args.api_token, args.api_dry_run)
+
+            t_trade = (
+                pd.to_datetime(args.trade_date).normalize()
+                if args.trade_date is not None
+                else pd.Timestamp.now().normalize()
+            )
+
+            logger.info("[1/3] Fetching US ETF returns from kabu API...")
+            us_returns_today = fetch_us_returns_from_api(api_client, args.output_root)
+
+            logger.info("[2/3] Fetching JP opens...")
+            manual_opens, topix_open = fetch_jp_opens_for_fast_mode(
+                api_client=api_client,
+                config=config.strategy,
+                jp_opens_csv=args.jp_opens_csv,
+                google_opens=args.google_opens,
+            )
+
+            # Build or validate precomputed strategy cache
+            with _exclusive_lock(cache_path + ".lock"):
+                if not _is_cache_valid(cache_path, config=config.strategy):
+                    logger.info("[FAST MODE] Building precomputed cache from local cache...")
+                    df_exec = _load_df_exec_from_local_cache()
+                    build_precomputed_cache(config.strategy, df_exec, cache_path)
+                    logger.info("[FAST MODE] Cache built: %s", cache_path)
+                else:
+                    logger.info("[FAST MODE] Using existing cache: %s", cache_path)
+
+            # Gap override from local jp_close cache
+            jp_close = load_jp_close_from_cache()
+            jp_close.index = _normalize_to_tokyo_date(jp_close.index)
+            gap_override = _compute_gap_from_jp_close(jp_close, t_trade, manual_opens)
+            topix_night_override = None
+            if topix_open is not None:
+                topix_night_override = _compute_topix_night_override(
+                    jp_close, t_trade, topix_open
+                )
+
+            logger.info("[3/3] Generating trade decision (FAST path)...")
+            max_capital = args.capital
+            if args.capital_from_wallet:
+                max_capital = resolve_wallet_capital(api_client)
+
+            # Fetch existing positions for delta-based order submission
+            current_positions = None
+            try:
+                current_positions = fetch_current_positions(api_client)
+            except Exception as e:
+                logger.warning("Failed to fetch current positions: %s. Will submit full target.", e)
+
+            result_path = run_decision_fast(
+                config=config.strategy,
+                cache_path=cache_path,
+                trade_date=t_trade,
+                manual_opens=manual_opens,
+                gap_override=gap_override,
+                topix_night_override=topix_night_override,
+                us_returns_today=us_returns_today,
+                max_capital=max_capital,
+                output_dir=output_dir,
+                output_root=args.output_root,
+                api_client=api_client,
+                api_dry_run=args.api_dry_run,
+                text_output=args.text_output,
+                current_positions=current_positions,
+            )
+            logger.info("Fast decision completed. Output: %s", result_path)
+
+            if args.auto_close:
+                logger.warning(
+                    "--auto-close is no longer supported inside the decision subcommand. "
+                    "Use the separate 'close' subcommand (scheduled via launchd/cron) instead."
+                )
+        finally:
+            if api_client is not None:
+                api_client.close()
+
+    else:
+        # ---- Standard mode ----
+        from leadlag.execution.decision import run_decision
+
+        run_decision(
+            start_date=args.start_date,
+            output_root=args.output_root,
+            run_tag=args.run_tag,
+            trade_date=args.trade_date,
+            opens_csv=args.jp_opens_csv,
+            max_capital=args.capital,
+            api_enable=args.api_enable,
+            api_url=args.api_url,
+            api_token=args.api_token,
+            api_dry_run=args.api_dry_run,
+            use_google_opens=args.google_opens,
+            text_output=args.text_output,
+            use_wallet_capital=args.capital_from_wallet,
+        )
+
+        if args.auto_close:
+            logger.warning(
+                "--auto-close is no longer supported inside the decision subcommand. "
+                "Use the separate 'close' subcommand (scheduled via launchd/cron) instead."
+            )
+
+    return 0
+
+
+def _handle_backtest(args: argparse.Namespace) -> int:
+    """Run full historical backtest simulation."""
+    from leadlag.execution.backtest import run_production
+
+    backtest_kwargs: dict = {}
+    if args.slippage_bps is not None:
+        backtest_kwargs["slippage_bps"] = args.slippage_bps
+    if hasattr(args, "n_jobs") and args.n_jobs != 1:
+        backtest_kwargs["n_jobs"] = args.n_jobs
+    run_production(
+        start_date=args.start_date,
+        output_root=args.output_root,
+        run_tag=args.run_tag,
+        skip_chart=args.skip_chart,
+        **backtest_kwargs,
+    )
+    return 0
+
+
+def _handle_close(args: argparse.Namespace) -> int:
+    """Run end-of-day position closing logic."""
+    from leadlag.execution.close import run_close_positions_mode
+
+    run_close_positions_mode(
+        output_root=args.output_root,
+        run_tag=args.run_tag,
+        api_url=args.api_url,
+        api_token=args.api_token,
+        api_dry_run=args.api_dry_run,
+        close_position_order=args.close_position_order,
+    )
+    return 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     logging.basicConfig(
         level=logging.INFO,
@@ -222,202 +430,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 0
 
     if args.command == "decision":
-        if args.auto_close:
-            logger.warning(
-                "--auto-close is deprecated: the decision process will block until %s. "
-                "Use the separate 'close' subcommand via launchd/cron (com.leadlag.close) instead. "
-                "Remove --auto-close from batch scripts to avoid indefinite hangs.",
-                getattr(args, "auto_close_time", "14:50"),
-            )
-
-        if args.capital_from_wallet and not args.api_enable:
-            raise ValueError("--capital-from-wallet requires --api-enable")
-
-        if args.fast_mode:
-            logger.info("=== FAST MODE ENABLED (No yfinance) ===")
-            if not args.api_enable:
-                raise ValueError(
-                    "FAST MODE requires --api-enable to fetch US returns and JP opens "
-                    "from kabuステーション API (no yfinance dependency)."
-                )
-
-            # Lazy imports
-            from leadlag.data.cache import (
-                exclusive_lock as _exclusive_lock,
-            )
-            from leadlag.data.cache import (
-                is_strategy_cache_valid as _is_cache_valid,
-            )
-            from leadlag.data.cache import (
-                load_df_exec_from_local_cache as _load_df_exec_from_local_cache,
-            )
-            from leadlag.data.cache import load_jp_close_from_cache
-            from leadlag.data.market_data import (
-                compute_gap_from_jp_close as _compute_gap_from_jp_close,
-            )
-            from leadlag.data.market_data import (
-                compute_topix_night_override as _compute_topix_night_override,
-            )
-            from leadlag.data.market_data import (
-                normalize_to_tokyo_date as _normalize_to_tokyo_date,
-            )
-            from leadlag.execution.config import load_config_from_yaml
-            from leadlag.execution.fast import (
-                build_precomputed_cache,
-                fetch_jp_opens_for_fast_mode,
-                fetch_us_returns_from_api,
-                run_decision_fast,
-            )
-            from leadlag.execution.helpers import (
-                build_api_client,
-                build_output_dir,
-                fetch_current_positions,
-                resolve_wallet_capital,
-            )
-
-            # Load config from YAML
-            config = load_config_from_yaml()
-
-            output_dir = build_output_dir(
-                args.output_root,
-                args.run_tag,
-                run_name="production_decision_fast",
-            )
-            cache_path = os.path.join(args.output_root, ".cache", "strategy_cache.npz")
-
-            api_client = None
-            try:
-                api_client = build_api_client(args.api_url, args.api_token, args.api_dry_run)
-
-                t_trade = (
-                    pd.to_datetime(args.trade_date).normalize()
-                    if args.trade_date is not None
-                    else pd.Timestamp.now().normalize()
-                )
-
-                logger.info("[1/3] Fetching US ETF returns from kabu API...")
-                us_returns_today = fetch_us_returns_from_api(api_client, args.output_root)
-
-                logger.info("[2/3] Fetching JP opens...")
-                manual_opens, topix_open = fetch_jp_opens_for_fast_mode(
-                    api_client=api_client,
-                    config=config.strategy,
-                    jp_opens_csv=args.jp_opens_csv,
-                    google_opens=args.google_opens,
-                )
-
-                # Build or validate precomputed strategy cache
-                with _exclusive_lock(cache_path + ".lock"):
-                    if not _is_cache_valid(cache_path, config=config.strategy):
-                        logger.info("[FAST MODE] Building precomputed cache from local cache...")
-                        df_exec = _load_df_exec_from_local_cache()
-                        build_precomputed_cache(config.strategy, df_exec, cache_path)
-                        logger.info("[FAST MODE] Cache built: %s", cache_path)
-                    else:
-                        logger.info("[FAST MODE] Using existing cache: %s", cache_path)
-
-                # Gap override from local jp_close cache
-                jp_close = load_jp_close_from_cache()
-                jp_close.index = _normalize_to_tokyo_date(jp_close.index)
-                gap_override = _compute_gap_from_jp_close(jp_close, t_trade, manual_opens)
-                topix_night_override = None
-                if topix_open is not None:
-                    topix_night_override = _compute_topix_night_override(
-                        jp_close, t_trade, topix_open
-                    )
-
-                logger.info("[3/3] Generating trade decision (FAST path)...")
-                max_capital = args.capital
-                if args.capital_from_wallet:
-                    max_capital = resolve_wallet_capital(api_client)
-
-                # Fetch existing positions for delta-based order submission
-                current_positions = None
-                try:
-                    current_positions = fetch_current_positions(api_client)
-                except Exception as e:
-                    logger.warning("Failed to fetch current positions: %s. Will submit full target.", e)
-
-                result_path = run_decision_fast(
-                    config=config.strategy,
-                    cache_path=cache_path,
-                    trade_date=t_trade,
-                    manual_opens=manual_opens,
-                    gap_override=gap_override,
-                    topix_night_override=topix_night_override,
-                    us_returns_today=us_returns_today,
-                    max_capital=max_capital,
-                    output_dir=output_dir,
-                    output_root=args.output_root,
-                    api_client=api_client,
-                    api_dry_run=args.api_dry_run,
-                    text_output=args.text_output,
-                    current_positions=current_positions,
-                )
-                logger.info("Fast decision completed. Output: %s", result_path)
-
-                if args.auto_close:
-                    logger.warning(
-                        "--auto-close is no longer supported inside the decision subcommand. "
-                        "Use the separate 'close' subcommand (scheduled via launchd/cron) instead."
-                    )
-            finally:
-                if api_client is not None:
-                    api_client.close()
-
-        else:
-            # ---- Standard mode ----
-            from leadlag.execution.decision import run_decision
-
-            run_decision(
-                start_date=args.start_date,
-                output_root=args.output_root,
-                run_tag=args.run_tag,
-                trade_date=args.trade_date,
-                opens_csv=args.jp_opens_csv,
-                max_capital=args.capital,
-                api_enable=args.api_enable,
-                api_url=args.api_url,
-                api_token=args.api_token,
-                api_dry_run=args.api_dry_run,
-                use_google_opens=args.google_opens,
-                text_output=args.text_output,
-                use_wallet_capital=args.capital_from_wallet,
-            )
-
-            if args.auto_close:
-                logger.warning(
-                    "--auto-close is no longer supported inside the decision subcommand. "
-                    "Use the separate 'close' subcommand (scheduled via launchd/cron) instead."
-                )
-
-    elif args.command == "backtest":
-        from leadlag.execution.backtest import run_production
-
-        backtest_kwargs: dict = {}
-        if args.slippage_bps is not None:
-            backtest_kwargs["slippage_bps"] = args.slippage_bps
-        if hasattr(args, "n_jobs") and args.n_jobs != 1:
-            backtest_kwargs["n_jobs"] = args.n_jobs
-        run_production(
-            start_date=args.start_date,
-            output_root=args.output_root,
-            run_tag=args.run_tag,
-            skip_chart=args.skip_chart,
-            **backtest_kwargs,
-        )
-
-    elif args.command == "close":
-        from leadlag.execution.close import run_close_positions_mode
-
-        run_close_positions_mode(
-            output_root=args.output_root,
-            run_tag=args.run_tag,
-            api_url=args.api_url,
-            api_token=args.api_token,
-            api_dry_run=args.api_dry_run,
-            close_position_order=args.close_position_order,
-        )
+        return _handle_decision(args)
+    if args.command == "backtest":
+        return _handle_backtest(args)
+    if args.command == "close":
+        return _handle_close(args)
 
     return 0
 
