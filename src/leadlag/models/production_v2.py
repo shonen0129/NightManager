@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from typing import cast
 
 import numpy as np
 import pandas as pd
@@ -264,56 +265,88 @@ def _build_summary(
     }
 
 
+
 # ---------------------------------------------------------------------------
 # Core orchestrator
 # ---------------------------------------------------------------------------
 
 
-def generate_v2_production_portfolio(
-    trade_date: str,
+def _run_safety_audits(
+    w_final: np.ndarray,
+    scores: np.ndarray,
+    mu_gap: np.ndarray,
+    Omega_gap: np.ndarray,
+    sigma_gap: np.ndarray,
     gap_input_dir: Path | None,
-    cfg: dict,
+    date_str: str,
+    signal_date: str,
+    run_cfg: ProductionV2RunConfig,
+    fallback: dict,
+    pit_binning: dict,
+    alerts: list[str],
+    pit_history_trade_dates: np.ndarray | None,
+    candidate: str,
 ) -> dict:
-    """Core v2 production portfolio construction.
+    """Run leakage/numerical audits and assemble the final result dict."""
+    leakage = run_leakage_audit(
+        signal_date,
+        date_str,
+        gap_data_loaded=not fallback["gap_data_missing"],
+        pit_history_trade_dates=pit_history_trade_dates,
+    )
 
-    All runtime parameters are resolved from *cfg* via ``parse_run_config()``,
-    so the function itself contains no magic numbers.
+    numerical = run_numerical_audit(w_final, scores, Omega_gap)
+    if numerical["status"] == "FAILED" and run_cfg.fallback_on_audit_failure:
+        alerts.append(f"Numerical audit FAILED: {numerical}. Falling back to flat position.")
+        fallback["gap_data_missing"] = True
+        w_final = np.zeros_like(w_final)
+        numerical = run_numerical_audit(w_final, scores, Omega_gap)
+    elif numerical["status"] == "FAILED":
+        alerts.append(
+            f"Numerical audit FAILED: {numerical}. fallback_on_audit_failure=False; "
+            "keeping v2 weights."
+        )
 
-    Pipeline:
-      1. Parse ``cfg`` → ``ProductionV2RunConfig`` (single source of truth).
-      2. Load gap-adjusted distribution matrices (mu_gap, Omega_gap).
-      3. If gap data missing → return flat position (w_final=0).
-      4. Ensure Omega_gap is PSD (eigenvalue repair if needed).
-      5. Compute mu_over_sigma scores.
-      6. Select top-``long_count`` long / bottom-``short_count`` short by score.
-      7. Compute pre-gross weights via ``solve_baseline_style(baseline_gross)``.
-      8. PIT binning (RuleD) using strictly historical IR history.
-      9. Apply RuleD gross multiplier (from ``run_cfg`` multiplier table).
-      10. Safety audits; if numerical audit fails → return flat position.
+    summary = _build_summary(
+        w_final, date_str, pit_binning["multiplier"], pit_binning["assigned_bin"],
+        pit_binning["threshold_low"], pit_binning["threshold_high"], run_cfg,
+        fallback=fallback["gap_data_missing"], candidate=candidate,
+        scores=scores, mu_gap=mu_gap, Omega_gap=Omega_gap,
+    )
 
-    Args:
-        trade_date: Execution date in 'YYYY-MM-DD' format.
-        gap_input_dir: Directory containing gap distribution outputs, or None.
-        cfg: Raw YAML config dict.  Parsed into ``ProductionV2RunConfig``
-             internally; all runtime values come from here.
-
-    Returns:
-        Dict with keys:
-          w_final, scores, mu_gap, sigma_gap, Omega_gap,
-          fallback, pit_binning, leakage, numerical, alerts, summary,
-          run_config (ProductionV2RunConfig — passed to writer layer)
-    """
-    # 1. Parse cfg → single source of truth for all runtime parameters
-    run_cfg = parse_run_config(cfg)
-
-    n_j = len(JP_TICKERS)
-    date_str = pd.to_datetime(trade_date).strftime("%Y-%m-%d")
-    alerts: list[str] = []
-    fallback = {
-        "gap_data_missing": False,
+    return {
+        "w_final": w_final,
+        "scores": scores,
+        "mu_gap": mu_gap,
+        "sigma_gap": sigma_gap,
+        "Omega_gap": Omega_gap,
+        "fallback": fallback,
+        "pit_binning": pit_binning,
+        "leakage": leakage,
+        "numerical": numerical,
+        "alerts": alerts,
+        "summary": summary,
+        "run_config": run_cfg,
     }
 
-    # 2. Load gap-adjusted distribution matrices
+
+def _load_gap_or_flat(
+    gap_input_dir: Path | None,
+    run_cfg: ProductionV2RunConfig,
+    n_j: int,
+    date_str: str,
+) -> dict:
+    """Load gap matrices or return a flat-position result dict.
+
+    Returns a dict with keys:
+      - is_flat (bool): whether the flat fallback was triggered.
+      - result (dict | None): final result dict when is_flat is True.
+      - mu_gap / Omega_gap: loaded matrices when is_flat is False.
+      - alerts (list[str]): alerts from this stage.
+    """
+    alerts: list[str] = []
+    fallback = {"gap_data_missing": False}
+
     mu_gap: np.ndarray | None = None
     Omega_gap: np.ndarray | None = None
     if gap_input_dir is not None:
@@ -322,7 +355,6 @@ def generate_v2_production_portfolio(
     else:
         alerts.append("--gap-input-dir not specified.")
 
-    # 3. Fallback: gap data missing → flat position (no trading)
     if mu_gap is None or Omega_gap is None:
         fallback["gap_data_missing"] = True
         logger.error(
@@ -333,46 +365,65 @@ def generate_v2_production_portfolio(
 
         dummy_scores = np.zeros(n_j)
         dummy_Omega = np.eye(n_j) * 0.01
-        leakage = run_leakage_audit(
-            date_str, date_str,
-            gap_data_loaded=False,
-            pit_history_trade_dates=None,
-        )
-        numerical = run_numerical_audit(np.zeros(n_j), dummy_scores, dummy_Omega)
-
-        return {
-            "w_final": np.zeros(n_j),
-            "scores": dummy_scores,
-            "mu_gap": np.zeros(n_j),
-            "sigma_gap": np.ones(n_j) * 0.1,
-            "Omega_gap": dummy_Omega,
-            "fallback": fallback,
-            "pit_binning": {
-                "assigned_bin": "Medium",
-                "threshold_low": float("nan"),
-                "threshold_high": float("nan"),
-                "multiplier": run_cfg.fallback_multiplier,
-                "history_count": 0,
-                "fallback_flag": True,
-            },
-            "leakage": leakage,
-            "numerical": numerical,
-            "alerts": alerts,
-            "summary": _build_summary(
-                np.zeros(n_j), date_str, run_cfg.fallback_multiplier, "Medium",
-                float("nan"), float("nan"), run_cfg,
-                fallback=True, candidate="flat_position",
-            ),
-            "run_config": run_cfg,
+        pit_binning = {
+            "assigned_bin": "Medium",
+            "threshold_low": float("nan"),
+            "threshold_high": float("nan"),
+            "multiplier": run_cfg.fallback_multiplier,
+            "current_ir": 0.0,
+            "history_count": 0,
+            "fallback_flag": True,
         }
 
-    # 5. Ensure Omega_gap is PSD
+        result = _run_safety_audits(
+            w_final=np.zeros(n_j),
+            scores=dummy_scores,
+            mu_gap=np.zeros(n_j),
+            Omega_gap=dummy_Omega,
+            sigma_gap=np.ones(n_j) * 0.1,
+            gap_input_dir=gap_input_dir,
+            date_str=date_str,
+            signal_date=date_str,
+            run_cfg=run_cfg,
+            fallback=fallback,
+            pit_binning=pit_binning,
+            alerts=alerts,
+            pit_history_trade_dates=None,
+            candidate="flat_position",
+        )
+        return {
+            "is_flat": True,
+            "result": result,
+            "mu_gap": None,
+            "Omega_gap": None,
+            "alerts": alerts,
+        }
+
+    return {
+        "is_flat": False,
+        "result": None,
+        "mu_gap": mu_gap,
+        "Omega_gap": Omega_gap,
+        "alerts": alerts,
+    }
+
+
+def _repair_and_adjust(
+    mu_gap: np.ndarray,
+    Omega_gap: np.ndarray,
+    run_cfg: ProductionV2RunConfig,
+    date_str: str,
+    n_j: int,
+    alerts: list[str],
+) -> tuple[np.ndarray, np.ndarray, list[str]]:
+    """Ensure Omega_gap is PSD and optionally apply macro adjustments."""
+    # Ensure Omega_gap is PSD
     min_eig = np.min(np.linalg.eigvalsh(Omega_gap))
     if min_eig < 0.0:
         Omega_gap = Omega_gap + (abs(min_eig) + 1e-8) * np.eye(n_j)
         alerts.append("Omega_gap repaired to PSD.")
 
-    # 5a. Macro adjustments (Omega_gap inflation and/or directional mu_gap adjustment)
+    # Macro adjustments (Omega_gap inflation and/or directional mu_gap adjustment)
     if run_cfg.macro_kappa_enabled or run_cfg.macro_direction_enabled:
         try:
             macro_start = (pd.to_datetime(date_str) - pd.Timedelta(days=365 * 2)).strftime("%Y-%m-%d")
@@ -438,11 +489,24 @@ def generate_v2_production_portfolio(
             alerts.append(f"Macro adjustment failed: {e}")
             logger.warning("[%s] Macro adjustment failed: %s", date_str, e)
 
-    # 6. Compute mu_over_sigma scores
+    return mu_gap, Omega_gap, alerts
+
+
+def _compute_scores_and_weights(
+    mu_gap: np.ndarray,
+    Omega_gap: np.ndarray,
+    run_cfg: ProductionV2RunConfig,
+    cfg: dict,
+    gap_input_dir: Path | None,
+    date_str: str,
+    n_j: int,
+    alerts: list[str],
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, list[str]]:
+    """Compute mu_over_sigma scores and the pre-gross weights."""
     sigma_gap = np.sqrt(np.maximum(np.diag(Omega_gap), 1e-6))
     scores = mu_gap / sigma_gap
 
-    # 6a. Phase 2A: Multi-horizon signal blending
+    # Phase 2A: Multi-horizon signal blending
     if run_cfg.mh_blend_enabled and len(run_cfg.mh_horizons) > 1:
         mh_cfg = cfg.get("multi_horizon_blend", {})
         mu_pattern = mh_cfg.get(
@@ -465,7 +529,7 @@ def generate_v2_production_portfolio(
             logger.info("[%s] Multi-horizon blend applied: horizons=%s, weights=%s",
                         date_str, run_cfg.mh_horizons, run_cfg.mh_weights)
 
-    # 6b. Phase 2D: Cross-sectional rank reversal overlay
+    # Phase 2D: Cross-sectional rank reversal overlay
     if run_cfg.cs_overlay_enabled:
         cs_cfg = cfg.get("cs_feature_overlay", {})
         rr_pattern = cs_cfg.get(
@@ -483,12 +547,12 @@ def generate_v2_production_portfolio(
             logger.info("[%s] Rank reversal overlay applied: weight=%.2f",
                         date_str, run_cfg.cs_overlay_weight)
 
-    # 7. Select longs / shorts by score using run_cfg counts
+    # Select longs / shorts by score using run_cfg counts
     sorted_idx = np.argsort(scores)
     short_idx = sorted_idx[:run_cfg.short_count]
     long_idx = sorted_idx[-run_cfg.long_count:]
 
-    # 8. Compute pre-gross weights
+    # Compute pre-gross weights
     if run_cfg.minvar_enabled:
         # MinVar: use Omega_gap as predicted covariance for weight optimization
         w_minvar = build_weights_minvar(
@@ -510,7 +574,20 @@ def generate_v2_production_portfolio(
             scores, long_idx, short_idx, baseline_gross=run_cfg.baseline_gross
         )
 
-    # 9. PIT binning for RuleD — load history, compute current IR
+    return scores, w_pre, sigma_gap, alerts
+
+
+def _apply_pit_ruleD(
+    w_pre: np.ndarray,
+    mu_gap: np.ndarray,
+    Omega_gap: np.ndarray,
+    gap_input_dir: Path | None,
+    date_str: str,
+    run_cfg: ProductionV2RunConfig,
+    alerts: list[str],
+) -> tuple[np.ndarray, dict, list[str], np.ndarray]:
+    """PIT binning and RuleD gross multiplier."""
+    # PIT binning for RuleD — load history, compute current IR
     history_ir = np.array([])
     pit_history_dates = np.array([])
     if gap_input_dir is not None:
@@ -559,46 +636,90 @@ def generate_v2_production_portfolio(
         date_str, assigned_bin, current_ir, mult, history_count,
     )
 
-    # 10. Apply RuleD multiplier
+    # Apply RuleD multiplier
     w_final = w_pre * mult
 
-    # 11. Safety audits
-    signal_date_str = _derive_signal_date(gap_input_dir, date_str)
-    leakage = run_leakage_audit(
-        signal_date_str, date_str,
-        gap_data_loaded=(mu_gap is not None and Omega_gap is not None),
-        pit_history_trade_dates=pit_history_dates if gap_input_dir is not None else None,
+    return w_final, pit_binning, alerts, pit_history_dates
+
+
+def generate_v2_production_portfolio(
+    trade_date: str,
+    gap_input_dir: Path | None,
+    cfg: dict,
+) -> dict:
+    """Core v2 production portfolio construction.
+
+    All runtime parameters are resolved from *cfg* via ``parse_run_config()``,
+    so the function itself contains no magic numbers.
+
+    Pipeline:
+      1. Parse ``cfg`` → ``ProductionV2RunConfig``.
+      2. Load gap-adjusted distribution matrices (or flat fallback).
+      3. Ensure Omega_gap is PSD and apply macro adjustments.
+      4. Compute mu_over_sigma scores; optionally blend multi-horizon /
+         apply rank-reversal overlay.
+      5. Select longs/shorts and compute pre-gross weights.
+      6. PIT binning (RuleD) using strictly historical IR history.
+      7. Apply RuleD gross multiplier.
+      8. Safety audits; if numerical audit fails → return flat position.
+
+    Args:
+        trade_date: Execution date in 'YYYY-MM-DD' format.
+        gap_input_dir: Directory containing gap distribution outputs, or None.
+        cfg: Raw YAML config dict.  Parsed into ``ProductionV2RunConfig``
+             internally; all runtime values come from here.
+
+    Returns:
+        Dict with keys:
+          w_final, scores, mu_gap, sigma_gap, Omega_gap,
+          fallback, pit_binning, leakage, numerical, alerts, summary,
+          run_config (ProductionV2RunConfig — passed to writer layer)
+    """
+    # 1. Parse cfg → single source of truth for all runtime parameters
+    run_cfg = parse_run_config(cfg)
+
+    n_j = len(JP_TICKERS)
+    date_str = pd.to_datetime(trade_date).strftime("%Y-%m-%d")
+
+    # 2. Load gap matrices or flat fallback
+    gap_stage = _load_gap_or_flat(gap_input_dir, run_cfg, n_j, date_str)
+    if gap_stage["is_flat"]:
+        return cast(dict, gap_stage["result"])
+
+    mu_gap = gap_stage["mu_gap"]
+    Omega_gap = gap_stage["Omega_gap"]
+    alerts = gap_stage["alerts"]
+
+    # 3. Ensure Omega_gap is PSD and apply macro adjustments
+    mu_gap, Omega_gap, alerts = _repair_and_adjust(
+        mu_gap, Omega_gap, run_cfg, date_str, n_j, alerts
     )
 
-    numerical = run_numerical_audit(w_final, scores, Omega_gap)
-    if numerical["status"] == "FAILED" and run_cfg.fallback_on_audit_failure:
-        alerts.append(f"Numerical audit FAILED: {numerical}. Falling back to flat position.")
-        fallback["gap_data_missing"] = True
-        w_final = np.zeros(n_j)
-        numerical = run_numerical_audit(w_final, scores, Omega_gap)
-    elif numerical["status"] == "FAILED":
-        alerts.append(
-            f"Numerical audit FAILED: {numerical}. fallback_on_audit_failure=False; "
-            "keeping v2 weights."
-        )
-
-    summary = _build_summary(
-        w_final, date_str, mult, assigned_bin, lo_thresh, hi_thresh, run_cfg,
-        fallback=fallback["gap_data_missing"], candidate="primary_ruleD",
-        scores=scores, mu_gap=mu_gap, Omega_gap=Omega_gap,
+    # 4. Compute scores and pre-gross weights
+    scores, w_pre, sigma_gap, alerts = _compute_scores_and_weights(
+        mu_gap, Omega_gap, run_cfg, cfg, gap_input_dir, date_str, n_j, alerts
     )
 
-    return {
-        "w_final": w_final,
-        "scores": scores,
-        "mu_gap": mu_gap,
-        "sigma_gap": sigma_gap,
-        "Omega_gap": Omega_gap,
-        "fallback": fallback,
-        "pit_binning": pit_binning,
-        "leakage": leakage,
-        "numerical": numerical,
-        "alerts": alerts,
-        "summary": summary,
-        "run_config": run_cfg,
-    }
+    # 5. PIT binning and RuleD multiplier
+    w_final, pit_binning, alerts, pit_history_dates = _apply_pit_ruleD(
+        w_pre, mu_gap, Omega_gap, gap_input_dir, date_str, run_cfg, alerts
+    )
+
+    # 6. Safety audits and final assembly
+    signal_date = _derive_signal_date(gap_input_dir, date_str)
+    return _run_safety_audits(
+        w_final=w_final,
+        scores=scores,
+        mu_gap=mu_gap,
+        Omega_gap=Omega_gap,
+        sigma_gap=sigma_gap,
+        gap_input_dir=gap_input_dir,
+        date_str=date_str,
+        signal_date=signal_date,
+        run_cfg=run_cfg,
+        fallback={"gap_data_missing": False},
+        pit_binning=pit_binning,
+        alerts=alerts,
+        pit_history_trade_dates=pit_history_dates,
+        candidate="primary_ruleD",
+    )
