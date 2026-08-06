@@ -59,26 +59,13 @@ def _train_overlay_lgbm(
     per_ticker_interactions: bool = False,
 ) -> LightGBMModel:
     """Fit a LightGBM regressor on the collected training data."""
-    cont_cols = [
-        "score",
-        "mu_gap",
-        "sigma_gap",
-        "gap",
-        "gap_idio",
-        "topix_night",
-        "market_vol_20d",
-        "score_x_gap",
-        "score_x_gap_idio",
-        "abs_score",
-        "abs_gap",
-    ]
+    # Derive continuous columns from the actual feature DataFrame; this allows
+    # optional VIX features to be included without hard-coding column names.
+    cont_cols = [c for c in train_df.columns if c not in ("target", "ticker")]
     if per_ticker_interactions:
-        cont_cols = [c for c in cont_cols if c not in ("score", "mu_gap", "gap", "score_x_gap", "score_x_gap_idio")]
-        cont_cols = cont_cols + [
-            f"ticker_{tk}_{suffix}"
-            for tk in JP_TICKERS
-            for suffix in ("score", "gap", "gap_idio", "score_x_gap", "score_x_gap_idio")
-        ]
+        # Avoid collinearity between raw per-ticker features and their base forms.
+        base_to_drop = {"score", "mu_gap", "gap", "score_x_gap", "score_x_gap_idio"}
+        cont_cols = [c for c in cont_cols if c not in base_to_drop]
 
     # Optionally include ticker as categorical
     feature_cols = cont_cols + (["ticker"] if use_ticker else [])
@@ -172,6 +159,7 @@ def make_overlay_generator_lgbm(
     p_trade_ema_span: float | None = None,
     use_ticker: bool = True,
     per_ticker_interactions: bool = False,
+    vix_features: pd.DataFrame | None = None,
 ) -> callable:
     """Return a wrapped ``generate_v2_production_portfolio`` for LightGBM overlay.
 
@@ -195,6 +183,7 @@ def make_overlay_generator_lgbm(
         features = _build_ticker_features(
             df_exec, result, date, market_vol,
             per_ticker_interactions=per_ticker_interactions,
+            vix_features=vix_features,
         )
         p_trade = _predict_p_trade_lgbm(features, model)
 
@@ -232,6 +221,50 @@ def make_overlay_generator_lgbm(
     return _wrapped
 
 
+DEFAULT_VIX_CACHE = Path(__file__).resolve().parents[3] / "market_data" / "vix_regime_overlay" / "vix_cache.csv"
+
+
+def _prepare_vix_features(
+    df_exec: pd.DataFrame,
+    vix_cache_path: Path | str = DEFAULT_VIX_CACHE,
+    window: int = 60,
+    min_periods: int = 30,
+) -> pd.DataFrame:
+    """Build PIT 60-day log VIX z-scores and JP-US spread z-scores.
+
+    The VIX value for a trade date is the previous business day's close
+    (``vix_df.shift(1).reindex(..., method='ffill')``) so that no same-day
+    VIX close leaks into the 9:10 decision.
+    """
+    vix_cache_path = Path(vix_cache_path)
+    if not vix_cache_path.exists():
+        raise FileNotFoundError(f"VIX cache not found: {vix_cache_path}")
+
+    vix_df = pd.read_csv(vix_cache_path, index_col=0, parse_dates=True)
+    vix_df.index = pd.to_datetime(vix_df.index).tz_localize(None).normalize()
+    vix_df = vix_df[["us_vix", "jp_vix"]].astype(float)
+    vix_df["vix_spread"] = vix_df["jp_vix"] - vix_df["us_vix"]
+
+    # Use previous day's close and align to df_exec business days
+    aligned = vix_df.shift(1).reindex(df_exec.index, method="ffill")
+
+    out = pd.DataFrame(index=aligned.index)
+    # z-scores on log VIX; rolling window ends at the previous close (PIT)
+    for col in ("us_vix", "jp_vix"):
+        log_vix = np.log(aligned[col].replace(0.0, np.nan)).ffill()
+        roll_mean = log_vix.rolling(window=window, min_periods=min_periods).mean()
+        roll_std = log_vix.rolling(window=window, min_periods=min_periods).std().replace(0.0, 1.0)
+        out[f"{col}_z"] = ((log_vix - roll_mean) / roll_std).fillna(0.0)
+
+    # z-score on raw spread (JP VIX - US VIX)
+    spread = aligned["vix_spread"].ffill()
+    spread_mean = spread.rolling(window=window, min_periods=min_periods).mean()
+    spread_std = spread.rolling(window=window, min_periods=min_periods).std().replace(0.0, 1.0)
+    out["vix_spread_z"] = ((spread - spread_mean) / spread_std).fillna(0.0)
+
+    return out
+
+
 def run_phase2_experiment(
     df_exec: pd.DataFrame,
     gap_input_dir: Path,
@@ -248,12 +281,15 @@ def run_phase2_experiment(
     use_ticker: bool = True,
     use_classification: bool = False,
     per_ticker_interactions: bool = False,
+    vix_cache_path: Path | str | None = None,
 ) -> dict:
     """Run the full Phase 2 experiment and save artifacts."""
     output_dir.mkdir(parents=True, exist_ok=True)
 
     market_vol = _precompute_market_vol(df_exec)
     y_target = compute_jp_target_returns(df_exec, JP_TICKERS)
+
+    vix_features = _prepare_vix_features(df_exec, vix_cache_path) if vix_cache_path is not None else None
 
     all_dates = df_exec.index
     train_dates = all_dates[(all_dates >= train_start) & (all_dates <= train_end)]
@@ -279,6 +315,7 @@ def run_phase2_experiment(
     train_df = _collect_training_data(
         train_dates, df_exec, y_target, gap_input_dir, cfg, market_vol,
         per_ticker_interactions=per_ticker_interactions,
+        vix_features=vix_features,
     )
     if train_df.empty:
         raise ValueError("No training samples collected.")
@@ -312,6 +349,7 @@ def run_phase2_experiment(
         p_trade_ema_span=p_trade_ema_span,
         use_ticker=use_ticker,
         per_ticker_interactions=per_ticker_interactions,
+        vix_features=vix_features,
     )
     pv2.generate_v2_production_portfolio = wrapped_generate
 

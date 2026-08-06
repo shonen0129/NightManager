@@ -37,6 +37,15 @@ SLIPPAGE_BPS_PER_SIDE = 5.0
 ROUND_TRIP_COST = 2.0 * SLIPPAGE_BPS_PER_SIDE / 10000.0
 TRADING_DAYS = 245
 
+# VIX feature names (market-level z-scores and interactions with per-ticker signals)
+VIX_BASE_COLS = ["us_vix_z", "jp_vix_z", "vix_spread_z"]
+VIX_INTERACTION_SUFFIXES = ["x_score", "x_gap", "x_score_x_gap", "x_score_x_gap_idio"]
+VIX_FEATURE_COLS = VIX_BASE_COLS + [
+    f"{base}_{suffix}"
+    for base in VIX_BASE_COLS
+    for suffix in VIX_INTERACTION_SUFFIXES
+]
+
 
 @dataclass(frozen=True)
 class FitResult:
@@ -60,6 +69,38 @@ def _safe(arr: np.ndarray) -> np.ndarray:
 def _sigmoid(x: np.ndarray, scale: float) -> np.ndarray:
     """Numerically stable sigmoid centered at 0 with scale."""
     return expit(x / max(scale, 1e-8))
+
+
+def _add_vix_to_rec(
+    rec: dict,
+    vix_features: pd.DataFrame | None,
+    date: pd.Timestamp,
+    score: float,
+    gap: float,
+    score_x_gap: float,
+    score_x_gap_idio: float,
+) -> None:
+    """Append VIX z-score features and interactions to a record.
+
+    VIX is used as of the previous close (already shifted by the caller).
+    Missing or NaN values are filled with 0.0 so the model is not exposed
+    to future information.
+    """
+    if vix_features is None:
+        return
+    if date in vix_features.index:
+        v = vix_features.loc[date]
+        us_z = float(np.nan_to_num(v.get("us_vix_z", 0.0), nan=0.0))
+        jp_z = float(np.nan_to_num(v.get("jp_vix_z", 0.0), nan=0.0))
+        spread_z = float(np.nan_to_num(v.get("vix_spread_z", 0.0), nan=0.0))
+    else:
+        us_z = jp_z = spread_z = 0.0
+    for z, name in [(us_z, "us_vix_z"), (jp_z, "jp_vix_z"), (spread_z, "vix_spread_z")]:
+        rec[name] = z
+        rec[f"{name}_x_score"] = z * score
+        rec[f"{name}_x_gap"] = z * gap
+        rec[f"{name}_x_score_x_gap"] = z * score_x_gap
+        rec[f"{name}_x_score_x_gap_idio"] = z * score_x_gap_idio
 
 
 def _recompute_w_pre(
@@ -108,6 +149,7 @@ def _build_ticker_features(
     date: pd.Timestamp,
     market_vol: pd.DataFrame,
     per_ticker_interactions: bool = False,
+    vix_features: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
     """Build a per-ticker feature DataFrame for one date."""
     scores = v2_result["scores"]
@@ -151,6 +193,9 @@ def _build_ticker_features(
                 rec[f"ticker_{tk2}_gap_idio"] = is_current * gap_idio
                 rec[f"ticker_{tk2}_score_x_gap"] = is_current * score_x_gap
                 rec[f"ticker_{tk2}_score_x_gap_idio"] = is_current * score_x_gap_idio
+        _add_vix_to_rec(
+            rec, vix_features, date, score, gap, score_x_gap, score_x_gap_idio
+        )
         records.append(rec)
 
     return pd.DataFrame(records)
@@ -193,6 +238,7 @@ def _collect_training_data(
     cfg: dict,
     market_vol: pd.DataFrame,
     per_ticker_interactions: bool = False,
+    vix_features: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
     """Loop over training dates and collect per-ticker features + target."""
     gap_cols = [f"jp_gap_{tk}" for tk in JP_TICKERS]
@@ -258,6 +304,9 @@ def _collect_training_data(
                     rec[f"ticker_{tk2}_gap_idio"] = is_current * gap_idio
                     rec[f"ticker_{tk2}_score_x_gap"] = is_current * score_x_gap
                     rec[f"ticker_{tk2}_score_x_gap_idio"] = is_current * score_x_gap_idio
+            _add_vix_to_rec(
+                rec, vix_features, date, score, gap, score_x_gap, score_x_gap_idio
+            )
             rows.append(rec)
 
     return pd.DataFrame(rows)
