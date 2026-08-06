@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import json
 import logging
-import time
 import os
+import time
 from dataclasses import asdict
 from datetime import datetime
 
@@ -294,6 +294,7 @@ def allocate_capital(
     manual_opens: dict,
     max_capital: float,
     max_net_exposure: float | None = None,
+    side_leverage: float = domain_allocator.DEFAULT_SIDE_LEVERAGE,
 ) -> dict:
     tickers = decision["tickers"]
     weights = np.asarray(decision["weight"], dtype=float)
@@ -303,6 +304,7 @@ def allocate_capital(
         open_prices=manual_opens,
         max_capital=float(max_capital),
         max_net_exposure=max_net_exposure,
+        side_leverage=side_leverage,
     )
     return {
         "qty": allocation.quantities.astype(int),
@@ -724,6 +726,7 @@ def execute_post_decision_flow(
         manual_opens,
         max_capital,
         max_net_exposure=config.max_net_exposure,
+        side_leverage=config.side_leverage,
     )
 
     decision_df = pd.DataFrame(

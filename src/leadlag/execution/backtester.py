@@ -173,8 +173,6 @@ class BacktestEngine:
             # Intraday return (9:10-to-Close) — same for all alpha
             gross_ret = float(np.sum(w_t * r_target_t))
             gross_exp = float(np.sum(np.abs(w_t)))
-            long_exp = float(np.sum(np.maximum(w_t, 0.0)))
-            short_exp = float(np.sum(np.maximum(-w_t, 0.0)))
 
             # Per-asset alpha mask: long positions use alpha_long, short uses alpha_short
             alpha_mask = np.where(w_t > 0, alpha_long, np.where(w_t < 0, alpha_short, 0.0))
@@ -284,7 +282,7 @@ class BacktestEngine:
         buy_interest_annual: float | None = None,
         borrow_fee_annual: float | None = None,
         reverse_fee_bps: float | None = None,
-        side_leverage: float = 1.5,
+        side_leverage: float | None = None,
         n_jobs: int = 1,
         overlay_model: MLOrderOverlayModel | None = None,
         overlay_model_dir: Path | str | None = None,
@@ -329,11 +327,14 @@ class BacktestEngine:
 
         costs = cfg.get("costs", {})
         slip_bps = slippage_bps if slippage_bps is not None else float(costs.get("slippage_bps_per_side", 5.0))
-        alpha_long = overnight_alpha_long if overnight_alpha_long is not None else float(costs.get("overnight_alpha_long", 0.0))
-        alpha_short = overnight_alpha_short if overnight_alpha_short is not None else float(costs.get("overnight_alpha_short", 0.0))
+        alpha_long = overnight_alpha_long if overnight_alpha_long is not None else float(costs.get("overnight_alpha_long", 0.75))
+        alpha_short = overnight_alpha_short if overnight_alpha_short is not None else float(costs.get("overnight_alpha_short", 0.5))
         fin_annual = buy_interest_annual if buy_interest_annual is not None else float(costs.get("buy_interest_annual", 0.025))
         borrow_annual = borrow_fee_annual if borrow_fee_annual is not None else float(costs.get("borrow_fee_annual", 0.0115))
         rev_bps = reverse_fee_bps if reverse_fee_bps is not None else float(costs.get("reverse_fee_bps", 2.0))
+
+        if side_leverage is None:
+            side_leverage = float(cfg.get("execution", {}).get("side_leverage", 1.5))
 
         gap_dir: Path | None = Path(gap_input_dir) if gap_input_dir is not None else None
 

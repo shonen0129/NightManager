@@ -31,8 +31,8 @@ def setup_parser() -> argparse.ArgumentParser:
     decision_parser = subparsers.add_parser("decision", help="Run one-day trade decision pipeline")
     decision_parser.add_argument(
         "--start-date",
-        default="2015-01-01",
-        help="Backtest start date (default: 2015-01-01).",
+        default="2015-01-05",
+        help="Backtest start date (default: 2015-01-05).",
     )
     decision_parser.add_argument(
         "--output-root",
@@ -121,8 +121,8 @@ def setup_parser() -> argparse.ArgumentParser:
     backtest_parser = subparsers.add_parser("backtest", help="Run full historical simulation")
     backtest_parser.add_argument(
         "--start-date",
-        default="2015-01-01",
-        help="Simulation start date (default: 2015-01-01).",
+        default="2015-01-05",
+        help="Simulation start date (default: 2015-01-05).",
     )
     backtest_parser.add_argument(
         "--output-root",

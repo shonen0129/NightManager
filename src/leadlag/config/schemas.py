@@ -92,12 +92,17 @@ class StrategyConfig(BaseModel):
     buy_interest_annual: float = Field(default=0.025, ge=0.0, description="ロング資金調達コスト (年率)")
     borrow_fee_annual: float = Field(default=0.0115, ge=0.0, description="空売り貸株コスト (年率)")
     reverse_fee_bps: float = Field(default=2.0, ge=0.0, description="逆日歩 (bps/day, ショート側のみ)")
+    side_leverage: float = Field(
+        default=1.5,
+        ge=0.0,
+        description="信用取引のロング+ショート合計レバレッジ倍率（gross notional = weights × side_leverage）",
+    )
 
     # Production runner parameters (start_date + risk thresholds)
     # NOTE: risk thresholds are duplicated here for backward compat with production runners
     # that pass a single StrategyConfig to both strategy and risk layers.
     # The canonical risk-only type is RiskConfig; use AppConfig.risk in new code.
-    start_date: str = Field(default="2015-01-01", description="バックテスト開始日")
+    start_date: str = Field(default="2015-01-05", description="バックテスト開始日")
     var_confidence: float = Field(default=0.99, ge=0.0, le=1.0, description="VaR 信頼水準")
     var_window: int = Field(default=250, ge=1, description="VaR/ES 計算ウィンドウ (日数)")
     var_method: str = Field(default="historical", description="VaR 計算手法: historical or cornish_fisher")

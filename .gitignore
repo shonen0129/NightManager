@@ -18,6 +18,7 @@ build/
 .venv/
 venv/
 .venv-mac/
+.venv312/
 
 # IDE
 .vscode/

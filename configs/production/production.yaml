@@ -203,6 +203,10 @@ ml_order_overlay:
   p_trade_ema_span: 0.0
   fallback_to_baseline: true
 
+# --- 実行パラメーター ---
+execution:
+  side_leverage: 1.5        # 信用取引のロング+ショート合計レバレッジ倍率（gross = weights × side_leverage）
+
 output:
   base_dir: results/production_residual_blpx
   live_dir: live/production_residual_blpx
