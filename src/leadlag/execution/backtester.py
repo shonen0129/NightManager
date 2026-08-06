@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from typing import Any, cast
 
 import numpy as np
 import pandas as pd
@@ -15,6 +16,8 @@ from leadlag.models.ml_order_overlay import (
     generate_v2_production_portfolio_with_overlay,
     load_overlay_model,
 )
+from leadlag.models.production_v2 import generate_v2_production_portfolio
+from leadlag.models.sre import compute_jp_target_returns
 
 logger = logging.getLogger(__name__)
 
@@ -58,17 +61,23 @@ class BacktestEngine:
         Returns:
             Dict containing backtest results and metrics.
         """
-        slip_bps = slippage_bps if slippage_bps is not None else getattr(model, "slippage_bps", 5.0)
-        # Resolve alpha: uniform overnight_alpha takes precedence for backward compat
-        if overnight_alpha is not None:
-            alpha_long = overnight_alpha
-            alpha_short = overnight_alpha
-        else:
-            alpha_long = overnight_alpha_long if overnight_alpha_long is not None else getattr(model, "overnight_alpha_long", 0.0)
-            alpha_short = overnight_alpha_short if overnight_alpha_short is not None else getattr(model, "overnight_alpha_short", 0.0)
-        fin_annual = buy_interest_annual if buy_interest_annual is not None else getattr(model, "buy_interest_annual", 0.025)
-        borrow_annual = borrow_fee_annual if borrow_fee_annual is not None else getattr(model, "borrow_fee_annual", 0.0115)
-        rev_bps = reverse_fee_bps if reverse_fee_bps is not None else getattr(model, "reverse_fee_bps", 2.0)
+        cost_params = cls._resolve_run_backtest_cost_params(
+            model,
+            slippage_bps,
+            overnight_alpha,
+            overnight_alpha_long,
+            overnight_alpha_short,
+            buy_interest_annual,
+            borrow_fee_annual,
+            reverse_fee_bps,
+        )
+        slip_bps = cost_params["slip_bps"]
+        alpha_long = cost_params["alpha_long"]
+        alpha_short = cost_params["alpha_short"]
+        fin_annual = cost_params["fin_annual"]
+        borrow_annual = cost_params["borrow_annual"]
+        rev_bps = cost_params["rev_bps"]
+
         logger.info(
             f"Starting generic backtest: start={start_date}, slippage={slip_bps} bps, "
             f"alpha_long={alpha_long}, alpha_short={alpha_short}, "
@@ -76,57 +85,24 @@ class BacktestEngine:
             f"borrow={borrow_annual*100:.2f}% ann, reverse={rev_bps:.1f} bps/day"
         )
 
-        T = len(df_exec)
-        sim_dates = df_exec.index
+        sim_dates, start_idx, end_idx = cls._resolve_sim_dates(
+            df_exec, start_date, end_date, getattr(model, "corr_window", 60)
+        )
+        sim_dates_slice = cast(pd.DatetimeIndex, sim_dates[start_idx : end_idx + 1])
 
-        # Predict signals for the entire dataset
-        pred = model.predict_signals(df_exec, n_jobs=n_jobs)
-        sre_signals_df = pred["signals"]
-
-        # Setup simulation indexes
-        start_dt = pd.to_datetime(start_date)
-        start_idx = max(df_exec.index.searchsorted(start_dt), getattr(model, "corr_window", 60))
-
-        if end_date != "latest":
-            end_dt = pd.to_datetime(end_date)
-            end_idx = min(df_exec.index.searchsorted(end_dt), T - 1)
-        else:
-            end_idx = T - 1
-
-        # Exclude provisional rows (today's close not yet available, r_oc=0.0)
-        if "is_provisional" in df_exec.columns:
-            while end_idx >= start_idx and bool(df_exec["is_provisional"].iloc[end_idx]):
-                end_idx -= 1
-
-        sim_dates_slice = sim_dates[start_idx : end_idx + 1]
-
-        # Generate weights
-        sre_weights = np.zeros((T, model.n_j))
-        sigma_yy_array = pred.get("sigma_yy", None)
-        for i in range(start_idx, end_idx + 1):
-            sigma_yy_i = sigma_yy_array[i] if sigma_yy_array is not None else None
-            sre_weights[i] = model.build_weights(sre_signals_df.iloc[i].values, Sigma_YY=sigma_yy_i)
-
-        sre_weights_df = pd.DataFrame(
-            sre_weights[start_idx : end_idx + 1], index=sim_dates_slice, columns=JP_TICKERS
+        pred, sre_weights_df, y_jp_oc_df = cls._predict_signals_and_weights_run_backtest(
+            model,
+            df_exec,
+            sim_dates,
+            start_idx,
+            end_idx,
+            sim_dates_slice,
+            n_jobs,
         )
 
-        y_jp_oc_df = pred["y_jp_oc_df"]
-
-        # Compute 9:10-to-close target returns for JP assets
-        from leadlag.models.sre import compute_jp_target_returns
-        y_jp_target = compute_jp_target_returns(df_exec, JP_TICKERS)
-        y_jp_target_df = pd.DataFrame(y_jp_target, index=sim_dates, columns=JP_TICKERS)
-
-        # Overnight gap returns: gap(t) = open(t)/close(t-1) - 1
-        gap_cols = [f"jp_gap_{tk}" for tk in JP_TICKERS]
-        if all(c in df_exec.columns for c in gap_cols):
-            gap_returns_df = df_exec[gap_cols].copy()
-            gap_returns_df.columns = JP_TICKERS
-        else:
-            gap_returns_df = pd.DataFrame(
-                0.0, index=sim_dates, columns=JP_TICKERS
-            )
+        y_jp_target_arr, gap_returns_arr = cls._compute_target_and_gap_returns(
+            df_exec, sim_dates, sim_dates_slice
+        )
 
         # Cost parameters
         slip = slip_bps / 10000.0
@@ -134,13 +110,9 @@ class BacktestEngine:
         borrow_daily = borrow_annual / 365.0
         reverse_daily = rev_bps / 10000.0
 
-        # Convert to numpy arrays for faster access
         sre_weights_arr = sre_weights_df.values
-        y_jp_target_arr = y_jp_target_df.loc[sim_dates_slice].values
         y_jp_oc_arr = y_jp_oc_df.loc[sim_dates_slice].values
-        gap_returns_arr = gap_returns_df.loc[sim_dates_slice].values if gap_returns_df is not None else np.zeros((len(sim_dates_slice), model.n_j))
 
-        # Returns and Cost drag calculations
         pnl = cls._simulate_daily_pnl(
             weights=sre_weights_arr,
             target_returns=y_jp_target_arr,
@@ -155,6 +127,150 @@ class BacktestEngine:
             side_leverage=1.0,
             oc_returns=y_jp_oc_arr,
         )
+
+        return cls._assemble_run_backtest_results(
+            pnl, pred, sre_weights_df, sim_dates_slice, alpha_long, alpha_short
+        )
+
+    @staticmethod
+    def _resolve_run_backtest_cost_params(
+        model: BaseModel,
+        slippage_bps: float | None,
+        overnight_alpha: float | None,
+        overnight_alpha_long: float | None,
+        overnight_alpha_short: float | None,
+        buy_interest_annual: float | None,
+        borrow_fee_annual: float | None,
+        reverse_fee_bps: float | None,
+    ) -> dict:
+        """Resolve cost/financing parameters for run_backtest."""
+        slip_bps = slippage_bps if slippage_bps is not None else getattr(model, "slippage_bps", 5.0)
+        if overnight_alpha is not None:
+            alpha_long = overnight_alpha
+            alpha_short = overnight_alpha
+        else:
+            alpha_long = (
+                overnight_alpha_long
+                if overnight_alpha_long is not None
+                else getattr(model, "overnight_alpha_long", 0.0)
+            )
+            alpha_short = (
+                overnight_alpha_short
+                if overnight_alpha_short is not None
+                else getattr(model, "overnight_alpha_short", 0.0)
+            )
+        fin_annual = (
+            buy_interest_annual
+            if buy_interest_annual is not None
+            else getattr(model, "buy_interest_annual", 0.025)
+        )
+        borrow_annual = (
+            borrow_fee_annual
+            if borrow_fee_annual is not None
+            else getattr(model, "borrow_fee_annual", 0.0115)
+        )
+        rev_bps = reverse_fee_bps if reverse_fee_bps is not None else getattr(model, "reverse_fee_bps", 2.0)
+        return {
+            "slip_bps": slip_bps,
+            "alpha_long": alpha_long,
+            "alpha_short": alpha_short,
+            "fin_annual": fin_annual,
+            "borrow_annual": borrow_annual,
+            "rev_bps": rev_bps,
+        }
+
+    @staticmethod
+    def _resolve_sim_dates(
+        df_exec: pd.DataFrame,
+        start_date: str,
+        end_date: str,
+        min_start_idx: int,
+    ) -> tuple[pd.DatetimeIndex, int, int]:
+        """Resolve simulation start/end indices and the full date index."""
+        T = len(df_exec)
+        sim_dates = cast(pd.DatetimeIndex, df_exec.index)
+
+        start_dt = pd.to_datetime(start_date)
+        start_idx = max(int(sim_dates.searchsorted(start_dt)), min_start_idx)
+
+        if end_date != "latest":
+            end_dt = pd.to_datetime(end_date)
+            end_idx = min(int(sim_dates.searchsorted(end_dt)), T - 1)
+        else:
+            end_idx = T - 1
+
+        # Exclude provisional rows (today's close not yet available, r_oc=0.0)
+        if "is_provisional" in df_exec.columns:
+            while end_idx >= start_idx and bool(df_exec["is_provisional"].iloc[end_idx]):
+                end_idx -= 1
+
+        return sim_dates, start_idx, end_idx
+
+    @staticmethod
+    def _compute_target_and_gap_returns(
+        df_exec: pd.DataFrame,
+        sim_dates: pd.DatetimeIndex,
+        sim_dates_slice: pd.DatetimeIndex,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Compute 9:10-to-close target returns and overnight gap returns."""
+        y_jp_target = compute_jp_target_returns(df_exec, JP_TICKERS)
+        y_jp_target_df = pd.DataFrame(y_jp_target, index=sim_dates, columns=JP_TICKERS)
+        y_jp_target_arr = y_jp_target_df.loc[sim_dates_slice].values
+
+        # Overnight gap returns: gap(t) = open(t)/close(t-1) - 1
+        gap_cols = [f"jp_gap_{tk}" for tk in JP_TICKERS]
+        if all(c in df_exec.columns for c in gap_cols):
+            gap_returns_df = df_exec[gap_cols].copy()
+            gap_returns_df.columns = JP_TICKERS
+        else:
+            gap_returns_df = pd.DataFrame(0.0, index=sim_dates, columns=JP_TICKERS)
+
+        gap_returns_arr = gap_returns_df.loc[sim_dates_slice].values
+        return y_jp_target_arr, gap_returns_arr
+
+    @staticmethod
+    def _predict_signals_and_weights_run_backtest(
+        model: BaseModel,
+        df_exec: pd.DataFrame,
+        sim_dates: pd.DatetimeIndex,
+        start_idx: int,
+        end_idx: int,
+        sim_dates_slice: pd.DatetimeIndex,
+        n_jobs: int,
+    ) -> tuple[dict, pd.DataFrame, pd.DataFrame]:
+        """Predict signals and build the SRE weight matrix."""
+        T = len(df_exec)
+
+        # Predict signals for the entire dataset
+        pred: dict[str, Any] = model.predict_signals(df_exec, n_jobs=n_jobs)
+        sre_signals_df = pred["signals"]
+
+        # Generate weights
+        n_j = cast(int, getattr(model, "n_j"))
+        sre_weights = np.zeros((T, n_j))
+        sigma_yy_array = pred.get("sigma_yy", None)
+        for i in range(start_idx, end_idx + 1):
+            sigma_yy_i = sigma_yy_array[i] if sigma_yy_array is not None else None
+            sre_weights[i] = model.build_weights(sre_signals_df.iloc[i].values, Sigma_YY=sigma_yy_i)
+
+        sre_weights_df = pd.DataFrame(
+            sre_weights[start_idx : end_idx + 1], index=sim_dates_slice, columns=JP_TICKERS
+        )
+
+        y_jp_oc_df = pred["y_jp_oc_df"]
+        return pred, sre_weights_df, y_jp_oc_df
+
+    @staticmethod
+    def _assemble_run_backtest_results(
+        pnl: dict,
+        pred: dict,
+        sre_weights_df: pd.DataFrame,
+        sim_dates_slice: pd.DatetimeIndex,
+        alpha_long: float,
+        alpha_short: float,
+    ) -> dict:
+        """Assemble the output dict for run_backtest."""
+        sre_signals_df = pred["signals"]
 
         daily_returns_gross = pd.Series(pnl["gross_returns"], index=sim_dates_slice)
         daily_returns_net = pd.Series(pnl["net_returns"], index=sim_dates_slice)
@@ -314,7 +430,7 @@ class BacktestEngine:
             gross_exp_list.append(gross_exp)
             turnover_list.append(turnover)
 
-            if include_oc:
+            if oc_returns is not None:
                 r_oc_t = oc_returns[i]
                 gross_ret_oc = side_leverage * float(np.sum(w_t * r_oc_t))
                 net_ret_oc = gross_ret_oc - cost
@@ -394,23 +510,27 @@ class BacktestEngine:
             ``daily_fallback`` (bool series) and ``v2_summaries`` (list of
             per-date summary dicts).
         """
-        from leadlag.models.production_v2 import generate_v2_production_portfolio
-        from leadlag.models.sre import compute_jp_target_returns
-
         if overlay_model is None and overlay_model_dir is not None:
             overlay_model = load_overlay_model(Path(overlay_model_dir))
             logger.info("Loaded overlay model from %s", overlay_model_dir)
 
-        costs = cfg.get("costs", {})
-        slip_bps = slippage_bps if slippage_bps is not None else float(costs.get("slippage_bps_per_side", 5.0))
-        alpha_long = overnight_alpha_long if overnight_alpha_long is not None else float(costs.get("overnight_alpha_long", 0.75))
-        alpha_short = overnight_alpha_short if overnight_alpha_short is not None else float(costs.get("overnight_alpha_short", 0.5))
-        fin_annual = buy_interest_annual if buy_interest_annual is not None else float(costs.get("buy_interest_annual", 0.025))
-        borrow_annual = borrow_fee_annual if borrow_fee_annual is not None else float(costs.get("borrow_fee_annual", 0.0115))
-        rev_bps = reverse_fee_bps if reverse_fee_bps is not None else float(costs.get("reverse_fee_bps", 2.0))
-
-        if side_leverage is None:
-            side_leverage = float(cfg.get("execution", {}).get("side_leverage", 1.5))
+        cost_params = cls._resolve_v2_backtest_cost_params(
+            cfg,
+            slippage_bps,
+            overnight_alpha_long,
+            overnight_alpha_short,
+            buy_interest_annual,
+            borrow_fee_annual,
+            reverse_fee_bps,
+            side_leverage,
+        )
+        slip_bps = cost_params["slip_bps"]
+        alpha_long = cost_params["alpha_long"]
+        alpha_short = cost_params["alpha_short"]
+        fin_annual = cost_params["fin_annual"]
+        borrow_annual = cost_params["borrow_annual"]
+        rev_bps = cost_params["rev_bps"]
+        side_leverage = cost_params["side_leverage"]
 
         gap_dir: Path | None = Path(gap_input_dir) if gap_input_dir is not None else None
 
@@ -422,40 +542,25 @@ class BacktestEngine:
             f"side_leverage={side_leverage}"
         )
 
-        T = len(df_exec)
-        sim_dates = df_exec.index
+        sim_dates, start_idx, end_idx = cls._resolve_sim_dates(df_exec, start_date, end_date, 60)
+        sim_dates_slice = cast(pd.DatetimeIndex, sim_dates[start_idx : end_idx + 1])
 
-        start_dt = pd.to_datetime(start_date)
-        start_idx = max(df_exec.index.searchsorted(start_dt), 60)
+        y_jp_target_arr, gap_returns_arr = cls._compute_target_and_gap_returns(
+            df_exec, sim_dates, sim_dates_slice
+        )
 
-        if end_date != "latest":
-            end_dt = pd.to_datetime(end_date)
-            end_idx = min(df_exec.index.searchsorted(end_dt), T - 1)
-        else:
-            end_idx = T - 1
-
-        # Exclude provisional rows (today's close not yet available, r_oc=0.0)
-        if "is_provisional" in df_exec.columns:
-            while end_idx >= start_idx and bool(df_exec["is_provisional"].iloc[end_idx]):
-                end_idx -= 1
-
-        sim_dates_slice = sim_dates[start_idx : end_idx + 1]
-        n_sim_days = len(sim_dates_slice)
         n_j = len(JP_TICKERS)
+        sre_weights, fallback_flags, v2_summaries = cls._generate_v2_weights(
+            df_exec,
+            cfg,
+            gap_dir,
+            sim_dates_slice,
+            n_j,
+            overlay_model,
+            n_jobs,
+        )
 
-        # Target returns (9:10 -> close) and gap returns
-        y_jp_target = compute_jp_target_returns(df_exec, JP_TICKERS)
-        y_jp_target_df = pd.DataFrame(y_jp_target, index=sim_dates, columns=JP_TICKERS)
-
-        gap_cols = [f"jp_gap_{tk}" for tk in JP_TICKERS]
-        if all(c in df_exec.columns for c in gap_cols):
-            gap_returns_df = df_exec[gap_cols].copy()
-            gap_returns_df.columns = JP_TICKERS
-        else:
-            gap_returns_df = pd.DataFrame(0.0, index=sim_dates, columns=JP_TICKERS)
-
-        y_jp_target_arr = y_jp_target_df.loc[sim_dates_slice].values
-        gap_returns_arr = gap_returns_df.loc[sim_dates_slice].values
+        sre_weights_df = pd.DataFrame(sre_weights, index=sim_dates_slice, columns=JP_TICKERS)
 
         # Cost parameters
         slip = slip_bps / 10000.0
@@ -463,10 +568,103 @@ class BacktestEngine:
         borrow_daily = borrow_annual / 365.0
         reverse_daily = rev_bps / 10000.0
 
-        # Per-date V2 weight generation
+        pnl = cls._simulate_daily_pnl(
+            weights=sre_weights,
+            target_returns=y_jp_target_arr,
+            gap_returns=gap_returns_arr,
+            sim_dates=sim_dates_slice,
+            slip=slip,
+            financing_daily=financing_daily,
+            borrow_daily=borrow_daily,
+            reverse_daily=reverse_daily,
+            alpha_long=alpha_long,
+            alpha_short=alpha_short,
+            side_leverage=side_leverage,
+        )
+
+        return cls._assemble_v2_results(
+            pnl,
+            sre_weights_df,
+            fallback_flags,
+            v2_summaries,
+            sim_dates_slice,
+            alpha_long,
+            alpha_short,
+            side_leverage,
+        )
+
+    @staticmethod
+    def _resolve_v2_backtest_cost_params(
+        cfg: dict,
+        slippage_bps: float | None,
+        overnight_alpha_long: float | None,
+        overnight_alpha_short: float | None,
+        buy_interest_annual: float | None,
+        borrow_fee_annual: float | None,
+        reverse_fee_bps: float | None,
+        side_leverage: float | None,
+    ) -> dict:
+        """Resolve cost/financing and side-leverage parameters for run_v2_backtest."""
+        costs = cfg.get("costs", {})
+        slip_bps = (
+            slippage_bps
+            if slippage_bps is not None
+            else float(costs.get("slippage_bps_per_side", 5.0))
+        )
+        alpha_long = (
+            overnight_alpha_long
+            if overnight_alpha_long is not None
+            else float(costs.get("overnight_alpha_long", 0.75))
+        )
+        alpha_short = (
+            overnight_alpha_short
+            if overnight_alpha_short is not None
+            else float(costs.get("overnight_alpha_short", 0.5))
+        )
+        fin_annual = (
+            buy_interest_annual
+            if buy_interest_annual is not None
+            else float(costs.get("buy_interest_annual", 0.025))
+        )
+        borrow_annual = (
+            borrow_fee_annual
+            if borrow_fee_annual is not None
+            else float(costs.get("borrow_fee_annual", 0.0115))
+        )
+        rev_bps = (
+            reverse_fee_bps
+            if reverse_fee_bps is not None
+            else float(costs.get("reverse_fee_bps", 2.0))
+        )
+
+        if side_leverage is None:
+            side_leverage = float(cfg.get("execution", {}).get("side_leverage", 1.5))
+
+        return {
+            "slip_bps": slip_bps,
+            "alpha_long": alpha_long,
+            "alpha_short": alpha_short,
+            "fin_annual": fin_annual,
+            "borrow_annual": borrow_annual,
+            "rev_bps": rev_bps,
+            "side_leverage": side_leverage,
+        }
+
+    @staticmethod
+    def _generate_v2_weights(
+        df_exec: pd.DataFrame,
+        cfg: dict,
+        gap_dir: Path | None,
+        sim_dates_slice: pd.DatetimeIndex,
+        n_j: int,
+        overlay_model: MLOrderOverlayModel | None,
+        n_jobs: int,
+    ) -> tuple[np.ndarray, np.ndarray, list[dict]]:
+        """Generate V2 weights for each simulation date."""
+        n_sim_days = len(sim_dates_slice)
         sre_weights = np.zeros((n_sim_days, n_j))
         fallback_flags = np.zeros(n_sim_days, dtype=bool)
-        v2_summaries: list[dict] = [None] * n_sim_days  # type: ignore
+        v2_summaries = cast(list[dict], [None] * n_sim_days)
 
         def _process_date(i_dt: tuple[int, pd.Timestamp]) -> tuple[int, np.ndarray, bool, dict]:
             i, dt = i_dt
@@ -520,24 +718,20 @@ class BacktestEngine:
                     logger.debug("[%s] V2 fallback (gap data missing)", sim_dates_slice[i].strftime("%Y-%m-%d"))
             logger.info("V2 backtest: processed %d/%d dates (parallel, n_jobs=%d)", n_sim_days, n_sim_days, n_jobs)
 
-        sre_weights_df = pd.DataFrame(sre_weights, index=sim_dates_slice, columns=JP_TICKERS)
-        sre_weights_arr = sre_weights
+        return sre_weights, fallback_flags, v2_summaries
 
-        # Returns and cost drag — identical to run_backtest
-        pnl = cls._simulate_daily_pnl(
-            weights=sre_weights_arr,
-            target_returns=y_jp_target_arr,
-            gap_returns=gap_returns_arr,
-            sim_dates=sim_dates_slice,
-            slip=slip,
-            financing_daily=financing_daily,
-            borrow_daily=borrow_daily,
-            reverse_daily=reverse_daily,
-            alpha_long=alpha_long,
-            alpha_short=alpha_short,
-            side_leverage=side_leverage,
-        )
-
+    @staticmethod
+    def _assemble_v2_results(
+        pnl: dict,
+        sre_weights_df: pd.DataFrame,
+        fallback_flags: np.ndarray,
+        v2_summaries: list[dict],
+        sim_dates_slice: pd.DatetimeIndex,
+        alpha_long: float,
+        alpha_short: float,
+        side_leverage: float,
+    ) -> dict:
+        """Assemble the output dict for run_v2_backtest."""
         daily_returns_gross = pd.Series(pnl["gross_returns"], index=sim_dates_slice)
         daily_returns_net = pd.Series(pnl["net_returns"], index=sim_dates_slice)
         daily_costs = pd.Series(pnl["costs"], index=sim_dates_slice)
@@ -555,6 +749,7 @@ class BacktestEngine:
         drawdown = (wealth / running_max) - 1.0
 
         n_fallback = int(fallback_flags.sum())
+        n_sim_days = len(sim_dates_slice)
         logger.info(
             "V2 backtest done: %d days, %d fallback (%.1f%%)",
             n_sim_days, n_fallback, n_fallback / n_sim_days * 100 if n_sim_days > 0 else 0,
