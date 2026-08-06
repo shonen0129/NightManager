@@ -14,7 +14,8 @@ import logging
 from pathlib import Path
 
 import numpy as np
-import pandas as pd
+
+from leadlag.utils.gap_matrix_io import load_gap_matrices, load_gap_npy
 
 logger = logging.getLogger(__name__)
 
@@ -29,43 +30,12 @@ def cross_sectional_zscore(arr: np.ndarray) -> np.ndarray:
         Z-scored array. Constant arrays return zeros.
     """
     arr = np.asarray(arr, dtype=float)
-    med = np.median(arr)
+    med = float(np.median(arr))
     centered = arr - med
-    std = np.std(centered)
+    std = float(np.std(centered))
     if std < 1e-8:
         return np.zeros_like(arr)
     return centered / std
-
-
-def load_horizon_gap_matrices(
-    gap_input_dir: Path,
-    date_str: str,
-    horizon: int,
-    mu_pattern: str = "matrices/mu_gap_h{h}_{date}.npy",
-    omega_pattern: str = "matrices/omega_gap_h{h}_{date}.npy",
-) -> tuple[np.ndarray | None, np.ndarray | None]:
-    """Load gap matrices for a specific horizon h > 1.
-
-    Files follow the pattern: mu_gap_h{h}_{YYYYMMDD}.npy
-
-    Args:
-        gap_input_dir: Root directory of gap distribution output.
-        date_str: Trade date (any parseable format).
-        horizon: Horizon in days (e.g., 3, 5).
-        mu_pattern: File pattern for mu matrices.
-        omega_pattern: File pattern for Omega matrices.
-
-    Returns:
-        Tuple of (mu_gap_h, Omega_gap_h). Both None if files missing.
-    """
-    date_numeric = pd.to_datetime(date_str).strftime("%Y%m%d")
-    mu_file = gap_input_dir / mu_pattern.format(h=horizon, date=date_numeric)
-    omega_file = gap_input_dir / omega_pattern.format(h=horizon, date=date_numeric)
-
-    if not mu_file.exists() or not omega_file.exists():
-        return None, None
-
-    return np.load(mu_file), np.load(omega_file)
 
 
 def apply_multi_horizon_blend(
@@ -116,8 +86,12 @@ def apply_multi_horizon_blend(
             total_weight += w
             continue
 
-        mu_h, omega_h = load_horizon_gap_matrices(
-            gap_input_dir, date_str, h, mu_pattern, omega_pattern
+        mu_h, omega_h, _ = load_gap_matrices(
+            gap_input_dir,
+            date_str,
+            mu_pattern=mu_pattern,
+            omega_pattern=omega_pattern,
+            pattern_kwargs={"h": h},
         )
         if mu_h is None or omega_h is None:
             alerts.append(
@@ -150,35 +124,6 @@ def apply_multi_horizon_blend(
     blended = blended + np.median(scores_h1)
 
     return blended, alerts
-
-
-def load_rank_reversal_signal(
-    gap_input_dir: Path,
-    date_str: str,
-    file_pattern: str = "matrices/rank_reversal_{date}.npy",
-) -> np.ndarray | None:
-    """Load pre-computed rank reversal signal for the given date.
-
-    The rank reversal signal is computed by the upstream gap distribution
-    process and saved as a .npy file. It represents the 1-day change in
-    cross-sectional rank of JP open-close returns (shifted by 1 day,
-    negated for reversal).
-
-    Args:
-        gap_input_dir: Root directory of gap distribution output.
-        date_str: Trade date string.
-        file_pattern: File pattern with {date} placeholder.
-
-    Returns:
-        Rank reversal signal array (shape n_j), or None if file missing.
-    """
-    date_numeric = pd.to_datetime(date_str).strftime("%Y%m%d")
-    file_path = gap_input_dir / file_pattern.format(date=date_numeric)
-
-    if not file_path.exists():
-        return None
-
-    return np.load(file_path)
 
 
 def apply_rank_reversal_overlay(
@@ -218,7 +163,7 @@ def apply_rank_reversal_overlay(
     if weight <= 0.0:
         return scores.copy(), alerts
 
-    rr_signal = load_rank_reversal_signal(gap_input_dir, date_str, file_pattern)
+    rr_signal, _ = load_gap_npy(gap_input_dir, date_str, file_pattern)
     if rr_signal is None:
         alerts.append("Rank reversal overlay: signal file not found, skipping.")
         return scores.copy(), alerts

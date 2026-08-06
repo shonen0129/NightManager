@@ -15,9 +15,6 @@ generate_v2_production_portfolio(trade_date, gap_input_dir, cfg)
     Core orchestrator.  Returns a result dict including ``run_config`` for the
     writer layer.
 
-load_gap_matrices(gap_input_dir, date_str)
-    Load mu_gap / Omega_gap ``.npy`` files.
-
 load_pit_ir_history(gap_input_dir, trade_date)
     Load historical ex-ante IR series for PIT binning.
 
@@ -47,6 +44,7 @@ from leadlag.core.portfolio import get_rolling_pit_bin, solve_baseline_style
 from leadlag.core.signal import build_weights_minvar
 from leadlag.data.tickers import JP_TICKERS
 from leadlag.models.signal_enhancement import apply_multi_horizon_blend, apply_rank_reversal_overlay
+from leadlag.utils.gap_matrix_io import load_gap_matrices
 
 logger = logging.getLogger(__name__)
 
@@ -96,38 +94,6 @@ def parse_run_config(cfg: dict) -> ProductionV2RunConfig:
 # ---------------------------------------------------------------------------
 # Data loading helpers
 # ---------------------------------------------------------------------------
-
-
-def load_gap_matrices(
-    gap_input_dir: Path,
-    date_str: str,
-) -> tuple[np.ndarray | None, np.ndarray | None, list[str]]:
-    """Load mu_gap and Omega_gap matrices for the given trade date.
-
-    Args:
-        gap_input_dir: Directory that contains a ``matrices/`` subdirectory.
-        date_str: Trade date in any format parseable by ``pd.to_datetime``.
-
-    Returns:
-        Tuple of (mu_gap, Omega_gap, alerts).
-        Both arrays are ``None`` when files are missing.
-    """
-    alerts: list[str] = []
-    date_numeric = pd.to_datetime(date_str).strftime("%Y%m%d")
-
-    mu_file = gap_input_dir / "matrices" / f"mu_gap_{date_numeric}.npy"
-    omega_file = gap_input_dir / "matrices" / f"omega_gap_{date_numeric}.npy"
-
-    if not mu_file.exists():
-        alerts.append(f"mu_gap file missing: {mu_file}")
-        return None, None, alerts
-    if not omega_file.exists():
-        alerts.append(f"omega_gap file missing: {omega_file}")
-        return None, None, alerts
-
-    mu_gap = np.load(mu_file)
-    Omega_gap = np.load(omega_file)
-    return mu_gap, Omega_gap, alerts
 
 
 def load_pit_ir_history(
