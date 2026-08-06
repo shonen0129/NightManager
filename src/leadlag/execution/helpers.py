@@ -392,6 +392,203 @@ def split_large_orders(
     return immediate, delayed
 
 
+def _build_order_deltas(
+    decision_df: pd.DataFrame,
+    current_positions: dict[str, int] | None,
+) -> tuple[list[tuple[str, OrderSide, int]], list[tuple[str, OrderSide, int]], list[tuple[str, int, int, int]]]:
+    """Compute target/current/delta per ticker and split into close vs new orders.
+
+    Returns:
+        (close_orders, new_orders, delta_log_entries)
+    """
+    current: dict[str, int] = current_positions if current_positions is not None else {}
+    close_orders: list[tuple[str, OrderSide, int]] = []
+    new_orders: list[tuple[str, OrderSide, int]] = []
+    delta_log_entries: list[tuple[str, int, int, int]] = []
+
+    for _, row in decision_df.iterrows():
+        ticker = str(row["ticker"])
+        target_qty = int(row["quantity"])
+        if row["action"] == "BUY":
+            target_signed = target_qty
+        elif row["action"] == "SELL":
+            target_signed = -target_qty
+        else:
+            target_signed = 0
+
+        current_signed = current.get(ticker, 0)
+        delta = target_signed - current_signed
+        delta_log_entries.append((ticker, target_signed, current_signed, delta))
+
+        if delta == 0:
+            continue
+
+        order_side = OrderSide.BUY if delta > 0 else OrderSide.SELL
+        abs_delta = abs(delta)
+
+        if current_signed > 0 and delta < 0:
+            close_qty = min(abs_delta, current_signed)
+            new_qty = abs_delta - close_qty
+        elif current_signed < 0 and delta > 0:
+            close_qty = min(abs_delta, abs(current_signed))
+            new_qty = abs_delta - close_qty
+        else:
+            close_qty = 0
+            new_qty = abs_delta
+
+        if close_qty > 0:
+            close_orders.append((ticker, order_side, close_qty))
+        if new_qty > 0:
+            new_orders.append((ticker, order_side, new_qty))
+
+    return close_orders, new_orders, delta_log_entries
+
+
+def _submit_close_orders(
+    api_client: BrokerClient,
+    close_orders: list[tuple[str, OrderSide, int]],
+) -> tuple[list[OrderResult], list[dict]]:
+    """Build OrderRequests for close orders, submit them, and return result dicts."""
+    close_order_requests = [
+        OrderRequest(
+            ticker=ticker,
+            side=side,
+            quantity=qty,
+            order_type=OrderType.MARKET,
+        )
+        for ticker, side, qty in close_orders
+    ]
+    close_results: list[OrderResult] = []
+    close_result_dicts: list[dict] = []
+
+    if close_order_requests:
+        logger.info("[CLOSE PHASE] Submitting %d close (返済) orders first...", len(close_order_requests))
+        close_results = api_client.submit_orders_batch(
+            close_order_requests, delay_ms=250, is_close=True,
+        )
+        for result in close_results:
+            logger.info(
+                "  [CLOSE] %s: %d shares (Order ID: %s, Status: %s)",
+                result.ticker,
+                result.quantity,
+                result.order_id,
+                result.status.value,
+            )
+            close_result_dicts.append({
+                "order_id": result.order_id,
+                "status": result.status.value,
+                "ticker": result.ticker,
+                "side": result.side.value,
+                "quantity": result.quantity,
+                "message": result.message,
+                "eigyou_day": result.eigyou_day,
+            })
+
+    return close_results, close_result_dicts
+
+
+def _submit_new_orders(
+    api_client: BrokerClient,
+    immediate_orders: list[OrderRequest],
+) -> tuple[list[OrderResult], bool]:
+    """Submit the immediate new-order batch and detect any first-batch failure."""
+    first_batch_failed = False
+    results: list[OrderResult] = []
+
+    if immediate_orders:
+        logger.info("[NEW PHASE] Submitting %d new (新規) orders...", len(immediate_orders))
+        results = api_client.submit_orders_batch(immediate_orders, delay_ms=250)
+        for result in results:
+            result_side = result.side.value
+            logger.info(
+                "  [%s] %s: %d shares (Order ID: %s, Status: %s)",
+                result_side,
+                result.ticker,
+                result.quantity,
+                result.order_id,
+                result.status.value,
+            )
+            if result.status == OrderStatus.FAILED:
+                first_batch_failed = True
+
+    return results, first_batch_failed
+
+
+def _submit_delayed_orders(
+    api_client: BrokerClient,
+    delayed_orders: list[OrderRequest],
+    first_batch_failed: bool,
+    summary: dict,
+) -> None:
+    """Sleep and submit delayed orders, or mark SKIPPED if first batch failed.
+
+    Modifies `summary["buy_results"]` and `summary["sell_results"]` in place.
+    """
+    if not delayed_orders:
+        return
+
+    if first_batch_failed:
+        logger.warning(
+            "[DELAYED PHASE] Skipping %d delayed order(s) — first batch had failures",
+            len(delayed_orders),
+        )
+        for req in delayed_orders:
+            result_dict = {
+                "order_id": "",
+                "status": "SKIPPED",
+                "ticker": req.ticker,
+                "side": req.side.value,
+                "quantity": req.quantity,
+                "message": "Skipped due to first batch failure",
+                "delayed": True,
+            }
+            if req.side == OrderSide.BUY:
+                summary["buy_results"].append(result_dict)
+            elif req.side == OrderSide.SELL:
+                summary["sell_results"].append(result_dict)
+    else:
+        delayed_requests = list(delayed_orders)
+        logger.info(
+            "[DELAYED PHASE] Waiting %d seconds before submitting %d delayed order(s)...",
+            SPLIT_DELAY_SECONDS, len(delayed_requests),
+        )
+        time.sleep(SPLIT_DELAY_SECONDS)
+        logger.info("[DELAYED PHASE] Submitting %d delayed (新規) orders...", len(delayed_requests))
+        delayed_results = api_client.submit_orders_batch(delayed_requests, delay_ms=250)
+        for result in delayed_results:
+            result_side = result.side.value
+            logger.info(
+                "  [DELAYED %s] %s: %d shares (Order ID: %s, Status: %s)",
+                result_side,
+                result.ticker,
+                result.quantity,
+                result.order_id,
+                result.status.value,
+            )
+            result_dict = {
+                "order_id": result.order_id,
+                "status": result.status.value,
+                "ticker": result.ticker,
+                "side": result_side,
+                "quantity": result.quantity,
+                "message": result.message,
+                "delayed": True,
+            }
+            if result_side == "BUY":
+                summary["buy_results"].append(result_dict)
+            elif result_side == "SELL":
+                summary["sell_results"].append(result_dict)
+
+
+def _write_api_execution_log(summary: dict, output_dir: str) -> str:
+    """Write `api_execution_log.json` and return its path."""
+    log_path = os.path.join(output_dir, "api_execution_log.json")
+    with open(log_path, "w", encoding="utf-8") as f:
+        json.dump(summary, f, ensure_ascii=False, indent=2)
+    logger.info("API execution log saved: %s", log_path)
+    return log_path
+
+
 def submit_orders_via_api(
     decision_df: pd.DataFrame,
     api_client: BrokerClient,
@@ -412,74 +609,25 @@ def submit_orders_via_api(
     is_dry_run = type(api_client).__name__ == "DryRunBrokerClient"
     current = current_positions or {}
 
-    # Compute delta quantities (target - current), then split into close vs new orders.
-    # Close orders (返済) reduce existing positions; new orders (新規) open or increase positions.
-    # When a delta crosses zero (e.g. LONG→SHORT), the portion that closes the existing
-    # position is a close order and the remainder is a new order.
-    close_orders: list[tuple[str, OrderSide, int]] = []
-    new_orders: list[tuple[str, OrderSide, int]] = []
-    for _, row in decision_df.iterrows():
-        ticker = str(row["ticker"])
-        target_qty = int(row["quantity"])
-        # Target side: BUY → positive, SELL → negative
-        if row["action"] == "BUY":
-            target_signed = target_qty
-        elif row["action"] == "SELL":
-            target_signed = -target_qty
-        else:
-            target_signed = 0
+    close_orders, new_orders, delta_log_entries = _build_order_deltas(
+        decision_df, current_positions
+    )
 
-        current_signed = current.get(ticker, 0)
-        delta = target_signed - current_signed
-
-        if delta == 0:
-            continue
-
-        side = OrderSide.BUY if delta > 0 else OrderSide.SELL
-        abs_delta = abs(delta)
-
-        # Determine how much of the delta closes the existing position
-        if current_signed > 0 and delta < 0:
-            # Reducing LONG: close up to current_signed, rest is new SHORT
-            close_qty = min(abs_delta, current_signed)
-            new_qty = abs_delta - close_qty
-        elif current_signed < 0 and delta > 0:
-            # Reducing SHORT: close up to abs(current_signed), rest is new LONG
-            close_qty = min(abs_delta, abs(current_signed))
-            new_qty = abs_delta - close_qty
-        else:
-            # No existing position, or delta in same direction as current → all new
-            close_qty = 0
-            new_qty = abs_delta
-
-        if close_qty > 0:
-            close_orders.append((ticker, side, close_qty))
-        if new_qty > 0:
-            new_orders.append((ticker, side, new_qty))
-
-    # Log position reconciliation
     if current:
         logger.info("[DELTA] Reconciling against %d existing position(s):", len(current))
-        for _, row in decision_df.iterrows():
-            ticker = str(row["ticker"])
-            target_qty = int(row["quantity"])
-            cur = current.get(ticker, 0)
-            if row["action"] == "BUY":
-                target_signed = target_qty
-            elif row["action"] == "SELL":
-                target_signed = -target_qty
-            else:
-                target_signed = 0
-            delta = target_signed - cur
+        for ticker, target_signed, current_signed, delta in delta_log_entries:
             if delta != 0:
-                logger.info("  %s: target=%d, current=%d, delta=%d", ticker, target_signed, cur, delta)
+                logger.info(
+                    "  %s: target=%d, current=%d, delta=%d",
+                    ticker, target_signed, current_signed, delta,
+                )
     else:
         logger.info("[DELTA] No existing positions; submitting full target quantities")
 
     buy_count = sum(1 for _, side, _ in new_orders if side == OrderSide.BUY)
     sell_count = sum(1 for _, side, _ in new_orders if side == OrderSide.SELL)
 
-    summary = {
+    summary: dict = {
         "timestamp": datetime.now().isoformat(timespec="seconds"),
         "dry_run": is_dry_run,
         "buy_orders_count": buy_count,
@@ -490,43 +638,9 @@ def submit_orders_via_api(
         "close_results": [],
     }
 
-    # --- Phase 1: Submit close orders (返済) first to free margin ---
-    close_order_requests = [
-        OrderRequest(
-            ticker=ticker,
-            side=side,
-            quantity=qty,
-            order_type=OrderType.MARKET,
-        )
-        for ticker, side, qty in close_orders
-    ]
-    close_results_all: list[OrderResult] = []
-    if close_order_requests:
-        logger.info("[CLOSE PHASE] Submitting %d close (返済) orders first...", len(close_order_requests))
-        close_results_all = api_client.submit_orders_batch(
-            close_order_requests, delay_ms=250, is_close=True,
-        )
-        for result in close_results_all:
-            logger.info(
-                "  [CLOSE] %s: %d shares (Order ID: %s, Status: %s)",
-                result.ticker,
-                result.quantity,
-                result.order_id,
-                result.status.value,
-            )
-            summary["close_results"].append({
-                "order_id": result.order_id,
-                "status": result.status.value,
-                "ticker": result.ticker,
-                "side": result.side.value,
-                "quantity": result.quantity,
-                "message": result.message,
-                "eigyou_day": result.eigyou_day,
-            })
+    _, close_result_dicts = _submit_close_orders(api_client, close_orders)
+    summary["close_results"] = close_result_dicts
 
-    # --- Phase 2: Submit new orders (新規) after close orders ---
-    # 1629.T (商社・卸売, lot_size=10) の大口注文は価格インパクトを抑えるため
-    # 2分割し、第1弾を即時発注、第2弾を60秒後に発注する
     unsplit_new_order_requests = [
         OrderRequest(
             ticker=ticker,
@@ -539,102 +653,40 @@ def submit_orders_via_api(
     immediate_orders, delayed_orders = split_large_orders(unsplit_new_order_requests)
 
     new_order_requests = list(immediate_orders)
-    expected_orders_count = len(close_order_requests) + len(immediate_orders) + len(delayed_orders)
+    expected_orders_count = len(close_orders) + len(immediate_orders) + len(delayed_orders)
     summary["expected_orders_count"] = expected_orders_count
 
+    new_results: list[OrderResult] = []
     first_batch_failed = False
     if new_order_requests:
-        logger.info("[NEW PHASE] Submitting %d new (新規) orders...", len(new_order_requests))
-        results = api_client.submit_orders_batch(new_order_requests, delay_ms=250)
-        for result in results:
-            side = result.side.value
-            logger.info(
-                "  [%s] %s: %d shares (Order ID: %s, Status: %s)",
-                side,
-                result.ticker,
-                result.quantity,
-                result.order_id,
-                result.status.value,
-            )
+        new_results, first_batch_failed = _submit_new_orders(api_client, new_order_requests)
+        for result in new_results:
+            result_side = result.side.value
             result_dict = {
                 "order_id": result.order_id,
                 "status": result.status.value,
                 "ticker": result.ticker,
-                "side": side,
+                "side": result_side,
                 "quantity": result.quantity,
                 "message": result.message,
                 "delayed": False,
                 "eigyou_day": result.eigyou_day,
             }
-            if side == "BUY":
+            if result_side == "BUY":
                 summary["buy_results"].append(result_dict)
-            elif side == "SELL":
+            elif result_side == "SELL":
                 summary["sell_results"].append(result_dict)
-            if result.status == OrderStatus.FAILED:
-                first_batch_failed = True
 
-    # --- Phase 2b: Submit delayed orders (1629.T second batch) ---
     if delayed_orders:
-        if first_batch_failed:
-            logger.warning(
-                "[DELAYED PHASE] Skipping %d delayed order(s) — first batch had failures",
-                len(delayed_orders),
-            )
-            for req in delayed_orders:
-                result_dict = {
-                    "order_id": "",
-                    "status": "SKIPPED",
-                    "ticker": req.ticker,
-                    "side": req.side.value,
-                    "quantity": req.quantity,
-                    "message": "Skipped due to first batch failure",
-                    "delayed": True,
-                }
-                if req.side == OrderSide.BUY:
-                    summary["buy_results"].append(result_dict)
-                elif req.side == OrderSide.SELL:
-                    summary["sell_results"].append(result_dict)
-        else:
-            delayed_requests = list(delayed_orders)
-            logger.info(
-                "[DELAYED PHASE] Waiting %d seconds before submitting %d delayed order(s)...",
-                SPLIT_DELAY_SECONDS, len(delayed_requests),
-            )
-            time.sleep(SPLIT_DELAY_SECONDS)
-            logger.info("[DELAYED PHASE] Submitting %d delayed (新規) orders...", len(delayed_requests))
-            delayed_results = api_client.submit_orders_batch(delayed_requests, delay_ms=250)
-            for result in delayed_results:
-                side = result.side.value
-                logger.info(
-                    "  [DELAYED %s] %s: %d shares (Order ID: %s, Status: %s)",
-                    side,
-                    result.ticker,
-                    result.quantity,
-                    result.order_id,
-                    result.status.value,
-                )
-                result_dict = {
-                    "order_id": result.order_id,
-                    "status": result.status.value,
-                    "ticker": result.ticker,
-                    "side": side,
-                    "quantity": result.quantity,
-                    "message": result.message,
-                    "delayed": True,
-                }
-                if side == "BUY":
-                    summary["buy_results"].append(result_dict)
-                elif side == "SELL":
-                    summary["sell_results"].append(result_dict)
+        _submit_delayed_orders(api_client, delayed_orders, first_batch_failed, summary)
 
-    submitted_orders_count = len(summary["buy_results"]) + len(summary["sell_results"]) + len(summary["close_results"])
+    submitted_orders_count = (
+        len(summary["buy_results"]) + len(summary["sell_results"]) + len(summary["close_results"])
+    )
     summary["submitted_orders_count"] = submitted_orders_count
     summary["failed_orders_count"] = max(0, expected_orders_count - submitted_orders_count)
 
-    log_path = os.path.join(output_dir, "api_execution_log.json")
-    with open(log_path, "w", encoding="utf-8") as f:
-        json.dump(summary, f, ensure_ascii=False, indent=2)
-    logger.info("API execution log saved: %s", log_path)
+    log_path = _write_api_execution_log(summary, output_dir)
 
     if not is_dry_run and summary["failed_orders_count"] > 0:
         raise RuntimeError(
@@ -644,12 +696,6 @@ def submit_orders_via_api(
         )
 
     return summary
-
-
-# ---------------------------------------------------------------------------
-# Summary files (backtest mode)
-# ---------------------------------------------------------------------------
-
 
 def save_summary_files(
     results: pd.DataFrame,
@@ -688,30 +734,22 @@ def save_summary_files(
         json.dump(summary, f, ensure_ascii=False, indent=2)
 
 
-def execute_post_decision_flow(
+def _prepare_decision_df(
     decision: dict,
     config: ProductionConfig,
     manual_opens: dict,
     max_capital: float,
-    hist_returns: pd.Series,
-    output_dir: str,
-    api_client: BrokerClient | None = None,
-    text_output: bool = False,
-    current_positions: dict[str, int] | None = None,
-) -> str:
-    """Execute post-decision flow (gross adjustment, risk check, capital allocation, order submission, and output writing).
-
-    The dry-run vs live behaviour is determined by the ``api_client`` type:
-    pass a ``DryRunBrokerClient`` for simulated execution, or a
-    ``KabuBrokerClient`` for live trading.
+) -> tuple[pd.DataFrame, dict]:
+    """Apply gross exposure adjustment, map actions, allocate, and build decision_df.
 
     Returns:
-        Path to the decision output CSV.
+        (decision_df, capital_alloc)
     """
-    decision = auto_adjust_gross_exposure(decision, config)
+    adjusted = auto_adjust_gross_exposure(decision, config)
+    # Preserve the adjusted state in the same decision dict so downstream helpers see it.
+    decision.update(adjusted)
 
-    # Map sides to BUY, SELL, HOLD for backward compatibility with runner code
-    actions_mapped = []
+    actions_mapped: list[str] = []
     for side in decision["action"]:
         if side in ("LONG", "BUY"):
             actions_mapped.append("BUY")
@@ -741,6 +779,16 @@ def execute_post_decision_flow(
         }
     )
 
+    return decision_df, capital_alloc
+
+
+def _log_decision_allocations(
+    decision_df: pd.DataFrame,
+    capital_alloc: dict,
+    max_capital: float,
+    decision: dict,
+) -> None:
+    """Log the decision summary, gross adjustment, and target/allocated budgets."""
     _log_decision_summary(decision_df, decision)
     if decision.get("gross_adjusted", False):
         logger.info(
@@ -775,6 +823,20 @@ def execute_post_decision_flow(
     logger.info("Allocated net notional: %s JPY", f"{total_net_allocated:,.0f}")
     logger.info("Unallocated gross budget: %s JPY", f"{gross_budget - total_gross_allocated:,.0f}")
 
+
+def _run_risk_check_and_print(
+    decision: dict,
+    decision_df: pd.DataFrame,
+    max_capital: float,
+    hist_returns: pd.Series,
+    config: ProductionConfig,
+) -> dict:
+    """Compute allocated totals, run risk checks, print the report, and return it."""
+    buy_mask = decision_df["action"] == "BUY"
+    sell_mask = decision_df["action"] == "SELL"
+    total_buy_allocated = float(decision_df.loc[buy_mask, "etf_amount"].sum())
+    total_sell_allocated = float(decision_df.loc[sell_mask, "etf_amount"].sum())
+
     risk_report = run_risk_checks(
         decision=decision,
         total_buy_allocated=total_buy_allocated,
@@ -788,7 +850,22 @@ def execute_post_decision_flow(
         raise RuntimeError(
             "Risk stop threshold breached; order submission blocked. See [RISK-STOP] logs above."
         )
+    return risk_report
 
+
+def _write_decision_output_and_submit(
+    decision_df: pd.DataFrame,
+    decision: dict,
+    output_dir: str,
+    text_output: bool,
+    api_client: BrokerClient | None,
+    current_positions: dict[str, int] | None,
+) -> str:
+    """Write decision CSV, optionally print text, submit orders, and save journal.
+
+    Returns:
+        Path to the decision output CSV.
+    """
     logger.info("[4/4] Writing decision artifact...")
     out_path = save_decision_output(decision_df, output_dir, decision["trade_date"])
     logger.info("Decision saved: %s", out_path)
@@ -836,6 +913,45 @@ def execute_post_decision_flow(
 
     return out_path
 
+
+def execute_post_decision_flow(
+    decision: dict,
+    config: ProductionConfig,
+    manual_opens: dict,
+    max_capital: float,
+    hist_returns: pd.Series,
+    output_dir: str,
+    api_client: BrokerClient | None = None,
+    text_output: bool = False,
+    current_positions: dict[str, int] | None = None,
+) -> str:
+    """Execute post-decision flow (gross adjustment, risk check, capital allocation, order submission, and output writing).
+
+    The dry-run vs live behaviour is determined by the ``api_client`` type:
+    pass a ``DryRunBrokerClient`` for simulated execution, or a
+    ``KabuBrokerClient`` for live trading.
+
+    Returns:
+        Path to the decision output CSV.
+    """
+    decision_df, capital_alloc = _prepare_decision_df(
+        decision, config, manual_opens, max_capital
+    )
+
+    _log_decision_allocations(decision_df, capital_alloc, max_capital, decision)
+
+    _run_risk_check_and_print(decision, decision_df, max_capital, hist_returns, config)
+
+    out_path = _write_decision_output_and_submit(
+        decision_df=decision_df,
+        decision=decision,
+        output_dir=output_dir,
+        text_output=text_output,
+        api_client=api_client,
+        current_positions=current_positions,
+    )
+
+    return out_path
 
 def resolve_daily_open_prices(
     api_client: BrokerClient | None,
