@@ -60,5 +60,22 @@ if [ -n "${LATEST_DIAG_DIR}" ]; then
     echo "[INFO] Updated latest symlink -> ${LATEST_DIAG_DIR}" >> "${LOG_FILE}"
 fi
 
+# --- 鮮度チェック: 出力 diagnostics が本日取引日を含んでいるか ---
+# distribution_panel_long.csv の列: signal_date, trade_date, ticker, ...
+# 本日 T の決定には trade_date == TODAY の行が必要。
+EXPECTED_TRADE_DATE="$(date +%Y-%m-%d)"
+
+if [ -n "${LATEST_DIAG_DIR}" ] && [ -f "${LATEST_DIAG_DIR}/distribution_panel_long.csv" ]; then
+    MAX_TRADE_DATE=$(awk -F, 'NR>1 {gsub(/ .*/, "", $2); print $2}' "${LATEST_DIAG_DIR}/distribution_panel_long.csv" | sort | tail -1)
+    if [ "${MAX_TRADE_DATE}" != "${EXPECTED_TRADE_DATE}" ]; then
+        echo "[WARNING] distribution_diagnostics output is stale: max trade_date=${MAX_TRADE_DATE}, expected=${EXPECTED_TRADE_DATE}" >> "${LOG_FILE}"
+        echo "[WARNING] The US close data for the signal of ${EXPECTED_TRADE_DATE} may not have been available at run time." >> "${LOG_FILE}"
+        echo "[WARNING] Consider rerunning this script later, or delay the schedule to after US data is processed." >> "${LOG_FILE}"
+        # Not failing here; gap_distribution.sh will fail its own freshness check and produce flat position.
+    else
+        echo "[INFO] Freshness check passed: max trade_date=${MAX_TRADE_DATE}" >> "${LOG_FILE}"
+    fi
+fi
+
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] === distribution diagnostics (Step 1) 終了コード: ${EXIT_CODE} ===" >> "${LOG_FILE}"
 exit ${EXIT_CODE}

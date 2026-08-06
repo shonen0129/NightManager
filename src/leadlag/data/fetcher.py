@@ -304,12 +304,13 @@ def download_data(
     start_date: str = "2009-01-01",
     end_date=None,
     beta_window: int = 60,
+    force: bool = False,
 ) -> dict:
     """Download and cache ETF OHLC data.
 
     Strategy:
-    1. If cache is valid (< CACHE_TTL_HOURS old) → return cached data
-    2. If stale cache exists → try incremental update
+    1. If force=False and cache is valid (< CACHE_TTL_HOURS old) → return cached data
+    2. If stale cache exists (or force=True) → try incremental update
     3. Otherwise → full re-download
     4. Falls back to stale cache if download fails
 
@@ -317,6 +318,7 @@ def download_data(
         start_date: Download start date (used if no cache exists)
         end_date: Download end date (None = today)
         beta_window: Minimum TOPIX history required for beta computation
+        force: If True, ignore TTL and force an incremental update/re-download.
 
     Returns:
         Dict with keys "us_close", "jp_close", "jp_open" (all DataFrames)
@@ -324,7 +326,7 @@ def download_data(
     pkl_path = etf_pkl_path()
     os.makedirs(os.path.dirname(pkl_path), exist_ok=True)
 
-    if is_pkl_cache_valid(pkl_path):
+    if not force and is_pkl_cache_valid(pkl_path):
         logger.info("Loading data from cache (valid)")
         return pd.read_pickle(pkl_path)
 

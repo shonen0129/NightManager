@@ -306,6 +306,7 @@ def main():
             prev_panel_daily_df = pd.read_csv(prev_dir / "distribution_panel_daily.csv")
     
     incremental_skipped = 0
+    psd_dist = 0.0
     
     for dt in sim_dates_slice:
         i = df_exec.index.get_indexer([dt])[0]

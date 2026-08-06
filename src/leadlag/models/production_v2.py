@@ -147,7 +147,17 @@ def load_pit_ir_history(
         Tuple of (history_ir array, alerts list, history_trade_dates array).
     """
     alerts: list[str] = []
-    diag_file = gap_input_dir / "portfolio_gap_distribution_diagnostics.csv"
+
+    # Prefer the canonical full-history diagnostics file (maintained across runs)
+    # over the per-run portfolio_gap_distribution_diagnostics.csv, which may
+    # contain only the recent days computed in that run.
+    canonical_file = gap_input_dir / "full_history_diagnostics.csv"
+    if not canonical_file.exists():
+        canonical_file = gap_input_dir.parent / "full_history_diagnostics.csv"
+    if canonical_file.exists():
+        diag_file = canonical_file
+    else:
+        diag_file = gap_input_dir / "portfolio_gap_distribution_diagnostics.csv"
 
     if not diag_file.exists():
         alerts.append(

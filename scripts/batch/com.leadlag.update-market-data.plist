@@ -3,18 +3,20 @@
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.leadlag.distribution-diagnostics</string>
+    <string>com.leadlag.update-market-data</string>
 
     <key>ProgramArguments</key>
     <array>
         <string>/bin/bash</string>
-        <string>/Users/shonen/日米ラグ/scripts/batch/run_distribution_diagnostics.sh</string>
+        <string>/Users/shonen/日米ラグ/scripts/batch/update_market_data.sh</string>
     </array>
 
     <key>WorkingDirectory</key>
     <string>/Users/shonen/日米ラグ</string>
 
-    <!-- update_market_data (08:00) の後、yfinance 遅延を吸収して 08:15 に実行 -->
+    <!-- 米国市場クローズ後、yfinance データ遅延を考慮して JST 08:00 に実行 -->
+    <!-- US クローズ: JST 05:00 (夏時間) / 06:00 (冬時間) -->
+    <!-- yfinance の日次データはクローズ後 1-2 時間で安定するため 08:00 は安全 -->
     <key>StartCalendarInterval</key>
     <array>
         <dict>
@@ -23,7 +25,7 @@
             <key>Hour</key>
             <integer>8</integer>
             <key>Minute</key>
-            <integer>15</integer>
+            <integer>0</integer>
         </dict>
         <dict>
             <key>Weekday</key>
@@ -31,7 +33,7 @@
             <key>Hour</key>
             <integer>8</integer>
             <key>Minute</key>
-            <integer>15</integer>
+            <integer>0</integer>
         </dict>
         <dict>
             <key>Weekday</key>
@@ -39,7 +41,7 @@
             <key>Hour</key>
             <integer>8</integer>
             <key>Minute</key>
-            <integer>15</integer>
+            <integer>0</integer>
         </dict>
         <dict>
             <key>Weekday</key>
@@ -47,7 +49,7 @@
             <key>Hour</key>
             <integer>8</integer>
             <key>Minute</key>
-            <integer>15</integer>
+            <integer>0</integer>
         </dict>
         <dict>
             <key>Weekday</key>
@@ -55,7 +57,7 @@
             <key>Hour</key>
             <integer>8</integer>
             <key>Minute</key>
-            <integer>15</integer>
+            <integer>0</integer>
         </dict>
         <dict>
             <key>Weekday</key>
@@ -63,15 +65,15 @@
             <key>Hour</key>
             <integer>8</integer>
             <key>Minute</key>
-            <integer>15</integer>
+            <integer>0</integer>
         </dict>
     </array>
 
     <key>StandardOutPath</key>
-    <string>/Users/shonen/日米ラグ/logs/distribution_diagnostics_launchd.log</string>
+    <string>/Users/shonen/日米ラグ/logs/update_market_data_launchd.log</string>
 
     <key>StandardErrorPath</key>
-    <string>/Users/shonen/日米ラグ/logs/distribution_diagnostics_launchd.log</string>
+    <string>/Users/shonen/日米ラグ/logs/update_market_data_launchd.log</string>
 
     <key>EnvironmentVariables</key>
     <dict>

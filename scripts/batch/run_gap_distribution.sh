@@ -57,6 +57,27 @@ echo "[INFO] Using vol_state_panel: ${VOL_STATE}" >> "${LOG_FILE}"
 TODAY=$(date +%Y-%m-%d)
 TODAY_NUMERIC=$(date +%Y%m%d)
 
+# --- 鮮度チェック: distribution_diagnostics が当日取引日を含んでいるか ---
+# 本日 T の gap 分布を計算するには、diagnostics に trade_date == TODAY の行が
+# 含まれている必要がある。trade_date T は signal_date T-1（前日米国クローズ）
+# のデータを使うため、T が欠けている = 最新 US クローズが未処理。
+PANEL_LONG="${DIST_DIR}/distribution_panel_long.csv"
+EXPECTED_TRADE_DATE="${TODAY}"
+if [ -f "${PANEL_LONG}" ]; then
+    # distribution_panel_long.csv の列: signal_date, trade_date, ticker, ...
+    # trade_date は第2列
+    MAX_TRADE_DATE=$(awk -F, 'NR>1 {gsub(/ .*/, "", $2); print $2}' "${PANEL_LONG}" | sort | tail -1)
+    if [ "${MAX_TRADE_DATE}" != "${EXPECTED_TRADE_DATE}" ]; then
+        echo "[ERROR] distribution_diagnostics is stale: max trade_date=${MAX_TRADE_DATE}, expected=${EXPECTED_TRADE_DATE}" >> "${LOG_FILE}"
+        echo "[ERROR] The US close data for the signal of ${EXPECTED_TRADE_DATE} is not yet processed." >> "${LOG_FILE}"
+        echo "[ERROR] Please update market data and rerun distribution_diagnostics before gap_adjusted_distribution." >> "${LOG_FILE}"
+        exit 1
+    fi
+    echo "[INFO] Freshness check passed: max trade_date=${MAX_TRADE_DATE} (expected ${EXPECTED_TRADE_DATE})" >> "${LOG_FILE}"
+else
+    echo "[WARNING] distribution_panel_long.csv not found: ${PANEL_LONG}. Skipping freshness check." >> "${LOG_FILE}"
+fi
+
 # 前回のlatest実績ディレクトリを保存（フォールバック用）
 PREV_LATEST=""
 if [ -L ${PIPELINE_DIR}/gap_adjusted_distribution/latest ]; then
@@ -126,19 +147,20 @@ if [ -n "${LATEST_DIR}" ]; then
     echo "[INFO] Updated latest symlink -> ${LATEST_DIR}" >> "${LOG_FILE}"
 fi
 
-# PIT IR履歴のマージ: 過去のdiagnostics CSVを新しいlatestに統合
-# compute_gap_adjusted_distribution.pyは過去3日分のみ計算するため、
+# PIT IR履歴のマージ: 正本 full_history_diagnostics.csv に新しい行を追加
+# compute_gap_adjusted_distribution.pyは過去数日分のみ計算するため、
 # 新しいdiagnostics CSVには数行しかない。RuleD PIT binningは252日以上の
-# 履歴を必要とするため、前回のlatestのdiagnostics CSVをマージする。
+# 履歴を必要とするため、正本の full_history_diagnostics.csv を更新する。
+# load_pit_ir_history はこの正本ファイルを優先して読み込む。
+CANONICAL_DIAG="${PIPELINE_DIR}/gap_adjusted_distribution/full_history_diagnostics.csv"
 NEW_DIAG="${LATEST_DIR}/portfolio_gap_distribution_diagnostics.csv"
-if [ -n "${PREV_LATEST}" ] && [ -f "${PIPELINE_DIR}/gap_adjusted_distribution/${PREV_LATEST}/portfolio_gap_distribution_diagnostics.csv" ]; then
-    PREV_DIAG="${PIPELINE_DIR}/gap_adjusted_distribution/${PREV_LATEST}/portfolio_gap_distribution_diagnostics.csv"
-    if [ -f "${NEW_DIAG}" ]; then
-        PYTHONPATH=src "${PYTHON_BIN}" scripts/batch/merge_gap_distribution_diagnostics.py "${PREV_DIAG}" "${NEW_DIAG}" >> "${LOG_FILE}" 2>&1
-        echo "[INFO] Merged PIT IR history into new diagnostics CSV" >> "${LOG_FILE}"
+if [ -f "${NEW_DIAG}" ]; then
+    if [ -f "${CANONICAL_DIAG}" ]; then
+        PYTHONPATH=src "${PYTHON_BIN}" scripts/batch/merge_gap_distribution_diagnostics.py "${CANONICAL_DIAG}" "${NEW_DIAG}" --output "${CANONICAL_DIAG}" >> "${LOG_FILE}" 2>&1
+        echo "[INFO] Merged new diagnostics into canonical full_history_diagnostics.csv" >> "${LOG_FILE}"
     else
-        cp "${PREV_DIAG}" "${NEW_DIAG}"
-        echo "[INFO] Copied previous diagnostics CSV (new one not found)" >> "${LOG_FILE}"
+        cp "${NEW_DIAG}" "${CANONICAL_DIAG}"
+        echo "[INFO] Initialized canonical full_history_diagnostics.csv from new diagnostics" >> "${LOG_FILE}"
     fi
 fi
 
