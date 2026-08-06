@@ -141,95 +141,33 @@ class BacktestEngine:
         gap_returns_arr = gap_returns_df.loc[sim_dates_slice].values if gap_returns_df is not None else np.zeros((len(sim_dates_slice), model.n_j))
 
         # Returns and Cost drag calculations
-        gross_returns_list = []
-        net_returns_list = []
-        gross_returns_oc_list = []
-        net_returns_oc_list = []
-        cost_list = []
-        slip_cost_list = []
-        financing_cost_list = []
-        borrow_cost_list = []
-        reverse_cost_list = []
-        overnight_ret_list = []
-        gross_exp_list = []
-        turnover_list = []
+        pnl = cls._simulate_daily_pnl(
+            weights=sre_weights_arr,
+            target_returns=y_jp_target_arr,
+            gap_returns=gap_returns_arr,
+            sim_dates=sim_dates_slice,
+            slip=slip,
+            financing_daily=financing_daily,
+            borrow_daily=borrow_daily,
+            reverse_daily=reverse_daily,
+            alpha_long=alpha_long,
+            alpha_short=alpha_short,
+            side_leverage=1.0,
+            oc_returns=y_jp_oc_arr,
+        )
 
-        w_prev = np.zeros(model.n_j)
-        n_sim_days = len(sim_dates_slice)
-
-        # Calculate calendar days between trading dates to scale financing/borrow fees correctly.
-        # For the last trading day, assume 1 calendar day as fallback.
-        calendar_days = np.ones(n_sim_days)
-        sim_dates_pd = pd.to_datetime(sim_dates_slice)
-        for i in range(n_sim_days - 1):
-            calendar_days[i] = (sim_dates_pd[i + 1] - sim_dates_pd[i]).days
-
-        for i in range(n_sim_days):
-            w_t = sre_weights_arr[i]
-            r_target_t = y_jp_target_arr[i]
-            r_oc_t = y_jp_oc_arr[i]
-            days_held = calendar_days[i]
-
-            # Intraday return (9:10-to-Close) — same for all alpha
-            gross_ret = float(np.sum(w_t * r_target_t))
-            gross_exp = float(np.sum(np.abs(w_t)))
-
-            # Per-asset alpha mask: long positions use alpha_long, short uses alpha_short
-            alpha_mask = np.where(w_t > 0, alpha_long, np.where(w_t < 0, alpha_short, 0.0))
-
-            # Overnight return: sum over assets of alpha_mask[j] * w_t[j] * gap(t+1)[j]
-            overnight_ret = 0.0
-            if (alpha_long > 0 or alpha_short > 0) and i < n_sim_days - 1:
-                r_gap_next = gap_returns_arr[i + 1]
-                overnight_ret = float(np.sum(alpha_mask * w_t * r_gap_next))
-
-            # Cost model:
-            # (1-alpha_mask[j]) fraction: full round-trip (close at 15:00, reopen at 9:10)
-            # alpha_mask[j] fraction: only rebalance cost (hold overnight, adjust at 9:10)
-            turnover = float(np.sum(np.abs(w_t - w_prev)) / 2.0)
-
-            slip_cost = slip * (2.0 * np.sum((1.0 - alpha_mask) * np.abs(w_t)) + np.sum(alpha_mask * np.abs(w_t - w_prev) / 2.0))
-            held_long = float(np.sum(alpha_mask * np.maximum(w_t, 0.0)))
-            held_short = float(np.sum(alpha_mask * np.maximum(-w_t, 0.0)))
-            fin_cost = held_long * financing_daily * days_held
-            borrow_cost = held_short * borrow_daily * days_held
-            reverse_cost = held_short * reverse_daily * days_held
-            cost = slip_cost + fin_cost + borrow_cost + reverse_cost
-
-            # Net return = intraday + overnight - total cost
-            net_ret = gross_ret + overnight_ret - cost
-
-            # Auxiliary (Open-to-Close) — no overnight component for OC measure
-            gross_ret_oc = float(np.sum(w_t * r_oc_t))
-            net_ret_oc = gross_ret_oc - cost
-
-            gross_returns_list.append(gross_ret + overnight_ret)
-            net_returns_list.append(net_ret)
-            gross_returns_oc_list.append(gross_ret_oc)
-            net_returns_oc_list.append(net_ret_oc)
-            cost_list.append(cost)
-            slip_cost_list.append(slip_cost)
-            financing_cost_list.append(fin_cost)
-            borrow_cost_list.append(borrow_cost)
-            reverse_cost_list.append(reverse_cost)
-            overnight_ret_list.append(overnight_ret)
-            gross_exp_list.append(gross_exp)
-            turnover_list.append(turnover)
-
-            w_prev = w_t
-
-        daily_returns_gross = pd.Series(gross_returns_list, index=sim_dates_slice)
-        daily_returns_net = pd.Series(net_returns_list, index=sim_dates_slice)
-        daily_returns_gross_oc = pd.Series(gross_returns_oc_list, index=sim_dates_slice)
-        daily_returns_net_oc = pd.Series(net_returns_oc_list, index=sim_dates_slice)
-        daily_costs = pd.Series(cost_list, index=sim_dates_slice)
-        daily_slip_costs = pd.Series(slip_cost_list, index=sim_dates_slice)
-        daily_financing_costs = pd.Series(financing_cost_list, index=sim_dates_slice)
-        daily_borrow_costs = pd.Series(borrow_cost_list, index=sim_dates_slice)
-        daily_reverse_costs = pd.Series(reverse_cost_list, index=sim_dates_slice)
-        daily_overnight_returns = pd.Series(overnight_ret_list, index=sim_dates_slice)
-        daily_gross_exps = pd.Series(gross_exp_list, index=sim_dates_slice)
-        daily_turnover = pd.Series(turnover_list, index=sim_dates_slice)
+        daily_returns_gross = pd.Series(pnl["gross_returns"], index=sim_dates_slice)
+        daily_returns_net = pd.Series(pnl["net_returns"], index=sim_dates_slice)
+        daily_returns_gross_oc = pd.Series(pnl["gross_returns_oc"], index=sim_dates_slice)
+        daily_returns_net_oc = pd.Series(pnl["net_returns_oc"], index=sim_dates_slice)
+        daily_costs = pd.Series(pnl["costs"], index=sim_dates_slice)
+        daily_slip_costs = pd.Series(pnl["slip_costs"], index=sim_dates_slice)
+        daily_financing_costs = pd.Series(pnl["financing_costs"], index=sim_dates_slice)
+        daily_borrow_costs = pd.Series(pnl["borrow_costs"], index=sim_dates_slice)
+        daily_reverse_costs = pd.Series(pnl["reverse_costs"], index=sim_dates_slice)
+        daily_overnight_returns = pd.Series(pnl["overnight_returns"], index=sim_dates_slice)
+        daily_gross_exps = pd.Series(pnl["gross_exps"], index=sim_dates_slice)
+        daily_turnover = pd.Series(pnl["turnover"], index=sim_dates_slice)
 
         wealth = (1.0 + daily_returns_net).cumprod()
         running_max = wealth.cummax()
@@ -263,6 +201,144 @@ class BacktestEngine:
             out_res["prior_info"] = pred["prior_info"]
 
         return out_res
+
+    @classmethod
+    def _simulate_daily_pnl(
+        cls,
+        weights: np.ndarray,
+        target_returns: np.ndarray,
+        gap_returns: np.ndarray,
+        sim_dates: pd.DatetimeIndex,
+        slip: float,
+        financing_daily: float,
+        borrow_daily: float,
+        reverse_daily: float,
+        alpha_long: float,
+        alpha_short: float,
+        side_leverage: float = 1.0,
+        oc_returns: np.ndarray | None = None,
+    ) -> dict:
+        """Simulate daily gross/net returns and costs for a weight matrix.
+
+        This is the common cost model shared by ``run_backtest`` and
+        ``run_v2_backtest``.  The only differences are the optional
+        side-leverage multiplier and the optional open-to-close auxiliary
+        series.
+
+        Args:
+            weights: (n_sim_days, n_j) array of portfolio weights.
+            target_returns: (n_sim_days, n_j) 9:10-to-close returns.
+            gap_returns: (n_sim_days, n_j) overnight gap returns.
+            sim_dates: Simulation dates used to compute calendar days held.
+            slip: One-way slippage fraction (bps/10000).
+            financing_daily: Daily financing rate.
+            borrow_daily: Daily borrow fee.
+            reverse_daily: Daily reverse-fee fraction.
+            alpha_long: Long overnight hold fraction.
+            alpha_short: Short overnight hold fraction.
+            side_leverage: Notional leverage multiplier.  Default 1.0 for
+                ``run_backtest``; ``run_v2_backtest`` passes 1.5.
+            oc_returns: Optional (n_sim_days, n_j) open-to-close returns.
+                If provided, open-to-close gross/net series are computed.
+
+        Returns:
+            Dict of daily lists:
+                gross_returns, net_returns, gross_returns_oc, net_returns_oc,
+                costs, slip_costs, financing_costs, borrow_costs, reverse_costs,
+                overnight_returns, gross_exps, turnover.
+        """
+        n_sim_days = len(weights)
+        n_j = weights.shape[1]
+        w_prev = np.zeros(n_j)
+
+        # Calculate calendar days between trading dates to scale financing/borrow fees correctly.
+        # For the last trading day, assume 1 calendar day as fallback.
+        calendar_days = np.ones(n_sim_days)
+        sim_dates_pd = pd.to_datetime(sim_dates)
+        for i in range(n_sim_days - 1):
+            calendar_days[i] = (sim_dates_pd[i + 1] - sim_dates_pd[i]).days
+
+        gross_returns_list = []
+        net_returns_list = []
+        gross_returns_oc_list = []
+        net_returns_oc_list = []
+        cost_list = []
+        slip_cost_list = []
+        financing_cost_list = []
+        borrow_cost_list = []
+        reverse_cost_list = []
+        overnight_ret_list = []
+        gross_exp_list = []
+        turnover_list = []
+
+        include_oc = oc_returns is not None
+
+        for i in range(n_sim_days):
+            w_t = weights[i]
+            r_target_t = target_returns[i]
+            days_held = calendar_days[i]
+
+            gross_ret = side_leverage * float(np.sum(w_t * r_target_t))
+            gross_exp = float(np.sum(np.abs(w_t)))
+
+            alpha_mask = np.where(w_t > 0, alpha_long, np.where(w_t < 0, alpha_short, 0.0))
+
+            overnight_ret = 0.0
+            if (alpha_long > 0 or alpha_short > 0) and i < n_sim_days - 1:
+                r_gap_next = gap_returns[i + 1]
+                overnight_ret = side_leverage * float(np.sum(alpha_mask * w_t * r_gap_next))
+
+            turnover = float(np.sum(np.abs(w_t - w_prev)) / 2.0)
+
+            slip_cost = side_leverage * slip * (
+                2.0 * np.sum((1.0 - alpha_mask) * np.abs(w_t))
+                + np.sum(alpha_mask * np.abs(w_t - w_prev) / 2.0)
+            )
+            held_long = float(np.sum(alpha_mask * np.maximum(w_t, 0.0)))
+            held_short = float(np.sum(alpha_mask * np.maximum(-w_t, 0.0)))
+            fin_cost = side_leverage * held_long * financing_daily * days_held
+            borrow_cost = side_leverage * held_short * borrow_daily * days_held
+            reverse_cost = side_leverage * held_short * reverse_daily * days_held
+            cost = slip_cost + fin_cost + borrow_cost + reverse_cost
+
+            net_ret = gross_ret + overnight_ret - cost
+
+            gross_returns_list.append(gross_ret + overnight_ret)
+            net_returns_list.append(net_ret)
+            cost_list.append(cost)
+            slip_cost_list.append(slip_cost)
+            financing_cost_list.append(fin_cost)
+            borrow_cost_list.append(borrow_cost)
+            reverse_cost_list.append(reverse_cost)
+            overnight_ret_list.append(overnight_ret)
+            gross_exp_list.append(gross_exp)
+            turnover_list.append(turnover)
+
+            if include_oc:
+                r_oc_t = oc_returns[i]
+                gross_ret_oc = side_leverage * float(np.sum(w_t * r_oc_t))
+                net_ret_oc = gross_ret_oc - cost
+                gross_returns_oc_list.append(gross_ret_oc)
+                net_returns_oc_list.append(net_ret_oc)
+
+            w_prev = w_t
+
+        result = {
+            "gross_returns": gross_returns_list,
+            "net_returns": net_returns_list,
+            "costs": cost_list,
+            "slip_costs": slip_cost_list,
+            "financing_costs": financing_cost_list,
+            "borrow_costs": borrow_cost_list,
+            "reverse_costs": reverse_cost_list,
+            "overnight_returns": overnight_ret_list,
+            "gross_exps": gross_exp_list,
+            "turnover": turnover_list,
+        }
+        if include_oc:
+            result["gross_returns_oc"] = gross_returns_oc_list
+            result["net_returns_oc"] = net_returns_oc_list
+        return result
 
     # ------------------------------------------------------------------
     # V2 backtest (ProductionV2 model — gap-adjusted distribution)
@@ -387,12 +463,6 @@ class BacktestEngine:
         borrow_daily = borrow_annual / 365.0
         reverse_daily = rev_bps / 10000.0
 
-        # Calendar days between trading dates
-        calendar_days = np.ones(n_sim_days)
-        sim_dates_pd = pd.to_datetime(sim_dates_slice)
-        for i in range(n_sim_days - 1):
-            calendar_days[i] = (sim_dates_pd[i + 1] - sim_dates_pd[i]).days
-
         # Per-date V2 weight generation
         sre_weights = np.zeros((n_sim_days, n_j))
         fallback_flags = np.zeros(n_sim_days, dtype=bool)
@@ -454,69 +524,30 @@ class BacktestEngine:
         sre_weights_arr = sre_weights
 
         # Returns and cost drag — identical to run_backtest
-        gross_returns_list = []
-        net_returns_list = []
-        cost_list = []
-        slip_cost_list = []
-        financing_cost_list = []
-        borrow_cost_list = []
-        reverse_cost_list = []
-        overnight_ret_list = []
-        gross_exp_list = []
-        turnover_list = []
+        pnl = cls._simulate_daily_pnl(
+            weights=sre_weights_arr,
+            target_returns=y_jp_target_arr,
+            gap_returns=gap_returns_arr,
+            sim_dates=sim_dates_slice,
+            slip=slip,
+            financing_daily=financing_daily,
+            borrow_daily=borrow_daily,
+            reverse_daily=reverse_daily,
+            alpha_long=alpha_long,
+            alpha_short=alpha_short,
+            side_leverage=side_leverage,
+        )
 
-        w_prev = np.zeros(n_j)
-
-        for i in range(n_sim_days):
-            w_t = sre_weights_arr[i]
-            r_target_t = y_jp_target_arr[i]
-            days_held = calendar_days[i]
-
-            gross_ret = side_leverage * float(np.sum(w_t * r_target_t))
-            gross_exp = float(np.sum(np.abs(w_t)))
-
-            alpha_mask = np.where(w_t > 0, alpha_long, np.where(w_t < 0, alpha_short, 0.0))
-
-            overnight_ret = 0.0
-            if (alpha_long > 0 or alpha_short > 0) and i < n_sim_days - 1:
-                r_gap_next = gap_returns_arr[i + 1]
-                overnight_ret = side_leverage * float(np.sum(alpha_mask * w_t * r_gap_next))
-
-            turnover = float(np.sum(np.abs(w_t - w_prev)) / 2.0)
-
-            slip_cost = side_leverage * slip * (2.0 * np.sum((1.0 - alpha_mask) * np.abs(w_t)) + np.sum(alpha_mask * np.abs(w_t - w_prev) / 2.0))
-            held_long = float(np.sum(alpha_mask * np.maximum(w_t, 0.0)))
-            held_short = float(np.sum(alpha_mask * np.maximum(-w_t, 0.0)))
-            fin_cost = side_leverage * held_long * financing_daily * days_held
-            borrow_cost = side_leverage * held_short * borrow_daily * days_held
-            reverse_cost = side_leverage * held_short * reverse_daily * days_held
-            cost = slip_cost + fin_cost + borrow_cost + reverse_cost
-
-            net_ret = gross_ret + overnight_ret - cost
-
-            gross_returns_list.append(gross_ret + overnight_ret)
-            net_returns_list.append(net_ret)
-            cost_list.append(cost)
-            slip_cost_list.append(slip_cost)
-            financing_cost_list.append(fin_cost)
-            borrow_cost_list.append(borrow_cost)
-            reverse_cost_list.append(reverse_cost)
-            overnight_ret_list.append(overnight_ret)
-            gross_exp_list.append(gross_exp)
-            turnover_list.append(turnover)
-
-            w_prev = w_t
-
-        daily_returns_gross = pd.Series(gross_returns_list, index=sim_dates_slice)
-        daily_returns_net = pd.Series(net_returns_list, index=sim_dates_slice)
-        daily_costs = pd.Series(cost_list, index=sim_dates_slice)
-        daily_slip_costs = pd.Series(slip_cost_list, index=sim_dates_slice)
-        daily_financing_costs = pd.Series(financing_cost_list, index=sim_dates_slice)
-        daily_borrow_costs = pd.Series(borrow_cost_list, index=sim_dates_slice)
-        daily_reverse_costs = pd.Series(reverse_cost_list, index=sim_dates_slice)
-        daily_overnight_returns = pd.Series(overnight_ret_list, index=sim_dates_slice)
-        daily_gross_exps = pd.Series(gross_exp_list, index=sim_dates_slice)
-        daily_turnover = pd.Series(turnover_list, index=sim_dates_slice)
+        daily_returns_gross = pd.Series(pnl["gross_returns"], index=sim_dates_slice)
+        daily_returns_net = pd.Series(pnl["net_returns"], index=sim_dates_slice)
+        daily_costs = pd.Series(pnl["costs"], index=sim_dates_slice)
+        daily_slip_costs = pd.Series(pnl["slip_costs"], index=sim_dates_slice)
+        daily_financing_costs = pd.Series(pnl["financing_costs"], index=sim_dates_slice)
+        daily_borrow_costs = pd.Series(pnl["borrow_costs"], index=sim_dates_slice)
+        daily_reverse_costs = pd.Series(pnl["reverse_costs"], index=sim_dates_slice)
+        daily_overnight_returns = pd.Series(pnl["overnight_returns"], index=sim_dates_slice)
+        daily_gross_exps = pd.Series(pnl["gross_exps"], index=sim_dates_slice)
+        daily_turnover = pd.Series(pnl["turnover"], index=sim_dates_slice)
         daily_fallback = pd.Series(fallback_flags, index=sim_dates_slice)
 
         wealth = (1.0 + daily_returns_net).cumprod()
