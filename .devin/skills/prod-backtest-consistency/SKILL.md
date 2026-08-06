@@ -208,3 +208,71 @@ python3 scripts/experiments/run_v2_backtest_exact_production.py
 | オーバーナイト感度 | `scripts/experiments/overnight_sensitivity_v2.py` |
 | 5分足 cache 更新 | `scripts/experiments/update_5m_cache.py` |
 | 5分足 cache 確認 | `scripts/experiments/check_5m_cache.py` |
+
+## 本番データパイプライン cron 運用チェック
+
+本番の発注は、**当日の gap 行列 `mu_gap_YYYYMMDD.npy` / `omega_gap_YYYYMMDD.npy`** が新鮮かどうかに依存する。ここでは、yfinance の遅延や前日行列コピーなどによる **stale gap 分布** を防ぐための cron 運用と検証手順を定める。
+
+### 推奨 cron（launchd）スケジュール
+
+| 時刻 (JST) | ジョブ | 内容 |
+|-----------|--------|------|
+| **08:00** | `scripts/batch/update_market_data.sh` | yfinance から US/JP ETF OHLC を **force** 再取得。US クローズは夏時間 05:00 / 冬時間 06:00 JST なので、08:00 ならデータが安定している。 |
+| **08:15** | `scripts/batch/run_distribution_diagnostics.sh` | `etf_data.pkl` を使い `Omega_struct` を計算。`download_data(force=True)` により、07:00 以前に cron などで更新していた TTL 切れ cache も吸収できる。 |
+| **09:10** | `scripts/batch/run_decision_v2.sh` | `run_gap_distribution.sh` → `run_v2_decision.py` を実行。Tachibana 9:10 価格を gap 行列に注入して発注。 |
+| **14:50** | `scripts/batch/run_close_positions.sh` | 大引け成り寄りでポジション解消。 |
+
+### 鮮度チェック（失敗時は安全側に倒れる）
+
+```bash
+# 1. distribution_diagnostics の最新 trade_date を確認
+cat live/pipeline_data/distribution_diagnostics/latest/distribution_panel_long.csv | \
+  awk -F, 'NR>1 {gsub(/ .*/, "", $2); print $2}' | sort | tail -1
+# 期待値: 本日 YYYY-MM-DD
+
+# 2. gap_adjusted_distribution の最新 mu_gap の日付を確認
+ls live/pipeline_data/gap_adjusted_distribution/latest/matrices | grep mu_gap | tail -1
+# 期待値: mu_gap_YYYYMMDD.npy（本日）
+
+# 3. live/production_residual_blpx/pit_binning.json の確認
+cat live/production_residual_blpx/pit_binning.json
+# fallback_flag=false, history_count>=1500 であること
+```
+
+基準:
+
+- `run_distribution_diagnostics.sh` では `max trade_date == TODAY` のとき INFO、それ以外は WARNING。
+- `run_gap_distribution.sh` では `max trade_date != TODAY` のとき **ERROR で exit 1**。`run_decision_v2.sh` はこれを検知し、decision がフラットポジション（w_final=0）になる。
+- 何らかの理由で stale な場合、**前日行列をコピーして当日日付で使わない**。本戦略の不変条件に抵触し、誤ったポジションで発注するリスクがある。
+
+### yfinance 遅延・データ未取得への対応
+
+`download_data` は 12 時間 TTL を持つ。08:00 の `update_market_data.sh` は `download_data(force=True)` を呼び TTL を無視して強制更新する。更新後は必ずログを確認:
+
+```bash
+tail -5 logs/update_market_data_YYYYMMDD.log
+# us_close: ... last index=YYYY-MM-DD
+# jp_close: ... last index=YYYY-MM-DD
+```
+
+基準:
+
+- `us_close` 最終日付は **前営業日の US close**（本日 JST 08:00 時点で）。
+- `jp_close` / `jp_open` 最終日付は **本日または前営業日**（本日 09:00 寄り前のため）。
+- もし `us_close` が 2 営業日以上遅れている場合、`update_market_data.sh` を手動再実行、または `run_distribution_diagnostics.sh` を遅らせる。
+- 手動更新: `bash scripts/batch/update_market_data.sh`
+- 手動 diagnostics: `bash scripts/batch/run_distribution_diagnostics.sh`
+
+### PIT 履歴正本の管理
+
+- 正本ファイル: `live/pipeline_data/gap_adjusted_distribution/full_history_diagnostics.csv`
+- `run_gap_distribution.sh` は新しい diagnostics 行をこの正本にマージする。
+- `production_v2.py` の `load_pit_ir_history` は、`gap_input_dir` 内の `full_history_diagnostics.csv` を優先して読む。
+- RuleD PIT ビニングに必要な 252 日以上の IR 履歴は、この正本によって維持される。
+- もし `pit_binning.json` で `fallback_flag=true` / `history_count < 1000` が出た場合、正本ファイルや `latest` シンボリックリンクを確認する。
+
+### 月曜 / 祝日 / 夏時間の注意
+
+- **月曜**: US close は前営業日（金曜）の 05:00/06:00 JST なので、08:00 `update_market_data.sh` まで待つ。
+- **日本祝日**: `run_decision_v2.sh` は平日 cron だが、取引日でない場合 `run_gap_distribution.sh` の鮮度チェックが失敗しフラットポジションになる。これは正常。
+- **アメリカ祝日**: US データが存在しない場合、`distribution_diagnostics` は最新の US 取引日を signal_date として使用する。本日の `trade_date` が存在しない場合、鮮度チェックが失敗する。日本市場が開いていても US 信号がない場合は取引を見送る。
