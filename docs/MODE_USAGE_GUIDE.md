@@ -344,7 +344,6 @@ python run_research.py macro compare_gold_factor_kappa
 python run_research.py macro sensitivity_factor_kappa
 
 # BLPX実験
-python run_research.py blpx experiment_bayesian_blpx
 python run_research.py blpx experiment_copula
 python run_research.py blpx compare_sensitivity_matrix
 
@@ -363,7 +362,7 @@ python run_research.py backtest run_production_backtest
 ```bash
 # スクリプトに引数を渡す
 python run_research.py macro compare_gold_factor_kappa --start-date 2015-01-05
-python run_research.py blpx experiment_bayesian_blpx --config configs/production/production.yaml
+python run_research.py blpx experiment_copula --config configs/production/production.yaml
 ```
 
 ### 7.3 利用可能なスクリプト一覧

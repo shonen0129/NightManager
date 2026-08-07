@@ -11,11 +11,17 @@ import pandas as pd
 import pytest
 import yaml
 
-# Add src/ to path
-ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / "src"))
+# Resolve repository root and add source roots
+ROOT = Path(__file__).resolve()
+while not (ROOT / "pyproject.toml").exists():
+    if ROOT == ROOT.parent:
+        raise RuntimeError("Could not resolve repository root")
+    ROOT = ROOT.parent
 
-from leadlag.models.sector_relative_ensemble_rrr import SectorRelativeEnsembleRRRModel
+sys.path.insert(0, str(ROOT / "src"))
+sys.path.insert(0, str(ROOT / "archive"))
+
+from legacy_src.models.sector_relative_ensemble_rrr import SectorRelativeEnsembleRRRModel
 from leadlag.models.sre import SectorRelativeEnsembleModel
 from leadlag.execution.backtester import BacktestEngine
 

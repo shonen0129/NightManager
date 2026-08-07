@@ -18,15 +18,21 @@ import pandas as pd
 import yaml
 from scipy.stats import spearmanr
 
-# Add src/ to path
-ROOT = Path(__file__).resolve().parents[1]
+# Resolve repository root and add source roots
+ROOT = Path(__file__).resolve()
+while not (ROOT / "pyproject.toml").exists():
+    if ROOT == ROOT.parent:
+        raise RuntimeError("Could not resolve repository root")
+    ROOT = ROOT.parent
+
 sys.path.insert(0, str(ROOT / "src"))
+sys.path.insert(0, str(ROOT / "archive"))
 
 from leadlag.data.fetcher import download_data
 from leadlag.data.preprocessor import preprocess_data
 from leadlag.data.tickers import JP_TICKERS, TOPIX_TICKER, US_TICKERS
 from leadlag.models.sre import SectorRelativeEnsembleModel
-from leadlag.models.sector_relative_ensemble_blp import SectorRelativeEnsembleBLPModel
+from legacy_src.models.sector_relative_ensemble_blp import SectorRelativeEnsembleBLPModel
 from leadlag.models.sector_relative_ensemble_blp_enhanced import SectorRelativeEnsembleBLPEnhancedModel
 from leadlag.reporting.metrics import calculate_metrics
 

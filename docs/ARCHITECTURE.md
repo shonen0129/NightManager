@@ -39,7 +39,8 @@ US ETF と TOPIX-17 セクター ETF のリードラグ相関を利用した、
 - **Phase 22 (2026-08-07)**: Refactoring B-2 — `BacktestEngine.run_backtest` / `run_v2_backtest` を、コストパラメータ解決・シミュレーション期間決定・ターゲット/gap リターン計算・シグナル/ウェイト生成・V2 ウェイト生成・結果アセンブリの 8 つのプライベートヘルパーに分割。`run_backtest` / `run_v2_backtest` はこれらを順番に呼び出すオーケストレータに整理し、各ステージを単体テスト可能に。コストモデル、日付範囲、ウェイト生成、出力キーは変更せず、8 シナリオでリファクタ前後の出力が一致（1e-10）。ruff / mypy パス、対象テスト 16 件 pass。
 - **Phase 22 (2026-08-07)**: Refactoring B-3 — `src/leadlag/cli.py::main` を 3 つのプライベートハンドラー (`_handle_decision` / `_handle_backtest` / `_handle_close`) と短いオーケストレータに分割。`main` はロギング設定・パーサー構築・ヘルプ表示・引数解析・市場休場判定・ハンドラー呼び出し・終了コード返却のみを担当。引数名・デフォルト・lazy import・`--auto-close` 非推奨警告・`--capital-from-wallet requires --api-enable` 検証・各種 `run_*` 呼び出しをすべて保持。parser・decision fast/standard モード・backtest・close の各ヘルプ出力と、mock 化した `run_production` への backtest dispatch を含む動作確認を実施。ruff / mypy パス。
 - **Phase 22 (2026-08-07)**: Refactoring B-4 — `src/leadlag/execution/helpers.py::submit_orders_via_api` / `execute_post_decision_flow` を本番発注パスの段階別ヘルパーに分割。`submit_orders_via_api` から `_build_order_deltas`（target - current の delta 計算・close/new 分離）、`_submit_close_orders`（返済一括発注）、`_submit_new_orders`（新規即時発注）、`_submit_delayed_orders`（1629.T 大口 2 分割遅延発注）、`_write_api_execution_log` を抽出。`execute_post_decision_flow` から `_prepare_decision_df`（gross 調整・資本配分・DataFrame 構築）、`_log_decision_allocations`（予算/配分/未配分 logging）、`_run_risk_check_and_print`（リスク監査）、`_write_decision_output_and_submit`（CSV 出力・API 発注・journal 記録）を抽出。発注順序、`delay_ms=250`、`SPLIT_DELAY_SECONDS` 待機、`RuntimeError` 条件・メッセージ、JSON 出力、API 呼び出し順序は変更せず。DryRunBrokerClient mock を用いた 8 シナリオで baseline と一致し、`test_split_large_orders.py` / `test_close_positions.py` / `test_runner_helpers.py` 31 件 pass。
-- **Phase 22 (2026-08-08)**: Refactoring B-5 — `src/leadlag/core/pipeline.py::build_common_inputs`、`src/leadlag/models/sre.py::_prepare_residual_prior`、`src/leadlag/execution/fast.py::build_precomputed_cache` を段階別ヘルパーに分割。`build_common_inputs` から fractional differencing / US/JP returns / ベースライン相関 / TOPIX 残差化 / P4 入力 / 最終アセンブリを、`sre._prepare_residual_prior` から baseline 窓選択 / V0_resid 構築 / C_full_resid 計算 / C0_resid 構築 / 結果サマリーを、`build_precomputed_cache` から cache 入力抽出 / 静的 cache 成分計算 / cache dict 構築 / 保存を抽出。関数シグネチャ・返却キー・ローリング窓・lazy import・fallback 動作は変更せず、合成データで before/after 一致を検証。ruff pass、mypy は既存エラーのみ、関連テスト 22 件 pass。
+- **Phase 22 (2026-08-07)**: Refactoring B-5 — `src/leadlag/core/pipeline.py::build_common_inputs`、`src/leadlag/models/sre.py::_prepare_residual_prior`、`src/leadlag/execution/fast.py::build_precomputed_cache` を段階別ヘルパーに分割。`build_common_inputs` から fractional differencing / US/JP returns / ベースライン相関 / TOPIX 残差化 / P4 入力 / 最終アセンブリを、`sre._prepare_residual_prior` から baseline 窓選択 / V0_resid 構築 / C_full_resid 計算 / C0_resid 構築 / 結果サマリーを、`build_precomputed_cache` から cache 入力抽出 / 静的 cache 成分計算 / cache dict 構築 / 保存を抽出。関数シグネチャ・返却キー・ローリング窓・lazy import・fallback 動作は変更せず、合成データで before/after 一致を検証。ruff pass、mypy は既存エラーのみ、関連テスト 22 件 pass。
+- **Phase 22 (2026-08-07)**: Refactoring D — 未使用のレガシーモデル (`sector_relative_ensemble_blp.py`, `sector_relative_ensemble_rrr.py`, `bayesian_blpx.py`, `net_score_ranking_lob.py`) を `src/leadlag/models/` から `archive/legacy_src/models/` へ移設。関連する参照テスト (`test_sector_relative_ensemble_blp.py`, `test_sector_relative_ensemble_rrr.py`, `test_b3_characterization.py`, `test_sprint2c_lob.py`, `test_sector_relative_ensemble_blp_enhanced.py`) と実験スクリプト (`experiment_a5_bayesian_kalman_fix.py`, `run_sprint2c_lob_slippage.py`, `experiment_bayesian_blpx.py`, `final_model_selection.py`, `analyze_blp_enhanced_refined.py`) を `archive/experiments/` へ集約。`archive/tools/` 内の既存バックテストスクリプトも `legacy_src.models` 経由でアーカイブモデルを参照するよう更新。本番パス (`src/leadlag/`, `tools/production/`, `scripts/experiments/`) から `from leadlag.models.<archived>` インポートを除去し、保守行数を約 7,600 行削減。`SectorRelativeEnsembleBLPEnhancedModel` (本番 v2 基盤) は `src/leadlag/models/` に留保。
 
 ---
 
@@ -146,7 +147,6 @@ src/research/            # 研究パッケージ（本番実行パスに含ま�
     │   ├── compare_sensitivity_matrix.py
     │   ├── compare_shrinkage_ab_backtest.py
     │   ├── diagnose_shrinkage_attenuation.py
-    │   ├── experiment_bayesian_blpx.py
     │   └── experiment_copula.py
     │
     ├── sprint/          # sprint実験スクリプト（sprint0-3b）
@@ -157,7 +157,6 @@ src/research/            # 研究パッケージ（本番実行パスに含ま�
     │   ├── run_sprint1_experiments.py
     │   ├── run_sprint2_cost_aware_aum1m.py
     │   ├── run_sprint2b_qa.py
-    │   ├── run_sprint2c_lob_slippage.py
     │   ├── run_sprint3a_hinge_features.py
     │   └── run_sprint3b_hinge_interactions.py
     │
@@ -200,13 +199,11 @@ src/
 │   ├── models/              # 本番モデルレイヤー（純粋なシグナル生成・ウェイト計算のみ、I/Oフリー）
 │   │   ├── base.py          # BaseModel 抽象モデルインターフェース（共通ユーティリティ: _resolve_val, normalize_signals, build_weights 等）
 │   │   ├── blp_base.py      # _BLPBase 中間クラス（BLP系モデル共通: _prepare_common_inputs, compute_production_signal, compute_residual_signal, _denormalize_signal, _apply_gap_adjustment）
-│   │   ├── sre.py           # SectorRelativeEnsembleModel (PCA-Ensemble) — 第2フォールバック
-│   │   ├── sector_relative_ensemble_blp.py           # SectorRelativeEnsembleBLPModel (BLP v1) — 第1フォールバック
+│   │   ├── sre.py                         # SectorRelativeEnsembleModel (PCA-Ensemble) — 第2フォールバック
 │   │   ├── sector_relative_ensemble_blp_enhanced.py  # SectorRelativeEnsembleBLPEnhancedModel (BLP拡張) — _BLPBase 継承
-│   │   ├── sector_relative_ensemble_rrr.py           # SectorRelativeEnsembleRRRModel — _BLPBase 継承
-│   │   ├── production_v2.py # ProductionV2Model (Residual-BLPX-RA v2) — 本番モデル
-│   │   ├── signal_enhancement.py                     # マルチホライズンブレンド・ランク反転オーバーレイ (Phase 2A/2D)
-│   │   └── net_score_ranking_lob.py                  # NetScoreRankingLOBModel — LOBスリッページ統合ランキング
+│   │   ├── production_v2.py               # ProductionV2Model (Residual-BLPX-RA v2) — 本番モデル
+│   │   ├── signal_enhancement.py          # マルチホライズンブレンド・ランク反転オーバーレイ (Phase 2A/2D)
+│   │   └── ml_order_overlay.py            # ML order overlay 補助モデル
 │   │
 │   ├── data/                # データアクセス・前処理・キャッシュ層
 │   │   ├── tickers.py       # ティッカー定義・変換ユーティリティ
@@ -268,9 +265,7 @@ src/
 ABC (abc.ABC)
 └── BaseModel (base.py)
     ├── _BLPBase (blp_base.py) — BLP系モデル共通メソッド
-    │   ├── SectorRelativeEnsembleBLPEnhancedModel (sector_relative_ensemble_blp_enhanced.py)
-    │   ├── SectorRelativeEnsembleBLPModel (sector_relative_ensemble_blp.py)
-    │   └── SectorRelativeEnsembleRRRModel (sector_relative_ensemble_rrr.py)
+    │   └── SectorRelativeEnsembleBLPEnhancedModel (sector_relative_ensemble_blp_enhanced.py)
     └── SectorRelativeEnsembleModel (sre.py) — BaseModel 直接継承
 ```
 
@@ -279,12 +274,10 @@ ABC (abc.ABC)
 | `base.py` | BaseModel 抽象インターフェース (`predict_signals`, `build_weights`) および共通ユーティリティ（`_resolve_val`, `_resolve_nested`, `_resolve_slippage_bps`, `normalize_signals`, `build_weights`） |
 | `blp_base.py` | _BLPBase 中間クラス — BLP系モデル共通メソッド（`_prepare_common_inputs`, `_compute_pca_signal`, `compute_production_signal`, `compute_residual_signal`, `_denormalize_signal`, `_apply_gap_adjustment`） |
 | `sre.py` | SectorRelativeEnsembleModel (PCA-Ensemble) ロジック（Raw-PCA/Residual-PCA/P4 シグナル生成、Zスコア正規化、アンサンブル、ウェイト算出）の正本 |
-| `sector_relative_ensemble_blp.py` | SectorRelativeEnsembleBLPModel (BLP v1) — `_BLPBase` 継承、BLP シグナル生成 (v1 fallbackとしての使用は廃止済み) |
 | `sector_relative_ensemble_blp_enhanced.py` | SectorRelativeEnsembleBLPEnhancedModel （本番 v2 基盤の BLPX 構造化投影および確信度調整モデル） — `_BLPBase` 継承、`compute_blp_signal` を7つのヘルパーメソッドに分割、Factor-Specific Kappa によるマクロコンファイアンススケーリング統合 |
-| `sector_relative_ensemble_rrr.py` | SectorRelativeEnsembleRRRModel — `_BLPBase` 継承、キャッシュ機能付き PCA シグナル計算 |
 | `production_v2.py` | ProductionV2Model (Residual-BLPX-RA v2) — 本番モデル。ギャップ調整予測分布・mu_over_sigma ランキング・PITビニング (RuleD) 統合 |
 | `signal_enhancement.py` | マルチホライズンブレンド (`apply_multi_horizon_blend`)・ランク反転オーバーレイ (`apply_rank_reversal_overlay`) — Phase 2A/2D 成果物 |
-| `net_score_ranking_lob.py` | NetScoreRankingLOBModel — LOBスリッページ・執行制約を統合したネットスコアランキングモデル |
+| `ml_order_overlay.py` | ML order overlay 補助モデル |
 
 
 ### 2. Core Domain Layer (`core/`)

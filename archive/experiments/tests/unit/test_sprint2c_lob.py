@@ -1,4 +1,17 @@
+import sys
+from pathlib import Path
+
 import pytest
+
+ROOT = Path(__file__).resolve()
+while not (ROOT / "pyproject.toml").exists():
+    if ROOT == ROOT.parent:
+        raise RuntimeError("Could not resolve repository root")
+    ROOT = ROOT.parent
+
+sys.path.insert(0, str(ROOT / "src"))
+sys.path.insert(0, str(ROOT / "archive"))
+
 from leadlag.execution.microstructure.order_book_schema import OrderBookSnapshot, validate_quote, from_api_price_response
 from leadlag.execution.microstructure.order_book_cost import (
     compute_mid_price,

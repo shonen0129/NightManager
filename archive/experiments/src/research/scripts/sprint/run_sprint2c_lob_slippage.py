@@ -17,16 +17,27 @@ import logging
 import os
 import sys
 from datetime import datetime, time as dt_time
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import yaml
+
+ROOT = Path(__file__).resolve()
+while not (ROOT / "pyproject.toml").exists():
+    if ROOT == ROOT.parent:
+        raise RuntimeError("Could not resolve repository root")
+    ROOT = ROOT.parent
+
+sys.path.insert(0, str(ROOT / "src"))
+sys.path.insert(0, str(ROOT / "archive"))
 
 from leadlag.data.tickers import JP_TICKERS
 from leadlag.config.schemas import TachibanaApiConfig
 from leadlag.broker.tachibana.api import TachibanaClient
 from leadlag.execution.microstructure.order_book_schema import OrderBookSnapshot
 from leadlag.execution.microstructure.live_quote_logger import log_quote_loop, fetch_quote_snapshot
-from leadlag.models.net_score_ranking_lob import NetScoreRankingLob
+from legacy_src.models.net_score_ranking_lob import NetScoreRankingLob
 from leadlag.reporting.sprint2c_lob_report import render_markdown_report
 
 # Configure logging
