@@ -8,11 +8,10 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any
 
 import pandas as pd
-import yaml
 
+from leadlag.config.schemas import AppConfig
 from leadlag.core.risk import compute_var_es
 from leadlag.data.fetcher import download_data
 from leadlag.data.preprocessor import preprocess_data
@@ -24,8 +23,8 @@ from leadlag.reporting.metrics import calculate_metrics, generate_report
 logger = logging.getLogger(__name__)
 
 
-def _resolve_v2_config(config_path: str | Path | None) -> tuple[dict[str, Any], Path, Path]:
-    """Load and return the V2 production config dict, project root, and resolved path."""
+def _resolve_config_path(config_path: str | Path | None) -> tuple[Path, Path]:
+    """Return project root and resolved config path."""
     project_root = Path(__file__).resolve().parents[3]
     if config_path is None:
         resolved = project_root / "configs" / "production" / "production.yaml"
@@ -33,21 +32,17 @@ def _resolve_v2_config(config_path: str | Path | None) -> tuple[dict[str, Any], 
         resolved = Path(config_path)
         if not resolved.is_absolute():
             resolved = project_root / resolved
-    with open(resolved, encoding="utf-8") as f:
-        cfg = yaml.safe_load(f) or {}
-    return cfg, project_root, resolved
+    return project_root, resolved
 
 
 def _resolve_gap_input_dir(
     gap_input_dir: str | Path | None,
-    cfg: dict[str, Any],
+    app_config: AppConfig,
     project_root: Path,
 ) -> Path | None:
     """Resolve V2 gap input directory, returning None if it does not exist."""
     if gap_input_dir is None:
-        gap_input_dir = cfg.get("gap_distribution", {}).get(
-            "dir", "live/pipeline_data/gap_adjusted_distribution/latest"
-        )
+        gap_input_dir = app_config.gap_distribution_dir or "live/pipeline_data/gap_adjusted_distribution/latest"
     gap_dir = Path(gap_input_dir)
     if not gap_dir.is_absolute():
         gap_dir = project_root / gap_dir
@@ -85,7 +80,7 @@ def run_production(
     Returns:
         Path to the output directory
     """
-    cfg, project_root, resolved = _resolve_v2_config(config_path)
+    project_root, resolved = _resolve_config_path(config_path)
     app_config = load_config_from_yaml(resolved)
 
     output_dir = build_output_dir(output_root, run_tag, run_name="production_backtest")
@@ -116,7 +111,7 @@ def run_production(
         resolved_slippage,
     )
 
-    gap_dir = _resolve_gap_input_dir(gap_input_dir, cfg, project_root)
+    gap_dir = _resolve_gap_input_dir(gap_input_dir, app_config, project_root)
 
     results = BacktestEngine.run_v2_backtest(
         cfg=app_config,
