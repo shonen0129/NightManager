@@ -1,0 +1,237 @@
+"""SQLite-backed backtest result store.
+
+Stores daily weights, returns, gross exposure, turnover, drawdown, costs,
+and fallback flags from a full backtest run.  This replaces many per-run
+CSV files with a single queryable database and provides a clean audit trail.
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+import sqlite3
+from contextlib import contextmanager
+from pathlib import Path
+from typing import Any
+
+import pandas as pd
+
+logger = logging.getLogger(__name__)
+
+
+class BacktestStoreError(Exception):
+    """Raised when a backtest store operation fails."""
+
+
+class BacktestResultStore:
+    """SQLite-backed store for daily backtest outputs.
+
+    Tables:
+      - ``daily_pnl``: trade_date, daily_return, daily_return_gross, drawdown,
+        equity, turnover, gross_exposure, fallback, slippage_cost, financing_cost,
+        borrow_cost, reverse_cost, total_cost.
+      - ``daily_weights``: trade_date, ticker, weight.
+      - ``run_info``: single row with run metadata (start_date, end_date, config).
+    """
+
+    def __init__(self, path: str | Path, *, timeout: float = 30.0) -> None:
+        self.path = Path(path)
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self._timeout = timeout
+        self._init_db()
+
+    @contextmanager
+    def _connect(self):
+        conn = sqlite3.connect(
+            str(self.path),
+            timeout=self._timeout,
+            isolation_level=None,
+        )
+        try:
+            conn.row_factory = sqlite3.Row
+            yield conn
+        finally:
+            conn.close()
+
+    def _init_db(self) -> None:
+        with self._connect() as conn:
+            conn.execute("PRAGMA journal_mode=WAL")
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS run_info (
+                    run_id INTEGER PRIMARY KEY,
+                    start_date TEXT,
+                    end_date TEXT,
+                    config_json TEXT,
+                    created_at TEXT DEFAULT (datetime('now'))
+                )
+            """)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS daily_pnl (
+                    trade_date TEXT PRIMARY KEY,
+                    daily_return REAL,
+                    daily_return_gross REAL,
+                    equity REAL,
+                    drawdown REAL,
+                    turnover REAL,
+                    gross_exposure REAL,
+                    fallback INTEGER,
+                    slippage_cost REAL,
+                    financing_cost REAL,
+                    borrow_cost REAL,
+                    reverse_cost REAL,
+                    total_cost REAL
+                )
+            """)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS daily_weights (
+                    trade_date TEXT NOT NULL,
+                    ticker TEXT NOT NULL,
+                    weight REAL,
+                    PRIMARY KEY (trade_date, ticker)
+                )
+            """)
+
+    def save_run(
+        self,
+        results: dict,
+        config: Any | None = None,
+    ) -> int:
+        """Save a full backtest run and return the run_id.
+
+        *results* must contain the keys produced by
+        ``BacktestEngine.run_v2_backtest``:
+          daily_returns, equity_curve, drawdown, daily_turnover,
+          daily_gross_exps, daily_fallback, daily_slip_costs,
+          daily_financing_costs, daily_borrow_costs, daily_reverse_costs,
+          daily_costs, weights.
+        """
+        with self._connect() as conn:
+            conn.execute("BEGIN")
+            try:
+                cur = conn.execute(
+                    """
+                    INSERT INTO run_info (start_date, end_date, config_json)
+                    VALUES (?, ?, ?)
+                    """,
+                    (
+                        _first_date(results.get("daily_returns")),
+                        _last_date(results.get("daily_returns")),
+                        json.dumps(_safe_config(config), default=str, ensure_ascii=False),
+                    ),
+                )
+                run_id = cur.lastrowid
+
+                index = results.get("daily_returns", pd.Series()).index
+                equity = results.get("equity_curve", pd.Series(index=index, dtype=float))
+                drawdown = results.get("drawdown", pd.Series(index=index, dtype=float))
+                turnover = results.get("daily_turnover", pd.Series(index=index, dtype=float))
+                gross = results.get("daily_gross_exps", pd.Series(index=index, dtype=float))
+                fallback = results.get("daily_fallback", pd.Series(index=index, dtype=bool))
+                slip = results.get("daily_slip_costs", pd.Series(index=index, dtype=float))
+                financing = results.get("daily_financing_costs", pd.Series(index=index, dtype=float))
+                borrow = results.get("daily_borrow_costs", pd.Series(index=index, dtype=float))
+                reverse = results.get("daily_reverse_costs", pd.Series(index=index, dtype=float))
+                costs = results.get("daily_costs", pd.Series(index=index, dtype=float))
+                gross_returns = results.get("daily_returns_gross", pd.Series(index=index, dtype=float))
+
+                rows = []
+                for dt in index:
+                    date_str = str(dt.date()) if hasattr(dt, "date") else str(dt)
+                    rows.append((
+                        date_str,
+                        float(results["daily_returns"].loc[dt]),
+                        float(gross_returns.loc[dt]) if dt in gross_returns.index and not pd.isna(gross_returns.loc[dt]) else None,
+                        float(equity.loc[dt]) if dt in equity.index and not pd.isna(equity.loc[dt]) else None,
+                        float(drawdown.loc[dt]) if dt in drawdown.index and not pd.isna(drawdown.loc[dt]) else None,
+                        float(turnover.loc[dt]) if dt in turnover.index and not pd.isna(turnover.loc[dt]) else None,
+                        float(gross.loc[dt]) if dt in gross.index and not pd.isna(gross.loc[dt]) else None,
+                        int(bool(fallback.loc[dt])) if dt in fallback.index and not pd.isna(fallback.loc[dt]) else 0,
+                        float(slip.loc[dt]) if dt in slip.index and not pd.isna(slip.loc[dt]) else None,
+                        float(financing.loc[dt]) if dt in financing.index and not pd.isna(financing.loc[dt]) else None,
+                        float(borrow.loc[dt]) if dt in borrow.index and not pd.isna(borrow.loc[dt]) else None,
+                        float(reverse.loc[dt]) if dt in reverse.index and not pd.isna(reverse.loc[dt]) else None,
+                        float(costs.loc[dt]) if dt in costs.index and not pd.isna(costs.loc[dt]) else None,
+                    ))
+
+                conn.executemany(
+                    """
+                    INSERT OR REPLACE INTO daily_pnl
+                    (trade_date, daily_return, daily_return_gross, equity, drawdown,
+                     turnover, gross_exposure, fallback, slippage_cost, financing_cost,
+                     borrow_cost, reverse_cost, total_cost)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    rows,
+                )
+
+                weights_df = results.get("weights")
+                if weights_df is not None and len(weights_df) > 0:
+                    weight_rows = []
+                    for dt, row in weights_df.iterrows():
+                        date_str = str(dt.date()) if hasattr(dt, "date") else str(dt)
+                        for ticker, w in row.items():
+                            weight_rows.append((date_str, str(ticker), float(w)))
+                    conn.executemany(
+                        """
+                        INSERT OR REPLACE INTO daily_weights
+                        (trade_date, ticker, weight)
+                        VALUES (?, ?, ?)
+                        """,
+                        weight_rows,
+                    )
+
+                conn.execute("COMMIT")
+                return run_id
+            except Exception as e:
+                conn.execute("ROLLBACK")
+                raise BacktestStoreError(f"Failed to save backtest run: {e}") from e
+
+    def load_pnl(self) -> pd.DataFrame:
+        """Return the full daily P&L DataFrame."""
+        with self._connect() as conn:
+            cur = conn.execute(
+                "SELECT * FROM daily_pnl ORDER BY trade_date"
+            )
+            rows = cur.fetchall()
+            columns = [c[0] for c in cur.description]
+        df = pd.DataFrame(rows, columns=columns)
+        if "trade_date" in df.columns:
+            df["trade_date"] = pd.to_datetime(df["trade_date"])
+            df = df.set_index("trade_date")
+        return df
+
+    def load_weights(self) -> pd.DataFrame:
+        """Return daily weights as a wide DataFrame (dates x tickers)."""
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT trade_date, ticker, weight FROM daily_weights ORDER BY trade_date, ticker"
+            ).fetchall()
+        if not rows:
+            return pd.DataFrame()
+        df = pd.DataFrame(rows, columns=["trade_date", "ticker", "weight"])
+        df["trade_date"] = pd.to_datetime(df["trade_date"])
+        return df.pivot(index="trade_date", columns="ticker", values="weight")
+
+
+def _first_date(series: pd.Series | None) -> str | None:
+    if series is None or len(series) == 0:
+        return None
+    dt = series.index[0]
+    return str(dt.date()) if hasattr(dt, "date") else str(dt)
+
+
+def _last_date(series: pd.Series | None) -> str | None:
+    if series is None or len(series) == 0:
+        return None
+    dt = series.index[-1]
+    return str(dt.date()) if hasattr(dt, "date") else str(dt)
+
+
+def _safe_config(config: Any) -> Any:
+    if config is None:
+        return None
+    if hasattr(config, "model_dump"):
+        return config.model_dump()
+    if hasattr(config, "__dict__"):
+        return config.__dict__
+    return config

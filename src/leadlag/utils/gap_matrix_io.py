@@ -11,6 +11,63 @@ import pandas as pd
 from leadlag.data.tickers import JP_TICKERS
 from leadlag.data.validation import DataValidationError, validate_gap_matrices
 
+
+def _try_load_gap_from_store(
+    gap_input_dir: Path,
+    date_str: str,
+    file_pattern: str,
+    pattern_kwargs: dict | None,
+) -> tuple[np.ndarray | None, list[str]]:
+    """Try to load a gap matrix from a SQLite ``GapStore``.
+
+    Returns (array, alerts).  If *gap_input_dir* is not a store path or the
+    matrix is not found, returns (None, [alert]) so the caller can fall back.
+    """
+    from leadlag.data.gap_store import GapStore, is_gap_store_path
+
+    if not is_gap_store_path(gap_input_dir):
+        return None, []
+
+    try:
+        store = GapStore(gap_input_dir)
+    except Exception as e:
+        return None, [f"GapStore open failed for {gap_input_dir}: {e}"]
+
+    matrix_type, horizon = _parse_pattern_to_matrix_type(file_pattern, pattern_kwargs)
+    if matrix_type is None:
+        return None, [f"Cannot map pattern {file_pattern!r} to a GapStore matrix type"]
+
+    arr = store.get(date_str, matrix_type, horizon=horizon)
+    if arr is None:
+        return None, [f"GapStore missing {matrix_type} (h={horizon}) for {date_str}"]
+    return arr, []
+
+
+def _parse_pattern_to_matrix_type(
+    file_pattern: str,
+    pattern_kwargs: dict | None,
+) -> tuple[str | None, int | None]:
+    """Map a filename pattern like ``matrices/mu_gap_h{h}_{date}.npy`` to a
+    (matrix_type, horizon) pair for the SQLite store.
+    """
+    pattern_kwargs = pattern_kwargs or {}
+    basename = Path(file_pattern).name
+    if "rank_reversal" in basename:
+        matrix_type = "rank_reversal"
+    elif "mu_gap" in basename:
+        matrix_type = "mu"
+    elif "omega_gap" in basename:
+        matrix_type = "omega"
+    else:
+        return None, None
+
+    horizon = pattern_kwargs.get("h")
+    if horizon is not None and "h{h}" not in basename and "{h}" not in basename:
+        horizon = None
+    if horizon is not None:
+        horizon = int(horizon)
+    return matrix_type, horizon
+
 logger = logging.getLogger(__name__)
 
 
@@ -39,6 +96,15 @@ def load_gap_npy(
         or cannot be loaded.
     """
     pattern_kwargs = pattern_kwargs or {}
+
+    # 1. Try SQLite gap store first (opt-in via .sqlite/.db path).
+    arr, alerts = _try_load_gap_from_store(gap_input_dir, date_str, file_pattern, pattern_kwargs)
+    if arr is not None:
+        return arr, []
+    if alerts:
+        return None, alerts
+
+    # 2. Fall back to per-date .npy files.
     date_numeric = _format_gap_date(date_str)
     file_path = gap_input_dir / file_pattern.format(date=date_numeric, **pattern_kwargs)
 
