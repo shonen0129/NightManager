@@ -18,10 +18,8 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import yaml
 
 from leadlag.broker.tachibana.session_cache import load_open_prices_cache
-from leadlag.config.schemas import ProductionV2RunConfig
 from leadlag.data.cache import get_hist_returns_for_risk as _get_hist_returns_for_risk
 from leadlag.data.tickers import JP_TICKERS, TOPIX_TICKER
 from leadlag.execution.config import load_config_from_yaml
@@ -77,8 +75,7 @@ def run_v2_decision(
     if not config_path.is_absolute():
         config_path = ROOT / config_path
     logger.info("Loading V2 config: %s", config_path)
-    with open(config_path) as f:
-        cfg = yaml.safe_load(f)
+    app_config = load_config_from_yaml(config_path)
 
     # Resolve trade date
     if trade_date is None:
@@ -97,7 +94,7 @@ def run_v2_decision(
             gap_dir = None
     else:
         # Try default from config
-        default_gap = cfg.get("gap_distribution", {}).get("dir", "")
+        default_gap = app_config.gap_distribution_dir
         if default_gap:
             gap_dir = ROOT / default_gap
             if gap_dir.exists():
@@ -113,8 +110,7 @@ def run_v2_decision(
 
     # --- Step 1: Generate V2 portfolio ---
     logger.info("[1/4] Generating V2 production portfolio...")
-    run_config = ProductionV2RunConfig.model_validate(cfg)
-    model = ProductionV2Model(run_config)
+    model = ProductionV2Model(app_config.v2)
     result = model.decide(
         trade_date=trade_date,
         gap_input_dir=gap_dir,
@@ -139,8 +135,6 @@ def run_v2_decision(
     api_client = None
     manual_opens: dict[str, float] = {}
     max_capital = 350000.0  # default fallback
-
-    app_config = load_config_from_yaml(str(config_path))
 
     try:
         if api_enable:

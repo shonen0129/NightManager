@@ -208,6 +208,7 @@ def build_app_config_from_dict(yaml_data: dict[str, Any]) -> AppConfig:
         output_base_dir=output_data.get("base_dir", "results/sector_relative_ensemble"),
         output_live_dir=output_data.get("live_dir", "live/sector_relative_ensemble"),
         run_audit=output_data.get("run_audit", True),
+        gap_distribution_dir=(yaml_data.get("gap_distribution") or {}).get("dir", ""),
     )
 
 
