@@ -180,6 +180,10 @@ class AppConfig(BaseModel):
     output_base_dir: str = Field(default="results/sector_relative_ensemble", description="バックテスト出力ルート")
     output_live_dir: str = Field(default="live/sector_relative_ensemble", description="本番ライブ出力ルート")
     run_audit: bool = Field(default=True, description="実行後に ComplianceAuditor を走らせるか")
+    v2: ProductionV2RunConfig = Field(
+        default_factory=lambda: ProductionV2RunConfig(),
+        description="V2 本番ポートフォリオ生成パラメータ",
+    )
 
 
 class ProductionV2RunConfig(BaseModel):

@@ -13,13 +13,15 @@ from typing import cast
 import numpy as np
 import pandas as pd
 
+from leadlag.config.schemas import AppConfig
 from leadlag.data.tickers import JP_TICKERS
+from leadlag.execution.config import build_app_config_from_dict
 from leadlag.models.ml_order_overlay import (
     MLOrderOverlayModel,
     generate_v2_production_portfolio_with_overlay,
     load_overlay_model,
 )
-from leadlag.models.production_v2 import ProductionV2Model, parse_run_config
+from leadlag.models.production_v2 import ProductionV2Model
 from leadlag.models.sre import compute_jp_target_returns
 
 logger = logging.getLogger(__name__)
@@ -223,7 +225,7 @@ class BacktestEngine:
     @classmethod
     def run_v2_backtest(
         cls,
-        cfg: dict,
+        cfg: AppConfig | dict,
         gap_input_dir: Path | str | None,
         df_exec: pd.DataFrame,
         start_date: str = "2015-01-05",
@@ -247,7 +249,7 @@ class BacktestEngine:
         ``research.backtest_v1.run_v1_backtest``.
 
         Args:
-            cfg: V2 production config dict (parsed from YAML).
+            cfg: Validated ``AppConfig`` or raw V2 production YAML dict.
             gap_input_dir: Directory containing ``matrices/`` with
                 ``mu_gap_{YYYYMMDD}.npy`` and ``omega_gap_{YYYYMMDD}.npy``.
                 If None, every day will be a flat-position fallback.
@@ -271,12 +273,16 @@ class BacktestEngine:
             plus ``daily_fallback`` (bool series) and ``v2_summaries`` (list of
             per-date summary dicts).
         """
+        app_config = (
+            cfg if isinstance(cfg, AppConfig) else build_app_config_from_dict(cfg)
+        )
+
         if overlay_model is None and overlay_model_dir is not None:
             overlay_model = load_overlay_model(Path(overlay_model_dir))
             logger.info("Loaded overlay model from %s", overlay_model_dir)
 
         cost_params = cls._resolve_v2_backtest_cost_params(
-            cfg,
+            app_config,
             slippage_bps,
             overnight_alpha_long,
             overnight_alpha_short,
@@ -313,7 +319,7 @@ class BacktestEngine:
         n_j = len(JP_TICKERS)
         sre_weights, fallback_flags, v2_summaries = cls._generate_v2_weights(
             df_exec,
-            cfg,
+            app_config,
             gap_dir,
             sim_dates_slice,
             n_j,
@@ -356,7 +362,7 @@ class BacktestEngine:
 
     @staticmethod
     def _resolve_v2_backtest_cost_params(
-        cfg: dict,
+        app_config: AppConfig,
         slippage_bps: float | None,
         overnight_alpha_long: float | None,
         overnight_alpha_short: float | None,
@@ -366,40 +372,40 @@ class BacktestEngine:
         side_leverage: float | None,
     ) -> dict:
         """Resolve cost/financing and side-leverage parameters for run_v2_backtest."""
-        costs = cfg.get("costs", {})
+        strategy = app_config.strategy
         slip_bps = (
             slippage_bps
             if slippage_bps is not None
-            else float(costs.get("slippage_bps_per_side", 5.0))
+            else strategy.slippage_bps
         )
         alpha_long = (
             overnight_alpha_long
             if overnight_alpha_long is not None
-            else float(costs.get("overnight_alpha_long", 0.75))
+            else strategy.overnight_alpha_long
         )
         alpha_short = (
             overnight_alpha_short
             if overnight_alpha_short is not None
-            else float(costs.get("overnight_alpha_short", 0.5))
+            else strategy.overnight_alpha_short
         )
         fin_annual = (
             buy_interest_annual
             if buy_interest_annual is not None
-            else float(costs.get("buy_interest_annual", 0.025))
+            else strategy.buy_interest_annual
         )
         borrow_annual = (
             borrow_fee_annual
             if borrow_fee_annual is not None
-            else float(costs.get("borrow_fee_annual", 0.0115))
+            else strategy.borrow_fee_annual
         )
         rev_bps = (
             reverse_fee_bps
             if reverse_fee_bps is not None
-            else float(costs.get("reverse_fee_bps", 2.0))
+            else strategy.reverse_fee_bps
         )
 
         if side_leverage is None:
-            side_leverage = float(cfg.get("execution", {}).get("side_leverage", 1.5))
+            side_leverage = strategy.side_leverage
 
         return {
             "slip_bps": slip_bps,
@@ -414,7 +420,7 @@ class BacktestEngine:
     @staticmethod
     def _generate_v2_weights(
         df_exec: pd.DataFrame,
-        cfg: dict,
+        app_config: AppConfig,
         gap_dir: Path | None,
         sim_dates_slice: pd.DatetimeIndex,
         n_j: int,
@@ -427,10 +433,7 @@ class BacktestEngine:
         fallback_flags = np.zeros(n_sim_days, dtype=bool)
         v2_summaries = cast(list[dict], [None] * n_sim_days)
 
-        # Resolve V2 config once (single source of truth).  Callers still pass a
-        # raw dict at the public ``run_v2_backtest`` boundary; that boundary will
-        # migrate to Pydantic in a follow-up P2-C1 step.
-        run_cfg = parse_run_config(cfg)
+        run_cfg = app_config.v2
 
         # Use the class interface when no overlay is in play. The overlay path
         # still needs df_exec and remains procedural for now.

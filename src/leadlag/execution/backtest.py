@@ -90,11 +90,11 @@ def run_production(
 
     output_dir = build_output_dir(output_root, run_tag, run_name="production_backtest")
 
-    residual_cfg = cfg.get("residualization", {})
-    beta_window = int(residual_cfg.get("beta_window", 60))
-    beta_ewma_halflife = residual_cfg.get("beta_ewma_halflife")
-    beta_shrinkage = float(residual_cfg.get("beta_shrinkage", 0.0))
-    beta_winsor_sigma = residual_cfg.get("beta_winsor_sigma")
+    residual_cfg = app_config.strategy
+    beta_window = residual_cfg.beta_window
+    beta_ewma_halflife = residual_cfg.beta_ewma_halflife
+    beta_shrinkage = residual_cfg.beta_shrinkage
+    beta_winsor_sigma = residual_cfg.beta_winsor_sigma
 
     logger.info("[1/4] Downloading/loading market data...")
     data = download_data(beta_window=beta_window)
@@ -109,10 +109,7 @@ def run_production(
     )
 
     logger.info("[3/4] Running V2 production backtest...")
-    costs = cfg.get("costs", {})
-    resolved_slippage = slippage_bps if slippage_bps is not None else float(
-        costs.get("slippage_bps_per_side", 5.0)
-    )
+    resolved_slippage = slippage_bps if slippage_bps is not None else app_config.strategy.slippage_bps
     logger.info(
         "Slippage: %.1f bps one-way (round-trip = 2 x %.1f bps x gross_exposure/day)",
         resolved_slippage,
@@ -122,7 +119,7 @@ def run_production(
     gap_dir = _resolve_gap_input_dir(gap_input_dir, cfg, project_root)
 
     results = BacktestEngine.run_v2_backtest(
-        cfg=cfg,
+        cfg=app_config,
         gap_input_dir=gap_dir,
         df_exec=df_exec,
         start_date=start_date,
@@ -135,12 +132,12 @@ def run_production(
         valid_returns = valid_returns[~results["daily_fallback"]]
 
     metrics = calculate_metrics(valid_returns)
-    risk_cfg = cfg.get("risk", {})
+    risk_cfg = app_config.risk
     var_es_result = compute_var_es(
         results["daily_returns"],
-        confidence=float(risk_cfg.get("var_confidence", 0.99)),
-        window=int(risk_cfg.get("var_window", 250)),
-        var_method=risk_cfg.get("var_method", "historical"),
+        confidence=risk_cfg.var_confidence,
+        window=risk_cfg.var_window,
+        var_method=risk_cfg.var_method,
     )
 
     if not skip_chart:

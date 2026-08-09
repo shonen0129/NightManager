@@ -18,6 +18,7 @@ except ImportError:
 from leadlag.config.schemas import (
     AppConfig,
     KabuApiConfig,
+    ProductionV2RunConfig,
     RiskConfig,
     StrategyConfig,
     TachibanaApiConfig,
@@ -68,26 +69,13 @@ def _map_risk_section(risk_data: dict) -> dict:
     }
 
 
-def load_config_from_yaml(yaml_path: str | Path | None = None) -> AppConfig:
-    """Load config from YAML, merge with env variables, and validate via Pydantic.
+def build_app_config_from_dict(yaml_data: dict[str, Any]) -> AppConfig:
+    """Build a validated ``AppConfig`` from a raw YAML-style dict + env.
 
-    Args:
-        yaml_path: Path to the configuration YAML file.
-                   Defaults to project_root/configs/production/production.yaml if exists.
+    This is the single Pydantic construction point used by
+    ``load_config_from_yaml`` and by callers that already have a parsed
+    config dict.
     """
-    if yaml_path is None:
-        default_yaml = Path(__file__).parent.parent.parent.parent / "configs" / "production" / "production.yaml"
-        if default_yaml.exists():
-            yaml_path = default_yaml
-
-    yaml_data: dict[str, Any] = {}
-    if yaml_path and Path(yaml_path).exists():
-        logger.info("Loading configuration from %s", yaml_path)
-        with open(yaml_path, encoding="utf-8") as f:
-            yaml_data = yaml.safe_load(f) or {}
-    else:
-        logger.info("No configuration YAML found, using default settings")
-
     # Extract sections
     model_data = yaml_data.get("model", {})
     portfolio_data = yaml_data.get("portfolio", {})
@@ -208,10 +196,12 @@ def load_config_from_yaml(yaml_path: str | Path | None = None) -> AppConfig:
 
     strategy_cfg = StrategyConfig(**strategy_kwargs)
     risk_cfg = RiskConfig(**risk_kwargs)
+    v2_cfg = ProductionV2RunConfig.model_validate(yaml_data)
 
     return AppConfig(
         strategy=strategy_cfg,
         risk=risk_cfg,
+        v2=v2_cfg,
         kabu=kabu_cfg,
         tachibana=tachi_cfg,
         broker_provider=broker_provider,
@@ -219,3 +209,26 @@ def load_config_from_yaml(yaml_path: str | Path | None = None) -> AppConfig:
         output_live_dir=output_data.get("live_dir", "live/sector_relative_ensemble"),
         run_audit=output_data.get("run_audit", True),
     )
+
+
+def load_config_from_yaml(yaml_path: str | Path | None = None) -> AppConfig:
+    """Load config from YAML, merge with env variables, and validate via Pydantic.
+
+    Args:
+        yaml_path: Path to the configuration YAML file.
+                   Defaults to project_root/configs/production/production.yaml if exists.
+    """
+    if yaml_path is None:
+        default_yaml = Path(__file__).parent.parent.parent.parent / "configs" / "production" / "production.yaml"
+        if default_yaml.exists():
+            yaml_path = default_yaml
+
+    yaml_data: dict[str, Any] = {}
+    if yaml_path and Path(yaml_path).exists():
+        logger.info("Loading configuration from %s", yaml_path)
+        with open(yaml_path, encoding="utf-8") as f:
+            yaml_data = yaml.safe_load(f) or {}
+    else:
+        logger.info("No configuration YAML found, using default settings")
+
+    return build_app_config_from_dict(yaml_data)
