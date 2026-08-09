@@ -38,16 +38,10 @@ from dataclasses import asdict, is_dataclass
 from datetime import datetime
 from typing import Any
 
-import numpy as np
 import pandas as pd
 
 from leadlag.broker.base import BrokerClient
 from leadlag.core import allocator as domain_allocator
-from leadlag.core.portfolio import adjust_gross_exposure, classify_actions
-from leadlag.core.risk import evaluate_risk_checks
-from leadlag.core.types import (
-    RiskConfig,
-)
 from leadlag.data.cache import get_hist_returns_for_risk as _get_hist_returns_for_risk
 from leadlag.execution.broker_ops import (
     build_api_client,
@@ -58,6 +52,12 @@ from leadlag.execution.broker_ops import (
 )
 from leadlag.execution.config import StrategyConfig as ProductionConfig
 from leadlag.execution.pricing import fetch_fill_prices, resolve_daily_open_prices
+from leadlag.execution.risk_capital import (
+    allocate_capital,
+    auto_adjust_gross_exposure,
+    build_risk_config,
+    run_risk_checks,
+)
 from leadlag.reporting.formatter import (
     log_decision_summary as _log_decision_summary,
 )
@@ -88,119 +88,6 @@ def build_output_dir(
         run_tag=run_tag,
         manifest_extra={"entry_point": "cli.py"},
     )
-
-
-# ---------------------------------------------------------------------------
-# Risk checks
-# ---------------------------------------------------------------------------
-
-
-def build_risk_config(config: ProductionConfig) -> RiskConfig:
-    return RiskConfig(
-        var_confidence=config.var_confidence,
-        var_window=config.var_window,
-        var_method=config.var_method,
-        var_warning=config.var_warning,
-        var_stop=config.var_stop,
-        es_warning=config.es_warning,
-        es_stop=config.es_stop,
-        daily_loss_warning=config.daily_loss_warning,
-        daily_loss_stop=config.daily_loss_stop,
-        monthly_loss_stop=config.monthly_loss_stop,
-        max_net_exposure=config.max_net_exposure,
-        max_gross_exposure=config.max_gross_exposure,
-    )
-
-
-def run_risk_checks(
-    decision: dict,
-    total_buy_allocated: float,
-    total_sell_allocated: float,
-    max_capital: float,
-    hist_daily_returns: pd.Series,
-    config: ProductionConfig,
-) -> dict:
-    weights = np.asarray(decision["weight"], dtype=float)
-    risk_config = build_risk_config(config)
-    report = evaluate_risk_checks(
-        weights=weights,
-        total_buy_allocated=total_buy_allocated,
-        total_sell_allocated=total_sell_allocated,
-        max_capital=max_capital,
-        hist_daily_returns=hist_daily_returns,
-        config=risk_config,
-    )
-    return {
-        "target_net_exposure": report.target_net_exposure,
-        "target_gross_exposure": report.target_gross_exposure,
-        "allocated_net_ratio": report.allocated_net_ratio,
-        "allocated_gross_ratio": report.allocated_gross_ratio,
-        "var_es": {
-            "available": report.var_es.available,
-            "samples": report.var_es.samples,
-            "window": report.var_es.window,
-            "var_loss": report.var_es.var_loss,
-            "es_loss": report.var_es.es_loss,
-        },
-        "warning_breaches": report.warning_breaches,
-        "stop_breaches": report.stop_breaches,
-        "is_blocked": report.is_blocked,
-    }
-
-
-# ---------------------------------------------------------------------------
-# Gross exposure auto-adjustment
-# ---------------------------------------------------------------------------
-
-
-def auto_adjust_gross_exposure(decision: dict, config: ProductionConfig) -> dict:
-    weights = np.asarray(decision["weight"], dtype=float)
-    result = adjust_gross_exposure(weights, config.max_gross_exposure)
-
-    adjusted = dict(decision)
-    adjusted["gross_before"] = result.gross_before
-    adjusted["gross_limit"] = result.gross_limit
-    adjusted["gross_adjusted"] = result.was_adjusted
-    adjusted["gross_adjustment_factor"] = result.adjustment_factor
-    adjusted["gross_after"] = result.gross_after
-
-    if result.was_adjusted:
-        scaled = weights * result.adjustment_factor
-        adjusted["weight"] = scaled
-        adjusted["action"] = classify_actions(scaled)
-
-    return adjusted
-
-
-# ---------------------------------------------------------------------------
-# Capital allocation
-# ---------------------------------------------------------------------------
-
-
-def allocate_capital(
-    decision: dict,
-    manual_opens: dict,
-    max_capital: float,
-    max_net_exposure: float | None = None,
-    side_leverage: float = domain_allocator.DEFAULT_SIDE_LEVERAGE,
-) -> dict:
-    tickers = decision["tickers"]
-    weights = np.asarray(decision["weight"], dtype=float)
-    allocation = domain_allocator.allocate_capital(
-        weights=weights,
-        tickers=tickers,
-        open_prices=manual_opens,
-        max_capital=float(max_capital),
-        max_net_exposure=max_net_exposure,
-        side_leverage=side_leverage,
-    )
-    return {
-        "qty": allocation.quantities.astype(int),
-        "allocated": allocation.allocated_amounts,
-        "buy_budget": float(allocation.buy_budget),
-        "sell_budget": float(allocation.sell_budget),
-        "gross_budget": float(allocation.gross_budget),
-    }
 
 
 # ---------------------------------------------------------------------------
