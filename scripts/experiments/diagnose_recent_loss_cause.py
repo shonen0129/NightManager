@@ -23,10 +23,11 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from research.backtest_common import load_execution_data
+from scipy.stats import spearmanr
+
 from leadlag.data.tickers import JP_TICKERS, US_TICKERS
 from leadlag.models.sre import compute_jp_target_returns
-from scipy.stats import spearmanr
+from research.backtest_common import load_execution_data
 
 
 def _load_backtest_output(out_dir: Path) -> dict:
@@ -133,7 +134,7 @@ def _build_report(
         idx = common_idx.get_loc(d)
         w = w_arr[idx]
         y = y_arr[idx]
-        gap_today = gap_arr[idx]
+        gap_arr[idx]
         gap_next = gap_arr[idx + 1] if idx + 1 < n_sim else np.zeros(len(JP_TICKERS))
         alpha = alpha_mask[idx]
 
@@ -156,7 +157,7 @@ def _build_report(
 
         # US signal (previous US close)
         us_prev = us_df.loc[d]
-        us_rank = us_prev.rank(ascending=False)
+        us_prev.rank(ascending=False)
 
         # JP target rank and gap-next rank
         jp_target_rank = pd.Series(y, index=JP_TICKERS).rank(ascending=False)
@@ -221,9 +222,9 @@ def _build_report(
     )
 
     # 5-day cumulative attribution by JP sector
-    recent_weights = w_arr[-n_recent:]
-    recent_y = y_arr[-n_recent:]
-    recent_gap = gap_arr[-n_recent:]
+    w_arr[-n_recent:]
+    y_arr[-n_recent:]
+    gap_arr[-n_recent:]
     # For each date i in last n_recent, total P&L = w_i*y_i + alpha*w_i*gap_{i+1}
     # The 5-day total can be approximated by the actual saved gross.sum()
     # but for per-asset attribution we use the computed components.

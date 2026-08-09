@@ -22,15 +22,15 @@ import yaml
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "src"))
 
-from research.backtest_common import (
-    load_config,
-    run_backtest_with_costs,
-)
 from leadlag.data.preprocessor import preprocess_data
 from leadlag.models.sector_relative_ensemble_blp_enhanced import (
     SectorRelativeEnsembleBLPEnhancedModel,
 )
 from leadlag.reporting.metrics import calculate_metrics
+from research.backtest_common import (
+    load_config,
+    run_backtest_with_costs,
+)
 
 logging.basicConfig(
     level=logging.INFO,

@@ -6,10 +6,9 @@ Usage: python tools/compare_w6.py [--start-date YYYY-MM-DD]
 Creates results/compare_w6_<timestamp>/ with baseline/ and new_w6/ outputs.
 """
 
+import argparse
 import os
 import sys
-import time
-import argparse
 from datetime import datetime
 
 import numpy as np
@@ -19,15 +18,15 @@ import pandas as pd
 sys.path.insert(0, os.path.abspath("src"))
 
 from backtest.runner import run_backtest_with_config
+from config import DEFAULT_START_DATE, STRATEGY_DEFAULTS
 from data_loader import (
-    load_decision_cache,
-    is_decision_cache_valid,
     download_data,
+    is_decision_cache_valid,
+    load_decision_cache,
     preprocess_data,
     save_decision_cache,
 )
 from domain.models.types import StrategyConfig
-from config import STRATEGY_DEFAULTS, DEFAULT_START_DATE
 from performance import calculate_metrics, generate_report
 
 
@@ -137,7 +136,6 @@ def main(args):
     # Summarize comparison
     keys = ["AR", "RISK", "R/R", "MDD", "Total Return", "Sharpe"]
 
-    comp_rows = []
     print("\n=== Summary comparison (baseline vs new_w6) ===")
     print(f"Output folder: {out_root}")
     header = f"{'Metric':<20} {'Baseline':>16} {'New w_6':>16} {'Delta':>12}"

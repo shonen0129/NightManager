@@ -12,18 +12,28 @@ while not (ROOT / "pyproject.toml").exists():
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "archive"))
 
-from leadlag.execution.microstructure.order_book_schema import OrderBookSnapshot, validate_quote, from_api_price_response
+from leadlag.execution.microstructure.execution_constraints import (
+    apply_hard_rules,
+    replace_unavailable_short,
+)
 from leadlag.execution.microstructure.order_book_cost import (
+    LobNotAvailable,
+    compute_depth_jpy,
     compute_mid_price,
     compute_quoted_spread_bps,
-    compute_depth_jpy,
-    estimate_market_order_fill_price,
     estimate_lob_slippage_bps,
-    compute_order_to_depth_ratio,
-    LobNotAvailable
+    estimate_market_order_fill_price,
 )
-from leadlag.execution.microstructure.slippage_model import compute_entry_cost_bps, compute_exit_cost_bps, CostSource
-from leadlag.execution.microstructure.execution_constraints import apply_hard_rules, replace_unavailable_short
+from leadlag.execution.microstructure.order_book_schema import (
+    OrderBookSnapshot,
+    from_api_price_response,
+    validate_quote,
+)
+from leadlag.execution.microstructure.slippage_model import (
+    CostSource,
+    compute_entry_cost_bps,
+    compute_exit_cost_bps,
+)
 
 
 def test_order_book_snapshot_validation():
@@ -114,7 +124,7 @@ def test_order_book_cost_calculations():
 
 def test_lob_not_available_exception():
     stub = OrderBookSnapshot(ticker="1617.T", timestamp="2026-06-23T09:10:00", last_price=1000.0, lob_available=False)
-    
+
     with pytest.raises(LobNotAvailable):
         compute_quoted_spread_bps(stub)
 
@@ -200,14 +210,14 @@ def test_execution_constraints_hard_rules():
 def test_short_replacements():
     # Initial candidates
     selected_shorts = ["1617.T", "1618.T", "1619.T"]
-    
+
     # All borrowable pool
     available_shorts_pool = ["1618.T", "1620.T", "1621.T", "1622.T"]
 
     # 1617.T is not borrowable, 1619.T is not borrowable.
     # The output should replace 1617.T and 1619.T with 1620.T and 1621.T from the pool.
     final_shorts = replace_unavailable_short(selected_shorts, available_shorts_pool, max_shorts=3)
-    
+
     assert "1618.T" in final_shorts
     assert "1620.T" in final_shorts
     assert "1621.T" in final_shorts

@@ -7,16 +7,15 @@ Comprehensive comparison of three signal modes:
 
 import os
 import sys
-import pandas as pd
-import numpy as np
+
 import matplotlib.pyplot as plt
-from datetime import datetime
+import pandas as pd
 
 ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../"))
 if ROOT_DIR not in sys.path:
     sys.path.insert(0, ROOT_DIR)
 
-from backtest_config import create_timestamped_output_dir, STRATEGY_DEFAULTS
+from backtest_config import create_timestamped_output_dir
 from data_loader import download_data, preprocess_data
 from performance import calculate_metrics
 from strategy import LeadLagStrategy
@@ -306,16 +305,16 @@ def main():
         f.write("=" * 100 + "\n")
         f.write("OUTPUT FILES\n")
         f.write("=" * 100 + "\n")
-        f.write(f"01_cumulative_returns_comparison.png - 累積リターン折れ線グラフ\n")
-        f.write(f"02_all_modes_daily_return.csv - 全モードの日次リターン\n")
+        f.write("01_cumulative_returns_comparison.png - 累積リターン折れ線グラフ\n")
+        f.write("02_all_modes_daily_return.csv - 全モードの日次リターン\n")
         f.write(
-            f"03_all_modes_metrics_overall.csv - 全モードのメトリクス一覧表（全期間）\n"
+            "03_all_modes_metrics_overall.csv - 全モードのメトリクス一覧表（全期間）\n"
         )
         f.write(
-            f"04_period_based_metrics.csv - 期間別メトリクス（2015-2019, 2020-2022, 2023-近況）\n"
+            "04_period_based_metrics.csv - 期間別メトリクス（2015-2019, 2020-2022, 2023-近況）\n"
         )
         f.write(
-            f"05_gap_tolerant_execution_stats.csv - Mode Cのγ別約定率・約定銘柄数統計\n"
+            "05_gap_tolerant_execution_stats.csv - Mode Cのγ別約定率・約定銘柄数統計\n"
         )
 
     print(f"\nAll outputs saved to: {output_dir}")

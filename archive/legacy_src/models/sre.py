@@ -19,6 +19,7 @@ from leadlag.core.correlation import (
 )
 from leadlag.data.tickers import JP_TICKERS, US_TICKERS
 from leadlag.models.base import BaseModel
+from leadlag.models.sre import compute_jp_target_returns
 
 logger = logging.getLogger(__name__)
 

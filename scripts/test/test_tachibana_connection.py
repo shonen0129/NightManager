@@ -10,9 +10,10 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 from dotenv import load_dotenv
+
 load_dotenv(ROOT / ".env")
 
-from leadlag.broker.tachibana.api import TachibanaClient, TachibanaApiError
+from leadlag.broker.tachibana.api import TachibanaApiError, TachibanaClient
 from leadlag.config import TachibanaApiConfig
 
 cfg = TachibanaApiConfig(

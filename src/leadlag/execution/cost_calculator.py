@@ -16,10 +16,10 @@ from typing import Any
 from leadlag.execution.microstructure.order_book_schema import OrderBookSnapshot
 from leadlag.execution.microstructure.slippage_model import (
     CostSource,
+    compute_borrow_bps_daily,
     compute_entry_cost_bps,
     compute_exit_cost_bps,
     compute_financing_bps_daily,
-    compute_borrow_bps_daily,
 )
 
 logger = logging.getLogger(__name__)

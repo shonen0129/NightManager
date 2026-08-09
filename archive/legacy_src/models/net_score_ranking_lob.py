@@ -1,13 +1,20 @@
 from __future__ import annotations
 
 import logging
-import numpy as np
-import pandas as pd
 from typing import Any
 
+import numpy as np
+import pandas as pd
+
+from leadlag.execution.microstructure.execution_constraints import (
+    apply_hard_rules,
+    replace_unavailable_short,
+)
 from leadlag.execution.microstructure.order_book_schema import OrderBookSnapshot
-from leadlag.execution.microstructure.slippage_model import compute_entry_cost_bps, compute_exit_cost_bps
-from leadlag.execution.microstructure.execution_constraints import apply_hard_rules, replace_unavailable_short
+from leadlag.execution.microstructure.slippage_model import (
+    compute_entry_cost_bps,
+    compute_exit_cost_bps,
+)
 
 logger = logging.getLogger(__name__)
 

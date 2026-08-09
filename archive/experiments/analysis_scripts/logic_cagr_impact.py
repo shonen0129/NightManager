@@ -2,18 +2,16 @@ import os
 from copy import deepcopy
 
 import pandas as pd
-
 from backtest_config import (
-    create_timestamped_output_dir,
     LOGIC_DIFF_BASELINE_PARAMS,
     LOGIC_DIFF_INCREMENTAL_STEPS,
     LOGIC_DIFF_SINGLE_FACTOR_CHANGES,
     SIGNIFICANCE_CONFIG,
+    create_timestamped_output_dir,
 )
 from data_loader import download_data, preprocess_data
-from strategy import LeadLagStrategy
 from performance import calculate_metrics
-
+from strategy import LeadLagStrategy
 
 TRADING_DAYS_PER_YEAR = SIGNIFICANCE_CONFIG["trading_days"]
 START_DATE = SIGNIFICANCE_CONFIG["start_date"]

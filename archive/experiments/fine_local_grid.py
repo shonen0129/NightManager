@@ -1,7 +1,8 @@
+import csv
+import functools
 import sys
 from pathlib import Path
-import functools
-import csv
+
 import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -9,8 +10,8 @@ SRC = ROOT / 'src'
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-import production
 import pandas as pd
+import production
 
 out_dir = ROOT / 'results' / 'fine_grid_local'
 out_dir.mkdir(parents=True, exist_ok=True)

@@ -1,10 +1,12 @@
-import pandas as pd
-import numpy as np
 from pathlib import Path
+
 import matplotlib
+import pandas as pd
+
 matplotlib.use('Agg')
-import matplotlib.pyplot as plt
 import sys
+
+import matplotlib.pyplot as plt
 
 # Ensure src on path
 ROOT = Path(__file__).resolve().parents[1]

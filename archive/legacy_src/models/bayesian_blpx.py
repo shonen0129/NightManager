@@ -205,7 +205,8 @@ class BayesianBLPXModel(SectorRelativeEnsembleBLPEnhancedModel):
             eta_vec = self._compute_kalman_gain(B_struct)
             eta_t = float(np.mean(eta_vec))  # scalar for diagnostics
             self._eta_history.append(eta_t)
-        else:  # "ic"
+        else:
+            # "ic"
             eta_t = self._compute_adaptive_eta_ic()
             self._eta_history.append(eta_t)
 
@@ -233,7 +234,7 @@ class BayesianBLPXModel(SectorRelativeEnsembleBLPEnhancedModel):
                 z_hat_j_t1, pred_var, num_floored = self._apply_confidence_weighting(
                     z_hat_j_t1, Sigma_YY_reg, Sigma_YX_reg, inv_A_tikh, self.beta_conf)
             else:
-                pred_var = np.ones(self.n_j)
+                np.ones(self.n_j)
 
             mu = result.get("mu_Y", np.zeros(self.n_j))
             mu_X = result.get("mu_X", np.zeros(self.n_u))

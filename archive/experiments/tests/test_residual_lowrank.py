@@ -1,12 +1,10 @@
-import pytest
 import numpy as np
-import pandas as pd
-from sklearn.linear_model import Ridge
-
+import pytest
 from domain.models.residual_lowrank import (
     ResidualizedSupervisedLowRankModel,
     compute_rolling_ols_betas,
 )
+from sklearn.linear_model import Ridge
 
 
 def test_compute_rolling_ols_betas_correctness():
@@ -46,10 +44,10 @@ def test_residual_lowrank_model_rank_constraint():
 
     X_train = np.random.randn(n_samples, n_features)
     Y_train = np.random.randn(n_samples, n_targets)
-    x_predict = np.random.randn(n_features)
+    np.random.randn(n_features)
 
     for K in [1, 3, 5]:
-        model = ResidualizedSupervisedLowRankModel(rank_k=K, ridge_alpha=0.1)
+        ResidualizedSupervisedLowRankModel(rank_k=K, ridge_alpha=0.1)
         # Let's extract the fitted B matrix internally to check its rank
         mean_X = np.mean(X_train, axis=0)
         std_X = np.std(X_train, axis=0, ddof=1)

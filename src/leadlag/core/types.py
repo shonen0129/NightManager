@@ -12,12 +12,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 
 import numpy as np
 
 
-class TradeAction(str, Enum):
+class TradeAction(StrEnum):
     """Trade action enumeration."""
 
     BUY = "BUY"
@@ -25,14 +25,14 @@ class TradeAction(str, Enum):
     HOLD = "HOLD"
 
 
-class OrderSide(str, Enum):
+class OrderSide(StrEnum):
     """Order side enumeration."""
 
     BUY = "BUY"
     SELL = "SELL"
 
 
-class OrderType(str, Enum):
+class OrderType(StrEnum):
     """Order type enumeration."""
 
     MARKET = "MO"
@@ -40,7 +40,7 @@ class OrderType(str, Enum):
     CLOSE = "CLO"
 
 
-class OrderStatus(str, Enum):
+class OrderStatus(StrEnum):
     """Order status enumeration."""
 
     SUBMITTED = "SUBMITTED"

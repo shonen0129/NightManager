@@ -144,11 +144,6 @@ def _plot_equity_curves(df: pd.DataFrame, results_root: Path, report_dir: Path) 
 
 
 def _build_report(df: pd.DataFrame, start_date: str, end_date: str, gap_input_dir: str) -> str:
-    cols = [
-        "pit_rolling_window", "sharpe", "cagr_pct", "annualized_return_pct",
-        "annualized_volatility_pct", "max_drawdown_pct", "avg_gross_exposure",
-        "avg_turnover", "avg_multiplier", "low_count", "medium_count", "high_count",
-    ]
     headers = ["Window", "net Sharpe", "CAGR (%)", "AR (%)", "Vol (%)", "MDD (%)", "Avg Gross", "Turnover", "Avg Mult", "Low", "Medium", "High"]
     table = "| " + " | ".join(headers) + " |\n"
     table += "| " + " | ".join(["---" for _ in headers]) + " |\n"
@@ -218,7 +213,7 @@ def _build_report(df: pd.DataFrame, start_date: str, end_date: str, gap_input_di
         "",
         "## 6. Files",
         "",
-        f"- 実験スクリプト: `scripts/experiments/experiment_pit_rolling_window_tuning.py`",
+        "- 実験スクリプト: `scripts/experiments/experiment_pit_rolling_window_tuning.py`",
         f"- サマリー: `reports/pit_rolling_window_tuning_{datetime.now().strftime('%Y%m%d')}/summary.csv`",
         f"- プロット: `reports/pit_rolling_window_tuning_{datetime.now().strftime('%Y%m%d')}/equity_curves.png`",
         f"- 日次データ: `results/pit_rolling_window_tuning_{datetime.now().strftime('%Y%m%d')}/w*/`",

@@ -222,16 +222,16 @@ def main():
 
     # Main active parameter set values
     p_set = cfg["parameter_sets"][args.blpx_param_set]
-    rho = float(p_set["rho"])
-    alpha_xx = float(p_set["alpha_xx"])
-    alpha_yx = float(p_set["alpha_yx"])
-    alpha_yy = float(p_set["alpha_yy"])
+    float(p_set["rho"])
+    float(p_set["alpha_xx"])
+    float(p_set["alpha_yx"])
+    float(p_set["alpha_yy"])
     l_pca = float(p_set["lambda_pca"])
     l_sec = float(p_set["lambda_sector"])
-    beta_conf = float(p_set["beta_conf"])
-    winsor_sigma = float(p_set["winsor_sigma"]) if p_set["winsor_sigma"] not in ["none", None] else None
-    blp_window = int(p_set["blp_window"])
-    ewma_halflife = float(p_set["ewma_halflife"])
+    float(p_set["beta_conf"])
+    float(p_set["winsor_sigma"]) if p_set["winsor_sigma"] not in ["none", None] else None
+    int(p_set["blp_window"])
+    float(p_set["ewma_halflife"])
 
     logger.info("Downloading market data...")
     raw_data = download_data(beta_window=60)
@@ -342,7 +342,7 @@ def main():
     }
     legacy_blp_model = SectorRelativeEnsembleBLPModel(prev_blp_cfg)
     legacy_blp_res = legacy_blp_model.predict_signals(df_exec)
-    legacy_blp_signals = legacy_blp_res["signals"].loc[sim_dates_slice].values
+    legacy_blp_res["signals"].loc[sim_dates_slice].values
 
     prev_blpx_cfg = {
         "model": {"name": "sector_relative_ensemble_blp_enhanced"},
@@ -457,7 +457,6 @@ def main():
     slippage_grid = [0.0, 2.5, 5.0, 7.5, 10.0]
 
     daily_returns_recs = {}
-    daily_positions_recs = {}
 
     # Standard labels for dataframes
     daily_returns_recs["date"] = sim_dates_slice
@@ -1208,7 +1207,7 @@ def main():
 - **Fallbackモデル**: `PCA-Ensemble`
 - **判定**: `PAPER_SHADOW_ONLY` (デモ環境およびPaper Tradingでの並走を推奨。実資金本番環境への直接採用は却下)
 - **監査結果**: **`All Passed (true)`** (安全基準・再現性基準をクリア)
-- **主な理由**: 
+- **主な理由**:
   - `SRE_BLPX_BLEND_25` はOOS Sharpeを `{blend25_oos["Sharpe"]:.4f}` に改善し、PCA-Ensemble Baselineの `{sre_oos["Sharpe"]:.4f}` に比べて **`+{blend25_oos["Sharpe"] - sre_oos["Sharpe"]:.4f}`** の性能向上を達成している。
   - ボラティリティは `{blend25_oos["RISK"]*100:.2f}%` と PCA-Ensemble Baseline の `{sre_oos["RISK"]*100:.2f}%` と同等レベルを維持しつつ、最大ドローダウンを `{blend25_oos["MDD"]*100:.2f}%`（Baseline: `{sre_oos["MDD"]*100:.2f}%`）へ僅かに緩和する。
   - しかし、本番採用基準である「7.5bpsにおけるスリッページ堅牢性比率0.80以上」および「10bpsにおける非崩壊」をクリアできない。これは日次ターンオーバー（~1.57）が高い当戦略共通の課題であり、実用的な執行環境の確認・コスト制御なしの生産環境への直行はリスクが高いため、Paper Shadow経由での採用を推奨する。

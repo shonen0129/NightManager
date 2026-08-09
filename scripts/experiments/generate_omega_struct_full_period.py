@@ -28,11 +28,9 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 from leadlag.data.cache import load_df_exec_from_local_cache
-from leadlag.data.tickers import JP_TICKERS, US_TICKERS
 from leadlag.models.sector_relative_ensemble_blp_enhanced import (
     SectorRelativeEnsembleBLPEnhancedModel,
 )
-from leadlag.models.sre import compute_jp_target_returns
 
 
 def parse_args() -> argparse.Namespace:
@@ -93,7 +91,7 @@ def _process_date(dt: pd.Timestamp, df_exec: pd.DataFrame, model, inputs: dict) 
     if i < model.corr_window:
         return None
 
-    sig_date = df_exec["sig_date"].values[i]
+    df_exec["sig_date"].values[i]
     gap_override = np.nan_to_num(inputs["jp_gap"][i], nan=0.0)
     betas_t = np.asarray(inputs["jp_beta"][i], dtype=float)
     topix_night_t = float(inputs["topix_night"][i])

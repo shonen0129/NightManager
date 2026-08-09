@@ -2,8 +2,6 @@
 """Segment baseline net returns by US/JP VIX regime and analyze large gain/loss days."""
 from __future__ import annotations
 
-import json
-import sys
 from pathlib import Path
 
 import numpy as np
@@ -72,7 +70,7 @@ def regime_stats(rets: pd.Series, segments: pd.Series) -> pd.DataFrame:
 def tail_day_analysis(rets: pd.Series, us_z: pd.Series, jp_z: pd.Series, segments: pd.Series, q: float = 0.10) -> pd.DataFrame:
     """For top/bottom q return days, show average US/JP VIX z and regime distribution."""
     rets_clean = rets.dropna()
-    n = len(rets_clean)
+    len(rets_clean)
     top_q = rets_clean.quantile(1 - q)
     bot_q = rets_clean.quantile(q)
 
@@ -140,7 +138,7 @@ def main():
 
     us_z = compute_z_scores(vix["us_vix"].reindex(common).ffill().bfill())
     jp_z = compute_z_scores(vix["jp_vix"].reindex(common).ffill().bfill())
-    spread_z = jp_z - us_z
+    jp_z - us_z
     segments = make_segments(us_z, jp_z, threshold=0.5)
 
     # Regime stats for baseline

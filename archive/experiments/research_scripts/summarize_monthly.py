@@ -1,12 +1,13 @@
 import os
-import pandas as pd
-import numpy as np
+
 import matplotlib.pyplot as plt
+import pandas as pd
+
 
 def main():
     target_dir = os.path.join(os.path.dirname(__file__), "..", "..", "..", "results", "20260528_195455_bt_normal")
     csv_path = os.path.join(target_dir, "daily_results.csv")
-    
+
     if not os.path.exists(csv_path):
         print(f"Error: {csv_path} does not exist.")
         return
@@ -15,28 +16,28 @@ def main():
     df = pd.read_csv(csv_path)
     df['trade_date'] = pd.to_datetime(df['trade_date'])
     df.set_index('trade_date', inplace=True)
-    
+
     # Calculate monthly return (compounded)
     monthly_ret = (1.0 + df['daily_return']).groupby(df.index.to_period('M')).prod() - 1.0
-    
+
     # Convert to DataFrame
     monthly_df = monthly_ret.to_frame(name='monthly_return')
     monthly_df.index.name = 'month'
-    
+
     # Save CSV
     output_csv_path = os.path.join(target_dir, "monthly_returns.csv")
     monthly_df.to_csv(output_csv_path)
     print(f"Saved monthly returns CSV to: {output_csv_path}")
-    
+
     # Create a nice Pivot Table for a heatmap: Years vs Months
     monthly_pivot = monthly_df.copy()
     monthly_pivot['Year'] = monthly_pivot.index.year
     monthly_pivot['Month'] = monthly_pivot.index.month
     pivot_table = monthly_pivot.pivot(index='Year', columns='Month', values='monthly_return')
-    
+
     # Reindex months to 1-12
     pivot_table = pivot_table.reindex(columns=range(1, 13))
-    
+
     # Save a formatted version of the pivot table to CSV as well for easy viewing
     pivot_csv_path = os.path.join(target_dir, "monthly_returns_matrix.csv")
     # Convert to percentages for readability in the matrix CSV
@@ -50,14 +51,14 @@ def main():
 
     # Plot Monthly Return Heatmap/Table
     fig, ax = plt.subplots(figsize=(12, len(pivot_pct) * 0.6 + 2))
-    
+
     # Hide the axes
     ax.axis('off')
-    
+
     # Generate table content with formatting
     cell_text = []
     cell_colors = []
-    
+
     for year in pivot_pct.index:
         row_text = []
         row_colors = []
@@ -86,7 +87,7 @@ def main():
                         row_colors.append((1.0, 0.8, 0.8, alpha))
         cell_text.append(row_text)
         cell_colors.append(row_colors)
-        
+
     table = ax.table(
         cellText=cell_text,
         cellColours=cell_colors,
@@ -95,25 +96,25 @@ def main():
         loc='center',
         cellLoc='center'
     )
-    
+
     table.auto_set_font_size(False)
     table.set_fontsize(10)
     table.scale(1.0, 1.8)
-    
+
     # Style header cells
     for (row, col), cell in table.get_celld().items():
         if row == 0 or col == -1:
             cell.set_text_props(weight='bold')
             cell.set_facecolor('#343a40')
             cell.set_text_props(color='white')
-            
+
     plt.title("Monthly Return Analysis (%)", fontsize=14, weight='bold', pad=20)
     plt.tight_layout()
     chart_path = os.path.join(target_dir, "monthly_returns_heatmap.png")
     plt.savefig(chart_path, dpi=300, bbox_inches='tight')
     plt.close()
     print(f"Saved monthly returns heatmap chart to: {chart_path}")
-    
+
     # Plot standard bar chart for historical monthly returns
     plt.figure(figsize=(15, 6))
     colors = ['#28a745' if x >= 0 else '#dc3545' for x in monthly_df['monthly_return']]

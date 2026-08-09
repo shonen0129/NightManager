@@ -30,10 +30,11 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 from leadlag.data.cache import load_df_exec_from_local_cache
-from leadlag.data.tickers import JP_TICKERS, US_TICKERS
+from leadlag.data.tickers import JP_TICKERS
+from leadlag.models.sector_relative_ensemble_blp_enhanced import (
+    SectorRelativeEnsembleBLPEnhancedModel,
+)
 from leadlag.models.sre import compute_jp_target_returns
-from leadlag.models.sector_relative_ensemble_blp_enhanced import SectorRelativeEnsembleBLPEnhancedModel
-from leadlag.models.blp_base import _BLPBase
 from research.backtest_v1 import run_v1_backtest
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -260,17 +261,17 @@ def main():
     report_lines = [
         "# A1: Adaptive Gap Coefficient Report\n",
         f"## Data: {T} rows, start={args.start_date}, β_rev_oc window={args.beta_window}\n",
-        f"\n## β_rev_oc Statistics\n",
+        "\n## β_rev_oc Statistics\n",
         f"Mean: {float(np.nanmean(beta_rev_oc)):.4f} (expect ~-0.23)\n",
         f"Std:  {float(np.nanstd(beta_rev_oc)):.4f}\n",
         f"Theory: c_t = 1 + β_rev_oc ≈ {1 + float(np.nanmean(beta_rev_oc)):.4f} (vs current 0.70)\n",
-        f"\n## Metrics Comparison\n",
+        "\n## Metrics Comparison\n",
         results_df.to_string(index=False),
-        f"\n\n## Verdict\n",
+        "\n\n## Verdict\n",
     ]
 
     base_sharpe = all_results["baseline"]["Sharpe_net"]
-    best_lambda_sharpe = max(all_results[f"lambda_{l}"]["Sharpe_net"] for l in lambdas)
+    best_lambda_sharpe = max(all_results[f"lambda_{lam}"]["Sharpe_net"] for lam in lambdas)
     improvement = (best_lambda_sharpe - base_sharpe) / base_sharpe * 100
 
     if improvement > 1.0:

@@ -41,13 +41,13 @@ from scipy.stats import norm
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
-from research.backtest_common import (
-    load_execution_data,
-    run_backtest_with_costs,
-    compute_backtest_metrics,
-)
 from leadlag.models.sector_relative_ensemble_blp_enhanced import (
     SectorRelativeEnsembleBLPEnhancedModel,
+)
+from research.backtest_common import (
+    compute_backtest_metrics,
+    load_execution_data,
+    run_backtest_with_costs,
 )
 
 logging.basicConfig(
@@ -310,8 +310,8 @@ def generate_report(
         f"**Date**: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M')}",
         f"**Config**: `{args.config}`",
         f"**Start date**: {args.start_date}",
-        f"**Method**: Combinatorially Symmetric Cross-Validation (CSCV)",
-        f"**Reference**: Bailey, Borwein, López de Prado, Zhu (2017)",
+        "**Method**: Combinatorially Symmetric Cross-Validation (CSCV)",
+        "**Reference**: Bailey, Borwein, López de Prado, Zhu (2017)",
         "",
         "## 1. Setup",
         "",
@@ -495,7 +495,8 @@ def main():
     # DSR for baseline (variant 0)
     baseline_ret = all_returns[0]
     baseline_sharpe = compute_sharpe(baseline_ret)
-    from scipy.stats import skew as scipy_skew, kurtosis as scipy_kurt
+    from scipy.stats import kurtosis as scipy_kurt
+    from scipy.stats import skew as scipy_skew
     sk = float(scipy_skew(baseline_ret))
     kt = float(scipy_kurt(baseline_ret, fisher=False))  # Pearson kurtosis (3 = normal)
     n_obs = len(baseline_ret)

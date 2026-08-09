@@ -9,7 +9,6 @@ z-scores as market-level continuous features and interactions.
 from __future__ import annotations
 
 import argparse
-import copy
 import logging
 import sys
 from pathlib import Path
@@ -22,8 +21,8 @@ from scipy.stats import norm, ttest_rel
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
-from leadlag.data.cache import load_df_exec_from_local_cache
 from experiments.ml_order_decision.phase2 import run_phase2_experiment
+from leadlag.data.cache import load_df_exec_from_local_cache
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
@@ -82,7 +81,7 @@ def run_variant(
     vix_cache_path: Path | None,
     per_ticker_interactions: bool,
 ) -> dict:
-    t0 = pd.Timestamp.now()
+    pd.Timestamp.now()
     label = "vix" if vix_cache_path is not None else "no_vix"
     logger.info("=== %s fold %s: train %s->%s | test %s->%s ===", label, test_start[:4], train_start, train_end, test_start, test_end)
 
@@ -248,8 +247,8 @@ def main():
         "",
         f"**Config**: n_estimators={lgbm_kwargs['n_estimators']}, num_leaves={lgbm_kwargs['num_leaves']}, max_depth={lgbm_kwargs['max_depth']}, min_child_samples={lgbm_kwargs['min_child_samples']}, reg_alpha={lgbm_kwargs['reg_alpha']}, reg_lambda={lgbm_kwargs['reg_lambda']}",
         f"- per_ticker_interactions={per_ticker}",
-        f"- VIX features: 60-day log z-score (US), 60-day log z-score (JP), 60-day z-score of JP-US spread",
-        f"- VIX added as: level + `× score` + `× gap` + `× score×gap` + `× score×gap_idio`",
+        "- VIX features: 60-day log z-score (US), 60-day log z-score (JP), 60-day z-score of JP-US spread",
+        "- VIX added as: level + `× score` + `× gap` + `× score×gap` + `× score×gap_idio`",
         "",
         "## Pooled OOS Performance",
         f"- Periods: {', '.join(r['no_vix']['test_year'] for r in results)}",

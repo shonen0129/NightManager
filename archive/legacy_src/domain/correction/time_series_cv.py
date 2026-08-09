@@ -33,12 +33,11 @@ Usage example
 
 from __future__ import annotations
 
+from collections.abc import Generator
 from dataclasses import dataclass
-from typing import Generator, Optional, Tuple
 
 import numpy as np
 import pandas as pd
-
 
 # ---------------------------------------------------------------------------
 # TimeSeriesPurgeSplit
@@ -84,7 +83,7 @@ class TimeSeriesPurgeSplit:
     def __init__(
         self,
         n_splits: int = 5,
-        train_size: Optional[int] = None,
+        train_size: int | None = None,
         gap_purge: int = 1,
         embargo: int = 5,
         min_train_size: int = 120,
@@ -104,7 +103,7 @@ class TimeSeriesPurgeSplit:
     def split(
         self,
         dates: pd.DatetimeIndex,
-    ) -> Generator[Tuple[np.ndarray, np.ndarray], None, None]:
+    ) -> Generator[tuple[np.ndarray, np.ndarray], None, None]:
         """Yield (train_indices, val_indices) for each fold.
 
         Parameters

@@ -25,10 +25,11 @@ import seaborn as sns
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
+from legacy_src.models.sre import SectorRelativeEnsembleModel
+
 from leadlag.data.fetcher import download_data
 from leadlag.data.preprocessor import preprocess_data
 from leadlag.data.tickers import JP_TICKERS, TOPIX_TICKER
-from legacy_src.models.sre import SectorRelativeEnsembleModel
 from leadlag.reporting.metrics import calculate_metrics
 
 # Set up logging
@@ -138,6 +139,7 @@ def calculate_top_drawdown_periods(daily_ret: pd.Series, n: int = 5) -> pd.DataF
 
 
 from research.backtest_v1 import run_v1_backtest
+
 
 def generate_slippage_sensitivity(
     model: SectorRelativeEnsembleModel,

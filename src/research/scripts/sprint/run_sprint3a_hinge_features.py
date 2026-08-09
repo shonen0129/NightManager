@@ -39,6 +39,7 @@ import warnings
 from pathlib import Path
 
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
@@ -61,22 +62,18 @@ from leadlag.data.cache import load_df_exec_from_local_cache
 from leadlag.data.tickers import JP_TICKERS
 from research.diagnostics.sprint0 import run_sprint0_calculations
 from research.diagnostics.sprint1_experiments import generate_targets_panel
-
-from research.features.hinge_features import build_full_feature_panel, derive_proxy_features
 from research.features.feature_selection_fdr import (
     FDRFeatureSelector,
-    compute_rank_ic_long_format,
     compute_feature_stability,
+    compute_rank_ic_long_format,
     run_walk_forward_fdr_selection,
 )
+from research.features.hinge_features import build_full_feature_panel
+from research.models.hinge_elasticnet_overlay import HingeElasticNetOverlay
 from research.models.hinge_overlay import (
     generate_walk_forward_windows,
-    cap_overlay_prediction,
-    select_best_alpha,
-    ALPHA_GRID_DEFAULT,
 )
 from research.models.hinge_ridge_overlay import HingeRidgeOverlay
-from research.models.hinge_elasticnet_overlay import HingeElasticNetOverlay
 from research.reports.sprint3a_hinge_report import generate_sprint3a_report
 
 # ---------------------------------------------------------------------------
@@ -267,7 +264,7 @@ def generate_figures(
         "axes.labelsize": 10,
     })
 
-    models_in_oos = [c.replace("_net_pnl", "") for c in oos_df.columns if c.endswith("_net_pnl")]
+    [c.replace("_net_pnl", "") for c in oos_df.columns if c.endswith("_net_pnl")]
 
     # 1. IC timeseries
     if ic_ts_df is not None and not ic_ts_df.empty:
@@ -397,7 +394,7 @@ def _plot_equity_curve(oos_df: pd.DataFrame, figure_dir: str) -> None:
             cum = (1 + oos_df[col].fillna(0)).cumprod()
             ax.plot(oos_df.index, cum, label=label, color=color, linewidth=2)
 
-    ax.set_title(f"Equity Curve — Net PnL (AUM=¥1,000,000)")
+    ax.set_title("Equity Curve — Net PnL (AUM=¥1,000,000)")
     ax.set_xlabel("Date")
     ax.set_ylabel("Cumulative Return (1 = NAV)")
     ax.axhline(1.0, color="black", linewidth=0.5, linestyle="--")
@@ -615,7 +612,7 @@ def run_leakage_audit(
     audit_df = pd.DataFrame(checks)
     audit_df.to_csv(os.path.join(qa_dir, "leakage_audit.csv"), index=False)
 
-    passed = audit_df["status"].isin(["PASS", "WARN"]).all()
+    audit_df["status"].isin(["PASS", "WARN"]).all()
     logger.info(
         "Leakage audit: %d checks, %d PASS, %d WARN, %d FAIL.",
         len(audit_df),
@@ -730,7 +727,7 @@ def run_walk_forward_backtest(
         Feature IC heatmap data (feature × window).
     """
     val_cfg = config.get("validation", {})
-    feat_cfg = config.get("features", {})
+    config.get("features", {})
     model_cfg = config.get("model", {})
     feat_sel_cfg = config.get("feature_selection", {})
     cost_cfg = config.get("costs", {})
@@ -742,7 +739,7 @@ def run_walk_forward_backtest(
     step_days = val_cfg.get("step_days", 21)
     purge_days = val_cfg.get("purge_days", 1)
 
-    alpha_grid = model_cfg.get("alpha_blend_grid", [0.0, 0.25, 0.5, 0.75, 1.0])
+    model_cfg.get("alpha_blend_grid", [0.0, 0.25, 0.5, 0.75, 1.0])
     ridge_alpha_grid = model_cfg.get("ridge_alpha_grid", [0.1, 1.0, 10.0, 100.0])
     en_alpha_grid = model_cfg.get("elasticnet_alpha_grid", [0.0001, 0.001, 0.01, 0.1])
     en_l1_grid = model_cfg.get("elasticnet_l1_ratio_grid", [0.1, 0.3, 0.5, 0.7])
@@ -757,8 +754,8 @@ def run_walk_forward_backtest(
     fdr_enabled = feat_sel_cfg.get("enabled", True)
 
     aum = portfolio_cfg.get("aum_jpy", 1_000_000)
-    adv_cap = portfolio_cfg.get("adv_cap", 0.20)
-    gross_targets = portfolio_cfg.get("gross_targets", [0.5])
+    portfolio_cfg.get("adv_cap", 0.20)
+    portfolio_cfg.get("gross_targets", [0.5])
     default_gross = portfolio_cfg.get("default_gross_target", 0.5)
 
     buy_interest = cost_cfg.get("buy_interest_annual", 0.025)
@@ -1094,7 +1091,7 @@ def compute_model_comparison_summary(
 
     aum = config.get("portfolio", {}).get("aum_jpy", 1_000_000)
     cost_cfg = config.get("costs", {})
-    spread_scenarios = cost_cfg.get("spread_fallback_roundtrip_bps", [5, 10, 15, 20, 30, 50])
+    cost_cfg.get("spread_fallback_roundtrip_bps", [5, 10, 15, 20, 30, 50])
 
     model_pnl_cols = {
         "net_score_ranking": "net_score_ranking_net_pnl",
@@ -1149,9 +1146,9 @@ def compute_cost_sensitivity_summary(
 
     cost_cfg = config.get("costs", {})
     spread_scenarios = cost_cfg.get("spread_fallback_roundtrip_bps", [5, 10, 15, 20, 30, 50])
-    buy_interest = cost_cfg.get("buy_interest_annual", 0.025)
-    borrow_fee = cost_cfg.get("borrow_fee_annual", 0.0115)
-    default_spread = cost_cfg.get("default_spread_fallback_roundtrip_bps", 15)
+    cost_cfg.get("buy_interest_annual", 0.025)
+    cost_cfg.get("borrow_fee_annual", 0.0115)
+    cost_cfg.get("default_spread_fallback_roundtrip_bps", 15)
 
     gross_cols = {
         "net_score_ranking": "net_score_ranking_gross_pnl",
@@ -1348,8 +1345,8 @@ def main() -> None:
     # ========== QA Mode ==========
     if mode == "qa":
         logger.info("=== QA Mode ===")
-        leakage_df = run_leakage_audit(hinge_features_df, zscore_window, str(artifact_dir))
-        zscore_df = run_zscore_audit(raw_zscore_df, hinge_features_df, str(artifact_dir))
+        run_leakage_audit(hinge_features_df, zscore_window, str(artifact_dir))
+        run_zscore_audit(raw_zscore_df, hinge_features_df, str(artifact_dir))
         run_fdr_audit(None, str(artifact_dir))
 
         logger.info("QA complete. Results in: %s/qa/", artifact_dir)
@@ -1427,7 +1424,7 @@ def main() -> None:
 
     # ========== Generate report ==========
     logger.info("Generating Sprint 3-A report...")
-    report_path = generate_sprint3a_report(
+    generate_sprint3a_report(
         artifact_dir=str(artifact_dir),
         report_dir=str(report_dir),
         figure_dir=str(figure_dir),

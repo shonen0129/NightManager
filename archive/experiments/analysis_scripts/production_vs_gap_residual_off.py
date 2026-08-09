@@ -8,7 +8,6 @@ Outputs a timestamped folder under results/.
 
 import os
 import sys
-from typing import Dict, Tuple
 
 import pandas as pd
 
@@ -16,18 +15,18 @@ ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if ROOT_DIR not in sys.path:
     sys.path.insert(0, ROOT_DIR)
 
+from backtest.runner import run_backtest_with_config
 from backtest_config import (
     DEFAULT_START_DATE,
     STRATEGY_DEFAULTS,
     create_timestamped_output_dir,
 )
 from data_loader import download_data, preprocess_data
-from backtest.runner import run_backtest_with_config
 from domain.models.types import StrategyConfig
 from performance import calculate_metrics
 
 
-def _build_config_from_defaults(overrides: Dict) -> StrategyConfig:
+def _build_config_from_defaults(overrides: dict) -> StrategyConfig:
     params = dict(STRATEGY_DEFAULTS)
     params.update(overrides)
 
@@ -55,7 +54,7 @@ def _run_case(
     label: str,
     config: StrategyConfig,
     start_date: str,
-) -> Tuple[pd.DataFrame, Dict]:
+) -> tuple[pd.DataFrame, dict]:
     print(f"\n=== Running: {label} ===")
     results = run_backtest_with_config(df_exec, config, start_date)
     metrics = calculate_metrics(results["daily_return"])

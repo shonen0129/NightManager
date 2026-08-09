@@ -372,7 +372,7 @@ def main():
         Sigma_XY = Sigma_YX.T
         Sigma_YY = residual_blpx_res["Sigma_YY"]
         B_struct = residual_blpx_res["B_struct"]
-        z_U = residual_blpx_res["z_U"]
+        residual_blpx_res["z_U"]
         pred_var_vec = residual_blpx_res["pred_var_vec"]
         sigma_Y_denorm = residual_blpx_res["sigma_Y_denorm"]
 
@@ -778,7 +778,7 @@ def main():
 
     # Plot 3: Predicted Vol Bin vs Realized Vol / Mean Abs Return
     plt.figure()
-    ax = vol_bins_df[["realized_vol_annualized", "mean_abs_realized_net"]].plot(kind="bar", secondary_y="mean_abs_realized_net")
+    vol_bins_df[["realized_vol_annualized", "mean_abs_realized_net"]].plot(kind="bar", secondary_y="mean_abs_realized_net")
     plt.title("Realized Vol and Abs Return by Predicted Portfolio Vol Tertiles")
     plt.savefig(plots_dir / "portfolio_vol_bin_calibration.png")
     plt.close()

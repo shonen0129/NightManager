@@ -7,10 +7,10 @@ import pandas as pd
 import pytest
 
 from leadlag.monitoring.health_score import (
-    HealthScoreCalculator,
-    HealthScore,
-    HealthGrade,
     ComponentScore,
+    HealthGrade,
+    HealthScore,
+    HealthScoreCalculator,
 )
 
 

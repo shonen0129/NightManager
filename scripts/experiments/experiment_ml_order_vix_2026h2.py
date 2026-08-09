@@ -15,8 +15,8 @@ from scipy.stats import ttest_rel
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
-from leadlag.data.cache import load_df_exec_from_local_cache
 from experiments.ml_order_decision.phase2 import run_phase2_experiment
+from leadlag.data.cache import load_df_exec_from_local_cache
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
@@ -125,10 +125,10 @@ def main():
     lines = [
         "# LGBM VIX Overlay on 2026-07 (H2 2026 to date)",
         "",
-        f"**Config**: n_estimators=100, num_leaves=20, max_depth=3, reg_alpha=0.5, reg_lambda=1.0, per_ticker_interactions=True",
+        "**Config**: n_estimators=100, num_leaves=20, max_depth=3, reg_alpha=0.5, reg_lambda=1.0, per_ticker_interactions=True",
         f"- Train: {args.train_start} ~ {args.train_end}",
         f"- Test:  {args.test_start} ~ {args.test_end}",
-        f"- VIX features: 60-day log z-score (US), 60-day log z-score (JP), JP-US spread z-score",
+        "- VIX features: 60-day log z-score (US), 60-day log z-score (JP), JP-US spread z-score",
         "",
         "## 2026-07 Pooled Performance",
         f"- Total OOS days: {vix_m['n']}",

@@ -21,6 +21,7 @@ import sys
 from pathlib import Path
 
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
@@ -71,7 +72,9 @@ def load_daily_returns_from_backtest(
     gap_dir: Path, df_exec: pd.DataFrame, cfg: dict, start_date: str
 ) -> pd.Series:
     """Run baseline backtest and extract daily net returns."""
-    from leadlag.models.sector_relative_ensemble_blp_enhanced import SectorRelativeEnsembleBLPEnhancedModel
+    from leadlag.models.sector_relative_ensemble_blp_enhanced import (
+        SectorRelativeEnsembleBLPEnhancedModel,
+    )
     from research.backtest_v1 import run_v1_backtest
 
     model = SectorRelativeEnsembleBLPEnhancedModel(cfg)
@@ -96,8 +99,11 @@ def main():
     out_dir.mkdir(parents=True, exist_ok=True)
 
     import yaml
+
     from leadlag.data.cache import load_df_exec_from_local_cache
-    from leadlag.models.sector_relative_ensemble_blp_enhanced import SectorRelativeEnsembleBLPEnhancedModel
+    from leadlag.models.sector_relative_ensemble_blp_enhanced import (
+        SectorRelativeEnsembleBLPEnhancedModel,
+    )
     from research.backtest_v1 import run_v1_backtest
 
     # 1. Run baseline backtest
@@ -231,20 +237,20 @@ def main():
     high_sharpe = tertile_stats.loc[tertile_stats["bin"] == "High", "sharpe_contrib"].values[0]
 
     verdict_lines = []
-    verdict_lines.append(f"# A3 PIT Isotonic Diagnostic Report\n")
+    verdict_lines.append("# A3 PIT Isotonic Diagnostic Report\n")
     verdict_lines.append(f"## Data: {len(merged)} aligned observations\n")
     verdict_lines.append(f"## Spearman corr(pit_pct, next_return) = {corr:.4f} (p={pval:.4f})\n")
-    verdict_lines.append(f"\n### Tertile Sharpe Contributions\n")
+    verdict_lines.append("\n### Tertile Sharpe Contributions\n")
     verdict_lines.append(tertile_stats.to_string(index=False))
-    verdict_lines.append(f"\n### Decile Analysis\n")
+    verdict_lines.append("\n### Decile Analysis\n")
     verdict_lines.append(bin_df.to_string(index=False))
 
     if low_sharpe < mid_sharpe and low_sharpe < high_sharpe:
-        verdict_lines.append(f"\n### Verdict: SUPPORTED\n")
+        verdict_lines.append("\n### Verdict: SUPPORTED\n")
         verdict_lines.append("Low tertile has lower Sharpe contribution → 0.75x multiplier is justified.\n")
         verdict_lines.append("Current 3-tertile RuleD is reasonable. No change needed.\n")
     else:
-        verdict_lines.append(f"\n### Verdict: NEEDS REVIEW\n")
+        verdict_lines.append("\n### Verdict: NEEDS REVIEW\n")
         verdict_lines.append("Low tertile does NOT have lower Sharpe contribution.\n")
         verdict_lines.append("Consider: (1) maintaining current RuleD (simpler), or (2) logistic g(p) fit.\n")
         if abs(corr) < 0.05:

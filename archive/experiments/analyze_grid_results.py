@@ -1,5 +1,7 @@
-import pandas as pd
 from pathlib import Path
+
+import pandas as pd
+
 p = Path('results') / 'grid_search_yearly' / 'grid_results.csv'
 df = pd.read_csv(p)
 

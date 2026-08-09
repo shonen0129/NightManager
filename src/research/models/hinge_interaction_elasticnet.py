@@ -11,8 +11,8 @@ import numpy as np
 from sklearn.linear_model import ElasticNet
 from sklearn.preprocessing import StandardScaler
 
+from research.models.hinge_interaction_overlay import apply_imputation, impute_train_stats
 from research.models.hinge_overlay import BaseHingeOverlay
-from research.models.hinge_interaction_overlay import impute_train_stats, apply_imputation
 
 logger = logging.getLogger(__name__)
 
@@ -124,10 +124,11 @@ class InteractionElasticNetOverlay(BaseHingeOverlay):
         max_iter: int = 2000,
         model_name: str = "interaction_elasticnet",
         blend_alpha_grid: list[float] | None = None,
-    ) -> "InteractionElasticNetOverlay":
+    ) -> InteractionElasticNetOverlay:
         """Grid search over ElasticNet hyperparameters using validation Rank IC."""
         from scipy.stats import spearmanr
-        from research.models.hinge_overlay import select_best_alpha, ALPHA_GRID_DEFAULT
+
+        from research.models.hinge_overlay import ALPHA_GRID_DEFAULT, select_best_alpha
 
         if len(X_train) == 0 or X_train.shape[1] == 0:
             best_model = cls(en_alpha=0.01, l1_ratio=0.5, alpha=0.0, model_name=model_name)

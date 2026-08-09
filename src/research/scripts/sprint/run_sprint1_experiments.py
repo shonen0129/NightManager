@@ -10,18 +10,20 @@ import argparse
 import logging
 import os
 import sys
-import yaml
-import numpy as np
-import pandas as pd
-import scipy.stats as stats
 
 # Matplotlib configuration (non-interactive backend)
 import matplotlib
+import numpy as np
+import pandas as pd
+import scipy.stats as stats
+import yaml
+
 matplotlib.use("Agg")
+from pathlib import Path
+
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-from pathlib import Path
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "src"))
 
@@ -29,8 +31,8 @@ from leadlag.data.cache import load_df_exec_from_local_cache
 from research.diagnostics.sprint0 import run_sprint0_calculations
 from research.diagnostics.sprint1_experiments import (
     generate_targets_panel,
+    run_ruled_rolling_calibration,
     run_sprint1_backtests,
-    run_ruled_rolling_calibration
 )
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
@@ -55,43 +57,43 @@ def parse_args():
 
 def main():
     args = parse_args()
-    
+
     # Load config
     with open(args.config) as f:
         config = yaml.safe_load(f)
-        
+
     start_date = args.start_date or config.get("start_date")
     end_date = args.end_date or config.get("end_date")
-    
+
     output_dir = config.get("output_dir", "reports/sprint1")
     artifact_dir = config.get("artifact_dir", "artifacts/sprint1")
     figure_dir = os.path.join(output_dir, "figures")
-    
+
     os.makedirs(output_dir, exist_ok=True)
     os.makedirs(artifact_dir, exist_ok=True)
     os.makedirs(figure_dir, exist_ok=True)
-    
+
     # 1. Load data
     logger.info("Loading execution cache data...")
     df_exec = load_df_exec_from_local_cache()
-    
+
     # 2. Run sprint0 calculations to get baseline weight_ruled
     logger.info("Running baseline diagnostics calculations...")
     base_results = run_sprint0_calculations(start_date=start_date, end_date=end_date)
     w_ruled_df = base_results["signal_diagnostics_panel"]["weight_ruled"]
-    
+
     # 3. Task 1: Generate targets panel Parquet
     targets_df = generate_targets_panel(df_exec, start_date=start_date, end_date=end_date)
     targets_parquet_path = os.path.join(artifact_dir, "targets_panel.parquet")
     targets_df.to_parquet(targets_parquet_path)
     logger.info("Saved targets panel parquet to: %s", targets_parquet_path)
-    
+
     # 4. Task 2 & 3: Run liquidity and beta neutralization experiments
     backtest_df = run_sprint1_backtests(df_exec, w_ruled_df, targets_df, config)
     backtest_parquet_path = os.path.join(artifact_dir, "liquidity_constrained_backtest.parquet")
     backtest_df.to_parquet(backtest_parquet_path)
     logger.info("Saved backtest results parquet to: %s", backtest_parquet_path)
-    
+
     # 5. Task 4: Run calibration rolling splits
     valid_dates_beta = w_ruled_df.index.intersection(df_exec.index[120:])
     calibration_df = run_ruled_rolling_calibration(df_exec, w_ruled_df, valid_dates_beta)
@@ -99,42 +101,41 @@ def main():
         calibration_parquet_path = os.path.join(artifact_dir, "ruled_calibration.parquet")
         calibration_df.to_parquet(calibration_parquet_path)
         logger.info("Saved calibration results parquet to: %s", calibration_parquet_path)
-        
+
     # 6. Plotting Suite (8 Charts)
     logger.info("Generating 8 diagnostic plots...")
     sns.set_theme(style="whitegrid")
-    
+
     # Chart 1: target_ic_comparison.png
     plt.figure(figsize=(10, 6))
-    ic_rows = []
     # Compute rank ic of signal_gap_adjusted against targets
     sig = base_results["signal_diagnostics_panel"]["signal_gap_adjusted"].reindex(valid_dates_beta)
-    
+
     targets_pivot = targets_df.pivot(index="date", columns="ticker")
     r_cc = targets_pivot["close_to_close_return"]
     r_gap = targets_pivot["gap_return"]
     r_oc = targets_pivot["open_to_close_return"]
     r_etc = targets_pivot["entry_to_close_return"]
-    
+
     ic_cc = [stats.spearmanr(sig.loc[dt].values, r_cc.loc[dt].values, nan_policy='omit')[0] for dt in valid_dates_beta]
     ic_gap = [stats.spearmanr(sig.loc[dt].values, r_gap.loc[dt].values, nan_policy='omit')[0] for dt in valid_dates_beta]
     ic_oc = [stats.spearmanr(sig.loc[dt].values, r_oc.loc[dt].values, nan_policy='omit')[0] for dt in valid_dates_beta]
     ic_etc = [stats.spearmanr(sig.loc[dt].values, r_etc.loc[dt].values, nan_policy='omit')[0] for dt in valid_dates_beta]
-    
+
     ic_means = {
         "Close-to-Close": np.nanmean(ic_cc),
         "Gap": np.nanmean(ic_gap),
         "Open-to-Close": np.nanmean(ic_oc),
         "Entry-to-Close (mostly proxy)": np.nanmean(ic_etc)
     }
-    
+
     # Split true 9:10 for comparison
     true_910_dates = targets_df[targets_df["is_true_0910"]]["date"].unique()
     if len(true_910_dates) > 0:
         true_dates = valid_dates_beta.intersection(true_910_dates)
         ic_true_etc = [stats.spearmanr(sig.loc[dt].values, r_etc.loc[dt].values, nan_policy='omit')[0] for dt in true_dates]
         ic_means["true 9:10-to-Close"] = np.nanmean(ic_true_etc)
-        
+
     pd.Series(ic_means).plot(kind="bar", color="teal")
     plt.title("Rank IC Comparison across Target Definitions")
     plt.ylabel("Mean Rank IC")
@@ -142,15 +143,15 @@ def main():
     plt.tight_layout()
     plt.savefig(os.path.join(figure_dir, "target_ic_comparison.png"))
     plt.close()
-    
+
     # Chart 2: one_way_trade_adv_by_aum.png
     plt.figure(figsize=(10, 6))
     # Filter to default ADV=20, beta=60, phi=0.05, eta=0.05, cost=15
     sub_adv = backtest_df[
-        (backtest_df["adv_window"] == 20) & 
-        (backtest_df["beta_window"] == 60) & 
-        (backtest_df["phi"] == 0.05) & 
-        (backtest_df["eta"] == 0.05) & 
+        (backtest_df["adv_window"] == 20) &
+        (backtest_df["beta_window"] == 60) &
+        (backtest_df["phi"] == 0.05) &
+        (backtest_df["eta"] == 0.05) &
         (backtest_df["static_cost_bps"] == 15) &
         (backtest_df["strategy"].isin(["scale_down", "clip_by_name", "skip_illiquid"]))
     ]
@@ -164,7 +165,7 @@ def main():
     plt.tight_layout()
     plt.savefig(os.path.join(figure_dir, "one_way_trade_adv_by_aum.png"))
     plt.close()
-    
+
     # Chart 3: capacity_ir_by_aum.png
     plt.figure(figsize=(10, 6))
     ir_rows = []
@@ -175,7 +176,7 @@ def main():
         ann_vol = daily_ret.std() * np.sqrt(252)
         ir_val = ann_ret / ann_vol if ann_vol > 0 else 0.0
         ir_rows.append({"AUM": aum, "strategy": strat, "Combined Cost IR": ir_val})
-        
+
     ir_df = pd.DataFrame(ir_rows).pivot(index="AUM", columns="strategy", values="Combined Cost IR")
     ir_df.plot(kind="line", marker="o", colormap="plasma")
     plt.title("Combined Cost IR vs. AUM Scenarios")
@@ -186,15 +187,15 @@ def main():
     plt.tight_layout()
     plt.savefig(os.path.join(figure_dir, "capacity_ir_by_aum.png"))
     plt.close()
-    
+
     # Chart 4: gross_exposure_after_constraints.png
     plt.figure(figsize=(12, 6))
     # Pick scale_down and clip_by_name at AUM 100M and AUM 1B
     ref_sub = backtest_df[
-        (backtest_df["adv_window"] == 20) & 
-        (backtest_df["beta_window"] == 60) & 
-        (backtest_df["phi"] == 0.05) & 
-        (backtest_df["eta"] == 0.05) & 
+        (backtest_df["adv_window"] == 20) &
+        (backtest_df["beta_window"] == 60) &
+        (backtest_df["phi"] == 0.05) &
+        (backtest_df["eta"] == 0.05) &
         (backtest_df["static_cost_bps"] == 15) &
         (backtest_df["AUM"].isin([100000000, 1000000000])) &
         (backtest_df["strategy"].isin(["scale_down", "clip_by_name"]))
@@ -209,13 +210,13 @@ def main():
     plt.tight_layout()
     plt.savefig(os.path.join(figure_dir, "gross_exposure_after_constraints.png"))
     plt.close()
-    
+
     # Chart 5: beta_exposure_before_after.png
     plt.figure(figsize=(10, 6))
     # Filter to SLSQP patterns
     sub_patterns = backtest_df[
-        (backtest_df["AUM"] == 100000000) & 
-        (backtest_df["phi"] == 0.05) & 
+        (backtest_df["AUM"] == 100000000) &
+        (backtest_df["phi"] == 0.05) &
         (backtest_df["strategy"].str.startswith("pattern_"))
     ]
     for pattern, df_g in sub_patterns.groupby("strategy"):
@@ -228,14 +229,14 @@ def main():
     plt.tight_layout()
     plt.savefig(os.path.join(figure_dir, "beta_exposure_before_after.png"))
     plt.close()
-    
+
     # Chart 6: cost_before_after_equity_curve.png
     plt.figure(figsize=(12, 6))
     ref_sub_cost = backtest_df[
-        (backtest_df["AUM"] == 100000000) & 
-        (backtest_df["phi"] == 0.05) & 
+        (backtest_df["AUM"] == 100000000) &
+        (backtest_df["phi"] == 0.05) &
         (backtest_df["strategy"] == "scale_down") &
-        (backtest_df["adv_window"] == 20) & 
+        (backtest_df["adv_window"] == 20) &
         (backtest_df["beta_window"] == 60) &
         (backtest_df["eta"] == 0.05)
     ]
@@ -255,7 +256,7 @@ def main():
     plt.tight_layout()
     plt.savefig(os.path.join(figure_dir, "cost_before_after_equity_curve.png"))
     plt.close()
-    
+
     # Chart 7: ruled_calibration_rolling.png
     if not calibration_df.empty:
         plt.figure(figsize=(12, 6))
@@ -268,7 +269,7 @@ def main():
                     vol_ann = sub["realized_return"].std() * np.sqrt(252)
                     ir_val = ret_ann / vol_ann if vol_ann > 0 else 0.0
                     calib_stats.append({"Method": method, "Tertile": tertile, "Realized IR": ir_val})
-                    
+
         calib_plot_df = pd.DataFrame(calib_stats)
         sns.barplot(x="Method", y="Realized IR", hue="Tertile", data=calib_plot_df, palette="coolwarm")
         plt.title("Realized Information Ratio by Ex-Ante IR Tertile across Calibration Methods")
@@ -276,7 +277,7 @@ def main():
         plt.tight_layout()
         plt.savefig(os.path.join(figure_dir, "ruled_calibration_rolling.png"))
         plt.close()
-        
+
     # Chart 8: long_short_pnl_after_constraints.png
     plt.figure(figsize=(12, 6))
     ref_ls = ref_sub_cost[ref_sub_cost["static_cost_bps"] == 15].sort_values("date")
@@ -294,7 +295,7 @@ def main():
     # 7. Generate Reports
     logger.info("Writing Markdown reports...")
     generate_sprint1_reports(targets_df, backtest_df, calibration_df, config, output_dir)
-    
+
     logger.info("Sprint 1 calculations, plots, and reports successfully completed!")
 
 
@@ -306,39 +307,39 @@ def generate_sprint1_reports(
     output_dir: str
 ):
     """Write Sprint 1 markdown reports based on findings."""
-    
+
     # 1. Main Sprint 1 Report
     main_report_path = os.path.join(output_dir, "sprint1_report.md")
-    
+
     # Compute targets stats
     total_days = len(targets_df["date"].unique())
     true_910_days = len(targets_df[targets_df["is_true_0910"]]["date"].unique())
     proxy_days = total_days - true_910_days
-    
+
     # Target IC values
     targets_pivot = targets_df.pivot(index="date", columns="ticker")
     r_cc = targets_pivot["close_to_close_return"]
     r_gap = targets_pivot["gap_return"]
     r_oc = targets_pivot["open_to_close_return"]
     r_etc = targets_pivot["entry_to_close_return"]
-    
+
     # Reindex diagnostics signal
     # Load diagnostics signal from cached results (sprint0 base run)
     base_results = run_sprint0_calculations()
     valid_dates_beta = r_cc.index.intersection(base_results["signal_diagnostics_panel"]["weight_ruled"].index[120:])
     sig = base_results["signal_diagnostics_panel"]["signal_gap_adjusted"].reindex(valid_dates_beta)
-    
+
     ic_cc = np.nanmean([stats.spearmanr(sig.loc[dt].values, r_cc.loc[dt].values, nan_policy='omit')[0] for dt in valid_dates_beta])
     ic_gap = np.nanmean([stats.spearmanr(sig.loc[dt].values, r_gap.loc[dt].values, nan_policy='omit')[0] for dt in valid_dates_beta])
     ic_oc = np.nanmean([stats.spearmanr(sig.loc[dt].values, r_oc.loc[dt].values, nan_policy='omit')[0] for dt in valid_dates_beta])
     ic_etc = np.nanmean([stats.spearmanr(sig.loc[dt].values, r_etc.loc[dt].values, nan_policy='omit')[0] for dt in valid_dates_beta])
-    
+
     # Reconcile AUM table for main report
     ref_main = backtest_df[
-        (backtest_df["adv_window"] == 20) & 
-        (backtest_df["beta_window"] == 60) & 
-        (backtest_df["phi"] == 0.05) & 
-        (backtest_df["eta"] == 0.05) & 
+        (backtest_df["adv_window"] == 20) &
+        (backtest_df["beta_window"] == 60) &
+        (backtest_df["phi"] == 0.05) &
+        (backtest_df["eta"] == 0.05) &
         (backtest_df["static_cost_bps"] == 15) &
         (backtest_df["strategy"] == "scale_down")
     ]
@@ -350,11 +351,11 @@ def generate_sprint1_reports(
         ir_val = net_ret_ann / ann_vol if ann_vol > 0 else 0.0
         max_dd = compute_max_drawdown(df_g["net_return_after_combined_cost"])
         max_trade_adv = df_g["max_trade_adv"].mean() * 100
-        
+
         aum_table_rows.append(
             f"| {aum:,.0f}円 | {ret_ann*100:.2f}% | {net_ret_ann*100:.2f}% | {ann_vol*100:.2f}% | {ir_val:.4f} | {max_dd*100:.2f}% | {max_trade_adv:.2f}% |"
         )
-        
+
     aum_table_str = "\n".join(aum_table_rows)
 
     with open(main_report_path, "w") as f:
@@ -384,7 +385,7 @@ def generate_sprint1_reports(
 ---
 
 ## 3. AUM別容量（Capacity）およびコスト影響（Scale Down）
-以下は、流動性制約として「一律縮小（`scale_down`）」を適用し、ADVの5%（$\phi=0.05$）以下に制限した場合の、各AUMにおけるパフォーマンス統計（スプレッド＋流動性インパクトコスト控除後）：
+以下は、流動性制約として「一律縮小（`scale_down`）」を適用し、ADVの5%（$\\phi=0.05$）以下に制限した場合の、各AUMにおけるパフォーマンス統計（スプレッド＋流動性インパクトコスト控除後）：
 
 | AUM (円) | コスト控除前平均リターン | コスト控除後平均リターン | 年率ボラティリティ | 実績インフォメーション比(IR) | 最大ドローダウン | 平均Max trade/ADV |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -395,7 +396,7 @@ def generate_sprint1_reports(
 ---
 
 ## 4. TOPIXベータ中立化（SLSQP最適化）の効果
-AUM 1億円、$\phi=0.05$ における最適化パターン（SLSQP）の比較結果（コスト控除前）：
+AUM 1億円、$\\phi=0.05$ における最適化パターン（SLSQP）の比較結果（コスト控除前）：
 
 | 最適化パターン | ドルニュートラル | TOPIXベータ中立 | ADV流動性制約 | 年率平均リターン | 年率ボラティリティ | 実績IR | 最適化失敗日数 |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
@@ -404,7 +405,7 @@ AUM 1億円、$\phi=0.05$ における最適化パターン（SLSQP）の比較�
 | **liquidity_constrained_only** | ○ | × | ○ | {backtest_df[(backtest_df["AUM"]==100000000)&(backtest_df["phi"]==0.05)&(backtest_df["strategy"]=="pattern_liquidity_constrained_only")]["strategy_return"].mean()*252*100:.2f}% | {backtest_df[(backtest_df["AUM"]==100000000)&(backtest_df["phi"]==0.05)&(backtest_df["strategy"]=="pattern_liquidity_constrained_only")]["strategy_return"].std()*np.sqrt(252)*100:.2f}% | {backtest_df[(backtest_df["AUM"]==100000000)&(backtest_df["phi"]==0.05)&(backtest_df["strategy"]=="pattern_liquidity_constrained_only")]["strategy_return"].mean()*252 / (backtest_df[(backtest_df["AUM"]==100000000)&(backtest_df["phi"]==0.05)&(backtest_df["strategy"]=="pattern_liquidity_constrained_only")]["strategy_return"].std()*np.sqrt(252)):.4f} | {backtest_df[(backtest_df["AUM"]==100000000)&(backtest_df["phi"]==0.05)&(backtest_df["strategy"]=="pattern_liquidity_constrained_only")]["optimization_failed"].sum()} 日 |
 | **full_practical** | ○ | ○ | ○ | {backtest_df[(backtest_df["AUM"]==100000000)&(backtest_df["phi"]==0.05)&(backtest_df["strategy"]=="pattern_full_practical")]["strategy_return"].mean()*252*100:.2f}% | {backtest_df[(backtest_df["AUM"]==100000000)&(backtest_df["phi"]==0.05)&(backtest_df["strategy"]=="pattern_full_practical")]["strategy_return"].std()*np.sqrt(252)*100:.2f}% | {backtest_df[(backtest_df["AUM"]==100000000)&(backtest_df["phi"]==0.05)&(backtest_df["strategy"]=="pattern_full_practical")]["strategy_return"].mean()*252 / (backtest_df[(backtest_df["AUM"]==100000000)&(backtest_df["phi"]==0.05)&(backtest_df["strategy"]=="pattern_full_practical")]["strategy_return"].std()*np.sqrt(252)):.4f} | {backtest_df[(backtest_df["AUM"]==100000000)&(backtest_df["phi"]==0.05)&(backtest_df["strategy"]=="pattern_full_practical")]["optimization_failed"].sum()} 日 |
 
-*分析: TOPIXベータ中立制約の試験導入により、ベータへの露出を完全にゼロ（$\sum w_j \beta_j = 0$）に抑えつつも、最適化（SLSQP）を活用することで年率リターンを極端に損なわずに中立化を達成できることを実証。最適化失敗日数がきわめて少なく、失敗時もグロス縮小によって安全に取引が停止されている。*
+*分析: TOPIXベータ中立制約の試験導入により、ベータへの露出を完全にゼロ（$\\sum w_j \beta_j = 0$）に抑えつつも、最適化（SLSQP）を活用することで年率リターンを極端に損なわずに中立化を達成できることを実証。最適化失敗日数がきわめて少なく、失敗時もグロス縮小によって安全に取引が停止されている。*
 
 ---
 
@@ -428,7 +429,7 @@ Ex-Ante IRの分類方法による、High tertileの実績年率リターンお�
     # 2. Liquidity Capacity Report
     liq_report_path = os.path.join(output_dir, "liquidity_capacity_report.md")
     with open(liq_report_path, "w") as f:
-        f.write(f"""# Sprint 1 — 流動性・容量制約 比較診断レポート
+        f.write(rf"""# Sprint 1 — 流動性・容量制約 比較診断レポート
 
 本レポートは、AUM（運用資金量）および取引制限上限（$\phi$）に応じた、ポートフォリオの流動性制約（`scale_down`, `clip_by_name`, `skip_illiquid`）によるパフォーマンスの感応度分析をまとめたものである。
 

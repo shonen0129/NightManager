@@ -18,8 +18,6 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import yaml
-from scipy import stats
 
 ROOT = Path(__file__).resolve()
 while not (ROOT / "pyproject.toml").exists():
@@ -30,19 +28,19 @@ while not (ROOT / "pyproject.toml").exists():
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "archive"))
 
+from legacy_src.models.bayesian_blpx import BayesianBLPXModel
+
+from leadlag.data.tickers import JP_TICKERS
+from leadlag.models.sector_relative_ensemble_blp_enhanced import (
+    SectorRelativeEnsembleBLPEnhancedModel,
+)
+from leadlag.models.sre import compute_jp_target_returns
 from research.backtest_common import (
     compute_backtest_metrics,
-    compute_rank_ic,
     load_cached_df_exec,
     load_config,
     run_backtest_with_costs,
 )
-from leadlag.data.tickers import JP_TICKERS
-from leadlag.models.sre import compute_jp_target_returns
-from leadlag.models.sector_relative_ensemble_blp_enhanced import (
-    SectorRelativeEnsembleBLPEnhancedModel,
-)
-from legacy_src.models.bayesian_blpx import BayesianBLPXModel
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)

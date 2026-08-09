@@ -24,11 +24,9 @@ GP の予測分散 σ²_{j,t+1} を「その日の確信度」として、
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Literal, Optional, Tuple
 
 import numpy as np
 import pandas as pd
-
 
 # ---------------------------------------------------------------------------
 # ConfidenceConfig
@@ -81,7 +79,7 @@ class ConfidenceConfig:
         assert self.tau > 0.0, f"tau は正数: got {self.tau}"
 
     @classmethod
-    def from_config_dict(cls, d: dict) -> "ConfidenceConfig":
+    def from_config_dict(cls, d: dict) -> ConfidenceConfig:
         conf = d.get("confidence", d)
         return cls(
             aggregation=str(conf.get("aggregation", "mean")),
@@ -117,10 +115,10 @@ class ConfidenceScorer:
     >>> w_final = scorer.apply_sizing(w_base, kappa)
     """
 
-    def __init__(self, cfg: Optional[ConfidenceConfig] = None) -> None:
+    def __init__(self, cfg: ConfidenceConfig | None = None) -> None:
         self.cfg = cfg if cfg is not None else ConfidenceConfig()
-        self._sigma2_history: List[float] = []
-        self._kappa_history: List[float] = []
+        self._sigma2_history: list[float] = []
+        self._kappa_history: list[float] = []
 
     # ------------------------------------------------------------------
     # score: σ² → κ_t の変換
@@ -129,7 +127,7 @@ class ConfidenceScorer:
     def score(
         self,
         sigma2_all: np.ndarray,
-        weights: Optional[np.ndarray] = None,
+        weights: np.ndarray | None = None,
     ) -> float:
         """全業種の GP 予測分散から確信度スコア κ_t を算出する。
 
@@ -256,7 +254,7 @@ class ConfidenceScorer:
 
     def get_kappa_series(
         self,
-        dates: Optional[pd.DatetimeIndex] = None,
+        dates: pd.DatetimeIndex | None = None,
     ) -> pd.Series:
         """蓄積された κ_t の時系列を Series で返す。"""
         idx = dates if dates is not None else range(len(self._kappa_history))
@@ -264,7 +262,7 @@ class ConfidenceScorer:
 
     def get_sigma2_series(
         self,
-        dates: Optional[pd.DatetimeIndex] = None,
+        dates: pd.DatetimeIndex | None = None,
     ) -> pd.Series:
         """蓄積された集約済み σ²_agg の時系列を Series で返す。"""
         idx = dates if dates is not None else range(len(self._sigma2_history))
@@ -285,7 +283,7 @@ class ConfidenceScorer:
         self,
         sigma2_valid: np.ndarray,
         sigma2_all: np.ndarray,
-        weights: Optional[np.ndarray],
+        weights: np.ndarray | None,
     ) -> float:
         """業種横断集約を実行する。"""
         if self.cfg.aggregation == "mean":
@@ -338,7 +336,7 @@ def compute_confidence_from_sigma2(
     tau: float = 5.0,
     aggregation: str = "mean",
     min_kappa: float = 0.1,
-    weights: Optional[np.ndarray] = None,
+    weights: np.ndarray | None = None,
 ) -> float:
     """GP 予測分散から確信度スコア κ_t を算出するスタンドアロン関数。
 

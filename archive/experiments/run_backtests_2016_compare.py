@@ -1,6 +1,6 @@
+import functools
 import sys
 from pathlib import Path
-import functools
 
 # ensure src
 ROOT = Path(__file__).resolve().parents[1]
@@ -40,6 +40,7 @@ production.ProductionConfig = orig_Prod
 
 # Print metrics for both
 import pandas as pd
+
 for k, d in out_dirs.items():
     m = pd.read_csv(Path(d) / 'metrics.csv')
     print(f"\n{k}: {d}")

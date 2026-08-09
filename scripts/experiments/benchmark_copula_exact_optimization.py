@@ -5,7 +5,8 @@ from pathlib import Path
 
 import numpy as np
 from scipy.optimize import minimize_scalar
-from scipy.stats import kendalltau, t as student_t
+from scipy.stats import kendalltau
+from scipy.stats import t as student_t
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
@@ -46,7 +47,8 @@ def estimate_optimized(returns, nu_init=5.0, max_outer_iter=5):
             except np.linalg.LinAlgError:
                 jitter *= 10.0
         if chol is None:
-            objective = lambda value: _t_copula_neg_loglik(z, corr, value)
+            def objective(value):
+                return _t_copula_neg_loglik(z, corr, value)
         else:
             log_det = 2.0 * np.sum(np.log(np.diag(chol)))
             solved = np.linalg.solve(matrix, z.T).T

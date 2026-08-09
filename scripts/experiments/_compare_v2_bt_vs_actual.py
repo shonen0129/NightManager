@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 """V2 バックテストと実際の受入保証金を比較し、ズレを可視化する。"""
 import json
-import re
 from pathlib import Path
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[2]
 BT_DIR = ROOT / "results" / "v2_backtest_20200106_20260729_live"

@@ -3,8 +3,10 @@ from __future__ import annotations
 import logging
 import os
 import time
-from datetime import datetime, time as dt_time
+from datetime import datetime
+from datetime import time as dt_time
 from typing import Any
+
 import pandas as pd
 
 from .order_book_schema import OrderBookSnapshot, from_api_price_response

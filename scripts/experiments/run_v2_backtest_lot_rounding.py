@@ -255,7 +255,7 @@ def main():
         )
         notionals = np.where(quantities != 0, quantities * p_entry_arr, 0.0)
         w_actual = np.where(notionals != 0, notionals / eff_capital, 0.0)
-        valid_tk = np.where(quantities != 0)[0].tolist()
+        np.where(quantities != 0)[0].tolist()
 
         # Overnight gap from df_exec
         overnight_ret = 0.0

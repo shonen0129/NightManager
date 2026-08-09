@@ -12,8 +12,8 @@ import numpy as np
 from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.preprocessing import StandardScaler
 
-from research.models.hinge_overlay import BaseHingeOverlay, select_best_alpha, ALPHA_GRID_DEFAULT
-from research.models.hinge_interaction_overlay import impute_train_stats, apply_imputation
+from research.models.hinge_interaction_overlay import apply_imputation, impute_train_stats
+from research.models.hinge_overlay import ALPHA_GRID_DEFAULT, BaseHingeOverlay, select_best_alpha
 
 logger = logging.getLogger(__name__)
 
@@ -113,7 +113,7 @@ class InteractionGBDTOverlay(BaseHingeOverlay):
         max_overlay_bps: float = 20.0,
         model_name: str = "interaction_gbdt",
         blend_alpha_grid: list[float] | None = None,
-    ) -> "InteractionGBDTOverlay":
+    ) -> InteractionGBDTOverlay:
         from scipy.stats import spearmanr
 
         if param_grid is None:

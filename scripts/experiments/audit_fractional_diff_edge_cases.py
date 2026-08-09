@@ -20,7 +20,6 @@ from leadlag.features.fractional_diff import (
     compute_weights,
     find_optimal_d,
     fractional_diff,
-    fractional_diff_df,
     hurst_exponent,
 )
 

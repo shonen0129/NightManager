@@ -11,7 +11,7 @@ import json
 import logging
 import os
 import tempfile
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -79,7 +79,7 @@ def save_session_cache(state: dict[str, Any]) -> None:
                 "decrypted_urls": state.get("decrypted_urls", {}),
                 "p_no": state.get("p_no", 1),
                 "logged_in": state.get("logged_in", False),
-                "saved_at": datetime.now(timezone.utc).isoformat(),
+                "saved_at": datetime.now(UTC).isoformat(),
             },
         )
         logger.info("[TACHIBANA-CACHE] Session saved to %s", path)
@@ -93,10 +93,10 @@ def load_session_cache() -> dict[str, Any] | None:
     if not path.exists():
         return None
     try:
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             state = json.load(f)
         saved_at = datetime.fromisoformat(state["saved_at"])
-        age = datetime.now(timezone.utc) - saved_at.astimezone(timezone.utc)
+        age = datetime.now(UTC) - saved_at.astimezone(UTC)
         urls = state.get("decrypted_urls", {})
         if (
             not state.get("logged_in")

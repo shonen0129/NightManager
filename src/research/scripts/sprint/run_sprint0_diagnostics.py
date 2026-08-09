@@ -10,19 +10,20 @@ import argparse
 import logging
 import os
 import sys
-import yaml
+
 import matplotlib
+import yaml
+
 matplotlib.use("Agg")  # Non-interactive backend
 import matplotlib.pyplot as plt
-import pandas as pd
 import numpy as np
 
 # Add src/ to path
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
 sys.path.insert(0, os.path.join(ROOT, "src"))
 
+from leadlag.data.tickers import JP_TICKERS, TOPIX_TICKER, US_TICKERS
 from research.diagnostics.sprint0 import run_sprint0_calculations
-from leadlag.data.tickers import JP_TICKERS, US_TICKERS, TOPIX_TICKER
 
 logger = logging.getLogger("run_sprint0_diagnostics")
 
@@ -65,7 +66,7 @@ def main() -> int:
     )
 
     args = parse_args()
-    
+
     # Load config file
     if not os.path.exists(args.config):
         logger.error("Configuration file not found: %s", args.config)
@@ -97,12 +98,12 @@ def main() -> int:
 
     # Save CSV and Parquet Artifacts
     logger.info("Writing CSV/Parquet artifacts to %s...", artifact_dir)
-    
+
     # Panels (Parquet)
     results["returns_panel"].to_parquet(os.path.join(artifact_dir, "returns_panel.parquet"))
     results["residual_returns_panel"].to_parquet(os.path.join(artifact_dir, "residual_returns_panel.parquet"))
     results["signal_diagnostics_panel"].to_parquet(os.path.join(artifact_dir, "signal_diagnostics.parquet"))
-    
+
     # CSV files
     results["ic_timeseries"].to_csv(os.path.join(artifact_dir, "ic_timeseries.csv"))
     results["quantile_return_summary"].to_csv(os.path.join(artifact_dir, "quantile_return_summary.csv"))
@@ -111,13 +112,13 @@ def main() -> int:
     results["liquidity_summary"].to_csv(os.path.join(artifact_dir, "liquidity_summary.csv"))
     results["cost_impact_summary"].to_csv(os.path.join(artifact_dir, "cost_impact_summary.csv"))
     results["capacity_summary"].to_csv(os.path.join(artifact_dir, "capacity_summary.csv"))
-    
+
     if len(results["predicted_ir_calibration"]) > 0:
         results["predicted_ir_calibration"].to_csv(os.path.join(artifact_dir, "predicted_ir_calibration.csv"))
 
     # Generate Figures
     logger.info("Generating diagnostic figures in %s...", figures_dir)
-    
+
     # 1. cc_vs_intraday_return_scatter.png
     plt.figure(figsize=(8, 6))
     r_cc_flat = results["returns_panel"]["r_cc"].values.flatten()
@@ -224,19 +225,19 @@ def main() -> int:
     fig, ax1 = plt.subplots(figsize=(10, 5))
     liq = results["liquidity_summary"]
     tickers_label = [t.replace(".T", "") for t in liq.index]
-    
+
     color = "tab:blue"
     ax1.set_xlabel("Ticker")
     ax1.set_ylabel("ADV (Million JPY)", color=color)
     ax1.bar(tickers_label, liq["mean_adv_jpy"] / 1000000, color=color, alpha=0.6)
     ax1.tick_params(axis="y", labelcolor=color)
-    
+
     ax2 = ax1.twinx()
     color = "tab:red"
     ax2.set_ylabel("Mean Spread (bps)", color=color)
     ax2.plot(tickers_label, liq["mean_spread_bps"], color=color, marker="o", linewidth=2)
     ax2.tick_params(axis="y", labelcolor=color)
-    
+
     plt.title("Liquidity Metrics by Ticker: ADV & Mean Bid-Ask Spread")
     fig.tight_layout()
     plt.savefig(os.path.join(figures_dir, "liquidity_by_ticker.png"), dpi=150)
@@ -286,19 +287,19 @@ def main() -> int:
     fig, ax1 = plt.subplots(figsize=(8, 5))
     cap = results["capacity_summary"]
     aum_m = [float(aum) / 100000000.0 for aum in cap.index] # AUM in 100 Million JPY
-    
+
     color = "tab:blue"
     ax1.set_xlabel("AUM (100 Million JPY)")
     ax1.set_ylabel("Critical ADV Warning Days", color=color)
     ax1.bar(aum_m, cap["critical_days"], color=color, alpha=0.6, width=1.5)
     ax1.tick_params(axis="y", labelcolor=color)
-    
+
     ax2 = ax1.twinx()
     color = "tab:red"
     ax2.set_ylabel("Cost-Adjusted IR", color=color)
     ax2.plot(aum_m, cap["cost_adjusted_ir"], color=color, marker="d", linewidth=2)
     ax2.tick_params(axis="y", labelcolor=color)
-    
+
     plt.title("Capacity & Cost-Adjusted IR by AUM Scenario")
     fig.tight_layout()
     plt.savefig(os.path.join(figures_dir, "capacity_by_aum.png"), dpi=150)
@@ -314,17 +315,17 @@ def main() -> int:
 
 def write_markdown_report(results: dict, output_dir: str) -> None:
     report_path = os.path.join(output_dir, "sprint0_diagnostics_report.md")
-    
+
     avail = results["data_availability"]
     beta_stats = results["beta_exposure_stats"]
     ls_stats = results["long_short_stats"]
     calib = results["predicted_ir_calibration"]
-    
+
     # Compute deviations safely
     pricing_dev = (1.0 + results["returns_panel"]["r_cc"]) - (1.0 + results["returns_panel"]["gap"]) * (1.0 + results["returns_panel"]["r_intraday"])
     max_dev = float(pricing_dev.abs().max().max())
     mean_dev = float(pricing_dev.abs().mean().mean())
-    
+
     md_content = f"""# 日米業種リードラグ市場中立戦略 — Sprint 0：現状診断レポート
 
 本レポートは、現行モデル「Production Residual-BLPX-RA v2」のアルファ予測およびポートフォリオ特性について定量的に現状を診断した結果をまとめたものである。
@@ -339,7 +340,7 @@ def write_markdown_report(results: dict, output_dir: str) -> None:
     *   実績 9:10 価格利用可能日数: **{avail["9_10_actual_days"]} 日** ({avail["pct_9_10_available"] * 100:.2f}%)
     *   代替 Open 価格適用日数: **{avail["9_10_fallback_days"]} 日** ({ (1 - avail["pct_9_10_available"]) * 100:.2f}%)
     *   *注記: 9:10価格は 2026-03-03 以降でのみ取得可能なため、それ以前の期間についてはOpen-to-Closeリターンで「代替」処理を行っている。*
-*   **異常値・欠損処理**: 
+*   **異常値・欠損処理**:
     *   Winsorizationによる clipping 処理（対数平均値の上下3.0シグナル）を適用して外れ値を制御。
     *   日本取引所の市場分割異常値（1629.T）に対するNAVパッチを自動適用。
     *   価格比整合性チェック ($1 + r_{{cc}} \\approx (1 + gap) \\times (1 + r_{{intraday}})$) における最大絶対乖離は **{max_dev:.2e}** (平均乖離 **{mean_dev:.2e}**)。
@@ -350,7 +351,7 @@ def write_markdown_report(results: dict, output_dir: str) -> None:
 現行モデルがターゲットとする Close-to-Close ($r_{{cc}}$) と、実取引における対象リターンである 9:10-to-Close ($r_{{intraday}}$) の間のミスマッチを検証した。
 
 *   **rawリターンの全体相関 (corr($r_{{cc}}$, $r_{{intraday}}$))**: **{results["returns_panel"]["r_cc"].corrwith(results["returns_panel"]["r_intraday"]).mean():.4f}** (銘柄平均)
-*   **残差化リターンの全体相関 (corr($y_{{res\_cc\_60}}$, $y_{{res\_intraday\_60}}$))**: **{results["residual_returns_panel"]["y_res_cc"].corrwith(results["residual_returns_panel"]["y_res_intraday"]).mean():.4f}** (銘柄平均)
+*   **残差化リターンの全体相関 (corr($y_{{res\\_cc\\_60}}$, $y_{{res\\_intraday\\_60}}$))**: **{results["residual_returns_panel"]["y_res_cc"].corrwith(results["residual_returns_panel"]["y_res_intraday"]).mean():.4f}** (銘柄平均)
 *   **CCリターンの分散分解 (平均)**:
     *   寄付きギャップで説明される割合 (Variance Proportion): **{results["var_decomposition"]["prop_explained_by_gap"].mean() * 100:.2f}%**
     *   9:10→Close (日中) で説明される割合: **{results["var_decomposition"]["prop_explained_by_intraday"].mean() * 100:.2f}%**

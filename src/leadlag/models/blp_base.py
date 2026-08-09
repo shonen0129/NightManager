@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+
 import numpy as np
 import pandas as pd
 
@@ -57,7 +58,7 @@ class _BLPBase(BaseModel):
         out["y_jp_target"] = y_jp_target
         return out
 
-    def _get_pca_component(self) -> "PCAComponent":
+    def _get_pca_component(self) -> PCAComponent:
         """Lazily create and cache a PCAComponent for PCA signal computation."""
         if not hasattr(self, "_pca_component"):
             from leadlag.core.pipeline import PCAComponent

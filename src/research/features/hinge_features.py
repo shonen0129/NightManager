@@ -20,7 +20,7 @@ where threshold_str replaces "." with "_" (e.g. 1.5 → "1_5").
 from __future__ import annotations
 
 import logging
-from typing import Sequence
+from collections.abc import Sequence
 
 import numpy as np
 import pandas as pd

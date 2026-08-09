@@ -41,7 +41,7 @@ import pickle
 import warnings
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional, Tuple
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -104,7 +104,7 @@ class GPConfig:
         assert self.n_restarts_optimizer >= 0
 
     @classmethod
-    def from_config_dict(cls, d: dict) -> "GPConfig":
+    def from_config_dict(cls, d: dict) -> GPConfig:
         """YAML config dict（gp + fitting セクション）から生成。"""
         gp_sec = d.get("gp", d)
         fit_sec = d.get("fitting", d)
@@ -147,13 +147,13 @@ class GPUncertaintyModule:
 
     VERSION = "1.0.0"
 
-    def __init__(self, cfg: Optional[GPConfig] = None) -> None:
+    def __init__(self, cfg: GPConfig | None = None) -> None:
         self.cfg = cfg if cfg is not None else GPConfig()
-        self._models: List[Any] = []  # 業種別 GPR モデル (len = n_sectors)
+        self._models: list[Any] = []  # 業種別 GPR モデル (len = n_sectors)
         self._is_fitted: bool = False
-        self._fit_metadata: Dict[str, Any] = {}
-        self._train_end_date: Optional[pd.Timestamp] = None
-        self._kappa_history: List[float] = []  # スムージング用の過去 κ_t 履歴
+        self._fit_metadata: dict[str, Any] = {}
+        self._train_end_date: pd.Timestamp | None = None
+        self._kappa_history: list[float] = []  # スムージング用の過去 κ_t 履歴
 
         # 再現性: NumPy グローバルシードの固定
         np.random.seed(self.cfg.seed)
@@ -168,8 +168,8 @@ class GPUncertaintyModule:
         z_lin_matrix: np.ndarray,
         y_matrix: np.ndarray,
         dates: pd.DatetimeIndex,
-        signal_dates: Optional[pd.DatetimeIndex] = None,
-    ) -> "GPUncertaintyModule":
+        signal_dates: pd.DatetimeIndex | None = None,
+    ) -> GPUncertaintyModule:
         """ローリング窓内のデータで全業種の GP を学習する。
 
         Parameters
@@ -295,7 +295,7 @@ class GPUncertaintyModule:
         self,
         f_t: np.ndarray,
         z_lin: np.ndarray,
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray, np.ndarray]:
         """1 日分の予測平均と予測分散を返す。
 
         Parameters
@@ -360,7 +360,7 @@ class GPUncertaintyModule:
     def compute_confidence(
         self,
         sigma2_all: np.ndarray,
-        weights: Optional[np.ndarray] = None,
+        weights: np.ndarray | None = None,
         aggregation: str = "mean",
         mapping: str = "inv_exp",
         tau: float = 5.0,
@@ -535,8 +535,8 @@ class GPUncertaintyModule:
     # ------------------------------------------------------------------
 
     def get_ard_summary(
-        self, factor_names: Optional[list] = None
-    ) -> List[Dict[str, Any]]:
+        self, factor_names: list | None = None
+    ) -> list[dict[str, Any]]:
         """全業種の ARD 長さスケールと非線形寄与重要度を返す。
 
         Returns
@@ -622,11 +622,11 @@ class GPUncertaintyModule:
         logger.info("GPUncertaintyModule を %s に保存しました", path)
 
     @classmethod
-    def load(cls, path: str) -> "GPUncertaintyModule":
+    def load(cls, path: str) -> GPUncertaintyModule:
         """保存済みモジュールをディレクトリからロードする。"""
         out = Path(path)
 
-        with open(out / "gp_metadata.json", "r", encoding="utf-8") as f:
+        with open(out / "gp_metadata.json", encoding="utf-8") as f:
             meta = json.load(f)
 
         cfg_dict = meta.get("cfg", {})
@@ -644,7 +644,7 @@ class GPUncertaintyModule:
         return instance
 
     @classmethod
-    def from_config(cls, config: dict) -> "GPUncertaintyModule":
+    def from_config(cls, config: dict) -> GPUncertaintyModule:
         """YAML config 辞書からインスタンスを生成する（未学習状態）。"""
         cfg = GPConfig.from_config_dict(config)
         return cls(cfg=cfg)

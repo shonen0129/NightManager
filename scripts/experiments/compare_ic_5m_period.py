@@ -13,7 +13,7 @@ from scipy import stats
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
-from leadlag.data.cache import load_df_exec_from_local_cache, load_intraday_cache
+from leadlag.data.cache import load_df_exec_from_local_cache
 from leadlag.data.tickers import JP_TICKERS
 from leadlag.models.sre import compute_jp_target_returns
 

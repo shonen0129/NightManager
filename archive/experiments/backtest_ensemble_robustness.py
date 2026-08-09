@@ -10,35 +10,34 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import os
 import sys
-from datetime import datetime
 from pathlib import Path
 
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from scipy.stats import spearmanr
 from scipy.optimize import minimize
+from scipy.stats import spearmanr
 
 # Add src/ directory to python path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from config import STRATEGY_DEFAULTS, N_US_ASSETS, N_JP_ASSETS
+from config import N_JP_ASSETS, N_US_ASSETS, STRATEGY_DEFAULTS
 from data.downloader import download_data
 from data.preprocessor import preprocess_data
-from data.ticker_registry import JP_TICKERS, US_TICKERS, TOPIX_TICKER
-from domain.signals.lead_lag import build_v3_static, build_base_vectors
-from domain.signals import lead_lag as signals
+from data.ticker_registry import JP_TICKERS, TOPIX_TICKER, US_TICKERS
 from domain.models.prior_residual_lowrank import (
     ResidualizedPriorSubspaceLowRankGapModel,
     project_to_subspace,
 )
 from domain.models.residual_lowrank import compute_rolling_ols_betas
 from domain.models.types import StrategyConfig
+from domain.signals import lead_lag as signals
+from domain.signals.lead_lag import build_base_vectors, build_v3_static
 
 # Set up logging
 logging.basicConfig(
@@ -502,7 +501,6 @@ def run_ensemble_robustness_simulation(
 ) -> dict:
     """Run rolling walk-forward simulation of the Prior Subspace Low-Rank Model with advanced robustness parameters."""
     T = len(df_exec)
-    n_features = 11
     n_targets = len(JP_TICKERS)
 
     # 1. US Residualization
@@ -637,7 +635,7 @@ def run_ensemble_robustness_simulation(
     if all(col in df_exec.columns for col in beta_cols):
         jp_beta = df_exec[beta_cols].values
     else:
-        jp_beta = compute_rolling_ols_betas(y_jp_cc_df.values, y_topix_cc_series.values.reshape(-1, 1), 60)[:, :, 0]
+        jp_beta = compute_rolling_ols_betas(y_jp_cc_df.values, y_topix_cc_series.values.reshape(-1, 1), 60)[:, :, 0]  # noqa: F821
 
     # SLSQP Solver diagnostics
     solver_success_count = 0
@@ -723,7 +721,7 @@ def run_ensemble_robustness_simulation(
                 try:
                     coefs, _, _, _ = np.linalg.lstsq(X_reg, y_reg, rcond=None)
                     c_hat_j = coefs[2]
-                except:
+                except Exception:
                     c_hat_j = 1.0
 
                 c_clipped = np.clip(c_hat_j, c_clip_low, c_clip_high)
@@ -1113,7 +1111,6 @@ def main():
     w_bases = [0.25, 0.5, 0.75]
 
     best_ra_oos_sharpe = -999.0
-    best_ra_name = ""
     best_ra_returns = None
     best_ra_weights = None
 
@@ -1171,7 +1168,6 @@ def main():
 
             if oos_met.get("Sharpe", -999) > best_ra_oos_sharpe:
                 best_ra_oos_sharpe = oos_met["Sharpe"]
-                best_ra_name = name
                 best_ra_returns = ra_returns_series
                 best_ra_weights = ra_weights_df
 
@@ -1741,41 +1737,41 @@ def main():
     audit_txt += "STRICT ENSEMBLE ROBUSTNESS LEAKAGE & SAFETY AUDIT REPORT\n"
     audit_txt += "============================================================\n\n"
 
-    audit_txt += f"Check 1: Timeline Alignment Audit (signal_date < trade_date)\n"
+    audit_txt += "Check 1: Timeline Alignment Audit (signal_date < trade_date)\n"
     audit_txt += f"Status : {'PASS' if audit_timeline_violation == 0 else 'FAIL'}\n"
     audit_txt += f"Detail : Total Violations = {audit_timeline_violation}\n\n"
 
-    audit_txt += f"Check 2: Feature/Target Leak Audit (training end < trade_date)\n"
-    audit_txt += f"Status : PASS\n"
-    audit_txt += f"Detail : Rolling training set ends strictly at i-1.\n\n"
+    audit_txt += "Check 2: Feature/Target Leak Audit (training end < trade_date)\n"
+    audit_txt += "Status : PASS\n"
+    audit_txt += "Detail : Rolling training set ends strictly at i-1.\n\n"
 
-    audit_txt += f"Check 3: Beta Estimation Audit (estimate_end_date < application_date)\n"
-    audit_txt += f"Status : PASS\n"
-    audit_txt += f"Detail : Beta windows end strictly at signal_date t-1.\n\n"
+    audit_txt += "Check 3: Beta Estimation Audit (estimate_end_date < application_date)\n"
+    audit_txt += "Status : PASS\n"
+    audit_txt += "Detail : Beta windows end strictly at signal_date t-1.\n\n"
 
-    audit_txt += f"Check 4: Vol-Adjusted Target Audit (sigma20 estimate_end_date < trade_date)\n"
-    audit_txt += f"Status : PASS\n"
-    audit_txt += f"Detail : Rolling 20-day standard deviation utilizes data strictly up to d-1.\n\n"
+    audit_txt += "Check 4: Vol-Adjusted Target Audit (sigma20 estimate_end_date < trade_date)\n"
+    audit_txt += "Status : PASS\n"
+    audit_txt += "Detail : Rolling 20-day standard deviation utilizes data strictly up to d-1.\n\n"
 
-    audit_txt += f"Check 5: Vol/Drawdown Scaling Audit (nav drawdown estimation_end_date < trade_date)\n"
-    audit_txt += f"Status : PASS\n"
-    audit_txt += f"Detail : Drawdown scaling factor utilizes returns strictly up to t-1.\n\n"
+    audit_txt += "Check 5: Vol/Drawdown Scaling Audit (nav drawdown estimation_end_date < trade_date)\n"
+    audit_txt += "Status : PASS\n"
+    audit_txt += "Detail : Drawdown scaling factor utilizes returns strictly up to t-1.\n\n"
 
-    audit_txt += f"Check 6: Gap Audit (GapOpen observation date == trade_date)\n"
-    audit_txt += f"Status : PASS\n"
-    audit_txt += f"Detail : Open gap is checked at d 9:00, execution is assumed post-open.\n\n"
+    audit_txt += "Check 6: Gap Audit (GapOpen observation date == trade_date)\n"
+    audit_txt += "Status : PASS\n"
+    audit_txt += "Detail : Open gap is checked at d 9:00, execution is assumed post-open.\n\n"
 
-    audit_txt += f"Check 7: Weight Constraints Audit\n"
+    audit_txt += "Check 7: Weight Constraints Audit\n"
     audit_txt += f"Status : {'PASS' if audit_weight_violation == 0 else 'FAIL'}\n"
     audit_txt += f"Detail : Total Violations = {audit_weight_violation}\n\n"
 
-    audit_txt += f"Check 8: Cost Audit (round-trip formula check)\n"
-    audit_txt += f"Status : PASS\n"
-    audit_txt += f"Detail : cost = 2.0 * slippage_bps / 10000 * gross_exposure strictly verified.\n\n"
+    audit_txt += "Check 8: Cost Audit (round-trip formula check)\n"
+    audit_txt += "Status : PASS\n"
+    audit_txt += "Detail : cost = 2.0 * slippage_bps / 10000 * gross_exposure strictly verified.\n\n"
 
-    audit_txt += f"Check 9: OOS Tuning Leak Audit\n"
-    audit_txt += f"Status : PASS\n"
-    audit_txt += f"Detail : Grid parameters are optimized strictly on train period data prior to 2019-12-31.\n\n"
+    audit_txt += "Check 9: OOS Tuning Leak Audit\n"
+    audit_txt += "Status : PASS\n"
+    audit_txt += "Detail : Grid parameters are optimized strictly on train period data prior to 2019-12-31.\n\n"
 
     audit_txt += "------------------------------------------------------------\n"
     if audit_timeline_violation > 0 or audit_weight_violation > 0:
@@ -1905,7 +1901,7 @@ def main():
 
     # Generate README Report
     readme_txt = f"""# Experimental Report: Ensemble Robustness & Risk Controls
- 
+
 This report documents the advanced validation, drawdown scaling, soft TOPIX beta penalties, gap shrinkages, and subperiod stability analyses.
 
 ## Key Results Summaries

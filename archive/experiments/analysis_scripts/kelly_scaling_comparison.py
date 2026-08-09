@@ -27,8 +27,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-
-from config import STRATEGY_DEFAULTS, N_US_ASSETS, N_JP_ASSETS
+from config import N_JP_ASSETS, N_US_ASSETS, STRATEGY_DEFAULTS
 from data_loader import download_data, preprocess_data
 from domain.models.types import StrategyConfig
 from domain.signals import lead_lag as signals
@@ -219,8 +218,8 @@ def run_unscaled_backtest(
     all_returns = df_exec[all_cc_cols].values
     date_index = df_exec.index.values
     jp_oc = df_exec[jp_oc_cols].values if jp_oc_cols else None
-    jp_close_sig = df_exec[jp_close_sig_cols].values if jp_close_sig_cols else None
-    jp_open_trade = df_exec[jp_open_trade_cols].values if jp_open_trade_cols else None
+    df_exec[jp_close_sig_cols].values if jp_close_sig_cols else None
+    df_exec[jp_open_trade_cols].values if jp_open_trade_cols else None
 
     n_u = N_US_ASSETS
     n_j = N_JP_ASSETS

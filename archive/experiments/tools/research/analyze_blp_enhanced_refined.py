@@ -420,8 +420,8 @@ def main():
     alpha_xx_grid = [float(a) for a in args.alpha_xx_grid.split(",")] if args.alpha_xx_grid else stage_grid.get("alpha_xx_grid", [0.50, 0.65, 0.75, 0.85])
     alpha_yx_grid = [float(a) for a in args.alpha_yx_grid.split(",")] if args.alpha_yx_grid else stage_grid.get("alpha_yx_grid", [0.0, 0.05, 0.10, 0.25])
     alpha_yy_grid = [float(a) for a in args.alpha_yy_grid.split(",")] if args.alpha_yy_grid else stage_grid.get("alpha_yy_grid", [0.25, 0.50, 0.75])
-    lambda_pca_grid = [float(l) for l in args.lambda_pca_grid.split(",")] if args.lambda_pca_grid else stage_grid.get("lambda_pca_grid", [0.1, 0.2, 0.25, 0.3, 0.4])
-    lambda_sector_grid = [float(l) for l in args.lambda_sector_grid.split(",")] if args.lambda_sector_grid else stage_grid.get("lambda_sector_grid", [0.1, 0.2, 0.25, 0.3, 0.4])
+    lambda_pca_grid = [float(x) for x in args.lambda_pca_grid.split(",")] if args.lambda_pca_grid else stage_grid.get("lambda_pca_grid", [0.1, 0.2, 0.25, 0.3, 0.4])
+    lambda_sector_grid = [float(x) for x in args.lambda_sector_grid.split(",")] if args.lambda_sector_grid else stage_grid.get("lambda_sector_grid", [0.1, 0.2, 0.25, 0.3, 0.4])
     beta_conf_grid = [float(b) for b in args.beta_conf_grid.split(",")] if args.beta_conf_grid else stage_grid.get("beta_conf_grid", [0.25, 0.50, 0.75, 1.00])
 
     # Winsor sigma parse
@@ -633,14 +633,9 @@ def main():
     all_cond_nums = []
     num_pinv_fallbacks = 0
     structured_lambda_constraints_passed = True
-    structured_blp_finite = True
     confidence_variance_valid = True
-    min_pred_var_before_floor = 999.0
-    num_pred_var_floored = 0
-    no_nan_inf_in_confidence_signal = True
     robust_covariance_valid = True
     winsorization_no_lookahead = True
-    no_nan_inf_in_winsorized_data = True
 
     # Precompute rolling correlations and PCA priors for unique winsor_sigma values
     logger.info("Precomputing rolling correlations and PCA priors for winsor_sigma values...")
@@ -901,7 +896,7 @@ def main():
     sre_oos = df_results[(df_results["ensemble"] == "SRE_current") & (df_results["period"] == "oos") & (df_results["slippage_bps"] == 5.0)].iloc[0]
     sre_full = calculate_metrics_numpy(sre_net_5, full_monthly_codes, full_n_months)
     sre_full["turnover"] = float(np.mean(sre_turnover))
-    legacy_oos = df_results[(df_results["ensemble"] == "BLP_prev_Hybrid_20") & (df_results["period"] == "oos") & (df_results["slippage_bps"] == 5.0)].iloc[0]
+    df_results[(df_results["ensemble"] == "BLP_prev_Hybrid_20") & (df_results["period"] == "oos") & (df_results["slippage_bps"] == 5.0)].iloc[0]
 
     # Ranking candidates at 5bps OOS (excluding the baselines)
     # We use a vectorized self-merge approach to match slippage performance instead of row-by-row iteration (which takes hours).
@@ -1119,11 +1114,11 @@ def main():
             # Scale returns and cost proportionally
             net_ret_scaled = net_ret * scale
             cost_scaled = cost * scale
-            gross_ret_scaled = gross_ret * scale
+            gross_ret * scale
 
-            train_vm = calculate_metrics_numpy(net_ret_scaled[:train_end_idx], train_monthly_codes, train_n_months)
+            calculate_metrics_numpy(net_ret_scaled[:train_end_idx], train_monthly_codes, train_n_months)
             oos_vm = calculate_metrics_numpy(net_ret_scaled[oos_start_idx:], oos_monthly_codes, oos_n_months)
-            full_vm = calculate_metrics_numpy(net_ret_scaled, full_monthly_codes, full_n_months)
+            calculate_metrics_numpy(net_ret_scaled, full_monthly_codes, full_n_months)
 
             # Check gross limits breach days (> 2.01 limit)
             gross_limit_breach_days = int(np.sum((gross_exp * scale) > 2.01))
@@ -1630,13 +1625,12 @@ def main():
         prev_blpx_full = calculate_metrics_numpy(prev_blpx_ret_5, full_monthly_codes, full_n_months)
         prev_blpx_full["turnover"] = float(np.mean(prev_blpx_turnover))
 
-        decision_str = "REJECT"
         if best_cand["production_candidate"]:
-            decision_str = "ADOPT"
+            pass
         elif best_cand["capital_shadow"]:
-            decision_str = "SHADOW (Capital)"
+            pass
         elif best_cand["paper_shadow"]:
-            decision_str = "SHADOW (Paper)"
+            pass
 
         sector_mapping_markdown = ""
         M_sector_df = pd.DataFrame(best_model.M_sector, index=JP_TICKERS, columns=US_TICKERS)

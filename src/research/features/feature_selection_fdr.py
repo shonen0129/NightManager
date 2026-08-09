@@ -18,7 +18,6 @@ Algorithm per walk-forward window:
 from __future__ import annotations
 
 import logging
-from typing import Sequence
 
 import numpy as np
 import pandas as pd

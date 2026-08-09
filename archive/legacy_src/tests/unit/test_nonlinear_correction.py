@@ -37,36 +37,28 @@ Coverage
 
 from __future__ import annotations
 
-import math
-import os
-import pickle
-import tempfile
 import warnings
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import pytest
-
+from domain.correction.evaluation import (
+    CostModel,
+    PerformanceMetrics,
+    compute_net_returns,
+    deflated_sharpe_ratio,
+    evaluate_correction_adoption,
+)
 from domain.correction.feature_builder import FeatureBuilder, FeatureFlags
+from domain.correction.nonlinear_layer import (
+    GBTHyperparams,
+    NonlinearCorrectionLayer,
+)
 from domain.correction.time_series_cv import (
     TimeSeriesPurgeSplit,
     audit_no_leak,
     check_contribution_cap,
 )
-from domain.correction.evaluation import (
-    CostModel,
-    PerformanceMetrics,
-    compute_net_returns,
-    compute_performance_metrics,
-    deflated_sharpe_ratio,
-    evaluate_correction_adoption,
-)
-from domain.correction.nonlinear_layer import (
-    GBTHyperparams,
-    NonlinearCorrectionLayer,
-)
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Helpers

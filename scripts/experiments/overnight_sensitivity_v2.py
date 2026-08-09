@@ -8,7 +8,6 @@ production.yaml では long=0.75, short=0.5。これ以外に
 from __future__ import annotations
 
 import copy
-import json
 from pathlib import Path
 
 import numpy as np

@@ -42,7 +42,7 @@ print(f"Copied {mh_count} multi-horizon matrices from 20260712_225931")
 # Verify
 rr_files = list(LATEST_DIR.glob("rank_reversal_2*.npy"))
 mh_files = list(LATEST_DIR.glob("*_h*_2*.npy"))
-print(f"\nVerification:")
+print("\nVerification:")
 print(f"  rank_reversal files in latest: {len(rr_files)}")
 if rr_files:
     dates = sorted([f.stem.split("_")[-1] for f in rr_files])

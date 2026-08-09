@@ -8,13 +8,18 @@ from __future__ import annotations
 
 import logging
 import os
+
 import numpy as np
 import pandas as pd
 import scipy.stats as stats
+
 from leadlag.data.cache import load_df_exec_from_local_cache, load_intraday_cache
 from leadlag.data.fetcher import _yf_download_with_timeout
-from leadlag.data.tickers import JP_TICKERS, US_TICKERS, TOPIX_TICKER
-from research.diagnostics.sprint0 import run_sprint0_calculations, find_latest_distribution_diagnostics
+from leadlag.data.tickers import JP_TICKERS
+from research.diagnostics.sprint0 import (
+    find_latest_distribution_diagnostics,
+    run_sprint0_calculations,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -33,9 +38,8 @@ def run_sprint0_qa(
     base_results = run_sprint0_calculations(start_date=start_date, end_date=end_date, config=config)
 
     # Load shared inputs
-    df_exec = load_df_exec_from_local_cache()
-    sim_dates = df_exec.index
-    
+    load_df_exec_from_local_cache()
+
     # 5m cache to find dates with real 9:10 prices
     df_5m = load_intraday_cache("5m")
     has_5m_dates = set()
@@ -46,9 +50,9 @@ def run_sprint0_qa(
     returns_panel = base_results["returns_panel"]
     residual_returns_panel = base_results["residual_returns_panel"]
     signal_diagnostics_panel = base_results["signal_diagnostics_panel"]
-    
+
     valid_dates_beta = base_results["ic_timeseries"].index
-    
+
     # QA 1: 9:10 Prices vs Open Proxy Separation
     qa1_results = run_qa1_separation(
         returns_panel, residual_returns_panel, signal_diagnostics_panel, has_5m_dates, valid_dates_beta
@@ -227,10 +231,10 @@ def run_qa2_alignment(
             for dt in dates_slice:
                 dt_idx = valid_dates_beta.get_loc(dt)
                 target_dt = valid_dates_beta[dt_idx + k]
-                
+
                 s_t = sig.loc[dt].values
                 r_tk = ret_df.loc[target_dt].values
-                
+
                 if np.isnan(s_t).any() or np.isnan(r_tk).any():
                     continue
                 rank_ic, _ = stats.spearmanr(s_t, r_tk)
@@ -319,7 +323,7 @@ def run_qa4_units(
     """QA 4: Bps, Annualization, and PnL unit check."""
     # Representative 5 days (last 5 days)
     rep_dates = valid_dates_beta[-5:]
-    
+
     rep_rows = []
     for dt in rep_dates:
         s_t = signal_diagnostics_panel.loc[dt, "signal_gap_adjusted"]
@@ -348,10 +352,10 @@ def run_qa4_units(
     rep_df = pd.DataFrame(rep_rows).set_index("Trade Date")
 
     # Audit formulas
-    c_stats = base_results["cost_impact_summary"]
+    base_results["cost_impact_summary"]
     # Static cost Sharpe check
-    daily_mean_pnl = base_results["beta_exposure_timeseries"]["strategy_return"].mean()
-    daily_std_pnl = base_results["beta_exposure_timeseries"]["strategy_return"].dropna().std()
+    base_results["beta_exposure_timeseries"]["strategy_return"].mean()
+    base_results["beta_exposure_timeseries"]["strategy_return"].dropna().std()
 
     formula_check = {
         "Annualization Factor (Days)": 252,
@@ -444,7 +448,7 @@ def run_qa6_capacity_units(
         end=valid_dates_beta.max().strftime("%Y-%m-%d"),
         auto_adjust=False,
     )
-    
+
     volume_df = yf_data["Volume"].reindex(valid_dates_beta).ffill()
     close_df = yf_data["Close"].reindex(valid_dates_beta).ffill()
 
@@ -471,14 +475,14 @@ def run_qa6_capacity_units(
         med_adv_calc = adv_rolling[tk].median()
         med_adv_true = adtv_daily[tk].median()
         med_abs_w = w_ruled_df[tk].abs().median()
-        
+
         # trade sizes and ratios
         med_trade_val = trade_notional_daily[tk].median()
         ratio_daily = trade_notional_daily[tk].divide(adv_rolling[tk]).dropna()
-        
+
         med_ratio = ratio_daily.median()
         p95_ratio = ratio_daily.quantile(0.95)
-        
+
         # Missing/Zero ADV days
         missing_days = int(volume_df[tk].isna().sum() + (volume_df[tk] == 0).sum())
 
@@ -508,7 +512,7 @@ def run_qa7_cost_consistency(
     """QA 7: Verify cost vs capacity diagnostics consistency."""
     # Decompose daily costs for different AUM scenarios
     aum_scenarios = [100000000, 1000000000, 10000000000] # 100M, 1B, 10B JPY
-    
+
     # Reload ADV
     yf_data = _yf_download_with_timeout(
         tickers=JP_TICKERS,
@@ -543,7 +547,7 @@ def run_qa7_cost_consistency(
         trade_notional_daily.iloc[0] = w_ruled_df.iloc[0].abs().multiply(aum)
 
         ratio_daily = trade_notional_daily.divide(adv_rolling.loc[valid_dates_beta], axis=0).fillna(0.0)
-        
+
         ratio_vals = ratio_daily.values
         w_vals = w_ruled_df.values
         w_diff_vals = w_ruled_df.diff().abs().fillna(0.0).values
@@ -615,14 +619,14 @@ def run_qa8_calibration_leak(
         if idx < 252:
             rolling_tertiles.append("Medium") # default classification for initial window
             continue
-        
+
         # Lookback window
         window_dates = calib_data.index[idx-252:idx]
         window_ir = calib_data.loc[window_dates, "ex_ante_ir"]
-        
+
         q33 = window_ir.quantile(0.333)
         q66 = window_ir.quantile(0.667)
-        
+
         val = calib_data.loc[dt, "ex_ante_ir"]
         if val <= q33:
             rolling_tertiles.append("Low")

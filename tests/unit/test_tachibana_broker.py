@@ -5,11 +5,11 @@ Unit tests for TachibanaClient and TachibanaBrokerClient.
 
 from __future__ import annotations
 
-import unittest
 from unittest.mock import MagicMock, patch
 
 import pytest
-from leadlag.broker.base import BrokerConfig, Position, WalletInfo
+
+from leadlag.broker.base import BrokerConfig, WalletInfo
 from leadlag.broker.factory import create_broker
 from leadlag.broker.tachibana.api import TachibanaApiError, TachibanaClient
 from leadlag.broker.tachibana.client import TachibanaBrokerClient

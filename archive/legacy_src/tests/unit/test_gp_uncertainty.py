@@ -36,15 +36,12 @@ from domain.gp import (
     coverage_test,
     extract_kernel_params,
 )
-from domain.gp.calibration import CalibrationResult, coverage_test_by_sector
 from domain.gp.confidence import (
     ConfidenceConfig,
     ConfidenceScorer,
     compute_confidence_from_sigma2,
-    quantile_return_decomposition,
 )
 from domain.gp.gp_uncertainty import _audit_no_leak
-
 
 # ---------------------------------------------------------------------------
 # フィクスチャ
@@ -521,7 +518,7 @@ class TestConfidenceScorer:
 
         # 最初は高確信度
         sigma2_low = np.ones(17) * 0.01
-        kappa1 = scorer.score(sigma2_low)
+        scorer.score(sigma2_low)
 
         # 突然の高不確実性
         sigma2_high = np.ones(17) * 5.0

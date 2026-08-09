@@ -36,6 +36,7 @@ import time
 from pathlib import Path
 
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
@@ -45,21 +46,19 @@ import yaml
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
+from leadlag.compliance.auditor import ComplianceAuditor
+from leadlag.compliance.v2_auditor import run_leakage_audit
+from leadlag.features.fractional_diff import (
+    compute_weights,
+    fractional_diff,
+)
+from leadlag.models.sector_relative_ensemble_blp_enhanced import (
+    SectorRelativeEnsembleBLPEnhancedModel,
+)
 from research.backtest_common import (
     compute_backtest_metrics,
     load_execution_data,
     run_backtest_with_costs,
-)
-from leadlag.compliance.auditor import ComplianceAuditor
-from leadlag.compliance.v2_auditor import run_leakage_audit, run_numerical_audit
-from leadlag.data.tickers import US_TICKERS
-from leadlag.features.fractional_diff import (
-    compute_weights,
-    fractional_diff,
-    fractional_diff_df,
-)
-from leadlag.models.sector_relative_ensemble_blp_enhanced import (
-    SectorRelativeEnsembleBLPEnhancedModel,
 )
 
 logging.basicConfig(
@@ -294,7 +293,7 @@ def audit_fractional_diff_lookahead() -> dict:
     np.random.seed(42)
     x = np.random.randn(200)
     s = pd.Series(x)
-    fd = fractional_diff(s, d=0.5, threshold=1e-5, window=50)
+    fractional_diff(s, d=0.5, threshold=1e-5, window=50)
 
     # The filter output at time t should only depend on x[0:t+1]
     # Verify by checking that modifying x[t+1:] doesn't change fd[t]

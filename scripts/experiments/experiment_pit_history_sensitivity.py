@@ -165,11 +165,6 @@ def _plot_equity_curves(df: pd.DataFrame, results_root: Path, report_dir: Path) 
 
 def _build_report(df: pd.DataFrame, start_date: str, end_date: str, gap_input_dir: str) -> str:
     # manual markdown table to avoid tabulate dependency
-    cols = [
-        "max_pit_history", "sharpe", "cagr_pct", "annualized_return_pct",
-        "annualized_volatility_pct", "max_drawdown_pct", "avg_gross_exposure",
-        "avg_turnover", "low_count", "medium_count", "high_count",
-    ]
     headers = ["N", "net Sharpe", "CAGR (%)", "AR (%)", "Vol (%)", "MDD (%)", "Avg Gross", "Turnover", "Low", "Medium", "High"]
     table = "| " + " | ".join(headers) + " |\n"
     table += "| " + " | ".join(["---" for _ in headers]) + " |\n"
@@ -276,7 +271,7 @@ def _build_report(df: pd.DataFrame, start_date: str, end_date: str, gap_input_di
         "",
         "## 6. Files",
         "",
-        f"- 実験スクリプト: `scripts/experiments/experiment_pit_history_sensitivity.py`",
+        "- 実験スクリプト: `scripts/experiments/experiment_pit_history_sensitivity.py`",
         f"- サマリー: `reports/pit_history_sensitivity_{datetime.now().strftime('%Y%m%d')}/summary.csv`",
         f"- プロット: `reports/pit_history_sensitivity_{datetime.now().strftime('%Y%m%d')}/equity_curves.png`",
         f"- 日次データ: `results/pit_history_sensitivity_{datetime.now().strftime('%Y%m%d')}/pit*/`",

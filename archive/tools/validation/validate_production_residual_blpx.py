@@ -223,7 +223,7 @@ def main():
     # Setup months for metrics
     months_series = pd.to_datetime(sim_dates_slice).to_period("M")
     unique_months = months_series.unique()
-    n_months = len(unique_months)
+    len(unique_months)
     month_to_id = {m: idx for idx, m in enumerate(unique_months)}
     monthly_id_codes = np.array([month_to_id[m] for m in months_series], dtype=np.intp)
 
@@ -446,7 +446,7 @@ def main():
     sre_wealth = pd.Series(np.cumprod(1.0 + sre_net_5), index=sim_dates_slice)
     residual_blpx_wealth = pd.Series(np.cumprod(1.0 + residual_blpx_net_5), index=sim_dates_slice)
 
-    sre_dd_df = find_drawdown_events(sre_wealth)
+    find_drawdown_events(sre_wealth)
     residual_blpx_dd_df = find_drawdown_events(residual_blpx_wealth)
     residual_blpx_dd_df["ensemble"] = "Residual-BLPX_only"
     residual_blpx_dd_df.to_csv(out_dir / "drawdown_events.csv", index=False)
@@ -509,12 +509,11 @@ def main():
 
     # Check if backup config exists to evaluate backup flag
     archive_dir = ROOT / "configs" / "archive"
-    backup_exists = False
     if archive_dir.exists():
         backup_files = list(archive_dir.glob("production_before_residual_blpx_*.yaml"))
-        backup_exists = len(backup_files) > 0
+        len(backup_files) > 0
 
-    diff_patch_exists = (out_dir / "production_config_diff.patch").exists()
+    (out_dir / "production_config_diff.patch").exists()
 
     # Fallback to PCA-Ensemble testing (mocking NaN)
     logger.info("Testing SRE fallback operational paths...")
@@ -620,6 +619,24 @@ def main():
         yaml.dump(cfg, f)
 
     # 14. Report variables preparation
+    # Residual-BLPX baseline (needed as fallback below)
+    try:
+        residual_blpx_train = df_summary[(df_summary["ensemble"] == "Residual-BLPX_only") & (df_summary["slippage_bps"] == 5.0) & (df_summary["period"] == "train")].iloc[0]
+    except IndexError:
+        residual_blpx_train = None  # Fallback if train period not available
+    try:
+        residual_blpx_oos = df_summary[(df_summary["ensemble"] == "Residual-BLPX_only") & (df_summary["slippage_bps"] == 5.0) & (df_summary["period"] == "oos")].iloc[0]
+    except IndexError:
+        residual_blpx_any = df_summary[(df_summary["ensemble"] == "Residual-BLPX_only") & (df_summary["slippage_bps"] == 5.0)]
+        if len(residual_blpx_any) > 0:
+            residual_blpx_oos = residual_blpx_any.iloc[0]
+        else:
+            raise ValueError("No Residual-BLPX_only results found in summary")
+    try:
+        residual_blpx_full = df_summary[(df_summary["ensemble"] == "Residual-BLPX_only") & (df_summary["slippage_bps"] == 5.0) & (df_summary["period"] == "full")].iloc[0]
+    except IndexError:
+        residual_blpx_full = residual_blpx_oos  # Fallback if full period not available
+
     # Main results for OOS at 5bps
     try:
         sre_oos = df_summary[(df_summary["ensemble"] == "SRE") & (df_summary["slippage_bps"] == 5.0) & (df_summary["period"] == "oos")].iloc[0]
@@ -641,24 +658,6 @@ def main():
     except IndexError:
         blend33_oos = residual_blpx_oos  # Fallback if SRE_BLPX_BLEND_33 not available
         blend33_full = residual_blpx_full
-
-    try:
-        residual_blpx_train = df_summary[(df_summary["ensemble"] == "Residual-BLPX_only") & (df_summary["slippage_bps"] == 5.0) & (df_summary["period"] == "train")].iloc[0]
-    except IndexError:
-        residual_blpx_train = None  # Fallback if train period not available
-    try:
-        residual_blpx_oos = df_summary[(df_summary["ensemble"] == "Residual-BLPX_only") & (df_summary["slippage_bps"] == 5.0) & (df_summary["period"] == "oos")].iloc[0]
-    except IndexError:
-        # If OOS not found, try to get any Residual-BLPX_only result
-        residual_blpx_any = df_summary[(df_summary["ensemble"] == "Residual-BLPX_only") & (df_summary["slippage_bps"] == 5.0)]
-        if len(residual_blpx_any) > 0:
-            residual_blpx_oos = residual_blpx_any.iloc[0]
-        else:
-            raise ValueError("No Residual-BLPX_only results found in summary")
-    try:
-        residual_blpx_full = df_summary[(df_summary["ensemble"] == "Residual-BLPX_only") & (df_summary["slippage_bps"] == 5.0) & (df_summary["period"] == "full")].iloc[0]
-    except IndexError:
-        residual_blpx_full = residual_blpx_oos  # Fallback if full period not available
 
     # Slippage decay metrics
     try:

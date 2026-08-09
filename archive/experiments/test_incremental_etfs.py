@@ -1,8 +1,10 @@
 import sys
 from pathlib import Path
-import pandas as pd
-import numpy as np
+
 import matplotlib
+import numpy as np
+import pandas as pd
+
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
@@ -12,16 +14,15 @@ SRC = ROOT / "src"
 sys.path.insert(0, str(SRC))
 
 # Import system modules
-import data.ticker_registry as registry
-import data.preprocessor as preprocessor
-import data.downloader as downloader
-import data_loader
-import config as sys_config
-import strategy as sys_strategy
 import backtest.runner as runner
-from runner.config import ProductionConfig
+import config as sys_config
+import data.downloader as downloader
+import data.preprocessor as preprocessor
+import data.ticker_registry as registry
+import strategy as sys_strategy
 from domain.signals import lead_lag as signals
 from performance import calculate_metrics
+from runner.config import ProductionConfig
 
 # Define the new user-specified sensitivities for the style ETFs
 NEW_SENSITIVITIES = {
@@ -39,7 +40,7 @@ BASE_US_TICKERS = [
 
 def make_custom_build_v3_static(active_styles):
     active_sens = [NEW_SENSITIVITIES[s] for s in active_styles]
-    
+
     def custom_build_v3_static(n_u, n_j, include_v4=True, w6_override=None):
         base_vectors = signals.build_base_vectors(n_u, n_j)
         v1, v2 = base_vectors["v1"], base_vectors["v2"]
@@ -85,18 +86,18 @@ def make_custom_build_v3_static(active_styles):
         v6 = signals._orthogonalize_and_normalize(w6, [v1, v2, v3, v4, v5])
 
         return np.column_stack([v1, v2, v3, v4, v5, v6])
-        
+
     return custom_build_v3_static
 
 def run_step(step_idx):
     active_styles = STYLE_ORDER[:step_idx]
     active_us_tickers = BASE_US_TICKERS + active_styles
     n_us = len(active_us_tickers)
-    
-    print(f"\n=========================================")
+
+    print("\n=========================================")
     print(f"Running Step {step_idx}: N_US = {n_us}")
     print(f"Active US Tickers: {active_us_tickers}")
-    print(f"=========================================")
+    print("=========================================")
 
     # Monkeypatch sizes and lists globally on registry and all targets
     registry.US_TICKERS = active_us_tickers
@@ -157,16 +158,16 @@ def run_step(step_idx):
     )
     results = strategy.run_backtest(start_date=config.start_date)
     metrics = calculate_metrics(results["daily_return"])
-    
+
     # Store returns for cumulative plotting
     cum_returns = (1.0 + results["daily_return"]).cumprod()
-    
+
     return metrics, cum_returns
 
 def main():
     steps_results = {}
     cum_curves = {}
-    
+
     # Run Step 0 (Baseline) to Step 5 (All added)
     for s in range(6):
         metrics, cum_returns = run_step(s)
@@ -175,7 +176,7 @@ def main():
             name += " (Baseline)"
         else:
             name += f" (+{STYLE_ORDER[s-1]})"
-            
+
         steps_results[name] = metrics
         cum_curves[name] = cum_returns
 
@@ -197,10 +198,10 @@ def main():
 
     report_text = "\n".join(report_lines)
     print("\n\n" + report_text)
-    
+
     output_dir = ROOT / "results" / "us_noise_filter"
     output_dir.mkdir(parents=True, exist_ok=True)
-    
+
     # Write report
     with open(output_dir / "incremental_report.md", "w", encoding="utf-8") as f:
         f.write(report_text)
@@ -210,7 +211,7 @@ def main():
     plt.figure(figsize=(12, 7))
     for name, curve in cum_curves.items():
         plt.plot(curve.index, curve.values, label=name, linewidth=1.5)
-        
+
     plt.title("Cumulative Return Curves: Incremental Addition of US Style ETFs")
     plt.xlabel("Date")
     plt.ylabel("Cumulative Wealth (x)")

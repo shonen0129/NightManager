@@ -421,7 +421,7 @@ def main():
         sys.exit(1)
 
     # Configure stage grids
-    grids = cfg.get("grids", {})
+    cfg.get("grids", {})
     if args.stage == "compact":
         variants = ["Lowrank_BLP", "BLP_prior_RRR", "PCA_prior_RRR", "Ridge_RRR", "RRR_pure"]
         rrr_window_grid = [252]
@@ -433,7 +433,8 @@ def main():
         alpha_xx_grid = [0.5, 0.75]
         alpha_yx_grid = [0.0, 0.25]
         slippage_grid = [0.0, 5.0, 7.5, 10.0]
-    else:  # refined
+    else:
+        # refined
         variants = ["Lowrank_BLP", "BLP_prior_RRR", "PCA_prior_RRR", "Ridge_RRR", "RRR_pure"]
         rrr_window_grid = [126, 252, 504]
         ewma_halflife_grid = [30, 45, 90]

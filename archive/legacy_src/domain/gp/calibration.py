@@ -24,13 +24,10 @@ GP が「80% 予測区間」と言うとき、実際に 80% の実現値が
 
 from __future__ import annotations
 
-import warnings
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
-
 
 # ---------------------------------------------------------------------------
 # CalibrationResult
@@ -63,17 +60,17 @@ class CalibrationResult:
         追加情報（業種別カバレッジなど）。
     """
 
-    levels: List[float] = field(default_factory=lambda: [0.80])
-    expected_coverages: List[float] = field(default_factory=list)
-    actual_coverages: List[float] = field(default_factory=list)
-    coverage_errors: List[float] = field(default_factory=list)
+    levels: list[float] = field(default_factory=lambda: [0.80])
+    expected_coverages: list[float] = field(default_factory=list)
+    actual_coverages: list[float] = field(default_factory=list)
+    coverage_errors: list[float] = field(default_factory=list)
     calibration_status: str = "GOOD"
     warn_threshold: float = 0.05
     n_samples: int = 0
     summary: str = ""
     extra: dict = field(default_factory=dict)
 
-    def is_well_calibrated(self, threshold: Optional[float] = None) -> bool:
+    def is_well_calibrated(self, threshold: float | None = None) -> bool:
         """較正良好かどうかを返す。"""
         thr = threshold if threshold is not None else self.warn_threshold
         return all(abs(e) <= thr for e in self.coverage_errors)
@@ -113,7 +110,7 @@ def coverage_test(
     mu: np.ndarray,
     sigma2: np.ndarray,
     y_realized: np.ndarray,
-    levels: Optional[List[float]] = None,
+    levels: list[float] | None = None,
     warn_threshold: float = 0.05,
 ) -> CalibrationResult:
     """GP 予測区間のカバレッジを検証する（較正テスト）。

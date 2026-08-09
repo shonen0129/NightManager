@@ -46,6 +46,7 @@ import warnings
 from pathlib import Path
 
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
@@ -68,41 +69,34 @@ from leadlag.data.cache import load_df_exec_from_local_cache
 from leadlag.data.tickers import JP_TICKERS
 from research.diagnostics.sprint0 import run_sprint0_calculations
 from research.diagnostics.sprint1_experiments import generate_targets_panel
-
-from research.features.hinge_features import (
-    derive_proxy_features,
-    rolling_zscore_lag1,
-    rolling_zscore_panel_lag1,
-    positive_hinge,
-    negative_hinge,
-)
 from research.features.asset_exposures import (
     build_asset_exposure_panel,
     load_static_sector_map,
 )
-from research.features.hinge_interactions import (
-    build_macro_hinge_x_asset_beta,
-    build_sector_hinge_x_sector_exposure,
-    build_regime_hinge_x_base_signal,
-    build_gap_asset_specific_hinge,
-    build_all_interaction_features,
-    compute_within_date_cs_std,
-)
 from research.features.feature_selection_fdr import (
     FDRFeatureSelector,
-    compute_rank_ic_long_format,
     compute_feature_stability,
-    run_walk_forward_fdr_selection,
+    compute_rank_ic_long_format,
 )
-from research.models.hinge_overlay import (
-    generate_walk_forward_windows,
-    cap_overlay_prediction,
-    select_best_alpha,
-    ALPHA_GRID_DEFAULT,
+from research.features.hinge_features import (
+    derive_proxy_features,
+    rolling_zscore_panel_lag1,
 )
-from research.models.hinge_interaction_ridge import InteractionRidgeOverlay
+from research.features.hinge_interactions import (
+    build_all_interaction_features,
+    build_gap_asset_specific_hinge,
+    build_macro_hinge_x_asset_beta,
+    build_regime_hinge_x_base_signal,
+    build_sector_hinge_x_sector_exposure,
+    compute_within_date_cs_std,
+)
 from research.models.hinge_interaction_elasticnet import InteractionElasticNetOverlay
 from research.models.hinge_interaction_overlay import build_flat_arrays_from_long
+from research.models.hinge_interaction_ridge import InteractionRidgeOverlay
+from research.models.hinge_overlay import (
+    ALPHA_GRID_DEFAULT,
+    generate_walk_forward_windows,
+)
 from research.reports.sprint3b_hinge_interaction_report import generate_sprint3b_report
 
 # ---------------------------------------------------------------------------
@@ -646,7 +640,7 @@ def run_walk_forward_backtest_3b(
         index="date", columns="ticker", values="entry_to_close_return"
     )
 
-    is_true_pivot = (
+    (
         targets_df.pivot(index="date", columns="ticker", values="is_true_0910")
         if "is_true_0910" in targets_df.columns else None
     )
@@ -743,7 +737,6 @@ def run_walk_forward_backtest_3b(
                     continue
 
                 # Build long-format with target
-                target_col_name = "entry_to_close_return"
                 train_with_target = int_train.copy()
                 train_with_target["target"] = np.nan
                 for dt in train_dates:
@@ -836,10 +829,6 @@ def run_walk_forward_backtest_3b(
                     continue
 
             # Build flat arrays for train
-            target_col = "entry_to_close_return"
-            signal_col = "signal_gap_adjusted" if "signal_gap_adjusted" in (
-                int_train.columns if not int_train.empty else []
-            ) else None
 
             if int_train.empty:
                 fitted_models[model_name] = None
@@ -1203,10 +1192,10 @@ def compute_cost_sensitivity_summary(oos_df: pd.DataFrame, config: dict) -> pd.D
 
     cost_cfg = config.get("costs", {})
     spread_scenarios = cost_cfg.get("spread_fallback_roundtrip_bps", [5, 10, 15, 20, 30, 50])
-    buy_interest = cost_cfg.get("buy_interest_annual", 0.025)
-    borrow_fee = cost_cfg.get("borrow_fee_annual", 0.0115)
+    cost_cfg.get("buy_interest_annual", 0.025)
+    cost_cfg.get("borrow_fee_annual", 0.0115)
     portfolio_cfg = config.get("portfolio", {})
-    aum = portfolio_cfg.get("aum_jpy", 1_000_000)
+    portfolio_cfg.get("aum_jpy", 1_000_000)
     default_spread = cost_cfg.get("default_spread_fallback_roundtrip_bps", 15)
     n_days = len(oos_df)
     n_years = n_days / 252.0
@@ -1548,7 +1537,7 @@ def _gen_rank_corr_distribution(rank_change_df: pd.DataFrame, figure_dir: str) -
     if "mean_spearman_rank_corr_mu_base_vs_final" in rank_change_df.columns:
         models = rank_change_df["model"].tolist()
         rhos = rank_change_df["mean_spearman_rank_corr_mu_base_vs_final"].tolist()
-        bars = ax.bar(range(len(models)), rhos, color="#4A90D9", edgecolor="white")
+        ax.bar(range(len(models)), rhos, color="#4A90D9", edgecolor="white")
         ax.set_xticks(range(len(models)))
         ax.set_xticklabels([m[:20] for m in models], rotation=45, ha="right", fontsize=8)
         ax.axhline(0.995, color="red", linewidth=1.5, linestyle="--", label="Adoption threshold (0.995)")
@@ -1866,7 +1855,7 @@ def main() -> None:
 
     # ========== Generate report ==========
     logger.info("Generating Sprint 3-B report...")
-    report_path = generate_sprint3b_report(
+    generate_sprint3b_report(
         artifact_dir=str(artifact_dir),
         report_dir=str(report_dir),
         figure_dir=str(figure_dir),

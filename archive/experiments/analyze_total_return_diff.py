@@ -1,6 +1,7 @@
-import pandas as pd
 import sys
 from pathlib import Path
+
+import pandas as pd
 
 if len(sys.argv) < 3:
     print("Usage: analyze_total_return_diff.py <run_a> <run_b>")

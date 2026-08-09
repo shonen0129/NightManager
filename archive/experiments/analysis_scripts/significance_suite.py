@@ -3,11 +3,9 @@ from statistics import NormalDist
 
 import numpy as np
 import pandas as pd
-
 from backtest_config import LOGIC_DIFF_BASELINE_PARAMS, SIGNIFICANCE_CONFIG
 from data_loader import download_data, preprocess_data
 from strategy import LeadLagStrategy
-
 
 TRADING_DAYS = SIGNIFICANCE_CONFIG["trading_days"]
 START_DATE = SIGNIFICANCE_CONFIG["start_date"]

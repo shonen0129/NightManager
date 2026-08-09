@@ -23,6 +23,7 @@ sys.path.insert(0, str(ROOT / "src"))
 from leadlag.data.cache import load_df_exec_from_local_cache
 from leadlag.data.tickers import JP_TICKERS
 
+
 def _ic(x: np.ndarray, y: np.ndarray) -> float:
     mask = np.isfinite(x) & np.isfinite(y)
     if mask.sum() < 4:

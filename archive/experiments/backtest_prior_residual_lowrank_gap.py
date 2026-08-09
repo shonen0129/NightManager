@@ -20,7 +20,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from scipy.stats import spearmanr
-from sklearn.linear_model import Ridge
 
 # Add src/ directory to python path
 ROOT = Path(__file__).resolve().parents[1]
@@ -29,21 +28,20 @@ sys.path.insert(0, str(ROOT / "src"))
 from config import STRATEGY_DEFAULTS
 from data.downloader import download_data
 from data.preprocessor import preprocess_data
-from data.ticker_registry import JP_TICKERS, US_TICKERS, TOPIX_TICKER
-from domain.signals.lead_lag import build_v3_static
+from data.ticker_registry import JP_TICKERS, TOPIX_TICKER, US_TICKERS
 from domain.models.prior_residual_lowrank import (
     ResidualizedPriorSubspaceLowRankGapModel,
     project_to_subspace,
 )
 from domain.models.residual_lowrank import (
-    ResidualizedSupervisedLowRankModel,
     compute_rolling_ols_betas,
 )
+from domain.signals.lead_lag import build_v3_static
+
 sys.path.insert(0, str(ROOT / "tools"))
+from backtest.runner import run_backtest_with_config
 from backtest_residual_lowrank import run_residual_lowrank_simulation
 from domain.models.types import StrategyConfig
-from backtest.runner import run_backtest_with_config
-from performance import calculate_metrics
 
 # Set up logging
 logging.basicConfig(
@@ -223,7 +221,6 @@ def run_prior_lowrank_simulation(
 ) -> dict:
     """Run rolling walk-forward simulation of the Prior Subspace Low-Rank Model."""
     T = len(df_exec)
-    n_features = 11
     n_targets = len(JP_TICKERS)
 
     # 1. US Residualization
@@ -559,12 +556,12 @@ def main():
     # Target dataframes for raw prices/returns
     jp_oc_cols = [f"jp_oc_{tk}" for tk in JP_TICKERS]
     jp_cc_cols = [f"jp_trade_cc_{tk}" for tk in JP_TICKERS]
-    
+
     y_jp_oc_df = df_exec[jp_oc_cols].rename(columns=lambda c: c.replace("jp_oc_", ""))
     y_jp_cc_df = df_exec[jp_cc_cols].rename(columns=lambda c: c.replace("jp_trade_cc_", ""))
     y_topix_oc_series = df_exec["topix_oc_return"]
     y_topix_cc_series = df_exec["topix_cc_trade"]
-    
+
     us_cols = [f"us_cc_{tk}" for tk in US_TICKERS]
     us_returns_raw = df_exec[us_cols].rename(columns=lambda c: c.replace("us_cc_", ""))
 
@@ -596,16 +593,12 @@ def main():
     # Step 2: Parameter Grid Search (only on train/tune period 2015-01-05 to 2019-12-31)
     train_end_date = "2019-12-31"
     grid_results = []
-    
+
     if args.grid_search:
         logger.info("Step 2: Performing hyperparameter grid search on training data...")
         k_priors = [3, 4, 5, 6]
-        alphas = [1e-3, 1e-2, 1e-1, 1.0, 10.0, 100.0]
-        lambda_priors = [0.0, 0.1, 1.0, 10.0]
         train_windows = [504, 756, 1008]
-        gap_coefs = [0.0, 0.25, 0.5, 0.75, 1.0]
-        directions = [1, -1]
-        
+
         # Optimize by looping through windows and k_prior first
         # to reuse US/JP residualization and V0 projections
         for w_size in train_windows:
@@ -614,7 +607,7 @@ def main():
                 cfg_temp = dict(config_base)
                 cfg_temp["train_window"] = w_size
                 cfg_temp["k_prior"] = k_p
-                
+
                 # SVD or raw shocks precomputation
                 # (For simplicity and speed, we run the simulation once per w_size and k_p combinations)
                 # We can optimize the grid search by running a subset of combinations to keep it fast
@@ -641,7 +634,7 @@ def main():
                                 cfg["ridge_alpha_a"] = a
                                 cfg["lambda_prior_a"] = lp
                                 cfg["gap_signal_coef"] = gc
-                                
+
                                 # Run backtest strictly on training period
                                 sim = run_prior_lowrank_simulation(
                                     df_exec=df_exec[df_exec.index <= train_end_date],
@@ -676,16 +669,16 @@ def main():
                                         "Sharpe": metrics["Sharpe"],
                                         "MDD": metrics["MDD"],
                                     })
-                                    
+
         grid_df = pd.DataFrame(grid_results)
         grid_df.to_csv(results_dir / "hyperparameter_search.csv", index=False)
         logger.info("Grid search results saved to %s", results_dir / "hyperparameter_search.csv")
-        
+
         # Select optimal parameters (maximize Sharpe)
         best_row = grid_df.loc[grid_df["Sharpe"].idxmax()]
         logger.info("Best parameters found: train_window=%d, k_prior=%d, ridge_alpha_a=%.4f, lambda_prior_a=%.4f, gap_signal_coef=%.2f, direction=%d (Sharpe=%.4f)",
                     best_row["train_window"], best_row["k_prior"], best_row["ridge_alpha_a"], best_row["lambda_prior_a"], best_row["gap_signal_coef"], best_row["direction"], best_row["Sharpe"])
-        
+
         config_base["train_window"] = int(best_row["train_window"])
         config_base["k_prior"] = int(best_row["k_prior"])
         config_base["ridge_alpha_a"] = float(best_row["ridge_alpha_a"])
@@ -706,7 +699,7 @@ def main():
 
     # Step 3: Run full backtests for models
     logger.info("Step 3: Running walk-forward backtests on optimal configuration...")
-    
+
     # 1. Prior Model cc_to_oc_gap (main)
     cfg_1 = dict(config_base)
     cfg_1["signal_mode"] = "prior_cc_to_oc_gap"
@@ -740,7 +733,7 @@ def main():
     sim_main["signals"].to_csv(results_dir / "daily_signals.csv")
     sim_main["predictions_pre_gap"].to_csv(results_dir / "daily_predictions_pre_gap.csv")
     sim_main["gap_components"].to_csv(results_dir / "daily_gap_components.csv")
-    
+
     ic_df = sim_main["results"][["raw_ic", "residual_oc_ic", "residual_cc_ic"]]
     ic_df.to_csv(results_dir / "ic_series.csv")
 
@@ -748,14 +741,14 @@ def main():
     if len(sim_main["A_history"]) > 0:
         avg_A = np.mean(sim_main["A_history"], axis=0)
         latest_A = sim_main["A_history"][-1]
-        
+
         factor_labels = [f"v{i}" for i in range(1, config_base["k_prior"] + 1)]
         pd.DataFrame(avg_A, index=factor_labels, columns=factor_labels).to_csv(results_dir / "average_A_matrix.csv")
         pd.DataFrame(latest_A, index=factor_labels, columns=factor_labels).to_csv(results_dir / "latest_A_matrix.csv")
 
         avg_B = np.mean(sim_main["B_history"], axis=0)
         latest_B = sim_main["B_history"][-1]
-        
+
         pd.DataFrame(avg_B, index=US_TICKERS[:11], columns=JP_TICKERS).to_csv(results_dir / "average_effective_B_matrix.csv")
         pd.DataFrame(latest_B, index=US_TICKERS[:11], columns=JP_TICKERS).to_csv(results_dir / "latest_effective_B_matrix.csv")
 
@@ -872,7 +865,7 @@ def main():
         else:
             w_df = pd.DataFrame(np.zeros((len(df_tr), len(JP_TICKERS))), index=df_tr.index, columns=JP_TICKERS)
         r_oc = y_jp_oc_df[y_jp_oc_df.index <= train_end_date]
-        
+
         m = calculate_detailed_metrics(df_tr["daily_return"], df_tr["gross_exposure"], df_tr["slippage_cost"], w_df, r_oc)
         m["Model"] = name
         m = clean_turnover(name, m)
@@ -891,7 +884,7 @@ def main():
         else:
             w_df = pd.DataFrame(np.zeros((len(df_oos), len(JP_TICKERS))), index=df_oos.index, columns=JP_TICKERS)
         r_oc = y_jp_oc_df[y_jp_oc_df.index >= oos_start_dt]
-        
+
         m = calculate_detailed_metrics(df_oos["daily_return"], df_oos["gross_exposure"], df_oos["slippage_cost"], w_df, r_oc)
         m["Model"] = name
         m = clean_turnover(name, m)
@@ -909,14 +902,14 @@ def main():
         else:
             w_df = pd.DataFrame(np.zeros((len(df_full), len(JP_TICKERS))), index=df_full.index, columns=JP_TICKERS)
         r_oc = y_jp_oc_df
-        
+
         m = calculate_detailed_metrics(df_full["daily_return"], df_full["gross_exposure"], df_full["slippage_cost"], w_df, r_oc)
         m["Model"] = name
         m = clean_turnover(name, m)
         full_metrics.append(m)
     full_metrics_df = pd.DataFrame(full_metrics).set_index("Model")
     full_metrics_df.to_csv(results_dir / "full_metrics_summary.csv")
-    
+
     # Save a generic metrics_summary.csv (copy of OOS)
     oos_metrics_df.to_csv(results_dir / "metrics_summary.csv")
 
@@ -929,7 +922,7 @@ def main():
 
     # Step 7: DAILY AUDITS
     logger.info("Step 7: Executing daily audits...")
-    
+
     # 1. Timeline alignment audit
     audit_timeline_violation = 0
     timeline_records = []
@@ -950,7 +943,7 @@ def main():
     timeline_df.to_csv(audit_dir / "date_alignment_audit.csv", index=False)
 
     # Timeline sample around weekends/holidays (diff > 1)
-    holidays_df = timeline_df[timeline_df["calendar_gap_days"] > 1].head(20)
+    timeline_df[timeline_df["calendar_gap_days"] > 1].head(20)
     # Reconstruct timeline for sample_timeline.csv
     sample_timeline = pd.DataFrame({
         "trade_date": timeline_df["trade_date"],
@@ -970,7 +963,7 @@ def main():
         w_t = sim_main["weights"].loc[date].values
         long_bucket = w_t[w_t > 0]
         short_bucket = w_t[w_t < 0]
-        
+
         long_sum = np.sum(long_bucket)
         short_sum = np.sum(short_bucket)
         net_exp = np.sum(w_t)
@@ -1024,11 +1017,11 @@ def main():
     for idx, date in enumerate(sim_main["weights"].index):
         w_t = sim_main["weights"].loc[date].values
         sig_t = sim_main["signals"].loc[date].values
-        
+
         # signal values for longs/shorts
         long_signals = sig_t[w_t > 0]
         short_signals = sig_t[w_t < 0]
-        
+
         # top signals should map to long, bottom to short
         is_pass = (np.min(long_signals) >= np.max(short_signals))
         signal_sign_records.append({
@@ -1045,24 +1038,24 @@ def main():
     audit_txt = "============================================================\n"
     audit_txt += "STRICT LEAKAGE & ROBUSTNESS AUDIT REPORT\n"
     audit_txt += "============================================================\n\n"
-    
-    audit_txt += f"Check : Timeline Alignment Audit (signal_date < trade_date)\n"
+
+    audit_txt += "Check : Timeline Alignment Audit (signal_date < trade_date)\n"
     audit_txt += f"Status: {'PASS' if audit_timeline_violation == 0 else 'FAIL'}\n"
     audit_txt += f"Detail: Total Violations = {audit_timeline_violation}\n"
-    audit_txt += f"        Trade-Signal Date gap distribution (calendar days):\n"
+    audit_txt += "        Trade-Signal Date gap distribution (calendar days):\n"
     gap_dist = timeline_df["calendar_gap_days"].describe()
     audit_txt += f"        mean={gap_dist['mean']:.2f}, min={gap_dist['min']:.0f}, max={gap_dist['max']:.0f}\n\n"
-    
-    audit_txt += f"Check : US/JP Beta Estimation Leak Audit (estimate_end_date < application_date)\n"
-    audit_txt += f"Status: PASS\n"
-    audit_txt += f"Detail: US/JP rolling regressions use row i-1 (which represents data up to signal_date t-1 or trade_date d-1).\n\n"
 
-    audit_txt += f"Check : Daily Weight Constraints (long=+1, short=-1, net=0, gross=2)\n"
+    audit_txt += "Check : US/JP Beta Estimation Leak Audit (estimate_end_date < application_date)\n"
+    audit_txt += "Status: PASS\n"
+    audit_txt += "Detail: US/JP rolling regressions use row i-1 (which represents data up to signal_date t-1 or trade_date d-1).\n\n"
+
+    audit_txt += "Check : Daily Weight Constraints (long=+1, short=-1, net=0, gross=2)\n"
     audit_txt += f"Status: {'PASS' if audit_weight_violation == 0 else 'FAIL'}\n"
     audit_txt += f"Detail: Total Violations = {audit_weight_violation}\n\n"
 
-    audit_txt += f"Check : OOS Hyperparameter Search Leak Audit\n"
-    audit_txt += f"Status: PASS\n"
+    audit_txt += "Check : OOS Hyperparameter Search Leak Audit\n"
+    audit_txt += "Status: PASS\n"
     audit_txt += f"Detail: Grid search executed strictly on data prior to {train_end_date}.\n\n"
 
     audit_txt += "------------------------------------------------------------\n"
@@ -1080,7 +1073,7 @@ def main():
 
     # Step 8: Plotting Charts
     logger.info("Step 8: Generating charts...")
-    
+
     # 1. Equity Curves
     plt.figure(figsize=(12, 6))
     for name, df in models_dict.items():

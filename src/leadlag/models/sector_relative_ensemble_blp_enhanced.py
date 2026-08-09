@@ -708,7 +708,7 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
         Sigma_XX_reg = (1.0 - self.alpha_xx) * C_XX + self.alpha_xx * np.eye(self.n_u)
         Sigma_YX_reg_pos = (1.0 - self.alpha_yx) * C_YX_pos
         Sigma_YX_reg_neg = (1.0 - self.alpha_yx) * C_YX_neg
-        Sigma_YY_reg = (1.0 - self.alpha_yy) * C_YY + self.alpha_yy * np.eye(self.n_j)
+        (1.0 - self.alpha_yy) * C_YY + self.alpha_yy * np.eye(self.n_j)
 
         diag_mean = float(np.mean(np.diag(Sigma_XX_reg)))
 

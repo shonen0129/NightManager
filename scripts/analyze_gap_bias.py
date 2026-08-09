@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Comprehensive gap matrix bias analysis."""
+import json
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
-from pathlib import Path
-import json
 
 BASE = Path("/Users/shonen/日米ラグ/live/pipeline_data/gap_adjusted_distribution")
 

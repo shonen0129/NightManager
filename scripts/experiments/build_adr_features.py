@@ -22,7 +22,7 @@ import yfinance as yf
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
-from leadlag.data.cache import load_df_exec_from_local_cache, save_raw_cache
+from leadlag.data.cache import load_df_exec_from_local_cache
 from leadlag.data.tickers import JP_TICKERS
 from leadlag.utils.threading import run_with_timeout
 

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
-import pytest
 
 from leadlag.features.fractional_diff import (
     adf_test,
@@ -15,7 +14,6 @@ from leadlag.features.fractional_diff import (
     fractional_diff_df,
     hurst_exponent,
 )
-
 
 # ---------------------------------------------------------------------------
 # compute_weights

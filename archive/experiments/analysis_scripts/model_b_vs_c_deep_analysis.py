@@ -5,10 +5,10 @@ Analyzes signal distribution, execution efficiency, and contribution to returns
 
 import os
 import sys
-import pandas as pd
-import numpy as np
+
 import matplotlib.pyplot as plt
-from datetime import datetime
+import numpy as np
+import pandas as pd
 
 ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../"))
 if ROOT_DIR not in sys.path:
@@ -206,7 +206,7 @@ def main():
         encoding="utf-8-sig",
     )
 
-    print(f"Signal details saved. First 5 days:\n")
+    print("Signal details saved. First 5 days:\n")
     print("Mode B:")
     print(details_b.head())
     print("\nMode C:")
@@ -241,7 +241,7 @@ def main():
     metrics_b = calculate_metrics(result_b["daily_return"])
     metrics_c = calculate_metrics(result_c["daily_return"])
 
-    print(f"\nModel B (gap_residual):")
+    print("\nModel B (gap_residual):")
     print(f"  Annual Return: {metrics_b['AR']*100:7.2f}%")
     print(f"  Annual Volatility: {metrics_b['RISK']*100:7.2f}%")
     print(f"  Sharpe: {metrics_b['R/R']:7.2f}")
@@ -254,7 +254,7 @@ def main():
         f"  Avg return on negative days: {result_b[result_b['daily_return'] < 0]['daily_return'].mean()*100:.3f}%"
     )
 
-    print(f"\nModel C (gap_tolerant, γ=0.5):")
+    print("\nModel C (gap_tolerant, γ=0.5):")
     print(f"  Annual Return: {metrics_c['AR']*100:7.2f}%")
     print(f"  Annual Volatility: {metrics_c['RISK']*100:7.2f}%")
     print(f"  Sharpe: {metrics_c['R/R']:7.2f}")
@@ -275,11 +275,11 @@ def main():
     ret_b = result_b["daily_return"]
     ret_c = result_c["daily_return"]
 
-    print(f"\nModel B Return percentiles:")
+    print("\nModel B Return percentiles:")
     for p in [1, 5, 10, 25, 50, 75, 90, 95, 99]:
         print(f"  P{p:2d}: {np.percentile(ret_b, p)*100:7.3f}%")
 
-    print(f"\nModel C Return percentiles:")
+    print("\nModel C Return percentiles:")
     for p in [1, 5, 10, 25, 50, 75, 90, 95, 99]:
         print(f"  P{p:2d}: {np.percentile(ret_c, p)*100:7.3f}%")
 
@@ -390,7 +390,7 @@ def main():
             df_exec, result_b, result_c, start_date
         )
         if gap_vs_excess:
-            f.write(f"Evidence:\n")
+            f.write("Evidence:\n")
             f.write(
                 f"  Gap vs Excess Return correlation: {gap_vs_excess['gap_vs_excess_corr']:.4f}\n"
             )
@@ -404,7 +404,7 @@ def main():
         )
 
         exec_diff = details_b["weight_count"].mean() - details_c["weight_count"].mean()
-        f.write(f"Evidence (first 100 days):\n")
+        f.write("Evidence (first 100 days):\n")
         f.write(
             f"  Model B avg executed count: {details_b['weight_count'].mean():.2f}\n"
         )
@@ -421,13 +421,13 @@ def main():
             "With constant utility, higher risk capacity = higher Sharpe potential.\n\n"
         )
 
-        f.write(f"Evidence:\n")
+        f.write("Evidence:\n")
         f.write(f"  Model B Volatility: {metrics_b['RISK']*100:.2f}%\n")
         f.write(f"  Model C Volatility: {metrics_c['RISK']*100:.2f}%\n")
         f.write(f"  Model B Sharpe: {metrics_b['R/R']:.2f}\n")
         f.write(f"  Model C Sharpe: {metrics_c['R/R']:.2f}\n")
         f.write(
-            f"  Note: Model B's Sharpe is higher (8.19 vs 3.21), suggesting superior alpha per unit risk.\n\n"
+            "  Note: Model B's Sharpe is higher (8.19 vs 3.21), suggesting superior alpha per unit risk.\n\n"
         )
 
         f.write("【HYPOTHESIS 4: Survivorship & Positive Skew】\n")
@@ -440,7 +440,7 @@ def main():
         neg_mean_b = result_b[result_b["daily_return"] < 0]["daily_return"].mean()
         neg_mean_c = result_c[result_c["daily_return"] < 0]["daily_return"].mean()
 
-        f.write(f"Evidence:\n")
+        f.write("Evidence:\n")
         f.write(f"  Model B positive days avg: {pos_mean_b*100:.3f}%\n")
         f.write(f"  Model C positive days avg: {pos_mean_c*100:.3f}%\n")
         f.write(f"  Model B negative days avg: {neg_mean_b*100:.3f}%\n")

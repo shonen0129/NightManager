@@ -5,9 +5,9 @@ kabuステーション自動ログイン - 使用例
 このスクリプトは kabu_auto_login.py の使用方法を示します。
 """
 
-import sys
 import logging
 import os
+import sys
 from pathlib import Path
 
 # 親ディレクトリをパスに追加

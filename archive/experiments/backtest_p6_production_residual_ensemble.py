@@ -11,33 +11,31 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import os
 import sys
-from datetime import datetime
 from pathlib import Path
 
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-import seaborn as sns
 import numpy as np
 import pandas as pd
-from scipy.stats import spearmanr, skew, kurtosis
+import seaborn as sns
+from scipy.stats import kurtosis, skew, spearmanr
 
 # Add src/ directory to python path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from config import STRATEGY_DEFAULTS, N_US_ASSETS, N_JP_ASSETS
+from config import N_JP_ASSETS
 from data.downloader import download_data
 from data.preprocessor import preprocess_data
-from data.ticker_registry import JP_TICKERS, US_TICKERS, TOPIX_TICKER
+from data.ticker_registry import JP_TICKERS, TOPIX_TICKER
+from domain.models.residual_lowrank import compute_rolling_ols_betas
+from domain.signals import lead_lag as signals
 from domain.signals.lead_lag import (
     build_v3_static,
-    build_base_vectors,
 )
-from domain.signals import lead_lag as signals
-from domain.models.residual_lowrank import compute_rolling_ols_betas
 
 # Set up logging
 logging.basicConfig(
@@ -97,7 +95,7 @@ def cs_normalize(sig: np.ndarray, method: str) -> np.ndarray:
     """Normalize signals cross-sectionally daily."""
     if np.all(sig == 0.0) or not np.any(np.isfinite(sig)):
         return np.zeros_like(sig)
-    
+
     if method == "identity":
         return sig
     elif method == "zscore":
@@ -546,7 +544,7 @@ def main():
     jp_cc_cols = [f"jp_trade_cc_{tk}" for tk in JP_TICKERS]
     y_jp_oc_df = df_exec[jp_oc_cols].rename(columns=lambda c: c.replace("jp_oc_", ""))
     y_jp_cc_df = df_exec[jp_cc_cols].rename(columns=lambda c: c.replace("jp_trade_cc_", ""))
-    y_topix_oc_series = df_exec["topix_oc_return"]
+    df_exec["topix_oc_return"]
     y_topix_cc_series = df_exec["topix_cc_trade"]
     all_returns_raw = df_exec[[c for c in df_exec.columns if c.startswith("us_cc_") or c.startswith("jp_cc_")]].values
 
@@ -586,7 +584,7 @@ def main():
     jp_gap = df_exec[[f"jp_gap_{tk}" for tk in JP_TICKERS]].values
     jp_beta = df_exec[[f"jp_beta_{tk}" for tk in JP_TICKERS]].values
     topix_night = df_exec["topix_night_return"].values
-    
+
     # Target residualization for Residual-PCA (lookahead-free, 1-day lagged for rolling target vol)
     y_data_p3 = y_jp_cc_df[JP_TICKERS].values
     x_data_p3 = y_topix_cc_series.values.reshape(-1, 1)
@@ -667,7 +665,6 @@ def main():
     # STAGE-WISE GRID SEARCH ON TRAIN PERIOD
     # -------------------------------------------------------------------------
     logger.info("Starting Stage-wise grid search for P6 on Train period...")
-    grid_records = []
 
     # --- Stage 1: Base Raw-PCA/Residual-PCA weight & normalization ---
     logger.info("Stage 1: Base weight and normalization search...")
@@ -690,7 +687,7 @@ def main():
             )
             rets = res["returns"]
             sh = float(rets.mean() / rets.std(ddof=1) * np.sqrt(245.0)) if rets.std(ddof=1) > 0 else -999.0
-            
+
             stage1_grid.append({
                 "w0": w0,
                 "norm_method": norm_method,
@@ -712,7 +709,7 @@ def main():
             cfg = best_stage1_config.copy()
             cfg["agreement_mode"] = mode
             cfg["agreement_penalty"] = penalty
-            
+
             res = simulate_p6_fast(
                 daily_signals["Raw-PCA"], daily_signals["Residual-PCA"], cfg,
                 train_dates_idx, df_exec, jp_gap, topix_night, y_jp_oc_train,
@@ -720,7 +717,7 @@ def main():
             )
             rets = res["returns"]
             sh = float(rets.mean() / rets.std(ddof=1) * np.sqrt(245.0)) if rets.std(ddof=1) > 0 else -999.0
-            
+
             if sh > best_stage2_sharpe:
                 best_stage2_sharpe = sh
                 best_stage2_config = cfg
@@ -742,7 +739,7 @@ def main():
             cfg["gap_market_filter"] = True
             cfg["market_gap_threshold"] = thresh
             cfg["market_gap_scale"] = scale
-            
+
             res = simulate_p6_fast(
                 daily_signals["Raw-PCA"], daily_signals["Residual-PCA"], cfg,
                 train_dates_idx, df_exec, jp_gap, topix_night, y_jp_oc_train,
@@ -770,7 +767,7 @@ def main():
             cfg["individual_gap_filter"] = True
             cfg["individual_gap_threshold"] = thresh
             cfg["individual_gap_scale"] = scale
-            
+
             res = simulate_p6_fast(
                 daily_signals["Raw-PCA"], daily_signals["Residual-PCA"], cfg,
                 train_dates_idx, df_exec, jp_gap, topix_night, y_jp_oc_train,
@@ -786,7 +783,7 @@ def main():
         logger.info(f"Individual Gap Filter improves Train Sharpe to {best_i_gap_sharpe:.4f}. Activating.")
         active_overlays.update(best_i_gap_params)
     else:
-        logger.info(f"Individual Gap Filter did not improve. Leaving inactive.")
+        logger.info("Individual Gap Filter did not improve. Leaving inactive.")
         active_overlays["individual_gap_filter"] = False
 
     # 3. Vol Targeting
@@ -801,7 +798,7 @@ def main():
                 cfg["vol_window"] = window
                 cfg["vol_scale_max"] = scale_max
                 cfg["vol_scale_min"] = 0.5
-                
+
                 res = simulate_p6_fast(
                     daily_signals["Raw-PCA"], daily_signals["Residual-PCA"], cfg,
                     train_dates_idx, df_exec, jp_gap, topix_night, y_jp_oc_train,
@@ -823,7 +820,7 @@ def main():
         logger.info(f"Vol Targeting improves Train Sharpe to {best_vol_sharpe:.4f}. Activating.")
         active_overlays.update(best_vol_params)
     else:
-        logger.info(f"Vol Targeting did not improve. Leaving inactive.")
+        logger.info("Vol Targeting did not improve. Leaving inactive.")
         active_overlays["vol_target_enabled"] = False
 
     # 4. Drawdown Scaling
@@ -841,7 +838,7 @@ def main():
                     cfg["dd_window_long"] = 60
                     cfg["dd_threshold_long"] = thresh_long
                     cfg["dd_scale_long"] = scale_long
-                    
+
                     res = simulate_p6_fast(
                         daily_signals["Raw-PCA"], daily_signals["Residual-PCA"], cfg,
                         train_dates_idx, df_exec, jp_gap, topix_night, y_jp_oc_train,
@@ -865,7 +862,7 @@ def main():
         logger.info(f"Drawdown Scaling improves Train Sharpe to {best_dd_sharpe:.4f}. Activating.")
         active_overlays.update(best_dd_params)
     else:
-        logger.info(f"Drawdown Scaling did not improve. Leaving inactive.")
+        logger.info("Drawdown Scaling did not improve. Leaving inactive.")
         active_overlays["drawdown_scaling_enabled"] = False
 
     # 5. Rolling IC Filter
@@ -879,7 +876,7 @@ def main():
                 cfg["ic_window"] = window
                 cfg["ic_threshold"] = thresh
                 cfg["ic_scale"] = scale
-                
+
                 res = simulate_p6_fast(
                     daily_signals["Raw-PCA"], daily_signals["Residual-PCA"], cfg,
                     train_dates_idx, df_exec, jp_gap, topix_night, y_jp_oc_train,
@@ -900,7 +897,7 @@ def main():
         logger.info(f"Rolling IC Filter improves Train Sharpe to {best_ic_sharpe:.4f}. Activating.")
         active_overlays.update(best_ic_params)
     else:
-        logger.info(f"Rolling IC Filter did not improve. Leaving inactive.")
+        logger.info("Rolling IC Filter did not improve. Leaving inactive.")
         active_overlays["ic_filter_enabled"] = False
 
     # Combine active overlays
@@ -963,11 +960,11 @@ def main():
                 dispersion_history.append(disp_h)
         scale = signals.dispersion_scale(disp, dispersion_history, False)
         w_scaled = w_t * scale
-        
+
         gross_ret = np.sum(w_scaled * y_jp_oc_all[i])
         gross_exp = np.sum(np.abs(w_scaled))
         cost = 2.0 * (5.0 / 10000.0) * gross_exp
-        
+
         w_p0_list.append(w_scaled)
         ret_p0_list.append(gross_ret - cost)
         exp_p0_list.append(gross_exp)
@@ -995,11 +992,11 @@ def main():
                 dispersion_history.append(disp_h)
         scale = signals.dispersion_scale(disp, dispersion_history, False)
         w_scaled = w_t * scale
-        
+
         gross_ret = np.sum(w_scaled * y_jp_oc_all[i])
         gross_exp = np.sum(np.abs(w_scaled))
         cost = 2.0 * (5.0 / 10000.0) * gross_exp
-        
+
         w_p3_list.append(w_scaled)
         ret_p3_list.append(gross_ret - cost)
         exp_p3_list.append(gross_exp)
@@ -1021,7 +1018,7 @@ def main():
         i = start_idx + idx
         sig_comb = 0.5 * cs_normalize(daily_signals["Raw-PCA"][i], "zscore") + 0.5 * cs_normalize(daily_signals["Residual-PCA"][i], "zscore")
         sig_eq_list.append(sig_comb)
-        
+
         w_t = build_portfolio_weights(sig_comb)
         disp = signals.compute_dispersion_indicator(sig_comb, 0.3, 17, "long_short_mean_gap")
         dispersion_history = []
@@ -1030,11 +1027,11 @@ def main():
             dispersion_history.append(disp_h)
         scale = signals.dispersion_scale(disp, dispersion_history, False)
         w_scaled = w_t * scale
-        
+
         gross_ret = np.sum(w_scaled * y_jp_oc_all[i])
         gross_exp = np.sum(np.abs(w_scaled))
         cost = 2.0 * (5.0 / 10000.0) * gross_exp
-        
+
         w_eq_list.append(w_scaled)
         ret_eq_list.append(gross_ret - cost)
         exp_eq_list.append(gross_exp)
@@ -1113,7 +1110,7 @@ def main():
         daily_costs[name] = res["costs"]
         daily_signals_out[name] = res["signals"]
         daily_weights_out[name] = res["weights"]
-        
+
         if name == "P6_optimal":
             scaling_info = {
                 "gap_scale": res["scaling_gap"],
@@ -1132,11 +1129,11 @@ def main():
         sig_out_df[f"Raw-PCA_{tk}"] = daily_signals_out["Raw-PCA"][tk]
         sig_out_df[f"Residual-PCA_{tk}"] = daily_signals_out["Residual-PCA"][tk]
         sig_out_df[f"P6_{tk}"] = daily_signals_out["P6_optimal"][tk]
-        
+
         normalized_sig_out_df[f"Raw-PCA_{tk}"] = cs_normalize(daily_signals_out["Raw-PCA"][tk].values, "zscore")
         normalized_sig_out_df[f"Residual-PCA_{tk}"] = cs_normalize(daily_signals_out["Residual-PCA"][tk].values, "zscore")
         normalized_sig_out_df[f"P6_{tk}"] = cs_normalize(daily_signals_out["P6_optimal"][tk].values, "zscore")
-        
+
         w_out_df[f"Raw-PCA_{tk}"] = daily_weights_out["Raw-PCA"][tk]
         w_out_df[f"Residual-PCA_{tk}"] = daily_weights_out["Residual-PCA"][tk]
         w_out_df[f"P6_{tk}"] = daily_weights_out["P6_optimal"][tk]
@@ -1166,7 +1163,7 @@ def main():
     # CORRELATION & ATTRIBUTION ANALYSIS
     # -------------------------------------------------------------------------
     logger.info("Computing correlations and attributions...")
-    
+
     # 1. Raw-PCA/Residual-PCA signal agreement ratio
     raw_pca_signs = np.sign(daily_signals_out["Raw-PCA"].values)
     residual_pca_signs = np.sign(daily_signals_out["Residual-PCA"].values)
@@ -1177,17 +1174,15 @@ def main():
 
     # 2. Signal Correlation
     sig_corr_list = []
-    p6_p0_corr_list = []
-    p6_p3_corr_list = []
     for date in sim_dates:
         s0 = daily_signals_out["Raw-PCA"].loc[date].values
         s3 = daily_signals_out["Residual-PCA"].loc[date].values
         s6 = daily_signals_out["P6_optimal"].loc[date].values
-        
+
         c_p0_p3, _ = spearmanr(s0, s3) if np.std(s0) > 0 and np.std(s3) > 0 else (np.nan, None)
         c_p6_p0, _ = spearmanr(s6, s0) if np.std(s6) > 0 and np.std(s0) > 0 else (np.nan, None)
         c_p6_p3, _ = spearmanr(s6, s3) if np.std(s6) > 0 and np.std(s3) > 0 else (np.nan, None)
-        
+
         sig_corr_list.append({
             "Raw-PCA_P3_Corr": c_p0_p3,
             "P6_P0_Corr": c_p6_p0,
@@ -1340,7 +1335,7 @@ def main():
     # ROLLING METRICS AND DRAWDOWN PERIODS
     # -------------------------------------------------------------------------
     logger.info("Computing rolling metrics and drawdown tables...")
-    
+
     # 1. Rolling Sharpe (252-day window)
     rolling_sharpe_df = pd.DataFrame(index=sim_dates)
     for m in models_to_report:
@@ -1377,27 +1372,26 @@ def main():
     # Identify drawdown cycles
     in_dd = False
     peak_date = None
-    peak_val = -1.0
     trough_date = None
     trough_val = 999.0
     start_date = None
 
     for date in sim_dates:
         dd_val = drawdown.loc[date]
-        wealth_val = wealth.loc[date]
-        
+        wealth.loc[date]
+
         if not in_dd and dd_val < -0.001:
             in_dd = True
             start_date = date
             peak_date = wealth.index[wealth.index.get_loc(date) - 1] if wealth.index.get_loc(date) > 0 else date
-            peak_val = wealth.loc[peak_date]
+            wealth.loc[peak_date]
             trough_date = date
             trough_val = dd_val
         elif in_dd:
             if dd_val < trough_val:
                 trough_val = dd_val
                 trough_date = date
-            
+
             if dd_val >= 0.0:
                 in_dd = False
                 dd_periods.append({
@@ -1455,7 +1449,7 @@ def main():
 
     daily_eq_df = (1.0 + returns_df).cumprod()
     daily_eq_df.to_csv(results_dir / "daily_equity_curves.csv")
-    
+
     daily_dd_df = daily_eq_df / daily_eq_df.cummax() - 1.0
     daily_dd_df.to_csv(results_dir / "daily_drawdowns.csv")
 
@@ -1537,10 +1531,9 @@ def main():
 
     # 7. Sign Direction Audit (Reversed P6 Signal Test)
     logger.info("Executing Reversed Signal Test...")
-    rev_ret_list = []
     # simulate reversed optimal P6
     rev_cfg = best_params.copy()
-    
+
     # We pass negated raw signals to simulate_p6_fast
     res_rev = simulate_p6_fast(
         -daily_signals["Raw-PCA"], -daily_signals["Residual-PCA"], rev_cfg,

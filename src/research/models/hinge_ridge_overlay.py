@@ -103,7 +103,7 @@ class HingeRidgeOverlay(BaseHingeOverlay):
         cap_overlay: bool = True,
         max_overlay_ratio: float = 0.5,
         max_overlay_bps: float = 20.0,
-    ) -> "HingeRidgeOverlay":
+    ) -> HingeRidgeOverlay:
         """Select best ridge_alpha using validation Rank IC.
 
         Fits one model per ridge_alpha on training data, evaluates Rank IC
@@ -128,6 +128,7 @@ class HingeRidgeOverlay(BaseHingeOverlay):
             Best fitted model with best ridge_alpha and best blend alpha.
         """
         from scipy.stats import spearmanr
+
         from research.models.hinge_overlay import select_best_alpha
 
         best_ic = -np.inf

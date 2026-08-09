@@ -25,14 +25,6 @@ import logging
 import numpy as np
 import pandas as pd
 
-from research.models.hinge_overlay import (
-    BaseHingeOverlay,
-    cap_overlay_prediction,
-    ALPHA_GRID_DEFAULT,
-    MAX_OVERLAY_RATIO_DEFAULT,
-    MAX_OVERLAY_BPS_DEFAULT,
-)
-
 logger = logging.getLogger(__name__)
 
 

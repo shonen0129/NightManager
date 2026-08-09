@@ -30,11 +30,9 @@ k(f, f') = k_linear(f, f') + α * k_nonlin(f, f')
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Optional, Tuple
+from dataclasses import dataclass
 
 import numpy as np
-
 
 # ---------------------------------------------------------------------------
 # KernelConfig: カーネルのハイパーパラメータ設定
@@ -70,13 +68,13 @@ class KernelConfig:
 
     linear_sigma0: float = 0.0
     alpha_init: float = 0.1
-    alpha_bounds: Tuple[float, float] = (1e-5, 0.5)
+    alpha_bounds: tuple[float, float] = (1e-5, 0.5)
     nonlinear_type: str = "rbf"  # "rbf" or "matern"
     matern_nu: float = 2.5
     length_scale_init: float = 1.0
-    length_scale_bounds: Tuple[float, float] = (0.3, 10.0)
+    length_scale_bounds: tuple[float, float] = (0.3, 10.0)
     noise_level_init: float = 0.01
-    noise_bounds: Tuple[float, float] = (1e-5, 1.0)
+    noise_bounds: tuple[float, float] = (1e-5, 1.0)
 
     def __post_init__(self) -> None:
         assert self.alpha_bounds[1] <= 1.0, (
@@ -95,7 +93,7 @@ class KernelConfig:
         )
 
     @classmethod
-    def from_config_dict(cls, d: dict) -> "KernelConfig":
+    def from_config_dict(cls, d: dict) -> KernelConfig:
         """YAML config dict から生成する。"""
         return cls(
             linear_sigma0=float(d.get("linear_sigma0", 0.0)),
@@ -145,10 +143,10 @@ def build_structured_kernel(
     周辺尤度最大化で α が自動推定される（bounds で上限制約）。
     """
     from sklearn.gaussian_process.kernels import (
+        RBF,
         ConstantKernel,
         DotProduct,
         Matern,
-        RBF,
         WhiteKernel,
     )
 
@@ -164,7 +162,8 @@ def build_structured_kernel(
             length_scale=ls_init,
             length_scale_bounds=[ls_bounds] * n_factors,
         )
-    else:  # matern
+    else:
+        # matern
         k_nonlin_base = Matern(
             length_scale=ls_init,
             length_scale_bounds=[ls_bounds] * n_factors,
@@ -242,7 +241,7 @@ def extract_kernel_params(fitted_gpr) -> dict:
 
 def summarize_ard_importance(
     length_scales: np.ndarray,
-    factor_names: Optional[list[str]] = None,
+    factor_names: list[str] | None = None,
 ) -> dict:
     """ARD 長さスケールから各ファクターの非線形寄与重要度を計算する。
 

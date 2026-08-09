@@ -10,15 +10,14 @@ if ROOT_DIR not in sys.path:
     sys.path.insert(0, ROOT_DIR)
 
 from backtest_config import (
-    create_timestamped_output_dir,
     LOGIC_DIFF_EXHAUSTIVE_BASE_PARAMS,
     LOGIC_DIFF_EXHAUSTIVE_OPTIONS,
     SIGNIFICANCE_CONFIG,
+    create_timestamped_output_dir,
 )
 from data_loader import download_data, preprocess_data
 from performance import calculate_metrics
 from strategy import LeadLagStrategy
-
 
 TRADING_DAYS_PER_YEAR = SIGNIFICANCE_CONFIG["trading_days"]
 PERIODS = SIGNIFICANCE_CONFIG["periods"]

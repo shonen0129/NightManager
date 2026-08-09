@@ -7,9 +7,10 @@ BacktestEngine の daily_weights を使い、capital * side_leverage に対し�
 from __future__ import annotations
 
 import argparse
-import pandas as pd
-import numpy as np
 from pathlib import Path
+
+import numpy as np
+import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -100,7 +101,7 @@ def main():
         })
 
     df = pd.DataFrame(records)
-    print(f"\n=== Lot Affordability Analysis ===")
+    print("\n=== Lot Affordability Analysis ===")
     print(f"Date: {args.date}, Capital: {args.capital:,.0f} JPY, Side Leverage: {args.side_leverage}")
     print(f"Effective Capital: {eff_capital:,.0f} JPY")
     print(df.to_string(index=False))

@@ -33,7 +33,6 @@ import logging
 import sys
 import warnings
 from pathlib import Path
-from typing import Dict, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -45,8 +44,7 @@ CONFIG_DIR = SCRIPT_DIR.parent / "configs"
 sys.path.insert(0, str(SRC_DIR))
 
 # ── 既存インフラ ──────────────────────────────────────────────────────────────
-from config import STRATEGY_DEFAULTS
-from config import N_JP_ASSETS, N_US_ASSETS
+from config import N_JP_ASSETS, N_US_ASSETS, STRATEGY_DEFAULTS
 from data_loader import download_data, preprocess_data
 from domain.correction.evaluation import (
     CostModel,
@@ -54,7 +52,7 @@ from domain.correction.evaluation import (
     compute_net_returns,
     compute_performance_metrics,
 )
-from domain.correction.time_series_cv import TimeSeriesPurgeSplit, audit_no_leak
+from domain.correction.time_series_cv import audit_no_leak
 from domain.gp import (
     CalibrationResult,
     ConfidenceConfig,
@@ -83,7 +81,7 @@ def evaluate_gp_adoption(
     calibration: CalibrationResult,
     ar_tolerance: float = 0.95,
     significance_level: float = 0.05,
-) -> Dict:
+) -> dict:
     """GP-Sizing モジュールの採用判定。
 
     ADOPT 条件（すべて満たす必要あり）:
@@ -172,8 +170,8 @@ def run_walk_forward_gp(
     oos_start_date: str = "2020-01-01",
     gap_purge: int = 1,
     embargo: int = 5,
-    output_dir: Optional[Path] = None,
-) -> Dict:
+    output_dir: Path | None = None,
+) -> dict:
     """Walk-Forward 形式で GP-Sizing を評価する。
 
     Returns
@@ -233,7 +231,7 @@ def run_walk_forward_gp(
     all_signal = []
     all_y_oc = []
 
-    dispersion_history: List[float] = []
+    dispersion_history: list[float] = []
     history_start = max(0, start_idx - 60)
 
     for idx in range(history_start, len(df_exec)):
@@ -421,14 +419,14 @@ def run_walk_forward_gp(
 
 
 def generate_report(
-    results: Dict,
+    results: dict,
     cost_model: CostModel,
-    calibration_levels: List[float],
+    calibration_levels: list[float],
     calibration_warn_threshold: float,
     ar_tolerance: float,
     significance_level: float,
     output_dir: Path,
-) -> Dict:
+) -> dict:
     """比較レポートを生成し、ファイルに出力する。"""
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -501,15 +499,15 @@ def generate_report(
     print(f"【採用判定】{decision['decision']}")
     print(decision['reason'])
     print(sep)
-    print(f"\n【GP 較正テスト】")
+    print("\n【GP 較正テスト】")
     print(calibration)
 
     if len(regime_df) > 0:
-        print(f"\n【レジーム別 κ_t 分布】")
+        print("\n【レジーム別 κ_t 分布】")
         print(regime_df.to_string())
 
     if len(quantile_df) > 0:
-        print(f"\n【確信度分位別リターン分解】")
+        print("\n【確信度分位別リターン分解】")
         print(quantile_df.to_string())
 
     # ── ファイル出力 ───────────────────────────────────────────────────────
@@ -628,7 +626,7 @@ def _generate_charts(
 
                 fig, ax = plt.subplots(figsize=(8, 5))
                 colors = ["steelblue" if ls == mean_ls.min() else "lightsteelblue" for ls in mean_ls]
-                bars = ax.barh(factor_names, 1.0 / mean_ls, color=colors, edgecolor="white")
+                ax.barh(factor_names, 1.0 / mean_ls, color=colors, edgecolor="white")
                 ax.set_xlabel("非線形寄与重要度（1 / length_scale）")
                 ax.set_title("ARD 長さスケール逆数（業種平均）\n小さい長さスケール = 高い非線形寄与", fontsize=11)
                 ax.grid(axis="x", alpha=0.3)
@@ -688,7 +686,7 @@ def main():
         logger.warning("設定ファイルが見つかりません: %s、デフォルト設定を使用します", config_path)
         cfg_dict = {}
     else:
-        with open(config_path, "r", encoding="utf-8") as f:
+        with open(config_path, encoding="utf-8") as f:
             cfg_dict = yaml.safe_load(f)
 
     # コマンドライン引数で上書き

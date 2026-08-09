@@ -23,16 +23,15 @@ Look-ahead prevention:
 from __future__ import annotations
 
 import logging
-from typing import Sequence
+from collections.abc import Sequence
 
 import numpy as np
 import pandas as pd
 
 from research.features.hinge_features import (
-    rolling_zscore_lag1,
-    positive_hinge,
-    negative_hinge,
     _threshold_to_colname,
+    negative_hinge,
+    positive_hinge,
 )
 
 logger = logging.getLogger(__name__)
@@ -194,20 +193,20 @@ def build_macro_hinge_x_asset_beta(
                     valid_cols = [c for c in cols if c in rolling_beta_df.columns]
                     if not valid_cols:
                         continue
-                    
+
                     beta_wide = rolling_beta_df.reindex(all_dates)[valid_cols]
                     # Map back to tickers
                     col_to_ticker = {f"beta_{tk}_{macro_col}_w{w}": tk for tk in tickers}
                     beta_wide = beta_wide.rename(columns=col_to_ticker)
                     beta_wide.columns.name = "ticker"
                     beta_wide.index.name = "date"
-                    
+
                     # Multiply by hinge
                     feat_wide = beta_wide.mul(h_series, axis=0)
                     feat_wide.index.name = "date"
                     feat_wide.columns.name = "ticker"
                     # Stack to long format
-                    feat_series = feat_wide.stack(dropna=False).rename(fname)
+                    feat_series = feat_wide.stack().rename(fname)
                     feature_series_list.append(feat_series)
 
     if not feature_series_list:
@@ -311,7 +310,7 @@ def build_sector_hinge_x_sector_exposure(
                 if use_static and sc in sector_to_map_col:
                     map_col = sector_to_map_col[sc]
                     fname = f"int_sector_static_hinge_{dir_prefix}_{sc}_k{kappa_str}"
-                    
+
                     # Create wide DataFrame where each column has the static exposure of that ticker
                     exposures = [float(static_sector_map.loc[tk, map_col]) if tk in static_sector_map.index else 0.0 for tk in tickers]
                     static_wide = pd.DataFrame(
@@ -321,11 +320,11 @@ def build_sector_hinge_x_sector_exposure(
                     )
                     static_wide.columns.name = "ticker"
                     static_wide.index.name = "date"
-                    
+
                     feat_wide = static_wide.mul(h_series, axis=0)
                     feat_wide.index.name = "date"
                     feat_wide.columns.name = "ticker"
-                    feat_series = feat_wide.stack(dropna=False).rename(fname)
+                    feat_series = feat_wide.stack().rename(fname)
                     feature_series_list.append(feat_series)
 
                 # Rolling beta exposure
@@ -336,17 +335,17 @@ def build_sector_hinge_x_sector_exposure(
                         valid_cols = [c for c in cols if c in rolling_beta_df.columns]
                         if not valid_cols:
                             continue
-                        
+
                         beta_wide = rolling_beta_df.reindex(all_dates)[valid_cols]
                         col_to_ticker = {f"beta_{tk}_{sc}_w{w}": tk for tk in tickers}
                         beta_wide = beta_wide.rename(columns=col_to_ticker)
                         beta_wide.columns.name = "ticker"
                         beta_wide.index.name = "date"
-                        
+
                         feat_wide = beta_wide.mul(h_series, axis=0)
                         feat_wide.index.name = "date"
                         feat_wide.columns.name = "ticker"
-                        feat_series = feat_wide.stack(dropna=False).rename(fname)
+                        feat_series = feat_wide.stack().rename(fname)
                         feature_series_list.append(feat_series)
 
     if not feature_series_list:
@@ -429,11 +428,11 @@ def build_regime_hinge_x_base_signal(
             for rc in available_regime:
                 h_series = hinge_values.get((kappa, direction, rc), pd.Series(np.nan, index=all_dates))
                 fname = f"int_regime_signal_hinge_{dir_prefix}_{rc}_k{kappa_str}"
-                
+
                 feat_wide = sig_wide.mul(h_series, axis=0)
                 feat_wide.index.name = "date"
                 feat_wide.columns.name = "ticker"
-                feat_series = feat_wide.stack(dropna=False).rename(fname)
+                feat_series = feat_wide.stack().rename(fname)
                 feature_series_list.append(feat_series)
 
     if not feature_series_list:
@@ -542,7 +541,7 @@ def build_gap_asset_specific_hinge(
                 h_wide = pd.DataFrame(h_val, index=z_wide.index, columns=z_wide.columns)
                 h_wide.columns.name = "ticker"
                 h_wide.index.name = "date"
-                feat_series = h_wide.stack(dropna=False).rename(fname)
+                feat_series = h_wide.stack().rename(fname)
                 feature_series_list.append(feat_series)
 
     if not feature_series_list:

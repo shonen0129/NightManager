@@ -455,13 +455,13 @@ def main():
     # Report
     report_lines = [
         "# V2 理論値 vs 現実的バックテスト\n\n",
-        f"## 仮定\n\n",
+        "## 仮定\n\n",
         f"- 9:10 執行価格: **{args.entry_mode}**（'{args.entry_mode}'）\n",
         f"- 15:00 Close 価格: **{args.close_mode}**（'{args.close_mode}'）\n",
         f"- 翌日寄りギャップ: **{args.overnight_mode}**（'{args.overnight_mode}'）\n",
         "- 整数株・ロット（1629.T=10株）切り捨て丸め\n",
         "- 初期資本 324,280 JPY、side_leverage=1.5、slippage=5 bps/side\n\n",
-        f"## 期間\n\n",
+        "## 期間\n\n",
         f"{overlap[0].date()} 〜 {overlap[-1].date()}（{len(df)} 営業日）\n\n",
         "## 主要指標比較\n\n",
         "| 指標 | 理論値 | 現実的 |\n",

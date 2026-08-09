@@ -18,7 +18,6 @@ def synthetic_gap_topix_data() -> tuple[pd.DataFrame, pd.Series]:
     """Generate synthetic gap returns and TOPIX night returns with known beta."""
     np.random.seed(42)
     T = 300
-    n_jp = 5
 
     topix_night = pd.Series(np.random.randn(T) * 0.01, index=pd.date_range("2020-01-01", periods=T, freq="B"))
 

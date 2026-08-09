@@ -27,19 +27,19 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "tools" / "production"))
 
-from leadlag.data.cache import load_df_exec_from_local_cache
-from leadlag.data.preprocessor import preprocess_data
+from compute_gap_adjusted_distribution import compute_cumulative_returns
+
 from leadlag.data.fetcher import download_data
+from leadlag.data.preprocessor import preprocess_data
 from leadlag.data.tickers import JP_TICKERS, TOPIX_TICKER
+from leadlag.models.production_v2 import generate_v2_production_portfolio
 from leadlag.models.sector_relative_ensemble_blp_enhanced import (
-    SectorRelativeEnsembleBLPEnhancedModel,
     _BLP_CORR_CACHE,
     _RAW_PCA_CACHE,
     _RESIDUAL_PCA_CACHE,
+    SectorRelativeEnsembleBLPEnhancedModel,
 )
-from leadlag.models.production_v2 import generate_v2_production_portfolio
 from leadlag.models.sre import compute_jp_target_returns
-from compute_gap_adjusted_distribution import compute_cumulative_returns
 
 GAP_DIR = ROOT / "live/pipeline_data/gap_adjusted_distribution/latest"
 DIST_DIR = ROOT / "live/pipeline_data/distribution_diagnostics/20260712_230821"
@@ -233,7 +233,7 @@ def run_v2_backtest(df_exec, cfg, gap_dir: Path, y_jp_target: np.ndarray, label:
 
         n_success += 1
         gross = float(np.sum(np.abs(w)))
-        net = float(np.sum(w))
+        float(np.sum(w))
         turnover = float(np.sum(np.abs(w - w_prev)))
         ret = float(np.dot(w, y_jp_target[i]))
 

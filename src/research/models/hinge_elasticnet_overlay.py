@@ -132,7 +132,7 @@ class HingeElasticNetOverlay(BaseHingeOverlay):
         max_overlay_ratio: float = 0.5,
         max_overlay_bps: float = 20.0,
         max_iter: int = 1000,
-    ) -> "HingeElasticNetOverlay":
+    ) -> HingeElasticNetOverlay:
         """Grid search over ElasticNet hyperparameters using validation Rank IC.
 
         Fits one model per (en_alpha, l1_ratio) combination on training data,
@@ -161,7 +161,8 @@ class HingeElasticNetOverlay(BaseHingeOverlay):
             Best fitted model with selected hyperparameters.
         """
         from scipy.stats import spearmanr
-        from research.models.hinge_overlay import select_best_alpha, ALPHA_GRID_DEFAULT
+
+        from research.models.hinge_overlay import ALPHA_GRID_DEFAULT, select_best_alpha
 
         best_ic = -np.inf
         best_model = None

@@ -24,7 +24,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "src"))
 
 from leadlag.data.cache import load_df_exec_from_local_cache
-from leadlag.data.tickers import JP_TICKERS, US_TICKERS
+from leadlag.data.tickers import JP_TICKERS
 from leadlag.models.sector_relative_ensemble_blp_enhanced import (
     SectorRelativeEnsembleBLPEnhancedModel,
 )
@@ -176,7 +176,7 @@ def main():
         print(f"{label:<10} {n:>6} {vix_str:>8} {mean_ic:>9.4f} {mean_disp:>13.2f} {mean_ls:>12.2f} {ann_ret:>10.1f} {sharpe:>8.2f}")
 
     # Correlation between VIX and dispersion / L/S spread
-    print(f"\n--- Correlations ---")
+    print("\n--- Correlations ---")
     corr_vix_disp = df["vix"].corr(df["cs_disp_res"])
     corr_vix_ls = df["vix"].corr(df["ls_spread_res"])
     corr_vix_ic = df["vix"].corr(df["rank_ic"])
@@ -190,7 +190,7 @@ def main():
 
     # Decomposition: L/S spread ≈ IC × dispersion
     # Approximate: daily L/S spread should scale with IC * dispersion
-    print(f"\n--- PnL Decomposition: L/S spread vs IC × dispersion ---")
+    print("\n--- PnL Decomposition: L/S spread vs IC × dispersion ---")
     df["ic_x_disp"] = df["rank_ic"] * df["cs_disp_res"]
     for label in ["Low", "Medium", "High"]:
         sub = df[df["vix_tertile"] == label]
@@ -200,7 +200,7 @@ def main():
         print(f"  {label:<8}  L/S={mean_ls:>8.2f}bps  IC×disp={mean_ic_x_disp:>8.2f}bps  ratio={ratio:.2f}")
 
     # Extreme low VIX periods
-    print(f"\n--- Extreme Low VIX (bottom 10%) ---")
+    print("\n--- Extreme Low VIX (bottom 10%) ---")
     vix_p10 = df["vix"].quantile(0.10)
     low_extreme = df[df["vix"] <= vix_p10]
     print(f"  VIX <= {vix_p10:.1f} ({len(low_extreme)} days)")
@@ -211,7 +211,7 @@ def main():
     ls_std = low_extreme["ls_spread_res"].std() * bps
     print(f"  Sharpe:        {low_extreme['ls_spread_res'].mean()*bps/ls_std*np.sqrt(252):.2f}" if ls_std > 0 else "  Sharpe:        N/A")
 
-    print(f"\n--- Extreme High VIX (top 10%) ---")
+    print("\n--- Extreme High VIX (top 10%) ---")
     vix_p90 = df["vix"].quantile(0.90)
     high_extreme = df[df["vix"] >= vix_p90]
     print(f"  VIX >= {vix_p90:.1f} ({len(high_extreme)} days)")

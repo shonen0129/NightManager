@@ -1,9 +1,11 @@
-import sys
 import itertools
+import sys
 from pathlib import Path
-import pandas as pd
-import numpy as np
+
 import matplotlib
+import numpy as np
+import pandas as pd
+
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
@@ -13,16 +15,15 @@ SRC = ROOT / "src"
 sys.path.insert(0, str(SRC))
 
 # Import system modules
-import data.ticker_registry as registry
-import data.preprocessor as preprocessor
-import data.downloader as downloader
-import data_loader
-import config as sys_config
-import strategy as sys_strategy
 import backtest.runner as runner
-from runner.config import ProductionConfig
+import config as sys_config
+import data.downloader as downloader
+import data.preprocessor as preprocessor
+import data.ticker_registry as registry
+import strategy as sys_strategy
 from domain.signals import lead_lag as signals
 from performance import calculate_metrics
+from runner.config import ProductionConfig
 
 # Define the approved sensitivities for the style ETFs
 NEW_SENSITIVITIES = {
@@ -40,7 +41,7 @@ BASE_US_TICKERS = [
 
 def make_custom_build_v3_static(active_styles):
     active_sens = [NEW_SENSITIVITIES[s] for s in active_styles]
-    
+
     def custom_build_v3_static(n_u, n_j, include_v4=True, w6_override=None):
         base_vectors = signals.build_base_vectors(n_u, n_j)
         v1, v2 = base_vectors["v1"], base_vectors["v2"]
@@ -86,7 +87,7 @@ def make_custom_build_v3_static(active_styles):
         v6 = signals._orthogonalize_and_normalize(w6, [v1, v2, v3, v4, v5])
 
         return np.column_stack([v1, v2, v3, v4, v5, v6])
-        
+
     return custom_build_v3_static
 
 def run_backtest_for_combination(active_styles):
@@ -152,10 +153,10 @@ def run_backtest_for_combination(active_styles):
     )
     results = strategy.run_backtest(start_date=config.start_date)
     metrics = calculate_metrics(results["daily_return"])
-    
+
     # Store returns for cumulative plotting
     cum_returns = (1.0 + results["daily_return"]).cumprod()
-    
+
     return metrics, cum_returns
 
 def main():
@@ -213,12 +214,12 @@ def main():
         rr_val = f"{row['R/R']:.4f}"
         mdd_pct = f"{row['MDD']*100:.2f}%"
         final_w = f"{row['FinalWealth']:.4f}x"
-        
+
         # Highlight top 3 and baseline/all 5
         comb_name = row['combination_str']
         if rank == 0:
             comb_name = f"**{comb_name} (BEST)**"
-        
+
         report_lines.append(f"| {rank+1} | {comb_name} | {ar_pct} | {risk_pct} | {rr_val} | {mdd_pct} | {final_w} |")
 
     report_text = "\n".join(report_lines)
@@ -231,10 +232,10 @@ def main():
 
     # Plot baseline, all 5, and top 3 best combinations
     plt.figure(figsize=(12, 7))
-    
+
     # Baseline
     plt.plot(cum_curves["None (Baseline)"].index, cum_curves["None (Baseline)"].values, label="Baseline (No Styles)", linewidth=1.5, color="black", linestyle="--")
-    
+
     # All 5
     all_5_str = ", ".join(STYLE_ORDER)
     plt.plot(cum_curves[all_5_str].index, cum_curves[all_5_str].values, label="All 5 Styles", linewidth=1.5, color="gray")

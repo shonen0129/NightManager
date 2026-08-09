@@ -17,6 +17,7 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "src"))
 
+from leadlag.reporting.metrics import calculate_metrics
 from research.backtest_common import (
     TRADING_DAYS,
     CostParams,
@@ -26,7 +27,6 @@ from research.backtest_common import (
     simulate_overnight_holding,
     yearly_metrics,
 )
-from leadlag.reporting.metrics import calculate_metrics
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
@@ -216,7 +216,7 @@ def main():
     rs0 = rolling_sharpe(alpha0_ret)
     rs1 = rolling_sharpe(alpha1_ret)
     delta_rs = rs1 - rs0
-    print(f"\n  --- Rolling 250-day Δ Sharpe (α=1.0 vs α=0) ---")
+    print("\n  --- Rolling 250-day Δ Sharpe (α=1.0 vs α=0) ---")
     print(f"  Δ Sharpe > 0:    {(delta_rs > 0).mean() * 100:.1f}% of days")
     print(f"  Δ Sharpe > 0.1:  {(delta_rs > 0.1).mean() * 100:.1f}% of days")
     print(f"  Min Δ Sharpe:    {delta_rs.min():.4f}")

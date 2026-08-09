@@ -1,5 +1,6 @@
-import numpy as np
 from pathlib import Path
+
+import numpy as np
 
 p = Path(__file__).resolve().parents[1] / 'data' / 'decision_cache.npz'
 print('cache path:', p)

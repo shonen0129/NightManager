@@ -265,8 +265,8 @@ def main():
     alpha_xx_grid = [float(a) for a in args.alpha_xx_grid.split(",")] if args.alpha_xx_grid else stage_grid.get("alpha_xx_grid", [0.5, 0.75])
     alpha_yx_grid = [float(a) for a in args.alpha_yx_grid.split(",")] if args.alpha_yx_grid else stage_grid.get("alpha_yx_grid", [0.0, 0.25])
     alpha_yy_grid = [float(a) for a in args.alpha_yy_grid.split(",")] if args.alpha_yy_grid else stage_grid.get("alpha_yy_grid", [0.5])
-    lambda_pca_grid = [float(l) for l in args.lambda_pca_grid.split(",")] if args.lambda_pca_grid else stage_grid.get("lambda_pca_grid", [0.0, 0.1, 0.25])
-    lambda_sector_grid = [float(l) for l in args.lambda_sector_grid.split(",")] if args.lambda_sector_grid else stage_grid.get("lambda_sector_grid", [0.0, 0.1, 0.25])
+    lambda_pca_grid = [float(x) for x in args.lambda_pca_grid.split(",")] if args.lambda_pca_grid else stage_grid.get("lambda_pca_grid", [0.0, 0.1, 0.25])
+    lambda_sector_grid = [float(x) for x in args.lambda_sector_grid.split(",")] if args.lambda_sector_grid else stage_grid.get("lambda_sector_grid", [0.0, 0.1, 0.25])
     beta_conf_grid = [float(b) for b in args.beta_conf_grid.split(",")] if args.beta_conf_grid else stage_grid.get("beta_conf_grid", [0.0, 0.25, 0.5])
 
     # Winsor sigma parse
@@ -448,8 +448,6 @@ def main():
     no_nan_inf_in_winsorized_data = True
 
     # Diagnostics cache
-    best_candidate_diagnostics = None
-    best_candidate_key = None
 
     # PCA-Ensemble Current & Prev BLP simulations for all slippages (for comparison files)
     all_results = []
@@ -684,7 +682,6 @@ def main():
 
                                                         # Save to daily caches if this matches current best parameters
                                                         # (We will identify the actual best candidate after first pass or use default keys)
-                                                        key_name = f"{ens_name}_slip{slip}_rho{rho}_aXX{alpha_xx}_aYX{alpha_yx}_lPCA{lambda_pca}_lSec{lambda_sector}_bConf{beta_conf}_wSig{winsor_sigma}"
 
                                                         # We cache the timeseries of all candidates temporarily
                                                         # to output files later for the best selected candidate.
@@ -736,9 +733,9 @@ def main():
     # Extract Previous BLP metrics at 5bps OOS
     legacy_row = df_5bps[df_5bps["ensemble"] == "BLP_prev_Hybrid_20"].iloc[0]
     legacy_oos_sharpe = float(legacy_row["Sharpe"])
-    legacy_oos_mdd = float(legacy_row["MDD"])
-    legacy_oos_ar = float(legacy_row["AR"])
-    legacy_oos_turnover = float(legacy_row["turnover"])
+    float(legacy_row["MDD"])
+    float(legacy_row["AR"])
+    float(legacy_row["turnover"])
 
     # Evaluate decision flags for each candidate
     ranking_records = []
@@ -1060,7 +1057,7 @@ def main():
     cost_consistency_passed = True
     # Verify cost logic on best candidate
     if best_cand is not None:
-        best_ret = daily_returns_master[best_cand["ensemble"]]
+        daily_returns_master[best_cand["ensemble"]]
         # We verified that simulate_portfolio_fast computes net_return = gross_return - cost.
 
     net_exposure_within_limit = True
@@ -1178,19 +1175,18 @@ def main():
         # Improvement vs Current PCA-Ensemble
         improve_sharpe_sre = float(cand_oos["Sharpe"] - sre_oos["Sharpe"])
         mdd_diff_sre = float((cand_oos["MDD"] - sre_oos["MDD"]) * 100.0) # pt diff
-        ar_retention_sre = float(cand_oos["AR"] / np.maximum(sre_oos["AR"], 1e-8) * 100.0)
+        float(cand_oos["AR"] / np.maximum(sre_oos["AR"], 1e-8) * 100.0)
         turnover_diff_sre = float((cand_oos["turnover"] - sre_oos["turnover"]) / np.maximum(sre_oos["turnover"], 1e-8) * 100.0)
 
         # Improvement vs Legacy BLP
         improve_sharpe_leg = float(cand_oos["Sharpe"] - legacy_oos["Sharpe"])
         mdd_diff_leg = float((cand_oos["MDD"] - legacy_oos["MDD"]) * 100.0) # pt diff
-        ar_retention_leg = float(cand_oos["AR"] / np.maximum(legacy_oos["AR"], 1e-8) * 100.0)
+        float(cand_oos["AR"] / np.maximum(legacy_oos["AR"], 1e-8) * 100.0)
         turnover_diff_leg = float((cand_oos["turnover"] - legacy_oos["turnover"]) / np.maximum(legacy_oos["turnover"], 1e-8) * 100.0)
     else:
         decision_str = "REJECT"
         improve_sharpe_sre = improve_sharpe_leg = 0.0
         mdd_diff_sre = mdd_diff_leg = 0.0
-        ar_retention_sre = ar_retention_leg = 0.0
         turnover_diff_sre = turnover_diff_leg = 0.0
         cand_train = cand_oos = cand_full = sre_oos
 

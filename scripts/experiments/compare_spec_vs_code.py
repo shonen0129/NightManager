@@ -23,13 +23,13 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 from leadlag.core import correlation as corr_mod
+from leadlag.models.sector_relative_ensemble_blp_enhanced import (
+    SectorRelativeEnsembleBLPEnhancedModel,
+)
 from research.backtest_common import (
     compute_backtest_metrics,
     load_execution_data,
     run_backtest_with_costs,
-)
-from leadlag.models.sector_relative_ensemble_blp_enhanced import (
-    SectorRelativeEnsembleBLPEnhancedModel,
 )
 
 logging.basicConfig(

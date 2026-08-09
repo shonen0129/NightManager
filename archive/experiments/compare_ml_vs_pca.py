@@ -8,6 +8,7 @@ from __future__ import annotations
 import logging
 import os
 import sys
+
 import numpy as np
 import pandas as pd
 
@@ -15,12 +16,12 @@ import pandas as pd
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from config import STRATEGY_DEFAULTS
-from data.ticker_registry import US_TICKERS, JP_TICKERS, TOPIX_TICKER, N_US_ASSETS, N_JP_ASSETS
 from data.downloader import download_data
 from data.preprocessor import preprocess_data
+from data.ticker_registry import JP_TICKERS, N_JP_ASSETS, N_US_ASSETS, US_TICKERS
+from domain.models.ml_predictor import MLRollingRunner, compute_jp_volatility
 from domain.models.types import StrategyConfig
 from domain.signals import lead_lag as signals
-from domain.models.ml_predictor import MLRollingRunner, compute_jp_volatility
 from performance import calculate_metrics
 
 # Configure logging
@@ -40,7 +41,7 @@ def compute_gap_residual_signal(
     topix_beta_coef: float = 0.60,
 ) -> np.ndarray:
     """Compute trading signal using the gap residual filtering method."""
-    n_j = len(r_hat_jp_cc)
+    len(r_hat_jp_cc)
     use_topix = (
         betas_vec is not None
         and topix_night_t is not None
@@ -211,7 +212,7 @@ def compute_pca_predictions(
             pca_z_raw[i] = np.nan
             continue
 
-        gap_t1 = np.nan_to_num(jp_gap[i], nan=0.0) if jp_gap is not None else np.zeros(n_j)
+        np.nan_to_num(jp_gap[i], nan=0.0) if jp_gap is not None else np.zeros(n_j)
         betas_t = np.asarray(jp_beta[i], dtype=float) if jp_beta is not None else None
         topix_night_t = float(topix_night[i]) if topix_night is not None else None
 

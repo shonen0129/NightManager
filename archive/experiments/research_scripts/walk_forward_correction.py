@@ -20,7 +20,6 @@ from __future__ import annotations
 
 import argparse
 import logging
-import os
 import sys
 from pathlib import Path
 
@@ -33,24 +32,21 @@ SRC_DIR = SCRIPT_DIR.parent / "src"
 sys.path.insert(0, str(SRC_DIR))
 
 import yaml
-
-from config import STRATEGY_DEFAULTS, N_US_ASSETS, N_JP_ASSETS
+from config import N_JP_ASSETS, N_US_ASSETS, STRATEGY_DEFAULTS
 from data_loader import download_data, preprocess_data
-from domain.signals import lead_lag as signals
-from domain.models.types import StrategyConfig
 from domain.correction import (
+    CostModel,
     NonlinearCorrectionLayer,
     TimeSeriesPurgeSplit,
     audit_no_leak,
-    CostModel,
     evaluate_correction_adoption,
 )
 from domain.correction.evaluation import (
     compute_net_returns,
     compute_performance_metrics,
 )
-from domain.correction.nonlinear_layer import GBTHyperparams
-from domain.correction.feature_builder import FeatureFlags
+from domain.models.types import StrategyConfig
+from domain.signals import lead_lag as signals
 
 logging.basicConfig(
     level=logging.INFO,
@@ -89,7 +85,6 @@ def extract_panel_data(
         z_lin_matrix: np.ndarray (T, N_J)
         y_matrix    : np.ndarray (T, N_J)   – realized OC returns
     """
-    from backtest.runner import run_backtest_with_config
 
     us_cols = [c for c in df_exec.columns if c.startswith("us_cc_")]
     jp_cc_cols = [c for c in df_exec.columns if c.startswith("jp_cc_")]
@@ -105,7 +100,7 @@ def extract_panel_data(
     _, _, C_full = signals.compute_correlation(base_returns, cfg.ewma_half_life)
 
     V_0 = signals.build_v3_static(N_US_ASSETS, N_JP_ASSETS, cfg.include_v4_prior)
-    C_0 = signals.build_c0_from_v0(V_0, C_full)
+    signals.build_c0_from_v0(V_0, C_full)
     base_vectors = signals.build_base_vectors(N_US_ASSETS, N_JP_ASSETS)
     v1, v2 = base_vectors["v1"], base_vectors["v2"]
 
@@ -310,7 +305,7 @@ def main() -> None:
     if not config_path.exists():
         raise FileNotFoundError(f"Config file not found: {config_path}")
 
-    with open(config_path, "r", encoding="utf-8") as f:
+    with open(config_path, encoding="utf-8") as f:
         config = yaml.safe_load(f)
 
     wf_cfg = config.get("walk_forward", {})
@@ -414,7 +409,6 @@ def main() -> None:
 
     # Save metrics JSON
     import json
-    import dataclasses
 
     metrics_dict = {
         "linear": {k: (v if not isinstance(v, float) or (v == v) else None)

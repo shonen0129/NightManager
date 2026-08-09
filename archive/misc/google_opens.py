@@ -1,8 +1,8 @@
+import time
+
 import pandas as pd
 import requests
 from bs4 import BeautifulSoup
-import time
-import os
 
 JP_TICKERS = [f"{t}.T" for t in range(1617, 1634)]
 
@@ -24,7 +24,8 @@ for tk in JP_TICKERS:
         if not price_div:
             price_div = soup.find("div", class_="YMlKec fxKbKc")
         if not price_div:
-            for p in soup.find_all(attrs={"jsname": "Pdsbrc"}):
+            for p in soup.find_all(attrs={"jsname":
+                "Pdsbrc"}):
                 if "¥" in p.text:
                     price_div = p
                     break

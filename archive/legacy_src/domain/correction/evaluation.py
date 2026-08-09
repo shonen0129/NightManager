@@ -22,13 +22,11 @@ A backtest that looks good in-sample only does NOT qualify for adoption.
 from __future__ import annotations
 
 import math
-import warnings
 from dataclasses import dataclass, field
-from typing import Literal, Optional
+from typing import Literal
 
 import numpy as np
 import pandas as pd
-
 
 # ---------------------------------------------------------------------------
 # Cost model
@@ -66,8 +64,8 @@ class CostModel:
 
 def compute_net_returns(
     gross_daily: pd.Series,
-    gross_exposure_series: Optional[pd.Series] = None,
-    cost_model: Optional[CostModel] = None,
+    gross_exposure_series: pd.Series | None = None,
+    cost_model: CostModel | None = None,
 ) -> pd.Series:
     """Deduct transaction costs from gross daily returns.
 
@@ -129,7 +127,7 @@ def compute_signal_ic(
     float
         Mean IC across all days.
     """
-    from scipy.stats import spearmanr, pearsonr
+    from scipy.stats import pearsonr, spearmanr
 
     T, N_J = signals.shape
     ic_values: list[float] = []
@@ -258,8 +256,8 @@ class PerformanceMetrics:
 
 def compute_performance_metrics(
     net_daily: pd.Series,
-    signals: Optional[np.ndarray] = None,
-    returns_panel: Optional[np.ndarray] = None,
+    signals: np.ndarray | None = None,
+    returns_panel: np.ndarray | None = None,
     label: str = "strategy",
     n_trials: int = 1,
     trading_days_per_year: int = 245,

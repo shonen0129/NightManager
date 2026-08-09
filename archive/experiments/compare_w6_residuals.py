@@ -4,17 +4,18 @@ Saves per-component residuals and prints summary (norms, angle, top diffs).
 """
 
 import os
-from datetime import datetime
-import numpy as np
-import pandas as pd
 
 # Ensure src is importable
 import sys
+from datetime import datetime
+
+import numpy as np
+import pandas as pd
 
 sys.path.insert(0, os.path.abspath("src"))
 
+from data_loader import JP_TICKERS, US_TICKERS
 from domain.signals import lead_lag as signals
-from data_loader import US_TICKERS, JP_TICKERS
 
 
 def main():
@@ -200,7 +201,7 @@ def main():
 
     def residual(w, bases):
         w = np.asarray(w, dtype=float).reshape(-1)
-        R = w.copy()
+        w.copy()
         # use the same formula as in docs: subtract (w^T v_i) * v_i
         proj = np.zeros_like(w)
         for b in bases:

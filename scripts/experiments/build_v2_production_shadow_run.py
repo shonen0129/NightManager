@@ -20,8 +20,8 @@ import logging
 import shutil
 import sys
 import warnings
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -33,13 +33,13 @@ warnings.filterwarnings("ignore", category=RuntimeWarning)
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
+from leadlag.data.cache import load_df_exec_from_local_cache
 from leadlag.data.tickers import JP_TICKERS
-from leadlag.models.production_v2 import generate_v2_production_portfolio
 from leadlag.models.ml_order_overlay import (
     generate_v2_production_portfolio_with_overlay,
     load_overlay_model,
 )
-from leadlag.data.cache import load_df_exec_from_local_cache
+from leadlag.models.production_v2 import generate_v2_production_portfolio
 
 logging.basicConfig(
     level=logging.INFO,
@@ -86,7 +86,7 @@ def write_daily_files(
 ) -> None:
     """Write shadow-run files compatible with monitor_residual_blpx_shadow_performance."""
     output_dir.mkdir(parents=True, exist_ok=True)
-    date_dt = pd.to_datetime(trade_date)
+    pd.to_datetime(trade_date)
 
     w_final = result["w_final"]
     scores = result["scores"]
@@ -98,7 +98,7 @@ def write_daily_files(
     run_cfg = result["run_config"]
     cost_bps_per_gross = float(run_cfg.cost_bps_per_gross)
 
-    n = len(JP_TICKERS)
+    len(JP_TICKERS)
     long_mask = w_final > 1e-8
     short_mask = w_final < -1e-8
     selected_mask = long_mask | short_mask

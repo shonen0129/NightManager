@@ -7,37 +7,31 @@ Applies strict canonical signal-weighting logic and saves all required csv files
 
 from __future__ import annotations
 
-import argparse
-import json
 import logging
-import os
 import sys
-from datetime import datetime
 from pathlib import Path
 
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-import seaborn as sns
 import numpy as np
 import pandas as pd
-from scipy.stats import spearmanr, skew, kurtosis
+from scipy.stats import kurtosis, skew, spearmanr
 
 # Setup paths
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT))
 
-from config import STRATEGY_DEFAULTS, N_US_ASSETS, N_JP_ASSETS
 from data.downloader import download_data
 from data.preprocessor import preprocess_data
-from data.ticker_registry import JP_TICKERS, US_TICKERS, TOPIX_TICKER
+from data.ticker_registry import JP_TICKERS, TOPIX_TICKER
+from domain.models.residual_lowrank import compute_rolling_ols_betas
+from domain.signals import lead_lag as signals
 from domain.signals.lead_lag import (
     build_v3_static,
-    build_base_vectors,
 )
-from domain.signals import lead_lag as signals
-from domain.models.residual_lowrank import compute_rolling_ols_betas
 
 # Setup logging
 logging.basicConfig(
@@ -71,7 +65,7 @@ def cs_normalize(sig: np.ndarray, method: str) -> np.ndarray:
     """Normalize signals cross-sectionally daily."""
     if np.all(sig == 0.0) or not np.any(np.isfinite(sig)):
         return np.zeros_like(sig)
-    
+
     if method == "identity":
         return sig
     elif method in ("zscore", "cross_sectional_zscore"):
@@ -157,7 +151,7 @@ def calculate_comprehensive_metrics(
         if np.std(sig_t) > 0 and np.std(r_t) > 0:
             ic_val, _ = spearmanr(sig_t, r_t)
             daily_ics.append(ic_val)
-    avg_ic = float(np.mean(daily_ics)) if len(daily_ics) > 0 else np.nan
+    float(np.mean(daily_ics)) if len(daily_ics) > 0 else np.nan
 
     # Betas
     topix_beta = np.nan
@@ -241,7 +235,7 @@ def main():
     jp_cc_cols = [f"jp_trade_cc_{tk}" for tk in JP_TICKERS]
     y_jp_oc_df = df_exec[jp_oc_cols].rename(columns=lambda c: c.replace("jp_oc_", ""))
     y_jp_cc_df = df_exec[jp_cc_cols].rename(columns=lambda c: c.replace("jp_trade_cc_", ""))
-    y_topix_oc_series = df_exec["topix_oc_return"]
+    df_exec["topix_oc_return"]
     y_topix_cc_series = df_exec["topix_cc_trade"]
     all_returns_raw = df_exec[[c for c in df_exec.columns if c.startswith("us_cc_") or c.startswith("jp_cc_")]].values
 
@@ -320,17 +314,17 @@ def main():
     w_p0p3_list = []
     gross_ret_p0p3 = np.zeros(len(sim_dates))
     gross_exp_p0p3 = np.zeros(len(sim_dates))
-    
+
     for idx, date in enumerate(sim_dates):
         i = start_idx + idx
         sig_comb = 0.5 * cs_normalize(daily_signals["Raw-PCA"][i], "zscore") + 0.5 * cs_normalize(daily_signals["Residual-PCA"][i], "zscore")
         w_t = signals.build_weights(sig_comb, 0.3, 17, "signal")
-        
+
         r_t = y_jp_oc_all[i]
         gross_ret_p0p3[idx] = np.sum(w_t * r_t)
         gross_exp_p0p3[idx] = np.sum(np.abs(w_t))
         w_p0p3_list.append(w_t)
-        
+
     w_p0p3_df = pd.DataFrame(w_p0p3_list, index=sim_dates, columns=JP_TICKERS)
     sig_p0p3_df = pd.DataFrame(
         [0.5 * cs_normalize(daily_signals["Raw-PCA"][i], "zscore") + 0.5 * cs_normalize(daily_signals["Residual-PCA"][i], "zscore") for i in range(start_idx, T)],
@@ -344,19 +338,19 @@ def main():
     w_p6_list = []
     gross_ret_p6 = np.zeros(len(sim_dates))
     gross_exp_p6 = np.zeros(len(sim_dates))
-    
+
     # Track gap flags
     market_gap_active = np.zeros(len(sim_dates))
     sector_gap_triggers = np.zeros(len(sim_dates))
-    
+
     for idx, date in enumerate(sim_dates):
         i = start_idx + idx
-        
+
         # Base combined normalized signal
         z0 = cs_normalize(daily_signals["Raw-PCA"][i], "zscore")
         z3 = cs_normalize(daily_signals["Residual-PCA"][i], "zscore")
         s_base = 0.5 * z0 + 0.5 * z3
-        
+
         # Individual ETF open gap filter
         s_final = s_base.copy()
         triggers = 0
@@ -367,24 +361,24 @@ def main():
                 s_final[j] *= 0.5
                 triggers += 1
         sector_gap_triggers[idx] = triggers
-        
+
         # Build raw weights
         w_raw = signals.build_weights(s_final, 0.3, 17, "signal")
-        
+
         # Market gap filter
         market_scale = 1.0
         hist_pct_market = market_percentiles[0.95][i]
         if np.abs(topix_night[i]) > hist_pct_market:
             market_scale = 0.75
             market_gap_active[idx] = 1.0
-            
+
         w_final = w_raw * market_scale
-        
+
         r_t = y_jp_oc_all[i]
         gross_ret_p6[idx] = np.sum(w_final * r_t)
         gross_exp_p6[idx] = np.sum(np.abs(w_final))
         w_p6_list.append(w_final)
-        
+
     w_p6_df = pd.DataFrame(w_p6_list, index=sim_dates, columns=JP_TICKERS)
     sig_p6_df = pd.DataFrame(
         [0.5 * cs_normalize(daily_signals["Raw-PCA"][i], "zscore") + 0.5 * cs_normalize(daily_signals["Residual-PCA"][i], "zscore") for i in range(start_idx, T)],
@@ -402,7 +396,7 @@ def main():
     # -------------------------------------------------------------------------
     logger.info("Executing multi-slippage sensitivity runs...")
     slippage_levels = [0.0, 2.5, 5.0, 7.5, 10.0, 12.5, 15.0, 20.0, 25.0, 30.0]
-    
+
     # Store daily series across slippage levels
     daily_gross_returns = pd.DataFrame(index=sim_dates)
     daily_gross_returns["p0p3_ensemble"] = gross_ret_p0p3
@@ -419,9 +413,9 @@ def main():
     daily_net_returns_dict = {}
     daily_equity_curves_dict = {}
     daily_drawdowns_dict = {}
-    
+
     metrics_records = {"train": [], "oos": [], "full": []}
-    
+
     periods = {
         "train": pd.Series((sim_dates >= pd.to_datetime("2015-01-05")) & (sim_dates <= pd.to_datetime("2019-12-31")), index=sim_dates),
         "oos": pd.Series(sim_dates >= pd.to_datetime("2020-01-01"), index=sim_dates),
@@ -443,13 +437,13 @@ def main():
 
         daily_costs_dict[f"p0p3_ensemble_{slip}"] = cost_p0p3
         daily_costs_dict[f"p6_gap_filter_{slip}"] = cost_p6
-        
+
         daily_net_returns_dict[f"p0p3_ensemble_{slip}"] = net_ret_p0p3
         daily_net_returns_dict[f"p6_gap_filter_{slip}"] = net_ret_p6
-        
+
         daily_equity_curves_dict[f"p0p3_ensemble_{slip}"] = eq_p0p3.values
         daily_equity_curves_dict[f"p6_gap_filter_{slip}"] = eq_p6.values
-        
+
         daily_drawdowns_dict[f"p0p3_ensemble_{slip}"] = dd_p0p3.values
         daily_drawdowns_dict[f"p6_gap_filter_{slip}"] = dd_p6.values
 
@@ -490,7 +484,7 @@ def main():
     # Save weights & exposures
     w_p0p3_df.to_csv(results_dir / "weights_p0p3_ensemble.csv")
     w_p6_df.to_csv(results_dir / "weights_p6_gap_filter.csv")
-    
+
     exposure_df = pd.DataFrame(index=sim_dates)
     exposure_df["p0p3_gross"] = gross_exp_p0p3
     exposure_df["p0p3_net"] = w_p0p3_df.sum(axis=1)
@@ -509,22 +503,21 @@ def main():
     # RELATIVE COMPARISON SUMMARY GENERATION
     # -------------------------------------------------------------------------
     logger.info("Computing relative comparisons and breakeven slippage...")
-    
+
     for p_name in ["oos", "full"]:
         records = []
-        winner_records = []
         m_df = pd.DataFrame(metrics_records[p_name])
-        
+
         for slip in slippage_levels:
             p0p3_row = m_df[(m_df["Model"] == "p0p3_ensemble") & (m_df["Slippage_bps"] == slip)].iloc[0]
             p6_row = m_df[(m_df["Model"] == "p6_gap_filter") & (m_df["Slippage_bps"] == slip)].iloc[0]
-            
+
             ar_diff = p6_row["AR"] - p0p3_row["AR"]
             sh_diff = p6_row["Sharpe"] - p0p3_row["Sharpe"]
             mdd_diff = p6_row["MDD"] - p0p3_row["MDD"]
             cost_diff = p6_row["Annualized Cost Drag"] - p0p3_row["Annualized Cost Drag"]
             turn_diff = p6_row["Avg Turnover"] - p0p3_row["Avg Turnover"]
-            
+
             records.append({
                 "Slippage_bps": slip,
                 "AR_diff": ar_diff,
@@ -536,7 +529,7 @@ def main():
                 "Winner_AR": "p6_gap_filter" if ar_diff > 0 else "p0p3_ensemble",
                 "Winner_MDD": "p6_gap_filter" if abs(p6_row["MDD"]) < abs(p0p3_row["MDD"]) else "p0p3_ensemble"
             })
-            
+
         pd.DataFrame(records).to_csv(results_dir / f"relative_comparison_by_slippage_{p_name}.csv", index=False)
 
     # -------------------------------------------------------------------------
@@ -550,11 +543,11 @@ def main():
         for p_name in ["oos", "full"]:
             df = pd.DataFrame(metrics_records[p_name])
             m_data = df[df["Model"] == m].sort_values("Slippage_bps")
-            
+
             # Linear interpolation of slippage where AR = 0
             ar_vals = m_data["AR"].values
             slip_vals = m_data["Slippage_bps"].values
-            
+
             be_slip = np.nan
             if ar_vals[0] > 0 and ar_vals[-1] < 0:
                 for idx in range(len(ar_vals) - 1):
@@ -563,13 +556,13 @@ def main():
                         p = ar_vals[idx] / (ar_vals[idx] - ar_vals[idx+1])
                         be_slip = slip_vals[idx] + p * (slip_vals[idx+1] - slip_vals[idx])
                         break
-            
+
             breakevens.append({
                 "Model": m,
                 "Period": p_name,
                 "Breakeven_Slippage_Bps_Per_Side": be_slip if not np.isnan(be_slip) else (m_data["AR"].iloc[0] / (2.0 * m_data["Avg Gross Exposure"].iloc[0]) * 10000.0) # formula fallback
             })
-            
+
     pd.DataFrame(breakevens).to_csv(results_dir / "breakeven_slippage.csv", index=False)
 
     # Relative breakeven: where Sharpe(p6) = Sharpe(p0p3) or AR(p6) = AR(p0p3)
@@ -578,25 +571,25 @@ def main():
         df = pd.DataFrame(metrics_records[p_name])
         p6_data = df[df["Model"] == "p6_gap_filter"].sort_values("Slippage_bps")
         p0p3_data = df[df["Model"] == "p0p3_ensemble"].sort_values("Slippage_bps")
-        
+
         ar_diffs = p6_data["AR"].values - p0p3_data["AR"].values
         sh_diffs = p6_data["Sharpe"].values - p0p3_data["Sharpe"].values
         slip_vals = p6_data["Slippage_bps"].values
-        
+
         ar_be = np.nan
         for idx in range(len(ar_diffs) - 1):
             if ar_diffs[idx] <= 0 and ar_diffs[idx+1] > 0:
                 p = (-ar_diffs[idx]) / (ar_diffs[idx+1] - ar_diffs[idx])
                 ar_be = slip_vals[idx] + p * (slip_vals[idx+1] - slip_vals[idx])
                 break
-                
+
         sh_be = np.nan
         for idx in range(len(sh_diffs) - 1):
             if sh_diffs[idx] <= 0 and sh_diffs[idx+1] > 0:
                 p = (-sh_diffs[idx]) / (sh_diffs[idx+1] - sh_diffs[idx])
                 sh_be = slip_vals[idx] + p * (slip_vals[idx+1] - slip_vals[idx])
                 break
-                
+
         relative_be.append({
             "Period": p_name,
             "AR_Intersection_Slippage": ar_be,
@@ -614,13 +607,13 @@ def main():
         "2023": pd.Series((sim_dates >= pd.to_datetime("2023-01-01")) & (sim_dates <= pd.to_datetime("2023-12-31")), index=sim_dates),
         "2024-present": pd.Series(sim_dates >= pd.to_datetime("2024-01-01"), index=sim_dates)
     }
-    
+
     subperiod_records = []
     for sub_name, mask in sub_periods.items():
         p_dates = sim_dates[mask]
         p_bench = benchmark_df.reindex(p_dates)
         p_r_oc = y_jp_oc_df.reindex(p_dates)
-        
+
         for slip in [0.0, 5.0, 10.0, 15.0, 20.0]:
             cost_p0p3_sub = 2.0 * (slip / 10000.0) * gross_exp_p0p3[mask.values]
             net_ret_p0p3_sub = gross_ret_p0p3[mask.values] - cost_p0p3_sub
@@ -630,7 +623,7 @@ def main():
                 pd.Series(cost_p0p3_sub, index=p_dates),
                 w_p0p3_df.reindex(p_dates), p_r_oc, sig_p0p3_df.reindex(p_dates), p_bench
             )
-            
+
             cost_p6_sub = 2.0 * (slip / 10000.0) * gross_exp_p6[mask.values]
             net_ret_p6_sub = gross_ret_p6[mask.values] - cost_p6_sub
             met_p6 = calculate_comprehensive_metrics(
@@ -639,9 +632,9 @@ def main():
                 pd.Series(cost_p6_sub, index=p_dates),
                 w_p6_df.reindex(p_dates), p_r_oc, sig_p6_df.reindex(p_dates), p_bench
             )
-            
-            winner = "p6_gap_filter" if met_p6["Sharpe"] > met_p0p3["Sharpe"] else "p0p3_ensemble"
-            
+
+            "p6_gap_filter" if met_p6["Sharpe"] > met_p0p3["Sharpe"] else "p0p3_ensemble"
+
             subperiod_records.append({
                 "Subperiod": sub_name,
                 "Slippage_bps": slip,
@@ -662,7 +655,7 @@ def main():
                 "Turnover": met_p6["Avg Turnover"],
                 "Cost_drag": met_p6["Annualized Cost Drag"]
             })
-            
+
     pd.DataFrame(subperiod_records).to_csv(results_dir / "subperiod_slippage_sensitivity.csv", index=False)
 
     # -------------------------------------------------------------------------
@@ -684,7 +677,7 @@ def main():
     # SAFETY AUDITS ENGINE
     # -------------------------------------------------------------------------
     logger.info("Running safety audits engine...")
-    
+
     # 1. Cost Consistency
     cost_consistent = True
     for slip in slippage_levels:
@@ -710,7 +703,7 @@ def main():
             weight_valid = False
         if np.sum(np.abs(w_p0p3)) > 2.0001 or np.sum(np.abs(w_p6)) > 2.0001:
             weight_valid = False
-            
+
     pd.DataFrame([{
         "check_name": "Weight Logic Audit",
         "status": "PASS" if weight_valid else "FAIL",
@@ -759,7 +752,7 @@ def main():
     # -------------------------------------------------------------------------
     logger.info("Generating plots...")
     oos_df = pd.DataFrame(metrics_records["oos"])
-    
+
     # 1. Sharpe vs Slippage
     plt.figure()
     p0p3_oos = oos_df[oos_df["Model"] == "p0p3_ensemble"].sort_values("Slippage_bps")
@@ -866,7 +859,7 @@ def main():
     plt.title("Rolling Exposure Reduction Ratio (P6 / P0P3)")
     plt.xlabel("Date")
     plt.grid(True)
-    
+
     plt.subplot(1, 2, 2)
     plt.hist(sector_gap_triggers[sector_gap_triggers > 0], bins=10, color="skyblue", edgecolor="black")
     plt.title("Distribution of Sector Gap Triggers (Non-zero days)")
@@ -882,20 +875,20 @@ def main():
     # -------------------------------------------------------------------------
     logger.info("Generating final report markdown...")
     rep_path = results_dir / "final_report.md"
-    
+
     # Format a table of slippage sensitivity for OOS and Full
     def make_sens_table(p_name):
         df_p = pd.DataFrame(metrics_records[p_name])
         lines = []
         lines.append("| Model | Slippage (bps) | AR | Sharpe | MDD | Avg Turnover | Cost Drag | Winner |")
         lines.append("| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |")
-        
+
         for slip in [0.0, 5.0, 10.0, 15.0, 20.0, 25.0, 30.0]:
             r_p0 = df_p[(df_p["Model"] == "p0p3_ensemble") & (df_p["Slippage_bps"] == slip)].iloc[0]
             r_p6 = df_p[(df_p["Model"] == "p6_gap_filter") & (df_p["Slippage_bps"] == slip)].iloc[0]
-            
+
             winner = "p6_gap_filter" if r_p6["Sharpe"] > r_p0["Sharpe"] else "p0p3_ensemble"
-            
+
             lines.append(f"| p0p3_ensemble | {slip} | {r_p0['AR']:.2%} | {r_p0['Sharpe']:.4f} | {r_p0['MDD']:.2%} | {r_p0['Avg Turnover']:.4f} | {r_p0['Annualized Cost Drag']:.2%} | {winner} |")
             lines.append(f"| p6_gap_filter | {slip} | {r_p6['AR']:.2%} | {r_p6['Sharpe']:.4f} | {r_p6['MDD']:.2%} | {r_p6['Avg Turnover']:.4f} | {r_p6['Annualized Cost Drag']:.2%} | {winner} |")
         return "\n".join(lines)
@@ -910,9 +903,9 @@ def main():
     be_full_p6 = breakevens[3]["Breakeven_Slippage_Bps_Per_Side"]
 
     rel_be_oos = relative_be[0]
-    rel_be_full = relative_be[1]
+    relative_be[1]
 
-    report_content = f"""# Slippage Sensitivity Analysis Report: Canonical Raw-PCA/Residual-PCA Ensemble vs P6_gap_filter
+    report_content = rf"""# Slippage Sensitivity Analysis Report: Canonical Raw-PCA/Residual-PCA Ensemble vs P6_gap_filter
 
 This report documents the rigorous comparison of the **Canonical Raw-PCA/Residual-PCA signal-level 50/50 Ensemble** vs **P6_gap_filter** under multiple slippage cost assumptions ($0, 2.5, 5, 7.5, 10, 12.5, 15, 20, 25, 30$ bps per side). Both strategies utilize the canonical **signal-weighted** portfolio logic.
 
@@ -920,7 +913,7 @@ This report documents the rigorous comparison of the **Canonical Raw-PCA/Residua
 
 ## 1. Executive Summary
 
-- **Who is superior at low slippage (0 - 5 bps)?** 
+- **Who is superior at low slippage (0 - 5 bps)?**
   - **Raw-PCA/Residual-PCA Ensemble** dominates in pure return terms (AR = **83.57%** vs **79.06%** at 5bps), but **P6_gap_filter** maintains a higher OOS Sharpe (**4.0039** vs **3.8815**).
 - **Who is superior at high slippage (>= 10 bps)?**
   - **P6_gap_filter** strongly outperforms in Sharpe, showing massive resilience. Because it trades conservatively during extreme overnight gap regimes, its cost drag is lower.

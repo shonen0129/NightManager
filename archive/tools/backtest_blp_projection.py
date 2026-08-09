@@ -443,7 +443,6 @@ def main():
                                     )
 
                                     # Cache daily timeseries for reports/comparison
-                                    key_name = f"{ens_name}_slip{slip}_rho{rho}_aXX{alpha_xx}_aYX{alpha_yx}"
                                     if abs(slip - 5.0) < 1e-6 and rho == 0.03 and alpha_xx == 0.5 and alpha_yx == 0.25:
                                         daily_returns_master[ens_name] = sim["daily_returns"]
                                         daily_positions_master[ens_name] = sim["weights"].apply(np.sign)
@@ -535,8 +534,6 @@ def main():
 
         # Signal correlation audit: check if P5/P5P3 are not too correlated to baseline
         # (computed below in correlations section)
-        p5_corr_below_0_95_to_sre = True  # Default fallback
-        p5p3_corr_below_0_95_to_sre = True
 
         params_not_on_extreme_boundary = (row["rho"] in [0.01, 0.03, 0.1]) and (row["alpha_xx"] in [0.5])
 
@@ -693,10 +690,9 @@ def main():
 
     # Audit 12.7: Cost consistency
     cost_consistency_passed = True
-    max_cost_consistency_error = 0.0
     for name, r_net in daily_returns_master.items():
         # net = gross - cost
-        r_gross = reproduced_sim["daily_returns_gross"] # using similar run stats
+        reproduced_sim["daily_returns_gross"] # using similar run stats
         # We check consistency in simulate_portfolio_fast
 
     # Audit 12.8: Weight constraints

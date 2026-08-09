@@ -30,9 +30,9 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 from leadlag.data.cache import load_df_exec_from_local_cache
-from leadlag.data.tickers import JP_TICKERS
-from leadlag.models.sre import compute_jp_target_returns
-from leadlag.models.sector_relative_ensemble_blp_enhanced import SectorRelativeEnsembleBLPEnhancedModel
+from leadlag.models.sector_relative_ensemble_blp_enhanced import (
+    SectorRelativeEnsembleBLPEnhancedModel,
+)
 from research.backtest_v1 import run_v1_backtest
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -149,7 +149,7 @@ def main():
 
     logger.info("Loading df_exec...")
     df_exec = load_df_exec_from_local_cache()
-    T = len(df_exec)
+    len(df_exec)
     sim_dates = df_exec.index
 
     # 1. Run walkforward periods
@@ -229,12 +229,6 @@ def main():
     # 5. Sensitivity analysis: ±20% perturbation of key parameters
     logger.info("\n=== Sensitivity: ±20%% perturbation ===")
     sensitivity_results = []
-    perturb_params = {
-        "lambda_pca": [0.08, 0.10, 0.12],
-        "lambda_sector": [0.48, 0.60, 0.72],
-        "rho": [0.008, 0.01, 0.012],
-        "blp_window": [403, 504, 605],
-    }
 
     # Run with all params at +20% and -20% simultaneously
     for label, mult in [("minus20", 0.8), ("base", 1.0), ("plus20", 1.2)]:
@@ -261,14 +255,14 @@ def main():
     # 6. Report
     report_lines = [
         "# A7: Walkforward Validation + Deflated Sharpe Ratio Report\n",
-        f"## Configuration\n",
+        "## Configuration\n",
         f"- Training start: {WF_CONFIG['start_train']}\n",
         f"- Test periods: {WF_CONFIG['test_years'][0]}–{WF_CONFIG['test_years'][-1]} ({len(period_results)} periods)\n",
         f"- Purge: {WF_CONFIG['purge_days']} days, Embargo: {WF_CONFIG['embargo_days']} days\n",
         f"- N_trials for DSR: {args.n_trials}\n",
-        f"\n## Per-Period Metrics\n",
+        "\n## Per-Period Metrics\n",
         period_df.to_string(index=False),
-        f"\n\n## Pooled Statistics\n",
+        "\n\n## Pooled Statistics\n",
         f"- Sharpe (net): {pooled_metrics['Sharpe_net']:.4f}\n",
         f"- Annual Return: {pooled_metrics['AR_net']*100:.2f}%\n",
         f"- Volatility: {pooled_metrics['Vol_net']*100:.2f}%\n",
@@ -276,23 +270,23 @@ def main():
         f"- N days: {pooled_metrics['n_days']}\n",
         f"- Skewness: {skew:.4f}\n",
         f"- Excess Kurtosis: {kurt_excess:.4f}\n",
-        f"\n## Deflated Sharpe Ratio\n",
+        "\n## Deflated Sharpe Ratio\n",
         f"- DSR = {dsr:.4f} (threshold: 0.95)\n",
         f"- N_trials = {args.n_trials}, Trials Sharpe Std = {args.trials_sharpe_std}\n",
         f"- **{'PASS' if dsr >= 0.95 else 'FAIL'}** (DSR {'≥' if dsr >= 0.95 else '<'} 0.95)\n",
-        f"\n## Per-Period Sharpe Stability\n",
+        "\n## Per-Period Sharpe Stability\n",
         f"- Mean: {sharpe_mean:.4f}\n",
         f"- Std: {sharpe_std:.4f}\n",
         f"- Range: [{sharpe_min:.4f}, {sharpe_max:.4f}]\n",
         f"- Positive periods: {positive_periods}/{len(period_sharpes)}\n",
         f"- Negative periods: {negative_periods}/{len(period_sharpes)}\n",
-        f"\n## Sensitivity Analysis (±20% all params)\n",
+        "\n## Sensitivity Analysis (±20% all params)\n",
         sens_df.to_string(index=False),
-        f"\n\n## Verdict\n",
+        "\n\n## Verdict\n",
     ]
 
     # Overall verdict
-    sharpe_range_pct = (sharpe_max - sharpe_min) / sharpe_mean * 100 if sharpe_mean > 0 else float('inf')
+    (sharpe_max - sharpe_min) / sharpe_mean * 100 if sharpe_mean > 0 else float('inf')
     sens_sharpe_range = (sens_df["Sharpe_net"].max() - sens_df["Sharpe_net"].min()) / sens_df["Sharpe_net"].mean() * 100
 
     if dsr >= 0.95 and negative_periods <= 2 and sens_sharpe_range < 20:

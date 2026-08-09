@@ -7,19 +7,17 @@ and rolling training and prediction.
 from __future__ import annotations
 
 import logging
+
+import lightgbm as lgb
 import numpy as np
 import pandas as pd
-import lightgbm as lgb
-from typing import List, Dict, Any, Tuple
-
-from data.ticker_registry import US_TICKERS, JP_TICKERS, TOPIX_TICKER
 
 logger = logging.getLogger(__name__)
 
 
 def compute_rolling_z_scores_us(
     df_exec: pd.DataFrame,
-    us_tickers: List[str],
+    us_tickers: list[str],
     corr_window: int = 60,
     ewma_half_life: float = 45.0,
 ) -> pd.DataFrame:
@@ -62,7 +60,7 @@ def compute_rolling_z_scores_us(
 
 def compute_jp_volatility(
     df_exec: pd.DataFrame,
-    jp_tickers: List[str],
+    jp_tickers: list[str],
     vol_window: int = 20,
 ) -> pd.DataFrame:
     """Compute the 20-day rolling standard deviation of Close-to-Close returns of JP ETFs.
@@ -114,8 +112,8 @@ class MLRollingRunner:
     def __init__(
         self,
         df_exec: pd.DataFrame,
-        us_tickers: List[str],
-        jp_tickers: List[str],
+        us_tickers: list[str],
+        jp_tickers: list[str],
         topix_ticker: str = "1306.T",
         train_window: int = 250,
         refit_interval: int = 1,
@@ -203,14 +201,14 @@ class MLRollingRunner:
         pred_returns[:] = np.nan
 
         # Keep a cache of the trained models for each asset
-        models: Dict[str, LGBMPredictor] = {}
+        models: dict[str, LGBMPredictor] = {}
 
         # Features array
         X_all = self.df_exec[self.feature_cols].values
 
         for i in range(start_idx, T):
-            trade_date = self.df_exec.index[i]
-            
+            self.df_exec.index[i]
+
             # Determine if we should refit the models
             should_refit = ((i - start_idx) % self.refit_interval == 0)
 
@@ -220,7 +218,7 @@ class MLRollingRunner:
             # Training slice
             train_start = i - self.train_window
             train_end = i # excludes index i (i.e. up to i-1)
-            
+
             X_train = X_all[train_start:train_end]
 
             # Train and predict for each ticker
@@ -236,7 +234,7 @@ class MLRollingRunner:
                     # because row k has sig_date t.
                     vol_col = f"vol_20_{tk}"
                     vols_train = self.df_exec[vol_col].values[train_start:train_end]
-                    
+
                     # Prevent division by zero
                     vols_train = np.maximum(vols_train, 1e-8)
                     y_train = y_train_raw / vols_train

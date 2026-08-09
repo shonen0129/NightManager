@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Compare gap matrices between batch and live directories."""
-import numpy as np
 from pathlib import Path
+
+import numpy as np
 
 BASE = Path("/Users/shonen/日米ラグ/live/pipeline_data/gap_adjusted_distribution")
 

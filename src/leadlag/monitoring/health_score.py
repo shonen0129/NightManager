@@ -31,7 +31,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 
 import numpy as np
 import pandas as pd
@@ -39,7 +39,7 @@ import pandas as pd
 logger = logging.getLogger(__name__)
 
 
-class HealthGrade(str, Enum):
+class HealthGrade(StrEnum):
     EXCELLENT = "A"
     GOOD = "B"
     FAIR = "C"

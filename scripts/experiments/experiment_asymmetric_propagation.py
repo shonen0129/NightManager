@@ -10,10 +10,8 @@ from __future__ import annotations
 
 import argparse
 import logging
-import os
 import sys
 from pathlib import Path
-from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -26,9 +24,11 @@ sys.path.insert(0, str(ROOT / "src"))
 from leadlag.data.fetcher import download_data
 from leadlag.data.preprocessor import preprocess_data
 from leadlag.data.tickers import JP_TICKERS, TOPIX_TICKER
-from leadlag.models.sector_relative_ensemble_blp_enhanced import SectorRelativeEnsembleBLPEnhancedModel
-from research.backtest_v1 import run_v1_backtest
+from leadlag.models.sector_relative_ensemble_blp_enhanced import (
+    SectorRelativeEnsembleBLPEnhancedModel,
+)
 from leadlag.reporting.metrics import calculate_metrics
+from research.backtest_v1 import run_v1_backtest
 
 # Set up logging
 logging.basicConfig(
@@ -309,7 +309,7 @@ def main():
     if args.wfo and best_variant:
         logger.info("\nRunning Walk-Forward Optimization (6 folds, 2020-2025)...")
         wfo_results = []
-        
+
         best_name = best_variant["Variant"]
         wfo_params = {}
         if "Scalar Delta" in best_name:
@@ -339,7 +339,7 @@ def main():
             wfo_start = f"{year}-01-01"
             wfo_end = f"{year}-12-31"
             logger.info(f"  Running Fold {year}: {wfo_start} to {wfo_end}...")
-            
+
             # Baseline fold
             base_fold_cfg = build_config()
             m_base = run_variant(base_fold_cfg, df_exec, wfo_start, wfo_end, args.slippage_bps)

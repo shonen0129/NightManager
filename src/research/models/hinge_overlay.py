@@ -207,7 +207,7 @@ class BaseHingeOverlay(ABC):
         X_train: np.ndarray,
         y_intraday_train: np.ndarray,
         mu_base_train: np.ndarray,
-    ) -> "BaseHingeOverlay":
+    ) -> BaseHingeOverlay:
         """Fit overlay on training data.
 
         Computes residual target = y_intraday - mu_base and fits _fit_model.

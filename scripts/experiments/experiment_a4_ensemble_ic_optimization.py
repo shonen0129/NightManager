@@ -30,8 +30,10 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from leadlag.data.cache import load_df_exec_from_local_cache
 from leadlag.data.tickers import JP_TICKERS
+from leadlag.models.sector_relative_ensemble_blp_enhanced import (
+    SectorRelativeEnsembleBLPEnhancedModel,
+)
 from leadlag.models.sre import compute_jp_target_returns
-from leadlag.models.sector_relative_ensemble_blp_enhanced import SectorRelativeEnsembleBLPEnhancedModel
 from research.backtest_v1 import run_v1_backtest
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -342,11 +344,11 @@ def main():
     report_lines = [
         "# A4: Ensemble IC Optimization Report\n",
         f"## Data: {T} rows, start={args.start_date}, IC window={args.ic_window}\n",
-        f"\n## Mean Daily IC per Component\n",
+        "\n## Mean Daily IC per Component\n",
         ic_df.mean().to_string(),
-        f"\n\n## Metrics Comparison\n",
+        "\n\n## Metrics Comparison\n",
         results_df.to_string(index=False),
-        f"\n\n## Verdict\n",
+        "\n\n## Verdict\n",
     ]
 
     base_sharpe = all_results["baseline"]["Sharpe_net"]

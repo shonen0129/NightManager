@@ -1,17 +1,17 @@
-import pytest
-import numpy as np
-import pandas as pd
 import sys
 from pathlib import Path
+
+import numpy as np
+import pytest
 
 # Add tools/ to path
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "tools"))
 
 from backtest_ensemble_robustness import (
-    optimize_soft_beta_penalty_weights,
     apply_rank_hysteresis,
     normalize_signals,
+    optimize_soft_beta_penalty_weights,
 )
 
 
@@ -46,7 +46,7 @@ def test_optimize_soft_beta_penalty_weights():
 def test_apply_rank_hysteresis():
     """Verify that rank hysteresis maintains exactly 5 longs/shorts and prevents marginal swaps."""
     # 17 assets
-    sig1 = np.array([0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1, 0.0, -0.1, -0.2, -0.3, -0.4, -0.5, -0.6, -0.7])
+    np.array([0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1, 0.0, -0.1, -0.2, -0.3, -0.4, -0.5, -0.6, -0.7])
     # Day 1: active longs are indices 0,1,2,3,4. Active shorts are 12,13,14,15,16.
     active_longs = {0, 1, 2, 3, 4}
     active_shorts = {12, 13, 14, 15, 16}
@@ -79,12 +79,12 @@ def test_apply_rank_hysteresis():
 def test_normalize_signals():
     """Verify z-score and rank signal normalization methods."""
     sig = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
-    
+
     # z-score
     norm_z = normalize_signals(sig, "cross_sectional_zscore")
     assert np.mean(norm_z) == pytest.approx(0.0, abs=1e-6)
     assert np.std(norm_z) == pytest.approx(1.0, abs=1e-6)
-    
+
     # rank
     norm_rank = normalize_signals(sig, "rank_normalize")
     assert np.all(norm_rank >= -1.0)

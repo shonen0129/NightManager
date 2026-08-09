@@ -22,7 +22,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "src"))
 
 from leadlag.data.cache import load_df_exec_from_local_cache
-from leadlag.data.tickers import JP_TICKERS, US_TICKERS
+from leadlag.data.tickers import JP_TICKERS
 from leadlag.models.sector_relative_ensemble_blp_enhanced import (
     SectorRelativeEnsembleBLPEnhancedModel,
 )
@@ -40,7 +40,7 @@ def main():
     print("Loading df_exec from cache...")
     df_exec = load_df_exec_from_local_cache()
     sim_dates = df_exec.index
-    T = len(df_exec)
+    len(df_exec)
     print(f"  shape={df_exec.shape}, range={sim_dates.min()} to {sim_dates.max()}")
 
     # 2. Load production config and run model

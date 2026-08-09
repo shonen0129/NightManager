@@ -11,9 +11,8 @@ import argparse
 import logging
 import os
 import sys
+
 import yaml
-import pandas as pd
-import numpy as np
 
 # Add src/ to path
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
@@ -52,7 +51,7 @@ def main() -> int:
     # Output paths
     qa_artifact_dir = os.path.join(ROOT, "artifacts", "sprint0", "qa")
     qa_report_dir = os.path.join(ROOT, "reports", "sprint0")
-    
+
     os.makedirs(qa_artifact_dir, exist_ok=True)
     os.makedirs(qa_report_dir, exist_ok=True)
 
@@ -61,18 +60,18 @@ def main() -> int:
 
     # Save artifacts
     logger.info("Saving QA CSV artifacts to %s...", qa_artifact_dir)
-    
+
     results["qa1"]["comparison_table"].to_csv(os.path.join(qa_artifact_dir, "qa1_comparison_table.csv"))
     results["qa2"]["alignment_table"].to_csv(os.path.join(qa_artifact_dir, "qa2_alignment_table.csv"))
     results["qa3"]["sign_comparison_table"].to_csv(os.path.join(qa_artifact_dir, "qa3_sign_comparison_table.csv"))
     results["qa4"]["representative_days_table"].to_csv(os.path.join(qa_artifact_dir, "qa4_representative_days_table.csv"))
-    
+
     results["qa5"]["long_short_leg_pnl_summary"].to_csv(os.path.join(qa_artifact_dir, "qa5_long_short_leg_pnl_summary.csv"))
     results["qa5"]["long_short_leg_pnl_timeseries"].to_csv(os.path.join(qa_artifact_dir, "qa5_long_short_leg_pnl_timeseries.csv"))
-    
+
     results["qa6"]["ticker_capacity_audit"].to_csv(os.path.join(qa_artifact_dir, "qa6_ticker_capacity_audit.csv"))
     results["qa7"]["cost_capacity_reconciliation"].to_csv(os.path.join(qa_artifact_dir, "qa7_cost_capacity_reconciliation.csv"))
-    
+
     if len(results["qa8"]["calibration_leak_comparison"]) > 0:
         results["qa8"]["calibration_leak_comparison"].to_csv(os.path.join(qa_artifact_dir, "qa8_calibration_leak_comparison.csv"))
 
@@ -86,7 +85,7 @@ def main() -> int:
 
 def write_qa_markdown_report(results: dict, output_dir: str) -> None:
     report_path = os.path.join(output_dir, "sprint0_diagnostics_qa_report.md")
-    
+
     qa1 = results["qa1"]["comparison_table"]
     qa2 = results["qa2"]["alignment_table"]
     qa3 = results["qa3"]["sign_comparison_table"]

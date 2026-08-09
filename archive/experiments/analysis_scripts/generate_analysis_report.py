@@ -4,9 +4,9 @@ Generate detailed analysis and comparison report for three signal modes.
 
 import os
 import sys
-import pandas as pd
-import numpy as np
+
 import matplotlib.pyplot as plt
+import pandas as pd
 
 ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../"))
 if ROOT_DIR not in sys.path:
@@ -16,10 +16,6 @@ RESULTS_DIR = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "..", "results")
 )
 
-from backtest_config import create_timestamped_output_dir
-from data_loader import download_data, preprocess_data
-from performance import calculate_metrics
-from strategy import LeadLagStrategy
 
 
 def main():
@@ -43,7 +39,7 @@ def main():
         os.path.join(output_base, "03_all_modes_metrics_overall.csv")
     )
     period_df = pd.read_csv(os.path.join(output_base, "04_period_based_metrics.csv"))
-    daily_df = pd.read_csv(
+    pd.read_csv(
         os.path.join(output_base, "02_all_modes_daily_return.csv"), index_col=0
     )
     exec_df = pd.read_csv(

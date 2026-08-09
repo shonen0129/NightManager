@@ -5,9 +5,10 @@ Focus on signal construction and position management differences
 
 import os
 import sys
-import pandas as pd
-import numpy as np
+
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 
 ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../"))
 if ROOT_DIR not in sys.path:
@@ -15,7 +16,6 @@ if ROOT_DIR not in sys.path:
 
 from backtest_config import create_timestamped_output_dir
 from data_loader import download_data, preprocess_data
-from performance import calculate_metrics
 from strategy import LeadLagStrategy
 
 
@@ -324,7 +324,7 @@ def generate_extended_analysis():
     )
     print(f"Model B Herfindahl: {signals_df['b_weight_concentration'].mean():.4f}")
     print(f"Model C Herfindahl: {signals_df['c_weight_concentration'].mean():.4f}")
-    print(f"  (Higher = more concentrated, lower = more diversified)")
+    print("  (Higher = more concentrated, lower = more diversified)")
 
     # Generate report
     report_path = os.path.join(output_dir, "03_extended_analysis_report.txt")
@@ -392,9 +392,9 @@ def generate_extended_analysis():
             f"   Return per position (C): {returns_c / pos_count_c * 10 * 100:.4f}% (assuming {pos_count_c:.1f} pos)\n"
         )
         f.write(
-            f"   → Model B's main advantage: POSITION COUNT (always full allocation)\n"
+            "   → Model B's main advantage: POSITION COUNT (always full allocation)\n"
         )
-        f.write(f"   → Model C's limitation: Gap filter reduces effective exposure\n\n")
+        f.write("   → Model C's limitation: Gap filter reduces effective exposure\n\n")
 
         f.write("【HYPOTHESIS: The Core Difference】\n\n")
 
@@ -405,8 +405,8 @@ def generate_extended_analysis():
         f.write(
             "   • Model C: If gap-limits drop either side below 2, ZERO POSITIONS\n"
         )
-        f.write(f"   • Effective exposure: Model B ~100%, Model C ~80%\n")
-        f.write(f"   • Impact on 115% AR = ~80% from always-on positioning\n\n")
+        f.write("   • Effective exposure: Model B ~100%, Model C ~80%\n")
+        f.write("   • Impact on 115% AR = ~80% from always-on positioning\n\n")
 
         f.write("2. **Signal Construction** (Minor driver)\n")
         f.write("   • Gap-open adjustment is small (0.004% mean impact)\n")

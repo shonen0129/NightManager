@@ -1,11 +1,10 @@
-import pytest
 import numpy as np
 import pandas as pd
-
+import pytest
 from domain.models.prior_residual_lowrank import (
+    ResidualizedPriorSubspaceLowRankGapModel,
     project_to_subspace,
     solve_factor_propagation,
-    ResidualizedPriorSubspaceLowRankGapModel,
 )
 from domain.signals.lead_lag import build_v3_static
 
@@ -184,7 +183,6 @@ def test_normalize_signals():
 def test_volatility_targeting_series():
     """Verify vol targeting on a series of returns."""
     import numpy as np
-    import pandas as pd
 
     np.random.seed(42)
     returns = np.random.randn(100) * 0.01  # 1% daily return volatility

@@ -34,24 +34,15 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import pickle
 import warnings
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional, Tuple
+from typing import Any, Literal
 
 import numpy as np
 import pandas as pd
 
-from .evaluation import (
-    AdoptionDecision,
-    CostModel,
-    PerformanceMetrics,
-    compute_net_returns,
-    compute_performance_metrics,
-    evaluate_correction_adoption,
-)
 from .feature_builder import FeatureBuilder, FeatureFlags
 from .time_series_cv import (
     TimeSeriesPurgeSplit,
@@ -108,10 +99,10 @@ class GBTHyperparams:
 
     def to_lightgbm_params(
         self,
-        monotone_constraints: Optional[List[int]] = None,
-    ) -> Dict[str, Any]:
+        monotone_constraints: list[int] | None = None,
+    ) -> dict[str, Any]:
         """Convert to LightGBM parameter dictionary."""
-        params: Dict[str, Any] = {
+        params: dict[str, Any] = {
             "objective": "regression",
             "metric": "rmse",
             "max_depth": self.max_depth,
@@ -133,10 +124,10 @@ class GBTHyperparams:
 
     def to_xgboost_params(
         self,
-        monotone_constraints: Optional[List[int]] = None,
-    ) -> Dict[str, Any]:
+        monotone_constraints: list[int] | None = None,
+    ) -> dict[str, Any]:
         """Convert to XGBoost parameter dictionary."""
-        params: Dict[str, Any] = {
+        params: dict[str, Any] = {
             "objective": "reg:squarederror",
             "eval_metric": "rmse",
             "max_depth": self.max_depth,
@@ -161,11 +152,11 @@ class GBTHyperparams:
 
 
 def build_monotone_constraints(
-    feature_names: List[str],
-    default_constraints: Optional[Dict[str, int]] = None,
-    sector_overrides: Optional[Dict[str, Dict[str, int]]] = None,
+    feature_names: list[str],
+    default_constraints: dict[str, int] | None = None,
+    sector_overrides: dict[str, dict[str, int]] | None = None,
     n_sectors: int = 17,
-) -> List[int]:
+) -> list[int]:
     """Build per-feature monotone constraint list for GBT training.
 
     In single-model mode each factor feature appears once (shared across all
@@ -193,7 +184,7 @@ def build_monotone_constraints(
     if default_constraints is None:
         default_constraints = {}
 
-    constraints: List[int] = []
+    constraints: list[int] = []
     for feat in feature_names:
         c = 0
         for pattern, direction in default_constraints.items():
@@ -247,11 +238,11 @@ class NonlinearCorrectionLayer:
         self,
         n_factors: int = 6,
         n_sectors: int = 17,
-        hyperparams: Optional[GBTHyperparams] = None,
-        flags: Optional[FeatureFlags] = None,
+        hyperparams: GBTHyperparams | None = None,
+        flags: FeatureFlags | None = None,
         multi_output_mode: Literal["single", "per_sector"] = "single",
         correction_enabled: bool = True,
-        monotone_constraints: Optional[List[int]] = None,
+        monotone_constraints: list[int] | None = None,
         contribution_cap: float = 0.3,
     ) -> None:
         self.n_factors = n_factors
@@ -272,9 +263,9 @@ class NonlinearCorrectionLayer:
         )
 
         # Fitted models: one per sector in per_sector mode, one in single mode
-        self._models: List[Any] = []
+        self._models: list[Any] = []
         self._is_fitted: bool = False
-        self._fit_metadata: Dict[str, Any] = {}
+        self._fit_metadata: dict[str, Any] = {}
 
     # ------------------------------------------------------------------
     # fit
@@ -286,11 +277,11 @@ class NonlinearCorrectionLayer:
         z_lin_matrix: np.ndarray,
         y_matrix: np.ndarray,
         dates: pd.DatetimeIndex,
-        tradeable_mask: Optional[np.ndarray] = None,
-        signal_dates: Optional[pd.DatetimeIndex] = None,
+        tradeable_mask: np.ndarray | None = None,
+        signal_dates: pd.DatetimeIndex | None = None,
         n_trials_recorded: int = 1,
-        cv_splitter: Optional[TimeSeriesPurgeSplit] = None,
-    ) -> "NonlinearCorrectionLayer":
+        cv_splitter: TimeSeriesPurgeSplit | None = None,
+    ) -> NonlinearCorrectionLayer:
         """Train the correction model.
 
         Parameters
@@ -404,7 +395,7 @@ class NonlinearCorrectionLayer:
         self,
         f_t: np.ndarray,
         z_lin: np.ndarray,
-        f_history: Optional[np.ndarray] = None,
+        f_history: np.ndarray | None = None,
     ) -> np.ndarray:
         """Compute z_final = z_lin + clip(g(f_t), ±clip_scale * |z_lin|).
 
@@ -445,8 +436,8 @@ class NonlinearCorrectionLayer:
         self,
         f_t: np.ndarray,
         z_lin: np.ndarray,
-        f_history: Optional[np.ndarray] = None,
-    ) -> Dict[str, Any]:
+        f_history: np.ndarray | None = None,
+    ) -> dict[str, Any]:
         """Return z_final plus SHAP-based feature attribution.
 
         Parameters
@@ -524,7 +515,7 @@ class NonlinearCorrectionLayer:
         logger.info("NonlinearCorrectionLayer saved to %s", path)
 
     @classmethod
-    def load(cls, path: str) -> "NonlinearCorrectionLayer":
+    def load(cls, path: str) -> NonlinearCorrectionLayer:
         """Load a saved correction layer from disk.
 
         Parameters
@@ -539,7 +530,7 @@ class NonlinearCorrectionLayer:
         out = Path(path)
 
         meta_path = out / "metadata.json"
-        with open(meta_path, "r", encoding="utf-8") as f:
+        with open(meta_path, encoding="utf-8") as f:
             meta = json.load(f)
 
         hp_dict = meta.get("hyperparams", {})
@@ -633,7 +624,7 @@ class NonlinearCorrectionLayer:
         self,
         f_matrix: np.ndarray,
         f_history_window: int = 5,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Compute SHAP values for a panel of factor scores.
 
         Parameters
@@ -706,7 +697,7 @@ class NonlinearCorrectionLayer:
 
         # categorical_feature index for sector_id
         feat_names = self.feature_builder.feature_names
-        cat_features: List[int] = []
+        cat_features: list[int] = []
         if self.multi_output_mode == "single" and "sector_id" in feat_names:
             cat_features = [feat_names.index("sector_id")]
 
@@ -744,9 +735,9 @@ class NonlinearCorrectionLayer:
         self,
         f_t: np.ndarray,
         z_lin: np.ndarray,
-        f_history: Optional[np.ndarray],
+        f_history: np.ndarray | None,
         return_raw: bool = False,
-    ) -> np.ndarray | Tuple[np.ndarray, np.ndarray]:
+    ) -> np.ndarray | tuple[np.ndarray, np.ndarray]:
         """Predict raw correction g and apply scale clipping."""
         f_t = np.asarray(f_t, dtype=np.float32).reshape(-1)
         z_lin = np.asarray(z_lin, dtype=float).reshape(-1)
@@ -776,8 +767,8 @@ class NonlinearCorrectionLayer:
     def _compute_shap(
         self,
         f_t: np.ndarray,
-        f_history: Optional[np.ndarray],
-    ) -> Optional[np.ndarray]:
+        f_history: np.ndarray | None,
+    ) -> np.ndarray | None:
         """Compute SHAP values for a single day.
 
         Returns ndarray (N_J, n_features) or None if shap is unavailable.
@@ -817,7 +808,7 @@ class NonlinearCorrectionLayer:
     # ------------------------------------------------------------------
 
     @classmethod
-    def from_config(cls, config: Dict[str, Any]) -> "NonlinearCorrectionLayer":
+    def from_config(cls, config: dict[str, Any]) -> NonlinearCorrectionLayer:
         """Instantiate from a parsed YAML config dict.
 
         Parameters
@@ -868,7 +859,7 @@ class NonlinearCorrectionLayer:
             flags=flags,
             single_model=(multi_output_mode == "single"),
         )
-        defaults = {
+        {
             k: int(v)
             for k, v in mono_raw.items()
             if k.startswith("default_")

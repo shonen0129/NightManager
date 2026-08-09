@@ -25,9 +25,9 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from research.backtest_common import load_execution_data
 from leadlag.data.tickers import JP_TICKERS
 from leadlag.models.sre import compute_jp_target_returns
+from research.backtest_common import load_execution_data
 
 
 def _load(out_dir: Path) -> tuple[pd.DataFrame, pd.Series, pd.Series, pd.Series, pd.DataFrame, pd.DataFrame]:
@@ -63,7 +63,7 @@ def _cost_of_day(
     reverse_bps: float = 2.0,
 ) -> float:
     alpha_mask = np.where(w_t > 0, alpha_long, np.where(w_t < 0, alpha_short, 0.0))
-    turnover = float(np.sum(np.abs(w_t - w_prev)) / 2.0)
+    float(np.sum(np.abs(w_t - w_prev)) / 2.0)
     slip = slip_bps / 10000.0
     financing_daily = fin_annual / 365.0
     borrow_daily = borrow_annual / 365.0

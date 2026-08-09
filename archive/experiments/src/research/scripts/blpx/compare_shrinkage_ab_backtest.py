@@ -9,21 +9,19 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-import numpy as np
-import pandas as pd
-
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "src"))
 
+from legacy_src.models.sre import SectorRelativeEnsembleModel
+
+from leadlag.models.sector_relative_ensemble_blp_enhanced import (
+    SectorRelativeEnsembleBLPEnhancedModel,
+)
+from leadlag.reporting.metrics import calculate_metrics
 from research.backtest_common import (
     load_cached_df_exec,
     run_backtest_with_costs,
 )
-from leadlag.models.sector_relative_ensemble_blp_enhanced import (
-    SectorRelativeEnsembleBLPEnhancedModel,
-)
-from legacy_src.models.sre import SectorRelativeEnsembleModel
-from leadlag.reporting.metrics import calculate_metrics
 
 CONFIGS = {
     "old (lw=0.5, reg=0.75)": {"lambda_lw": 0.5, "lambda_reg": 0.75},
@@ -88,7 +86,7 @@ def main():
     print(f"{'Turnover':<15} {old_t:>15.4f} {new_t:>15.4f} {new_t-old_t:>+15.4f}")
 
     # Also test with guardrail enabled on old params
-    print(f"\n[Backtest: old params + guardrail (min_raw_weight=0.30)]")
+    print("\n[Backtest: old params + guardrail (min_raw_weight=0.30)]")
     cfg_guard = {
         "lambda_lw": 0.5,
         "lambda_reg": 0.75,
@@ -137,7 +135,7 @@ def main():
         print(f"  Total:   {metrics['Total Return']:.4f}")
 
     # SRE with guardrail
-    print(f"\n[SRE Backtest: old params + guardrail (min_raw_weight=0.30)]")
+    print("\n[SRE Backtest: old params + guardrail (min_raw_weight=0.30)]")
     cfg_guard_sre = {
         "lambda_lw": 0.5,
         "lambda_reg": 0.75,

@@ -9,7 +9,6 @@ from __future__ import annotations
 import logging
 import os
 from datetime import datetime
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -70,7 +69,7 @@ def generate_sprint3b_report(
     within_date_std = _load_csv(artifact_dir, "qa/within_date_feature_std.csv")
     leakage_audit = _load_csv(artifact_dir, "qa/leakage_audit.csv")
     fdr_audit = _load_csv(artifact_dir, "qa/fdr_audit.csv")
-    selected_features = _load_csv(artifact_dir, "selected_features_by_window.csv")
+    _load_csv(artifact_dir, "selected_features_by_window.csv")
 
     start_date = run_metadata.get("start_date", "N/A")
     end_date = run_metadata.get("end_date", "N/A")

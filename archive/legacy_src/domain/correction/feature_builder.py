@@ -28,8 +28,7 @@ Notes
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import List, Optional
+from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
@@ -71,21 +70,21 @@ class FeatureBuilder:
         self,
         n_factors: int = 6,
         n_sectors: int = 17,
-        flags: Optional[FeatureFlags] = None,
+        flags: FeatureFlags | None = None,
         single_model: bool = True,
     ) -> None:
         self.n_factors = n_factors
         self.n_sectors = n_sectors
         self.flags = flags if flags is not None else FeatureFlags()
         self.single_model = single_model
-        self._feature_names: List[str] = self._build_feature_names()
+        self._feature_names: list[str] = self._build_feature_names()
 
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
 
     @property
-    def feature_names(self) -> List[str]:
+    def feature_names(self) -> list[str]:
         """Ordered list of feature column names."""
         return list(self._feature_names)
 
@@ -97,8 +96,8 @@ class FeatureBuilder:
     def build_single_day(
         self,
         f_t: np.ndarray,
-        sector_ids: Optional[np.ndarray] = None,
-        f_history: Optional[np.ndarray] = None,
+        sector_ids: np.ndarray | None = None,
+        f_history: np.ndarray | None = None,
     ) -> np.ndarray:
         """Build feature matrix for a single day across all sectors.
 
@@ -126,7 +125,7 @@ class FeatureBuilder:
             sector_ids = np.arange(self.n_sectors, dtype=np.int32)
         sector_ids = np.asarray(sector_ids, dtype=np.int32).reshape(-1)
 
-        cols: List[np.ndarray] = []
+        cols: list[np.ndarray] = []
 
         # Base factor scores – broadcast to N_J rows
         base = np.tile(f_t, (self.n_sectors, 1))  # (N_J, K)
@@ -156,8 +155,8 @@ class FeatureBuilder:
     def build_panel(
         self,
         f_matrix: np.ndarray,
-        dates: Optional[pd.DatetimeIndex] = None,
-    ) -> tuple[np.ndarray, np.ndarray, Optional[pd.DatetimeIndex]]:
+        dates: pd.DatetimeIndex | None = None,
+    ) -> tuple[np.ndarray, np.ndarray, pd.DatetimeIndex | None]:
         """Build a flat (long) feature matrix for training from a time-series panel.
 
         Each day t is expanded into N_J rows (one per sector), giving a
@@ -182,8 +181,8 @@ class FeatureBuilder:
                 f"f_matrix must have {self.n_factors} columns, got {K}"
             )
 
-        rows: List[np.ndarray] = []
-        sector_rows: List[np.ndarray] = []
+        rows: list[np.ndarray] = []
+        sector_rows: list[np.ndarray] = []
 
         for t in range(T):
             f_t = f_matrix[t].astype(np.float32)
@@ -195,7 +194,7 @@ class FeatureBuilder:
         X = np.concatenate(rows, axis=0)  # (T*N_J, n_features)
         s = np.concatenate(sector_rows, axis=0)  # (T*N_J,)
 
-        exp_dates: Optional[pd.DatetimeIndex] = None
+        exp_dates: pd.DatetimeIndex | None = None
         if dates is not None:
             exp_dates = pd.DatetimeIndex(
                 np.repeat(dates, self.n_sectors)
@@ -207,8 +206,8 @@ class FeatureBuilder:
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _build_feature_names(self) -> List[str]:
-        names: List[str] = []
+    def _build_feature_names(self) -> list[str]:
+        names: list[str] = []
         for k in range(self.n_factors):
             names.append(f"f_{k}")
         if self.flags.use_squared:
@@ -227,7 +226,7 @@ class FeatureBuilder:
     def _compute_delta(
         self,
         f_t: np.ndarray,
-        f_history: Optional[np.ndarray],
+        f_history: np.ndarray | None,
     ) -> np.ndarray:
         """Compute f_t - f_{t-window}.  Returns zeros if history insufficient."""
         if f_history is None or len(f_history) == 0:

@@ -8,12 +8,14 @@ runner スクリプトが感応度分析の MVO ループで詰まったため�
 
 from __future__ import annotations
 
+import logging
 import os
 import sys
-import logging
+
+import matplotlib
 import numpy as np
 import pandas as pd
-import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -22,6 +24,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(na
 logger = logging.getLogger(__name__)
 
 from pathlib import Path
+
 ROOT = Path(__file__).resolve().parents[3]
 
 ARTIFACT_DIR = ROOT / "artifacts" / "sprint2_cost_aware_aum1m"
@@ -72,6 +75,7 @@ logger.info("Generating topix_comparison_by_model.csv ...")
 # TOPIX 日次リターンはキャッシュから読む
 sys.path.insert(0, str(ROOT / "src"))
 from leadlag.data.cache import load_df_exec_from_local_cache
+
 df_exec = load_df_exec_from_local_cache()
 r_topix_cc = df_exec["topix_cc_trade"].dropna()
 

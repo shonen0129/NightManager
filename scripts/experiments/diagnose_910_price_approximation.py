@@ -77,7 +77,7 @@ def main():
     diff_vs_open = (approx_arr - open_arr) / open_arr
     print(f"\n=== 9:10 Price Approximation Diagnostic: {ticker} ===")
     print(f"Date range: {valid_dates[0].date()} to {valid_dates[-1].date()} ({len(valid_dates)} days)")
-    print(f"\n(High+Low)/2 vs Open:")
+    print("\n(High+Low)/2 vs Open:")
     print(f"  Mean bias:  {np.nanmean(diff_vs_open)*10000:.2f} bps")
     print(f"  Std:        {np.nanstd(diff_vs_open)*10000:.2f} bps")
     print(f"  Max abs:    {np.nanmax(np.abs(diff_vs_open))*10000:.2f} bps")
@@ -85,7 +85,7 @@ def main():
 
     # Compare approx vs close (intraday drift)
     diff_vs_close = (approx_arr - close_arr) / close_arr
-    print(f"\n(High+Low)/2 vs Close (9:10 bar):")
+    print("\n(High+Low)/2 vs Close (9:10 bar):")
     print(f"  Mean:       {np.nanmean(diff_vs_close)*10000:.2f} bps")
     print(f"  Std:        {np.nanstd(diff_vs_close)*10000:.2f} bps")
 

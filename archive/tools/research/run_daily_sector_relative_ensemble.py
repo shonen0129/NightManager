@@ -19,10 +19,11 @@ import yaml
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
+from legacy_src.models.sre import SectorRelativeEnsembleModel
+
 from leadlag.data.fetcher import download_data
 from leadlag.data.preprocessor import preprocess_data
 from leadlag.data.tickers import JP_TICKERS, TOPIX_TICKER
-from legacy_src.models.sre import SectorRelativeEnsembleModel
 
 # Set up logging
 logging.basicConfig(
@@ -102,7 +103,9 @@ def main():
     # 3. Instantiate the correct model class and generate daily decisions
     model_name = cfg.get("model", {}).get("name", "sector_relative_ensemble")
     if model_name in ["production_residual_blpx", "sector_relative_ensemble_blp_enhanced"]:
-        from leadlag.models.sector_relative_ensemble_blp_enhanced import SectorRelativeEnsembleBLPEnhancedModel
+        from leadlag.models.sector_relative_ensemble_blp_enhanced import (
+            SectorRelativeEnsembleBLPEnhancedModel,
+        )
         model = SectorRelativeEnsembleBLPEnhancedModel(cfg)
     else:
         model = SectorRelativeEnsembleModel(cfg)

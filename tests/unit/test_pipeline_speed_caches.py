@@ -1,6 +1,6 @@
 import json
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
 import pandas as pd
@@ -71,7 +71,7 @@ def test_session_cache_is_private_and_stale_cache_is_rejected(tmp_path, monkeypa
 
     state = json.loads(path.read_text())
     state["saved_at"] = (
-        datetime.now(timezone.utc) - timedelta(minutes=16)
+        datetime.now(UTC) - timedelta(minutes=16)
     ).isoformat()
     path.write_text(json.dumps(state))
 

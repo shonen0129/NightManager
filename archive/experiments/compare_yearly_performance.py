@@ -1,24 +1,24 @@
 import sys
 from pathlib import Path
-import pandas as pd
+
 import numpy as np
+import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
 sys.path.insert(0, str(SRC))
 
 # Import system modules
-import data.ticker_registry as registry
+import backtest.runner as runner
 import data.preprocessor as preprocessor
+import data.ticker_registry as registry
 import strategy as sys_strategy
-from runner.config import ProductionConfig
 from domain.signals import lead_lag as signals
-from performance import calculate_metrics
+from runner.config import ProductionConfig
 
 # Load approved sensitivities
-from search_optimal_style_combination import make_custom_build_v3_static, BASE_US_TICKERS
+from search_optimal_style_combination import BASE_US_TICKERS, make_custom_build_v3_static
 
-import backtest.runner as runner
 
 def run_backtest_for_comb(active_styles):
     active_us_tickers = BASE_US_TICKERS + active_styles
@@ -104,7 +104,7 @@ def get_yearly_metrics(daily_returns: pd.Series) -> pd.DataFrame:
         running_max = cum.cummax()
         drawdowns = (cum - running_max) / running_max
         mdd = drawdowns.min()
-        
+
         records.append({
             "Year": y,
             "AR": ar,
@@ -118,28 +118,28 @@ def get_yearly_metrics(daily_returns: pd.Series) -> pd.DataFrame:
 def main():
     print("Running Baseline backtest...")
     baseline_returns = run_backtest_for_comb([])
-    
+
     print("Running Optimal Combination (MTUM, VLUE, IUSG, USMV) backtest...")
     optimal_styles = ["MTUM", "VLUE", "IUSG", "USMV"]
     optimal_returns = run_backtest_for_comb(optimal_styles)
-    
+
     print("\nComputing yearly metrics...")
     df_base = get_yearly_metrics(baseline_returns)
     df_opt = get_yearly_metrics(optimal_returns)
-    
+
     # Merge and print comparison
     df_base = df_base.rename(columns=lambda x: f"Base_{x}")
     df_opt = df_opt.rename(columns=lambda x: f"Opt_{x}")
     df_compare = pd.concat([df_base, df_opt], axis=1)
-    
+
     # Calculate AR and R/R differences
     df_compare["Diff_AR"] = df_compare["Opt_AR"] - df_compare["Base_AR"]
     df_compare["Diff_R/R"] = df_compare["Opt_R/R"] - df_compare["Base_R/R"]
-    
+
     print("\n=== Yearly Performance Comparison ===")
     print("Baseline (11 US Sectors) vs Optimal (11 Sectors + MTUM, VLUE, IUSG, USMV)")
     print("======================================")
-    
+
     # Print markdown table
     print("\n| Year | Base AR | Opt AR | AR Diff | Base R/R | Opt R/R | R/R Diff | Base MDD | Opt MDD |")
     print("| :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |")
@@ -155,7 +155,7 @@ def main():
         base_mdd = f"{row['Base_MDD']*100:.2f}%"
         opt_mdd = f"{row['Opt_MDD']*100:.2f}%"
         print(f"| {year} | {base_ar} | {opt_ar} | {diff_ar} | {base_rr} | {opt_rr} | {diff_rr} | {base_mdd} | {opt_mdd} |")
-        
+
     print("\nSummary statistics:")
     print(f"Total Years where Optimal AR > Baseline AR: {sum(df_compare['Diff_AR'] > 0)} / {len(df_compare)}")
     print(f"Total Years where Optimal R/R > Baseline R/R: {sum(df_compare['Diff_R/R'] > 0)} / {len(df_compare)}")

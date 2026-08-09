@@ -97,9 +97,8 @@ def main():
     logger.info("Loading df_exec...")
     df_exec = load_df_exec_from_local_cache()
     T = len(df_exec)
-    y_target = compute_jp_target_returns(df_exec, JP_TICKERS)
-    sim_dates = df_exec.index
-    start_idx = max(df_exec.index.searchsorted(pd.to_datetime(args.start_date)), 60)
+    compute_jp_target_returns(df_exec, JP_TICKERS)
+    max(df_exec.index.searchsorted(pd.to_datetime(args.start_date)), 60)
 
     all_results = {}
 

@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 """Run V2 production backtest via BacktestEngine.run_v2_backtest."""
 import argparse
-import sys
 import logging
+import sys
 from pathlib import Path
 
 import numpy as np
-import pandas as pd
 import yaml
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -17,7 +16,6 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from leadlag.data.cache import load_df_exec_from_local_cache
 from leadlag.execution.backtester import BacktestEngine
-from leadlag.reporting.metrics import calculate_metrics
 
 
 def main():

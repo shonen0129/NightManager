@@ -13,7 +13,6 @@ Outputs:
 from __future__ import annotations
 
 import os
-import sys
 
 import matplotlib
 
@@ -227,7 +226,7 @@ def oos_validation(
 
     # Learn bin-wise Kelly from training set
     train["bin"] = pd.qcut(train[metric_col], q=5, duplicates="drop")
-    bin_edges = train.groupby("bin", observed=True)[metric_col].agg(["min", "max"])
+    train.groupby("bin", observed=True)[metric_col].agg(["min", "max"])
 
     # Map test data to training bins
     trained_kelly = {}
@@ -489,7 +488,7 @@ def main():
     )
 
     logistic_dt = analyze_logistic_fit(df, "dispersion_indicator", "D_t")
-    print(f"\n  Logistic fit (normalized):")
+    print("\n  Logistic fit (normalized):")
     print(f"    Spearman ρ(D_t, win): {logistic_dt.get('spearman_rho', 'N/A'):.4f}")
     print(f"    p-value:              {logistic_dt.get('spearman_pval', 'N/A'):.4e}")
     print(f"    Slope (normalized):   {logistic_dt.get('slope_normalized', 'N/A'):.4f}")
@@ -518,7 +517,7 @@ def main():
     )
 
     logistic_sigma = analyze_logistic_fit(df, "sigma_s", "sigma_s")
-    print(f"\n  Logistic fit (normalized):")
+    print("\n  Logistic fit (normalized):")
     print(f"    Spearman ρ(σ_s, win): {logistic_sigma.get('spearman_rho', 'N/A'):.4f}")
     print(f"    p-value:              {logistic_sigma.get('spearman_pval', 'N/A'):.4e}")
 
@@ -546,7 +545,7 @@ def main():
     )
 
     logistic_sigstd = analyze_logistic_fit(df, "signal_std", "signal_std")
-    print(f"\n  Logistic fit (normalized):")
+    print("\n  Logistic fit (normalized):")
     print(
         f"    Spearman ρ(signal_std, win): {logistic_sigstd.get('spearman_rho', 'N/A'):.4f}"
     )
@@ -597,7 +596,7 @@ def main():
         print(f"    OOS R/R (kelly):         {oos['oos_RR_kelly']:.2f}")
         print(f"    OOS R/R (half kelly):    {oos['oos_RR_half_kelly']:.2f}")
 
-        print(f"    Trained bins:")
+        print("    Trained bins:")
         for bname, binfo in oos["trained_bins"].items():
             print(
                 f"      {bname}: p={binfo['p']:.3f}, payoff={binfo['payoff']:.3f}, f*={binfo['kelly_f']:.4f}"

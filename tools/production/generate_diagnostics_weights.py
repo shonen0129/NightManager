@@ -23,8 +23,9 @@ sys.path.insert(0, str(ROOT / "src"))
 from leadlag.data.fetcher import download_data
 from leadlag.data.preprocessor import preprocess_data
 from leadlag.data.tickers import JP_TICKERS, TOPIX_TICKER
-from leadlag.models.sector_relative_ensemble_blp_enhanced import SectorRelativeEnsembleBLPEnhancedModel
-from leadlag.models.sre import compute_jp_target_returns
+from leadlag.models.sector_relative_ensemble_blp_enhanced import (
+    SectorRelativeEnsembleBLPEnhancedModel,
+)
 
 
 def normalize_cross_sectional(x: np.ndarray) -> np.ndarray:
@@ -52,27 +53,27 @@ def run_backtest_fast(
     T, n_j = signal_vals.shape
     weights = np.zeros((T, n_j))
     num_positions = int(np.round(n_j * q))
-    
+
     sort_order = np.argsort(signal_vals, axis=1)
     short_idx = sort_order[:, :num_positions]
     long_idx = sort_order[:, -num_positions:]
-    
+
     medians = np.take_along_axis(signal_vals, sort_order[:, 8:9], axis=1)
     s_centered = signal_vals - medians
     row_indices = np.arange(T)[:, None]
-    
+
     long_raw = s_centered[row_indices, long_idx]
     long_raw = np.maximum(long_raw, 1e-8)
     long_denom = np.sum(long_raw, axis=1, keepdims=True)
     long_denom_safe = np.where(long_denom > 0, long_denom, 1.0)
     weights[row_indices, long_idx] = np.where(long_denom > 0, long_raw / long_denom_safe, 0.0)
-    
+
     short_raw = -s_centered[row_indices, short_idx]
     short_raw = np.maximum(short_raw, 1e-8)
     short_denom = np.sum(short_raw, axis=1, keepdims=True)
     short_denom_safe = np.where(short_denom > 0, short_denom, 1.0)
     weights[row_indices, short_idx] = np.where(short_denom > 0, -(short_raw / short_denom_safe), 0.0)
-    
+
     return weights
 
 
@@ -97,7 +98,7 @@ def main():
     logger.info("[1/3] Downloading/loading market data...")
     raw_data = download_data(beta_window=beta_window)
     logger.info("[2/3] Preprocessing market data...")
-    df_exec = preprocess_data(raw_data, beta_window=beta_window, 
+    df_exec = preprocess_data(raw_data, beta_window=beta_window,
                              beta_ewma_halflife=beta_ewma_halflife,
                              beta_shrinkage=beta_shrinkage,
                              beta_winsor_sigma=beta_winsor_sigma)
@@ -116,40 +117,40 @@ def main():
     sim_dates_slice = sim_dates[sim_dates >= args.start_date]
     if args.end_date != "latest":
         sim_dates_slice = sim_dates_slice[sim_dates_slice <= args.end_date]
-    
-    logger.info("Backtest window: %s to %s (%d days)", 
-                sim_dates_slice[0].strftime('%Y-%m-%d'), 
-                sim_dates_slice[-1].strftime('%Y-%m-%d'), 
+
+    logger.info("Backtest window: %s to %s (%d days)",
+                sim_dates_slice[0].strftime('%Y-%m-%d'),
+                sim_dates_slice[-1].strftime('%Y-%m-%d'),
                 len(sim_dates_slice))
 
     logger.info("[3/3] Building model and generating signals...")
     model = SectorRelativeEnsembleBLPEnhancedModel(cfg)
-    
+
     # Generate signals using predict_signals (following validate_production_residual_blpx.py pattern)
     blpx_pred = model.predict_signals(df_exec)
-    
+
     # Extract residual BLPX signals and normalize
     z_residual_blpx = normalize_cross_sectional(blpx_pred["residual_blpx_signals"].loc[sim_dates_slice].values)
-    
+
     # Extract realized target returns (9:10-to-close)
     y_jp_target_slice = df_exec.loc[sim_dates_slice, [f"jp_oc_{tk}" for tk in JP_TICKERS]].rename(columns=lambda c: c.replace("jp_oc_", ""))
     y_jp_target_vals = y_jp_target_slice.values
-    
+
     # Run backtest to get weights
     logger.info("Running backtest simulation...")
     weights = run_backtest_fast(z_residual_blpx, y_jp_target_vals, q=0.3, slippage_bps=5.0)
-    
+
     # Save weights
     out_dir = ROOT / args.output_dir
     out_dir.mkdir(parents=True, exist_ok=True)
-    
+
     weights_df = pd.DataFrame(weights, index=sim_dates_slice, columns=JP_TICKERS)
     weights_file = out_dir / "daily_positions_Residual-BLPX_only.csv"
     weights_df.to_csv(weights_file)
-    
+
     logger.info("Weights file saved to: %s", weights_file)
     logger.info("Total dates: %d", len(weights_df))
-    logger.info("Date range: %s to %s", 
+    logger.info("Date range: %s to %s",
                 weights_df.index[0].strftime('%Y-%m-%d'),
                 weights_df.index[-1].strftime('%Y-%m-%d'))
 

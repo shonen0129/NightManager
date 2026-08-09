@@ -1,6 +1,8 @@
-import pandas as pd
 from pathlib import Path
+
 import matplotlib
+import pandas as pd
+
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 

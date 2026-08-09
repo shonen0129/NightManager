@@ -17,8 +17,8 @@ import yaml
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
-from leadlag.data.cache import load_df_exec_from_local_cache
 from experiments.ml_order_decision.phase1 import run_phase1_experiment
+from leadlag.data.cache import load_df_exec_from_local_cache
 
 logging.basicConfig(
     level=logging.INFO,

@@ -219,7 +219,7 @@ def main():
         res_sre_returns = daily_returns_db["SRE_current"]
 
         # Identify best candidate based on Sharpe from OOS ranking
-        approved_candidates = oos_ranking_5bps[oos_ranking_5bps["pass_candidate"] == True]
+        approved_candidates = oos_ranking_5bps[oos_ranking_5bps["pass_candidate"]]
         if len(approved_candidates) > 0:
             best_candidate_row = approved_candidates.iloc[0]
         else:
@@ -651,7 +651,7 @@ def main():
     monthly_log.to_csv(out_dir / "monthly_win_loss.csv")
 
     # Re-run best model to output audit
-    approved_candidates = oos_ranking_5bps[oos_ranking_5bps["pass_candidate"] == True]
+    approved_candidates = oos_ranking_5bps[oos_ranking_5bps["pass_candidate"]]
     if len(approved_candidates) > 0:
         best_candidate_row = approved_candidates.iloc[0]
     else:

@@ -2,14 +2,12 @@
 
 from __future__ import annotations
 
-import numpy as np
-import pytest
 from unittest.mock import MagicMock
 
 from leadlag.execution.cost_calculator import (
+    CostBreakdown,
     CostCalculator,
     CostConfig,
-    CostBreakdown,
 )
 from leadlag.execution.microstructure.slippage_model import CostSource
 

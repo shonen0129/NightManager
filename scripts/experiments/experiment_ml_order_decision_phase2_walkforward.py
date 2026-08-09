@@ -15,7 +15,6 @@ LightGBM hyperparameters at -20% and +20%.
 from __future__ import annotations
 
 import argparse
-import copy
 import logging
 import sys
 import time
@@ -29,8 +28,8 @@ from scipy.stats import norm, ttest_rel
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
-from leadlag.data.cache import load_df_exec_from_local_cache
 from experiments.ml_order_decision.phase2 import run_phase2_experiment
+from leadlag.data.cache import load_df_exec_from_local_cache
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
@@ -188,8 +187,8 @@ def main():
     over_m = compute_metrics(over_all)
 
     pooled_diff = over_all - base_all
-    skew = float(pooled_diff.skew())
-    kurt_excess = float(pooled_diff.kurt())
+    float(pooled_diff.skew())
+    float(pooled_diff.kurt())
 
     # DSR on the overlay daily returns (not the difference; design uses Pooled net Sharpe)
     dsr = compute_deflated_sharpe(
@@ -205,7 +204,7 @@ def main():
     sens_results = []
     if not args.no_sensitivity:
         logger.info("=== Sensitivity analysis (2024 fold) ===")
-        final_fold = fold_results[-1]
+        fold_results[-1]
         train_start, train_end, test_start, test_end = folds[-1]
         for label, mult in [("minus20", 0.8), ("plus20", 1.2)]:
             lgbm_kwargs = {
@@ -246,7 +245,7 @@ def main():
 
     lines = [
         "# Phase 2 Walk-Forward Validation + DSR (LightGBM Overlay)\n",
-        f"## Pooled OOS performance\n",
+        "## Pooled OOS performance\n",
         f"- Periods: {', '.join(r['test_year'] for r in fold_results)}\n",
         f"- Total OOS days: {over_m['n']}\n",
         f"- Baseline Sharpe (pooled): {base_m['sharpe']:.4f}\n",

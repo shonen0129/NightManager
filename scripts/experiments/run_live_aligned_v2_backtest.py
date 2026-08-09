@@ -87,7 +87,10 @@ def main():
 
     from leadlag.data.cache import load_df_exec_from_local_cache
     from leadlag.data.tickers import JP_TICKERS
-    from leadlag.models.ml_order_overlay import load_overlay_model, generate_v2_production_portfolio_with_overlay
+    from leadlag.models.ml_order_overlay import (
+        generate_v2_production_portfolio_with_overlay,
+        load_overlay_model,
+    )
     from leadlag.models.sre import compute_jp_target_returns
 
     cfg = yaml.safe_load(open(ROOT / args.config))
@@ -134,7 +137,7 @@ def main():
 
     for trade_dt in sim_dates:
         trade_date = trade_dt.strftime("%Y-%m-%d")
-        date_str = trade_dt.strftime("%Y%m%d")
+        trade_dt.strftime("%Y%m%d")
 
         gap_dir = find_gap_dir_for_date(trade_date)
         if gap_dir is None:
@@ -192,7 +195,7 @@ def main():
         overnight_ret = side_leverage * float(np.sum(alpha_mask * w_t * r_gap_next))
 
         # Cost model from BacktestEngine.run_v2_backtest
-        turnover = float(np.sum(np.abs(w_t - w_prev)) / 2.0)
+        float(np.sum(np.abs(w_t - w_prev)) / 2.0)
         slip_cost = slip * (
             2.0 * np.sum((1.0 - alpha_mask) * np.abs(w_t))
             + np.sum(alpha_mask * np.abs(w_t - w_prev) / 2.0)
@@ -272,8 +275,8 @@ def main():
     report_lines = [
         "# 本番同一設定 live-aligned バックテスト\n\n",
         f"期間: {args.start_date} 〜 {args.end_date}\n",
-        f"対象: 各日の `live/pipeline_data/gap_adjusted_distribution/YYYYMMDD_0910XX` を使用\n",
-        f"ロジック: `generate_v2_production_portfolio_with_overlay` + 本番 config + overlay model\n\n",
+        "対象: 各日の `live/pipeline_data/gap_adjusted_distribution/YYYYMMDD_0910XX` を使用\n",
+        "ロジック: `generate_v2_production_portfolio_with_overlay` + 本番 config + overlay model\n\n",
         "## 1. 主要指標\n\n",
         f"- 日数: {len(valid)}\n",
         f"- Final equity: {equity:.4f}（{(equity-1)*100:+.2f}%）\n",

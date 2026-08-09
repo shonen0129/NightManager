@@ -19,20 +19,19 @@ import numpy as np
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "src"))
 
-from research.backtest_common import (
-    load_cached_df_exec,
-)
-
 from leadlag.core.correlation import (
     build_c0_from_v0,
     build_lw_target_correlation,
-    compute_correlation,
-    regularize_correlation,
     build_v3_static,
     compute_baseline_correlation,
+    compute_correlation,
+    regularize_correlation,
 )
 from leadlag.data.tickers import JP_TICKERS, US_TICKERS
 from leadlag.models.sre import compute_jp_target_returns
+from research.backtest_common import (
+    load_cached_df_exec,
+)
 
 
 def frobenius_distance(a: np.ndarray, b: np.ndarray) -> float:
@@ -81,7 +80,7 @@ def main():
     df_exec = load_cached_df_exec()
     n_u = len(US_TICKERS)
     n_j = len(JP_TICKERS)
-    n_total = n_u + n_j
+    n_u + n_j
 
     y_jp_target = compute_jp_target_returns(df_exec, JP_TICKERS)
     us_returns_raw = df_exec[[f"us_cc_{tk}" for tk in US_TICKERS]].values
@@ -164,12 +163,12 @@ def main():
 
     # Ratio: how much closer is c_reg to c_0 vs c_t to c_0?
     ratios = np.array([r["d_reg_c0"] / max(r["d_ct_c0"], 1e-12) for r in results])
-    print(f"\n[Attenuation Ratio] d(c_reg, c_0) / d(c_t, c_0)")
+    print("\n[Attenuation Ratio] d(c_reg, c_0) / d(c_t, c_0)")
     print(f"  Mean: {ratios.mean():.4f}  (1.0=no attenuation, 0.0=fully collapsed to prior)")
-    print(f"  If ratio ~0.125, confirms 12.5% raw info survival")
+    print("  If ratio ~0.125, confirms 12.5% raw info survival")
 
     # Off-diagonal means
-    print(f"\n[Off-diagonal Mean Correlation]")
+    print("\n[Off-diagonal Mean Correlation]")
     print(f"{'Source':<20} {'Mean':>8} {'Min':>8} {'Max':>8}")
     print("-" * 50)
     for key, label in [
@@ -182,7 +181,7 @@ def main():
         print(f"{label:<20} {vals.mean():>8.4f} {vals.min():>8.4f} {vals.max():>8.4f}")
 
     # --- Alternative parameter combinations ---
-    print(f"\n[Alternative Parameter Combinations]")
+    print("\n[Alternative Parameter Combinations]")
     print(f"{'lambda_lw':>10} {'lambda_reg':>11} {'w_c_t':>7} {'w_C_LW':>7} {'w_c_0':>7} {'d_reg/c_0':>10} {'d_reg/c_t':>10}")
     print("-" * 75)
 
@@ -214,7 +213,7 @@ def main():
         print(f"{lam_lw:>10.2f} {lam_reg:>11.2f} {w['c_t']:>7.3f} {w['C_LW']:>7.3f} {w['c_0']:>7.3f} {d_c0:>10.4f} {d_ct:>10.4f}")
 
     # --- Eigenvalue spectrum comparison ---
-    print(f"\n[Eigenvalue Spectrum (top-6, averaged over samples)]")
+    print("\n[Eigenvalue Spectrum (top-6, averaged over samples)]")
     print(f"{'Source':<20} {'eig1':>8} {'eig2':>8} {'eig3':>8} {'eig4':>8} {'eig5':>8} {'eig6':>8}")
     print("-" * 70)
 

@@ -1,6 +1,6 @@
+import logging
 import os
 import sys
-import logging
 
 # Add src directory to path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../src")))
@@ -47,14 +47,14 @@ def main():
         api_token=auth_id,
         api_password=password,
         request_timeout=15,
-        margin_trade_type=3, 
-        account_type=4,      
+        margin_trade_type=3,
+        account_type=4,
         extra={"private_key_path": key_path}
     )
 
     try:
         client = create_broker(config)
-    except Exception as e:
+    except Exception:
         logger.exception("Failed to instantiate broker client")
         sys.exit(1)
 
@@ -77,10 +77,10 @@ def main():
         print(f"Open credit positions count: {len(positions)}")
         for i, pos in enumerate(positions):
             print(f"  [{i}] Ticker: {pos.ticker}, Side: {pos.side}, Qty: {pos.quantity}, Price: {pos.price}")
-        
+
         logger.info("Login test passed successfully!")
 
-    except Exception as e:
+    except Exception:
         logger.exception("An error occurred during demo login execution")
         sys.exit(2)
     finally:

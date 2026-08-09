@@ -1,5 +1,7 @@
-import pandas as pd
 from pathlib import Path
+
+import pandas as pd
+
 p = Path('results') / 'fine_grid_local' / 'fine_grid_results.csv'
 if not p.exists():
     print('Results file not found:', p)

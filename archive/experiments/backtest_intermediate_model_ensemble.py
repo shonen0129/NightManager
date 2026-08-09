@@ -9,47 +9,41 @@ and strict safety auditing.
 from __future__ import annotations
 
 import argparse
-import json
 import logging
-import os
 import sys
-from datetime import datetime
 from pathlib import Path
 
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-import seaborn as sns
 import numpy as np
 import pandas as pd
-from scipy.stats import spearmanr, skew, kurtosis
-from scipy.cluster.hierarchy import linkage, fcluster
-from scipy.optimize import minimize
+import seaborn as sns
+from scipy.cluster.hierarchy import fcluster, linkage
+from scipy.stats import kurtosis, skew, spearmanr
 
 # Add src/ directory to python path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from config import STRATEGY_DEFAULTS, N_US_ASSETS, N_JP_ASSETS
+from config import N_JP_ASSETS
 from data.downloader import download_data
 from data.preprocessor import preprocess_data
-from data.ticker_registry import JP_TICKERS, US_TICKERS, TOPIX_TICKER
-from domain.signals.lead_lag import (
-    build_v3_static,
-    build_base_vectors,
-    compute_correlation,
-    regularize_correlation,
-    build_c0_from_v0,
-    build_lw_target_correlation,
-)
-from domain.signals import lead_lag as signals
+from data.ticker_registry import JP_TICKERS, TOPIX_TICKER, US_TICKERS
 from domain.models.prior_residual_lowrank import (
-    ResidualizedPriorSubspaceLowRankGapModel,
     project_to_subspace,
     solve_factor_propagation,
 )
 from domain.models.residual_lowrank import compute_rolling_ols_betas
-from domain.models.types import StrategyConfig
+from domain.signals import lead_lag as signals
+from domain.signals.lead_lag import (
+    build_base_vectors,
+    build_c0_from_v0,
+    build_v3_static,
+    compute_correlation,
+    regularize_correlation,
+)
 
 # Set up logging
 logging.basicConfig(
@@ -465,8 +459,8 @@ def main():
         # Standard US/JP inputs
         x_us_t = us_residuals_cc[i]
         x_us_raw_t = us_returns_raw.values[i]
-        y_residuals_t = y_residuals_cc[i]
-        y_residuals_oc_t = y_residuals_oc[i]
+        y_residuals_cc[i]
+        y_residuals_oc[i]
 
         # In-sample slices for Ridge fittings
         train_start = i - config_base["train_window"]
@@ -520,8 +514,8 @@ def main():
         sort_idx_p3 = np.argsort(eigvals_p3)[::-1]
         eigvecs_p3 = eigvecs_p3[:, sort_idx_p3]
         v_t_k_p3 = eigvecs_p3[:, :config_base["k_prior"]]
-        v_u_t_k_p3 = v_t_k_p3[:15, :config_base["k_prior"]]
-        v_j_t_k_p3 = v_t_k_p3[15:, :config_base["k_prior"]]
+        v_t_k_p3[:15, :config_base["k_prior"]]
+        v_t_k_p3[15:, :config_base["k_prior"]]
 
         # P4 input residual correlation PCA
         us_res_returns = all_returns_raw.copy()
@@ -533,8 +527,8 @@ def main():
         sort_idx_p4 = np.argsort(eigvals_p4)[::-1]
         eigvecs_p4 = eigvecs_p4[:, sort_idx_p4]
         v_t_k_p4 = eigvecs_p4[:, :config_base["k_prior"]]
-        v_u_t_k_p4 = v_t_k_p4[:15, :config_base["k_prior"]]
-        v_j_t_k_p4 = v_t_k_p4[15:, :config_base["k_prior"]]
+        v_t_k_p4[:15, :config_base["k_prior"]]
+        v_t_k_p4[15:, :config_base["k_prior"]]
 
         # -------------------------------------------------------------
         # FIT MODELS ROLLING MONTHLY
@@ -649,7 +643,7 @@ def main():
         if i >= start_idx + 252:
             hist_oc = y_jp_oc[i - 252 : i]
             # Standard PCA prediction history
-            hist_pred = np.zeros(252)
+            np.zeros(252)
             hist_gap = GapOpen_filt[i - 252 : i]
             for j in range(N_JP_ASSETS):
                 y_reg = hist_oc[:, j]
@@ -657,7 +651,7 @@ def main():
                 try:
                     coefs, _, _, _ = np.linalg.lstsq(X_reg, y_reg, rcond=None)
                     c_hat_j = coefs[2]
-                except:
+                except Exception:
                     c_hat_j = 1.0
                 c_clipped = np.clip(c_hat_j, 0.25, 1.5)
                 c_gap_t[j] = 0.5 * 1.0 + 0.5 * c_clipped
@@ -960,7 +954,6 @@ def main():
     # distance matrix
     dist_mat = 1.0 - return_corr.values
     # linkage
-    from scipy.cluster.hierarchy import linkage, fcluster
     # Complete linkage clustering
     link = linkage(dist_mat, method="complete")
     cluster_labels = fcluster(link, t=0.15, criterion="distance")
@@ -1034,7 +1027,8 @@ def main():
     for cap in [0.5, 0.6]:
         # Simple redistribution of excess weight
         capped_w = np.array(raw_weights)
-        for _ in range(10): # iterate to converge redistribution
+        for _ in range(10):
+            # iterate to converge redistribution
             ex = np.maximum(capped_w - cap, 0.0)
             capped_w = np.minimum(capped_w, cap)
             if ex.sum() > 0:

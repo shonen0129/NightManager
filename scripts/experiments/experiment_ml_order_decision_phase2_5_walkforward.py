@@ -18,8 +18,8 @@ from scipy.stats import norm, ttest_rel
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
-from leadlag.data.cache import load_df_exec_from_local_cache
 from experiments.ml_order_decision.phase2 import run_phase2_experiment
+from leadlag.data.cache import load_df_exec_from_local_cache
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)

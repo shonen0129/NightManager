@@ -784,7 +784,7 @@ def main():
     portfolio_metrics["short_count"] = (weights < 0).sum(axis=1)
 
     # Long/Short contributions
-    y_jp_target = backtest_res["normalized_signals"]  # target returns used in backtest matching
+    backtest_res["normalized_signals"]  # target returns used in backtest matching
     from leadlag.models.sre import compute_jp_target_returns
     y_jp_actual_raw = compute_jp_target_returns(df_exec, JP_TICKERS)
     y_jp_actual = pd.DataFrame(y_jp_actual_raw, index=df_exec.index, columns=JP_TICKERS).reindex(sim_dates)
@@ -933,7 +933,7 @@ def main():
     panel_df.to_csv(run_out_dir / "state_panel.csv")
 
     try:
-        import pyarrow
+
         panel_df.to_parquet(run_out_dir / "state_panel.parquet")
         logger.info("Saved state_panel.parquet successfully.")
     except ImportError:

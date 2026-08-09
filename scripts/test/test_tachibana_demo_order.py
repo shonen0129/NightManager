@@ -1,7 +1,7 @@
+import argparse
+import logging
 import os
 import sys
-import logging
-import argparse
 from datetime import datetime
 
 # Add src/ to the python import path
@@ -9,7 +9,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../.
 
 from leadlag.broker.base import BrokerConfig
 from leadlag.broker.factory import create_broker
-from leadlag.core.types import OrderRequest, OrderSide, OrderType, OrderStatus
+from leadlag.core.types import OrderRequest, OrderSide, OrderStatus, OrderType
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger("TachibanaDemoOrderTest")
@@ -75,7 +75,7 @@ def main():
 
     try:
         client = create_broker(config)
-    except Exception as e:
+    except Exception:
         logger.exception("Failed to instantiate broker client")
         sys.exit(1)
 
@@ -168,7 +168,7 @@ def main():
                 cancel_res = client._client.cancel_order(result.order_id, current_date_str)
                 print(f"Cancel API response code: {cancel_res.get('sResultCode')}, text: {cancel_res.get('sResultText')}")
 
-    except Exception as e:
+    except Exception:
         logger.exception("An error occurred during demo execution")
     finally:
         client.close()

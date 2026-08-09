@@ -3,11 +3,9 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from typing import Any
+
+from .order_book_cost import compute_quoted_spread_bps, estimate_lob_slippage_bps
 from .order_book_schema import OrderBookSnapshot
-from .order_book_cost import (
-    compute_quoted_spread_bps,
-    estimate_lob_slippage_bps
-)
 
 logger = logging.getLogger(__name__)
 

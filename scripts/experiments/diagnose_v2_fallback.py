@@ -6,8 +6,6 @@ import logging
 import sys
 from pathlib import Path
 
-import numpy as np
-import pandas as pd
 import yaml
 
 logging.basicConfig(
@@ -19,7 +17,6 @@ logging.basicConfig(
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
-from leadlag.compliance.v2_auditor import run_numerical_audit
 from leadlag.models.production_v2 import generate_v2_production_portfolio
 
 

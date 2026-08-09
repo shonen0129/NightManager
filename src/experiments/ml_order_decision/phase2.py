@@ -19,19 +19,16 @@ import numpy as np
 import pandas as pd
 from scipy.special import expit
 
-from leadlag.data.tickers import JP_TICKERS
-from leadlag.execution.backtester import BacktestEngine
-from leadlag.models.production_v2 import generate_v2_production_portfolio
-from leadlag.models.sre import compute_jp_target_returns
-
 from experiments.ml_order_decision.phase1 import (
-    TRADING_DAYS,
     _build_ticker_features,
     _collect_training_data,
     _compute_metrics,
     _precompute_market_vol,
     _recompute_w_pre,
 )
+from leadlag.data.tickers import JP_TICKERS
+from leadlag.execution.backtester import BacktestEngine
+from leadlag.models.sre import compute_jp_target_returns
 
 logger = logging.getLogger(__name__)
 

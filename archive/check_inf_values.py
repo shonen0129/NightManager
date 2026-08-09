@@ -1,5 +1,5 @@
-import pandas as pd
 import numpy as np
+import pandas as pd
 
 # Load panels
 returns_panel = pd.read_parquet("artifacts/sprint0/returns_panel.parquet")

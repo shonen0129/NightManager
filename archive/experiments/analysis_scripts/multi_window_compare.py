@@ -9,10 +9,10 @@ if SRC_DIR not in sys.path:
     sys.path.insert(0, SRC_DIR)
 
 from backtest_config import MULTI_WINDOW_CONFIG, create_timestamped_output_dir
+from backtest_ensemble import run_backtest_multi_window
 from data_loader import download_data, preprocess_data
 from performance import calculate_metrics
 from strategy import LeadLagStrategy
-from backtest_ensemble import run_backtest_multi_window
 
 
 def run_baseline(df_exec):

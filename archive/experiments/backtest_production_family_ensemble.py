@@ -11,37 +11,32 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import os
 import sys
-from datetime import datetime
 from pathlib import Path
 
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-import seaborn as sns
 import numpy as np
 import pandas as pd
-from scipy.stats import spearmanr, skew, kurtosis
-from scipy.cluster.hierarchy import linkage, fcluster
+import seaborn as sns
+from scipy.stats import kurtosis, skew, spearmanr
 
 # Add src/ directory to python path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from config import STRATEGY_DEFAULTS, N_US_ASSETS, N_JP_ASSETS
+from config import N_JP_ASSETS
 from data.downloader import download_data
 from data.preprocessor import preprocess_data
-from data.ticker_registry import JP_TICKERS, US_TICKERS, TOPIX_TICKER
-from domain.signals.lead_lag import (
-    build_v3_static,
-    build_base_vectors,
-    compute_correlation,
-    regularize_correlation,
-    build_c0_from_v0,
-)
-from domain.signals import lead_lag as signals
+from data.ticker_registry import JP_TICKERS, TOPIX_TICKER, US_TICKERS
 from domain.models.residual_lowrank import compute_rolling_ols_betas
+from domain.signals import lead_lag as signals
+from domain.signals.lead_lag import (
+    build_base_vectors,
+    build_v3_static,
+)
 
 # Set up logging
 logging.basicConfig(
@@ -351,7 +346,7 @@ def main():
     y_jp_cc_df = df_exec[jp_cc_cols].rename(columns=lambda c: c.replace("jp_trade_cc_", ""))
     y_topix_oc_series = df_exec["topix_oc_return"]
     y_topix_cc_series = df_exec["topix_cc_trade"]
-    us_returns_raw = df_exec[[f"us_cc_{tk}" for tk in US_TICKERS]].rename(columns=lambda c: c.replace("us_cc_", ""))
+    df_exec[[f"us_cc_{tk}" for tk in US_TICKERS]].rename(columns=lambda c: c.replace("us_cc_", ""))
 
     # Setup configurations
     config_base = {
@@ -405,7 +400,7 @@ def main():
     # We run PCA logic for each unique (beta_window, target_mode) combination
     logger.info("Pre-calculating raw predictions for P5 grid search combinations...")
     grid_raw_preds = {}
-    
+
     # Set of unique (beta_window, target_mode) combinations
     target_combinations = [
         (40, "resid_cc"), (60, "resid_cc"), (120, "resid_cc"),
@@ -414,7 +409,7 @@ def main():
 
     for b_w, t_m in target_combinations:
         logger.info(f"Running PCA prediction loop for beta_window={b_w}, target_mode={t_m}...")
-        
+
         # OLS Beta and residuals
         if t_m == "resid_cc":
             y_data = y_jp_cc_df[JP_TICKERS].values
@@ -422,21 +417,21 @@ def main():
         else:
             y_data = y_jp_oc_df[JP_TICKERS].values
             x_data = y_topix_oc_series.values.reshape(-1, 1)
-            
+
         betas_jp = compute_rolling_ols_betas(y_data, x_data, b_w)
         y_residuals = y_data - betas_jp[:, :, 0] * x_data
-        
+
         # Walk-forward shift to prevent target leakage in compute_signal volatility targeting
         y_residuals_shifted = np.roll(y_residuals, 1, axis=0)
         y_residuals_shifted[0] = 0.0
-        
+
         # Prepare residual return matrix for PCA (columns index 15 to 31 replaced)
         jp_res_returns = all_returns_raw.copy()
         jp_res_returns[:, 15:] = y_residuals_shifted
-        
+
         # Run daily prediction loop (returns prediction only, no gap applied yet)
         pred_list = np.zeros((T, N_JP_ASSETS))
-        
+
         # Calculate daily correlation matrix once outside if possible, but compute_signal needs walk-forward
         for i in range(start_idx, T):
             sig_res = signals.compute_signal(
@@ -446,7 +441,7 @@ def main():
                 vol_adjusted_target=True
             )
             pred_list[i] = np.asarray(sig_res["r_hat_jp_cc"], dtype=float)
-            
+
         grid_raw_preds[(b_w, t_m)] = pred_list
 
     # -------------------------------------------------------------------------
@@ -455,7 +450,7 @@ def main():
     logger.info("Starting hyperparameter grid search on Train period...")
     train_mask = (df_exec.index[start_idx:] <= pd.to_datetime(train_end_date))
     train_dates = df_exec.index[start_idx:][train_mask]
-    
+
     # Define grid search parameters
     beta_windows = [40, 60, 120]
     target_modes = ["resid_cc", "resid_oc"]
@@ -464,11 +459,11 @@ def main():
     gap_coef_scales = [0.5, 1.0, 1.5]
     gap_clips = [(-0.5, 1.5), (0.0, 1.5), (0.0, 1.0)]
     gap_extreme_filters = [False, True]
-    
+
     # Calculate rolling percentiles for gap extreme filters (using 252-day window ending t-1)
     topix_night_abs = np.abs(df_exec["topix_night_return"].values)
     jp_gap_abs = np.abs(df_exec[[f"jp_gap_{tk}" for tk in JP_TICKERS]].values)
-    
+
     topix_pct_99 = np.zeros(T)
     etf_pct_99 = np.zeros((T, N_JP_ASSETS))
     for i in range(start_idx, T):
@@ -481,12 +476,12 @@ def main():
     # c_global_hist and c_sector_hist
     c_global_hist = np.ones(T)
     c_sector_hist = np.ones((T, N_JP_ASSETS))
-    
+
     y_jp_oc = y_jp_oc_df[JP_TICKERS].values
     for i in range(start_idx, T):
         hist_oc = y_jp_oc[i - 252 : i]
         hist_gap = GapOpen_filt[i - 252 : i]
-        
+
         # Sector-specific regression
         for j in range(N_JP_ASSETS):
             y_reg = hist_oc[:, j]
@@ -494,16 +489,16 @@ def main():
             try:
                 coefs, _, _, _ = np.linalg.lstsq(X_reg, y_reg, rcond=None)
                 c_sector_hist[i, j] = coefs[1]
-            except:
+            except Exception:
                 c_sector_hist[i, j] = 1.0
-                
+
         # Global regression (stacked assets)
         y_reg_global = hist_oc.flatten()
         X_reg_global = np.column_stack([np.ones(252 * N_JP_ASSETS), -hist_gap.flatten()])
         try:
             coefs_global, _, _, _ = np.linalg.lstsq(X_reg_global, y_reg_global, rcond=None)
             c_global_hist[i] = coefs_global[1]
-        except:
+        except Exception:
             c_global_hist[i] = 1.0
 
     # Grid search loop
@@ -519,7 +514,7 @@ def main():
     for b_w in beta_windows:
         for t_m in target_modes:
             raw_pred_series = grid_raw_preds[(b_w, t_m)]
-            
+
             for g_m in gap_modes:
                 for l_s in lambda_shrinks:
                     # Calculate blended coefficients
@@ -529,33 +524,34 @@ def main():
                             c_shrunk[:, j] = c_global_hist
                     elif g_m == "sector":
                         c_shrunk = c_sector_hist.copy()
-                    else:  # global_sector_blend
+                    else:
+                        # global_sector_blend
                         for j in range(N_JP_ASSETS):
                             c_shrunk[:, j] = l_s * c_global_hist + (1.0 - l_s) * c_sector_hist[:, j]
-                            
+
                     for g_c in gap_clips:
                         c_clipped = np.clip(c_shrunk, g_c[0], g_c[1])
-                        
+
                         for g_s in gap_coef_scales:
                             c_final = c_clipped * g_s
-                            
+
                             for g_e in gap_extreme_filters:
                                 # Run fast simulation over train dates
                                 ret_list = []
-                                w_prev = np.zeros(N_JP_ASSETS)
-                                
+                                np.zeros(N_JP_ASSETS)
+
                                 # Store daily signals, dispersions, and weights for metrics
                                 temp_signals = np.zeros((len(train_dates), N_JP_ASSETS))
                                 temp_dispersions = np.zeros(len(train_dates))
                                 temp_weights = np.zeros((len(train_dates), N_JP_ASSETS))
-                                
+
                                 for t_idx, idx in enumerate(train_dates_idx):
                                     date = df_exec.index[idx]
                                     pred_r_cc = raw_pred_series[idx]
-                                    
+
                                     # Apply multiplicative gap shrinkage
                                     sig_adjusted = (1.0 + pred_r_cc) / np.maximum(1.0 + c_final[idx] * GapOpen_filt[idx], 0.1) - 1.0
-                                    
+
                                     # Gap extreme filter
                                     if g_e:
                                         # Check TOPIX gap
@@ -564,35 +560,35 @@ def main():
                                             etf_violated = np.abs(jp_gap[idx, j]) > etf_pct_99[idx, j]
                                             if topix_violated or etf_violated:
                                                 sig_adjusted[j] = 0.0  # skip/zero signal
-                                                
+
                                     temp_signals[t_idx] = sig_adjusted
-                                    
+
                                     # Calculate weights
                                     # Standard Production weight logic
                                     # dispersion scale
                                     disp = signals.compute_dispersion_indicator(sig_adjusted, 0.3, 17, "long_short_mean_gap")
                                     temp_dispersions[t_idx] = disp
-                                    
+
                                     # Retrieve dispersion history from cached values
                                     dispersion_history = temp_dispersions[max(0, t_idx - 60) : t_idx].tolist()
                                     scale = signals.dispersion_scale(disp, dispersion_history, False)
-                                    
+
                                     w = signals.build_weights(sig_adjusted, 0.3, 17, "signal")
                                     w_scaled = w * scale
                                     temp_weights[t_idx] = w_scaled
-                                    
+
                                     # Compute net return (including cost)
                                     gross_ret = np.sum(w_scaled * y_jp_oc_train[t_idx])
                                     gross_exp = np.sum(np.abs(w_scaled))
                                     cost = 2.0 * (5.0 / 10000.0) * gross_exp
                                     ret_list.append(gross_ret - cost)
-                                    
+
                                 # Sharpe
                                 ret_series = pd.Series(ret_list, index=train_dates)
                                 mu_m = float(np.mean(ret_series))
                                 std_m = float(np.std(ret_series, ddof=1))
                                 sh = (mu_m / std_m) * np.sqrt(245.0) if std_m > 0 else -999.0
-                                
+
                                 # Save record
                                 grid_records.append({
                                     "beta_window": b_w,
@@ -605,7 +601,7 @@ def main():
                                     "gap_extreme_filter": g_e,
                                     "Train_Sharpe": sh
                                 })
-                                
+
                                 if sh > best_sharpe:
                                     best_sharpe = sh
                                     best_params = {
@@ -621,10 +617,10 @@ def main():
     # Save grid results
     df_grid = pd.DataFrame(grid_records)
     df_grid.to_csv(results_dir / "p5_grid_search_train.csv", index=False)
-    
+
     with open(results_dir / "p5_selected_params.json", "w") as f:
         json.dump(best_params, f, indent=4)
-        
+
     logger.info(f"Grid search complete. Selected parameters: {best_params} with Train Sharpe: {best_sharpe:.4f}")
 
     # -------------------------------------------------------------------------
@@ -675,7 +671,8 @@ def main():
             c_shrunk_p5[:, j] = c_global_hist
     elif g_m_p5 == "sector":
         c_shrunk_p5 = c_sector_hist.copy()
-    else:  # global_sector_blend
+    else:
+        # global_sector_blend
         for j in range(N_JP_ASSETS):
             c_shrunk_p5[:, j] = l_s_p5 * c_global_hist + (1.0 - l_s_p5) * c_sector_hist[:, j]
     c_final_p5 = np.clip(c_shrunk_p5, g_c_p5[0], g_c_p5[1]) * g_s_p5
@@ -721,7 +718,7 @@ def main():
         )
         p5_pred_r_cc = np.asarray(sig_res_p5["r_hat_jp_cc"], dtype=float)
         p5_sig = (1.0 + p5_pred_r_cc) / np.maximum(1.0 + c_final_p5[i] * GapOpen_filt[i], 0.1) - 1.0
-        
+
         # Apply P5 gap extreme filter
         if g_e_p5:
             topix_violated = np.abs(df_exec["topix_night_return"].values[i]) > topix_pct_99[i]
@@ -729,14 +726,14 @@ def main():
                 etf_violated = np.abs(jp_gap[i, j]) > etf_pct_99[i, j]
                 if topix_violated or etf_violated:
                     p5_sig[j] = 0.0
-                    
+
         daily_signals["P5"][i] = p5_sig
 
         # Portfolio Weight Construction for each model (Production logic with own dispersion scale)
         for m in model_ids:
             sig_m_t = daily_signals[m][i]
             disp = signals.compute_dispersion_indicator(sig_m_t, 0.3, 17, "long_short_mean_gap")
-            
+
             # Dispersion history
             dispersion_history = []
             for h_idx in range(max(0, i - 60), i):
@@ -745,7 +742,7 @@ def main():
                     disp_h = signals.compute_dispersion_indicator(sig_hist, 0.3, 17, "long_short_mean_gap")
                     dispersion_history.append(disp_h)
             scale = signals.dispersion_scale(disp, dispersion_history, False)
-            
+
             w = signals.build_weights(sig_m_t, 0.3, 17, "signal")
             daily_weights[m][i] = w * scale
 
@@ -759,13 +756,13 @@ def main():
     sig_out_df = pd.DataFrame(index=sim_dates)
     normalized_sig_out_df = pd.DataFrame(index=sim_dates)
     w_out_df = pd.DataFrame(index=sim_dates)
-    
+
     for m in model_ids:
         for tk in JP_TICKERS:
             sig_out_df[f"{m}_{tk}"] = sig_dfs[m][tk]
             normalized_sig_out_df[f"{m}_{tk}"] = normalize_signals(sig_dfs[m][tk].values)
             w_out_df[f"{m}_{tk}"] = weight_dfs[m][tk]
-            
+
     sig_out_df.to_csv(results_dir / "signals_P0_P2_P3_P5.csv")
     normalized_sig_out_df.to_csv(results_dir / "normalized_signals_P0_P2_P3_P5.csv")
     w_out_df.to_csv(results_dir / "weights_P0_P2_P3_P5.csv")
@@ -791,12 +788,12 @@ def main():
             gross_exp = float(np.sum(np.abs(w_t)))
             cost = 2.0 * (5.0 / 10000.0) * gross_exp
             net_ret = gross_ret - cost
-            
+
             ret_list.append(net_ret)
             gross_ret_list.append(gross_ret)
             cost_list.append(cost)
             exp_list.append(gross_exp)
-            
+
         daily_returns[m] = pd.Series(ret_list, index=sim_dates)
         daily_gross_returns[m] = pd.Series(gross_ret_list, index=sim_dates)
         daily_costs[m] = pd.Series(cost_list, index=sim_dates)
@@ -830,7 +827,7 @@ def main():
         exp_list = []
         cost_list = []
         M = len(models)
-        
+
         for date in sim_dates:
             sig_comb = np.zeros(N_JP_ASSETS)
             for m in models:
@@ -839,7 +836,7 @@ def main():
 
             # Apply Production portfolio logic to ensemble signals
             disp = signals.compute_dispersion_indicator(sig_comb, 0.3, 17, "long_short_mean_gap")
-            
+
             # Dispersion history
             dispersion_history = []
             for h_idx in range(max(0, len(sig_list) - 61), len(sig_list) - 1):
@@ -855,7 +852,7 @@ def main():
             gross_ret = float(np.sum(w_scaled * r_t))
             gross_exp = float(np.sum(np.abs(w_scaled)))
             cost = 2.0 * (5.0 / 10000.0) * gross_exp
-            
+
             ret_list.append(gross_ret - cost)
             exp_list.append(gross_exp)
             cost_list.append(cost)
@@ -884,7 +881,7 @@ def main():
         ret_list = []
         exp_list = []
         cost_list = []
-        
+
         for date in sim_dates:
             sig_comb = np.zeros(N_JP_ASSETS)
             for m, weight in weights_dict.items():
@@ -893,7 +890,7 @@ def main():
 
             # Apply Production portfolio logic to ensemble signals
             disp = signals.compute_dispersion_indicator(sig_comb, 0.3, 17, "long_short_mean_gap")
-            
+
             # Dispersion history
             dispersion_history = []
             for h_idx in range(max(0, len(sig_list) - 61), len(sig_list) - 1):
@@ -909,7 +906,7 @@ def main():
             gross_ret = float(np.sum(w_scaled * r_t))
             gross_exp = float(np.sum(np.abs(w_scaled)))
             cost = 2.0 * (5.0 / 10000.0) * gross_exp
-            
+
             ret_list.append(gross_ret - cost)
             exp_list.append(gross_exp)
             cost_list.append(cost)
@@ -926,12 +923,12 @@ def main():
     logger.info("Computing correlations on Train period...")
     train_mask = sim_dates <= pd.to_datetime(train_end_date)
     train_dates = sim_dates[train_mask]
-    
+
     # Return Correlation Heatmap
     train_returns_df = pd.DataFrame({m: daily_returns[m].loc[train_dates] for m in model_ids})
     return_corr = train_returns_df.corr()
     return_corr.to_csv(results_dir / "production_family_return_correlation.csv")
-    
+
     # Signal Correlation Heatmap (average daily cross-sectional Spearman)
     sig_corr_matrix = np.zeros((len(model_ids), len(model_ids)))
     for idx1, m1 in enumerate(model_ids):
@@ -955,7 +952,7 @@ def main():
                 break
         if not is_redundant:
             selected_models.append(m)
-            
+
     pd.DataFrame({"Selected Models": selected_models}).to_csv(
         results_dir / "production_family_selected_models.csv", index=False
     )
@@ -969,7 +966,7 @@ def main():
     exp_list = []
     cost_list = []
     M = len(selected_models)
-    
+
     for date in sim_dates:
         sig_comb = np.zeros(N_JP_ASSETS)
         for m in selected_models:
@@ -978,7 +975,7 @@ def main():
 
         # Apply Production portfolio logic to ensemble signals
         disp = signals.compute_dispersion_indicator(sig_comb, 0.3, 17, "long_short_mean_gap")
-        
+
         # Dispersion history
         dispersion_history = []
         for h_idx in range(max(0, len(sig_list) - 61), len(sig_list) - 1):
@@ -994,7 +991,7 @@ def main():
         gross_ret = float(np.sum(w_scaled * r_t))
         gross_exp = float(np.sum(np.abs(w_scaled)))
         cost = 2.0 * (5.0 / 10000.0) * gross_exp
-        
+
         ret_list.append(gross_ret - cost)
         exp_list.append(gross_exp)
         cost_list.append(cost)
@@ -1018,7 +1015,7 @@ def main():
         r_train = daily_returns[m].loc[train_dates]
         vol = float(np.std(r_train, ddof=1) * np.sqrt(245.0))
         sh = float(np.mean(r_train) / np.std(r_train, ddof=1) * np.sqrt(245.0)) if vol > 0 else 0.0
-        
+
         # ICIR
         ics = []
         for date in train_dates:
@@ -1030,7 +1027,7 @@ def main():
         avg_ic = float(np.mean(ics)) if len(ics) > 0 else 0.0
         std_ic = float(np.std(ics, ddof=1)) if len(ics) > 1 else 1e-8
         icir = (avg_ic / std_ic) * np.sqrt(245.0)
-        
+
         train_sharpes.append(max(sh, 0.0))
         train_vols.append(vol if vol > 0 else 1e-8)
         train_icirs.append(max(icir, 0.0))
@@ -1073,7 +1070,7 @@ def main():
             "Residual-PCA_weight": final_w[2],
             "P5_weight": final_w[3]
         })
-        
+
         # Build risk-adjusted ensemble for this rule
         ens_name = f"ens_risk_adjusted_{r_name}"
         sig_list = []
@@ -1081,7 +1078,7 @@ def main():
         ret_list = []
         exp_list = []
         cost_list = []
-        
+
         for date in sim_dates:
             sig_comb = np.zeros(N_JP_ASSETS)
             for idx, m in enumerate(model_ids):
@@ -1090,7 +1087,7 @@ def main():
 
             # Apply Production portfolio logic to ensemble signals
             disp = signals.compute_dispersion_indicator(sig_comb, 0.3, 17, "long_short_mean_gap")
-            
+
             # Dispersion history
             dispersion_history = []
             for h_idx in range(max(0, len(sig_list) - 61), len(sig_list) - 1):
@@ -1106,7 +1103,7 @@ def main():
             gross_ret = float(np.sum(w_scaled * r_t))
             gross_exp = float(np.sum(np.abs(w_scaled)))
             cost = 2.0 * (5.0 / 10000.0) * gross_exp
-            
+
             ret_list.append(gross_ret - cost)
             exp_list.append(gross_exp)
             cost_list.append(cost)
@@ -1143,7 +1140,6 @@ def main():
     contrib_records = []
     for cand in ["Raw-PCA", "P2", "P5"]:
         # build combined ensemble: Residual-PCA + cand
-        models_to_comb = ["Residual-PCA", cand]
         sig_list = []
         w_list = []
         ret_list = []
@@ -1347,7 +1343,7 @@ def main():
 
     daily_eq_df = (1.0 + daily_rets_df).cumprod()
     daily_eq_df.to_csv(results_dir / "daily_equity_curves.csv")
-    
+
     daily_dd_df = daily_eq_df / daily_eq_df.cummax() - 1.0
     daily_dd_df.to_csv(results_dir / "daily_drawdowns.csv")
 
@@ -1408,14 +1404,14 @@ def main():
             w = w_df.loc[idx].values
             net = np.sum(w)
             gross = np.sum(np.abs(w))
-            long_sum = np.sum(w[w > 0])
-            short_sum = np.sum(w[w < 0])
+            np.sum(w[w > 0])
+            np.sum(w[w < 0])
 
             # Production dispersion models gross exposure can scale down, net is zero
             if abs(net) > 1e-4 or gross > 2.0001:
                 constraint_viols += 1
                 logger.warning(f"Constraint viol in {m} on {idx}: net={net:.6f}, gross={gross:.6f}")
-                
+
     for m in ensemble_weights.keys():
         w_df = ensemble_weights[m]
         for idx in w_df.index:
@@ -1449,7 +1445,7 @@ def main():
         # Flip signal sign
         sig_p5 = sig_dfs["P5"].loc[date].values
         rev_sig = -sig_p5
-        
+
         # Calculate weights for reversed signal
         disp = signals.compute_dispersion_indicator(rev_sig, 0.3, 17, "long_short_mean_gap")
         # dispersion history
@@ -1460,25 +1456,25 @@ def main():
         scale = signals.dispersion_scale(disp, dispersion_history, False)
         w = signals.build_weights(rev_sig, 0.3, 17, "signal")
         w_scaled = w * scale
-        
+
         r_t = r_oc_df.loc[date].values
         gross_ret = np.sum(w_scaled * r_t)
         gross_exp = np.sum(np.abs(w_scaled))
         cost = 2.0 * (5.0 / 10000.0) * gross_exp
         rev_ret_list.append(gross_ret - cost)
-        
+
     rev_ret_series = pd.Series(rev_ret_list, index=sim_dates)
     rev_sharpe = float(rev_ret_series.mean() / rev_ret_series.std(ddof=1) * np.sqrt(245.0)) if rev_ret_series.std(ddof=1) > 0 else np.nan
     rev_ar = float(np.sum(rev_ret_list) * 245.0 / len(sim_dates))
     rev_mdd = float(((rev_ret_series + 1.0).cumprod() / (rev_ret_series + 1.0).cumprod().cummax() - 1.0).min())
-    
+
     pd.DataFrame([{
         "Model": "P5_reversed",
         "AR": rev_ar,
         "Sharpe": rev_sharpe,
         "MDD": rev_mdd
     }]).to_csv(results_dir / "reversed_signal_performance.csv", index=False)
-    
+
     audit_results.append({
         "Audit": "Sign Direction",
         "Status": "PASS" if rev_sharpe < 0 else "WARNING",
@@ -1614,7 +1610,7 @@ def main():
     plt.tight_layout()
     plt.savefig(results_dir / "rolling_sharpe_top_models.png", dpi=150)
     plt.close()
-    
+
     # Save raw rolling Sharpe data
     df_roll_sh = pd.DataFrame(index=sim_dates)
     for m in ["Raw-PCA", "Residual-PCA", "P5", "ens_P3_P5_equal"]:
@@ -1676,7 +1672,7 @@ def main():
     new_model_full_mdd = "N/A"
     new_model_oos_turnover = "N/A"
     new_model_full_turnover = "N/A"
-    
+
     prev_report_path = ROOT / "results" / "intermediate_model_ensemble" / "all_experiment_metrics.csv"
     if prev_report_path.exists():
         try:

@@ -3,17 +3,15 @@
 from __future__ import annotations
 
 import numpy as np
-import pytest
 
 from leadlag.core.correlation import (
+    _make_psd_correlation,
     blend_correlation,
     compute_correlation,
     compute_stress_weight,
     empirical_cdf_transform,
     estimate_t_copula,
-    _make_psd_correlation,
 )
-
 
 # ---------------------------------------------------------------------------
 # empirical_cdf_transform

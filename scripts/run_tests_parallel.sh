@@ -19,19 +19,19 @@ mkdir -p "$LOGDIR"
 
 echo "Starting 7-process parallel test run..."
 
-python3 -m pytest tests/unit/test_sprint0_diagnostics.py -q -n 0 > "$LOGDIR/p1.log" 2>&1 &
+.venv-mac/bin/python -m pytest tests/unit/test_sprint0_diagnostics.py -q -n 0 > "$LOGDIR/p1.log" 2>&1 &
 P1=$!
-python3 -m pytest tests/unit/test_sprint0_qa.py -q -n 0 > "$LOGDIR/p2.log" 2>&1 &
+.venv-mac/bin/python -m pytest tests/unit/test_sprint0_qa.py -q -n 0 > "$LOGDIR/p2.log" 2>&1 &
 P2=$!
-python3 -m pytest "tests/unit/test_sprint1.py::test_backtest_simulation" -q -n 0 > "$LOGDIR/p3.log" 2>&1 &
+.venv-mac/bin/python -m pytest "tests/unit/test_sprint1.py::test_backtest_simulation" -q -n 0 > "$LOGDIR/p3.log" 2>&1 &
 P3=$!
-python3 -m pytest "tests/unit/test_sprint1.py::test_calibration_rolling" -q -n 0 > "$LOGDIR/p4.log" 2>&1 &
+.venv-mac/bin/python -m pytest "tests/unit/test_sprint1.py::test_calibration_rolling" -q -n 0 > "$LOGDIR/p4.log" 2>&1 &
 P4=$!
-python3 -m pytest tests/unit/test_sprint1.py --deselect "tests/unit/test_sprint1.py::test_backtest_simulation" --deselect "tests/unit/test_sprint1.py::test_calibration_rolling" -q -n 0 > "$LOGDIR/p5.log" 2>&1 &
+.venv-mac/bin/python -m pytest tests/unit/test_sprint1.py --deselect "tests/unit/test_sprint1.py::test_backtest_simulation" --deselect "tests/unit/test_sprint1.py::test_calibration_rolling" -q -n 0 > "$LOGDIR/p5.log" 2>&1 &
 P5=$!
-python3 -m pytest tests/integration/ -q -n auto > "$LOGDIR/p6.log" 2>&1 &
+.venv-mac/bin/python -m pytest tests/integration/ -q -n auto > "$LOGDIR/p6.log" 2>&1 &
 P6=$!
-python3 -m pytest tests/unit/ --ignore=tests/unit/test_sprint0_diagnostics.py --ignore=tests/unit/test_sprint0_qa.py --ignore=tests/unit/test_sprint1.py -q -n auto > "$LOGDIR/p7.log" 2>&1 &
+.venv-mac/bin/python -m pytest tests/unit/ --ignore=tests/unit/test_sprint0_diagnostics.py --ignore=tests/unit/test_sprint0_qa.py --ignore=tests/unit/test_sprint1.py -q -n auto > "$LOGDIR/p7.log" 2>&1 &
 P7=$!
 
 FAIL=0

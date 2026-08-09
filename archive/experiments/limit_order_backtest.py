@@ -46,10 +46,9 @@ import logging
 import os
 import sys
 import warnings
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -66,7 +65,7 @@ _HIGHLOW_CACHE_PATH = _DATA_DIR / "jp_highlow.pkl"
 
 sys.path.insert(0, str(_SRC_DIR))
 
-from config import STRATEGY_DEFAULTS, N_US_ASSETS, N_JP_ASSETS
+from config import N_JP_ASSETS, N_US_ASSETS, STRATEGY_DEFAULTS
 from data.ticker_registry import JP_TICKERS, JP_TICKERS_WITH_TOPIX
 from domain.models.types import StrategyConfig
 from domain.signals import lead_lag as signals
@@ -158,8 +157,8 @@ def download_jp_highlow(
 
 def load_df_exec() -> pd.DataFrame:
     """既存のキャッシュまたはダウンロードで df_exec を構築する。"""
-    from data_loader import download_data, preprocess_data
     from data.cache import is_decision_cache_valid, load_decision_cache, save_decision_cache
+    from data_loader import download_data, preprocess_data
 
     if is_decision_cache_valid():
         logger.info("decision_cache を読み込み (fast path)")
@@ -734,11 +733,11 @@ def compute_adverse_selection(
         return pd.DataFrame()
 
     # 成行リターン = P_open_to_close = r_oc
-    filled = fills_df[fills_df["filled"]]["r_oc"]
+    fills_df[fills_df["filled"]]["r_oc"]
     not_filled_mask = (
         (fills_df["is_long"] | fills_df["is_short"]) & ~fills_df["filled"]
     )
-    not_filled = fills_df[not_filled_mask]["r_oc"]
+    fills_df[not_filled_mask]["r_oc"]
 
     # 方向加味: ロング銘柄のリターンはそのまま、ショート銘柄は符号反転
     def directional_return(sub_df):
@@ -766,8 +765,8 @@ def compute_adverse_selection(
 def compute_performance(
     df_daily: pd.DataFrame,
     col: str = "daily_return",
-    start: Optional[str] = None,
-    end: Optional[str] = None,
+    start: str | None = None,
+    end: str | None = None,
 ) -> dict:
     """既存 performance.py を利用してパフォーマンス指標を計算。"""
     series = df_daily[col]
@@ -942,7 +941,7 @@ def generate_summary_tables(all_results: list[dict], output_dir: Path) -> None:
             sub.to_csv(sub_csv, index=False, encoding="utf-8-sig")
 
         # Markdown サマリ（renorm=False, slip=True のみの主要指標）
-        md_sub = df[(df["renormalize"] == False) & (df["slip_on_entry"] == True)].copy()
+        md_sub = df[(not df["renormalize"]) & (df["slip_on_entry"])].copy()
         key_cols = [
             "scenario", "basis", "margin_bps",
             "fill_rate_total_%", "daily_fills_mean",
@@ -964,7 +963,6 @@ def generate_plots(all_results: list[dict], output_dir: Path) -> None:
         import matplotlib
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
-        import matplotlib.ticker as mticker
     except ImportError:
         logger.warning("matplotlib が見つかりません。グラフ生成をスキップ。")
         return
@@ -1208,7 +1206,7 @@ r_hat_jp_cc = mu_jp + sigma_jp * z_hat_j_t1
 ```
 
 - `mu_jp`: ウィンドウ内の JP 銘柄 CC リターンの EWMA 平均
-- `sigma_jp`: 同 EWMA 標準偏差  
+- `sigma_jp`: 同 EWMA 標準偏差
 - `z_hat_j_t1`: PCA 予測標準化リターン（V_J^K × f_t）
 
 これはギャップ補正前の**PCA 予測 Close-to-Close リターン**（§4.6 ステップ3）。
@@ -1227,7 +1225,7 @@ r_hat_jp_cc = mu_jp + sigma_jp * z_hat_j_t1
 
 ### 対照群 (prev_close basis)
 - ロング指値: `P_close_prev × (1 - k/10000)`
-- ショート指値: `P_close_prev × (1 + k/10000)`  
+- ショート指値: `P_close_prev × (1 + k/10000)`
 - k ∈ {PREV_CLOSE_OFFSETS_BPS}（負=不利側で約定しやすい, 正=有利側）
 
 ## 3. 約定モデル

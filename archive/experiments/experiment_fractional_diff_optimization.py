@@ -34,6 +34,7 @@ import time
 from pathlib import Path
 
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
@@ -43,25 +44,21 @@ import yaml
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
-from research.backtest_common import (
-    CostParams,
-    compute_backtest_metrics,
-    load_cached_df_exec,
-    load_execution_data,
-    run_backtest_with_costs,
-)
-from leadlag.data.tickers import JP_TICKERS, US_TICKERS
+from leadlag.data.tickers import US_TICKERS
 from leadlag.features.fractional_diff import (
     adf_test,
-    find_optimal_d,
-    fractional_diff,
     fractional_diff_df,
     hurst_exponent,
 )
 from leadlag.models.sector_relative_ensemble_blp_enhanced import (
     SectorRelativeEnsembleBLPEnhancedModel,
 )
-from leadlag.reporting.metrics import calculate_metrics
+from research.backtest_common import (
+    compute_backtest_metrics,
+    load_cached_df_exec,
+    load_execution_data,
+    run_backtest_with_costs,
+)
 
 logging.basicConfig(
     level=logging.INFO,

@@ -119,7 +119,6 @@ def _rolling_window_stats(
     net: pd.Series, gross: pd.Series, costs: pd.Series, equity: pd.Series, window: int
 ) -> pd.DataFrame:
     """Compute rolling window stats and return worst net-cum windows."""
-    idx = net.index
     records = []
     for i in range(len(net) - window + 1):
         s = net.iloc[i : i + window]

@@ -25,6 +25,7 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "src"))
 
+from leadlag.reporting.metrics import calculate_metrics
 from research.backtest_common import (
     TRADING_DAYS,
     CostParams,
@@ -245,7 +246,7 @@ def main():
         m = extended_metrics(results[label])
         on_mean = overnight_stats[label].mean() * 100
         avg_hold = hold_stats[label].mean()
-        delta_s = m["Sharpe"] - base_sharpe
+        m["Sharpe"] - base_sharpe
         print(
             f"  {label:<28} {m['Sharpe']:>8.4f} {m['AR']*100:>9.2f}% {m['RISK']*100:>7.2f}% "
             f"{m['MDD']*100:>7.2f}% {m['Calmar']:>8.2f} {m['Hit Rate']:>7.1f}% "

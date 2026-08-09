@@ -16,10 +16,10 @@ import json
 import logging
 import os
 import sys
-from datetime import datetime, time as dt_time
+from datetime import datetime
+from datetime import time as dt_time
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 import yaml
 
@@ -32,12 +32,13 @@ while not (ROOT / "pyproject.toml").exists():
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "archive"))
 
-from leadlag.data.tickers import JP_TICKERS
-from leadlag.config.schemas import TachibanaApiConfig
-from leadlag.broker.tachibana.api import TachibanaClient
-from leadlag.execution.microstructure.order_book_schema import OrderBookSnapshot
-from leadlag.execution.microstructure.live_quote_logger import log_quote_loop, fetch_quote_snapshot
 from legacy_src.models.net_score_ranking_lob import NetScoreRankingLob
+
+from leadlag.broker.tachibana.api import TachibanaClient
+from leadlag.config.schemas import TachibanaApiConfig
+from leadlag.data.tickers import JP_TICKERS
+from leadlag.execution.microstructure.live_quote_logger import fetch_quote_snapshot, log_quote_loop
+from leadlag.execution.microstructure.order_book_schema import OrderBookSnapshot
 from leadlag.reporting.sprint2c_lob_report import render_markdown_report
 
 # Configure logging
@@ -53,14 +54,14 @@ logger = logging.getLogger("run_sprint2c_lob_slippage")
 def load_yaml_config(config_path: str) -> dict:
     if not os.path.exists(config_path):
         raise FileNotFoundError(f"Config file not found: {config_path}")
-    with open(config_path, "r", encoding="utf-8") as f:
+    with open(config_path, encoding="utf-8") as f:
         return yaml.safe_load(f)
 
 
 def setup_api_client(config: dict) -> tuple[TachibanaClient | None, bool]:
     api_section = config.get("api", {})
     enabled = api_section.get("enabled", False)
-    
+
     if not enabled:
         logger.info("Tachibana API is disabled in config. Running in offline/stub mode.")
         return None, False
@@ -97,12 +98,12 @@ def get_lot_size(ticker: str) -> int:
 
 def handle_historical_fixed(config: dict) -> None:
     logger.info("Starting mode: historical-fixed")
-    
+
     # Load Sprint 2 spread sensitivity CSV
     src_csv = "artifacts/sprint2_cost_aware_aum1m/spread_sensitivity_by_model.csv"
     artifact_dir = config.get("artifact_dir", "artifacts/sprint2c_lob_slippage")
     os.makedirs(artifact_dir, exist_ok=True)
-    
+
     dest_csv = os.path.join(artifact_dir, "historical_fixed_summary.csv")
 
     if os.path.exists(src_csv):
@@ -110,7 +111,7 @@ def handle_historical_fixed(config: dict) -> None:
         df = pd.read_csv(src_csv)
         # Filter for net_score_ranking model
         df_filtered = df[df["model"] == "net_score_ranking"].copy()
-        
+
         # Save to sprint2c artifact directory
         df_filtered.to_csv(dest_csv, index=False)
         logger.info(f"Saved filtered historical results to {dest_csv}")
@@ -140,7 +141,7 @@ def handle_historical_fixed(config: dict) -> None:
 
 def handle_quote_log(config: dict, api_client: TachibanaClient | None, api_enabled: bool, run_test: bool = False) -> None:
     logger.info("Starting mode: quote-log")
-    
+
     artifact_dir = config.get("artifact_dir", "artifacts/sprint2c_lob_slippage")
     output_path = os.path.join(artifact_dir, "logs/quote_log.parquet")
 
@@ -184,7 +185,7 @@ def load_historical_signals_and_data() -> tuple[pd.DataFrame, pd.DataFrame]:
     if not os.path.exists(panel_path):
         # Fallback search
         panel_path = "artifacts/sprint2_cost_aware_aum1m/daily_pnl_by_model.parquet"
-    
+
     if os.path.exists(panel_path):
         df_panel = pd.read_parquet(panel_path)
         return df_panel, df_panel
@@ -210,7 +211,7 @@ def load_historical_signals_and_data() -> tuple[pd.DataFrame, pd.DataFrame]:
 
 def handle_paper_mode(config: dict) -> None:
     logger.info("Starting mode: paper")
-    
+
     df_panel, _ = load_historical_signals_and_data()
     if "date" not in df_panel.columns or df_panel.empty:
         logger.error("No historical signals data found to simulate paper mode.")
@@ -219,9 +220,9 @@ def handle_paper_mode(config: dict) -> None:
     # Find the last available date in the dataset
     last_date = df_panel["date"].max()
     logger.info(f"Running paper simulation for last historical date: {last_date}")
-    
+
     day_df = df_panel[df_panel["date"] == last_date]
-    
+
     signals = {}
     advs = {}
     prices = {}
@@ -284,7 +285,7 @@ def handle_lob_replay(config: dict) -> None:
 
     logger.info(f"Loading logged LOB snapshots from {log_path}")
     df_lob = pd.read_parquet(log_path)
-    
+
     if df_lob.empty:
         logger.warning("LOB log file is empty.")
         return
@@ -292,11 +293,11 @@ def handle_lob_replay(config: dict) -> None:
     # Count distinct timestamps
     timestamps = df_lob["timestamp"].unique()
     logger.info(f"Replaying LOB simulation over {len(timestamps)} recorded snapshot intervals.")
-    
+
     # We can process the last timestamp as a replay demonstration
     last_ts = timestamps[-1]
     ts_df = df_lob[df_lob["timestamp"] == last_ts]
-    
+
     # Convert df rows back to snapshots
     import dataclasses
     valid_fields = {f.name for f in dataclasses.fields(OrderBookSnapshot)}
@@ -339,7 +340,7 @@ def handle_lob_replay(config: dict) -> None:
 
 def handle_live_dryrun(config: dict, api_client: TachibanaClient | None, api_enabled: bool) -> None:
     logger.info("Starting mode: live-dryrun")
-    
+
     # Fetch real-time quotes (falls back to stub if API is disabled)
     snapshots_list = fetch_quote_snapshot(api_client, JP_TICKERS, enabled=api_enabled)
     snapshots = {s.ticker: s for s in snapshots_list}
@@ -348,7 +349,7 @@ def handle_live_dryrun(config: dict, api_client: TachibanaClient | None, api_ena
     df_panel, _ = load_historical_signals_and_data()
     last_date = df_panel["date"].max()
     day_df = df_panel[df_panel["date"] == last_date]
-    
+
     signals = {}
     advs = {}
     prices = {}
@@ -378,14 +379,14 @@ def handle_live_dryrun(config: dict, api_client: TachibanaClient | None, api_ena
     # Round weights to share quantities
     aum = config.get("aum_jpy", 1000000)
     decision_df["shares_to_trade"] = 0
-    
+
     for idx, row in decision_df.iterrows():
         if not row["selected_after_lob"]:
             continue
         ticker = row["ticker"]
         weight = row["weight_after_lob"]
         price = snapshots.get(ticker).last_price or prices.get(ticker, 1000.0)
-        
+
         if price > 0:
             target_jpy = weight * aum
             shares = int(round(target_jpy / price))

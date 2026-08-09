@@ -1,6 +1,7 @@
-import pandas as pd
 import sys
 from pathlib import Path
+
+import pandas as pd
 
 if len(sys.argv) < 3:
     print("Usage: compare_runs.py <run_dir_a> <run_dir_b>")

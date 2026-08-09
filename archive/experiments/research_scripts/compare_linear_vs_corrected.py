@@ -26,12 +26,7 @@ SRC_DIR = SCRIPT_DIR.parent / "src"
 sys.path.insert(0, str(SRC_DIR))
 
 from domain.correction.evaluation import (
-    CostModel,
-    PerformanceMetrics,
-    compute_net_returns,
     compute_performance_metrics,
-    compute_signal_ic,
-    deflated_sharpe_ratio,
     evaluate_correction_adoption,
 )
 

@@ -32,7 +32,6 @@ from leadlag.core.macro import (
     download_macro_prices,
 )
 
-
 # ---------------------------------------------------------------------------
 # compute_macro_surprise tests
 # ---------------------------------------------------------------------------
@@ -133,7 +132,6 @@ def test_kappa_scale_zero_surprise():
 
 def test_kappa_scale_sensitivity_effect():
     """Sectors with higher sensitivity should get larger scales."""
-    T = 1
     surprise = np.array([[2.0, 0.0, 0.0]])  # Only USDJPY surprise
     kappas = np.array([3.0, 0.0, 0.0])  # Only USDJPY kappa
     scales = compute_factor_kappa_scale(surprise, kappas)
@@ -199,7 +197,6 @@ def test_download_macro_prices_cache():
     )
 
     call_count = 0
-    original_download = None
 
     def counting_download(*args, **kwargs):
         nonlocal call_count

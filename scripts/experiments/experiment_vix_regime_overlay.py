@@ -16,7 +16,6 @@ import copy
 import json
 import logging
 import sys
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -30,12 +29,12 @@ sys.path.insert(0, str(ROOT / "src"))
 import yfinance as yf
 
 from leadlag.data.cache import load_df_exec_from_local_cache
-from research.backtest_v1 import run_v1_backtest
 from leadlag.models.sector_relative_ensemble_blp_enhanced import (
     SectorRelativeEnsembleBLPEnhancedModel,
 )
 from leadlag.reporting.metrics import calculate_metrics
 from leadlag.utils.threading import run_with_timeout
+from research.backtest_v1 import run_v1_backtest
 
 logging.basicConfig(
     level=logging.INFO,

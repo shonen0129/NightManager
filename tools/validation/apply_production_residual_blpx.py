@@ -11,7 +11,6 @@ import argparse
 import difflib
 import json
 import logging
-import os
 import shutil
 import sys
 from datetime import datetime
@@ -47,10 +46,10 @@ def main():
     target_path = ROOT / args.target_config
     backup_dir = ROOT / args.backup_dir
     out_dir = Path(args.output_dir) if args.output_dir.startswith("results") else ROOT / args.output_dir
-    
+
     out_dir.mkdir(parents=True, exist_ok=True)
     backup_dir.mkdir(parents=True, exist_ok=True)
-    
+
     # 1. Verification of Audit status
     if args.require_audit_pass == "true":
         audit_file = out_dir / "audit.json"
@@ -63,42 +62,42 @@ def main():
             logger.error("Compliance safety audits failed! Applying production change aborted.")
             sys.exit(1)
         logger.info("Safety audit check passed.")
-        
+
     if not src_path.exists():
         logger.error(f"Source configuration path {src_path} does not exist.")
         sys.exit(1)
     if not target_path.exists():
         logger.error(f"Target configuration candidate {target_path} does not exist.")
         sys.exit(1)
-        
+
     # 2. Read contents for diffing
     with open(src_path) as f:
         src_lines = f.readlines()
     with open(target_path) as f:
         target_lines = f.readlines()
-        
+
     # Generate unified diff patch
     diff = list(difflib.unified_diff(
         src_lines, target_lines,
         fromfile=args.source_config,
         tofile=args.target_config
     ))
-    
+
     diff_text = "".join(diff)
     diff_patch_path = out_dir / "production_config_diff.patch"
     with open(diff_patch_path, "w") as f:
         f.write(diff_text)
     logger.info(f"Configuration patch diff saved to: {diff_patch_path}")
-    
+
     # 3. Apply changes (or perform dry-run)
     date_str = datetime.now().strftime("%Y%m%d")
     backup_filename = f"production_before_residual_blpx_{date_str}.yaml"
     backup_path = backup_dir / backup_filename
-    
+
     if args.apply:
         logger.info(f"Backing up current configuration to: {backup_path}")
         shutil.copy(src_path, backup_path)
-        
+
         logger.info(f"Overwriting {src_path} with {target_path}")
         shutil.copy(target_path, src_path)
         logger.info("Configuration deployed successfully.")

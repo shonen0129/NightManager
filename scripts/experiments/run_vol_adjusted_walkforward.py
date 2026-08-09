@@ -30,7 +30,6 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from leadlag.data.cache import load_df_exec_from_local_cache
 from leadlag.execution.backtester import BacktestEngine
-from leadlag.models.sre import compute_jp_target_returns
 
 logging.basicConfig(
     level=logging.INFO,
@@ -233,7 +232,7 @@ def main() -> int:
 
     # Cost breakdown (annualized totals)
     def cost_breakdown(res: dict) -> dict:
-        n = len(res["daily_returns"])
+        len(res["daily_returns"])
         return {
             "slippage_cost_total": float(res["daily_slip_costs"].sum()) * 100,
             "financing_cost_total": float(res["daily_financing_costs"].sum()) * 100,

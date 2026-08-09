@@ -1,6 +1,6 @@
 import os
-import pandas as pd
 
+import pandas as pd
 from backtest_config import EWMA_STATIC_GRID_CONFIG, create_timestamped_output_dir
 from data_loader import download_data, preprocess_data
 from performance import calculate_metrics

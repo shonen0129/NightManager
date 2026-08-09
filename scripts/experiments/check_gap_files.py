@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 """Check which gap distribution mu_gap files are missing for a given gap dir."""
 from __future__ import annotations
+
 import sys
 from pathlib import Path
-
-import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT / "src") not in sys.path:

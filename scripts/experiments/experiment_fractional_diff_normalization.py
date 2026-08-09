@@ -43,11 +43,10 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 from leadlag.data.cache import load_df_exec_from_local_cache
-from leadlag.models.sre import compute_jp_target_returns
 from leadlag.models.sector_relative_ensemble_blp_enhanced import (
     SectorRelativeEnsembleBLPEnhancedModel,
 )
-from leadlag.reporting.metrics import calculate_metrics
+from leadlag.models.sre import compute_jp_target_returns
 
 
 def load_production_config() -> dict:

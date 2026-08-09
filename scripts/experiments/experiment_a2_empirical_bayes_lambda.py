@@ -34,8 +34,10 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from leadlag.data.cache import load_df_exec_from_local_cache
 from leadlag.data.tickers import JP_TICKERS
+from leadlag.models.sector_relative_ensemble_blp_enhanced import (
+    SectorRelativeEnsembleBLPEnhancedModel,
+)
 from leadlag.models.sre import compute_jp_target_returns
-from leadlag.models.sector_relative_ensemble_blp_enhanced import SectorRelativeEnsembleBLPEnhancedModel
 from research.backtest_v1 import run_v1_backtest
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -61,7 +63,7 @@ def compute_metrics(daily_returns: pd.Series, name: str | None = None) -> dict:
     sharpe = ar / vol if vol > 0 else np.nan
     wealth = (1.0 + dr).cumprod()
     mdd = float(((wealth / wealth.cummax()) - 1.0).min())
-    turnover = float(dr.shape[0])
+    float(dr.shape[0])
     m = {"Sharpe_net": sharpe, "AR_net": ar, "Vol_net": vol, "MDD": mdd, "n_days": len(dr)}
     if name:
         m["variant"] = name
@@ -277,15 +279,15 @@ def main():
     report_lines = [
         "# A2: Empirical Bayes Lambda Estimation Report\n",
         f"## Data: {T} rows, start={args.start_date}\n",
-        f"\n## Stage 1: One-at-a-time sensitivity\n",
+        "\n## Stage 1: One-at-a-time sensitivity\n",
         results_df.to_string(index=False),
-        f"\n\n## Stage 2: Best combination\n",
+        "\n\n## Stage 2: Best combination\n",
         f"λ_pca={best_lp}, λ_sector={best_ls}, ρ={best_rho_val}\n",
         f"Sharpe: {best_combo_sharpe:.4f} vs baseline {base_sharpe:.4f} ({improvement:+.1f}%)\n",
-        f"\n## Sensitivity analysis (±20% perturbation)\n",
+        "\n## Sensitivity analysis (±20% perturbation)\n",
         sens_df.to_string(index=False),
         f"\nSensitivity range: {sens_range:.1f}% of max Sharpe\n",
-        f"\n## Verdict\n",
+        "\n## Verdict\n",
     ]
 
     if improvement > 1.0 and sens_range < 15.0:

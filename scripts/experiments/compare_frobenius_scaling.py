@@ -14,20 +14,18 @@ import copy
 import sys
 from pathlib import Path
 
-import numpy as np
-import pandas as pd
 import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
+from leadlag.models.sector_relative_ensemble_blp_enhanced import (
+    SectorRelativeEnsembleBLPEnhancedModel,
+)
 from research.backtest_common import (
     compute_backtest_metrics,
     load_execution_data,
     run_backtest_with_costs,
-)
-from leadlag.models.sector_relative_ensemble_blp_enhanced import (
-    SectorRelativeEnsembleBLPEnhancedModel,
 )
 
 CONFIG_PATH = ROOT / "configs" / "production" / "production.yaml"

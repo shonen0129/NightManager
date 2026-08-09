@@ -1,4 +1,4 @@
-import importlib, sys
+import sys
 
 try:
     import lightgbm as lgb

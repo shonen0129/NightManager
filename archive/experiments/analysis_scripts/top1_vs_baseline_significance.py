@@ -1,6 +1,5 @@
 import numpy as np
 import pandas as pd
-
 from backtest_config import (
     LOGIC_DIFF_BASELINE_PARAMS,
     LOGIC_DIFF_TOP1_PARAMS,
@@ -8,7 +7,6 @@ from backtest_config import (
 )
 from data_loader import download_data, preprocess_data
 from strategy import LeadLagStrategy
-
 
 TRADING_DAYS = TOP1_VS_BASELINE_SIGNIFICANCE_CONFIG["trading_days"]
 START_DATE = TOP1_VS_BASELINE_SIGNIFICANCE_CONFIG["start_date"]

@@ -6,20 +6,18 @@ bypassing the high-level ``LeadLagStrategy`` wrapper.
 
 import os
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-
+from backtest.runner import run_backtest_with_config
 from backtest_config import (
-    create_timestamped_output_dir,
     DEFAULT_START_DATE,
     LOGIC_DIFF_BASELINE_PARAMS,
     STRATEGY_DEFAULTS,
+    create_timestamped_output_dir,
 )
-from config import N_JP_ASSETS
 from data_loader import download_data, preprocess_data
 from domain.models.types import StrategyConfig
-from backtest.runner import run_backtest_with_config
 from performance import calculate_metrics
 
 

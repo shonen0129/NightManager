@@ -10,13 +10,10 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
-import pytest
-from pathlib import Path
 
-from leadlag.compliance.v2_auditor import run_leakage_audit, run_numerical_audit
 from leadlag.compliance.auditor import ComplianceAuditor
+from leadlag.compliance.v2_auditor import run_leakage_audit, run_numerical_audit
 from leadlag.models.base import AuditContext
-
 
 # ---------------------------------------------------------------------------
 # v2_auditor: run_leakage_audit

@@ -77,7 +77,7 @@ def test_blp_prediction_formula(blp_sample_config):
     diag_mean = np.mean(np.diag(Sigma_XX_reg))
     ridge = rho * diag_mean * np.eye(n_u)
 
-    expected_B = Sigma_YX_reg @ np.linalg.inv(Sigma_XX_reg + ridge)
+    Sigma_YX_reg @ np.linalg.inv(Sigma_XX_reg + ridge)
 
     # Let's run a mock inputs check
     model.alpha_xx = alpha_xx

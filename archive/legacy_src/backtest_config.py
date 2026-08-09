@@ -2,9 +2,8 @@
 
 import os
 
-from results_format import create_results_output_dir, get_default_results_root
-
 from config import DEFAULT_START_DATE
+from results_format import create_results_output_dir, get_default_results_root
 
 
 def create_timestamped_output_dir(run_name="backtest", base_dir=None):

@@ -16,7 +16,6 @@ from unittest.mock import MagicMock
 
 import numpy as np
 import pandas as pd
-import pytest
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(ROOT / "src"))
@@ -29,6 +28,7 @@ from compute_gap_adjusted_distribution import (
     _process_date_impl,
     _process_date_worker,
 )
+
 from leadlag.data.tickers import JP_TICKERS
 
 
@@ -170,7 +170,7 @@ class TestProcessDateMissingData:
         dist_in.mkdir(parents=True)
 
         dt = df_exec.index[60]
-        dt_str = dt.strftime("%Y%m%d")
+        dt.strftime("%Y%m%d")
         prev_str = df_exec.index[59].strftime("%Y%m%d")
 
         # Save a PSD file for the previous date (should be excluded by re.fullmatch)

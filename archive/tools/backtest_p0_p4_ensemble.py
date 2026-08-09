@@ -245,9 +245,9 @@ def main():
 
                     # Unique DB key
                     if is_baseline_like:
-                        db_key = f"{ens['name']}_slip_{slip:.1f}"
+                        f"{ens['name']}_slip_{slip:.1f}"
                     else:
-                        db_key = f"{ens['name']}_prior_{prior}_gamma_{gamma:.2f}_slip_{slip:.1f}"
+                        f"{ens['name']}_prior_{prior}_gamma_{gamma:.2f}_slip_{slip:.1f}"
 
                     # Slice metrics per period
                     ret_split = get_subperiod_data(res["daily_returns"], t_end_dt, o_start_dt)
@@ -466,7 +466,7 @@ def main():
     # 8. Gamma sensitivity (Section 10, Output 6)
     # Gamma comparison for candidates at the best prior variant
     # Let's identify the best candidate
-    approved_candidates = oos_ranking_5bps[oos_ranking_5bps["pass_candidate"] == True]
+    approved_candidates = oos_ranking_5bps[oos_ranking_5bps["pass_candidate"]]
     if len(approved_candidates) > 0:
         best_row = approved_candidates.iloc[0]
         best_candidate_passed = True
@@ -552,7 +552,7 @@ def main():
     best_model_obj = SectorRelativeEnsembleModel(best_run_cfg)
     best_res_data = run_results_db[best_key]
     from leadlag.compliance.auditor import ComplianceAuditor
-    best_audit = ComplianceAuditor.run_audit(best_model_obj, df_exec, best_res_data, out_dir)
+    ComplianceAuditor.run_audit(best_model_obj, df_exec, best_res_data, out_dir)
 
     # Add baseline checks to audit.json
     audit_file_path = out_dir / "audit.json"
@@ -834,9 +834,9 @@ def main():
 
     # 14. Write report.md (Section 12)
     logger.info("Writing backtest report...")
-    decision_pass = "PASS" if best_row["pass_candidate"] else "FAIL"
+    "PASS" if best_row["pass_candidate"] else "FAIL"
     decision_recom = "RECOMMENDED" if best_row["pass_candidate"] else "NOT RECOMMENDED"
-    residual_pca_p4_corr_best = corr_dict.get(best_key, 1.0)
+    corr_dict.get(best_key, 1.0)
 
     # Subperiod metrics helper slice
     cand_train = summary_5bps[(summary_5bps["model"] == best_model_name) & (summary_5bps["prior_variant"] == best_prior_variant) & (summary_5bps["gamma"] == best_gamma_val) & (summary_5bps["period"] == "train")].iloc[0]

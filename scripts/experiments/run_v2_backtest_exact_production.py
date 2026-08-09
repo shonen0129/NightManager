@@ -6,7 +6,6 @@ import sys
 from pathlib import Path
 
 import numpy as np
-import pandas as pd
 import yaml
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")

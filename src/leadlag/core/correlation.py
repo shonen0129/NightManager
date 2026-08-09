@@ -5,7 +5,8 @@ from __future__ import annotations
 import numpy as np
 from scipy.optimize import minimize_scalar
 from scipy.special import gammaln
-from scipy.stats import kendalltau, t as student_t
+from scipy.stats import kendalltau
+from scipy.stats import t as student_t
 
 from leadlag.data.tickers import JP_TICKERS, US_TICKERS
 

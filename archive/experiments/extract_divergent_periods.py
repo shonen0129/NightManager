@@ -1,6 +1,7 @@
-import pandas as pd
 import sys
 from pathlib import Path
+
+import pandas as pd
 
 # Usage: python extract_divergent_periods.py <run_a_dir> <run_b_dir> [threshold]
 if len(sys.argv) < 3:
@@ -29,6 +30,7 @@ abs_rel = rel_diff.abs()
 mask = abs_rel > threshold
 periods = []
 start = None
+prev_dt = None
 for dt, val in mask.items():
     if val and start is None:
         start = dt
@@ -44,6 +46,7 @@ for dt, val in mask.items():
             'date_max': max_idx.date(),
         })
         start = None
+    prev_dt = dt
     prev_dt = dt
 # handle tail
 if start is not None:

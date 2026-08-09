@@ -18,7 +18,6 @@ from leadlag.models.ml_order_overlay import (
     apply_overlay,
 )
 
-
 N_J = len(JP_TICKERS)
 
 

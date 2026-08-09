@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Compare backtest daily returns with actual live trading results."""
-import json, glob, os, csv
+import csv
+import glob
+import json
+import os
 
 # --- Actual account equity (ukeire_hosyoukin) from wallet snapshots ---
 actual_equity = {}

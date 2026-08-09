@@ -7,16 +7,20 @@ long-short contribution, liquidity ADV, cost scenarios, and capacity limits.
 from __future__ import annotations
 
 import copy
+import glob
 import logging
 import os
-import glob
+
 import numpy as np
 import pandas as pd
 import scipy.stats as stats
+
 from leadlag.data.cache import load_df_exec_from_local_cache, load_intraday_cache
 from leadlag.data.fetcher import _yf_download_with_timeout
-from leadlag.data.tickers import JP_TICKERS, US_TICKERS, TOPIX_TICKER
-from leadlag.models.sector_relative_ensemble_blp_enhanced import SectorRelativeEnsembleBLPEnhancedModel
+from leadlag.data.tickers import JP_TICKERS
+from leadlag.models.sector_relative_ensemble_blp_enhanced import (
+    SectorRelativeEnsembleBLPEnhancedModel,
+)
 from leadlag.models.sre import compute_jp_target_returns
 
 logger = logging.getLogger(__name__)
@@ -127,7 +131,7 @@ def run_sprint0_calculations(
     # 3. Residual returns & OLS Betas
     r_topix_cc = df_exec["topix_cc_trade"]
     # Fallback to topix_oc_return as proxy for TOPIX 9:10→Close return
-    r_topix_intraday = df_exec["topix_oc_return"] 
+    r_topix_intraday = df_exec["topix_oc_return"]
 
     betas_60_cc = compute_rolling_beta(r_cc, r_topix_cc, 60)
     betas_120_cc = compute_rolling_beta(r_cc, r_topix_cc, 120)
@@ -136,10 +140,10 @@ def run_sprint0_calculations(
     betas_120_intraday = compute_rolling_beta(r_intraday, r_topix_intraday, 120)
 
     y_res_cc_60 = (r_cc - betas_60_cc.multiply(r_topix_cc, axis=0)).replace([np.inf, -np.inf], np.nan).ffill().fillna(0.0)
-    y_res_cc_120 = (r_cc - betas_120_cc.multiply(r_topix_cc, axis=0)).replace([np.inf, -np.inf], np.nan).ffill().fillna(0.0)
+    (r_cc - betas_120_cc.multiply(r_topix_cc, axis=0)).replace([np.inf, -np.inf], np.nan).ffill().fillna(0.0)
 
     y_res_intraday_60 = (r_intraday - betas_60_intraday.multiply(r_topix_intraday, axis=0)).replace([np.inf, -np.inf], np.nan).ffill().fillna(0.0)
-    y_res_intraday_120 = (r_intraday - betas_120_intraday.multiply(r_topix_intraday, axis=0)).replace([np.inf, -np.inf], np.nan).ffill().fillna(0.0)
+    (r_intraday - betas_120_intraday.multiply(r_topix_intraday, axis=0)).replace([np.inf, -np.inf], np.nan).ffill().fillna(0.0)
 
     # Filter out early dates that lack sufficient history for rolling betas (first 120 days)
     # and restrict to the analysis dates window
@@ -147,9 +151,9 @@ def run_sprint0_calculations(
 
     # 4. Target Mismatch Diagnostics
     # Global correlations (analysis window)
-    corr_cc_intraday_by_ticker = pd.Series({tk: r_cc.loc[analysis_dates, tk].corr(r_intraday.loc[analysis_dates, tk]) for tk in JP_TICKERS})
-    corr_res_by_ticker = pd.Series({
-        tk: y_res_cc_60.loc[valid_dates_beta, tk].corr(y_res_intraday_60.loc[valid_dates_beta, tk]) 
+    pd.Series({tk: r_cc.loc[analysis_dates, tk].corr(r_intraday.loc[analysis_dates, tk]) for tk in JP_TICKERS})
+    pd.Series({
+        tk: y_res_cc_60.loc[valid_dates_beta, tk].corr(y_res_intraday_60.loc[valid_dates_beta, tk])
         for tk in JP_TICKERS
     })
 
@@ -158,7 +162,7 @@ def run_sprint0_calculations(
     rolling_corr_df = pd.DataFrame(index=sim_dates, columns=JP_TICKERS)
     for tk in JP_TICKERS:
         rolling_corr_df[tk] = r_cc[tk].rolling(60).corr(r_intraday[tk])
-    avg_rolling_corr = rolling_corr_df.loc[analysis_dates].mean(axis=1)
+    rolling_corr_df.loc[analysis_dates].mean(axis=1)
 
     # Year-by-year correlation
     years = analysis_dates.year.unique()
@@ -170,7 +174,7 @@ def run_sprint0_calculations(
         r_intra_yr = r_intraday.loc[dates_yr]
         corr_val = np.mean([r_cc_yr[tk].corr(r_intra_yr[tk]) for tk in JP_TICKERS if len(r_cc_yr) > 1])
         yearly_corr[yr] = corr_val
-    yearly_corr_df = pd.Series(yearly_corr, name="average_ticker_correlation")
+    pd.Series(yearly_corr, name="average_ticker_correlation")
 
     # Regime-wise correlation (VIX & USDJPY)
     macro_path = os.path.join(os.path.dirname(__file__), "..", "..", "..", "market_data", "macro_data.pkl")
@@ -183,7 +187,7 @@ def run_sprint0_calculations(
 
         vix = macro_df.loc[analysis_dates, "^VIX"]
         usdjpy = macro_df.loc[analysis_dates, "USDJPY=X"]
-        
+
         vix_med = vix.median()
         usdjpy_med = usdjpy.median()
 
@@ -243,7 +247,7 @@ def run_sprint0_calculations(
     # Standard model (with gap adjustment)
     model_gap = SectorRelativeEnsembleBLPEnhancedModel(prod_config)
     pred_gap = model_gap.predict_signals(df_exec)
-    signals_gap = pred_gap["signals"]  # post-gap adjustment combined signal
+    pred_gap["signals"]  # post-gap adjustment combined signal
     residual_blpx_signals = pred_gap["residual_blpx_signals"]
 
     # Model without gap adjustment
@@ -251,18 +255,18 @@ def run_sprint0_calculations(
     prod_config_no_gap["blpx"]["gap_open_coef"] = 0.0
     model_no_gap = SectorRelativeEnsembleBLPEnhancedModel(prod_config_no_gap)
     pred_no_gap = model_no_gap.predict_signals(df_exec)
-    signals_no_gap = pred_no_gap["signals"]
+    pred_no_gap["signals"]
     residual_blpx_no_gap_signals = pred_no_gap["residual_blpx_signals"]
 
     # 6. Signal IC Analysis
     # We evaluate IC over valid_dates_beta
     ic_results = []
-    
+
     # We calculate daily Rank IC (Spearman)
     for dt in valid_dates_beta:
         y_cc_t = y_res_cc_60.loc[dt].values
         y_intra_t = y_res_intraday_60.loc[dt].values
-        
+
         # Signals
         sig_gap_t = residual_blpx_signals.loc[dt].values
         sig_nogap_t = residual_blpx_no_gap_signals.loc[dt].values
@@ -316,7 +320,7 @@ def run_sprint0_calculations(
     # We rank tickers daily based on signal and look at average realized returns (y_res_cc, y_res_intraday, raw r_intraday)
     # We check 3 quantiles: Q1 (bottom 30%), Q2 (middle 40%), Q3 (top 30%)
     quantile_returns = []
-    
+
     # We compute the quantile returns for standard gap-adjusted signals
     for dt in valid_dates_beta:
         sig_t = residual_blpx_signals.loc[dt]
@@ -327,7 +331,7 @@ def run_sprint0_calculations(
         # Ranks
         ranks = sig_t.rank(method="first")
         n_assets = len(sig_t)
-        
+
         # Lower 30% (indices 1 to floor(n_assets*0.3))
         q1_mask = ranks <= np.floor(n_assets * 0.3)
         # Upper 30% (indices ceiling(n_assets*0.7) to n_assets)
@@ -369,7 +373,7 @@ def run_sprint0_calculations(
         diag_df = pd.read_csv(diag_file)
         diag_df["trade_date"] = pd.to_datetime(diag_df["trade_date"]).dt.normalize()
         diag_df = diag_df.set_index("trade_date")
-        
+
         # Join multipliers
         for dt in valid_dates_beta:
             if dt in diag_df.index:
@@ -378,7 +382,7 @@ def run_sprint0_calculations(
                 if isinstance(gross_exp, pd.Series):
                     gross_exp = gross_exp.iloc[0]
                 multipliers[dt] = float(gross_exp) / 2.0
-                
+
                 # Ex-ante IR
                 ir_val = diag_df.loc[dt, "pred_ir_gap_exante_cost"]
                 if isinstance(ir_val, pd.Series):
@@ -418,7 +422,7 @@ def run_sprint0_calculations(
     beta_exp_std = beta_exp_series.std()
     beta_exp_max = beta_exp_series.max()
     beta_exp_min = beta_exp_series.min()
-    
+
     # Correlation with strategy PnL
     corr_beta_pnl = beta_exp_series.corr(strategy_returns)
     # Relation with TOPIX return (correlation between beta_exposure and TOPIX return)
@@ -429,13 +433,13 @@ def run_sprint0_calculations(
     for dt in valid_dates_beta:
         w_t = w_ruled_df.loc[dt].values
         r_t = r_target_panel[valid_dates_beta.get_loc(dt)]
-        
+
         w_long = np.maximum(w_t, 0)
         w_short = np.minimum(w_t, 0)
-        
+
         long_pnl = np.sum(w_long * r_t)
         short_pnl = np.sum(w_short * r_t)
-        
+
         long_pnl_decomp.loc[dt] = {
             "long_pnl": long_pnl,
             "short_pnl": short_pnl,
@@ -461,10 +465,10 @@ def run_sprint0_calculations(
         end=sim_dates.max().strftime("%Y-%m-%d"),
         auto_adjust=False,
     )
-    
+
     volume_df = yf_data["Volume"].reindex(sim_dates).ffill()
     close_df = yf_data["Close"].reindex(sim_dates).ffill()
-    
+
     # ADV (rolling 20-day mean of traded value in JPY)
     adtv_daily = volume_df * close_df
     adv_rolling = adtv_daily.rolling(20).mean()
@@ -489,7 +493,7 @@ def run_sprint0_calculations(
         mean_value = adtv_daily[tk].mean()
         median_value = adtv_daily[tk].median()
         mean_spread = spread_df[tk].mean()
-        
+
         liquidity_stats.append({
             "ticker": tk,
             "mean_volume": mean_vol,
@@ -526,14 +530,14 @@ def run_sprint0_calculations(
     # 12. Capacity Diagnostics by AUM
     aum_scenarios = [100000000, 500000000, 1000000000, 3000000000, 5000000000, 10000000000]
     capacity_summary = []
-    
+
     # We calculate capacity metrics for each AUM
     for aum in aum_scenarios:
         # daily trade value in JPY for each ticker
         trade_notional_daily = w_ruled_df.diff().abs().multiply(aum, axis=0)
         # First day initial trade value
         trade_notional_daily.iloc[0] = w_ruled_df.iloc[0].abs().multiply(aum)
-        
+
         # ADV ratio: trade_value / ADV
         ratio_daily = trade_notional_daily.divide(adv_rolling.loc[valid_dates_beta], axis=0)
         # Drop days where all columns are NaN
@@ -553,7 +557,7 @@ def run_sprint0_calculations(
         # If ADV is missing, ratio_daily has NaNs. Let's fill NaNs in ratio with 0.0
         ratio_vals = ratio_daily.reindex(valid_dates_beta).fillna(0.0).values
         w_vals = w_ruled_df.reindex(valid_dates_beta).values
-        
+
         # Calculate daily market impact cost
         # We use a standard rolling std of returns as proxy for volatility (annual std / sqrt(252))
         vol_daily = y_res_cc_60.rolling(20).std().reindex(valid_dates_beta).fillna(0.01).values
@@ -567,7 +571,7 @@ def run_sprint0_calculations(
 
         total_costs_jpy = mi_cost_daily + spread_cost_daily
         pnl_net_aum = pnl_gross.reindex(valid_dates_beta) - total_costs_jpy
-        
+
         net_mean = pnl_net_aum.mean()
         net_std = pnl_net_aum.std()
         net_ir = (net_mean / net_std * np.sqrt(252)) if net_std > 0 else 0.0
@@ -591,10 +595,10 @@ def run_sprint0_calculations(
             "realized_return": strategy_returns,
             "pit_bin": pit_bins,
         }).dropna()
-        
+
         # Sort into tertiles by ex_ante_ir
         calib_data["ex_ante_tertile"] = pd.qcut(calib_data["ex_ante_ir"], 3, labels=["Low", "Medium", "High"])
-        
+
         calib_summary = []
         for tertile in ["Low", "Medium", "High"]:
             sub = calib_data[calib_data["ex_ante_tertile"] == tertile]
@@ -607,7 +611,7 @@ def run_sprint0_calculations(
                 "count": len(sub)
             })
         calibration_df = pd.DataFrame(calib_summary).set_index("ex_ante_bin")
-        
+
         # Also compute correlation of ex-ante IR with next-day PnL and max drawdown
         corr_ir_pnl = calib_data["ex_ante_ir"].corr(calib_data["realized_return"])
         # Next-day drawdown relation: we can find the maximum drawdown over next 5 days

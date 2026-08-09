@@ -9,7 +9,6 @@ from __future__ import annotations
 import logging
 import os
 from datetime import datetime
-from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -89,7 +88,7 @@ def generate_sprint3a_report(
 
     # Load artifacts
     model_summary = _safe_load(os.path.join(artifact_dir, "model_comparison_summary.csv"))
-    ic_ts = _safe_load(os.path.join(artifact_dir, "ic_timeseries.csv"))
+    _safe_load(os.path.join(artifact_dir, "ic_timeseries.csv"))
     quantile_ret = _safe_load(os.path.join(artifact_dir, "quantile_return_summary.csv"))
     cost_sensitivity = _safe_load(os.path.join(artifact_dir, "cost_sensitivity_summary.csv"))
     feature_stability = _safe_load(os.path.join(artifact_dir, "feature_stability_summary.csv"))
@@ -138,13 +137,13 @@ def generate_sprint3a_report(
     h1_ret = metric(h1, "annualized_net_return")
     h1_ir = metric(h1, "IR")
     h1_dd = metric(h1, "max_drawdown")
-    h1_ic = metric(h1, "mean_rank_ic")
+    metric(h1, "mean_rank_ic")
 
     # H2 (ElasticNet) metrics
     h2_ret = metric(h2, "annualized_net_return")
     h2_ir = metric(h2, "IR")
     h2_dd = metric(h2, "max_drawdown")
-    h2_ic = metric(h2, "mean_rank_ic")
+    metric(h2, "mean_rank_ic")
 
     # Compute improvements
     def improvement(base: float | None, new: float | None) -> str:
@@ -182,7 +181,7 @@ def generate_sprint3a_report(
     min_ret_improvement = adoption_criteria.get("min_annual_net_return_improvement", 0.03)
     min_ir_improvement = adoption_criteria.get("min_ir_improvement", 0.20)
     max_dd_worsening = adoption_criteria.get("max_dd_worsening_allowed", 0.00)
-    max_turnover_increase = adoption_criteria.get("max_turnover_increase_ratio", 0.20)
+    adoption_criteria.get("max_turnover_increase_ratio", 0.20)
 
     def check_adoption(b_ret, h_ret, b_ir, h_ir, b_dd, h_dd) -> tuple[bool, list[str]]:
         reasons = []
@@ -462,7 +461,7 @@ def generate_sprint3a_report(
     lines.append("---")
     lines.append("## 12. AUM 100万円・固定スプレッド感応度")
     lines.append("")
-    lines.append(f"| Spread (bps) | B0 Net Return | H1 Ridge Net Return | H2 EN Net Return |")
+    lines.append("| Spread (bps) | B0 Net Return | H1 Ridge Net Return | H2 EN Net Return |")
     lines.append("|-------------|--------------|---------------------|-----------------|")
     for s_bps in spread_scenarios:
         b0_r = _fmt_pct(get_spread_metric(s_bps, "net_score_ranking", "annualized_net_return"))
@@ -480,7 +479,7 @@ def generate_sprint3a_report(
     lines.append("## 13. Reverse Fee 感応度")
     lines.append("")
     rev_scenarios = config.get("costs", {}).get("reverse_fee_bps_per_day_scenarios", [0, 5, 10, 30])
-    lines.append(f"| Reverse Fee (bps/day) | B0 Net Return | H1 Ridge Net Return |")
+    lines.append("| Reverse Fee (bps/day) | B0 Net Return | H1 Ridge Net Return |")
     lines.append("|----------------------|--------------|---------------------|")
     for r_bps in rev_scenarios:
         b0_r = _fmt_pct(get_spread_metric(r_bps, "net_score_ranking", "rev_fee_annualized_net_return"))
@@ -527,7 +526,7 @@ def generate_sprint3a_report(
             lines.append(f"| {row.get('feature', 'N/A')} | {freq} | {ic} | {cons} |")
         lines.append("")
         if stable_features:
-            lines.append(f"**安定特徴量 (選択頻度 ≥ 50%)**:")
+            lines.append("**安定特徴量 (選択頻度 ≥ 50%)**:")
             for f in stable_features:
                 lines.append(f"- `{f}`")
             lines.append("")
@@ -547,7 +546,7 @@ def generate_sprint3a_report(
     lines.append("## 16. True 9:10 サブサンプル結果")
     lines.append("")
     if oos_preds is not None and "is_true_0910" in oos_preds.columns:
-        true_910 = oos_preds[oos_preds["is_true_0910"] == True]
+        true_910 = oos_preds[oos_preds["is_true_0910"]]
         n_true = len(true_910.index.unique())
         lines.append(f"- True 9:10 サブサンプル日数: {n_true}")
         lines.append("")

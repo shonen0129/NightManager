@@ -26,12 +26,9 @@ from leadlag.core.portfolio import get_rolling_pit_bin, solve_baseline_style
 from leadlag.data.tickers import JP_TICKERS
 from leadlag.models.production_v2 import (
     BASELINE_GROSS,
-    COST_BPS_PER_GROSS,
     LONG_COUNT,
     SHORT_COUNT,
-    VERSION,
     generate_v2_production_portfolio,
-    load_gap_matrices,
     load_pit_ir_history,
     parse_run_config,
 )
@@ -141,7 +138,7 @@ class TestLoadPitIrHistory:
         """When pred_ir_gap_baseline_cost exists, it is used over legacy column."""
         rows = []
         for i in range(300):
-            d = f"2025-01-{i+1:02d}" if i < 30 else f"2025-02-{i-29+1:02d}"
+            f"2025-01-{i+1:02d}" if i < 30 else f"2025-02-{i-29+1:02d}"
             rows.append({
                 "trade_date": f"2025-{(i // 28) + 1:02d}-{(i % 28) + 1:02d}",
                 "pred_ir_gap_exante_cost": float(i + 1) * 0.01,
@@ -338,7 +335,6 @@ class TestGenerateV2Portfolio:
            strictly before trade_date → finds mu_gap_20260615.npy → signal_date=2026-06-15
         3. run_leakage_audit("2026-06-15", "2026-06-16") → PASSED
         """
-        import pandas as pd
 
         mu_gap, Omega_gap = _make_synthetic_gap_data()
         matrices_dir = tmp_path / "matrices"
@@ -458,7 +454,6 @@ class TestCfgPropagation:
     """Verify that cfg values are actually used in the pipeline output."""
 
     def _make_files(self, tmp_path, trade_date="2026-06-16"):
-        import pandas as pd
         mu_gap, Omega_gap = _make_synthetic_gap_data()
         matrices_dir = tmp_path / "matrices"
         matrices_dir.mkdir(exist_ok=True)
@@ -536,7 +531,6 @@ class TestMacroKappaOmegaGapInflation:
     """Test that macro kappa inflates Omega_gap and affects scores/weights."""
 
     def _make_files(self, tmp_path, trade_date="2026-06-16"):
-        import pandas as pd
         mu_gap, Omega_gap = _make_synthetic_gap_data()
         matrices_dir = tmp_path / "matrices"
         matrices_dir.mkdir(exist_ok=True)
@@ -560,6 +554,7 @@ class TestMacroKappaOmegaGapInflation:
     def test_inflation_changes_omega_gap(self, tmp_path, monkeypatch):
         """When macro kappa is enabled, Omega_gap is inflated (diagonal increases)."""
         import pandas as pd
+
         from leadlag.models import production_v2 as pv2_mod
 
         mu_gap, Omega_gap_orig = self._make_files(tmp_path)
@@ -594,6 +589,7 @@ class TestMacroKappaOmegaGapInflation:
     def test_inflation_preserves_psd(self, tmp_path, monkeypatch):
         """Inflated Omega_gap remains PSD."""
         import pandas as pd
+
         from leadlag.models import production_v2 as pv2_mod
 
         _, _ = self._make_files(tmp_path)

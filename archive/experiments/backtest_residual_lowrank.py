@@ -26,17 +26,15 @@ from sklearn.linear_model import Ridge
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
+from backtest.runner import run_backtest_with_config
 from config import STRATEGY_DEFAULTS
 from data.downloader import download_data
 from data.preprocessor import preprocess_data
-from data.ticker_registry import JP_TICKERS, US_TICKERS, TOPIX_TICKER
+from data.ticker_registry import JP_TICKERS, TOPIX_TICKER, US_TICKERS
 from domain.models.residual_lowrank import (
-    ResidualizedSupervisedLowRankModel,
     compute_rolling_ols_betas,
 )
 from domain.models.types import StrategyConfig
-from backtest.runner import run_backtest_with_config
-from performance import calculate_metrics
 
 # Set up logging
 logging.basicConfig(
@@ -213,13 +211,12 @@ def run_residual_lowrank_simulation(
 ) -> dict:
     """Run rolling walk-forward simulation of the Low-Rank Model."""
     T = len(df_exec)
-    n_features = 11  # First 11 US sector ETFs
     n_targets = len(JP_TICKERS)
 
     # 1. US Residualization
     # Slice features and target for US regression
     y_us = us_returns_raw[US_TICKERS[:11]].values  # shape (T, 11)
-    
+
     if config["residualize_us_macro"]:
         # US market + 4 macros
         x_us = np.column_stack([
@@ -263,7 +260,7 @@ def run_residual_lowrank_simulation(
     # Output arrays
     pred_signals = np.zeros((T, n_targets))
     pred_signals[:] = np.nan
-    
+
     # Model tracking
     last_B = None
     last_mean_X = None
@@ -289,7 +286,7 @@ def run_residual_lowrank_simulation(
         if should_refit:
             train_start = i - train_window
             train_end = i - 1  # strictly up to t-1 to avoid target leak
-            
+
             X_tr = x_shocks[train_start : train_end + 1]
             Y_tr = y_residuals[train_start : train_end + 1]
 
@@ -338,7 +335,7 @@ def run_residual_lowrank_simulation(
     # 4. Portfolio construction & backtest simulation
     sim_dates = df_exec.index[start_idx:]
     results = []
-    
+
     weights_list = []
     daily_returns = []
     daily_gross_exposures = []
@@ -355,7 +352,7 @@ def run_residual_lowrank_simulation(
         # realized return on trade date i (which is JP Open-to-Close)
         r_oc = y_jp[i]
         gross_return = float(np.sum(weights * r_oc))
-        
+
         gross_exposure = float(np.sum(np.abs(weights)))
         slippage_cost = 2.0 * slippage_rate * gross_exposure
         net_return = gross_return - slippage_cost
@@ -476,19 +473,19 @@ def main():
     # Step 2: Parameter Grid Search (only on train/tune period 2015-01-05 to 2019-12-31)
     train_end_date = "2019-12-31"
     grid_results = []
-    
+
     if args.grid_search:
         logger.info("Step 2: Performing hyperparameter grid search on training data...")
         ranks = [1, 2, 3, 4, 5, 6]
         alphas = [1e-4, 1e-3, 1e-2, 1e-1, 1.0, 10.0]
-        
+
         for r in ranks:
             for a in alphas:
                 logger.info("Evaluating rank_K=%d, ridge_alpha=%.4f...", r, a)
                 cfg = dict(config_base)
                 cfg["rank_K"] = r
                 cfg["ridge_alpha"] = a
-                
+
                 # Run backtest strictly on training period
                 sim = run_residual_lowrank_simulation(
                     df_exec=df_exec[df_exec.index <= train_end_date],
@@ -516,11 +513,11 @@ def main():
                         "Sharpe": metrics["Sharpe"],
                         "MDD": metrics["MDD"],
                     })
-                    
+
         grid_df = pd.DataFrame(grid_results)
         grid_df.to_csv(results_dir / "hyperparameter_search.csv", index=False)
         logger.info("Grid search results saved to %s", results_dir / "hyperparameter_search.csv")
-        
+
         # Select optimal parameters (maximize Sharpe)
         best_row = grid_df.loc[grid_df["Sharpe"].idxmax()]
         logger.info("Best parameters found: rank_K=%d, ridge_alpha=%.4f (Sharpe=%.4f)",
@@ -530,7 +527,7 @@ def main():
 
     # Step 3: Run full backtest for New Model A, B, C
     logger.info("Step 3: Running walk-forward backtests...")
-    
+
     # Model A: US residualized = True, JP residualized = True
     config_A = dict(config_base)
     config_A["residualize_us_market"] = True
@@ -553,7 +550,7 @@ def main():
     sim_A["results"].to_csv(results_dir / "daily_returns.csv")
     sim_A["weights"].to_csv(results_dir / "daily_positions.csv")
     sim_A["signals"].to_csv(results_dir / "daily_signals.csv")
-    
+
     ic_df = sim_A["results"][["ic", "residual_ic"]].rename(columns={"ic": "daily_ic", "residual_ic": "residual_ic"})
     ic_df.to_csv(results_dir / "ic_series.csv")
 
@@ -561,14 +558,14 @@ def main():
     if len(sim_A["B_history"]) > 0:
         avg_B = np.mean(sim_A["B_history"], axis=0)
         latest_B = sim_A["B_history"][-1]
-        
+
         pd.DataFrame(avg_B, index=US_TICKERS[:11], columns=JP_TICKERS).to_csv(results_dir / "average_B_matrix.csv")
         pd.DataFrame(latest_B, index=US_TICKERS[:11], columns=JP_TICKERS).to_csv(results_dir / "latest_B_matrix.csv")
         logger.info("Saved B matrices to %s", results_dir)
 
     # Step 4: Existing models comparison
     logger.info("Step 4: Running baseline and production model comparisons...")
-    
+
     # 1. Existing Legacy Baseline model
     base_legacy = {
         "K": 3,
@@ -624,7 +621,7 @@ def main():
 
     # Step 5: Evaluate metrics and compare
     logger.info("Step 5: Evaluating metrics...")
-    
+
     # Slice results into train and OOS periods
     oos_start_dt = pd.to_datetime(args.oos_start)
 
@@ -636,7 +633,7 @@ def main():
         "New Model B (Raw US, Residual JP)": sim_B["results"],
         "New Model C (Residual US, Raw JP)": sim_C["results"],
     }
-    
+
     # Save daily return comparison
     compare_returns = pd.DataFrame(index=sim_A["results"].index)
     for name, df in models_dict.items():
@@ -651,7 +648,7 @@ def main():
         df_full = df
         w_df_full = sim_A["weights"] if "New Model" in name else pd.DataFrame(np.zeros((len(df_full), len(JP_TICKERS))), index=df_full.index, columns=JP_TICKERS) # placeholder
         r_oc_df_full = sim_A["r_oc"]
-        
+
         # For legacy and production models we have to approximate active count / weights for detailed metrics
         # Let's extract weights if available
         if name == "New Model A (Residual US & JP)":
@@ -686,7 +683,7 @@ def main():
 
     metrics_df.to_csv(results_dir / "metrics_summary.csv")
     oos_metrics_df.to_csv(results_dir / "oos_metrics_summary.csv")
-    
+
     logger.info("Saved metrics to %s", results_dir)
 
     # Save drawdowns
@@ -699,7 +696,7 @@ def main():
     # Step 6: Leakage Audit
     logger.info("Step 6: Running leakage audit checks...")
     audit_results = []
-    
+
     # 1. Timeline check
     audit_sig_vs_trade = all(df_exec["sig_date"] < df_exec.index)
     audit_results.append({
@@ -767,13 +764,13 @@ def main():
         audit_txt += f"Detail: {check['detail']}\n\n"
         if check["status"] == "FAIL":
             leak_failed = True
-            
+
     audit_txt += "------------------------------------------------------------\n"
     if leak_failed:
         audit_txt += "AUDIT STATUS: FAIL\nWARNING: Potential lookahead leaks detected!\n"
     else:
         audit_txt += "AUDIT STATUS: PASS\nAll leakage safety constraints satisfied.\n"
-        
+
     with open(results_dir / "leakage_audit.txt", "w", encoding="utf-8") as f:
         f.write(audit_txt)
     logger.info("Leakage audit completed. Results saved to %s", results_dir / "leakage_audit.txt")
@@ -785,7 +782,7 @@ def main():
     # Step 7: Plot Charts
     logger.info("Step 7: Plotting charts...")
     plt.style.use("seaborn-v0_8-whitegrid" if "seaborn-v0_8-whitegrid" in plt.style.available else "default")
-    
+
     # 1. Equity Curves
     plt.figure(figsize=(12, 6))
     for name, df in models_dict.items():
@@ -846,17 +843,17 @@ def main():
     plt.figure(figsize=(14, 8))
     # Sample signals monthly to keep heatmap legible
     monthly_signals = sim_A["signals"].resample("ME").mean()
-    
+
     data_to_plot = monthly_signals.T.values
     im = plt.imshow(data_to_plot, cmap="RdYlBu_r", aspect="auto", interpolation="nearest")
     plt.colorbar(im, label="Alphas")
     plt.yticks(ticks=np.arange(len(JP_TICKERS)), labels=JP_TICKERS)
-    
+
     # Format x ticks to show dates
     dates_str = [d.strftime("%Y-%m") for d in monthly_signals.index]
     tick_step = max(1, len(dates_str) // 15)
     plt.xticks(ticks=np.arange(0, len(dates_str), tick_step), labels=dates_str[::tick_step], rotation=45)
-    
+
     plt.title("Model A: Monthly Average Predicted Alphas", fontsize=14)
     plt.ylabel("JP Sectors", fontsize=12)
     plt.xlabel("Month", fontsize=12)
@@ -872,12 +869,12 @@ def main():
         plt.colorbar(im, label="Propagation Coefficient")
         plt.yticks(ticks=np.arange(11), labels=US_TICKERS[:11])
         plt.xticks(ticks=np.arange(17), labels=JP_TICKERS, rotation=90)
-        
+
         # Annotate values
         for r in range(avg_B.shape[0]):
             for c in range(avg_B.shape[1]):
                 plt.text(c, r, f"{avg_B[r, c]:.2f}", ha="center", va="center", color="black", fontsize=8)
-                
+
         plt.title("Model A: Average Propagation Matrix B (US Sectors to JP Sectors)", fontsize=14)
         plt.ylabel("US Sector Idiosyncratic Shocks", fontsize=12)
         plt.xlabel("JP Sector Alphas", fontsize=12)

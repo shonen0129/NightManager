@@ -13,7 +13,6 @@ Exact backtest:
 from __future__ import annotations
 
 import json
-import re
 from pathlib import Path
 
 import numpy as np
@@ -207,13 +206,13 @@ def main():
     # --- 3. レポート生成 ---
     lines = ["# V2 Exact Backtest vs 実口座 ズレ分析\n"]
     lines.append(f"対象バックテスト: `{BT_DIR}`\n")
-    lines.append(f"対象実口座期間: 2026-07-29 〜 2026-08-05（受入保証金）\n\n")
+    lines.append("対象実口座期間: 2026-07-29 〜 2026-08-05（受入保証金）\n\n")
 
     # Backtest summary
     bt_start = bt_returns.index[0].date()
     bt_end = bt_returns.index[-1].date()
     bt_final_wealth = float(bt_equity.iloc[-1])
-    bt_total_ret = float(bt_returns.sum())
+    float(bt_returns.sum())
     bt_sharpe = float(bt_returns.mean() / bt_returns.std() * np.sqrt(252))
     bt_mdd = float((bt_equity / bt_equity.cummax() - 1).min())
     lines.append("## 1. バックテスト（本番同一設定）\n\n")

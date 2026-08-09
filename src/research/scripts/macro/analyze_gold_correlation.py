@@ -17,7 +17,7 @@ MACRO_NAMES = ["USDJPY", "CLF", "TNX", "GOLD"]
 def download_macro_data(start: str, end: str) -> pd.DataFrame:
     """Download daily close prices for macro factors."""
     logger.info(f"Downloading data from {start} to {end}")
-    
+
     data = yf.download(
         MACRO_TICKERS,
         start=start,
@@ -25,16 +25,16 @@ def download_macro_data(start: str, end: str) -> pd.DataFrame:
         progress=False,
         auto_adjust=False,
     )
-    
+
     # Extract Close prices
     if isinstance(data.columns, pd.MultiIndex):
         close = data["Close"]
     else:
         close = data
-    
+
     close.columns = MACRO_NAMES
     close = close.dropna(how="all")
-    
+
     return close
 
 def compute_returns(df: pd.DataFrame) -> pd.DataFrame:
@@ -47,24 +47,24 @@ def compute_returns(df: pd.DataFrame) -> pd.DataFrame:
 def analyze_correlation(returns: pd.DataFrame):
     """Compute and display correlation matrix."""
     corr = returns.corr()
-    
+
     print("\n" + "="*60)
     print("CORRELATION MATRIX (Daily Returns)")
     print("="*60)
     print(corr.round(3))
-    
+
     print("\n" + "="*60)
     print("GOLD vs OTHER FACTORS")
     print("="*60)
     for factor in ["USDJPY", "CLF", "TNX"]:
         corr_val = corr.loc["GOLD", factor]
         print(f"GOLD - {factor}: {corr_val:.3f}")
-    
+
     # Rolling correlation (60-day window)
     print("\n" + "="*60)
     print("ROLLING CORRELATION (60-day window) - GOLD vs OTHERS")
     print("="*60)
-    
+
     for factor in ["USDJPY", "CLF", "TNX"]:
         rolling_corr = returns["GOLD"].rolling(window=60).corr(returns[factor])
         rolling_corr = rolling_corr.dropna()
@@ -73,7 +73,7 @@ def analyze_correlation(returns: pd.DataFrame):
         print(f"  Std:  {rolling_corr.std():.3f}")
         print(f"  Min: {rolling_corr.min():.3f}")
         print(f"  Max: {rolling_corr.max():.3f}")
-    
+
     return corr
 
 def analyze_volatility(returns: pd.DataFrame):
@@ -81,20 +81,20 @@ def analyze_volatility(returns: pd.DataFrame):
     print("\n" + "="*60)
     print("VOLATILITY ANALYSIS (Annualized)")
     print("="*60)
-    
+
     vol = returns.std() * np.sqrt(252)
     print(vol.round(4))
-    
+
     print("\n" + "="*60)
     print("SURPRISE STATISTICS (Z-scores)")
     print("="*60)
-    
+
     # Compute z-scores using rolling mean/std
     rolling_mean = returns.rolling(window=60).mean()
     rolling_std = returns.rolling(window=60).std()
     surprise = (returns - rolling_mean) / rolling_std
-    
-    print(f"\nGOLD surprise statistics:")
+
+    print("\nGOLD surprise statistics:")
     print(f"  Mean: {surprise['GOLD'].mean():.3f}")
     print(f"  Std:  {surprise['GOLD'].std():.3f}")
     print(f"  Min:  {surprise['GOLD'].min():.3f}")
@@ -104,18 +104,18 @@ def main():
     # Download 5 years of data
     end_date = datetime.now().strftime("%Y-%m-%d")
     start_date = (datetime.now() - timedelta(days=365*5)).strftime("%Y-%m-%d")
-    
+
     close_prices = download_macro_data(start_date, end_date)
     logger.info(f"Downloaded {len(close_prices)} days of data")
-    
+
     returns = compute_returns(close_prices)
-    
+
     # Analyze correlations
     corr = analyze_correlation(returns)
-    
+
     # Analyze volatility
     analyze_volatility(returns)
-    
+
     print("\n" + "="*60)
     print("SUMMARY")
     print("="*60)
