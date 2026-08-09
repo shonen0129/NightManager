@@ -20,6 +20,138 @@ from leadlag.reporting.results_format import get_default_results_root
 logger = logging.getLogger(__name__)
 
 
+def _add_decision_args(parser: argparse.ArgumentParser) -> None:
+    """Add arguments for the decision (and daily) subcommand."""
+    parser.add_argument(
+        "--config",
+        default="configs/production/production.yaml",
+        help="Path to V2 production YAML config (default: configs/production/production.yaml).",
+    )
+    parser.add_argument(
+        "--gap-dir",
+        default=None,
+        help="Directory containing mu_gap/omega_gap .npy files. "
+             "Defaults to gap_distribution.dir in the YAML config.",
+    )
+    parser.add_argument(
+        "--live-dir",
+        default="live/production_residual_blpx",
+        help="Live output directory for V2 artifacts (default: live/production_residual_blpx).",
+    )
+    parser.add_argument(
+        "--output-root",
+        default=get_default_results_root(),
+        help="Directory root where outputs are written.",
+    )
+    parser.add_argument(
+        "--run-tag",
+        default=None,
+        help="Optional run tag. If omitted, a timestamp is used.",
+    )
+    parser.add_argument(
+        "--trade-date",
+        default=None,
+        help="Trade date in YYYY-MM-DD for decision mode (default: today).",
+    )
+    parser.add_argument(
+        "--jp-opens-csv",
+        default=None,
+        help="CSV file with TOPIX-17 opens (columns: ticker, open_price).",
+    )
+    parser.add_argument(
+        "--capital",
+        type=float,
+        default=1000000.0,
+        help="Equity capital in JPY for position sizing (default: 1000000).",
+    )
+    parser.add_argument(
+        "--capital-from-wallet",
+        action="store_true",
+        help="Use cash account wallet balance from kabu API for sizing (requires --api-enable).",
+    )
+    parser.add_argument(
+        "--api-enable",
+        action="store_true",
+        help="Enable kabuステーション API for live order submission.",
+    )
+    parser.add_argument(
+        "--api-url",
+        default=None,
+        help="kabuステーション API URL. Defaults to KABU_API_URL environment variable.",
+    )
+    parser.add_argument(
+        "--api-token",
+        default=None,
+        help="kabuステーション API token. Defaults to KABU_API_TOKEN environment variable.",
+    )
+    parser.add_argument(
+        "--api-dry-run",
+        action="store_true",
+        help="Simulate API calls without actually submitting orders.",
+    )
+    parser.add_argument(
+        "--auto-close",
+        action="store_true",
+        help="(Deprecated) Use the separate 'close' subcommand instead.",
+    )
+    parser.add_argument(
+        "--auto-close-time",
+        default="14:50",
+        help="(Deprecated) Time to auto-close positions (HH:MM format, default: 14:50).",
+    )
+    parser.add_argument(
+        "--close-position-order",
+        type=int,
+        default=0,
+        help="(Deprecated) Close position order priority (0-7).",
+    )
+    parser.add_argument(
+        "--google-opens",
+        action="store_true",
+        help="Fetch JP open prices from Google Finance.",
+    )
+    parser.add_argument(
+        "--text-output",
+        action="store_true",
+        help="Output trade orders in text format to the console.",
+    )
+
+
+def _add_close_args(parser: argparse.ArgumentParser) -> None:
+    """Add arguments for the close (and daily) subcommand."""
+    parser.add_argument(
+        "--output-root",
+        default=get_default_results_root(),
+        help="Directory root where outputs are written.",
+    )
+    parser.add_argument(
+        "--run-tag",
+        default=None,
+        help="Optional run tag. If omitted, a timestamp is used.",
+    )
+    parser.add_argument(
+        "--api-url",
+        default=None,
+        help="kabuステーション API URL.",
+    )
+    parser.add_argument(
+        "--api-token",
+        default=None,
+        help="kabuステーション API token.",
+    )
+    parser.add_argument(
+        "--api-dry-run",
+        action="store_true",
+        help="Simulate API calls without actually submitting orders.",
+    )
+    parser.add_argument(
+        "--close-position-order",
+        type=int,
+        default=0,
+        help="Close position order priority (0-7).",
+    )
+
+
 def setup_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="CLI tool for the lead-lag market-neutral trading strategy."
@@ -28,99 +160,7 @@ def setup_parser() -> argparse.ArgumentParser:
 
     # --- DECISION SUBCOMMAND ---
     decision_parser = subparsers.add_parser("decision", help="Run one-day V2 trade decision pipeline")
-    decision_parser.add_argument(
-        "--config",
-        default="configs/production/production.yaml",
-        help="Path to V2 production YAML config (default: configs/production/production.yaml).",
-    )
-    decision_parser.add_argument(
-        "--gap-dir",
-        default=None,
-        help="Directory containing mu_gap/omega_gap .npy files. "
-             "Defaults to gap_distribution.dir in the YAML config.",
-    )
-    decision_parser.add_argument(
-        "--live-dir",
-        default="live/production_residual_blpx",
-        help="Live output directory for V2 artifacts (default: live/production_residual_blpx).",
-    )
-    decision_parser.add_argument(
-        "--output-root",
-        default=get_default_results_root(),
-        help="Directory root where outputs are written.",
-    )
-    decision_parser.add_argument(
-        "--run-tag",
-        default=None,
-        help="Optional run tag. If omitted, a timestamp is used.",
-    )
-    decision_parser.add_argument(
-        "--trade-date",
-        default=None,
-        help="Trade date in YYYY-MM-DD for decision mode (default: today).",
-    )
-    decision_parser.add_argument(
-        "--jp-opens-csv",
-        default=None,
-        help="CSV file with TOPIX-17 opens (columns: ticker, open_price).",
-    )
-    decision_parser.add_argument(
-        "--capital",
-        type=float,
-        default=1000000.0,
-        help="Equity capital in JPY for position sizing (default: 1000000).",
-    )
-    decision_parser.add_argument(
-        "--capital-from-wallet",
-        action="store_true",
-        help="Use cash account wallet balance from kabu API for sizing (requires --api-enable).",
-    )
-    decision_parser.add_argument(
-        "--api-enable",
-        action="store_true",
-        help="Enable kabuステーション API for live order submission.",
-    )
-    decision_parser.add_argument(
-        "--api-url",
-        default=None,
-        help="kabuステーション API URL. Defaults to KABU_API_URL environment variable.",
-    )
-    decision_parser.add_argument(
-        "--api-token",
-        default=None,
-        help="kabuステーション API token. Defaults to KABU_API_TOKEN environment variable.",
-    )
-    decision_parser.add_argument(
-        "--api-dry-run",
-        action="store_true",
-        help="Simulate API calls without actually submitting orders.",
-    )
-    decision_parser.add_argument(
-        "--auto-close",
-        action="store_true",
-        help="(Deprecated) Use the separate 'close' subcommand instead.",
-    )
-    decision_parser.add_argument(
-        "--auto-close-time",
-        default="14:50",
-        help="(Deprecated) Time to auto-close positions (HH:MM format, default: 14:50).",
-    )
-    decision_parser.add_argument(
-        "--close-position-order",
-        type=int,
-        default=0,
-        help="(Deprecated) Close position order priority (0-7).",
-    )
-    decision_parser.add_argument(
-        "--google-opens",
-        action="store_true",
-        help="Fetch JP open prices from Google Finance.",
-    )
-    decision_parser.add_argument(
-        "--text-output",
-        action="store_true",
-        help="Output trade orders in text format to the console.",
-    )
+    _add_decision_args(decision_parser)
 
     # --- BACKTEST SUBCOMMAND ---
     backtest_parser = subparsers.add_parser("backtest", help="Run full V2 historical simulation")
@@ -168,39 +208,23 @@ def setup_parser() -> argparse.ArgumentParser:
         help="Number of parallel workers for signal computation (1=sequential, -1=all cores).",
     )
 
+    # --- DAILY SUBCOMMAND ---
+    daily_parser = subparsers.add_parser(
+        "daily", help="Run the appropriate daily operation (decision in morning, close in afternoon)"
+    )
+    _add_decision_args(daily_parser)
+    # Decision args already include output_root, run_tag, api_url, api_token,
+    # api_dry_run and close_position_order (latter is deprecated for decision).
+    # The daily dispatcher re-uses those values for the close phase as well.
+    daily_parser.add_argument(
+        "--decision-cutoff",
+        default="09:15",
+        help="HH:MM cutoff. Before this time 'daily' runs 'decision'; after it runs 'close' (default: 09:15).",
+    )
+
     # --- CLOSE SUBCOMMAND ---
     close_parser = subparsers.add_parser("close", help="Run end-of-day position closing logic")
-    close_parser.add_argument(
-        "--output-root",
-        default=get_default_results_root(),
-        help="Directory root where outputs are written.",
-    )
-    close_parser.add_argument(
-        "--run-tag",
-        default=None,
-        help="Optional run tag. If omitted, a timestamp is used.",
-    )
-    close_parser.add_argument(
-        "--api-url",
-        default=None,
-        help="kabuステーション API URL.",
-    )
-    close_parser.add_argument(
-        "--api-token",
-        default=None,
-        help="kabuステーション API token.",
-    )
-    close_parser.add_argument(
-        "--api-dry-run",
-        action="store_true",
-        help="Simulate API calls without actually submitting orders.",
-    )
-    close_parser.add_argument(
-        "--close-position-order",
-        type=int,
-        default=0,
-        help="Close position order priority (0-7).",
-    )
+    _add_close_args(close_parser)
 
     return parser
 
@@ -280,6 +304,29 @@ def _handle_close(args: argparse.Namespace) -> int:
     return 0
 
 
+def _handle_daily(args: argparse.Namespace) -> int:
+    """Run the daily operation: decision before cutoff, close after.
+
+    This lets a single cron/launchd entry call ``leadlag.cli daily`` at any
+    time of day and have the correct phase execute.
+    """
+    from datetime import datetime
+
+    now = datetime.now().time()
+    try:
+        hour, minute = args.decision_cutoff.split(":")
+        cutoff = datetime.strptime(f"{hour}:{minute}", "%H:%M").time()
+    except Exception as e:
+        raise ValueError(f"--decision-cutoff must be HH:MM, got {args.decision_cutoff}") from e
+
+    if now < cutoff:
+        logger.info("Current time %s is before daily cutoff %s. Running 'decision'.", now, cutoff)
+        return _handle_decision(args)
+
+    logger.info("Current time %s is at/after daily cutoff %s. Running 'close'.", now, cutoff)
+    return _handle_close(args)
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     logging.basicConfig(
         level=logging.INFO,
@@ -296,7 +343,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     # Skip execution on non-trading days (weekends & Japanese holidays)
-    if args.command in ("decision", "close"):
+    if args.command in ("decision", "close", "daily"):
         from leadlag.core.market_calendar import is_market_closed
 
         today = pd.Timestamp.now().date()
@@ -318,6 +365,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _handle_backtest(args)
     if args.command == "close":
         return _handle_close(args)
+    if args.command == "daily":
+        return _handle_daily(args)
 
     return 0
 
