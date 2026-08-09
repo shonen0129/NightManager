@@ -30,7 +30,7 @@ from leadlag.config.schemas import ProductionV2RunConfig
 from leadlag.core.portfolio import solve_baseline_style
 from leadlag.core.signal import build_weights_minvar
 from leadlag.data.tickers import JP_TICKERS
-from leadlag.models.production_v2 import generate_v2_production_portfolio
+from leadlag.models.production_v2 import generate_v2_production_portfolio, parse_run_config
 from leadlag.models.sre import compute_jp_target_returns
 
 logger = logging.getLogger(__name__)
@@ -672,7 +672,7 @@ def apply_overlay(
 def generate_v2_production_portfolio_with_overlay(
     trade_date: str,
     gap_input_dir: Path | None,
-    run_cfg: ProductionV2RunConfig,
+    cfg: ProductionV2RunConfig | dict,
     df_exec: pd.DataFrame | None,
     overlay_model: MLOrderOverlayModel | None,
 ) -> dict:
@@ -682,6 +682,7 @@ def generate_v2_production_portfolio_with_overlay(
     already loaded.  It runs the base V2 pipeline and then calls
     ``apply_overlay`` when a model and df_exec are supplied.
     """
+    run_cfg = cfg if isinstance(cfg, ProductionV2RunConfig) else parse_run_config(cfg)
     result = generate_v2_production_portfolio(
         trade_date=trade_date,
         gap_input_dir=gap_input_dir,

@@ -20,6 +20,7 @@ import pandas as pd
 import yaml
 
 from leadlag.data.tickers import JP_TICKERS
+from leadlag.execution.config import build_app_config_from_dict
 
 logger = logging.getLogger(__name__)
 
@@ -390,9 +391,12 @@ def get_hist_returns_for_risk(
     if slippage_bps is not None:
         cfg.setdefault("costs", {})["slippage_bps_per_side"] = float(slippage_bps)
 
+    # Build Pydantic config once
+    app_config = build_app_config_from_dict(cfg)
+
     # Resolve gap input directory
     if gap_input_dir is None:
-        gap_input_dir = cfg.get("gap_distribution", {}).get("dir", "")
+        gap_input_dir = app_config.gap_distribution_dir
     gap_dir: Path | None = None
     if gap_input_dir:
         gap_dir = Path(gap_input_dir)
@@ -406,7 +410,7 @@ def get_hist_returns_for_risk(
             gap_dir = None
 
     out_res = BacktestEngine.run_v2_backtest(
-        cfg=cfg,
+        cfg=app_config,
         gap_input_dir=gap_dir,
         df_exec=df_exec,
         start_date=start_date,
