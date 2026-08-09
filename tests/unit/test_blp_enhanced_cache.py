@@ -9,11 +9,11 @@ from ``self.n_u + self.n_j`` instead of hardcoded ``(32, 32)`` / ``(32, 6)``.
 
 from __future__ import annotations
 
+import copy
+
 import numpy as np
 import pandas as pd
 import pytest
-
-import copy
 
 import leadlag.core.correlation as corr_mod
 from leadlag.data.tickers import SENSITIVITY_LABELS

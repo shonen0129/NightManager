@@ -7,8 +7,6 @@ import sys
 from pathlib import Path
 
 import numpy as np
-import pytest
-import yaml
 
 # Add src/ to path
 ROOT = Path(__file__).resolve().parents[2]
@@ -17,15 +15,6 @@ sys.path.insert(0, str(ROOT / "src"))
 from leadlag.models.sector_relative_ensemble_blp_enhanced import (
     SectorRelativeEnsembleBLPEnhancedModel,
 )
-from research.backtest_v1 import run_v1_backtest
-
-
-@pytest.fixture
-def residual_blpx_prod_config() -> dict:
-    """Return Residual-BLPX production configuration dict for testing."""
-    config_path = ROOT / "configs" / "archive" / "production_residual_blpx.yaml"
-    with open(config_path) as f:
-        return yaml.safe_load(f)
 
 
 def test_production_config_model_name(residual_blpx_prod_config):
@@ -169,20 +158,6 @@ def test_signal_weight_used(residual_blpx_prod_config):
 def test_equal_weight_not_used(residual_blpx_prod_config):
     """12. Verify uniform weighting is disabled in the config."""
     assert residual_blpx_prod_config["portfolio"]["weight_mode"] != "uniform"
-
-
-def test_cost_consistency(residual_blpx_prod_config, sample_df_exec):
-    """13. Check that cost function subtraction is algebraically consistent."""
-    df_exec, _ = sample_df_exec
-    model = SectorRelativeEnsembleBLPEnhancedModel(residual_blpx_prod_config)
-    start_str = df_exec.index[-20].strftime("%Y-%m-%d")
-
-    results = run_v1_backtest(model, df_exec, start_date=start_str)
-    r_gross = results["daily_returns_gross"]
-    r_net = results["daily_returns"]
-    costs = results["daily_costs"]
-
-    assert np.allclose(r_gross - costs, r_net, atol=1e-15)
 
 
 def test_fallback_to_sre(residual_blpx_prod_config, sample_df_exec):

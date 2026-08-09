@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
+import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
@@ -44,3 +45,11 @@ def sample_df_exec() -> tuple[pd.DataFrame, pd.DataFrame]:
     df_exec["topix_cc_trade"] = (1.0 + df_exec["topix_night_return"]) * (1.0 + df_exec["topix_oc_return"]) - 1.0
 
     return df_exec, raw_data
+
+
+@pytest.fixture
+def residual_blpx_prod_config() -> dict:
+    """Return Residual-BLPX production configuration dict for testing."""
+    config_path = ROOT / "configs" / "archive" / "production_residual_blpx.yaml"
+    with open(config_path) as f:
+        return yaml.safe_load(f)

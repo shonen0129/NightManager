@@ -9,7 +9,6 @@ from leadlag.broker.tachibana import session_cache
 from leadlag.broker.tachibana.api import TachibanaClient
 from leadlag.data import cache as data_cache
 from leadlag.execution import broker_ops
-from leadlag.execution import helpers
 
 
 def test_decision_cache_round_trip(tmp_path, monkeypatch):
