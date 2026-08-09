@@ -29,6 +29,7 @@ sys.path.insert(0, str(ROOT / "tools" / "production"))
 
 from compute_gap_adjusted_distribution import compute_cumulative_returns
 
+from leadlag.config.schemas import ProductionV2RunConfig
 from leadlag.data.fetcher import download_data
 from leadlag.data.preprocessor import preprocess_data
 from leadlag.data.tickers import JP_TICKERS, TOPIX_TICKER
@@ -200,6 +201,8 @@ def run_v2_backtest(df_exec, cfg, gap_dir: Path, y_jp_target: np.ndarray, label:
     """Run V2 production portfolio backtest with the given gap directory."""
     logger.info(f"[{label}] Starting V2 backtest...")
 
+    run_cfg = ProductionV2RunConfig.model_validate(cfg)
+
     sim_dates = df_exec.index[(df_exec.index >= START_DATE) & (df_exec.index <= END_DATE)]
 
     daily_returns = []
@@ -214,7 +217,7 @@ def run_v2_backtest(df_exec, cfg, gap_dir: Path, y_jp_target: np.ndarray, label:
         i = df_exec.index.get_indexer([dt])[0]
 
         try:
-            result = generate_v2_production_portfolio(date_str, gap_dir, cfg)
+            result = generate_v2_production_portfolio(date_str, gap_dir, cfg=run_cfg)
         except Exception as e:
             logger.warning(f"[{label}] Failed on {date_str}: {e}")
             daily_returns.append(0.0)
