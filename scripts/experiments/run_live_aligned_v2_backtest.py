@@ -17,7 +17,6 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -87,31 +86,30 @@ def main():
 
     from leadlag.data.cache import load_df_exec_from_local_cache
     from leadlag.data.tickers import JP_TICKERS
+    from leadlag.execution.config import load_config_from_yaml
     from leadlag.models.ml_order_overlay import (
         generate_v2_production_portfolio_with_overlay,
         load_overlay_model,
     )
     from leadlag.models.sre import compute_jp_target_returns
 
-    cfg = yaml.safe_load(open(ROOT / args.config))
+    app_config = load_config_from_yaml(ROOT / args.config)
     df_exec = load_df_exec_from_local_cache()
-    overlay_cfg = cfg.get("ml_order_overlay", {})
-    overlay_model = load_overlay_model(ROOT / overlay_cfg.get("model_dir", "models/ml_order_overlay/phase2_8"))
+    overlay_cfg = app_config.ml_order_overlay
+    overlay_model = load_overlay_model(ROOT / overlay_cfg.model_dir)
 
     start = pd.to_datetime(args.start_date)
     end = pd.to_datetime(args.end_date)
     sim_dates = pd.date_range(start, end, freq="B")  # business days
 
-    costs = cfg.get("costs", {})
-    slip_bps = float(costs.get("slippage_bps_per_side", 5.0))
-    alpha_long = float(costs.get("overnight_alpha_long", 0.0))
-    alpha_short = float(costs.get("overnight_alpha_short", 0.0))
-    fin_annual = float(costs.get("buy_interest_annual", 0.025))
-    borrow_annual = float(costs.get("borrow_fee_annual", 0.0115))
-    rev_bps = float(costs.get("reverse_fee_bps", 2.0))
-    side_leverage = float(
-        cfg.get("execution", {}).get("side_leverage", cfg.get("portfolio", {}).get("side_leverage", 1.5))
-    )
+    strategy = app_config.strategy
+    slip_bps = strategy.slippage_bps
+    alpha_long = strategy.overnight_alpha_long
+    alpha_short = strategy.overnight_alpha_short
+    fin_annual = strategy.buy_interest_annual
+    borrow_annual = strategy.borrow_fee_annual
+    rev_bps = strategy.reverse_fee_bps
+    side_leverage = strategy.side_leverage
 
     slip = slip_bps / 10000.0
     financing_daily = fin_annual / 365.0
@@ -157,7 +155,7 @@ def main():
             result = generate_v2_production_portfolio_with_overlay(
                 trade_date=trade_date,
                 gap_input_dir=gap_dir,
-                cfg=cfg,
+                cfg=app_config.v2,
                 df_exec=df_exec,
                 overlay_model=overlay_model,
             )

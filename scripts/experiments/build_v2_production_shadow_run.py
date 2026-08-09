@@ -25,7 +25,6 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import yaml
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", category=RuntimeWarning)
@@ -35,6 +34,7 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from leadlag.data.cache import load_df_exec_from_local_cache
 from leadlag.data.tickers import JP_TICKERS
+from leadlag.execution.config import load_config_from_yaml
 from leadlag.models.ml_order_overlay import (
     generate_v2_production_portfolio_with_overlay,
     load_overlay_model,
@@ -222,8 +222,7 @@ def write_daily_files(
 
 def build_shadow_run(args: argparse.Namespace) -> int:
     cfg_path = ROOT / args.config
-    with open(cfg_path) as f:
-        cfg = yaml.safe_load(f)
+    app_config = load_config_from_yaml(cfg_path)
 
     gap_input_dir = ROOT / args.gap_input_dir
     if not gap_input_dir.exists():
@@ -249,9 +248,9 @@ def build_shadow_run(args: argparse.Namespace) -> int:
     # Load overlay model and df_exec if enabled
     overlay_model = None
     df_exec = None
-    overlay_cfg = cfg.get("ml_order_overlay", {})
-    if args.overlay == "true" and overlay_cfg.get("enabled", False):
-        model_dir = overlay_cfg.get("model_dir", "models/ml_order_overlay/phase2_8")
+    overlay_cfg = app_config.ml_order_overlay
+    if args.overlay == "true" and overlay_cfg.enabled:
+        model_dir = overlay_cfg.model_dir or "models/ml_order_overlay/phase2_8"
         model_path = ROOT / model_dir
         if model_path.exists():
             try:
@@ -301,7 +300,7 @@ def build_shadow_run(args: argparse.Namespace) -> int:
                 result = generate_v2_production_portfolio_with_overlay(
                     trade_date=trade_date,
                     gap_input_dir=gap_input_dir,
-                    cfg=cfg,
+                    cfg=app_config.v2,
                     df_exec=df_exec,
                     overlay_model=overlay_model,
                 )
@@ -309,7 +308,7 @@ def build_shadow_run(args: argparse.Namespace) -> int:
                 result = generate_v2_production_portfolio(
                     trade_date=trade_date,
                     gap_input_dir=gap_input_dir,
-                    cfg=cfg,
+                    cfg=app_config.v2,
                 )
 
             out_dir = shadow_root / trade_date.replace("-", "")

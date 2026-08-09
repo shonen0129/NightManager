@@ -18,6 +18,7 @@ except ImportError:
 from leadlag.config.schemas import (
     AppConfig,
     KabuApiConfig,
+    MLOrderOverlayConfig,
     ProductionV2RunConfig,
     RiskConfig,
     StrategyConfig,
@@ -197,6 +198,14 @@ def build_app_config_from_dict(yaml_data: dict[str, Any]) -> AppConfig:
     strategy_cfg = StrategyConfig(**strategy_kwargs)
     risk_cfg = RiskConfig(**risk_kwargs)
     v2_cfg = ProductionV2RunConfig.model_validate(yaml_data)
+    ml_overlay_data = yaml_data.get("ml_order_overlay", {})
+    ml_overlay_cfg = MLOrderOverlayConfig(
+        enabled=ml_overlay_data.get("enabled", False),
+        model_dir=ml_overlay_data.get("model_dir", ""),
+        use_ticker=ml_overlay_data.get("use_ticker", True),
+        use_classification=ml_overlay_data.get("use_classification", False),
+        per_ticker_interactions=ml_overlay_data.get("per_ticker_interactions", True),
+    )
 
     return AppConfig(
         strategy=strategy_cfg,
@@ -204,6 +213,7 @@ def build_app_config_from_dict(yaml_data: dict[str, Any]) -> AppConfig:
         v2=v2_cfg,
         kabu=kabu_cfg,
         tachibana=tachi_cfg,
+        ml_order_overlay=ml_overlay_cfg,
         broker_provider=broker_provider,
         output_base_dir=output_data.get("base_dir", "results/sector_relative_ensemble"),
         output_live_dir=output_data.get("live_dir", "live/sector_relative_ensemble"),

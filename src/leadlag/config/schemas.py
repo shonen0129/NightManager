@@ -164,6 +164,17 @@ class TachibanaApiConfig(BaseModel):
     account_type: int = Field(default=4, description="口座区分 (2=一般, 4=特定, 12=法人)")
 
 
+class MLOrderOverlayConfig(BaseModel):
+    """ML order overlay configuration."""
+    model_config = {"frozen": True}
+
+    enabled: bool = Field(default=False, description="ML order overlay を有効化")
+    model_dir: str = Field(default="", description="overlay モデルディレクトリ")
+    use_ticker: bool = Field(default=True, description="ticker 特徴量を使用")
+    use_classification: bool = Field(default=False, description="分類モデルを使用")
+    per_ticker_interactions: bool = Field(default=True, description="ticker × score / gap 交互作用を使用")
+
+
 class AppConfig(BaseModel):
     """Full application configuration.
 
@@ -181,6 +192,7 @@ class AppConfig(BaseModel):
     output_live_dir: str = Field(default="live/sector_relative_ensemble", description="本番ライブ出力ルート")
     run_audit: bool = Field(default=True, description="実行後に ComplianceAuditor を走らせるか")
     gap_distribution_dir: str = Field(default="", description="gap 調整分布ディレクトリ（相対パス可）")
+    ml_order_overlay: MLOrderOverlayConfig = Field(default_factory=MLOrderOverlayConfig)
     v2: ProductionV2RunConfig = Field(
         default_factory=lambda: ProductionV2RunConfig(),
         description="V2 本番ポートフォリオ生成パラメータ",
