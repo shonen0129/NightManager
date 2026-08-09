@@ -75,3 +75,11 @@ data/adr_features.csv
 
 # Consolidated runtime output directory (new convention)
 var/
+
+# Symlinks left by var/ migration for backward compatibility (ADR-0006)
+/outputs
+/results
+/logs
+/shadow_runs
+/live
+/artifacts
