@@ -27,7 +27,7 @@ def _make_results():
         "daily_reverse_costs": pd.Series([0.0004] * 5, index=dates),
         "daily_costs": pd.Series([0.001] * 5, index=dates),
         "weights": pd.DataFrame(
-            np.random.randn(5, 4) * 0.1,
+            np.random.RandomState(42).randn(5, 4) * 0.1,
             index=dates,
             columns=["A", "B", "C", "D"],
         ),
@@ -50,3 +50,34 @@ def test_backtest_store_round_trip():
 
         weights = store.load_weights()
         assert weights.shape == (5, 4)
+
+
+def test_backtest_store_multi_run_audit_trail():
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "bt.sqlite"
+        store = BacktestResultStore(path)
+        results = _make_results()
+
+        run_id_1 = store.save_run(results, config={"model": "v2", "run": 1})
+        run_id_2 = store.save_run(results, config={"model": "v2", "run": 2})
+        assert run_id_1 == 1
+        assert run_id_2 == 2
+
+        # Default load returns the latest run.
+        pnl_latest = store.load_pnl()
+        assert len(pnl_latest) == 5
+
+        # Both runs remain queryable (audit trail).
+        pnl_1 = store.load_pnl(run_id=1)
+        pnl_2 = store.load_pnl(run_id=2)
+        assert len(pnl_1) == 5
+        assert len(pnl_2) == 5
+
+        import sqlite3
+
+        conn = sqlite3.connect(str(path))
+        run_count = conn.execute("SELECT COUNT(*) FROM run_info").fetchone()[0]
+        pnl_count = conn.execute("SELECT COUNT(*) FROM daily_pnl").fetchone()[0]
+        conn.close()
+        assert run_count == 2
+        assert pnl_count == 10

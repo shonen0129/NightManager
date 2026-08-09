@@ -44,6 +44,27 @@ def test_gap_store_horizon():
         assert np.allclose(loaded, arr)
 
 
+def test_gap_store_replace_default_horizon():
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "gap.sqlite"
+        store = GapStore(path)
+
+        store.put("2026-08-10", "mu", np.array([1.0]))
+        store.put("2026-08-10", "mu", np.array([2.0]))
+
+        loaded = store.get("2026-08-10", "mu")
+        assert loaded is not None
+        assert np.allclose(loaded, np.array([2.0]))
+
+        # Ensure there is exactly one row (INSERT OR REPLACE worked).
+        import sqlite3
+
+        conn = sqlite3.connect(str(path))
+        count = conn.execute("SELECT COUNT(*) FROM gap_matrices").fetchone()[0]
+        conn.close()
+        assert count == 1
+
+
 def test_gap_store_missing():
     with tempfile.TemporaryDirectory() as tmp:
         path = Path(tmp) / "gap.sqlite"

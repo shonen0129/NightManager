@@ -66,12 +66,19 @@ class GapStore:
                 CREATE TABLE IF NOT EXISTS gap_matrices (
                     trade_date TEXT NOT NULL,
                     matrix_type TEXT NOT NULL,
-                    horizon INTEGER,
+                    horizon INTEGER NOT NULL DEFAULT -1,
                     data BLOB NOT NULL,
                     created_at TEXT DEFAULT (datetime('now')),
                     PRIMARY KEY (trade_date, matrix_type, horizon)
                 )
             """)
+
+    @staticmethod
+    def _horizon_key(horizon: int | None) -> int:
+        """SQLite does not treat NULLs as equal in UNIQUE/PK constraints, so
+        store the sentinel ``-1`` for the default (non-horizon) case.
+        """
+        return -1 if horizon is None else int(horizon)
 
     def put(
         self,
@@ -83,6 +90,7 @@ class GapStore:
         """Store a matrix for a given trade date and type."""
         blob = pickle.dumps(data, protocol=pickle.HIGHEST_PROTOCOL)
         date_key = _normalise_date(trade_date)
+        horizon_key = self._horizon_key(horizon)
         with self._connect() as conn:
             conn.execute("BEGIN")
             try:
@@ -92,7 +100,7 @@ class GapStore:
                     (trade_date, matrix_type, horizon, data)
                     VALUES (?, ?, ?, ?)
                     """,
-                    (date_key, matrix_type, horizon, blob),
+                    (date_key, matrix_type, horizon_key, blob),
                 )
                 conn.execute("COMMIT")
             except Exception as e:
@@ -107,13 +115,14 @@ class GapStore:
     ) -> np.ndarray | None:
         """Return the stored matrix, or None if not found."""
         date_key = _normalise_date(trade_date)
+        horizon_key = self._horizon_key(horizon)
         with self._connect() as conn:
             row = conn.execute(
                 """
                 SELECT data FROM gap_matrices
-                WHERE trade_date = ? AND matrix_type = ? AND horizon IS ?
+                WHERE trade_date = ? AND matrix_type = ? AND horizon = ?
                 """,
-                (date_key, matrix_type, horizon),
+                (date_key, matrix_type, horizon_key),
             ).fetchone()
         if row is None:
             return None
@@ -129,13 +138,14 @@ class GapStore:
         horizon: int | None = None,
     ) -> bool:
         date_key = _normalise_date(trade_date)
+        horizon_key = self._horizon_key(horizon)
         with self._connect() as conn:
             row = conn.execute(
                 """
                 SELECT 1 FROM gap_matrices
-                WHERE trade_date = ? AND matrix_type = ? AND horizon IS ?
+                WHERE trade_date = ? AND matrix_type = ? AND horizon = ?
                 """,
-                (date_key, matrix_type, horizon),
+                (date_key, matrix_type, horizon_key),
             ).fetchone()
         return row is not None
 

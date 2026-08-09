@@ -67,7 +67,8 @@ class BacktestResultStore:
             """)
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS daily_pnl (
-                    trade_date TEXT PRIMARY KEY,
+                    run_id INTEGER NOT NULL,
+                    trade_date TEXT NOT NULL,
                     daily_return REAL,
                     daily_return_gross REAL,
                     equity REAL,
@@ -79,15 +80,17 @@ class BacktestResultStore:
                     financing_cost REAL,
                     borrow_cost REAL,
                     reverse_cost REAL,
-                    total_cost REAL
+                    total_cost REAL,
+                    PRIMARY KEY (run_id, trade_date)
                 )
             """)
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS daily_weights (
+                    run_id INTEGER NOT NULL,
                     trade_date TEXT NOT NULL,
                     ticker TEXT NOT NULL,
                     weight REAL,
-                    PRIMARY KEY (trade_date, ticker)
+                    PRIMARY KEY (run_id, trade_date, ticker)
                 )
             """)
 
@@ -138,6 +141,7 @@ class BacktestResultStore:
                 for dt in index:
                     date_str = str(dt.date()) if hasattr(dt, "date") else str(dt)
                     rows.append((
+                        run_id,
                         date_str,
                         float(results["daily_returns"].loc[dt]),
                         float(gross_returns.loc[dt]) if dt in gross_returns.index and not pd.isna(gross_returns.loc[dt]) else None,
@@ -156,10 +160,10 @@ class BacktestResultStore:
                 conn.executemany(
                     """
                     INSERT OR REPLACE INTO daily_pnl
-                    (trade_date, daily_return, daily_return_gross, equity, drawdown,
+                    (run_id, trade_date, daily_return, daily_return_gross, equity, drawdown,
                      turnover, gross_exposure, fallback, slippage_cost, financing_cost,
                      borrow_cost, reverse_cost, total_cost)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     rows,
                 )
@@ -170,12 +174,12 @@ class BacktestResultStore:
                     for dt, row in weights_df.iterrows():
                         date_str = str(dt.date()) if hasattr(dt, "date") else str(dt)
                         for ticker, w in row.items():
-                            weight_rows.append((date_str, str(ticker), float(w)))
+                            weight_rows.append((run_id, date_str, str(ticker), float(w)))
                     conn.executemany(
                         """
                         INSERT OR REPLACE INTO daily_weights
-                        (trade_date, ticker, weight)
-                        VALUES (?, ?, ?)
+                        (run_id, trade_date, ticker, weight)
+                        VALUES (?, ?, ?, ?)
                         """,
                         weight_rows,
                     )
@@ -186,11 +190,28 @@ class BacktestResultStore:
                 conn.execute("ROLLBACK")
                 raise BacktestStoreError(f"Failed to save backtest run: {e}") from e
 
-    def load_pnl(self) -> pd.DataFrame:
-        """Return the full daily P&L DataFrame."""
+    def _resolve_run_id(self, conn, run_id: int | None) -> int | None:
+        if run_id is not None:
+            return run_id
+        row = conn.execute("SELECT MAX(run_id) FROM run_info").fetchone()
+        return row[0] if row else None
+
+    def load_pnl(self, run_id: int | None = None) -> pd.DataFrame:
+        """Return the daily P&L DataFrame for *run_id* (default: latest run)."""
         with self._connect() as conn:
+            run_id = self._resolve_run_id(conn, run_id)
+            if run_id is None:
+                return pd.DataFrame()
             cur = conn.execute(
-                "SELECT * FROM daily_pnl ORDER BY trade_date"
+                """
+                SELECT trade_date, daily_return, daily_return_gross, equity, drawdown,
+                       turnover, gross_exposure, fallback, slippage_cost, financing_cost,
+                       borrow_cost, reverse_cost, total_cost
+                FROM daily_pnl
+                WHERE run_id = ?
+                ORDER BY trade_date
+                """,
+                (run_id,),
             )
             rows = cur.fetchall()
             columns = [c[0] for c in cur.description]
@@ -200,11 +221,20 @@ class BacktestResultStore:
             df = df.set_index("trade_date")
         return df
 
-    def load_weights(self) -> pd.DataFrame:
-        """Return daily weights as a wide DataFrame (dates x tickers)."""
+    def load_weights(self, run_id: int | None = None) -> pd.DataFrame:
+        """Return daily weights as a wide DataFrame (dates x tickers) for *run_id*."""
         with self._connect() as conn:
+            run_id = self._resolve_run_id(conn, run_id)
+            if run_id is None:
+                return pd.DataFrame()
             rows = conn.execute(
-                "SELECT trade_date, ticker, weight FROM daily_weights ORDER BY trade_date, ticker"
+                """
+                SELECT trade_date, ticker, weight
+                FROM daily_weights
+                WHERE run_id = ?
+                ORDER BY trade_date, ticker
+                """,
+                (run_id,),
             ).fetchall()
         if not rows:
             return pd.DataFrame()
