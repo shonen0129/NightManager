@@ -19,7 +19,7 @@ from leadlag.models.ml_order_overlay import (
     generate_v2_production_portfolio_with_overlay,
     load_overlay_model,
 )
-from leadlag.models.production_v2 import generate_v2_production_portfolio
+from leadlag.models.production_v2 import ProductionV2Model
 from leadlag.models.sre import compute_jp_target_returns
 
 logger = logging.getLogger(__name__)
@@ -427,6 +427,10 @@ class BacktestEngine:
         fallback_flags = np.zeros(n_sim_days, dtype=bool)
         v2_summaries = cast(list[dict], [None] * n_sim_days)
 
+        # Use the class interface when no overlay is in play. The overlay path
+        # still needs df_exec and remains procedural for now.
+        v2_model = None if overlay_model is not None else ProductionV2Model(cfg)
+
         def _process_date(i_dt: tuple[int, pd.Timestamp]) -> tuple[int, np.ndarray, bool, dict]:
             i, dt = i_dt
             date_str = dt.strftime("%Y-%m-%d")
@@ -440,10 +444,9 @@ class BacktestEngine:
                         overlay_model=overlay_model,
                     )
                 else:
-                    result = generate_v2_production_portfolio(
+                    result = v2_model.decide(
                         trade_date=date_str,
                         gap_input_dir=gap_dir,
-                        cfg=cfg,
                     )
                 w = result["w_final"]
                 fb = result["fallback"]["gap_data_missing"]

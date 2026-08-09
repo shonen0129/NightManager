@@ -28,6 +28,7 @@ from leadlag.models.production_v2 import (
     BASELINE_GROSS,
     LONG_COUNT,
     SHORT_COUNT,
+    ProductionV2Model,
     generate_v2_production_portfolio,
     load_pit_ir_history,
     parse_run_config,
@@ -640,3 +641,57 @@ class TestSelfTestParity:
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)
         assert mod.run_self_tests() == 0
+
+
+# ---------------------------------------------------------------------------
+# ProductionV2Model class interface
+# ---------------------------------------------------------------------------
+
+class TestProductionV2Model:
+    """Verify the class interface matches the procedural function output."""
+
+    def _make_files(self, tmp_path: Path) -> tuple[np.ndarray, np.ndarray]:
+        rng = np.random.default_rng(42)
+        n_j = len(JP_TICKERS)
+        mu_gap = rng.normal(0.0, 0.01, n_j)
+        A = rng.normal(0.0, 1.0, (n_j, n_j))
+        Omega_gap = (A @ A.T) / n_j + np.eye(n_j) * 0.01
+        matrices_dir = tmp_path / "matrices"
+        matrices_dir.mkdir()
+        np.save(matrices_dir / "mu_gap_20260616.npy", mu_gap)
+        np.save(matrices_dir / "omega_gap_20260616.npy", Omega_gap)
+        return mu_gap, Omega_gap
+
+    def test_model_decide_matches_procedural(self, tmp_path: Path):
+        """ProductionV2Model.decide returns the same w_final as the module function."""
+        self._make_files(tmp_path)
+        cfg = {"portfolio": {"long_count": 3, "short_count": 3}}
+
+        result_fn = generate_v2_production_portfolio(
+            trade_date="2026-06-16",
+            gap_input_dir=tmp_path,
+            cfg=cfg,
+        )
+
+        model = ProductionV2Model(cfg)
+        result_cls = model.decide(trade_date="2026-06-16", gap_input_dir=tmp_path)
+
+        assert np.allclose(result_cls["w_final"], result_fn["w_final"], atol=1e-12)
+        assert result_cls["run_config"].long_count == 3
+        assert result_cls["run_config"].short_count == 3
+
+    def test_model_flat_fallback(self):
+        """Model returns flat position when no gap data is provided."""
+        model = ProductionV2Model({})
+        result = model.decide(trade_date="2026-06-16", gap_input_dir=None)
+        assert result["fallback"]["gap_data_missing"] is True
+        assert np.allclose(result["w_final"], np.zeros(len(JP_TICKERS)), atol=1e-12)
+
+    def test_model_accepts_pydantic_config(self, tmp_path: Path):
+        """Model can be initialized with an already-validated Pydantic config."""
+        self._make_files(tmp_path)
+        run_cfg = parse_run_config({"portfolio": {"long_count": 5, "short_count": 5}})
+        model = ProductionV2Model(run_cfg)
+        assert model.run_config is run_cfg
+        result = model.decide(trade_date="2026-06-16", gap_input_dir=tmp_path)
+        assert result["run_config"] == run_cfg

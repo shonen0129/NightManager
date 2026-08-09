@@ -43,7 +43,7 @@ from leadlag.core.macro import (
 )
 from leadlag.core.portfolio import get_rolling_pit_bin, solve_baseline_style
 from leadlag.core.signal import build_weights_minvar
-from leadlag.data.tickers import JP_TICKERS
+from leadlag.data.tickers import JP_TICKERS, US_TICKERS
 from leadlag.models.signal_enhancement import apply_multi_horizon_blend, apply_rank_reversal_overlay
 from leadlag.utils.gap_matrix_io import load_gap_matrices
 
@@ -723,3 +723,62 @@ def generate_v2_production_portfolio(
         pit_history_trade_dates=pit_history_dates,
         candidate="primary_ruleD",
     )
+
+
+# ---------------------------------------------------------------------------
+# Class interface (introduced as the first step toward a unified pipeline)
+# ---------------------------------------------------------------------------
+
+
+class ProductionV2Model:
+    """Class-based interface for the v2 production portfolio builder.
+
+    This is an intentionally thin wrapper around the procedural
+    ``generate_v2_production_portfolio`` orchestrator.  It provides the
+    class/state boundary needed to align the production runner and the
+    backtest engine behind a single ``decide()`` interface in future phases.
+
+    The object holds the validated ``ProductionV2RunConfig`` so callers do
+    not need to pass the raw ``cfg`` dict on every decision date.
+    """
+
+    def __init__(self, config: dict | ProductionV2RunConfig) -> None:
+        """Initialize the model with a validated or raw config.
+
+        Args:
+            config: Raw YAML-style dict or an already-validated
+                ``ProductionV2RunConfig``.
+        """
+        if isinstance(config, ProductionV2RunConfig):
+            self.run_config = config
+            self._raw_config: dict = self.run_config.model_dump()
+        else:
+            self._raw_config = dict(config)
+            self.run_config = parse_run_config(self._raw_config)
+
+        self.n_u = len(US_TICKERS)
+        self.n_j = len(JP_TICKERS)
+
+    def decide(
+        self,
+        trade_date: str,
+        gap_input_dir: str | Path | None = None,
+    ) -> dict:
+        """Generate the v2 portfolio decision for *trade_date*.
+
+        Args:
+            trade_date: Execution date in ``YYYY-MM-DD`` format.
+            gap_input_dir: Directory containing ``mu_gap_YYYYMMDD.npy`` and
+                ``omega_gap_YYYYMMDD.npy`` for the trade date, or ``None`` to
+                trigger the flat-position fallback.
+
+        Returns:
+            Result dict from ``generate_v2_production_portfolio``.
+        """
+        if gap_input_dir is not None:
+            gap_input_dir = Path(gap_input_dir)
+        return generate_v2_production_portfolio(
+            trade_date=trade_date,
+            gap_input_dir=gap_input_dir,
+            cfg=self._raw_config,
+        )

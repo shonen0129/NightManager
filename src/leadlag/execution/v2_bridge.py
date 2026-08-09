@@ -32,7 +32,7 @@ from leadlag.execution.helpers import (
     resolve_daily_open_prices,
     resolve_wallet_capital,
 )
-from leadlag.models.production_v2 import generate_v2_production_portfolio
+from leadlag.models.production_v2 import ProductionV2Model
 from leadlag.reporting.production_v2_writer import write_production_files
 
 logger = logging.getLogger(__name__)
@@ -112,10 +112,10 @@ def run_v2_decision(
 
     # --- Step 1: Generate V2 portfolio ---
     logger.info("[1/4] Generating V2 production portfolio...")
-    result = generate_v2_production_portfolio(
+    model = ProductionV2Model(cfg)
+    result = model.decide(
         trade_date=trade_date,
         gap_input_dir=gap_dir,
-        cfg=cfg,
     )
 
     # Write V2 production files (latest_weights.csv, audit, etc.)
