@@ -3,6 +3,7 @@
 Supports subparsers:
   - decision: Run one-day V2 trade decision pipeline
   - backtest: Run full V2 historical simulation
+  - daily: Run decision before the morning cutoff and close at/after it
   - close: Run end-of-day position closing logic
 """
 
