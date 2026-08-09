@@ -28,7 +28,7 @@ ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "src"))
 
 from research.backtest_common import load_execution_data
-from leadlag.execution.backtester import BacktestEngine
+from research.backtest_v1 import run_v1_backtest
 from leadlag.models.sector_relative_ensemble_blp_enhanced import (
     SectorRelativeEnsembleBLPEnhancedModel,
 )
@@ -53,7 +53,7 @@ def _run_backtest(cfg: dict, df_exec: pd.DataFrame, start_date: str) -> dict:
     """Run a single backtest with the given config and return metrics."""
     costs = cfg.get("costs", {})
     model = SectorRelativeEnsembleBLPEnhancedModel(cfg)
-    results = BacktestEngine.run_backtest(
+    results = run_v1_backtest(
         model,
         df_exec=df_exec,
         start_date=start_date,
@@ -184,7 +184,7 @@ def run_walkforward(cfg: dict, df_exec: pd.DataFrame, start_date: str,
     test_cfg = _set_macro_params(cfg, kappas=baseline_kappas)
 
     model = SectorRelativeEnsembleBLPEnhancedModel(test_cfg)
-    results = BacktestEngine.run_backtest(
+    results = run_v1_backtest(
         model,
         df_exec=df_exec,
         start_date=start_date,

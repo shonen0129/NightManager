@@ -22,7 +22,7 @@ sys.path.insert(0, str(ROOT / "src"))
 from leadlag.data.fetcher import download_data
 from leadlag.data.preprocessor import preprocess_data
 from leadlag.data.tickers import JP_TICKERS, TOPIX_TICKER
-from leadlag.models.sre import SectorRelativeEnsembleModel
+from legacy_src.models.sre import SectorRelativeEnsembleModel
 
 # Set up logging
 logging.basicConfig(

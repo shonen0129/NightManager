@@ -9,7 +9,6 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import os
 import sys
 from pathlib import Path
 
@@ -28,12 +27,14 @@ while not (ROOT / "pyproject.toml").exists():
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "archive"))
 
+from legacy_src.models.sector_relative_ensemble_blp import SectorRelativeEnsembleBLPModel
+from legacy_src.models.sre import SectorRelativeEnsembleModel
+
 from leadlag.data.fetcher import download_data
 from leadlag.data.preprocessor import preprocess_data
 from leadlag.data.tickers import JP_TICKERS, TOPIX_TICKER
-from leadlag.models.sre import SectorRelativeEnsembleModel
-from legacy_src.models.sector_relative_ensemble_blp import SectorRelativeEnsembleBLPModel
 from leadlag.reporting.metrics import calculate_metrics
+from research.backtest_v1 import run_v1_backtest
 
 logging.basicConfig(
     level=logging.INFO,
@@ -71,7 +72,7 @@ def simulate_portfolio_fast(
     """Run lookahead-safe portfolio simulation for given signal timeseries."""
     dates = signal_df.index
     T = len(dates)
-    
+
     # 1. Build weights
     weights = np.zeros((T, n_j))
     from leadlag.core import signal as signals
@@ -83,45 +84,45 @@ def simulate_portfolio_fast(
             weight_mode=weight_mode,
             enforce_sign=False,
         )
-        
+
     weights_df = pd.DataFrame(weights, index=dates, columns=JP_TICKERS)
-    
+
     # 2. Compute returns and costs
     gross_returns = np.zeros(T)
     net_returns = np.zeros(T)
     costs = np.zeros(T)
     turnovers = np.zeros(T)
     gross_exposures = np.zeros(T)
-    
+
     w_prev = np.zeros(n_j)
     for idx, date in enumerate(dates):
         w_t = weights[idx]
         r_target_t = y_jp_target_df.loc[date].values
-        
+
         gross_ret = float(np.sum(w_t * r_target_t))
         gross_exp = float(np.sum(np.abs(w_t)))
         cost = 2.0 * (slippage_bps / 10000.0) * gross_exp
         net_ret = gross_ret - cost
-        
+
         turnover = float(np.sum(np.abs(w_t - w_prev)) / 2.0)
-        
+
         gross_returns[idx] = gross_ret
         net_returns[idx] = net_ret
         costs[idx] = cost
         turnovers[idx] = turnover
         gross_exposures[idx] = gross_exp
         w_prev = w_t
-        
+
     daily_returns_gross = pd.Series(gross_returns, index=dates)
     daily_returns_net = pd.Series(net_returns, index=dates)
     daily_costs = pd.Series(costs, index=dates)
     daily_turnover = pd.Series(turnovers, index=dates)
     daily_gross_exps = pd.Series(gross_exposures, index=dates)
-    
+
     wealth = (1.0 + daily_returns_net).cumprod()
     running_max = wealth.cummax()
     drawdown = (wealth / running_max) - 1.0
-    
+
     return {
         "weights": weights_df,
         "daily_returns_gross": daily_returns_gross,
@@ -151,14 +152,14 @@ def compute_extended_metrics(
         "oos": (net_ret.loc[oos_start:], gross_ret.loc[oos_start:], costs.loc[oos_start:], turnover.loc[oos_start:], gross_exps.loc[oos_start:], weights_df.loc[oos_start:]),
         "full": (net_ret, gross_ret, costs, turnover, gross_exps, weights_df),
     }
-    
+
     results = {}
     for p_name, (n_r, g_r, c_s, t_o, g_e, w_df) in periods.items():
         base = calculate_metrics(n_r)
         t_days = len(n_r)
         if t_days == 0:
             continue
-            
+
         avg_daily = float(np.mean(n_r))
         std_daily = float(np.std(n_r, ddof=1)) if t_days > 1 else 0.0
         win_rate = float(np.mean(n_r > 0))
@@ -166,7 +167,7 @@ def compute_extended_metrics(
         avg_gross = float(np.mean(g_e))
         avg_net = float(np.mean(w_df.sum(axis=1)))
         avg_cost = float(np.mean(c_s))
-        
+
         # Monthly std calculation
         from leadlag.reporting.metrics import _extract_monthly_returns
         m_ret = _extract_monthly_returns(n_r)
@@ -174,7 +175,7 @@ def compute_extended_metrics(
             m_std = float(np.std(m_ret, ddof=1))
         else:
             m_std = np.nan
-            
+
         results[p_name] = {
             "AR": base.get("AR", 0.0),
             "RISK": base.get("RISK", 0.0),
@@ -194,7 +195,7 @@ def compute_extended_metrics(
             "net_return_sum": float(np.sum(n_r)),
             "total_cost": float(np.sum(c_s)),
         }
-        
+
     return results
 
 
@@ -217,13 +218,13 @@ def main():
     grids = cfg.get("grids", {})
     blp_window_grid = grids.get("blp_window_grid", [252])
     ewma_halflife_grid = grids.get("ewma_halflife_grid", [45])
-    
+
     alpha_xx_grid = [float(x) for x in args.alpha_xx_grid.split(",")] if args.alpha_xx_grid else grids.get("alpha_xx_grid", [0.25, 0.5, 0.75])
     alpha_yx_grid = [float(x) for x in args.alpha_yx_grid.split(",")] if args.alpha_yx_grid else grids.get("alpha_yx_grid", [0.0, 0.25, 0.5])
     rho_grid = [float(x) for x in args.rho_grid.split(",")] if args.rho_grid else grids.get("rho_grid", [0.003, 0.01, 0.03, 0.1, 0.3])
     slippage_grid = [float(x) for x in args.slippage_grid.split(",")] if args.slippage_grid else grids.get("slippage_bps_grid", [0.0, 2.5, 5.0, 7.5, 10.0])
     rank_grid = args.rank_grid.split(",") if args.rank_grid else grids.get("rank_grid", ["full"])
-    
+
     # Normalise rank values (e.g. string numbers to int)
     normalized_ranks = []
     for r in rank_grid:
@@ -231,9 +232,9 @@ def main():
             normalized_ranks.append("full")
         else:
             normalized_ranks.append(int(r))
-            
+
     ensembles = cfg.get("ensembles", [])
-    
+
     logger.info("Downloading market data...")
     raw_data = download_data(beta_window=60)
     logger.info("Preprocessing market data...")
@@ -252,7 +253,7 @@ def main():
     from leadlag.models.sre import compute_jp_target_returns
     y_jp_target = compute_jp_target_returns(df_exec, JP_TICKERS)
     y_jp_target_df = pd.DataFrame(y_jp_target, index=df_exec.index, columns=JP_TICKERS)
-    
+
     # 2. Run Baseline Production PCA-Ensemble Model for verification
     logger.info("Running baseline production SRE for verification...")
     # Load production config parameters
@@ -260,20 +261,19 @@ def main():
     with open(prod_config_path) as f:
         prod_cfg = yaml.safe_load(f)
     baseline_model = SectorRelativeEnsembleModel(prod_cfg)
-    
-    from leadlag.execution.backtester import BacktestEngine
-    baseline_res = BacktestEngine.run_backtest(
+
+    baseline_res = run_v1_backtest(
         baseline_model,
         df_exec,
         start_date=args.start_date,
         end_date=args.end_date,
         slippage_bps=5.0,
     )
-    
+
     # 3. Setup Grid Loop
     logger.info("Starting Grid Search...")
     all_results = []
-    
+
     # We will slice outputs from args.start_date to args.end_date
     start_dt = pd.to_datetime(args.start_date)
     start_idx = max(df_exec.index.searchsorted(start_dt), baseline_model.corr_window)
@@ -282,11 +282,11 @@ def main():
         end_idx = min(df_exec.index.searchsorted(end_dt), len(df_exec) - 1)
     else:
         end_idx = len(df_exec) - 1
-        
+
     sim_dates_slice = df_exec.index[start_idx : end_idx + 1]
     y_jp_target_slice = y_jp_target_df.loc[sim_dates_slice]
     y_jp_oc_slice = df_exec[[f"jp_oc_{tk}" for tk in JP_TICKERS]].rename(columns=lambda c: c.replace("jp_oc_", "")).loc[sim_dates_slice]
-    
+
     train_end = pd.to_datetime(args.train_end_date)
     oos_start = pd.to_datetime(args.oos_start_date)
 
@@ -294,7 +294,7 @@ def main():
     daily_returns_master = {}
     daily_positions_master = {}
     drawdown_master = {}
-    
+
     # We only precompute Raw-PCA and Residual-PCA once as they do not depend on BLP parameters.
     # We will compute them using the SREBLPModel instance configured with defaults
     init_blp_cfg = {
@@ -305,18 +305,18 @@ def main():
     }
     blp_base_model = SectorRelativeEnsembleBLPModel(init_blp_cfg)
     base_pred = blp_base_model.predict_signals(df_exec)
-    
+
     # Verify baseline PCA-Ensemble reproduction
     raw_pca_sig_base = base_pred["raw_pca_signals"].loc[sim_dates_slice]
     residual_pca_sig_base = base_pred["residual_pca_signals"].loc[sim_dates_slice]
-    
+
     # Check signal & positions replication
     reproduced_signals_df = base_pred["signals"].loc[sim_dates_slice]
     baseline_signals_df = baseline_res["signals"]
-    
+
     sig_diff_max = float(np.max(np.abs(reproduced_signals_df.values - baseline_signals_df.values)))
     pos_diff_max = float(np.max(np.abs(base_pred["normalized_signals"].loc[sim_dates_slice].values - baseline_res["normalized_signals"].values)))
-    
+
     # Backtest baseline results
     reproduced_sim = simulate_portfolio_fast(
         reproduced_signals_df,
@@ -326,10 +326,10 @@ def main():
         weight_mode="signal",
         slippage_bps=5.0
     )
-    
+
     return_diff_max = float(np.max(np.abs(reproduced_sim["daily_returns"].values - baseline_res["daily_returns"].values)))
     baseline_sre_reproduced = return_diff_max < 1e-10 and sig_diff_max < 1e-10
-    
+
     logger.info(f"Baseline reproduction test: max signal diff={sig_diff_max:.3e}, max return diff={return_diff_max:.3e}. Reproduced: {baseline_sre_reproduced}")
 
     # Variables for audits
@@ -338,11 +338,11 @@ def main():
     num_lookahead_violations = 0
     blp_matrix_dimensions_passed = True
     blp_regularization_passed = True
-    
+
     max_condition_number = 0.0
     all_cond_nums = []
     num_pinv_fallbacks = 0
-    
+
     # Diagnostics cache
     daily_blp_diagnostics = None
 
@@ -354,7 +354,7 @@ def main():
                     for rho in rho_grid:
                         for rank in normalized_ranks:
                             logger.info(f"Evaluating BLP Params: window={window}, halflife={halflife}, alpha_xx={alpha_xx}, alpha_yx={alpha_yx}, rho={rho}, rank={rank}")
-                            
+
                             # Configure model instance for BLP
                             run_cfg = {
                                 "model": {"name": "sector_relative_ensemble_blp"},
@@ -367,13 +367,13 @@ def main():
                                 "rho": rho,
                                 "rank": rank,
                             }
-                            
+
                             blp_model = SectorRelativeEnsembleBLPModel(run_cfg)
                             pred = blp_model.predict_signals(df_exec)
-                            
+
                             p5_sig = pred["p5_signals"].loc[sim_dates_slice]
                             p5p3_sig = pred["p5p3_signals"].loc[sim_dates_slice]
-                            
+
                             # Audit lookahead for this model run
                             # For each date i, training max target date must be <= signal date
                             for i_step in range(start_idx, end_idx + 1):
@@ -389,7 +389,7 @@ def main():
                             diag_df = pred["blp_diagnostics"]
                             if daily_blp_diagnostics is None:
                                 daily_blp_diagnostics = diag_df
-                            
+
                             # Track cond_num
                             conds = diag_df["p5_cond_num"].dropna().values
                             if len(conds) > 0:
@@ -398,25 +398,25 @@ def main():
                                     max_condition_number = max_c
                                 all_cond_nums.extend(conds)
                             num_pinv_fallbacks += int(diag_df["p5_pinv_fallback"].sum())
-                            
+
                             # standardise and normalize components
                             z0_df = raw_pca_sig_base.apply(lambda row: blp_model.normalize_signals(row.values, "zscore"), axis=1, result_type="expand")
                             z3_df = residual_pca_sig_base.apply(lambda row: blp_model.normalize_signals(row.values, "zscore"), axis=1, result_type="expand")
                             z5_df = p5_sig.apply(lambda row: blp_model.normalize_signals(row.values, "zscore"), axis=1, result_type="expand")
                             z5p3_df = p5p3_sig.apply(lambda row: blp_model.normalize_signals(row.values, "zscore"), axis=1, result_type="expand")
-                            
+
                             # Verify normalization safe features (no nan/inf)
                             if z5_df.isna().any().any() or np.isinf(z5_df.values).any():
                                 blp_regularization_passed = False
-                            
+
                             # Loop over ensemble configs
                             for ens in ensembles:
                                 ens_name = ens["name"]
                                 w_p0, w_p3, w_p5, w_p5p3 = ens["raw_pca"], ens["residual_pca"], ens["p5"], ens["p5p3"]
-                                
+
                                 # Combined signal
                                 comb_sig = w_p0 * z0_df + w_p3 * z3_df + w_p5 * z5_df + w_p5p3 * z5p3_df
-                                
+
                                 # Loop over slippages
                                 for slip in slippage_grid:
                                     # Simulate portfolio
@@ -428,7 +428,7 @@ def main():
                                         weight_mode="signal",
                                         slippage_bps=slip
                                     )
-                                    
+
                                     # Compute subperiod metrics
                                     sub_m = compute_extended_metrics(
                                         sim["daily_returns"],
@@ -441,14 +441,14 @@ def main():
                                         train_end,
                                         oos_start,
                                     )
-                                    
+
                                     # Cache daily timeseries for reports/comparison
                                     key_name = f"{ens_name}_slip{slip}_rho{rho}_aXX{alpha_xx}_aYX{alpha_yx}"
                                     if abs(slip - 5.0) < 1e-6 and rho == 0.03 and alpha_xx == 0.5 and alpha_yx == 0.25:
                                         daily_returns_master[ens_name] = sim["daily_returns"]
                                         daily_positions_master[ens_name] = sim["weights"].apply(np.sign)
                                         drawdown_master[ens_name] = sim["drawdown"]
-                                        
+
                                     for period_name, m_dict in sub_m.items():
                                         record = {
                                             "blp_window": window,
@@ -463,17 +463,17 @@ def main():
                                         }
                                         record.update(m_dict)
                                         all_results.append(record)
-                                        
+
     # 4. Save CSV Output Files
     df_results = pd.DataFrame(all_results)
     df_results.to_csv(out_dir / "summary.csv", index=False)
-    
+
     # Create summary_5bps.csv
     df_5bps = df_results[(df_results["slippage_bps"] == 5.0) & (df_results["period"] == "oos")].copy()
-    
+
     # Filters to match required summary_5bps: SRE_current, BLP_SRE, Hybrid_20, Hybrid_25, Hybrid_50, P5_only, P5P3_only
     df_5bps.to_csv(out_dir / "summary_5bps.csv", index=False)
-    
+
     # Create ensemble_comparison_5bps.csv
     # Specific comparison for default parameters (rho=0.03, alpha_xx=0.5, alpha_yx=0.25, rank=full, window=252, halflife=45)
     df_comp = df_results[
@@ -486,10 +486,10 @@ def main():
         (df_results["ewma_halflife"] == 45)
     ].copy()
     df_comp.to_csv(out_dir / "ensemble_comparison_5bps.csv", index=False)
-    
+
     # Calculate ranking for OOS at 5bps
     df_oos_5bps = df_results[(df_results["period"] == "oos") & (df_results["slippage_bps"] == 5.0)].copy()
-    
+
     # Extract SRE_current performance for criteria
     sre_current_rows = df_oos_5bps[df_oos_5bps["ensemble"] == "SRE_current"]
     if not sre_current_rows.empty:
@@ -502,7 +502,7 @@ def main():
         sre_oos_mdd = -1.0
         sre_oos_ar = 0.0
         sre_oos_turnover = 1.0
-        
+
     # Evaluate decision flags for each candidate
     ranking_records = []
     for idx, row in df_oos_5bps.iterrows():
@@ -510,7 +510,7 @@ def main():
         cand_mdd = float(row["MDD"])
         cand_ar = float(row["AR"])
         cand_turnover = float(row["turnover"])
-        
+
         # Check sensitivity robust at 7.5bps
         cand_7p5 = df_results[
             (df_results["period"] == "oos") &
@@ -525,21 +525,21 @@ def main():
         if not cand_7p5.empty:
             sharpe_7p5 = float(cand_7p5["Sharpe"].values[0])
             robust_7p5 = (sharpe_7p5 > 0.0) and (sharpe_7p5 >= 0.8 * cand_sharpe)
-            
+
         improves_oos_sharpe = cand_sharpe > sre_oos_sharpe
         improves_oos_sharpe_by_005 = cand_sharpe >= sre_oos_sharpe + 0.05
         improves_oos_mdd = cand_mdd >= sre_oos_mdd  # MDD is negative, so greater is less drawdown
         keeps_oos_ar_90pct = cand_ar >= 0.9 * sre_oos_ar
         turnover_within_10pct = cand_turnover <= 1.1 * sre_oos_turnover
         improves_after_cost_5bps = cand_ar - 2 * 5.0/10000.0 * 2.0 > sre_oos_ar - 2 * 5.0/10000.0 * 2.0 # equivalent to net return comparison
-        
+
         # Signal correlation audit: check if P5/P5P3 are not too correlated to baseline
         # (computed below in correlations section)
         p5_corr_below_0_95_to_sre = True  # Default fallback
         p5p3_corr_below_0_95_to_sre = True
-        
+
         params_not_on_extreme_boundary = (row["rho"] in [0.01, 0.03, 0.1]) and (row["alpha_xx"] in [0.5])
-        
+
         # Candidate passes if all criteria satisfied
         pass_candidate = (
             improves_oos_sharpe_by_005 and
@@ -548,7 +548,7 @@ def main():
             turnover_within_10pct and
             robust_7p5
         )
-        
+
         rec = dict(row)
         rec.update({
             "improves_oos_sharpe": improves_oos_sharpe,
@@ -562,33 +562,33 @@ def main():
             "pass_candidate": pass_candidate,
         })
         ranking_records.append(rec)
-        
+
     df_ranking = pd.DataFrame(ranking_records)
     df_ranking = df_ranking.sort_values(by="Sharpe", ascending=False)
     df_ranking.to_csv(out_dir / "oos_ranking_5bps.csv", index=False)
-    
+
     # Save parameter sensitivity
     df_sens = df_results[(df_results["period"] == "oos") & (df_results["slippage_bps"] == 5.0)].copy()
     df_sens.to_csv(out_dir / "blp_param_sensitivity.csv", index=False)
-    
+
     # Daily net returns export
     df_daily_returns = pd.DataFrame(daily_returns_master)
     df_daily_returns.to_csv(out_dir / "daily_returns.csv")
-    
+
     # Daily positions export
     for name, pos_df in daily_positions_master.items():
         pos_df.to_csv(out_dir / f"daily_positions_{name}.csv")
-        
+
     # Drawdowns export
     pd.DataFrame(drawdown_master).to_csv(out_dir / "drawdown_timeseries.csv")
-    
+
     # 5. Signal correlations, IC and rank correlations
     logger.info("Computing signal correlations and IC timeseries...")
     raw_pca_flat = z0_df.values.flatten()
     residual_pca_flat = z3_df.values.flatten()
     p5_flat = z5_df.values.flatten()
     p5p3_flat = z5p3_df.values.flatten()
-    
+
     corr_records = []
     pairs = [
         ("Raw-PCA", "P5", raw_pca_flat, p5_flat),
@@ -608,7 +608,7 @@ def main():
             "sign_agreement": sign_agree,
         })
     pd.DataFrame(corr_records).to_csv(out_dir / "signal_correlations.csv", index=False)
-    
+
     # Compute IC series for Hybrid_20
     hybrid_20_sig = 0.4 * z0_df + 0.4 * z3_df + 0.1 * z5_df + 0.1 * z5p3_df
     daily_ics = []
@@ -622,12 +622,12 @@ def main():
             daily_ics.append(0.0)
     ic_series = pd.Series(daily_ics, index=sim_dates_slice)
     ic_rolling = ic_series.rolling(60).mean()
-    
+
     pd.DataFrame({
         "ic": ic_series,
         "rolling_60d_ic": ic_rolling,
     }).to_csv(out_dir / "ic_timeseries.csv")
-    
+
     # Drawdown and rolling metrics
     rolling_sharpe = []
     rolling_vol = []
@@ -636,12 +636,12 @@ def main():
         m = calculate_metrics(r_slice)
         rolling_sharpe.append(m.get("Sharpe", np.nan))
         rolling_vol.append(m.get("RISK", np.nan))
-        
+
     pd.DataFrame({
         "rolling_250d_sharpe": pd.Series(rolling_sharpe, index=sim_dates_slice[250:]),
         "rolling_250d_vol": pd.Series(rolling_vol, index=sim_dates_slice[250:]),
     }).to_csv(out_dir / "rolling_metrics.csv")
-    
+
     # Contributions by Ticker
     contribs = {}
     long_contribs = {}
@@ -653,35 +653,35 @@ def main():
         contribs[tk] = float(np.sum(daily_c))
         long_contribs[tk] = float(np.sum(daily_c[w_tk > 0]))
         short_contribs[tk] = float(np.sum(daily_c[w_tk < 0]))
-        
+
     pd.DataFrame([contribs]).T.rename(columns={0: "total_contribution"}).to_csv(out_dir / "contribution_by_ticker.csv")
     pd.DataFrame({
         "long_contribution": pd.Series(long_contribs),
         "short_contribution": pd.Series(short_contribs),
     }).to_csv(out_dir / "long_short_contribution.csv")
-    
+
     # Save BLP Diagnostics
     if daily_blp_diagnostics is not None:
         daily_blp_diagnostics.to_csv(out_dir / "blp_diagnostics.csv")
-        
+
     # Save Config Used
     with open(out_dir / "config_used.yaml", "w") as f:
         yaml.dump(cfg, f)
 
     # 6. Audits Implementation
     logger.info("Performing final compliance audits...")
-    
+
     # Audit 12.3: X/Y Target matching
     p5_uses_us_input = True
     p5_uses_p0_target = True
     p5p3_uses_us_input = True
     p5p3_uses_p3_topix_residual_target = True
-    
+
     # Audit 12.4: Dimension Checks
     blp_matrix_dimensions_passed = True
     # dimensions: Sigma_XX (15x15), Sigma_YX (17x15), B (17x15), X (15), y_hat (17)
     # Checked during code validation in predict_signals.
-    
+
     # Audit 12.6: Ensemble Checks
     ensemble_weights_sum_to_one = True
     no_nan_inf_in_component_signals = True
@@ -690,7 +690,7 @@ def main():
         w_sum = ens["raw_pca"] + ens["residual_pca"] + ens["p5"] + ens["p5p3"]
         if abs(w_sum - 1.0) > 1e-6:
             ensemble_weights_sum_to_one = False
-            
+
     # Audit 12.7: Cost consistency
     cost_consistency_passed = True
     max_cost_consistency_error = 0.0
@@ -698,15 +698,15 @@ def main():
         # net = gross - cost
         r_gross = reproduced_sim["daily_returns_gross"] # using similar run stats
         # We check consistency in simulate_portfolio_fast
-        
+
     # Audit 12.8: Weight constraints
     net_exposure_within_limit = True
     gross_exposure_within_limit = True
     no_nan_inf_in_weights = True
-    
+
     # Combine audits into JSON
     median_cond = float(np.median(all_cond_nums)) if len(all_cond_nums) > 0 else 0.0
-    
+
     audit_results = {
         "blp_no_lookahead_detected": blp_no_lookahead_detected,
         "max_training_y_date_le_signal_date": max_training_y_date_le_signal_date,
@@ -734,7 +734,7 @@ def main():
         "baseline_sre_position_diff_max": pos_diff_max,
         "baseline_sre_signal_corr": float(np.corrcoef(reproduced_signals_df.values.flatten(), baseline_signals_df.values.flatten())[0, 1]),
     }
-    
+
     # Calculate overall success
     all_passed = all([
         blp_no_lookahead_detected,
@@ -751,24 +751,24 @@ def main():
         baseline_sre_reproduced,
     ])
     audit_results["all_passed"] = bool(all_passed)
-    
+
     with open(out_dir / "audit.json", "w") as f:
         json.dump(audit_results, f, indent=4)
-        
+
     logger.info(f"Audits finished. All passed: {all_passed}")
-    
+
     # 7. Write Human-readable report.md
     logger.info("Writing report.md...")
-    
+
     # Get best BLP candidate from ranking (excluding SRE_current)
     df_ranking_no_sre = df_ranking[df_ranking["ensemble"] != "SRE_current"]
     best_cand = df_ranking_no_sre.iloc[0] if not df_ranking_no_sre.empty else None
-    
+
     # PCA-Ensemble Current values
     sre_train = df_results[(df_results["ensemble"] == "SRE_current") & (df_results["period"] == "train") & (df_results["slippage_bps"] == 5.0)].iloc[0]
     sre_oos = df_results[(df_results["ensemble"] == "SRE_current") & (df_results["period"] == "oos") & (df_results["slippage_bps"] == 5.0)].iloc[0]
     sre_full = df_results[(df_results["ensemble"] == "SRE_current") & (df_results["period"] == "full") & (df_results["slippage_bps"] == 5.0)].iloc[0]
-    
+
     # Best Candidate values
     if best_cand is not None:
         best_cfg_key = (
@@ -782,7 +782,7 @@ def main():
         cand_train = df_results[best_cfg_key & (df_results["period"] == "train")].iloc[0]
         cand_oos = df_results[best_cfg_key & (df_results["period"] == "oos")].iloc[0]
         cand_full = df_results[best_cfg_key & (df_results["period"] == "full")].iloc[0]
-        
+
         decision_str = "ADOPT" if best_cand["pass_candidate"] else "REJECT"
         improve_sharpe = float(cand_oos["Sharpe"] - sre_oos["Sharpe"])
         mdd_diff = float((cand_oos["MDD"] - sre_oos["MDD"]) * 100.0) # pt diff
@@ -795,7 +795,7 @@ def main():
         ar_retention = 0.0
         turnover_diff = 0.0
         cand_train = cand_oos = cand_full = sre_oos
-        
+
     report_content = f"""# Regularized Block BLP Backtest Report
 
 ## 1. Executive Summary
@@ -810,7 +810,7 @@ def main():
 ## 2. Motivation
 
 - **PCA Projection Limitations**: The standard PCA model projects signals onto $V_J V_U'$ which assumes US block eigenvectors $V_U$ are orthogonal. However, because $V_U$ is a submatrix, its columns are not strictly orthogonal, leading to suboptimal factor score estimation.
-- **BLP Solution**: Conditional linear predictor Regularized Block BLP corrects the correlation structure by computing $\Sigma_{{YX}} \Sigma_{{XX}}^{{-1}}$. This uses the actual lagged cross-covariance structure from $X_t$ (US Close-to-Close returns) to $Y_{{t+1}}$ (JP target returns) instead of simultaneous cov.
+- **BLP Solution**: Conditional linear predictor Regularized Block BLP corrects the correlation structure by computing $\\Sigma_{{YX}} \\Sigma_{{XX}}^{{-1}}$. This uses the actual lagged cross-covariance structure from $X_t$ (US Close-to-Close returns) to $Y_{{t+1}}$ (JP target returns) instead of simultaneous cov.
 
 ## 3. Method
 
@@ -912,7 +912,7 @@ Summary of `audit.json`:
 """
     with open(out_dir / "report.md", "w") as f:
         f.write(report_content)
-        
+
     logger.info("Report and output files saved successfully.")
 
 

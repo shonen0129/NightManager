@@ -1,17 +1,21 @@
-import sys, time
+import sys
+
 sys.path.insert(0, 'src')
-import yaml
 import pandas as pd
+import yaml
+
 from leadlag.data.fetcher import download_data
 from leadlag.data.preprocessor import preprocess_data
-from leadlag.models.sector_relative_ensemble_blp_enhanced import SectorRelativeEnsembleBLPEnhancedModel
-from leadlag.execution.backtester import BacktestEngine
+from leadlag.models.sector_relative_ensemble_blp_enhanced import (
+    SectorRelativeEnsembleBLPEnhancedModel,
+)
 from leadlag.reporting.metrics import calculate_metrics
+from research.backtest_v1 import run_v1_backtest
 
 
 def run_case(cfg, label, overnight_alpha_long=0.0, overnight_alpha_short=0.0):
     model = SectorRelativeEnsembleBLPEnhancedModel(cfg)
-    results = BacktestEngine.run_backtest(
+    results = run_v1_backtest(
         model, df_exec=df_exec, start_date='2015-01-05',
         overnight_alpha_long=overnight_alpha_long,
         overnight_alpha_short=overnight_alpha_short,

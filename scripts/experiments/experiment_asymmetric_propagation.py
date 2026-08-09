@@ -27,7 +27,7 @@ from leadlag.data.fetcher import download_data
 from leadlag.data.preprocessor import preprocess_data
 from leadlag.data.tickers import JP_TICKERS, TOPIX_TICKER
 from leadlag.models.sector_relative_ensemble_blp_enhanced import SectorRelativeEnsembleBLPEnhancedModel
-from leadlag.execution.backtester import BacktestEngine
+from research.backtest_v1 import run_v1_backtest
 from leadlag.reporting.metrics import calculate_metrics
 
 # Set up logging
@@ -97,7 +97,7 @@ def run_variant(
     """Run backtest for a single configuration variant and return standard metrics."""
     model = SectorRelativeEnsembleBLPEnhancedModel(cfg)
     model._start_date = start_date
-    results = BacktestEngine.run_backtest(
+    results = run_v1_backtest(
         model, df_exec, start_date=start_date, end_date=end_date, slippage_bps=slippage_bps
     )
 

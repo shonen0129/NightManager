@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 import sys
+from pathlib import Path
+
+import pandas as pd
 import pytest
-import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
@@ -13,7 +14,6 @@ sys.path.insert(0, str(ROOT / "src"))
 from leadlag.data.fetcher import download_data
 from leadlag.data.preprocessor import preprocess_data
 from leadlag.data.tickers import TOPIX_TICKER
-from leadlag.models.sre import SectorRelativeEnsembleModel
 
 
 @pytest.fixture
@@ -31,7 +31,6 @@ def sample_config_dict() -> dict:
 @pytest.fixture
 def sample_df_exec() -> tuple[pd.DataFrame, pd.DataFrame]:
     """Load and preprocess market data for testing, returning (df_exec, raw_data)."""
-    import pandas as pd
     raw_data = download_data(beta_window=60)
     df_exec = preprocess_data(raw_data, beta_window=60)
 
@@ -45,9 +44,3 @@ def sample_df_exec() -> tuple[pd.DataFrame, pd.DataFrame]:
     df_exec["topix_cc_trade"] = (1.0 + df_exec["topix_night_return"]) * (1.0 + df_exec["topix_oc_return"]) - 1.0
 
     return df_exec, raw_data
-
-
-@pytest.fixture
-def sample_model(sample_config_dict) -> SectorRelativeEnsembleModel:
-    """Return a model initialized with the sample config dict."""
-    return SectorRelativeEnsembleModel(sample_config_dict)

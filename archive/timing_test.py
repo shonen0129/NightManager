@@ -1,12 +1,18 @@
 """Quick timing test for a single backtest run."""
-import sys, time
+import sys
+import time
+
 sys.path.insert(0, "src")
 
 print("step1: imports...", flush=True)
+import numpy as np
+import yaml
+
 from leadlag.data.cache import load_df_exec_from_local_cache
-from leadlag.models.sector_relative_ensemble_blp_enhanced import SectorRelativeEnsembleBLPEnhancedModel
-from leadlag.execution.backtester import BacktestEngine
-import yaml, numpy as np
+from leadlag.models.sector_relative_ensemble_blp_enhanced import (
+    SectorRelativeEnsembleBLPEnhancedModel,
+)
+from research.backtest_v1 import run_v1_backtest
 
 print("step2: data load...", flush=True)
 df = load_df_exec_from_local_cache()
@@ -25,7 +31,7 @@ print(f"  predict_signals: {t1-t0:.1f}s", flush=True)
 
 print("step5: run_backtest...", flush=True)
 t2 = time.perf_counter()
-results = BacktestEngine.run_backtest(model, df_exec=df, start_date="2015-01-01",
+results = run_v1_backtest(model, df_exec=df, start_date="2015-01-01",
     overnight_alpha_long=0.75, overnight_alpha_short=0.5,
     buy_interest_annual=0.025, borrow_fee_annual=0.0115, reverse_fee_bps=2.0, slippage_bps=5.0)
 t3 = time.perf_counter()

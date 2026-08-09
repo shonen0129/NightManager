@@ -12,10 +12,12 @@ import logging
 import os
 import time as time_module
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 import numpy as np
 import pandas as pd
+import yaml
 
 from leadlag.data.tickers import JP_TICKERS
 
@@ -350,10 +352,14 @@ def get_hist_returns_for_risk(
     config: Any,
     output_root: str,
     trade_date: pd.Timestamp,
+    config_path: str | Path | None = None,
+    gap_input_dir: str | Path | None = None,
 ) -> pd.Series:
     """Efficiently get historical daily returns for VaR/ES risk checks.
 
-    Uses cache if available, otherwise runs full backtest and caches result.
+    Uses cache if available, otherwise runs the V2 full backtest and caches result.
+    The ``strategy`` argument is kept for backward compatibility but is no longer used;
+    V2 history is generated from the production YAML config and pre-computed gap matrices.
     """
     cache_dir = os.path.join(output_root, ".cache")
     returns_cache = os.path.join(cache_dir, "daily_returns.csv")
@@ -362,11 +368,50 @@ def get_hist_returns_for_risk(
     if hist_returns is not None:
         return hist_returns
 
-    logger.info("No return cache found; running full backtest for VaR/ES...")
+    logger.info("No return cache found; running V2 full backtest for VaR/ES...")
     from leadlag.data.cache import load_df_exec_from_local_cache
     from leadlag.execution.backtester import BacktestEngine
     df_exec = load_df_exec_from_local_cache()
-    out_res = BacktestEngine.run_backtest(strategy, df_exec, start_date=config.start_date)
+
+    # Load V2 production config (the canonical V2 source of truth)
+    project_root = Path(__file__).resolve().parents[3]
+    if config_path is None:
+        resolved_cfg_path = project_root / "configs" / "production" / "production.yaml"
+    else:
+        resolved_cfg_path = Path(config_path)
+        if not resolved_cfg_path.is_absolute():
+            resolved_cfg_path = project_root / resolved_cfg_path
+    with open(resolved_cfg_path, encoding="utf-8") as f:
+        cfg = yaml.safe_load(f) or {}
+
+    # Allow the caller-provided config to override start date and slippage
+    start_date = getattr(config, "start_date", "2015-01-05")
+    slippage_bps = getattr(config, "slippage_bps", None)
+    if slippage_bps is not None:
+        cfg.setdefault("costs", {})["slippage_bps_per_side"] = float(slippage_bps)
+
+    # Resolve gap input directory
+    if gap_input_dir is None:
+        gap_input_dir = cfg.get("gap_distribution", {}).get("dir", "")
+    gap_dir: Path | None = None
+    if gap_input_dir:
+        gap_dir = Path(gap_input_dir)
+        if not gap_dir.is_absolute():
+            gap_dir = project_root / gap_dir
+        if not gap_dir.exists():
+            logger.warning(
+                "Gap input dir not found: %s. V2 VaR/ES history will fall back to flat positions.",
+                gap_dir,
+            )
+            gap_dir = None
+
+    out_res = BacktestEngine.run_v2_backtest(
+        cfg=cfg,
+        gap_input_dir=gap_dir,
+        df_exec=df_exec,
+        start_date=start_date,
+        n_jobs=1,
+    )
     hist_results = pd.DataFrame(
         {"daily_return": out_res["daily_returns"]}, index=out_res["daily_returns"].index
     )

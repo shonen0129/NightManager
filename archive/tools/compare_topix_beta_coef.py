@@ -7,7 +7,6 @@ import logging
 import sys
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 import yaml
 
@@ -17,9 +16,12 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from leadlag.data.fetcher import download_data
 from leadlag.data.preprocessor import preprocess_data
-from leadlag.data.tickers import JP_TICKERS, TOPIX_TICKER
-from leadlag.models.sector_relative_ensemble_blp_enhanced import SectorRelativeEnsembleBLPEnhancedModel
+from leadlag.data.tickers import TOPIX_TICKER
+from leadlag.models.sector_relative_ensemble_blp_enhanced import (
+    SectorRelativeEnsembleBLPEnhancedModel,
+)
 from leadlag.reporting.metrics import calculate_metrics
+from research.backtest_v1 import run_v1_backtest
 
 logging.basicConfig(
     level=logging.INFO,
@@ -44,23 +46,22 @@ def run_backtest_with_beta_coef(
     cfg["residualization"]["topix_beta_coef"] = topix_beta_coef
 
     logger.info(f"Running backtest with topix_beta_coef={topix_beta_coef}")
-    
+
     # Instantiate model
     model = SectorRelativeEnsembleBLPEnhancedModel(cfg)
-    
+
     # Run backtest
-    from leadlag.execution.backtester import BacktestEngine
-    results = BacktestEngine.run_backtest(
+    results = run_v1_backtest(
         model,
         df_exec,
         start_date=start_date,
         end_date=end_date,
         slippage_bps=slippage_bps,
     )
-    
+
     # Calculate metrics
     metrics = calculate_metrics(results["daily_returns"])
-    
+
     return {
         "topix_beta_coef": topix_beta_coef,
         "metrics": metrics,
@@ -100,7 +101,7 @@ def main():
     # Run backtests with both values
     beta_values = [0.6, 1.20]
     results = {}
-    
+
     for beta in beta_values:
         try:
             result = run_backtest_with_beta_coef(
@@ -121,7 +122,7 @@ def main():
     logger.info("\n" + "="*80)
     logger.info("COMPARISON RESULTS: topix_beta_coef = 0.6 vs 1.20")
     logger.info("="*80)
-    
+
     comparison_data = []
     for beta, result in results.items():
         m = result["metrics"]
@@ -134,50 +135,50 @@ def main():
             "MDD (%)": m.get("MDD", 0.0) * 100,
             "Total Return (%)": m.get("Total Return", 0.0) * 100,
         })
-    
+
     comparison_df = pd.DataFrame(comparison_data)
     logger.info("\n" + comparison_df.to_string(index=False))
-    
+
     # Determine which is better based on Sharpe ratio
     if len(results) == 2:
         sharpe_0_6 = results[0.6]["metrics"].get("Sharpe", 0.0)
         sharpe_1_20 = results[1.20]["metrics"].get("Sharpe", 0.0)
-        
+
         logger.info("\n" + "="*80)
         if sharpe_0_6 > sharpe_1_20:
-            logger.info(f"RECOMMENDATION: topix_beta_coef = 0.6 is superior")
+            logger.info("RECOMMENDATION: topix_beta_coef = 0.6 is superior")
             logger.info(f"  Sharpe ratio: {sharpe_0_6:.4f} vs {sharpe_1_20:.4f}")
             logger.info(f"  Difference: {sharpe_0_6 - sharpe_1_20:.4f}")
         elif sharpe_1_20 > sharpe_0_6:
-            logger.info(f"RECOMMENDATION: topix_beta_coef = 1.20 is superior")
+            logger.info("RECOMMENDATION: topix_beta_coef = 1.20 is superior")
             logger.info(f"  Sharpe ratio: {sharpe_1_20:.4f} vs {sharpe_0_6:.4f}")
             logger.info(f"  Difference: {sharpe_1_20 - sharpe_0_6:.4f}")
         else:
             logger.info(f"RECOMMENDATION: Both values have equal Sharpe ratio ({sharpe_0_6:.4f})")
         logger.info("="*80)
-        
+
         # Also compare AR and MDD
         ar_0_6 = results[0.6]["metrics"].get("AR", 0.0)
         ar_1_20 = results[1.20]["metrics"].get("AR", 0.0)
         mdd_0_6 = results[0.6]["metrics"].get("MDD", 0.0)
         mdd_1_20 = results[1.20]["metrics"].get("MDD", 0.0)
-        
+
         logger.info(f"\nAR comparison: {ar_0_6*100:.2f}% vs {ar_1_20*100:.2f}% (diff: {(ar_0_6-ar_1_20)*100:.2f}%)")
         logger.info(f"MDD comparison: {mdd_0_6*100:.2f}% vs {mdd_1_20*100:.2f}% (diff: {(mdd_0_6-mdd_1_20)*100:.2f}%)")
 
     # Save results to CSV
     out_dir = ROOT / "results" / "topix_beta_coef_comparison"
     out_dir.mkdir(parents=True, exist_ok=True)
-    
+
     comparison_df.to_csv(out_dir / "comparison_summary.csv", index=False)
-    
+
     # Save detailed results
     for beta, result in results.items():
         result["daily_returns"].to_csv(out_dir / f"daily_returns_beta_{beta}.csv", header=["return"])
         result["equity_curve"].to_csv(out_dir / f"equity_curve_beta_{beta}.csv", header=["equity"])
         result["drawdown"].to_csv(out_dir / f"drawdown_beta_{beta}.csv", header=["drawdown"])
         result["weights"].to_csv(out_dir / f"weights_beta_{beta}.csv")
-    
+
     logger.info(f"\nResults saved to: {out_dir}")
 
 

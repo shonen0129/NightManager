@@ -14,7 +14,6 @@ Flow:
 from __future__ import annotations
 
 import logging
-import os
 from pathlib import Path
 
 import numpy as np
@@ -22,6 +21,7 @@ import pandas as pd
 import yaml
 
 from leadlag.broker.tachibana.session_cache import load_open_prices_cache
+from leadlag.data.cache import get_hist_returns_for_risk as _get_hist_returns_for_risk
 from leadlag.data.tickers import JP_TICKERS, TOPIX_TICKER
 from leadlag.execution.config import load_config_from_yaml
 from leadlag.execution.helpers import (
@@ -239,29 +239,14 @@ def run_v2_decision(
             logger.warning("Failed to fetch current positions: %s. Will submit full target.", e)
 
     # Historical returns for VaR/ES
-    from leadlag.data.cache import read_cache_with_lock as _read_cache
-
-    cache_dir = os.path.join(output_root, ".cache")
-    returns_cache = os.path.join(cache_dir, "daily_returns.csv")
-    hist_returns = _read_cache(returns_cache, t_trade)
-    if hist_returns is None:
-        logger.info("No returns cache; rebuilding VaR/ES history from local cache...")
-        from leadlag.data.cache import load_df_exec_from_local_cache as _load_df_exec
-        from leadlag.execution.helpers import build_strategy
-        from leadlag.execution.backtester import BacktestEngine
-        from leadlag.data.cache import write_cache_with_lock as _write_cache
-
-        df_exec = _load_df_exec()
-        strategy = build_strategy(app_config.strategy, df_exec)
-        out_res = BacktestEngine.run_backtest(strategy, df_exec, start_date=app_config.strategy.start_date)
-        hist_results = pd.DataFrame(
-            {"daily_return": out_res["daily_returns"]},
-            index=out_res["daily_returns"].index,
-        )
-        _write_cache(returns_cache, hist_results)
-        hist_returns = pd.Series(
-            hist_results.loc[hist_results.index < t_trade, "daily_return"]
-        )
+    hist_returns = _get_hist_returns_for_risk(
+        strategy=None,  # V2 history does not require the legacy V1 strategy
+        config=app_config.strategy,
+        output_root=output_root,
+        trade_date=t_trade,
+        config_path=config_path,
+        gap_input_dir=gap_dir,
+    )
 
     out_path = execute_post_decision_flow(
         decision=decision,

@@ -37,7 +37,7 @@ from leadlag.core.macro import (
     MACRO_SENS_MATRIX_DERIVED,
 )
 from leadlag.data.tickers import JP_TICKERS
-from leadlag.execution.backtester import BacktestEngine
+from research.backtest_v1 import run_v1_backtest
 from leadlag.models.sector_relative_ensemble_blp_enhanced import (
     SectorRelativeEnsembleBLPEnhancedModel,
 )
@@ -79,7 +79,7 @@ def _set_macro_params(cfg: dict, sens_matrix: str | None = None,
 def _run_backtest(cfg: dict, df_exec: pd.DataFrame, start_date: str) -> dict:
     costs = cfg.get("costs", {})
     model = SectorRelativeEnsembleBLPEnhancedModel(cfg)
-    results = BacktestEngine.run_backtest(
+    results = run_v1_backtest(
         model,
         df_exec=df_exec,
         start_date=start_date,

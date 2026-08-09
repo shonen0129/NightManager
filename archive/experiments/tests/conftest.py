@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 import sys
+from pathlib import Path
+
+import pandas as pd
 import pytest
-import yaml
 
 ROOT = Path(__file__).resolve()
 while not (ROOT / "pyproject.toml").exists():
@@ -16,10 +17,11 @@ while not (ROOT / "pyproject.toml").exists():
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "archive"))
 
+from legacy_src.models.sre import SectorRelativeEnsembleModel
+
 from leadlag.data.fetcher import download_data
 from leadlag.data.preprocessor import preprocess_data
 from leadlag.data.tickers import TOPIX_TICKER
-from leadlag.models.sre import SectorRelativeEnsembleModel
 
 
 @pytest.fixture
@@ -37,7 +39,6 @@ def sample_config_dict() -> dict:
 @pytest.fixture
 def sample_df_exec() -> tuple[pd.DataFrame, pd.DataFrame]:
     """Load and preprocess market data for testing, returning (df_exec, raw_data)."""
-    import pandas as pd
     raw_data = download_data(beta_window=60)
     df_exec = preprocess_data(raw_data, beta_window=60)
 

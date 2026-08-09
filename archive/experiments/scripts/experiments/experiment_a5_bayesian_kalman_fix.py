@@ -41,12 +41,15 @@ while not (ROOT / "pyproject.toml").exists():
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "archive"))
 
+from legacy_src.models.bayesian_blpx import BayesianBLPXModel
+
 from leadlag.data.cache import load_df_exec_from_local_cache
 from leadlag.data.tickers import JP_TICKERS
+from leadlag.models.sector_relative_ensemble_blp_enhanced import (
+    SectorRelativeEnsembleBLPEnhancedModel,
+)
 from leadlag.models.sre import compute_jp_target_returns
-from leadlag.models.sector_relative_ensemble_blp_enhanced import SectorRelativeEnsembleBLPEnhancedModel
-from legacy_src.models.bayesian_blpx import BayesianBLPXModel
-from leadlag.execution.backtester import BacktestEngine
+from research.backtest_v1 import run_v1_backtest
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
@@ -68,7 +71,7 @@ def compute_metrics(daily_returns: pd.Series, name: str | None = None) -> dict:
 
 
 def run_backtest(model, df_exec, start_date, slippage_bps=5.0):
-    return BacktestEngine.run_backtest(
+    return run_v1_backtest(
         model, df_exec, start_date=start_date, slippage_bps=slippage_bps,
         overnight_alpha_long=0.75, overnight_alpha_short=0.5,
         buy_interest_annual=0.025, borrow_fee_annual=0.0115,
@@ -153,13 +156,13 @@ def main():
     report_lines = [
         "# A5: BayesianBLPX Kalman Fix Report\n",
         f"## Data: {T} rows, start={args.start_date}\n",
-        f"\n## Fixes Applied\n",
-        f"1. **R3 leak fix**: `y_jp_target[i]` → `y_jp_target[i-1]` (1-day lag)\n",
-        f"2. **Q estimation**: non-overlapping subsampling (every blp_window steps)\n",
-        f"3. **R estimation**: bias-corrected theoretical value `(Var(ΔB̂) - Q) * window / 2`\n",
-        f"\n## Metrics Comparison\n",
+        "\n## Fixes Applied\n",
+        "1. **R3 leak fix**: `y_jp_target[i]` → `y_jp_target[i-1]` (1-day lag)\n",
+        "2. **Q estimation**: non-overlapping subsampling (every blp_window steps)\n",
+        "3. **R estimation**: bias-corrected theoretical value `(Var(ΔB̂) - Q) * window / 2`\n",
+        "\n## Metrics Comparison\n",
         results_df.to_string(index=False),
-        f"\n\n## Verdict\n",
+        "\n\n## Verdict\n",
     ]
 
     base_sharpe = all_results["baseline"]["Sharpe_net"]
@@ -170,10 +173,10 @@ def main():
 
     best_bayes = max(all_results[f"bayesian_{m}"]["Sharpe_net"] for m in modes)
     if best_bayes > base_sharpe * 1.01:
-        report_lines.append(f"\nBest Bayesian mode improves Sharpe by >1%.\n")
+        report_lines.append("\nBest Bayesian mode improves Sharpe by >1%.\n")
         report_lines.append("Recommend: investigate further but note BayesianBLPX is not in production config.\n")
     else:
-        report_lines.append(f"\nNo Bayesian mode improves over baseline BLPEnhanced.\n")
+        report_lines.append("\nNo Bayesian mode improves over baseline BLPEnhanced.\n")
         report_lines.append("Recommend: deprecate BayesianBLPX (kalman/cs_var/ic modes) to reduce code complexity.\n")
         report_lines.append("Note: R3 leak fix is still correct regardless of performance impact.\n")
 

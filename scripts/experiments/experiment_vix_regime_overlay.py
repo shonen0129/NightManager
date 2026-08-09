@@ -30,7 +30,7 @@ sys.path.insert(0, str(ROOT / "src"))
 import yfinance as yf
 
 from leadlag.data.cache import load_df_exec_from_local_cache
-from leadlag.execution.backtester import BacktestEngine
+from research.backtest_v1 import run_v1_backtest
 from leadlag.models.sector_relative_ensemble_blp_enhanced import (
     SectorRelativeEnsembleBLPEnhancedModel,
 )
@@ -220,7 +220,7 @@ def run_variant_backtest(
     if isinstance(model, VixOverlayBLPEnhancedModel):
         model.set_overlay_idx(start_idx)
 
-    results = BacktestEngine.run_backtest(
+    results = run_v1_backtest(
         model,
         df_exec=df_exec,
         start_date=start_date,

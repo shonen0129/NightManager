@@ -1,23 +1,62 @@
 """runner/backtest.py — full backtesting runner.
 
-Provides ``run_production()`` which downloads data, runs the strategy
-over the full history, and saves performance artifacts.
+Provides ``run_production()`` which downloads data, runs the V2 production
+strategy over the full history, and saves performance artifacts.
 """
 
 from __future__ import annotations
 
 import logging
+from pathlib import Path
+from typing import Any
 
 import pandas as pd
+import yaml
 
 from leadlag.core.risk import compute_var_es
 from leadlag.data.fetcher import download_data
 from leadlag.data.preprocessor import preprocess_data
-from leadlag.execution.config import StrategyConfig as ProductionConfig
-from leadlag.execution.helpers import build_output_dir, build_strategy, save_summary_files
+from leadlag.execution.backtester import BacktestEngine
+from leadlag.execution.helpers import build_output_dir, save_summary_files
 from leadlag.reporting.metrics import calculate_metrics, generate_report
 
 logger = logging.getLogger(__name__)
+
+
+def _resolve_v2_config(config_path: str | Path | None) -> tuple[dict[str, Any], Path]:
+    """Load and return the V2 production config dict and resolved project root."""
+    project_root = Path(__file__).resolve().parents[3]
+    if config_path is None:
+        resolved = project_root / "configs" / "production" / "production.yaml"
+    else:
+        resolved = Path(config_path)
+        if not resolved.is_absolute():
+            resolved = project_root / resolved
+    with open(resolved, encoding="utf-8") as f:
+        cfg = yaml.safe_load(f) or {}
+    return cfg, project_root
+
+
+def _resolve_gap_input_dir(
+    gap_input_dir: str | Path | None,
+    cfg: dict[str, Any],
+    project_root: Path,
+) -> Path | None:
+    """Resolve V2 gap input directory, returning None if it does not exist."""
+    if gap_input_dir is None:
+        gap_input_dir = cfg.get("gap_distribution", {}).get(
+            "dir", "live/pipeline_data/gap_adjusted_distribution/latest"
+        )
+    gap_dir = Path(gap_input_dir)
+    if not gap_dir.is_absolute():
+        gap_dir = project_root / gap_dir
+    if not gap_dir.exists():
+        logger.warning(
+            "Gap input dir not found: %s. V2 backtest will fall back to flat positions.",
+            gap_dir,
+        )
+        return None
+    return gap_dir
 
 
 def run_production(
@@ -27,64 +66,83 @@ def run_production(
     skip_chart: bool,
     slippage_bps: float | None = None,
     n_jobs: int = 1,
+    config_path: str | Path | None = None,
+    gap_input_dir: str | Path | None = None,
 ) -> str:
-    """Run the full backtest and save performance artifacts.
+    """Run the full V2 production backtest and save performance artifacts.
+
+    Args:
+        start_date: Backtest start date.
+        output_root: Directory root where outputs are written.
+        run_tag: Optional run tag.
+        skip_chart: Skip chart generation if True.
+        slippage_bps: Override slippage bps. If None, use YAML default.
+        n_jobs: Parallel workers for V2 weight generation.
+        config_path: Path to V2 production YAML config.
+        gap_input_dir: Directory containing mu_gap/omega_gap .npy files.
 
     Returns:
         Path to the output directory
     """
-    if slippage_bps is not None:
-        config = ProductionConfig(start_date=start_date, slippage_bps=float(slippage_bps))
-    else:
-        config = ProductionConfig(start_date=start_date)
+    cfg, project_root = _resolve_v2_config(config_path)
 
     output_dir = build_output_dir(output_root, run_tag, run_name="production_backtest")
 
+    residual_cfg = cfg.get("residualization", {})
+    beta_window = int(residual_cfg.get("beta_window", 60))
+    beta_ewma_halflife = residual_cfg.get("beta_ewma_halflife")
+    beta_shrinkage = float(residual_cfg.get("beta_shrinkage", 0.0))
+    beta_winsor_sigma = residual_cfg.get("beta_winsor_sigma")
+
     logger.info("[1/4] Downloading/loading market data...")
-    data = download_data(beta_window=config.beta_window)
+    data = download_data(beta_window=beta_window)
 
     logger.info("[2/4] Preprocessing aligned execution dataset...")
     df_exec = preprocess_data(
         data,
-        beta_window=config.beta_window,
-        beta_ewma_halflife=getattr(config, "beta_ewma_halflife", None),
-        beta_shrinkage=getattr(config, "beta_shrinkage", 0.0),
-        beta_winsor_sigma=getattr(config, "beta_winsor_sigma", None),
+        beta_window=beta_window,
+        beta_ewma_halflife=beta_ewma_halflife,
+        beta_shrinkage=beta_shrinkage,
+        beta_winsor_sigma=beta_winsor_sigma,
     )
 
-    logger.info("[3/4] Running production strategy...")
+    logger.info("[3/4] Running V2 production backtest...")
+    costs = cfg.get("costs", {})
+    resolved_slippage = slippage_bps if slippage_bps is not None else float(
+        costs.get("slippage_bps_per_side", 5.0)
+    )
     logger.info(
         "Slippage: %.1f bps one-way (round-trip = 2 x %.1f bps x gross_exposure/day)",
-        config.slippage_bps,
-        config.slippage_bps,
+        resolved_slippage,
+        resolved_slippage,
     )
-    model = build_strategy(config, df_exec)
 
-    from leadlag.execution.backtester import BacktestEngine
-    results = BacktestEngine.run_backtest(
-        model,
+    gap_dir = _resolve_gap_input_dir(gap_input_dir, cfg, project_root)
+
+    results = BacktestEngine.run_v2_backtest(
+        cfg=cfg,
+        gap_input_dir=gap_dir,
         df_exec=df_exec,
-        start_date=config.start_date,
-        overnight_alpha_long=config.overnight_alpha_long,
-        overnight_alpha_short=config.overnight_alpha_short,
-        buy_interest_annual=config.buy_interest_annual,
-        borrow_fee_annual=config.borrow_fee_annual,
-        reverse_fee_bps=config.reverse_fee_bps,
+        start_date=start_date,
+        slippage_bps=resolved_slippage,
         n_jobs=n_jobs,
     )
 
-    metrics = calculate_metrics(results["daily_returns"])
+    valid_returns = results["daily_returns"]
+    if "daily_fallback" in results:
+        valid_returns = valid_returns[~results["daily_fallback"]]
+
+    metrics = calculate_metrics(valid_returns)
+    risk_cfg = cfg.get("risk", {})
     var_es_result = compute_var_es(
         results["daily_returns"],
-        confidence=config.var_confidence,
-        window=config.var_window,
-        var_method=getattr(config, "var_method", "historical"),
+        confidence=float(risk_cfg.get("var_confidence", 0.99)),
+        window=int(risk_cfg.get("var_window", 250)),
+        var_method=risk_cfg.get("var_method", "historical"),
     )
 
     if not skip_chart:
         # Generate chart report using df structured for graphing
-        # PCA-Ensemble backtest result dict contains daily_returns and equity_curve keys
-        # We need to build a DataFrame matching results_df structure: index=date, daily_return
         graph_df = pd.DataFrame(
             {"daily_return": results["daily_returns"]}, index=results["daily_returns"].index
         )
@@ -95,7 +153,7 @@ def run_production(
     summary_results_df = pd.DataFrame(
         {"daily_return": results["daily_returns"]}, index=results["daily_returns"].index
     )
-    save_summary_files(summary_results_df, metrics, config, output_dir)
+    save_summary_files(summary_results_df, metrics, cfg, output_dir)
 
     # Print summary metrics to log
     print("=== Backtest Performance Metrics ===")

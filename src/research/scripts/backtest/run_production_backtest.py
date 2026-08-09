@@ -1,8 +1,8 @@
 #!/usr/bin/env python
-"""Run backtest with production config (production_residual_blpx).
+"""Run V2 production backtest with production config (production_residual_blpx).
 
-Uses configs/production.yaml and SectorRelativeEnsembleBLPEnhancedModel
-through the standard BacktestEngine with overnight holding and cost parameters.
+Uses configs/production/production.yaml and BacktestEngine.run_v2_backtest
+with pre-computed gap-adjusted distribution matrices.
 """
 
 from __future__ import annotations
@@ -17,12 +17,9 @@ import yaml
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "src"))
 
-from research.backtest_common import load_execution_data
 from leadlag.execution.backtester import BacktestEngine
-from leadlag.models.sector_relative_ensemble_blp_enhanced import (
-    SectorRelativeEnsembleBLPEnhancedModel,
-)
 from leadlag.reporting.metrics import calculate_metrics
+from research.backtest_common import load_execution_data
 
 logging.basicConfig(
     level=logging.INFO,
@@ -37,8 +34,11 @@ def main():
     parser.add_argument("--config", default="configs/production/production.yaml", help="Path to config YAML")
     parser.add_argument("--start-date", default="2015-01-05", help="Backtest start date")
     parser.add_argument("--output-dir", default="results/production_backtest", help="Output directory")
+    parser.add_argument("--gap-dir", default=None,
+                        help="Directory containing mu_gap/omega_gap .npy files. "
+                             "Defaults to gap_distribution.dir in the YAML config.")
     parser.add_argument("--n-jobs", type=int, default=1,
-                        help="Number of parallel workers for signal computation (1=sequential, -1=all cores)")
+                        help="Number of parallel workers for V2 weight generation (1=sequential, -1=all cores)")
     args = parser.parse_args()
 
     config_path = ROOT / args.config
@@ -67,13 +67,23 @@ def main():
         beta_winsor_sigma=beta_winsor_sigma,
     )
 
-    logger.info("[2/4] Building production model (Residual-BLPX)...")
-    model = SectorRelativeEnsembleBLPEnhancedModel(cfg)
+    logger.info("[2/4] Resolving V2 gap distribution...")
+    if args.gap_dir is None:
+        gap_dir = cfg.get("gap_distribution", {}).get("dir", "")
+    else:
+        gap_dir = args.gap_dir
+    gap_input_dir = ROOT / gap_dir if gap_dir and not Path(gap_dir).is_absolute() else Path(gap_dir or "/nonexistent")
+    if not gap_input_dir.exists():
+        logger.warning("Gap input dir not found: %s. V2 backtest will fall back to flat positions.", gap_input_dir)
+        gap_input_dir = None
+    else:
+        gap_input_dir = str(gap_input_dir)
 
-    logger.info("[3/4] Running backtest: start=%s, slippage=%.1f bps, alpha_long=%.2f, alpha_short=%.2f",
+    logger.info("[3/4] Running V2 production backtest: start=%s, slippage=%.1f bps, alpha_long=%.2f, alpha_short=%.2f",
                 args.start_date, slippage_bps, overnight_alpha_long, overnight_alpha_short)
-    results = BacktestEngine.run_backtest(
-        model,
+    results = BacktestEngine.run_v2_backtest(
+        cfg=cfg,
+        gap_input_dir=gap_input_dir,
         df_exec=df_exec,
         start_date=args.start_date,
         slippage_bps=slippage_bps,

@@ -10,8 +10,9 @@ import json
 import logging
 import os
 import time
-from dataclasses import asdict
+from dataclasses import asdict, is_dataclass
 from datetime import datetime
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -33,7 +34,6 @@ from leadlag.data.cache import get_hist_returns_for_risk as _get_hist_returns_fo
 from leadlag.data.tickers import lot_size_for
 from leadlag.execution.config import StrategyConfig as ProductionConfig
 from leadlag.execution.config import load_config_from_yaml
-from leadlag.models.sre import SectorRelativeEnsembleModel
 from leadlag.reporting.formatter import (
     log_decision_summary as _log_decision_summary,
 )
@@ -184,22 +184,6 @@ def resolve_wallet_capital(api_client: BrokerClient) -> float:
         f"{cash_available:,.0f}",
     )
     return cash_available
-
-
-# ---------------------------------------------------------------------------
-# Strategy builder
-# ---------------------------------------------------------------------------
-
-
-def build_strategy(
-    config: ProductionConfig,
-    df_exec: pd.DataFrame | None = None,
-) -> SectorRelativeEnsembleModel:
-    """Factory function for compat wrap.
-
-    df_exec is unused but kept for backward compatibility with runner scripts.
-    """
-    return SectorRelativeEnsembleModel(config)
 
 
 # ---------------------------------------------------------------------------
@@ -700,7 +684,7 @@ def submit_orders_via_api(
 def save_summary_files(
     results: pd.DataFrame,
     metrics: dict,
-    config: ProductionConfig,
+    config: ProductionConfig | dict[str, Any] | Any,
     output_dir: str,
 ) -> None:
     results_path = os.path.join(output_dir, "daily_results.csv")
@@ -714,8 +698,12 @@ def save_summary_files(
     drawdown = wealth / wealth.cummax() - 1.0
     if hasattr(config, "model_dump"):
         cfg_dict = config.model_dump()
-    else:
+    elif is_dataclass(config):
         cfg_dict = asdict(config)
+    elif isinstance(config, dict):
+        cfg_dict = config
+    else:
+        cfg_dict = dict(config)
 
     summary = {
         "run_time": datetime.now().isoformat(timespec="seconds"),
@@ -1123,6 +1111,7 @@ def save_position_snapshot(
     output_dir: str,
     *,
     label: str = "decision",
+    date_str: str | None = None,
 ) -> str | None:
     """Save current position snapshot with entry/evaluation prices.
 
@@ -1135,6 +1124,7 @@ def save_position_snapshot(
         api_client: BrokerClient instance
         output_dir: Directory to save the snapshot file
         label: Label for the filename (e.g. 'decision', 'close')
+        date_str: Optional date string (YYYYMMDD). Defaults to today.
 
     Returns:
         Path to the saved file, or None if no positions or error.
@@ -1186,7 +1176,8 @@ def save_position_snapshot(
     snapshot["position_count"] = len(snapshot["positions"])
     snapshot["total_unrealized_pnl"] = sum(p["unrealized_pnl"] for p in snapshot["positions"])
 
-    filename = f"positions_{label}_{datetime.now().strftime('%Y%m%d')}.json"
+    filename_date = date_str or datetime.now().strftime('%Y%m%d')
+    filename = f"positions_{label}_{filename_date}.json"
     filepath = os.path.join(output_dir, filename)
     with open(filepath, "w", encoding="utf-8") as f:
         json.dump(snapshot, f, ensure_ascii=False, indent=2)
@@ -1201,6 +1192,7 @@ def save_wallet_snapshot(
     output_dir: str,
     *,
     label: str = "decision",
+    date_str: str | None = None,
 ) -> str | None:
     """Save wallet/balance snapshot with margin details.
 
@@ -1210,6 +1202,7 @@ def save_wallet_snapshot(
         api_client: BrokerClient instance
         output_dir: Directory to save the snapshot file
         label: Label for the filename
+        date_str: Optional date string (YYYYMMDD). Defaults to today.
 
     Returns:
         Path to the saved file, or None on error.
@@ -1233,7 +1226,8 @@ def save_wallet_snapshot(
         "sTatekaekinHasseiFlg": wallet.extra.get("sTatekaekinHasseiFlg"),
     }
 
-    filename = f"wallet_{label}_{datetime.now().strftime('%Y%m%d')}.json"
+    filename_date = date_str or datetime.now().strftime('%Y%m%d')
+    filename = f"wallet_{label}_{filename_date}.json"
     filepath = os.path.join(output_dir, filename)
     with open(filepath, "w", encoding="utf-8") as f:
         json.dump(snapshot, f, ensure_ascii=False, indent=2)

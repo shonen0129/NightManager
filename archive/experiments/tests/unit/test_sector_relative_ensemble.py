@@ -16,7 +16,6 @@ import yaml
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
-from leadlag.models.sre import SectorRelativeEnsembleModel
 
 
 def test_config_loading_and_attributes():
@@ -125,8 +124,8 @@ def test_pipeline_completeness_and_daily_run(sample_model, sample_df_exec):
     # Use full df_exec to ensure baseline period (2010-2014) is present for C_full
     # but set start_date to a very recent date to keep test execution fast.
     start_date = df_exec.index[-10].strftime("%Y-%m-%d")
-    from leadlag.execution.backtester import BacktestEngine
-    results = BacktestEngine.run_backtest(model, df_exec, start_date=start_date)
+    from research.backtest_v1 import run_v1_backtest
+    results = run_v1_backtest(model, df_exec, start_date=start_date)
     assert "daily_returns" in results
     assert len(results["daily_returns"]) > 0
 

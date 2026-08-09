@@ -72,11 +72,11 @@ def load_daily_returns_from_backtest(
 ) -> pd.Series:
     """Run baseline backtest and extract daily net returns."""
     from leadlag.models.sector_relative_ensemble_blp_enhanced import SectorRelativeEnsembleBLPEnhancedModel
-    from leadlag.execution.backtester import BacktestEngine
+    from research.backtest_v1 import run_v1_backtest
 
     model = SectorRelativeEnsembleBLPEnhancedModel(cfg)
     model._start_date = start_date
-    results = BacktestEngine.run_backtest(
+    results = run_v1_backtest(
         model, df_exec, start_date=start_date, slippage_bps=5.0,
         overnight_alpha_long=0.75, overnight_alpha_short=0.5,
         buy_interest_annual=0.025, borrow_fee_annual=0.0115,
@@ -98,7 +98,7 @@ def main():
     import yaml
     from leadlag.data.cache import load_df_exec_from_local_cache
     from leadlag.models.sector_relative_ensemble_blp_enhanced import SectorRelativeEnsembleBLPEnhancedModel
-    from leadlag.execution.backtester import BacktestEngine
+    from research.backtest_v1 import run_v1_backtest
 
     # 1. Run baseline backtest
     logger.info("Loading df_exec and running baseline backtest...")
@@ -108,7 +108,7 @@ def main():
 
     model = SectorRelativeEnsembleBLPEnhancedModel(cfg)
     model._start_date = args.start_date
-    results = BacktestEngine.run_backtest(
+    results = run_v1_backtest(
         model, df_exec, start_date=args.start_date, slippage_bps=5.0,
         overnight_alpha_long=0.75, overnight_alpha_short=0.5,
         buy_interest_annual=0.025, borrow_fee_annual=0.0115,

@@ -1,11 +1,11 @@
-import numpy as np
-import pandas as pd
-import pytest
 from unittest.mock import patch
 
-from leadlag.execution.backtester import BacktestEngine
-from leadlag.models.base import BaseModel
+import numpy as np
+import pandas as pd
+
 from leadlag.data.tickers import JP_TICKERS
+from leadlag.models.base import BaseModel
+from research.backtest_v1 import run_v1_backtest
 
 
 class DummyModel(BaseModel):
@@ -70,7 +70,7 @@ def test_backtester_910_adjustment():
     # Run backtest with patch
     model = DummyModel()
     with patch("leadlag.data.cache.load_intraday_cache", return_value=df_5m):
-        results = BacktestEngine.run_backtest(model, df_exec, start_date="2026-03-03")
+        results = run_v1_backtest(model, df_exec, start_date="2026-03-03")
 
     # Verify results
     # Asset 0: ret_oc = 2%, ret_open_910 = 1% -> ret_910_close = (1.02)/(1.01) - 1 = 0.990099%

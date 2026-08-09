@@ -10,21 +10,20 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import os
 import shutil
 import sys
 import warnings
 from datetime import datetime
 from pathlib import Path
-from typing import Any
 
+import matplotlib
 import numpy as np
 import pandas as pd
 import yaml
-import matplotlib
+
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-from scipy.stats import spearmanr, skew, kurtosis, norm
+from scipy.stats import kurtosis, norm, skew, spearmanr
 
 # Add src/ to path
 # Script is in archive/tools/, so we need to go up 2 levels to reach project root
@@ -35,10 +34,11 @@ sys.path.insert(0, str(ROOT / "src"))
 from leadlag.data.cache import save_decision_cache
 from leadlag.data.fetcher import download_data
 from leadlag.data.preprocessor import preprocess_data
-from leadlag.data.tickers import JP_TICKERS, US_TICKERS, TOPIX_TICKER
-from leadlag.models.sector_relative_ensemble_blp_enhanced import SectorRelativeEnsembleBLPEnhancedModel
-from leadlag.execution.backtester import BacktestEngine
-from leadlag.models.sre import compute_jp_target_returns
+from leadlag.data.tickers import JP_TICKERS, TOPIX_TICKER
+from leadlag.models.sector_relative_ensemble_blp_enhanced import (
+    SectorRelativeEnsembleBLPEnhancedModel,
+)
+from research.backtest_v1 import run_v1_backtest
 
 logging.basicConfig(
     level=logging.INFO,
@@ -89,10 +89,10 @@ def psd_project(matrix: np.ndarray, floor: float = 1e-10) -> tuple[np.ndarray, f
 def run_self_tests() -> int:
     """Run verification self-tests."""
     logger.info("=== Starting Self-Tests ===")
-    
+
     n_u = 15
     n_j = 17
-    
+
     # 1. Dimension Check
     np.random.seed(42)
     Sigma_XX = np.eye(n_u) + 0.1 * np.random.randn(n_u, n_u)
@@ -101,68 +101,68 @@ def run_self_tests() -> int:
     Sigma_YY = np.eye(n_j) + 0.1 * np.random.randn(n_j, n_j)
     Sigma_YY = 0.5 * (Sigma_YY + Sigma_YY.T)
     B = np.random.randn(n_j, n_u) * 0.05
-    
+
     Sigma_XY = Sigma_YX.T
     Omega = Sigma_YY - B @ Sigma_XY - Sigma_YX @ B.T + B @ Sigma_XX @ B.T
-    
+
     assert Omega.shape == (n_j, n_j), f"Dimension mismatch: expected (17, 17), got {Omega.shape}"
     logger.info("Dimension check passed.")
-    
+
     # 2. Conditional Covariance Consistency
     B_opt = Sigma_YX @ np.linalg.inv(Sigma_XX)
     Omega_opt = Sigma_YY - B_opt @ Sigma_XY - Sigma_YX @ B_opt.T + B_opt @ Sigma_XX @ B_opt.T
     Omega_cond = Sigma_YY - Sigma_YX @ np.linalg.inv(Sigma_XX) @ Sigma_XY
-    
+
     assert np.allclose(Omega_opt, Omega_cond, atol=1e-12), "Algebraic equivalence test failed."
     logger.info("Conditional covariance equivalence check passed.")
-    
+
     # 3. Symmetry Check
     Omega_sym = 0.5 * (Omega + Omega.T)
     assert np.allclose(Omega_sym, Omega_sym.T, atol=1e-15), "Symmetry check failed."
     logger.info("Symmetry enforcement check passed.")
-    
+
     # 4. Signal Date < Trade Date
     sig_date = datetime(2026, 6, 12)
     trade_date = datetime(2026, 6, 15)
     assert sig_date < trade_date, "Temporal order check failed."
     logger.info("Date alignment logic check passed.")
-    
+
     # 5. Ratio division checks
     pred_var = np.array([1e-5, 0.0, 1.2e-4])
     omega_diag = np.array([2e-5, 3e-5, 0.0])
-    
+
     # Avoid zero division
     safe_pred = np.where(pred_var > 1e-10, pred_var, 1e-10)
     ratio = omega_diag / safe_pred
     assert np.all(np.isfinite(ratio)), "Zero division handling failed."
     logger.info("Ratio zero-division safety check passed.")
-    
+
     logger.info("=== All Self-Tests Passed ===")
     return 0
 
 
 def main():
     args = parse_arguments()
-    
+
     if args.self_test:
         sys.exit(run_self_tests())
-        
+
     save_daily_m = str_to_bool(args.save_daily_matrices)
     save_psd = str_to_bool(args.save_psd_projection)
     compare_pred_var = str_to_bool(args.compare_existing_pred_var)
-    
+
     # Setup outputs
     run_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     out_dir = Path(args.output_dir) / run_timestamp
     out_dir.mkdir(parents=True, exist_ok=True)
-    
+
     if save_daily_m or save_psd:
         (out_dir / "matrices").mkdir(exist_ok=True)
     plots_dir = out_dir / "plots"
     plots_dir.mkdir(exist_ok=True)
-    
+
     logger.info(f"Output directory established: {out_dir}")
-    
+
     # Incremental mode: find previous run and identify already-computed dates
     existing_dates: set[str] = set()
     prev_dir: Path | None = None
@@ -192,7 +192,7 @@ def main():
                 date_str = f.stem.replace("omega_struct_", "")
                 existing_dates.add(date_str)
             logger.info(f"Incremental mode: found {len(existing_dates)} existing matrices in {prev_dir}")
-    
+
     # 1. Load config
     cfg_path = Path(args.config)
     if not cfg_path.is_absolute():
@@ -205,15 +205,15 @@ def main():
         sys.exit(1)
     with open(cfg_path) as f:
         cfg = yaml.safe_load(f)
-        
+
     results_dir = Path(args.results_dir) if args.results_dir.startswith("results") else ROOT / args.results_dir
-    
+
     # 2. Download and Preprocess data
     logger.info("Loading market data...")
     raw_data = download_data(beta_window=60)
     logger.info("Preprocessing market data...")
     df_exec = preprocess_data(raw_data, beta_window=60)
-    
+
     # Compute TOPIX returns
     topix_close = raw_data["jp_close"][TOPIX_TICKER].copy()
     topix_open = raw_data["jp_open"][TOPIX_TICKER].copy()
@@ -230,23 +230,23 @@ def main():
         save_decision_cache(df_exec)
     except Exception as e:
         logger.warning(f"Failed to save preprocessed data cache: {e}")
-    
+
     # Filter dates
     sim_dates_slice = sim_dates[sim_dates >= args.start]
     if args.end != "latest":
         sim_dates_slice = sim_dates_slice[sim_dates_slice <= args.end]
-        
+
     logger.info(f"Diagnostics window: {sim_dates_slice[0].strftime('%Y-%m-%d')} to {sim_dates_slice[-1].strftime('%Y-%m-%d')} ({len(sim_dates_slice)} days)")
-    
+
     # 3. Model setup
     logger.info("Instantiating Residual-BLPX model...")
     model = SectorRelativeEnsembleBLPEnhancedModel(cfg)
     inputs = model._prepare_common_inputs(df_exec)
-    
+
     # Extract realized target returns (9:10-to-close)
     y_jp_target = inputs["y_jp_target"]
     y_jp_target_df = pd.DataFrame(y_jp_target, index=sim_dates, columns=JP_TICKERS)
-    
+
     # Extract variables
     jp_gap = inputs["jp_gap"]
     jp_beta = inputs["jp_beta"]
@@ -254,30 +254,30 @@ def main():
     jp_res_returns_p3 = inputs["jp_res_returns_p3"]
     c_full_p3 = inputs["c_full_p3"]
     v0_static = inputs["v0_static"]
-    
+
     # Check weights and runs
     weights_file = results_dir / "daily_positions_Residual-BLPX_only.csv"
     if not weights_file.exists():
         if args.run_backtest_if_missing:
             logger.info(f"Weights file {weights_file} not found. Running backtest...")
             results_dir.mkdir(parents=True, exist_ok=True)
-            backtest_res = BacktestEngine.run_backtest(model, df_exec, start_date=args.start, end_date=args.end, slippage_bps=args.slippage_bps)
+            backtest_res = run_v1_backtest(model, df_exec, start_date=args.start, end_date=args.end, slippage_bps=args.slippage_bps)
             backtest_res["weights"].to_csv(weights_file)
             logger.info(f"Backtest weights written to {weights_file}")
         else:
             logger.error(f"Weights file not found at {weights_file} and --run-backtest-if-missing is not specified. Cannot proceed with portfolio level diagnostics.")
             sys.exit(1)
-            
+
     logger.info(f"Loading weights from {weights_file}")
     weights_df = pd.read_csv(weights_file, index_col=0)
     weights_df.index = pd.to_datetime(weights_df.index).tz_localize(None).normalize()
-    
+
     # Main Daily calculation loop
     diag_records = []
     comparison_records = []
     panel_records = []
     daily_summary_records = []
-    
+
     # For audits
     dropped_count = 0
     missing_data_count = 0
@@ -288,11 +288,11 @@ def main():
     symmetry_max_err = 0.0
     all_dates_audit = True
     leakage_violation = False
-    
+
     logger.info("Computing structured prediction error covariance Omega_struct...")
-    
+
     w_prev = np.zeros(model.n_j)
-    
+
     # Load previous CSV records for incremental mode
     prev_diag_df = prev_comp_df = prev_panel_long_df = prev_panel_daily_df = None
     if prev_dir is not None and existing_dates:
@@ -304,18 +304,18 @@ def main():
             prev_panel_long_df = pd.read_csv(prev_dir / "distribution_panel_long.csv")
         if (prev_dir / "distribution_panel_daily.csv").exists():
             prev_panel_daily_df = pd.read_csv(prev_dir / "distribution_panel_daily.csv")
-    
+
     incremental_skipped = 0
     psd_dist = 0.0
-    
+
     for dt in sim_dates_slice:
         i = df_exec.index.get_indexer([dt])[0]
         if i < model.corr_window:
             dropped_count += 1
             continue
-        
+
         dt_str_compact = dt.strftime("%Y%m%d")
-        
+
         # Incremental skip: copy existing matrices and load records
         if dt_str_compact in existing_dates and prev_dir is not None:
             # Copy matrix files forward
@@ -333,21 +333,21 @@ def main():
                             shutil.copy2(psd_f, out_dir / "matrices" / f"omega_struct_psd_{dt_str_compact}.npy")
             incremental_skipped += 1
             continue
-            
+
         sig_date = df_exec["sig_date"].values[i]
         sig_date_dt = pd.to_datetime(sig_date).tz_localize(None).normalize()
         trade_date_dt = pd.to_datetime(dt).tz_localize(None).normalize()
-        
+
         # 1. Leakage check
         if not (sig_date_dt < trade_date_dt):
             all_dates_audit = False
             leakage_violation = True
-            
+
         # Common parameters
         gap_override = np.nan_to_num(jp_gap[i], nan=0.0) if jp_gap is not None else None
         betas_t = np.asarray(jp_beta[i], dtype=float) if jp_beta is not None else None
         topix_night_t = float(topix_night[i]) if topix_night is not None else None
-        
+
         # Call model to get raw matrices
         try:
             residual_blpx_res = model.compute_blp_signal(
@@ -366,7 +366,7 @@ def main():
             missing_data_count += 1
             logger.warning(f"Error computing signal on {dt.strftime('%Y-%m-%d')}: {e}")
             continue
-            
+
         Sigma_XX = residual_blpx_res["Sigma_XX"]
         Sigma_YX = residual_blpx_res["Sigma_YX"]
         Sigma_XY = Sigma_YX.T
@@ -375,23 +375,23 @@ def main():
         z_U = residual_blpx_res["z_U"]
         pred_var_vec = residual_blpx_res["pred_var_vec"]
         sigma_Y_denorm = residual_blpx_res["sigma_Y_denorm"]
-        
+
         # Validate matrix finitude
         if not (np.isfinite(Sigma_XX).all() and np.isfinite(Sigma_YX).all() and np.isfinite(Sigma_YY).all() and np.isfinite(B_struct).all()):
             nan_inf_count += 1
             logger.warning(f"NaN or Inf detected in covariance inputs on {dt.strftime('%Y-%m-%d')}")
             continue
-            
+
         # 2. Compute standardized Omega_struct
         Omega_struct = Sigma_YY - B_struct @ Sigma_XY - Sigma_YX @ B_struct.T + B_struct @ Sigma_XX @ B_struct.T
-        
+
         # Symmetry check before enforcement
         sym_error = float(np.max(np.abs(Omega_struct - Omega_struct.T)))
         symmetry_max_err = max(symmetry_max_err, sym_error)
-        
+
         # Symmetrize
         Omega_struct = 0.5 * (Omega_struct + Omega_struct.T)
-        
+
         # Spectral decomposition
         eigvals, _ = np.linalg.eigh(Omega_struct)
         min_eigen = float(np.min(eigvals))
@@ -401,35 +401,35 @@ def main():
             neg_eigen_days += 1
         if min_eigen < -1e-8:
             days_with_min_eigen_lt_neg_1e_8 += 1
-            
+
         omega_struct_diag = np.diag(Omega_struct)
         if np.any(omega_struct_diag <= 0):
             days_with_diag_le_zero += 1
-            
+
         cond_num = float(max_eigen / min_eigen) if min_eigen > 0 else np.nan
         trace = float(np.trace(Omega_struct))
-        
+
         # Det and logdet
         det = float(np.linalg.det(Omega_struct))
         logdet = float(np.sum(np.log(np.maximum(eigvals, 1e-15))))
-        
+
         # Average off-diagonal correlation
         diag_std = np.sqrt(np.maximum(omega_struct_diag, 1e-10))
         R = Omega_struct / np.outer(diag_std, diag_std)
         avg_offdiag = float((np.sum(R) - model.n_j) / (model.n_j * (model.n_j - 1)))
-        
+
         frob_norm = float(np.linalg.norm(Omega_struct, "fro"))
-        
+
         # Frobenius distance to Sigma_Y|X
         inv_A = residual_blpx_res["inv_A"]
         Sigma_Y_given_X = Sigma_YY - Sigma_YX @ inv_A @ Sigma_XY
         frob_diff = float(np.linalg.norm(Omega_struct - Sigma_Y_given_X, "fro"))
-        
+
         # Diagnostic outputs per day
         diag_corr, _ = spearmanr(omega_struct_diag, pred_var_vec)
         if np.isnan(diag_corr):
             diag_corr = 0.0
-            
+
         date_str = dt.strftime("%Y-%m-%d")
         diag_records.append({
             "date": date_str,
@@ -445,13 +445,13 @@ def main():
             "frob_diff_vs_cond_cov": frob_diff,
             "diag_spearman_corr_vs_pred_var": diag_corr,
         })
-        
+
         # PSD Projection
         Omega_struct_psd = None
         psd_dist = 0.0
         if save_psd:
             Omega_struct_psd, psd_dist = psd_project(Omega_struct)
-            
+
         # Comparison logic (standardized space)
         if compare_pred_var:
             for idx, tk in enumerate(JP_TICKERS):
@@ -467,48 +467,48 @@ def main():
                     "ratio": safe_o / safe_p,
                     "log_ratio": np.log(safe_o / safe_p),
                 })
-                
+
         # Scale to raw return space
         Omega_struct_raw = np.diag(sigma_Y_denorm) @ Omega_struct @ np.diag(sigma_Y_denorm)
         omega_diag_raw = np.diag(Omega_struct_raw)
         omega_std_raw = np.sqrt(np.maximum(omega_diag_raw, 1e-10))
-        
+
         # Portfolio level diagnostics
         mu_t = residual_blpx_res["signal"] # Raw prediction
-        
+
         # Retrieve weights
         w_t = np.zeros(model.n_j)
         if dt in weights_df.index:
             w_t = weights_df.loc[dt, JP_TICKERS].values
-            
+
         predicted_portfolio_mean = float(np.sum(w_t * mu_t))
         predicted_portfolio_var_struct = float(w_t.T @ Omega_struct_raw @ w_t)
         predicted_portfolio_vol_struct = float(np.sqrt(np.maximum(predicted_portfolio_var_struct, 1e-10)))
         predicted_portfolio_ir_struct = predicted_portfolio_mean / predicted_portfolio_vol_struct if predicted_portfolio_vol_struct > 0 else 0.0
-        
+
         # Diagonal-only variance
         predicted_portfolio_var_diagonly_struct = float(np.sum((w_t ** 2) * omega_diag_raw))
         predicted_portfolio_vol_diagonly_struct = float(np.sqrt(np.maximum(predicted_portfolio_var_diagonly_struct, 1e-10)))
-        
+
         # Existing pred_var diagonal-only raw variance
         pred_var_raw = pred_var_vec * (sigma_Y_denorm ** 2)
         predicted_portfolio_var_diagonly = float(np.sum((w_t ** 2) * pred_var_raw))
         predicted_portfolio_vol_diagonly = float(np.sqrt(np.maximum(predicted_portfolio_var_diagonly, 1e-10)))
-        
+
         # Realized portfolio return
         realized_jp_returns = y_jp_target_df.loc[dt].values
         realized_portfolio_return_gross = float(np.sum(w_t * realized_jp_returns))
         gross_exposure = float(np.sum(np.abs(w_t)))
         costs_t = float(2.0 * (args.slippage_bps / 10000.0) * gross_exposure)
         realized_portfolio_return_net = realized_portfolio_return_gross - costs_t
-        
+
         predicted_portfolio_mean_net = predicted_portfolio_mean - costs_t
         predicted_portfolio_ir_net_struct = predicted_portfolio_mean_net / predicted_portfolio_vol_struct if predicted_portfolio_vol_struct > 0 else 0.0
-        
+
         # Turnover calculation
         turnover = float(np.sum(np.abs(w_t - w_prev)) / 2.0)
         w_prev = w_t.copy()
-        
+
         # Save daily summary record
         daily_summary_records.append({
             "trade_date": date_str,
@@ -530,7 +530,7 @@ def main():
             "cost": costs_t,
             "turnover": turnover,
         })
-        
+
         # Stock-level long records
         for idx, tk in enumerate(JP_TICKERS):
             panel_records.append({
@@ -545,7 +545,7 @@ def main():
                 "portfolio_weight": float(w_t[idx]),
                 "realized_target_return": float(realized_jp_returns[idx]),
             })
-            
+
         # Save daily matrices if requested
         if save_daily_m:
             dt_str = dt.strftime("%Y%m%d")
@@ -559,10 +559,10 @@ def main():
             )
             if save_psd and Omega_struct_psd is not None:
                 np.save(out_dir / "matrices" / f"omega_struct_psd_{dt_str}.npy", Omega_struct_psd)
-                
+
     if incremental_skipped > 0:
         logger.info(f"Incremental mode: skipped {incremental_skipped} dates, computed {len(diag_records)} new dates")
-    
+
     # Build dataframes
     # In incremental mode, merge previous records with newly computed ones.
     # drop_duplicates keeps the latest computation for any overlap.
@@ -578,7 +578,7 @@ def main():
         df_diag.index = pd.to_datetime(df_diag.index)
         df_diag = df_diag.sort_index()
     df_diag.to_csv(out_dir / "omega_summary_daily.csv")
-    
+
     # Save ticker level summary of eigenvalues or trace
     df_comp = None
     if compare_pred_var:
@@ -594,7 +594,7 @@ def main():
             df_comp = df_comp.sort_values(["date", "ticker"]).reset_index(drop=True)
         if df_comp is not None and len(df_comp) > 0:
             df_comp.to_csv(out_dir / "pred_var_comparison_daily.csv", index=False)
-        
+
         ticker_comp = []
         for tk in JP_TICKERS:
             sub = df_comp[df_comp["ticker"] == tk]
@@ -607,7 +607,7 @@ def main():
             })
         df_ticker_comp = pd.DataFrame(ticker_comp)
         df_ticker_comp.to_csv(out_dir / "pred_var_comparison_by_ticker.csv", index=False)
-        
+
         summary_comp = {
             "total_mean_pred_var_blp": df_comp["pred_var_blp_diag"].mean(),
             "total_mean_omega_struct": df_comp["omega_struct_diag"].mean(),
@@ -615,7 +615,7 @@ def main():
             "cross_sectional_correlation_avg": df_diag["diag_spearman_corr_vs_pred_var"].mean(),
         }
         pd.DataFrame([summary_comp]).to_csv(out_dir / "pred_var_comparison_summary.csv", index=False)
-        
+
     # Process Long Panel
     if prev_panel_long_df is not None and incremental_skipped > 0:
         new_panel_long = pd.DataFrame(panel_records)
@@ -629,7 +629,7 @@ def main():
             df_panel_long["trade_date"] = pd.to_datetime(df_panel_long["trade_date"])
             df_panel_long = df_panel_long.sort_values(["trade_date", "ticker"]).reset_index(drop=True)
     df_panel_long.to_csv(out_dir / "distribution_panel_long.csv", index=False)
-    
+
     # Process Daily Panel
     if prev_panel_daily_df is not None and incremental_skipped > 0:
         new_panel_daily = pd.DataFrame(daily_summary_records)
@@ -643,14 +643,14 @@ def main():
             df_panel_daily["trade_date"] = pd.to_datetime(df_panel_daily["trade_date"])
             df_panel_daily = df_panel_daily.sort_values("trade_date").reset_index(drop=True)
     df_panel_daily.to_csv(out_dir / "distribution_panel_daily.csv", index=False)
-    
+
     # Parquet saving if possible
     try:
         df_panel_long.to_parquet(out_dir / "distribution_panel_long.parquet")
         df_panel_daily.to_parquet(out_dir / "distribution_panel_daily.parquet")
     except Exception as e:
         logger.warning(f"Could not save parquet formats: {e}")
-        
+
     # US Vol State merging (Optional)
     vol_state_merged = False
     if args.vol_state_panel:
@@ -664,17 +664,17 @@ def main():
             vol_state_merged = True
         else:
             logger.warning(f"Vol state panel file {state_file} not found. Skipping merge.")
-            
+
     # Calibration Calculations
     # 1. Portfolio Level
     df_panel_daily["abs_realized_net"] = df_panel_daily["realized_portfolio_return_net"].abs()
     df_panel_daily["squared_realized_net"] = df_panel_daily["realized_portfolio_return_net"] ** 2
-    
+
     corr_mean_gross = df_panel_daily["predicted_portfolio_mean"].corr(df_panel_daily["realized_portfolio_return_gross"])
     corr_ir_net = df_panel_daily["predicted_portfolio_ir_struct"].corr(df_panel_daily["realized_portfolio_return_net"])
     corr_vol_abs = df_panel_daily["predicted_portfolio_vol_struct"].corr(df_panel_daily["abs_realized_net"])
     corr_var_squared = df_panel_daily["predicted_portfolio_var_struct"].corr(df_panel_daily["squared_realized_net"])
-    
+
     portfolio_calibration = {
         "corr_predicted_mean_vs_realized_gross": corr_mean_gross,
         "corr_predicted_ir_vs_realized_net": corr_ir_net,
@@ -682,7 +682,7 @@ def main():
         "corr_predicted_var_vs_squared_realized_net": corr_var_squared,
     }
     pd.DataFrame([portfolio_calibration]).to_csv(out_dir / "portfolio_distribution_diagnostics.csv", index=False)
-    
+
     # 2. Predicted IR Quintiles/Tertiles
     df_panel_daily["ir_bin"] = pd.qcut(df_panel_daily["predicted_portfolio_ir_struct"], 3, labels=["Low", "Medium", "High"])
     ir_bins_df = df_panel_daily.groupby("ir_bin").agg(
@@ -692,7 +692,7 @@ def main():
     )
     ir_bins_df["sharpe"] = (ir_bins_df["mean_realized_net"] / ir_bins_df["vol_realized_net"]) * np.sqrt(252.0)
     ir_bins_df.to_csv(out_dir / "calibration_by_ir_bin.csv")
-    
+
     # 3. Predicted Vol Quintiles/Tertiles
     df_panel_daily["vol_bin"] = pd.qcut(df_panel_daily["predicted_portfolio_vol_struct"], 3, labels=["Low", "Medium", "High"])
     vol_bins_df = df_panel_daily.groupby("vol_bin").agg(
@@ -701,7 +701,7 @@ def main():
     )
     vol_bins_df["realized_vol_annualized"] = vol_bins_df["realized_vol"] * np.sqrt(252.0)
     vol_bins_df.to_csv(out_dir / "calibration_by_vol_bin.csv")
-    
+
     # 4. Calibration by Year
     df_panel_daily["year"] = pd.to_datetime(df_panel_daily["trade_date"]).dt.year
     year_bins_df = df_panel_daily.groupby("year").agg(
@@ -714,13 +714,13 @@ def main():
     )
     year_bins_df["sharpe"] = (year_bins_df["mean_realized_net"] / year_bins_df["vol_realized_net"]) * np.sqrt(252.0)
     year_bins_df.to_csv(out_dir / "calibration_by_year.csv")
-    
+
     # 5. Standardized Residuals
     df_panel_long["residual"] = df_panel_long["realized_target_return"] - df_panel_long["mu_t"]
     df_panel_long["standardized_residual"] = df_panel_long["residual"] / df_panel_long["omega_std_struct"]
-    
+
     std_res = df_panel_long["standardized_residual"].dropna()
-    
+
     residuals_summary = {
         "mean": std_res.mean(),
         "std": std_res.std(),
@@ -734,7 +734,7 @@ def main():
         "pct_outside_3_sigma": (np.abs(std_res) > 3.0).mean(),
     }
     pd.DataFrame([residuals_summary]).to_csv(out_dir / "standardized_residuals_summary.csv", index=False)
-    
+
     # Ticker standardized residuals
     ticker_residuals = []
     for tk in JP_TICKERS:
@@ -750,10 +750,10 @@ def main():
             "pct_outside_3_sigma": (np.abs(res_sub) > 3.0).mean(),
         })
     pd.DataFrame(ticker_residuals).to_csv(out_dir / "standardized_residuals_by_ticker.csv", index=False)
-    
+
     # Plot Generation
     logger.info("Generating diagnostic plots...")
-    
+
     # Plot 1: predicted_portfolio_ir_struct cumulative return
     plt.figure()
     for category in ["Low", "Medium", "High"]:
@@ -767,7 +767,7 @@ def main():
     plt.legend()
     plt.savefig(plots_dir / "portfolio_ir_bin_cumulative_return.png")
     plt.close()
-    
+
     # Plot 2: Bar plot Sharpe by IR Bin
     plt.figure()
     ir_bins_df["sharpe"].plot(kind="bar")
@@ -775,14 +775,14 @@ def main():
     plt.ylabel("Sharpe")
     plt.savefig(plots_dir / "portfolio_ir_bin_sharpe.png")
     plt.close()
-    
+
     # Plot 3: Predicted Vol Bin vs Realized Vol / Mean Abs Return
     plt.figure()
     ax = vol_bins_df[["realized_vol_annualized", "mean_abs_realized_net"]].plot(kind="bar", secondary_y="mean_abs_realized_net")
     plt.title("Realized Vol and Abs Return by Predicted Portfolio Vol Tertiles")
     plt.savefig(plots_dir / "portfolio_vol_bin_calibration.png")
     plt.close()
-    
+
     # Plot 4: Scatter Plot predicted mean vs realized gross return
     plt.figure()
     plt.scatter(df_panel_daily["predicted_portfolio_mean"], df_panel_daily["realized_portfolio_return_gross"], alpha=0.3)
@@ -791,7 +791,7 @@ def main():
     plt.ylabel("Realized Gross Return")
     plt.savefig(plots_dir / "predicted_mean_vs_realized_gross_scatter.png")
     plt.close()
-    
+
     # Plot 5: Scatter Plot predicted IR vs realized net return
     plt.figure()
     plt.scatter(df_panel_daily["predicted_portfolio_ir_struct"], df_panel_daily["realized_portfolio_return_net"], alpha=0.3)
@@ -800,7 +800,7 @@ def main():
     plt.ylabel("Realized Net Return")
     plt.savefig(plots_dir / "predicted_ir_vs_realized_net_scatter.png")
     plt.close()
-    
+
     # Plot 6: Scatter Plot predicted vol vs abs net return
     plt.figure()
     plt.scatter(df_panel_daily["predicted_portfolio_vol_struct"], df_panel_daily["abs_realized_net"], alpha=0.3)
@@ -809,7 +809,7 @@ def main():
     plt.ylabel("Absolute Net Return")
     plt.savefig(plots_dir / "predicted_vol_vs_abs_net_scatter.png")
     plt.close()
-    
+
     # Plot 7: Scatter Plot predicted var vs squared net return
     plt.figure()
     plt.scatter(df_panel_daily["predicted_portfolio_var_struct"], df_panel_daily["squared_realized_net"], alpha=0.3)
@@ -818,7 +818,7 @@ def main():
     plt.ylabel("Squared Net Return")
     plt.savefig(plots_dir / "predicted_var_vs_squared_net_scatter.png")
     plt.close()
-    
+
     # Plot 8: omega_struct_diag ticker average bar plot (scaled raw space)
     plt.figure(figsize=(10, 5))
     df_panel_long.groupby("ticker")["omega_diag_struct"].mean().plot(kind="bar")
@@ -827,7 +827,7 @@ def main():
     plt.tight_layout()
     plt.savefig(plots_dir / "omega_struct_diag_average.png")
     plt.close()
-    
+
     # Plot 9: Mean Ratio omega_struct_diag / pred_var_blp_diag
     if compare_pred_var and df_comp is not None:
         plt.figure(figsize=(10, 5))
@@ -837,7 +837,7 @@ def main():
         plt.tight_layout()
         plt.savefig(plots_dir / "omega_to_pred_var_ratio.png")
         plt.close()
-        
+
     # Plot 10: Eigenvalue time series
     dates_plot = pd.to_datetime(df_diag.index)
     plt.figure()
@@ -848,7 +848,7 @@ def main():
     plt.legend()
     plt.savefig(plots_dir / "min_eigenvalue_timeseries.png")
     plt.close()
-    
+
     # Plot 11: Negative eigenvalue count
     plt.figure()
     plt.plot(dates_plot, df_diag["negative_eigen_count"])
@@ -857,7 +857,7 @@ def main():
     plt.ylabel("Negative Eigenvalue Count")
     plt.savefig(plots_dir / "negative_eigenvalue_count_timeseries.png")
     plt.close()
-    
+
     # Plot 12: Average off-diagonal correlation
     plt.figure()
     plt.plot(dates_plot, df_diag["avg_offdiag_corr"])
@@ -866,7 +866,7 @@ def main():
     plt.ylabel("Average Correlation")
     plt.savefig(plots_dir / "avg_offdiag_corr_timeseries.png")
     plt.close()
-    
+
     # Plot 13: Standardized residuals histogram and QQ plot
     plt.figure()
     plt.hist(std_res, bins=50, density=True, alpha=0.6, color='g')
@@ -880,7 +880,7 @@ def main():
     plt.legend()
     plt.savefig(plots_dir / "standardized_residuals_histogram.png")
     plt.close()
-    
+
     # QQ plot
     plt.figure()
     from scipy.stats import probplot
@@ -888,12 +888,12 @@ def main():
     plt.title("Normal Q-Q Plot of Standardized Residuals")
     plt.savefig(plots_dir / "standardized_residuals_qq_plot.png")
     plt.close()
-    
+
     # Plot 14: Rolling calibration
     # Rolling 60-day correlation
     df_panel_daily["rolling_vol_corr"] = df_panel_daily["predicted_portfolio_vol_struct"].rolling(60).corr(df_panel_daily["abs_realized_net"])
     df_panel_daily["rolling_ir_corr"] = df_panel_daily["predicted_portfolio_ir_struct"].rolling(60).corr(df_panel_daily["realized_portfolio_return_net"])
-    
+
     plt.figure()
     plt.plot(dates_plot, df_panel_daily["rolling_vol_corr"], label="corr(pred_vol, abs_return)")
     plt.plot(dates_plot, df_panel_daily["rolling_ir_corr"], label="corr(pred_ir, net_return)")
@@ -903,7 +903,7 @@ def main():
     plt.legend()
     plt.savefig(plots_dir / "rolling_calibration_correlations.png")
     plt.close()
-    
+
     # 4. Leakage Audit File
     leakage_audit = {
         "signal_date_strictly_before_trade_date_passed": bool(all_dates_audit),
@@ -917,7 +917,7 @@ def main():
     }
     with open(out_dir / "leakage_audit.json", "w") as f:
         json.dump(leakage_audit, f, indent=4)
-        
+
     # 5. Numerical Audit File
     numerical_audit = {
         "Omega_struct_symmetry_max_abs_error": symmetry_max_err,
@@ -936,7 +936,7 @@ def main():
     }
     with open(out_dir / "numerical_audit.json", "w") as f:
         json.dump(numerical_audit, f, indent=4)
-        
+
     # 6. Run config
     run_config = {
         "config_file": args.config,
@@ -954,7 +954,7 @@ def main():
     }
     with open(out_dir / "run_config.json", "w") as f:
         json.dump(run_config, f, indent=4)
-        
+
     # 7. Data availability
     data_avail = {
         "total_dates_in_slice": len(sim_dates_slice),
@@ -969,7 +969,7 @@ def main():
     }
     with open(out_dir / "data_availability.json", "w") as f:
         json.dump(data_avail, f, indent=4)
-        
+
     # 8. Markdown report.md
     report_template = r"""# Distribution Diagnostics and Calibration Report (Step 1)
 
@@ -1078,7 +1078,7 @@ Based on our calibration results, we recommend:
     )
     with open(out_dir / "report.md", "w") as f:
         f.write(report_content)
-        
+
     logger.info("Distribution diagnostics pipeline completed successfully.")
     logger.info(f"Results saved in: {out_dir}")
 

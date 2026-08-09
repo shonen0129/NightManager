@@ -1,11 +1,16 @@
-import sys, time
+import sys
+import time
+
 sys.path.insert(0, 'src')
 import yaml
+
 from leadlag.data.fetcher import download_data
 from leadlag.data.preprocessor import preprocess_data
-from leadlag.models.sector_relative_ensemble_blp_enhanced import SectorRelativeEnsembleBLPEnhancedModel
-from leadlag.execution.backtester import BacktestEngine
+from leadlag.models.sector_relative_ensemble_blp_enhanced import (
+    SectorRelativeEnsembleBLPEnhancedModel,
+)
 from leadlag.reporting.metrics import calculate_metrics
+from research.backtest_v1 import run_v1_backtest
 
 
 def log(msg):
@@ -35,7 +40,7 @@ pred = model.predict_signals(df_exec)
 log('predict_signals done')
 
 log('running backtest')
-results = BacktestEngine.run_backtest(
+results = run_v1_backtest(
     model, df_exec=df_exec, start_date='2015-01-05',
     overnight_alpha_long=0.0, overnight_alpha_short=0.0,
     buy_interest_annual=0.025, borrow_fee_annual=0.0115, reverse_fee_bps=2.0,

@@ -11,18 +11,16 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import os
+import multiprocessing
 import sys
 import warnings
 from pathlib import Path
-from typing import Any
-import multiprocessing
 
 import numpy as np
 import pandas as pd
 import yaml
-from scipy.stats import spearmanr
 import yfinance as yf
+from scipy.stats import spearmanr
 
 # Resolve repository root and add source roots
 ROOT = Path(__file__).resolve()
@@ -34,13 +32,17 @@ while not (ROOT / "pyproject.toml").exists():
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "archive"))
 
+from legacy_src.models.sector_relative_ensemble_blp import SectorRelativeEnsembleBLPModel
+from legacy_src.models.sre import SectorRelativeEnsembleModel
+
+from leadlag.core.correlation import compute_correlation
 from leadlag.data.fetcher import download_data
 from leadlag.data.preprocessor import preprocess_data
 from leadlag.data.tickers import JP_TICKERS, TOPIX_TICKER, US_TICKERS
-from leadlag.models.sre import SectorRelativeEnsembleModel
-from legacy_src.models.sector_relative_ensemble_blp import SectorRelativeEnsembleBLPModel
-from leadlag.models.sector_relative_ensemble_blp_enhanced import SectorRelativeEnsembleBLPEnhancedModel
-from leadlag.core.correlation import compute_correlation
+from leadlag.models.sector_relative_ensemble_blp_enhanced import (
+    SectorRelativeEnsembleBLPEnhancedModel,
+)
+from research.backtest_v1 import run_v1_backtest
 
 logging.basicConfig(
     level=logging.INFO,
@@ -70,7 +72,7 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument("--end-date", default="latest", help="Backtest end date")
     parser.add_argument("--train-end-date", default="2019-12-31", help="Train period end date")
     parser.add_argument("--oos-start-date", default="2020-01-01", help="OOS period start date")
-    
+
     # CLI Overrides for grids
     parser.add_argument("--rho-grid", help="Comma-separated rho values")
     parser.add_argument("--alpha-xx-grid", help="Comma-separated alpha_xx values")
@@ -84,7 +86,7 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument("--gross-scale-grid", help="Comma-separated gross scales")
     parser.add_argument("--slippage-grid", help="Comma-separated slippage values in bps")
     parser.add_argument("--skip-search", action="store_true", help="Skip grid search and run post-processing directly using existing summary.csv")
-    
+
     return parser.parse_args()
 
 
@@ -98,44 +100,44 @@ def run_backtest_fast(
     """Run lookahead-safe portfolio simulation in vectorized NumPy format."""
     T, n_j = signal_vals.shape
     weights = np.zeros((T, n_j))
-    
+
     num_positions = int(np.round(n_j * q))
-    
+
     # Select long and short indexes (argsort)
     sort_order = np.argsort(signal_vals, axis=1)
     short_idx = sort_order[:, :num_positions]
     long_idx = sort_order[:, -num_positions:]
-    
+
     # Center signals (optimized by using the sorted indices to find the median element)
     medians = np.take_along_axis(signal_vals, sort_order[:, 8:9], axis=1)
     s_centered = signal_vals - medians
-    
+
     row_indices = np.arange(T)[:, None]
-    
+
     # Long weights
     long_raw = s_centered[row_indices, long_idx]
     long_raw = np.maximum(long_raw, 1e-8)
     long_denom = np.sum(long_raw, axis=1, keepdims=True)
     long_denom_safe = np.where(long_denom > 0, long_denom, 1.0)
     weights[row_indices, long_idx] = np.where(long_denom > 0, long_raw / long_denom_safe, 0.0)
-    
+
     # Short weights
     short_raw = -s_centered[row_indices, short_idx]
     short_raw = np.maximum(short_raw, 1e-8)
     short_denom = np.sum(short_raw, axis=1, keepdims=True)
     short_denom_safe = np.where(short_denom > 0, short_denom, 1.0)
     weights[row_indices, short_idx] = np.where(short_denom > 0, -(short_raw / short_denom_safe), 0.0)
-    
+
     # Compute returns and costs
     gross_returns = np.sum(weights * y_jp_target_vals, axis=1)
     gross_exposures = np.sum(np.abs(weights), axis=1)
     costs = 2.0 * (slippage_bps / 10000.0) * gross_exposures
     net_returns = gross_returns - costs
-    
+
     # Turnover
     w_prev = np.vstack([np.zeros(n_j), weights[:-1]])
     turnovers = np.sum(np.abs(weights - w_prev), axis=1) / 2.0
-    
+
     return net_returns, gross_returns, costs, turnovers, gross_exposures, weights
 
 
@@ -212,7 +214,6 @@ def run_precomputed_grid_worker(args_tuple):
         z_U_raw_arr, z_U_res_arr,
     ) = WINSOR_PRECOMPUTED[winsor_sigma]
 
-    from leadlag.models.sector_relative_ensemble_blp_enhanced import build_c0_from_v0, regularize_correlation
     M_sector = np.zeros((n_j, n_u))
     # Fill M_sector
     US_SECTORS_MAP = {
@@ -241,11 +242,11 @@ def run_precomputed_grid_worker(args_tuple):
     inv_As_raw = []
     B_blp_bases_raw = []
     cov_reductions_raw = []
-    
+
     inv_As_res = []
     B_blp_bases_res = []
     cov_reductions_res = []
-    
+
     for idx in range(len(corrs_raw)):
         # Raw
         corr = corrs_raw[idx]
@@ -262,7 +263,7 @@ def run_precomputed_grid_worker(args_tuple):
         inv_As_raw.append(inv_A)
         B_blp_bases_raw.append(C_YX @ inv_A)
         cov_reductions_raw.append(C_YX @ inv_A @ C_XY)
-        
+
         # Res
         corr_r = corrs_res[idx]
         C_XX_r = corr_r[:n_u, :n_u]
@@ -283,11 +284,11 @@ def run_precomputed_grid_worker(args_tuple):
     B_blp_bases_raw_arr = np.array(B_blp_bases_raw)  # (T, n_j, n_u)
     B_pca_raw_arr = np.array(B_pca_raw)              # (T, n_j, n_u)
     cov_reductions_raw_diag = np.array([np.diag(x) for x in cov_reductions_raw])  # (T, n_j)
-    
+
     B_blp_bases_res_arr = np.array(B_blp_bases_res)  # (T, n_j, n_u)
     B_pca_res_arr = np.array(B_pca_res)              # (T, n_j, n_u)
     cov_reductions_res_diag = np.array([np.diag(x) for x in cov_reductions_res])  # (T, n_j)
-    
+
 
 
     norm_B_base_raw = np.linalg.norm(B_blp_bases_raw_arr, axis=(1, 2))  # (T,)
@@ -298,7 +299,7 @@ def run_precomputed_grid_worker(args_tuple):
 
     # 3. Inner parameter loops
     records = []
-    
+
     for alpha_yx in alpha_yx_grid:
         for alpha_yy in alpha_yy_grid:
             for l_pca, l_sec in lambda_pairs:
@@ -307,38 +308,38 @@ def run_precomputed_grid_worker(args_tuple):
                     norm_B_raw = (1.0 - alpha_yx) * norm_B_base_raw
                     scale_pca_raw = norm_B_raw / (norm_B_pca_raw + 1e-12)
                     scale_sector_raw = norm_B_raw / (norm_M_sector + 1e-12)
-                    
+
                     B_struct_raw = (
                         ((1.0 - l_pca - l_sec) * (1.0 - alpha_yx)) * B_blp_bases_raw_arr
                         + (l_pca * scale_pca_raw)[:, None, None] * B_pca_raw_arr
                         + (l_sec * scale_sector_raw)[:, None, None] * M_sector[None, :, :]
                     )
-                    
+
                     z_hat_raw = np.einsum('tju,tu->tj', B_struct_raw, z_U_raw_arr)
                     pred_var_raw = 1.0 - (1.0 - alpha_yx)**2 * cov_reductions_raw_diag
                     pred_var_raw_floored = np.maximum(pred_var_raw, 1e-8)
                     raw_blpx_signals = np.clip(z_hat_raw / (pred_var_raw_floored ** beta_conf), -5.0, 5.0)
-                    
+
                     # Res
                     norm_B_res = (1.0 - alpha_yx) * norm_B_base_res
                     scale_pca_res = norm_B_res / (norm_B_pca_res + 1e-12)
                     scale_sector_res = norm_B_res / (norm_M_sector + 1e-12)
-                    
+
                     B_struct_res = (
                         ((1.0 - l_pca - l_sec) * (1.0 - alpha_yx)) * B_blp_bases_res_arr
                         + (l_pca * scale_pca_res)[:, None, None] * B_pca_res_arr
                         + (l_sec * scale_sector_res)[:, None, None] * M_sector[None, :, :]
                     )
-                    
+
                     z_hat_res = np.einsum('tju,tu->tj', B_struct_res, z_U_res_arr)
                     pred_var_res = 1.0 - (1.0 - alpha_yx)**2 * cov_reductions_res_diag
                     pred_var_res_floored = np.maximum(pred_var_res, 1e-8)
                     residual_blpx_signals = np.clip(z_hat_res / (pred_var_res_floored ** beta_conf), -5.0, 5.0)
-                        
+
                     z_raw_blpx = normalize_cross_sectional(raw_blpx_signals)
                     z_residual_blpx = normalize_cross_sectional(residual_blpx_signals)
                     BLPX_SRE_signal = normalize_cross_sectional(0.5 * z_raw_blpx + 0.5 * z_residual_blpx)
-                    
+
                     ensemble_signals = {
                         "BLPX_SRE": BLPX_SRE_signal,
                         "Hybrid_BLPX_20": normalize_cross_sectional(0.4 * z0 + 0.4 * z3 + 0.1 * z_raw_blpx + 0.1 * z_residual_blpx),
@@ -347,11 +348,11 @@ def run_precomputed_grid_worker(args_tuple):
                         "Raw-BLPX_only": normalize_cross_sectional(z_raw_blpx),
                         "Residual-BLPX_only": normalize_cross_sectional(z_residual_blpx),
                     }
-                    
+
                     for w_b in blend_weights:
                         w_percent = int(w_b * 100)
                         ensemble_signals[f"SRE_BLPX_BLEND_{w_percent:02d}"] = normalize_cross_sectional((1.0 - w_b) * SRE_signal + w_b * BLPX_SRE_signal)
-                        
+
                     for ens_name, ens_sig in ensemble_signals.items():
                         _, gross_ret, _, turn, gross_exp, w_df = run_backtest_fast(
                             ens_sig,
@@ -363,7 +364,7 @@ def run_precomputed_grid_worker(args_tuple):
                             costs = 2.0 * (slip / 10000.0) * gross_exp
                             net_ret = gross_ret - costs
                             metrics = calculate_metrics_numpy(net_ret[oos_start_idx:], oos_monthly_codes, oos_n_months)
-                            
+
                             record = {
                                 "blp_window": blp_window,
                                 "ewma_halflife": blp_ewma_halflife,
@@ -392,7 +393,7 @@ def run_precomputed_grid_worker(args_tuple):
                                 "total_cost": float(np.sum(costs)),
                             }
                             records.append(record)
-                                
+
     return records
 
 
@@ -413,7 +414,7 @@ def main():
 
     # Extract active stage grid
     stage_grid = cfg.get("grids", {}).get("refined", {})
-    
+
     # Resolve parameters grids with CLI overrides
     rho_grid = [float(r) for r in args.rho_grid.split(",")] if args.rho_grid else stage_grid.get("rho_grid", [0.001, 0.003, 0.005, 0.01, 0.03])
     alpha_xx_grid = [float(a) for a in args.alpha_xx_grid.split(",")] if args.alpha_xx_grid else stage_grid.get("alpha_xx_grid", [0.50, 0.65, 0.75, 0.85])
@@ -422,13 +423,13 @@ def main():
     lambda_pca_grid = [float(l) for l in args.lambda_pca_grid.split(",")] if args.lambda_pca_grid else stage_grid.get("lambda_pca_grid", [0.1, 0.2, 0.25, 0.3, 0.4])
     lambda_sector_grid = [float(l) for l in args.lambda_sector_grid.split(",")] if args.lambda_sector_grid else stage_grid.get("lambda_sector_grid", [0.1, 0.2, 0.25, 0.3, 0.4])
     beta_conf_grid = [float(b) for b in args.beta_conf_grid.split(",")] if args.beta_conf_grid else stage_grid.get("beta_conf_grid", [0.25, 0.50, 0.75, 1.00])
-    
+
     # Winsor sigma parse
     if args.winsor_sigma_grid:
         winsor_raw = args.winsor_sigma_grid.split(",")
     else:
         winsor_raw = stage_grid.get("winsor_sigma_grid", ["none", 5.0, 4.0, 3.5, 3.0])
-    
+
     winsor_sigma_grid = []
     for w in winsor_raw:
         if str(w).lower() == "none" or w is None:
@@ -458,23 +459,22 @@ def main():
     from leadlag.models.sre import compute_jp_target_returns
     y_jp_target = compute_jp_target_returns(df_exec, JP_TICKERS)
     y_jp_target_df = pd.DataFrame(y_jp_target, index=df_exec.index, columns=JP_TICKERS)
-    
+
     # 2. Run Baseline Production PCA-Ensemble Model for verification
     logger.info("Running baseline production SRE for verification...")
     prod_config_path = ROOT / "configs" / "production.yaml"
     with open(prod_config_path) as f:
         prod_cfg = yaml.safe_load(f)
     baseline_model = SectorRelativeEnsembleModel(prod_cfg)
-    
-    from leadlag.execution.backtester import BacktestEngine
-    baseline_res = BacktestEngine.run_backtest(
+
+    baseline_res = run_v1_backtest(
         baseline_model,
         df_exec,
         start_date=args.start_date,
         end_date=args.end_date,
         slippage_bps=5.0,
     )
-    
+
     # Slice outputs
     start_dt = pd.to_datetime(args.start_date)
     start_idx = max(df_exec.index.searchsorted(start_dt), baseline_model.corr_window)
@@ -483,11 +483,11 @@ def main():
         end_idx = min(df_exec.index.searchsorted(end_dt), len(df_exec) - 1)
     else:
         end_idx = len(df_exec) - 1
-        
+
     sim_dates_slice = df_exec.index[start_idx : end_idx + 1]
     y_jp_target_slice = y_jp_target_df.loc[sim_dates_slice]
     y_jp_oc_slice = df_exec[[f"jp_oc_{tk}" for tk in JP_TICKERS]].rename(columns=lambda c: c.replace("jp_oc_", "")).loc[sim_dates_slice]
-    
+
     train_end = pd.to_datetime(args.train_end_date)
     oos_start = pd.to_datetime(args.oos_start_date)
 
@@ -515,7 +515,7 @@ def main():
         slippage_bps=5.0,
     )
     sre_net_5 = sre_sim_5[0]
-    
+
     # Replicate previous BLP best candidate
     logger.info("Running legacy SRE-BLP model baseline for replication check...")
     prev_blp_cfg = {
@@ -574,15 +574,15 @@ def main():
     }
     blpx_base_model = SectorRelativeEnsembleBLPEnhancedModel(init_blpx_cfg)
     base_pred = blpx_base_model.predict_signals(df_exec)
-    
+
     reproduced_signals_df = base_pred["signals"].loc[sim_dates_slice]
     baseline_signals_df = baseline_res["signals"]
     sig_diff_max = float(np.max(np.abs(reproduced_signals_df.values - baseline_signals_df.values)))
-    
+
     reproduced_sim_5 = run_backtest_fast(reproduced_signals_df.values, y_jp_target_slice.values, q=0.3, slippage_bps=5.0)
     return_diff_max = float(np.max(np.abs(reproduced_sim_5[0] - sre_net_5)))
     baseline_sre_reproduced = return_diff_max < 1e-10 and sig_diff_max < 1e-10
-    
+
     legacy_return_diff_max = float(np.max(np.abs(legacy_blpx_res["signals"].loc[sim_dates_slice].values - legacy_blpx_res["signals"].loc[sim_dates_slice].values)))
     previous_blp_reproduced = float(np.max(np.abs(legacy_blp_res["signals"].loc[sim_dates_slice].values - legacy_blp_res["signals"].loc[sim_dates_slice].values))) < 1e-10
     previous_blpx_best_reproduced = legacy_return_diff_max < 1e-10
@@ -594,7 +594,7 @@ def main():
     # Standard Raw-PCA & Residual-PCA signals (normalized to z-scores)
     raw_pca_sig_base = base_pred["raw_pca_signals"].loc[sim_dates_slice].values
     residual_pca_sig_base = base_pred["residual_pca_signals"].loc[sim_dates_slice].values
-    
+
     z0 = normalize_cross_sectional(raw_pca_sig_base)
     z3 = normalize_cross_sectional(residual_pca_sig_base)
     SRE_signal = normalize_cross_sectional(0.5 * z0 + 0.5 * z3)
@@ -645,13 +645,16 @@ def main():
     # Precompute rolling correlations and PCA priors for unique winsor_sigma values
     logger.info("Precomputing rolling correlations and PCA priors for winsor_sigma values...")
     winsor_precomputed = {}
-    from leadlag.models.sector_relative_ensemble_blp_enhanced import build_c0_from_v0, regularize_correlation
-    
+    from leadlag.models.sector_relative_ensemble_blp_enhanced import (
+        build_c0_from_v0,
+        regularize_correlation,
+    )
+
     for ws in winsor_sigma_grid:
         logger.info(f"Precomputing for winsor_sigma = {ws}...")
         returns_raw_w = all_returns_raw.copy()
         returns_res_w = jp_res_returns_p3.copy()
-        
+
         if ws is not None:
             for col in range(returns_raw_w.shape[1]):
                 for i in range(start_idx, len(returns_raw_w)):
@@ -669,7 +672,7 @@ def main():
                     std = np.std(window_r)
                     if std > 1e-8:
                         returns_res_w[w_start:i, col] = np.clip(window_r, mu - ws * std, mu + ws * std)
-                        
+
         corrs_raw = []
         corrs_res = []
         mus_raw = []
@@ -678,10 +681,10 @@ def main():
         sigmas_res = []
         B_pca_raw = []
         B_pca_res = []
-        
+
         for i in range(start_idx, len(returns_raw_w)):
             w_start = max(0, i - blp_window)
-            
+
             # Raw
             w_raw = returns_raw_w[w_start:i]
             mu, sigma, corr = compute_correlation(w_raw, blp_ewma_halflife)
@@ -692,7 +695,7 @@ def main():
             corrs_raw.append(corr)
             mus_raw.append(mu)
             sigmas_raw.append(sigma)
-            
+
             # PCA Prior Raw
             c0_raw = build_c0_from_v0(v0_static, c_full_raw)
             c_reg_raw = regularize_correlation(corr, c0_raw, 0.5, 0.5, "identity")
@@ -700,7 +703,7 @@ def main():
             eigvecs = eigvecs[:, np.argsort(eigvals)[::-1]]
             v_t_k = eigvecs[:, :6]
             B_pca_raw.append(v_t_k[n_u:, :] @ v_t_k[:n_u, :].T)
-            
+
             # Res
             w_res = returns_res_w[w_start:i]
             mu_r, sigma_r, corr_r = compute_correlation(w_res, blp_ewma_halflife)
@@ -711,7 +714,7 @@ def main():
             corrs_res.append(corr_r)
             mus_res.append(mu_r)
             sigmas_res.append(sigma_r)
-            
+
             # PCA Prior Res
             c0_res = build_c0_from_v0(v0_static, c_full_p3)
             c_reg_res = regularize_correlation(corr_r, c0_res, 0.5, 0.5, "identity")
@@ -719,20 +722,20 @@ def main():
             eigvecs_r = eigvecs_r[:, np.argsort(eigvals_r)[::-1]]
             v_t_k_r = eigvecs_r[:, :6]
             B_pca_res.append(v_t_k_r[n_u:, :] @ v_t_k_r[:n_u, :].T)
-            
+
         # Build z_U_raw_arr and z_U_res_arr
         mus_raw_arr = np.array(mus_raw)[:, :n_u]
         sigmas_raw_arr = np.array(sigmas_raw)[:, :n_u]
         sigmas_raw_safe = np.where(sigmas_raw_arr > 1e-8, sigmas_raw_arr, 1.0)
         X_raw_all = all_returns_raw[start_idx:, :n_u]
         z_U_raw_arr = (X_raw_all - mus_raw_arr) / sigmas_raw_safe
-        
+
         mus_res_arr = np.array(mus_res)[:, :n_u]
         sigmas_res_arr = np.array(sigmas_res)[:, :n_u]
         sigmas_res_safe = np.where(sigmas_res_arr > 1e-8, sigmas_res_arr, 1.0)
         X_res_all = jp_res_returns_p3[start_idx:, :n_u]
         z_U_res_arr = (X_res_all - mus_res_arr) / sigmas_res_safe
-        
+
         winsor_precomputed[ws] = (
             corrs_raw, corrs_res,
             B_pca_raw, B_pca_res,
@@ -756,7 +759,7 @@ def main():
                     full_monthly_codes, full_n_months,
                 )
                 worker_tasks.append(task_args)
-                
+
     # We will compute the condition numbers and inversions on raw data to verify audits
     # (these are run once quickly on the main process to collect condition numbers)
     for winsor_sigma in winsor_sigma_grid:
@@ -764,7 +767,7 @@ def main():
         for idx in range(len(corrs_raw)):
             corr = corrs_raw[idx]
             C_XX = corr[:n_u, :n_u]
-            
+
             for alpha_xx in alpha_xx_grid:
                 for rho in rho_grid:
                     Sigma_XX_reg = (1.0 - alpha_xx) * C_XX + alpha_xx * np.eye(n_u)
@@ -778,7 +781,7 @@ def main():
                         all_cond_nums.append(cond)
                     except Exception:
                         pass
-                    
+
     # 4. Parallel Grid search using multiprocessing
     summary_path = out_dir / "summary.csv"
     if args.skip_search:
@@ -790,10 +793,10 @@ def main():
         logger.info("Executing parallel refined parameter grid search...")
         if summary_path.exists():
             summary_path.unlink()
-            
+
         num_workers = max(1, multiprocessing.cpu_count() - 1)
         logger.info(f"Spawning {num_workers} worker processes...")
-        
+
         records_batch = []
         with multiprocessing.Pool(processes=num_workers, initializer=init_worker, initargs=(winsor_precomputed,)) as pool:
             # Use imap_unordered for progressive writing and flat memory usage
@@ -803,14 +806,14 @@ def main():
                     df_batch = pd.DataFrame(records_batch)
                     df_batch.to_csv(summary_path, mode="a", header=not summary_path.exists(), index=False)
                     records_batch.clear()
-                    
+
         if len(records_batch) > 0:
             df_batch = pd.DataFrame(records_batch)
             df_batch.to_csv(summary_path, mode="a", header=not summary_path.exists(), index=False)
             records_batch.clear()
-            
+
         logger.info("Parallel grid search completed successfully.")
-    
+
     # 5. Load full grid results to find the best candidate
     logger.info("Extracting best candidate from results...")
     df_results = pd.read_csv(
@@ -822,7 +825,7 @@ def main():
             "variant": "category"
         }
     )
-    
+
     # Inject baseline benchmarks to df_results for comparison
     baselines_records = []
     # Current PCA-Ensemble benchmarks
@@ -843,7 +846,7 @@ def main():
             "avg_net_exposure": float(np.mean(np.sum(w_df, axis=1))), "avg_trading_cost": float(np.mean(cost)),
             "net_return_sum": float(np.sum(net_ret)), "total_cost": float(np.sum(cost)),
         })
-            
+
     # Legacy BLP benchmarks
     for slip in [5.0, 7.5, 10.0]:
         net_ret, gross_ret, cost, turn, gross_exp, w_df = run_backtest_fast(
@@ -862,7 +865,7 @@ def main():
             "avg_net_exposure": float(np.mean(np.sum(w_df, axis=1))), "avg_trading_cost": float(np.mean(cost)),
             "net_return_sum": float(np.sum(net_ret)), "total_cost": float(np.sum(cost)),
         })
-            
+
     # Previous BLPX best candidate benchmarks
     for slip in [5.0, 7.5, 10.0]:
         net_ret, gross_ret, cost, turn, gross_exp, w_df = run_backtest_fast(
@@ -899,37 +902,37 @@ def main():
     sre_full = calculate_metrics_numpy(sre_net_5, full_monthly_codes, full_n_months)
     sre_full["turnover"] = float(np.mean(sre_turnover))
     legacy_oos = df_results[(df_results["ensemble"] == "BLP_prev_Hybrid_20") & (df_results["period"] == "oos") & (df_results["slippage_bps"] == 5.0)].iloc[0]
-    
+
     # Ranking candidates at 5bps OOS (excluding the baselines)
     # We use a vectorized self-merge approach to match slippage performance instead of row-by-row iteration (which takes hours).
     df_results_temp = df_results.copy()
     # Replace NaN in winsor_sigma with a dummy float to allow proper merge matching
     df_results_temp["winsor_sigma_key"] = df_results_temp["winsor_sigma"].fillna(-999.0)
-    
+
     key_cols = [
         "blp_window", "ewma_halflife", "rho", "alpha_xx", "alpha_yx", "alpha_yy",
         "lambda_pca", "lambda_sector", "beta_conf", "winsor_sigma_key", "exec_adjustment", "variant", "ensemble", "period"
     ]
-    
+
     df_5 = df_results_temp[(df_results_temp["slippage_bps"] == 5.0) & (df_results_temp["period"] == "oos")].copy()
     df_7p5 = df_results_temp[(df_results_temp["slippage_bps"] == 7.5) & (df_results_temp["period"] == "oos")][key_cols + ["Sharpe"]].rename(columns={"Sharpe": "Sharpe_7p5"})
     df_10 = df_results_temp[(df_results_temp["slippage_bps"] == 10.0) & (df_results_temp["period"] == "oos")][key_cols + ["Sharpe"]].rename(columns={"Sharpe": "Sharpe_10"})
-    
+
     df_merged = df_5.merge(df_7p5, on=key_cols, how="left")
     df_merged = df_merged.merge(df_10, on=key_cols, how="left")
-    
+
     # Vectorized check of sensitivities
     cand_sharpe = df_merged["Sharpe"].astype(float)
     cand_mdd = df_merged["MDD"].astype(float)
     cand_ar = df_merged["AR"].astype(float)
     cand_turnover = df_merged["turnover"].astype(float)
-    
+
     s_7p5 = df_merged["Sharpe_7p5"].astype(float)
     s_10 = df_merged["Sharpe_10"].astype(float)
-    
+
     robust_7p5 = (s_7p5 > 0.0) & (s_7p5 >= 0.8 * cand_sharpe)
     collapsed_10 = (s_10 < 0.0) | (s_10 < 0.5 * cand_sharpe)
-    
+
     improves_oos_sharpe = cand_sharpe > sre_oos["Sharpe"]
     improves_oos_sharpe_by_003 = cand_sharpe >= sre_oos["Sharpe"] + 0.03
     improves_oos_sharpe_by_005 = cand_sharpe >= sre_oos["Sharpe"] + 0.05
@@ -937,9 +940,9 @@ def main():
     keeps_oos_ar_90pct = cand_ar >= 0.9 * sre_oos["AR"]
     keeps_oos_ar_95pct = cand_ar >= 0.95 * sre_oos["AR"]
     turnover_within_10pct = cand_turnover <= 1.1 * sre_oos["turnover"]
-    
+
     params_not_on_extreme_boundary = df_merged["rho"].isin([0.003, 0.01]) & df_merged["alpha_xx"].isin([0.65, 0.75])
-    
+
     # Decision Flags
     df_merged["improves_oos_sharpe"] = improves_oos_sharpe
     df_merged["improves_oos_sharpe_by_003"] = improves_oos_sharpe_by_003
@@ -951,7 +954,7 @@ def main():
     df_merged["robust_at_7p5bps"] = robust_7p5
     df_merged["not_collapsed_at_10bps"] = ~collapsed_10
     df_merged["params_not_on_extreme_boundary"] = params_not_on_extreme_boundary
-    
+
     production_candidate = (
         improves_oos_sharpe_by_005 &
         improves_oos_mdd &
@@ -961,30 +964,30 @@ def main():
         turnover_within_10pct &
         params_not_on_extreme_boundary
     )
-    
+
     capital_shadow = (
         improves_oos_sharpe_by_005 &
         improves_oos_mdd &
         keeps_oos_ar_90pct &
         (~collapsed_10)
     )
-    
+
     paper_shadow = (
         improves_oos_sharpe_by_003 &
         improves_oos_mdd &
         (~collapsed_10)
     )
-    
+
     df_merged["production_candidate"] = production_candidate
     df_merged["capital_shadow"] = capital_shadow
     df_merged["paper_shadow"] = paper_shadow
     df_merged["pass_candidate"] = production_candidate
     df_merged["shadow_candidate"] = paper_shadow
-    
+
     # Filter out baselines from ranking
     df_ranking = df_merged[~df_merged["ensemble"].isin(["SRE_current", "BLP_prev_Hybrid_20", "BLPX_prev_best"])].copy()
     df_ranking = df_ranking.drop(columns=["winsor_sigma_key", "Sharpe_7p5", "Sharpe_10"])
-    
+
     df_ranking = df_ranking.sort_values(by="Sharpe", ascending=False)
     df_ranking.to_csv(out_dir / "oos_ranking_5bps.csv", index=False)
 
@@ -995,17 +998,17 @@ def main():
 
     # Extract best candidate config
     best_cand = df_ranking.iloc[0] if not df_ranking.empty else None
-    
+
     # Save parameter sensitivity (5bps OOS)
     df_results[(df_results["period"] == "oos") & (df_results["slippage_bps"] == 5.0)].to_csv(out_dir / "blpx_param_sensitivity.csv", index=False)
-    
+
     # Save blend comparisons for best candidate configuration parameters
     if best_cand is not None:
         if pd.notna(best_cand["winsor_sigma"]):
             winsor_cond = (df_results["winsor_sigma"] == best_cand["winsor_sigma"])
         else:
             winsor_cond = df_results["winsor_sigma"].isna()
-            
+
         best_cfg_key = (
             (df_results["rho"] == best_cand["rho"]) &
             (df_results["alpha_xx"] == best_cand["alpha_xx"]) &
@@ -1016,12 +1019,12 @@ def main():
             (df_results["beta_conf"] == best_cand["beta_conf"]) &
             winsor_cond
         )
-        
+
         df_results[best_cfg_key & (df_results["slippage_bps"] == 5.0) & (df_results["period"] == "oos") & (df_results["ensemble"].str.startswith("SRE_BLPX_BLEND"))].to_csv(out_dir / "blend_comparison_5bps.csv", index=False)
         df_results[best_cfg_key & (df_results["slippage_bps"] == 7.5) & (df_results["period"] == "oos") & (df_results["ensemble"].str.startswith("SRE_BLPX_BLEND"))].to_csv(out_dir / "blend_comparison_7p5bps.csv", index=False)
 
         # 6. Re-run best candidate in detail to save timeseries files
-        logger.info(f"Re-running best config parameters for diagnostics analysis...")
+        logger.info("Re-running best config parameters for diagnostics analysis...")
         # Get signals for best configuration parameters
         best_cfg = {
             "model": {"name": "sector_relative_ensemble_blp_enhanced"},
@@ -1043,7 +1046,7 @@ def main():
         best_model = SectorRelativeEnsembleBLPEnhancedModel(best_cfg)
         best_pred = best_model.predict_signals(df_exec)
         best_sig_df = best_pred["signals"].loc[sim_dates_slice]
-        
+
         diag_df = best_pred["blp_diagnostics"]
         diag_df["variant"] = best_cand["variant"]
         diag_df["rho"] = best_cand["rho"]
@@ -1055,27 +1058,27 @@ def main():
         diag_df["beta_conf"] = best_cand["beta_conf"]
         diag_df["winsor_sigma"] = best_cand["winsor_sigma"]
         diag_df.to_csv(out_dir / "blpx_diagnostics.csv")
-        
+
         # Save sector mapping
         pd.DataFrame(best_model.M_sector, index=JP_TICKERS, columns=US_TICKERS).to_csv(out_dir / "sector_prior_mapping.csv")
-        
+
         # Vol-Matched and Gross-Scaled computations
         vol_matches = []
         gross_scaled_recs = []
-        
+
         target_vol = sre_oos["RISK"]
-        
+
         # Pull return timeseries for all ensembles under best config at 5bps
         daily_returns_master = {}
         daily_returns_master["SRE_current"] = sre_sim_5[0]
         daily_returns_master["BLP_prev_Hybrid_20"] = legacy_blp_sim_5[0]
         daily_returns_master["BLPX_prev_best"] = legacy_blpx_sim_5[0]
-        
+
         # Form standard signals again for simulation
         z_raw_blpx = normalize_cross_sectional(best_pred["raw_blpx_signals"].loc[sim_dates_slice].values)
         z_residual_blpx = normalize_cross_sectional(best_pred["residual_blpx_signals"].loc[sim_dates_slice].values)
         BLPX_SRE_sig = normalize_cross_sectional(0.5 * z_raw_blpx + 0.5 * z_residual_blpx)
-        
+
         standard_ensembles = {
             "BLPX_SRE": BLPX_SRE_sig,
             "Hybrid_BLPX_20": normalize_cross_sectional(0.4 * z0 + 0.4 * z3 + 0.1 * z_raw_blpx + 0.1 * z_residual_blpx),
@@ -1087,44 +1090,44 @@ def main():
         for w_b in blend_weights:
             w_percent = int(w_b * 100)
             standard_ensembles[f"SRE_BLPX_BLEND_{w_percent:02d}"] = normalize_cross_sectional((1.0 - w_b) * SRE_signal + w_b * BLPX_SRE_sig)
-            
+
         daily_positions_master = {}
         drawdown_master = {}
-        
+
         for name, sig_vals in standard_ensembles.items():
             net_ret, gross_ret, cost, turn, gross_exp, w_df = run_backtest_fast(sig_vals, y_jp_target_slice.values, q=0.3, slippage_bps=5.0)
             daily_returns_master[name] = net_ret
             daily_positions_master[name] = w_df
-            
+
             # Drawdown curves
             W_t = np.cumprod(1.0 + net_ret)
             running_max = np.maximum.accumulate(W_t)
             drawdown_master[name] = (W_t / running_max) - 1.0
-            
+
             # Vol-Matched scaling
             oos_ret = net_ret[oos_start_idx:]
             # Compute OOS realized volatility using monthly aggregation logic
             oos_m = calculate_metrics_numpy(oos_ret, oos_monthly_codes, oos_n_months)
             cand_vol = oos_m["RISK"]
-            
+
             scale = target_vol / cand_vol if cand_vol > 0 else 1.0
             scale_clipped = False
             if scale > 1.30:
                 scale = 1.30
                 scale_clipped = True
-                
+
             # Scale returns and cost proportionally
             net_ret_scaled = net_ret * scale
             cost_scaled = cost * scale
             gross_ret_scaled = gross_ret * scale
-            
+
             train_vm = calculate_metrics_numpy(net_ret_scaled[:train_end_idx], train_monthly_codes, train_n_months)
             oos_vm = calculate_metrics_numpy(net_ret_scaled[oos_start_idx:], oos_monthly_codes, oos_n_months)
             full_vm = calculate_metrics_numpy(net_ret_scaled, full_monthly_codes, full_n_months)
-            
+
             # Check gross limits breach days (> 2.01 limit)
             gross_limit_breach_days = int(np.sum((gross_exp * scale) > 2.01))
-            
+
             vol_matches.append({
                 "ensemble": name,
                 "vol_matched_scale": scale,
@@ -1137,14 +1140,14 @@ def main():
                 "vol_matched_cost": float(np.sum(cost_scaled)),
                 "gross_limit_breach_days": gross_limit_breach_days,
             })
-            
+
             # Gross-Scaled scaling
             for gs in gross_scales:
                 net_ret_gs = net_ret * gs
                 cost_gs = cost * gs
                 oos_gs = calculate_metrics_numpy(net_ret_gs[oos_start_idx:], oos_monthly_codes, oos_n_months)
                 gs_limit_breach = int(np.sum((gross_exp * gs) > 2.01))
-                
+
                 gross_scaled_recs.append({
                     "ensemble": name,
                     "gross_scale": gs,
@@ -1156,13 +1159,13 @@ def main():
                     "scaled_cost": float(np.sum(cost_gs)),
                     "gross_limit_breach_days": gs_limit_breach,
                 })
-                
+
         # Save Vol-Matched and Gross-Scaled CSV files
         pd.DataFrame(vol_matches).to_csv(out_dir / "vol_matched_comparison.csv", index=False)
         pd.DataFrame(gross_scaled_recs).to_csv(out_dir / "gross_scaled_comparison.csv", index=False)
         pd.DataFrame(daily_returns_master).to_csv(out_dir / "daily_returns.csv", index=False)
         pd.DataFrame(drawdown_master).to_csv(out_dir / "drawdown_timeseries.csv", index=False)
-        
+
         for name, w_df in daily_positions_master.items():
             pd.DataFrame(w_df, index=sim_dates_slice, columns=JP_TICKERS).to_csv(out_dir / f"daily_positions_{name}.csv")
 
@@ -1171,7 +1174,7 @@ def main():
         residual_blpx_flat = best_pred["residual_blpx_signals"].loc[sim_dates_slice].values.flatten()
         raw_pca_flat = z0.flatten()
         residual_pca_flat = z3.flatten()
-        
+
         corr_records = []
         pairs = [
             ("Raw-PCA", "Raw-BLPX", raw_pca_flat, raw_blpx_flat),
@@ -1184,19 +1187,19 @@ def main():
             ("SRE", "SRE_BLPX_BLEND_33", SRE_signal.flatten(), standard_ensembles["SRE_BLPX_BLEND_33"].flatten()),
             ("SRE", "SRE_BLPX_BLEND_50", SRE_signal.flatten(), standard_ensembles["SRE_BLPX_BLEND_50"].flatten()),
         ]
-        
+
         for n1, n2, f1, f2 in pairs:
             pears = float(np.corrcoef(f1, f2)[0, 1])
             spear, _ = spearmanr(f1, f2)
             sign_agree = float(np.mean(np.sign(f1) == np.sign(f2)))
-            
+
             # Position selection overlap
             top_f1 = np.percentile(f1, 70)
             bot_f1 = np.percentile(f1, 30)
             top_f2 = np.percentile(f2, 70)
             bot_f2 = np.percentile(f2, 30)
             overlap = float(np.mean(((f1 >= top_f1) & (f2 >= top_f2)) | ((f1 <= bot_f1) & (f2 <= bot_f2))))
-            
+
             corr_records.append({
                 "component_1": n1,
                 "component_2": n2,
@@ -1205,7 +1208,7 @@ def main():
                 "sign_agreement": sign_agree,
                 "selection_overlap": overlap,
             })
-            
+
         pd.DataFrame(corr_records).to_csv(out_dir / "signal_correlations.csv", index=False)
 
         # Selection overlap details
@@ -1216,11 +1219,11 @@ def main():
         logger.info("Extracting drawdown events and worst days...")
         cand_net_ret = daily_returns_master[best_cand["ensemble"]]
         cand_wealth = pd.Series(np.cumprod(1.0 + cand_net_ret), index=sim_dates_slice)
-        
+
         dd_events = find_drawdown_events(cand_wealth)
         dd_events["model"] = best_cand["ensemble"]
         dd_events.to_csv(out_dir / "drawdown_events.csv", index=False)
-        
+
         # worst 20 days
         cand_net_ret_s = pd.Series(cand_net_ret, index=sim_dates_slice)
         worst_20 = cand_net_ret_s.sort_values().head(20)
@@ -1230,11 +1233,11 @@ def main():
             w_day = daily_positions_master[best_cand["ensemble"]][sim_dates_slice.get_loc(dt)]
             y_day = y_jp_target_slice.loc[dt].values
             contrib = w_day * y_day
-            
+
             # Find losing tickers
             idx_sorted = np.argsort(contrib)
             top_losing = [f"{JP_TICKERS[i]} ({contrib[i]*100:.2f}%)" for i in idx_sorted[:3]]
-            
+
             worst_20_records.append({
                 "date": dt.strftime("%Y-%m-%d"),
                 "candidate_return": val,
@@ -1245,7 +1248,7 @@ def main():
                 "top_losing_tickers": ", ".join(top_losing),
             })
         pd.DataFrame(worst_20_records).to_csv(out_dir / "worst_20_days.csv", index=False)
-        
+
         # worst 20 days vs PCA-Ensemble
         diff_returns = cand_net_ret_s - pd.Series(sre_net_5, index=sim_dates_slice)
         worst_diff_20 = diff_returns.sort_values().head(20)
@@ -1258,7 +1261,7 @@ def main():
             contrib = w_day * y_day
             idx_sorted = np.argsort(contrib)
             top_losing = [f"{JP_TICKERS[i]} ({contrib[i]*100:.2f}%)" for i in idx_sorted[:3]]
-            
+
             worst_diff_records.append({
                 "date": dt.strftime("%Y-%m-%d"),
                 "candidate_return": cand_val,
@@ -1269,24 +1272,24 @@ def main():
                 "top_losing_tickers": ", ".join(top_losing),
             })
         pd.DataFrame(worst_diff_records).to_csv(out_dir / "worst_20_days_vs_sre.csv", index=False)
-        
+
         # dd contribution by ticker (during the deepest DD period)
         if not dd_events.empty:
             deepest_dd = dd_events.sort_values(by="dd_depth").iloc[0]
             dd_start_dt = pd.to_datetime(deepest_dd["dd_start"])
             dd_end_dt = pd.to_datetime(deepest_dd["dd_end"]) if deepest_dd["dd_end"] != "ongoing" else sim_dates_slice[-1]
-            
+
             dd_slice = (sim_dates_slice >= dd_start_dt) & (sim_dates_slice <= dd_end_dt)
             w_dd = daily_positions_master[best_cand["ensemble"]][dd_slice]
             y_dd = y_jp_target_slice[dd_slice].values
-            
+
             ticker_dd_contrib = np.sum(w_dd * y_dd, axis=0)
             ticker_dd_df = pd.DataFrame({
                 "ticker": JP_TICKERS,
                 "dd_contribution": ticker_dd_contrib,
             }).sort_values(by="dd_contribution")
             ticker_dd_df.to_csv(out_dir / "dd_contribution_by_ticker.csv", index=False)
-            
+
             # long/short contribution during DD
             long_dd_contrib = np.sum((w_dd * y_dd)[w_dd > 0])
             short_dd_contrib = np.sum((w_dd * y_dd)[w_dd < 0])
@@ -1303,15 +1306,15 @@ def main():
             yr_slice = (sim_dates_slice.year == yr)
             yr_dates = sim_dates_slice[yr_slice]
             yr_months_codes, yr_n_months = build_monthly_codes(yr_dates)
-            
+
             for name in ["SRE_current", "BLP_prev_Hybrid_20", "BLPX_prev_best", best_cand["ensemble"], "SRE_BLPX_BLEND_25", "SRE_BLPX_BLEND_50"]:
                 ret_yr = daily_returns_master[name][yr_slice]
                 metrics = calculate_metrics_numpy(ret_yr, yr_months_codes, yr_n_months)
-                
+
                 # Turnovers and costs
                 sig_yr = standard_ensembles[name][yr_slice] if name in standard_ensembles else (baseline_res["signals"].loc[yr_dates].values if name == "SRE_current" else legacy_blp_res["signals"].loc[yr_dates].values)
                 net_ret, gross_ret, cost, turn, gross_exp, w_df = run_backtest_fast(sig_yr, y_jp_target_slice[yr_slice].values, q=0.3, slippage_bps=5.0)
-                
+
                 rec = {
                     "year": yr,
                     "ensemble": name,
@@ -1324,17 +1327,17 @@ def main():
                     "net_return": float(np.sum(net_ret)),
                 }
                 yearly_records.append(rec)
-                
+
         pd.DataFrame(yearly_records).to_csv(out_dir / "yearly_performance.csv", index=False)
 
         # Regime Performance
         logger.info("Computing regime performance...")
-        
+
         # Download benchmarks for regimes
         spy_ret = pd.Series(0.0, index=sim_dates_slice)
         jpy_ret = pd.Series(0.0, index=sim_dates_slice)
         vix_series = pd.Series(0.0, index=sim_dates_slice)
-        
+
         try:
             spy_data = yf.download("SPY", start="2009-01-01", auto_adjust=False)
             if not spy_data.empty:
@@ -1347,7 +1350,7 @@ def main():
         if np.all(spy_ret == 0.0):
             logger.info("Using US Sector index average as SPY proxy")
             spy_ret = pd.Series(np.mean(all_returns_raw[:, :n_u], axis=1), index=df_exec.index).reindex(sim_dates_slice).fillna(0.0)
-            
+
         try:
             jpy_data = yf.download("JPY=X", start="2009-01-01", auto_adjust=False)
             if not jpy_data.empty:
@@ -1357,7 +1360,7 @@ def main():
                 jpy_ret = c_col.pct_change(fill_method=None).reindex(sim_dates_slice).fillna(0.0)
         except Exception:
             pass
-            
+
         try:
             vix_data = yf.download("^VIX", start="2009-01-01", auto_adjust=False)
             if not vix_data.empty:
@@ -1397,21 +1400,21 @@ def main():
             "US_market_abs_large": spy_abs > spy_abs_median,
             "US_market_abs_small": spy_abs <= spy_abs_median,
         }
-        
+
         regime_records = []
         for r_name, mask in regimes.items():
             mask_np = mask.values
             n_days = int(np.sum(mask_np))
             if n_days == 0:
                 continue
-                
+
             for name in ["SRE_current", "BLP_prev_Hybrid_20", "BLPX_prev_best", best_cand["ensemble"]]:
                 ret_r = daily_returns_master[name][mask_np]
                 avg_ret = float(np.mean(ret_r))
                 std_ret = float(np.std(ret_r, ddof=1)) if len(ret_r) > 1 else 0.0
                 sharpe = (avg_ret / std_ret) * np.sqrt(245) if std_ret > 0 else 0.0
                 win_rate = float(np.mean(ret_r > 0))
-                
+
                 regime_records.append({
                     "regime": r_name,
                     "ensemble": name,
@@ -1420,7 +1423,7 @@ def main():
                     "avg_daily_return": avg_ret,
                     "win_rate": win_rate,
                 })
-                
+
         pd.DataFrame(regime_records).to_csv(out_dir / "regime_performance.csv", index=False)
 
         # Cost Sensitivity Decomposition
@@ -1429,7 +1432,7 @@ def main():
         for slip in slippage_grid:
             for name, sig_vals in standard_ensembles.items():
                 net_ret, gross_ret, cost, turn, gross_exp, w_df = run_backtest_fast(sig_vals, y_jp_target_slice.values, q=0.3, slippage_bps=slip)
-                
+
                 cost_decomps.append({
                     "ensemble": name,
                     "slippage_bps": slip,
@@ -1455,18 +1458,18 @@ def main():
                 daily_ics.append(0.0)
         ic_series = pd.Series(daily_ics, index=sim_dates_slice)
         ic_rolling = ic_series.rolling(60).mean().fillna(0.0)
-        
+
         pd.DataFrame({
             "ic": ic_series,
             "rolling_60d_ic": ic_rolling,
         }).to_csv(out_dir / "ic_timeseries.csv")
-        
+
         # IC Summary statistics
         ic_mean = float(np.mean(daily_ics))
         ic_std = float(np.std(daily_ics, ddof=1))
         ic_tstat = ic_mean / (ic_std / np.sqrt(len(daily_ics))) if ic_std > 0 else 0.0
         ic_hit = float(np.mean(np.array(daily_ics) > 0))
-        
+
         pd.DataFrame([{
             "ic_mean": ic_mean,
             "ic_std": ic_std,
@@ -1484,7 +1487,7 @@ def main():
             m = calculate_metrics_numpy(r_slice, m_codes, n_m)
             rolling_sharpe.append(m.get("Sharpe", np.nan))
             rolling_vol.append(m.get("RISK", np.nan))
-            
+
         pd.DataFrame({
             "rolling_250d_sharpe": pd.Series(rolling_sharpe, index=sim_dates_slice[250:]),
             "rolling_250d_vol": pd.Series(rolling_vol, index=sim_dates_slice[250:]),
@@ -1502,7 +1505,7 @@ def main():
             contribs[tk] = float(np.sum(daily_c))
             long_contribs[tk] = float(np.sum(daily_c[w_tk > 0]))
             short_contribs[tk] = float(np.sum(daily_c[w_tk < 0]))
-            
+
         pd.DataFrame([contribs]).T.rename(columns={0: "total_contribution"}).to_csv(out_dir / "contribution_by_ticker.csv")
         pd.DataFrame({
             "long_contribution": pd.Series(long_contribs),
@@ -1511,60 +1514,60 @@ def main():
 
         # 7. Write Safety Audits checks to audit.json
         logger.info("Writing compliance audits summary...")
-        
+
         ensemble_weights_sum_to_one = True
         model_level_blend_weights_sum_to_one = True
         no_nan_inf_in_component_signals = True
         no_nan_inf_in_blend_signals = True
-        
+
         audit_res = {
             "baseline_sre_reproduced": bool(baseline_sre_reproduced),
             "baseline_sre_return_diff_max": float(return_diff_max),
             "baseline_sre_position_diff_max": 0.0,
             "baseline_sre_signal_corr": float(np.corrcoef(reproduced_signals_df.values.flatten(), baseline_signals_df.values.flatten())[0, 1]),
-            
+
             "previous_blp_reproduced": bool(previous_blp_reproduced),
             "previous_blp_return_diff_max": float(np.max(np.abs(legacy_blp_res["signals"].loc[sim_dates_slice].values - legacy_blp_res["signals"].loc[sim_dates_slice].values))),
             "previous_blp_signal_corr": 1.0,
-            
+
             "previous_blpx_best_reproduced": bool(previous_blpx_best_reproduced),
             "previous_blpx_return_diff_max": float(legacy_return_diff_max),
             "previous_blpx_signal_corr": 1.0,
-            
+
             "blpx_no_lookahead_detected": bool(blpx_no_lookahead_detected),
             "max_training_y_date_le_signal_date": bool(max_training_y_date_le_signal_date),
             "num_lookahead_violations": int(num_lookahead_violations),
             "signal_date_lt_trade_date": True,
-            
+
             "blpx_matrix_dimensions_passed": bool(blpx_matrix_dimensions_passed),
             "blpx_regularization_passed": bool(blpx_regularization_passed),
             "max_condition_number": float(max_condition_number),
             "median_condition_number": float(np.median(all_cond_nums)),
             "num_pinv_fallbacks": int(num_pinv_fallbacks),
-            
+
             "sector_prior_mapping_valid": True,
             "structured_lambda_constraints_passed": bool(structured_lambda_constraints_passed),
             "confidence_variance_valid": bool(confidence_variance_valid),
             "robust_covariance_valid": bool(robust_covariance_valid),
             "winsorization_no_lookahead": bool(winsorization_no_lookahead),
-            
+
             "ensemble_weights_sum_to_one": bool(ensemble_weights_sum_to_one),
             "model_level_blend_weights_sum_to_one": bool(model_level_blend_weights_sum_to_one),
             "no_nan_inf_in_component_signals": bool(no_nan_inf_in_component_signals),
             "no_nan_inf_in_blend_signals": bool(no_nan_inf_in_blend_signals),
-            
+
             "cost_consistency_passed": True,
             "max_cost_consistency_error": 0.0,
             "net_exposure_within_limit": True,
             "gross_exposure_within_limit": True,
             "no_nan_inf_in_weights": True,
-            
+
             "vol_matched_scaling_cost_consistent": True,
             "gross_scaled_cost_consistent": True,
             "gross_limit_breach_days": int(np.sum([v["gross_limit_breach_days"] for v in vol_matches])),
             "scale_clipping_recorded": True,
         }
-        
+
         all_passed = all([
             audit_res["baseline_sre_reproduced"],
             audit_res["previous_blp_reproduced"],
@@ -1586,16 +1589,16 @@ def main():
             audit_res["no_nan_inf_in_weights"],
         ])
         audit_res["all_passed"] = bool(all_passed)
-        
+
         with open(out_dir / "audit.json", "w") as f:
             json.dump(audit_res, f, indent=4)
-            
+
         with open(out_dir / "config_used.yaml", "w") as f:
             yaml.dump(cfg, f)
 
         # Write Human-readable report.md
         logger.info("Writing human-readable report.md...")
-        
+
         # Dynamically compute metrics for the report to avoid keeping train/full rows in memory
         sre_turnover = sre_sim_5[3]
         sre_train = calculate_metrics_numpy(sre_net_5[:train_end_idx], train_monthly_codes, train_n_months)
@@ -1610,7 +1613,7 @@ def main():
         cand_oos = df_results[best_cfg_key & (df_results["period"] == "oos") & (df_results["slippage_bps"] == 5.0) & (df_results["ensemble"] == best_cand["ensemble"])].iloc[0]
         cand_full = calculate_metrics_numpy(best_ret_5, full_monthly_codes, full_n_months)
         cand_full["turnover"] = float(np.mean(best_turnover))
-        
+
         legacy_ret_5 = daily_returns_master["BLP_prev_Hybrid_20"]
         _, _, _, legacy_turnover, _, _ = run_backtest_fast(legacy_blp_res["signals"].loc[sim_dates_slice].values, y_jp_target_slice.values, q=0.3, slippage_bps=5.0)
         legacy_train = calculate_metrics_numpy(legacy_ret_5[:train_end_idx], train_monthly_codes, train_n_months)
@@ -1646,7 +1649,7 @@ def main():
             sector_mapping_markdown += f"| {us_tk} | {', '.join(maps_to)} |\n"
 
         best_vm = next(v for v in vol_matches if v["ensemble"] == best_cand["ensemble"])
-        
+
         df_blend_oos = df_results[best_cfg_key & (df_results["slippage_bps"] == 5.0) & (df_results["period"] == "oos") & (df_results["ensemble"].str.startswith("SRE_BLPX_BLEND"))]
         best_blend_row = df_blend_oos.sort_values(by="Sharpe", ascending=False).iloc[0] if not df_blend_oos.empty else None
 
@@ -1825,7 +1828,7 @@ Best PCA-Ensemble/BLPX blend:
         with open(out_dir / "report.md", "w") as f:
             f.write(report_content)
         logger.info("Report saved successfully.")
-        
+
     else:
         logger.warning("No best candidate found.")
 
@@ -1835,12 +1838,12 @@ def find_drawdown_events(wealth_series: pd.Series) -> pd.DataFrame:
     events = []
     running_max = wealth_series.cummax()
     drawdowns = (wealth_series / running_max) - 1.0
-    
+
     in_drawdown = False
     start_date = None
     trough_date = None
     max_dd_in_event = 0.0
-    
+
     for date, dd_val in drawdowns.items():
         if dd_val < 0.0:
             if not in_drawdown:
@@ -1862,7 +1865,7 @@ def find_drawdown_events(wealth_series: pd.Series) -> pd.DataFrame:
                     "recovery_days": (date - start_date).days,
                 })
                 in_drawdown = False
-                
+
     if in_drawdown:
         events.append({
             "dd_start": start_date.strftime("%Y-%m-%d"),

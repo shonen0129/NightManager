@@ -28,7 +28,7 @@ sys.path.insert(0, str(ROOT / "src"))
 from leadlag.data.fetcher import download_data
 from leadlag.data.preprocessor import preprocess_data
 from leadlag.data.tickers import JP_TICKERS, TOPIX_TICKER
-from leadlag.models.sre import SectorRelativeEnsembleModel
+from legacy_src.models.sre import SectorRelativeEnsembleModel
 from leadlag.reporting.metrics import calculate_metrics
 
 # Set up logging
@@ -137,7 +137,7 @@ def calculate_top_drawdown_periods(daily_ret: pd.Series, n: int = 5) -> pd.DataF
     return df
 
 
-from leadlag.execution.backtester import BacktestEngine
+from research.backtest_v1 import run_v1_backtest
 
 def generate_slippage_sensitivity(
     model: SectorRelativeEnsembleModel,
@@ -150,7 +150,7 @@ def generate_slippage_sensitivity(
     records = []
 
     for slip in slips:
-        res = BacktestEngine.run_backtest(model, df_exec, start_date=start_date, end_date=end_date, slippage_bps=slip)
+        res = run_v1_backtest(model, df_exec, start_date=start_date, end_date=end_date, slippage_bps=slip)
         m = calculate_metrics(res["daily_returns"])
         records.append({
             "Slippage (bps)": slip,
@@ -212,8 +212,8 @@ def main():
 
     # 3. Instantiate PCA-Ensemble model and run generic BacktestEngine
     model = SectorRelativeEnsembleModel(cfg)
-    from leadlag.execution.backtester import BacktestEngine
-    results = BacktestEngine.run_backtest(model, df_exec, start_date=args.start_date, end_date=args.end_date, slippage_bps=args.slippage_bps)
+    from research.backtest_v1 import run_v1_backtest
+    results = run_v1_backtest(model, df_exec, start_date=args.start_date, end_date=args.end_date, slippage_bps=args.slippage_bps)
 
     # 4. Save CSV Output Files
     # Summary Metrics

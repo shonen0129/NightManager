@@ -530,11 +530,11 @@ def send_post_close_pnl_report(
         from leadlag.execution.helpers import save_position_snapshot, save_wallet_snapshot
 
         try:
-            save_position_snapshot(api_client, str(output_dir), label="pnl")
+            save_position_snapshot(api_client, str(output_dir), label="pnl", date_str=resolved_date)
         except Exception:
             logger.exception("Failed to save post-close position snapshot")
         try:
-            save_wallet_snapshot(api_client, str(output_dir), label="pnl")
+            save_wallet_snapshot(api_client, str(output_dir), label="pnl", date_str=resolved_date)
         except Exception:
             logger.exception("Failed to save post-close wallet snapshot")
 

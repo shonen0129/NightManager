@@ -22,7 +22,7 @@ from research.backtest_common import (
 from leadlag.models.sector_relative_ensemble_blp_enhanced import (
     SectorRelativeEnsembleBLPEnhancedModel,
 )
-from leadlag.models.sre import SectorRelativeEnsembleModel
+from legacy_src.models.sre import SectorRelativeEnsembleModel
 from leadlag.reporting.metrics import calculate_metrics
 
 CONFIGS = {

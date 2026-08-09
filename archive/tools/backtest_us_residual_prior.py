@@ -39,13 +39,14 @@ import seaborn as sns
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
+from legacy_src.models.sre import SectorRelativeEnsembleModel
+
+from leadlag.compliance.auditor import ComplianceAuditor
 from leadlag.data.fetcher import download_data
 from leadlag.data.preprocessor import preprocess_data
 from leadlag.data.tickers import JP_TICKERS, TOPIX_TICKER
-from leadlag.models.sre import SectorRelativeEnsembleModel
 from leadlag.reporting.metrics import calculate_metrics
-from leadlag.execution.backtester import BacktestEngine
-from leadlag.compliance.auditor import ComplianceAuditor
+from research.backtest_v1 import run_v1_backtest
 
 # Set up logging
 logging.basicConfig(
@@ -185,7 +186,7 @@ def main():
         summary_df = pd.read_csv(out_dir / "summary.csv")
         summary_5bps = pd.read_csv(out_dir / "summary_5bps.csv")
         oos_ranking_5bps = pd.read_csv(out_dir / "oos_ranking_5bps.csv")
-        
+
         # Parse numeric types to ensure exact matching
         oos_ranking_5bps["gamma"] = oos_ranking_5bps["gamma"].astype(float)
         oos_ranking_5bps["lambda_reg"] = oos_ranking_5bps["lambda_reg"].astype(float)
@@ -251,7 +252,7 @@ def main():
         run_cfg["lambda_reg"] = best_lambda_reg
 
         best_model = SectorRelativeEnsembleModel(run_cfg)
-        best_candidate_res = BacktestEngine.run_backtest(
+        best_candidate_res = run_v1_backtest(
             best_model,
             df_exec,
             start_date=args.start_date,
@@ -301,7 +302,7 @@ def main():
 
                             # Instantiate and backtest
                             model = SectorRelativeEnsembleModel(run_cfg)
-                            res = BacktestEngine.run_backtest(
+                            res = run_v1_backtest(
                                 model,
                                 df_exec,
                                 start_date=args.start_date,

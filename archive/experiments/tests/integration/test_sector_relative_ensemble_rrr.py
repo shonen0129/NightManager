@@ -7,7 +7,6 @@ import sys
 from pathlib import Path
 
 import numpy as np
-import pandas as pd
 import pytest
 import yaml
 
@@ -22,8 +21,9 @@ sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "archive"))
 
 from legacy_src.models.sector_relative_ensemble_rrr import SectorRelativeEnsembleRRRModel
-from leadlag.models.sre import SectorRelativeEnsembleModel
-from leadlag.execution.backtester import BacktestEngine
+from legacy_src.models.sre import SectorRelativeEnsembleModel
+
+from research.backtest_v1 import run_v1_backtest
 
 
 @pytest.fixture
@@ -246,7 +246,7 @@ def test_cost_consistency(rrr_sample_config, sample_df_exec):
     model = SectorRelativeEnsembleRRRModel(rrr_sample_config)
     start_str = df_exec.index[-20].strftime("%Y-%m-%d")
 
-    results = BacktestEngine.run_backtest(
+    results = run_v1_backtest(
         model, df_exec, start_date=start_str
     )
     r_gross = results["daily_returns_gross"]
@@ -277,8 +277,8 @@ def test_baseline_sre_reproduction(rrr_sample_config, sample_df_exec):
 
     rrr_model = SectorRelativeEnsembleRRRModel(rrr_cfg)
 
-    sre_res = BacktestEngine.run_backtest(sre_model, df_exec, start_date=start_str)
-    rrr_res = BacktestEngine.run_backtest(rrr_model, df_exec, start_date=start_str)
+    sre_res = run_v1_backtest(sre_model, df_exec, start_date=start_str)
+    rrr_res = run_v1_backtest(rrr_model, df_exec, start_date=start_str)
 
     assert np.allclose(sre_res["signals"].values, rrr_res["signals"].values, atol=1e-10)
     assert np.allclose(sre_res["weights"].values, rrr_res["weights"].values, atol=1e-10)

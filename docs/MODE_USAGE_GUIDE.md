@@ -66,9 +66,9 @@ python3 -m leadlag.cli decision \
   --api-dry-run \
   --capital 5000000
 
-# FAST MODE（高速判定、yfinance 不要）
+# V2 production config を明示的に指定
 python3 -m leadlag.cli decision \
-  --fast-mode \
+  --config configs/production/production.yaml \
   --api-enable \
   --capital 5000000
 ```
@@ -115,10 +115,12 @@ Remaining capital: 1,563,800 JPY
 
 | フラグ | 用途 | 注意点 |
 |:--|:--|:--|
-| `--fast-mode` | 事前計算キャッシュを使って高速に判定 | API有効が必須。`v3_mode='static'` のみ対応 |
+| `--config` | V2 production YAML config のパス | 既定 `configs/production/production.yaml` |
+| `--gap-dir` | `mu_gap`/`omega_gap` .npy ファイル群のディレクトリ | 省略時は YAML の `gap_distribution.dir` を使用 |
+| `--live-dir` | V2 アーティファクト出力先 | 既定 `live/production_residual_blpx` |
 | `--api-dry-run` | API注文を送らず疑似実行 | 接続確認とログ検証用 |
-| `--auto-close` | 判定後に指定時刻で全決済 | `--fast-mode` 経路でのみ有効（API有効が必要） |
-| `--auto-close-time HH:MM` | 自動クローズ時刻指定 | 既定 `14:50` |
+| `--auto-close` | （非推奨）判定後に指定時刻で全決済 | 別途 `close` サブコマンドを使用すること |
+| `--auto-close-time HH:MM` | （非推奨）自動クローズ時刻指定 | 既定 `14:50` |
 | `--close-position-order 0-7` | 返済順序（ClosePositionOrder）指定 | close-positions / auto-close で有効。未指定は `0` |
 | `--text-output` | 注文内容をテキスト表示 | 手動執行確認向け |
 | `--capital-from-wallet` | ブローカー API の残高を資金量として使用（立花証券: 受入保証金を優先、kabu: 現物買付可能額） | `--api-enable` が必要 |
@@ -309,7 +311,10 @@ model = SectorRelativeEnsembleBLPEnhancedModel(config)
 
 | オプション | 型 | デフォルト | 説明 |
 |:---|:---|:---|:---|
-| `--start-date` | str | `2015-01-01` | バックテスト開始日 |
+| `--config` | str | `configs/production/production.yaml` | V2 production YAML config パス（decision/backtest 共通） |
+| `--gap-dir` | str | (YAMLの `gap_distribution.dir`) | `mu_gap`/`omega_gap` .npy ファイル群のディレクトリ |
+| `--live-dir` | str | `live/production_residual_blpx` | V2 アーティファクト出力先（decision 専用） |
+| `--start-date` | str | `2015-01-05` | バックテスト開始日（backtest 専用） |
 | `--output-root` | str | `results/` | 出力ディレクトリルート |
 | `--run-tag` | str | (timestamp) | 出力フォルダの識別子 |
 | `--trade-date` | str | (today) | 取引日 (YYYY-MM-DD) |
@@ -320,14 +325,14 @@ model = SectorRelativeEnsembleBLPEnhancedModel(config)
 | `--api-url` | str | (env) | API URL |
 | `--api-token` | str | (env) | API トークン |
 | `--api-dry-run` | flag | — | API 疑似実行モード |
-| `--fast-mode` | flag | — | 高速推論モード |
-| `--auto-close` | flag | — | 自動決済 |
-| `--auto-close-time` | str | `14:50` | 自動決済時刻 |
+| `--auto-close` | flag | — | （非推奨）自動決済 — `close` サブコマンドを使用 |
+| `--auto-close-time` | str | `14:50` | （非推奨）自動決済時刻 |
 | `--close-position-order` | int | `0` | 返済順序 (0-7) |
 | `--google-opens` | flag | — | Google Finance から JP 寄付き取得 |
 | `--text-output` | flag | — | テキスト出力 |
 | `--skip-chart` | flag | — | (backtest用) チャート生成を省略 |
 | `--slippage-bps` | float | — | (backtest用) スリッページ (bps/片道) |
+| `--n-jobs` | int | `1` | (backtest用) 並列ワーカー数 (1=逐次, -1=全コア) |
 
 ---
 

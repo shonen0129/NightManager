@@ -38,13 +38,14 @@ import seaborn as sns
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
+from legacy_src.models.sre import SectorRelativeEnsembleModel
+
+from leadlag.compliance.auditor import ComplianceAuditor
 from leadlag.data.fetcher import download_data
 from leadlag.data.preprocessor import preprocess_data
 from leadlag.data.tickers import JP_TICKERS, TOPIX_TICKER
-from leadlag.models.sre import SectorRelativeEnsembleModel
 from leadlag.reporting.metrics import calculate_metrics
-from leadlag.execution.backtester import BacktestEngine
-from leadlag.compliance.auditor import ComplianceAuditor
+from research.backtest_v1 import run_v1_backtest
 
 # Set up logging
 logging.basicConfig(
@@ -189,7 +190,7 @@ def main():
 
                 # Instantiate model
                 model = SectorRelativeEnsembleModel(run_cfg)
-                res = BacktestEngine.run_backtest(
+                res = run_v1_backtest(
                     model,
                     df_exec,
                     start_date=args.start_date,

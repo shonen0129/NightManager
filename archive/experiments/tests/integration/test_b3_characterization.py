@@ -32,13 +32,15 @@ while not (ROOT / "pyproject.toml").exists():
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "archive"))
 
-from leadlag.data.tickers import JP_TICKERS, US_TICKERS
-from leadlag.models.sre import SectorRelativeEnsembleModel
-from legacy_src.models.sector_relative_ensemble_blp import SectorRelativeEnsembleBLPModel
-from leadlag.models.sector_relative_ensemble_blp_enhanced import SectorRelativeEnsembleBLPEnhancedModel
 from legacy_src.models.bayesian_blpx import BayesianBLPXModel
+from legacy_src.models.sector_relative_ensemble_blp import SectorRelativeEnsembleBLPModel
 from legacy_src.models.sector_relative_ensemble_rrr import SectorRelativeEnsembleRRRModel
+from legacy_src.models.sre import SectorRelativeEnsembleModel
 
+from leadlag.data.tickers import JP_TICKERS
+from leadlag.models.sector_relative_ensemble_blp_enhanced import (
+    SectorRelativeEnsembleBLPEnhancedModel,
+)
 
 # ---------------------------------------------------------------------------
 # Config fixtures

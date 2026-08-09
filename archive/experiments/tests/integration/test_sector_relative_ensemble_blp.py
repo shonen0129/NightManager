@@ -7,7 +7,6 @@ import sys
 from pathlib import Path
 
 import numpy as np
-import pandas as pd
 import pytest
 import yaml
 
@@ -22,8 +21,9 @@ sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "archive"))
 
 from legacy_src.models.sector_relative_ensemble_blp import SectorRelativeEnsembleBLPModel
-from leadlag.models.sre import SectorRelativeEnsembleModel
-from leadlag.execution.backtester import BacktestEngine
+from legacy_src.models.sre import SectorRelativeEnsembleModel
+
+from research.backtest_v1 import run_v1_backtest
 
 
 @pytest.fixture
@@ -219,7 +219,7 @@ def test_cost_consistency(blp_sample_config, sample_df_exec):
     start_str = df_exec.index[-20].strftime("%Y-%m-%d")
 
     # Run backtest using standard engine
-    results = BacktestEngine.run_backtest(
+    results = run_v1_backtest(
         model, df_exec, start_date=start_str
     )
     r_gross = results["daily_returns_gross"]
@@ -251,8 +251,8 @@ def test_baseline_sre_reproduction(blp_sample_config, sample_df_exec):
 
     blp_model = SectorRelativeEnsembleBLPModel(blp_cfg)
 
-    sre_res = BacktestEngine.run_backtest(sre_model, df_exec, start_date=start_str)
-    blp_res = BacktestEngine.run_backtest(blp_model, df_exec, start_date=start_str)
+    sre_res = run_v1_backtest(sre_model, df_exec, start_date=start_str)
+    blp_res = run_v1_backtest(blp_model, df_exec, start_date=start_str)
 
     # Verify signals, weights, and returns are exactly the same
     assert np.allclose(sre_res["signals"].values, blp_res["signals"].values, atol=1e-10)

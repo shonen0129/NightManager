@@ -7,9 +7,9 @@ Evaluates model configurations across param grids, compares them with baseline P
 from __future__ import annotations
 
 import argparse
+import concurrent.futures
 import json
 import logging
-import os
 import sys
 from pathlib import Path
 
@@ -17,7 +17,6 @@ import numpy as np
 import pandas as pd
 import yaml
 from scipy.stats import spearmanr
-import concurrent.futures
 
 # Resolve repository root and add source roots
 ROOT = Path(__file__).resolve()
@@ -29,12 +28,14 @@ while not (ROOT / "pyproject.toml").exists():
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "archive"))
 
+from legacy_src.models.sector_relative_ensemble_rrr import SectorRelativeEnsembleRRRModel
+from legacy_src.models.sre import SectorRelativeEnsembleModel
+
 from leadlag.data.fetcher import download_data
 from leadlag.data.preprocessor import preprocess_data
 from leadlag.data.tickers import JP_TICKERS, TOPIX_TICKER
-from leadlag.models.sre import SectorRelativeEnsembleModel
-from legacy_src.models.sector_relative_ensemble_rrr import SectorRelativeEnsembleRRRModel
 from leadlag.reporting.metrics import calculate_metrics
+from research.backtest_v1 import run_v1_backtest
 
 logging.basicConfig(
     level=logging.INFO,
@@ -261,17 +262,17 @@ def evaluate_single_run(args_tuple):
         conds_vals = diag_df["condition_number"].dropna().values
         pinv_fallbacks = int(diag_df["pinv_fallback"].sum())
         eff_ranks_vals = diag_df["effective_rank"].dropna().values
-        
+
         if len(eff_ranks_vals) > 0 and np.any(eff_ranks_vals > run_cfg["rank"]):
             rank_constraint_passed = False
-            
+
         # Only return full lists and records for default parameters to prevent multiprocessing buffer overflow
         if is_default_params:
             if len(conds_vals) > 0:
                 conds = list(conds_vals)
             if len(eff_ranks_vals) > 0:
                 eff_ranks = list(eff_ranks_vals)
-            
+
             diag_copy = diag_df.copy()
             diag_copy["rrr_window"] = run_cfg["rrr_window"]
             diag_copy["ewma_halflife"] = run_cfg["rrr_ewma_halflife"]
@@ -482,8 +483,7 @@ def main():
         prod_cfg = yaml.safe_load(f)
     baseline_model = SectorRelativeEnsembleModel(prod_cfg)
 
-    from leadlag.execution.backtester import BacktestEngine
-    baseline_res = BacktestEngine.run_backtest(
+    baseline_res = run_v1_backtest(
         baseline_model,
         df_exec,
         start_date=args.start_date,
@@ -649,19 +649,19 @@ def main():
 
     logger.info(f"Submitting {len(tasks)} backtest tasks to ProcessPoolExecutor...")
     all_results = []
-    
+
     with concurrent.futures.ProcessPoolExecutor(max_workers=8) as executor:
         futures = {executor.submit(evaluate_single_run, t): t for t in tasks}
         completed_count = 0
         for future in concurrent.futures.as_completed(futures):
             res = future.result()
             all_results.extend(res["results"])
-            
+
             # Diagnostics merge
             diag_records = res["diagnostics"]
             if diag_records:
                 daily_diagnostics_all.append(pd.DataFrame(diag_records))
-            
+
             # Audit merge
             am = res["audit_metrics"]
             rrr_no_lookahead_detected &= am["rrr_no_lookahead_detected"]
@@ -669,26 +669,26 @@ def main():
             num_lookahead_violations += am["num_lookahead_violations"]
             rank_constraint_passed &= am["rank_constraint_passed"]
             rrr_regularization_passed &= am["rrr_regularization_passed"]
-            
+
             if am["conds"]:
                 max_c = float(np.max(am["conds"]))
                 if max_c > max_condition_number:
                     max_condition_number = max_c
                 all_cond_nums.extend(am["conds"])
             num_pinv_fallbacks += am["pinv_fallbacks"]
-            
+
             if am["eff_ranks"]:
                 max_r = int(np.max(am["eff_ranks"]))
                 if max_r > max_effective_rank:
                     max_effective_rank = max_r
                 all_effective_ranks.extend(am["eff_ranks"])
-            
+
             # Timeseries merge
             for key_name, ts_dict in res["default_params_timeseries"].items():
                 daily_returns_master[key_name] = ts_dict["daily_returns"]
                 daily_positions_master[key_name] = ts_dict["weights"]
                 drawdown_master[key_name] = ts_dict["drawdown"]
-                
+
             completed_count += 1
             if completed_count % 50 == 0 or completed_count == len(tasks):
                 logger.info(f"Progress: Completed {completed_count}/{len(tasks)} combinations ({(completed_count/len(tasks))*100:.1f}%)")

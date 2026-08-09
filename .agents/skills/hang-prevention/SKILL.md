@@ -77,7 +77,7 @@ CLI実行前に以下を確認:
 - [ ] **前回プロセス残存確認**: `ps aux | grep leadlag` で前回プロセスが残っていないか
 - [ ] **ロックファイル確認**: `results/.cache/*.lock` に古いロックファイルが残っていないか
 - [ ] **ネットワーク確認**: Yahoo Finance / Google Finance に到達可能か
-- [ ] **`--fast-mode` 使用確認**: 標準mode（yfinance使用）を避け、fast-mode（API経由）を使用しているか
+- [ ] **V2 config 確認**: `configs/production/production.yaml` が存在し、`gap_distribution.dir` が有効なパスを指しているか
 
 ## ハング発生時の復旧手順
 
@@ -92,9 +92,9 @@ rm -f results/.cache/*.lock
 # 3. ログ確認
 tail -50 logs/decision_*.log
 
-# 4. 手動再実行（fast-mode推奨）
+# 4. 手動再実行（V2 decision）
 PYTHONPATH=src .venv-mac/bin/python -m leadlag.cli decision \
-    --api-enable --fast-mode --capital-from-wallet --text-output
+    --api-enable --capital-from-wallet --text-output
 ```
 
 ## タイムアウト実装パターン

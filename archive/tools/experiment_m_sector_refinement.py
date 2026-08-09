@@ -22,25 +22,20 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 
 from leadlag.core.correlation import (
-    build_base_vectors,
+    _orthogonalize_and_normalize,
     build_c0_from_v0,
     build_v3_static,
-    compute_baseline_correlation,
     compute_correlation,
     regularize_correlation,
-    _orthogonalize_and_normalize,
 )
-from leadlag.core import signal as signals
-from leadlag.core.residualize import compute_rolling_ols_betas
 from leadlag.data.fetcher import download_data
 from leadlag.data.preprocessor import preprocess_data
 from leadlag.data.tickers import JP_TICKERS, US_TICKERS
-from leadlag.models.sre import compute_jp_target_returns
 from leadlag.models.sector_relative_ensemble_blp_enhanced import (
     SectorRelativeEnsembleBLPEnhancedModel,
 )
-from leadlag.execution.backtester import BacktestEngine
 from leadlag.reporting.metrics import calculate_metrics
+from research.backtest_v1 import run_v1_backtest
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
@@ -99,7 +94,7 @@ def build_model_config(overrides: dict | None = None) -> dict:
 
 def run_backtest(model: SectorRelativeEnsembleBLPEnhancedModel, df_exec: pd.DataFrame) -> dict:
     """Run backtest and return metrics."""
-    results = BacktestEngine.run_backtest(
+    results = run_v1_backtest(
         model,
         df_exec=df_exec,
         start_date="2015-01-05",

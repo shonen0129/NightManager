@@ -7,7 +7,6 @@ import sys
 from pathlib import Path
 
 import numpy as np
-import pandas as pd
 import pytest
 import yaml
 
@@ -22,10 +21,13 @@ sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "archive"))
 
 from legacy_src.models.sector_relative_ensemble_blp import SectorRelativeEnsembleBLPModel
-from leadlag.models.sector_relative_ensemble_blp_enhanced import SectorRelativeEnsembleBLPEnhancedModel
-from leadlag.models.sre import SectorRelativeEnsembleModel
-from leadlag.execution.backtester import BacktestEngine
+from legacy_src.models.sre import SectorRelativeEnsembleModel
+
 from leadlag.data.tickers import JP_TICKERS, US_TICKERS
+from leadlag.models.sector_relative_ensemble_blp_enhanced import (
+    SectorRelativeEnsembleBLPEnhancedModel,
+)
+from research.backtest_v1 import run_v1_backtest
 
 
 @pytest.fixture
@@ -61,7 +63,7 @@ def test_blpx_no_lookahead(blpx_sample_config, sample_df_exec):
     """1. test_blpx_no_lookahead: Verify B_t is estimated using only Y_date <= signal_date."""
     df_exec, _ = sample_df_exec
     model = SectorRelativeEnsembleBLPEnhancedModel(blpx_sample_config)
-    
+
     # For each date i, check that the training sample's latest trade date (T_{i-1})
     # is strictly <= the current step's signal date (t_i).
     for i in range(model.corr_window, len(df_exec)):
@@ -117,7 +119,7 @@ def test_structured_lambda_constraints(blpx_sample_config):
         v0_static=np.random.randn(32, 6),
         c_full=np.eye(32)
     )
-    
+
     assert res["b_struct_norm"] is not None
 
 
@@ -125,10 +127,10 @@ def test_sector_prior_mapping(blpx_sample_config):
     """4. test_sector_prior_mapping: Verify M_sector size, normalization, and absence of NaNs."""
     model = SectorRelativeEnsembleBLPEnhancedModel(blpx_sample_config)
     M = model.M_sector
-    
+
     assert M.shape == (17, 15)
     assert np.all(np.isfinite(M))
-    
+
     # Check column normalization
     col_sums = np.sum(M, axis=0)
     for u in range(15):
@@ -141,14 +143,14 @@ def test_pca_prior_dimensions(blpx_sample_config, sample_df_exec):
     df_exec, _ = sample_df_exec
     model = SectorRelativeEnsembleBLPEnhancedModel(blpx_sample_config)
     inputs = model._prepare_common_inputs(df_exec)
-    
+
     res = model.compute_blp_signal(
         inputs["all_returns_raw"],
         current_index=300,
         v0_static=inputs["v0_static"],
         c_full=inputs["c_full"]
     )
-    
+
     assert res["b_pca_norm"] >= 0.0
 
 
@@ -157,14 +159,14 @@ def test_confidence_variance(blpx_sample_config, sample_df_exec):
     df_exec, _ = sample_df_exec
     model = SectorRelativeEnsembleBLPEnhancedModel(blpx_sample_config)
     inputs = model._prepare_common_inputs(df_exec)
-    
+
     res = model.compute_blp_signal(
         inputs["all_returns_raw"],
         current_index=300,
         v0_static=inputs["v0_static"],
         c_full=inputs["c_full"]
     )
-    
+
     assert res["min_pred_var"] >= 1e-8
     assert np.all(np.isfinite(res["signal"]))
 
@@ -177,7 +179,7 @@ def test_winsorization_no_lookahead(blpx_sample_config):
     returns = np.random.randn(300, 32)
     # Add huge outlier at current step
     returns[280, :] = 1000.0
-    
+
     # Run prediction at 280, window excludes current index 280 (so it should not see the outlier)
     res = model.compute_blp_signal(
         returns,
@@ -185,7 +187,7 @@ def test_winsorization_no_lookahead(blpx_sample_config):
         v0_static=np.random.randn(32, 6),
         c_full=np.eye(32)
     )
-    
+
     assert np.all(np.isfinite(res["signal"]))
 
 
@@ -221,11 +223,11 @@ def test_no_nan_inf_signals(blpx_sample_config, sample_df_exec):
     df_exec, _ = sample_df_exec
     model = SectorRelativeEnsembleBLPEnhancedModel(blpx_sample_config)
     res = model.predict_signals(df_exec)
-    
+
     raw_blpx_slice = res["raw_blpx_signals"].loc["2015-01-05":]
     residual_blpx_slice = res["residual_blpx_signals"].loc["2015-01-05":]
     signals_slice = res["signals"].loc["2015-01-05":]
-    
+
     assert not raw_blpx_slice.isna().any().any()
     assert not np.isinf(raw_blpx_slice.values).any()
     assert not residual_blpx_slice.isna().any().any()
@@ -264,7 +266,7 @@ def test_cost_consistency(blpx_sample_config, sample_df_exec):
     model = SectorRelativeEnsembleBLPEnhancedModel(blpx_sample_config)
     start_str = df_exec.index[-20].strftime("%Y-%m-%d")
 
-    results = BacktestEngine.run_backtest(
+    results = run_v1_backtest(
         model, df_exec, start_date=start_str
     )
     r_gross = results["daily_returns_gross"]
@@ -369,7 +371,7 @@ def test_build_sector_prior_from_structure(blpx_sample_config):
             assert abs(col_sums[u] - 1.0) < 1e-10
 
     # Verify structural consistency: non-zero entries match _SECTOR_MAPPING_STRUCTURE
-    from leadlag.data.tickers import JP_TICKERS, US_TICKERS
+    from leadlag.data.tickers import JP_TICKERS
     for u_idx, us_tk in enumerate(US_TICKERS):
         if us_tk in model._SECTOR_MAPPING_STRUCTURE:
             mapped_jp = model._SECTOR_MAPPING_STRUCTURE[us_tk]
@@ -411,8 +413,8 @@ def test_baseline_sre_reproduction(blpx_sample_config, sample_df_exec):
 
     blpx_model = SectorRelativeEnsembleBLPEnhancedModel(blpx_cfg)
 
-    sre_res = BacktestEngine.run_backtest(sre_model, df_exec, start_date=start_str)
-    blpx_res = BacktestEngine.run_backtest(blpx_model, df_exec, start_date=start_str)
+    sre_res = run_v1_backtest(sre_model, df_exec, start_date=start_str)
+    blpx_res = run_v1_backtest(blpx_model, df_exec, start_date=start_str)
 
     assert np.allclose(sre_res["signals"].values, blpx_res["signals"].values, atol=1e-10)
     assert np.allclose(sre_res["weights"].values, blpx_res["weights"].values, atol=1e-10)
@@ -453,7 +455,7 @@ def test_previous_blp_reproduction(blpx_sample_config, sample_df_exec):
     blpx_cfg["alpha_yx"] = 0.0
     blpx_cfg["rho"] = 0.003
     blpx_cfg["rank"] = "full"
-    
+
     # disable enhanced features
     blpx_cfg["lambda_pca"] = 0.0
     blpx_cfg["lambda_sector"] = 0.0
@@ -469,8 +471,8 @@ def test_previous_blp_reproduction(blpx_sample_config, sample_df_exec):
 
     blpx_model = SectorRelativeEnsembleBLPEnhancedModel(blpx_cfg)
 
-    legacy_res = BacktestEngine.run_backtest(legacy_model, df_exec, start_date=start_str)
-    blpx_res = BacktestEngine.run_backtest(blpx_model, df_exec, start_date=start_str)
+    legacy_res = run_v1_backtest(legacy_model, df_exec, start_date=start_str)
+    blpx_res = run_v1_backtest(blpx_model, df_exec, start_date=start_str)
 
     assert np.allclose(legacy_res["signals"].values, blpx_res["signals"].values, atol=1e-10)
     assert np.allclose(legacy_res["weights"].values, blpx_res["weights"].values, atol=1e-10)

@@ -4,7 +4,7 @@
 Usage:
   python run_research.py macro analyze_gold_correlation
   python run_research.py sprint run_sprint0_diagnostics
-  python run_research.py backtest run_overnight_holding_backtest
+  python run_research.py backtest run_production_backtest
 """
 
 import argparse
@@ -22,7 +22,7 @@ def main():
         epilog="Examples:\n"
                "  python run_research.py macro analyze_gold_correlation\n"
                "  python run_research.py sprint run_sprint0_diagnostics\n"
-               "  python run_research.py backtest run_overnight_holding_backtest",
+               "  python run_research.py backtest run_production_backtest",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("category", choices=["macro", "blpx", "sprint", "backtest"],

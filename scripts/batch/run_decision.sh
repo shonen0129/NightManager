@@ -29,7 +29,6 @@ fi
 cd "${PROJECT_DIR}"
 PYTHONPATH=src "${PYTHON_BIN}" -m leadlag.cli decision \
     --api-enable \
-    --fast-mode \
     --capital-from-wallet \
     --text-output \
     >> "${LOG_FILE}" 2>&1

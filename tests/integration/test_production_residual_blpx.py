@@ -7,7 +7,6 @@ import sys
 from pathlib import Path
 
 import numpy as np
-import pandas as pd
 import pytest
 import yaml
 
@@ -15,10 +14,10 @@ import yaml
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
-from leadlag.models.sector_relative_ensemble_blp_enhanced import SectorRelativeEnsembleBLPEnhancedModel
-from leadlag.models.sre import SectorRelativeEnsembleModel
-from leadlag.execution.backtester import BacktestEngine
-from leadlag.data.tickers import JP_TICKERS, US_TICKERS
+from leadlag.models.sector_relative_ensemble_blp_enhanced import (
+    SectorRelativeEnsembleBLPEnhancedModel,
+)
+from research.backtest_v1 import run_v1_backtest
 
 
 @pytest.fixture
@@ -42,7 +41,7 @@ def test_residual_blpx_uses_topix_residual_target(residual_blpx_prod_config, sam
     df_exec, _ = sample_df_exec
     model = SectorRelativeEnsembleBLPEnhancedModel(residual_blpx_prod_config)
     inputs = model._prepare_common_inputs(df_exec)
-    
+
     # jp_res_returns_p3 is the residualized target return matrix
     assert inputs["jp_res_returns_p3"] is not None
     # Dimension should include US and JP columns
@@ -54,7 +53,7 @@ def test_residual_blpx_does_not_use_raw_target(residual_blpx_prod_config, sample
     df_exec, _ = sample_df_exec
     model = SectorRelativeEnsembleBLPEnhancedModel(residual_blpx_prod_config)
     inputs = model._prepare_common_inputs(df_exec)
-    
+
     raw = inputs["all_returns_raw"]
     res = inputs["jp_res_returns_p3"]
     # US columns (0-14) must be equal, but JP target columns (15-31) must differ due to residualization
@@ -66,7 +65,7 @@ def test_no_lookahead_xy_pairs(residual_blpx_prod_config, sample_df_exec):
     """4. Verify that XY covariance training pairs respect Y_date <= signal_date."""
     df_exec, _ = sample_df_exec
     model = SectorRelativeEnsembleBLPEnhancedModel(residual_blpx_prod_config)
-    
+
     for i in range(model.corr_window, len(df_exec)):
         t_i = df_exec["sig_date"].values[i]
         T_prev = df_exec.index[i - 1]
@@ -89,7 +88,7 @@ def test_winsorization_no_lookahead(residual_blpx_prod_config):
     returns = np.random.randn(300, 32)
     # Inject outlier at current index
     returns[280, :] = 1000.0
-    
+
     res = model.compute_blp_signal(
         returns,
         current_index=280,
@@ -106,7 +105,7 @@ def test_blpx_matrix_dimensions(residual_blpx_prod_config, sample_df_exec):
     df_exec, _ = sample_df_exec
     model = SectorRelativeEnsembleBLPEnhancedModel(residual_blpx_prod_config)
     inputs = model._prepare_common_inputs(df_exec)
-    
+
     res = model.compute_blp_signal(
         inputs["all_returns_raw"],
         current_index=300,
@@ -125,7 +124,7 @@ def test_structured_lambda_constraints(residual_blpx_prod_config):
     cfg["blpx"]["lambda_pca"] = 0.50
     cfg["blpx"]["lambda_sector"] = 0.50  # sum = 1.0 > 0.75
     model = SectorRelativeEnsembleBLPEnhancedModel(cfg)
-    
+
     # Compute signals under random data
     returns = np.random.randn(300, 32)
     res = model.compute_blp_signal(
@@ -142,7 +141,7 @@ def test_confidence_variance_finite(residual_blpx_prod_config, sample_df_exec):
     df_exec, _ = sample_df_exec
     model = SectorRelativeEnsembleBLPEnhancedModel(residual_blpx_prod_config)
     inputs = model._prepare_common_inputs(df_exec)
-    
+
     res = model.compute_blp_signal(
         inputs["all_returns_raw"],
         current_index=300,
@@ -177,12 +176,12 @@ def test_cost_consistency(residual_blpx_prod_config, sample_df_exec):
     df_exec, _ = sample_df_exec
     model = SectorRelativeEnsembleBLPEnhancedModel(residual_blpx_prod_config)
     start_str = df_exec.index[-20].strftime("%Y-%m-%d")
-    
-    results = BacktestEngine.run_backtest(model, df_exec, start_date=start_str)
+
+    results = run_v1_backtest(model, df_exec, start_date=start_str)
     r_gross = results["daily_returns_gross"]
     r_net = results["daily_returns"]
     costs = results["daily_costs"]
-    
+
     assert np.allclose(r_gross - costs, r_net, atol=1e-15)
 
 
@@ -191,11 +190,11 @@ def test_fallback_to_sre(residual_blpx_prod_config, sample_df_exec):
     df_exec, _ = sample_df_exec
     model = SectorRelativeEnsembleBLPEnhancedModel(residual_blpx_prod_config)
     inputs = model._prepare_common_inputs(df_exec)
-    
+
     # Inject NaNs to training returns window
     bad_returns = inputs["all_returns_raw"].copy()
     bad_returns[200:300, :] = np.nan
-    
+
     res = model.compute_blp_signal(
         bad_returns,
         current_index=300,

@@ -9,8 +9,8 @@ Consolidates logic previously duplicated across:
 
 Includes:
   - CostParams: single source of research cost constants
-  - load_execution_data / run_baseline_backtest: data + baseline setup
-  - run_backtest_with_costs: BacktestEngine.run_backtest with standard cost params
+  - load_execution_data: data loading utility
+  - run_backtest_with_costs: generic BaseModel backtest with standard cost params
   - prepare_target_and_gap_returns: target/gap DataFrame alignment
   - simulate_overnight_holding: per-asset alpha-mask overnight simulation
   - extended_metrics / compute_backtest_metrics: metrics from daily returns or results dict
@@ -34,11 +34,9 @@ from leadlag.data.cache import load_df_exec_from_local_cache
 from leadlag.data.fetcher import download_data
 from leadlag.data.preprocessor import preprocess_data
 from leadlag.data.tickers import JP_TICKERS
-from leadlag.execution.backtester import BacktestEngine
-from leadlag.execution.config import StrategyConfig
-from leadlag.execution.helpers import build_strategy
 from leadlag.models.sre import compute_jp_target_returns
 from leadlag.reporting.metrics import calculate_metrics
+from research.backtest_v1 import run_v1_backtest
 
 TRADING_DAYS = 245
 
@@ -83,27 +81,6 @@ def load_execution_data(
         beta_ewma_halflife=beta_ewma_halflife,
         beta_shrinkage=beta_shrinkage,
         beta_winsor_sigma=beta_winsor_sigma,
-    )
-
-
-def run_baseline_backtest(
-    df_exec: pd.DataFrame,
-    start_date: str = "2015-01-05",
-    slippage_bps: float = 5.0,
-    **backtest_kwargs,
-) -> dict:
-    """Build the standard production strategy and run a baseline backtest.
-
-    Returns the BacktestEngine result dict (weights, signals, daily_returns, ...).
-    """
-    config = StrategyConfig(start_date=start_date, slippage_bps=slippage_bps)
-    model = build_strategy(config, df_exec)
-    return BacktestEngine.run_backtest(
-        model,
-        df_exec=df_exec,
-        start_date=start_date,
-        slippage_bps=slippage_bps,
-        **backtest_kwargs,
     )
 
 
@@ -305,12 +282,12 @@ def run_backtest_with_costs(
     reverse_fee_bps: float = 2.0,
     **extra_kwargs,
 ) -> dict:
-    """Run BacktestEngine.run_backtest with standard production cost parameters.
+    """Run run_v1_backtest with standard production cost parameters.
 
     This is the single call-site for the cost-parameter defaults that were
     duplicated across 30+ experiment scripts.
     """
-    return BacktestEngine.run_backtest(
+    return run_v1_backtest(
         model,
         df_exec=df_exec,
         start_date=start_date,

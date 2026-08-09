@@ -32,7 +32,7 @@ from leadlag.data.cache import load_df_exec_from_local_cache
 from leadlag.data.tickers import JP_TICKERS
 from leadlag.models.sre import compute_jp_target_returns
 from leadlag.models.sector_relative_ensemble_blp_enhanced import SectorRelativeEnsembleBLPEnhancedModel
-from leadlag.execution.backtester import BacktestEngine
+from research.backtest_v1 import run_v1_backtest
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
@@ -198,7 +198,7 @@ def run_backtest_with_custom_weights(
     custom_model._start_date = start_date
     custom_model._custom_pred = pred
 
-    results = BacktestEngine.run_backtest(
+    results = run_v1_backtest(
         custom_model, df_exec, start_date=start_date, slippage_bps=5.0,
         overnight_alpha_long=0.75, overnight_alpha_short=0.5,
         buy_interest_annual=0.025, borrow_fee_annual=0.0115,
@@ -324,7 +324,7 @@ def main():
     logger.info("Running production baseline (residual_blpx only)...")
     model_prod = SectorRelativeEnsembleBLPEnhancedModel(cfg_base)
     model_prod._start_date = args.start_date
-    results_prod = BacktestEngine.run_backtest(
+    results_prod = run_v1_backtest(
         model_prod, df_exec, start_date=args.start_date, slippage_bps=5.0,
         overnight_alpha_long=0.75, overnight_alpha_short=0.5,
         buy_interest_annual=0.025, borrow_fee_annual=0.0115,

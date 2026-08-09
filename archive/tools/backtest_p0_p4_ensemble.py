@@ -9,7 +9,6 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import os
 import sys
 from pathlib import Path
 
@@ -28,12 +27,13 @@ import seaborn as sns
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
+from legacy_src.models.sre import SectorRelativeEnsembleModel
+
 from leadlag.data.fetcher import download_data
 from leadlag.data.preprocessor import preprocess_data
 from leadlag.data.tickers import JP_TICKERS, TOPIX_TICKER
-from leadlag.models.sre import SectorRelativeEnsembleModel
 from leadlag.reporting.metrics import calculate_metrics
-from leadlag.execution.backtester import BacktestEngine
+from research.backtest_v1 import run_v1_backtest
 
 # Set up logging
 logging.basicConfig(
@@ -125,7 +125,7 @@ def main():
     # 2. Download and Preprocess Data
     logger.info("Downloading sector ETF data...")
     raw_data = download_data(beta_window=60)
-    
+
     logger.info("Downloading SPY benchmark data...")
     spy_df = None
     for retry in range(3):
@@ -187,7 +187,7 @@ def main():
     daily_positions_db = {}
     daily_drawdowns_db = {}
     summary_records = []
-    
+
     # Store P4 vs Residual-PCA signal correlations for OOS 5bps diagnostic
     p4_vs_p3_corrs = []
 
@@ -235,7 +235,7 @@ def main():
                 # Run model backtest for each slippage bps
                 for slip in slippage_grid:
                     model = SectorRelativeEnsembleModel(run_cfg)
-                    res = BacktestEngine.run_backtest(
+                    res = run_v1_backtest(
                         model,
                         df_exec,
                         start_date=args.start_date,
@@ -288,7 +288,7 @@ def main():
                         daily_returns_db[key_5bps] = res["daily_returns"]
                         daily_positions_db[key_5bps] = res["weights"]
                         daily_drawdowns_db[key_5bps] = res["drawdown"]
-                        
+
                         if not is_baseline_like:
                             run_results_db[key_5bps] = res
                             # P4 vs Residual-PCA signal correlation
@@ -312,7 +312,7 @@ def main():
                 new_rec["prior_variant"] = p
                 new_rec["gamma"] = g
                 summary_records.append(new_rec)
-                
+
                 # Copy timeseries mapping as well
                 key_base = record["model"]
                 key_target = f"{key_base}_prior_{p}_gamma_{g:.2f}"
@@ -333,15 +333,15 @@ def main():
     ref_net_path = ROOT / "results/baseline_reconciliation/reference_sre/daily_net_returns.csv"
     if not ref_net_path.exists():
         raise FileNotFoundError(f"Reference net returns file not found at: {ref_net_path}")
-    
+
     ref_net = pd.read_csv(ref_net_path, index_col="trade_date", parse_dates=True)["net_return"]
     sre_current_ret = daily_returns_db["SRE_current"]
-    
+
     # Reindex reference to match sre_current index exactly
     ref_net_aligned = ref_net.reindex(sre_current_ret.index).fillna(0.0)
     max_abs_diff = float(np.abs(sre_current_ret - ref_net_aligned).max())
     logger.info(f"Max absolute difference vs Reference SRE: {max_abs_diff:.6e}")
-    
+
     current_sre_baseline_reproduced = max_abs_diff < 1e-12
     if current_sre_baseline_reproduced:
         logger.info("Baseline reproduction check: PASSED")
@@ -386,7 +386,7 @@ def main():
     diff_tstats = []
     monthly_wins = []
     monthly_losses = []
-    
+
     for idx, row in oos_5bps.iterrows():
         cand_key = f"{row['model']}_prior_{row['prior_variant']}_gamma_{row['gamma']:.2f}"
         if cand_key in daily_returns_db:
@@ -396,7 +396,7 @@ def main():
             std_d = diff.std()
             tstat = np.sqrt(len(diff)) * mean_d / (std_d if std_d > 1e-12 else 1e-12)
             diff_tstats.append(tstat)
-            
+
             # Monthly outperformance count
             monthly_diff = diff.groupby(diff.index.to_period("M")).sum()
             monthly_wins.append(int((monthly_diff > 0).sum()))
@@ -556,7 +556,7 @@ def main():
 
     # Add baseline checks to audit.json
     audit_file_path = out_dir / "audit.json"
-    with open(audit_file_path, "r") as f:
+    with open(audit_file_path) as f:
         full_audit = json.load(f)
 
     # Insert baseline and P4 check parameters
@@ -581,7 +581,7 @@ def main():
     full_audit["no_nan_inf_in_p4_signal"] = not (
         best_res_data["p4_signals"].isna().any().any() or np.isinf(best_res_data["p4_signals"].values).any()
     )
-    
+
     # Portfolio checks
     full_audit["no_nan_inf_in_ensemble_signal"] = not (
         best_res_data["signals"].isna().any().any() or np.isinf(best_res_data["signals"].values).any()
@@ -735,15 +735,15 @@ def main():
     for label, (s_p, e_p) in stress_periods.items():
         s_dt = pd.to_datetime(s_p)
         e_dt = pd.to_datetime(e_p)
-        
+
         # Slice dates
         mask_cand = (best_cand_returns.index >= s_dt) & (best_cand_returns.index <= e_dt)
         ret_cand_slice = best_cand_returns[mask_cand]
         ret_sre_slice = sre_current_ret[mask_cand]
-        
+
         m_cand = calculate_metrics(ret_cand_slice)
         m_sre = calculate_metrics(ret_sre_slice)
-        
+
         stress_records.append({
             "stress_period": label,
             "sre_return": m_sre.get("Total Return", 0.0),
@@ -758,7 +758,7 @@ def main():
     # 13. Generate Plots if enabled
     if cfg.get("output", {}).get("save_plots", True):
         logger.info("Generating diagnostic plots...")
-        
+
         # Cumulative return
         plt.figure(figsize=(10, 5))
         plt.plot((1.0 + best_cand_returns).cumprod(), label=f"Best Raw-PCA/P4 ({best_model_name})", color="navy")
@@ -837,12 +837,12 @@ def main():
     decision_pass = "PASS" if best_row["pass_candidate"] else "FAIL"
     decision_recom = "RECOMMENDED" if best_row["pass_candidate"] else "NOT RECOMMENDED"
     residual_pca_p4_corr_best = corr_dict.get(best_key, 1.0)
-    
+
     # Subperiod metrics helper slice
     cand_train = summary_5bps[(summary_5bps["model"] == best_model_name) & (summary_5bps["prior_variant"] == best_prior_variant) & (summary_5bps["gamma"] == best_gamma_val) & (summary_5bps["period"] == "train")].iloc[0]
     cand_oos = summary_5bps[(summary_5bps["model"] == best_model_name) & (summary_5bps["prior_variant"] == best_prior_variant) & (summary_5bps["gamma"] == best_gamma_val) & (summary_5bps["period"] == "oos")].iloc[0]
     cand_full = summary_5bps[(summary_5bps["model"] == best_model_name) & (summary_5bps["prior_variant"] == best_prior_variant) & (summary_5bps["gamma"] == best_gamma_val) & (summary_5bps["period"] == "full")].iloc[0]
-    
+
     sre_train = summary_5bps[(summary_5bps["model"] == "SRE_current") & (summary_5bps["period"] == "train")].iloc[0]
     sre_oos = summary_5bps[(summary_5bps["model"] == "SRE_current") & (summary_5bps["period"] == "oos")].iloc[0]
     sre_full = summary_5bps[(summary_5bps["model"] == "SRE_current") & (summary_5bps["period"] == "full")].iloc[0]

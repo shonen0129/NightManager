@@ -33,7 +33,7 @@ from leadlag.data.cache import load_df_exec_from_local_cache
 from leadlag.data.tickers import JP_TICKERS
 from leadlag.models.sre import compute_jp_target_returns
 from leadlag.models.sector_relative_ensemble_blp_enhanced import SectorRelativeEnsembleBLPEnhancedModel
-from leadlag.execution.backtester import BacktestEngine
+from research.backtest_v1 import run_v1_backtest
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
@@ -72,7 +72,7 @@ def run_period_backtest(
     """Run backtest for a specific period and return daily returns."""
     model = SectorRelativeEnsembleBLPEnhancedModel(copy.deepcopy(cfg))
     model._start_date = start_date
-    results = BacktestEngine.run_backtest(
+    results = run_v1_backtest(
         model, df_exec, start_date=start_date, end_date=end_date, slippage_bps=slippage_bps,
         overnight_alpha_long=0.75, overnight_alpha_short=0.5,
         buy_interest_annual=0.025, borrow_fee_annual=0.0115,
