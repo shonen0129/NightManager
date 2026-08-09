@@ -1,6 +1,6 @@
 # Lead-Lag Market-Neutral Strategy — Architecture (v3.0)
 
-> **最終更新**: 2026-07-01
+> **最終更新**: 2026-08-10
 
 ## Overview
 
@@ -46,6 +46,9 @@ US ETF と TOPIX-17 セクター ETF のリードラグ相関を利用した、
 - **Phase 25 (2026-08-09)**: Refactoring C-1 — Pydantic 一本化（P2-C1）を V2 パイプラインから開始。`ProductionV2Model.__init__` は `ProductionV2RunConfig` のみ受け付けるように変更。`generate_v2_production_portfolio` は Pydantic config を第一に受け取り、研究スクリプトの raw dict は境界で `parse_run_config` により `ProductionV2RunConfig` に変換。マルチホライズンブレンド・ランク反転オーバーレイのファイルパターンを `ProductionV2RunConfig` のフィールドに移行し、ネストした dict からの読み出しを除去。`BacktestEngine._generate_v2_weights` 内部でも raw dict を V2 用 Pydantic config に変換してから `ProductionV2Model` / overlay ヘルパーへ渡すよう変更。`ml_order_overlay.py` の訓練関数と `tools/production/train_ml_order_overlay.py` も Pydantic 化。続けて `save_summary_files` を `StrategyConfig` のみ受け付けるよう変更し、`backtest.run_production` では `load_config_from_yaml` から `AppConfig` を読み込み `app_config.strategy` を渡すよう変更。
 - **Phase 26 (2026-08-09)**: Refactoring C-2 — `AppConfig` を V2 バックテスト・本番実行の単一正本に昇格。`AppConfig` に `v2: ProductionV2RunConfig` を追加し、`execution.config.build_app_config_from_dict` / `load_config_from_yaml` で同時に構築。`BacktestEngine.run_v2_backtest` は `AppConfig | dict` を受け付け、内部は `AppConfig` 一本化。コストパラメータは `app_config.strategy`、V2 ウェイト生成は `app_config.v2` から取得。`execution.backtest.run_production` は `BacktestEngine.run_v2_backtest` へ `AppConfig` を渡し、残差化・リスクパラメータも Pydantic 経由に変更。`AppConfig` に `gap_distribution_dir` を追加し、`v2_bridge.run_v2_decision` は YAML raw-dict 読み出しを廃止して `AppConfig` のみを使用するように変更。
 - **Phase 27 (2026-08-09)**: Refactoring C-3 — 研究スクリプトの Pydantic 化完了。`scripts/experiments/` 配下のバックテスト比較・診断・シャドーラン・ライブアライメントスクリプトを `load_config_from_yaml` 経由に変更。`build_v2_production_shadow_run.py` / `run_live_aligned_v2_backtest.py` は `AppConfig.ml_order_overlay` を使用。`experiment_pit_rolling_window_tuning.py` / `overnight_sensitivity_v2.py` / `experiment_macro_kappa_v2.py` 等のパラメータスイープも `AppConfig` / `model_copy` を使用。`compare_cumulative_method.py` は V1 SRE モデルに raw YAML を残すが、V2 部分は `ProductionV2RunConfig.model_validate` 経由に変更。`src/experiments/ml_order_decision/phase1.py` / `phase2.py` も `AppConfig` 対応。
+- **Phase 28 (2026-08-10)**: P2-D2 — gap 行列・weights・PnL の SQLite DB 化。`leadlag.data.gap_store.GapStore` を新設し、`mu_gap` / `omega_gap` / マルチホライズン / ランク反転行列を 1 つの SQLite ファイル（BLOB pickle、WAL）に保存。`leadlag.data.backtest_store.BacktestResultStore` を新設し、日次 PnL（return / equity / drawdown / turnover / gross / costs）と日次 weights を RDB に永続化。`utils/gap_matrix_io` から SQLite gap store を優先読み、存在しなければ `.npy` ファイルにフォールバックする統合パスを提供。DuckDB を検討したが、現時点では `sqlite3` 標準ライブラリで十分と判断（将来分析的クエリがボトルネックになれば再検討）。
+- **Phase 29 (2026-08-10)**: P2-E1 — 日次運用 CLI 一本化。`leadlag.cli` に `daily` サブコマンドを追加。朝のカットオフ時刻（デフォルト 09:15）より前は `decision`、以降は `close` を自動実行。`_add_decision_args` / `_add_close_args` ヘルパーで引数定義を共通化。市場休場判定も `daily` を対象に拡張し、cron/launchd のエントリポイントを一本化。
+- **Phase 30 (2026-08-10)**: P3-F1 — テスト高速化。`tests/conftest.py` に `synthetic_df_exec` フィクスチャを追加し、全カラムを満たす小規模な合成 `df_exec` を提供。`sample_df_exec` / `synthetic_df_exec` / `residual_blpx_prod_config` を `scope="session"` に変更し、ダウンロード・前処理をテスト間で共有。`tests/unit/test_synthetic_smoke.py` を新設し、schema validation、`ExecutionFrame` アクセサ、V2 フラットフォールバックをサブ秒で検証。
 
 ---
 
