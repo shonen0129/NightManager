@@ -28,8 +28,13 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-ROOT = Path(__file__).resolve().parents[3]
+ROOT = Path(__file__).resolve().parent
+while not (ROOT / "pyproject.toml").exists():
+    ROOT = ROOT.parent
 sys.path.insert(0, str(ROOT / "src"))
+sys.path.insert(0, str(ROOT / "archive"))
+
+from legacy_src.models.sre import SectorRelativeEnsembleModel
 
 from research.backtest_common import (
     TRADING_DAYS,
@@ -37,9 +42,9 @@ from research.backtest_common import (
     extended_metrics,
     load_execution_data,
     prepare_target_and_gap_returns,
-    run_baseline_backtest,
     simulate_overnight_holding,
 )
+from research.backtest_v1 import run_v1_backtest
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
@@ -67,8 +72,15 @@ def main():
 
     logger.info("[1/4] Loading data and running baseline backtest...")
     df_exec = load_execution_data(beta_window=60)
-    baseline = run_baseline_backtest(
-        df_exec, start_date=args.start_date, slippage_bps=args.slippage_bps
+    model = SectorRelativeEnsembleModel({
+        "start_date": args.start_date,
+        "slippage_bps": args.slippage_bps,
+    })
+    baseline = run_v1_backtest(
+        model,
+        df_exec,
+        start_date=args.start_date,
+        slippage_bps=args.slippage_bps,
     )
 
     weights = baseline["weights"]

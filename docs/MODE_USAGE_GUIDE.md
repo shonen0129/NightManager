@@ -389,7 +389,7 @@ python run_research.py backtest
 | `CSV must have at least 17 rows` | CSV が全 17 銘柄を含まない、またはフォーマット不正 | ティッカーがスペースなく正確に記載されているか確認 |
 | `Previous close not found for ...` | 指定 trade-date の前営業日の終値データがない | データが存在する日付範囲を指定 |
 | quantity が 0 のみ | signal が小さい、または資金が不足 | `--capital` を増やすか別の日付で試行 |
-| `FAST MODE requires --api-enable` | fast-mode は API 接続が必須 | `--api-enable` を追加 |
+| `--auto-close is deprecated` | `decision` 内の auto-close は無視される | 別の `close` サブコマンドを使用（launchd/cron） |
 | `--capital-from-wallet requires --api-enable` | wallet 機能は API が必要 | `--api-enable` を追加 |
 | `code=11014: 現金信用区分に誤りがあります` | `TACHIBANA_MARGIN_TRADE_TYPE` と口座の信用取引区分が不一致 | `.env` の `TACHIBANA_MARGIN_TRADE_TYPE` を確認（1=制度信用, 2/3=一般信用） |
 | `max_capital = 0 JPY` で発注されない | 入金がAPIに未反映、または受入保証金が0 | 入金反映後に再実行 |

@@ -15,9 +15,12 @@ from pathlib import Path
 import pandas as pd
 import yaml
 
-# Add src/ to path
-ROOT = Path(__file__).resolve().parents[2]
+# Resolve project root and add src/ + archive/ to path
+ROOT = Path(__file__).resolve().parent
+while not (ROOT / "pyproject.toml").exists():
+    ROOT = ROOT.parent
 sys.path.insert(0, str(ROOT / "src"))
+sys.path.insert(0, str(ROOT / "archive"))
 
 from legacy_src.models.sre import SectorRelativeEnsembleModel
 

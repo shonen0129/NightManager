@@ -209,10 +209,9 @@ def _handle_decision(args: argparse.Namespace) -> int:
     """Run the one-day trade decision pipeline."""
     if args.auto_close:
         logger.warning(
-            "--auto-close is deprecated: the decision process will block until %s. "
+            "--auto-close is deprecated and ignored inside the 'decision' subcommand. "
             "Use the separate 'close' subcommand via launchd/cron (com.leadlag.close) instead. "
-            "Remove --auto-close from batch scripts to avoid indefinite hangs.",
-            getattr(args, "auto_close_time", "14:50"),
+            "Remove --auto-close from batch scripts to avoid this warning."
         )
 
     if args.capital_from_wallet and not args.api_enable:

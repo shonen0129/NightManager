@@ -6,12 +6,13 @@ set -e
 cd "$(dirname "$0")/.."
 
 # Fail fast on undefined-name lint (prevents NameError regressions like 2026-07-27).
-RUFF=.venv-mac/bin/ruff
+VENV_DIR="${VENV_DIR:-.venv-mac}"
+RUFF="$VENV_DIR/bin/ruff"
 if [ -x "$RUFF" ]; then
     echo "Running ruff F821 lint (undefined names)..."
     "$RUFF" check src/leadlag tools/production --select F821
 else
-    echo "WARNING: .venv-mac/bin/ruff not found, skipping F821 lint"
+    echo "WARNING: $RUFF not found, skipping F821 lint"
 fi
 
 LOGDIR=/tmp/pytest_parallel
@@ -19,19 +20,25 @@ mkdir -p "$LOGDIR"
 
 echo "Starting 7-process parallel test run..."
 
-.venv-mac/bin/python -m pytest tests/unit/test_sprint0_diagnostics.py -q -n 0 > "$LOGDIR/p1.log" 2>&1 &
+PYTHON_BIN="$VENV_DIR/bin/python"
+if [ ! -x "$PYTHON_BIN" ]; then
+    echo "ERROR: venv python not found: $PYTHON_BIN"
+    exit 1
+fi
+
+"$PYTHON_BIN" -m pytest tests/unit/test_sprint0_diagnostics.py -q -n 0 > "$LOGDIR/p1.log" 2>&1 &
 P1=$!
-.venv-mac/bin/python -m pytest tests/unit/test_sprint0_qa.py -q -n 0 > "$LOGDIR/p2.log" 2>&1 &
+"$PYTHON_BIN" -m pytest tests/unit/test_sprint0_qa.py -q -n 0 > "$LOGDIR/p2.log" 2>&1 &
 P2=$!
-.venv-mac/bin/python -m pytest "tests/unit/test_sprint1.py::test_backtest_simulation" -q -n 0 > "$LOGDIR/p3.log" 2>&1 &
+"$PYTHON_BIN" -m pytest "tests/unit/test_sprint1.py::test_backtest_simulation" -q -n 0 > "$LOGDIR/p3.log" 2>&1 &
 P3=$!
-.venv-mac/bin/python -m pytest "tests/unit/test_sprint1.py::test_calibration_rolling" -q -n 0 > "$LOGDIR/p4.log" 2>&1 &
+"$PYTHON_BIN" -m pytest "tests/unit/test_sprint1.py::test_calibration_rolling" -q -n 0 > "$LOGDIR/p4.log" 2>&1 &
 P4=$!
-.venv-mac/bin/python -m pytest tests/unit/test_sprint1.py --deselect "tests/unit/test_sprint1.py::test_backtest_simulation" --deselect "tests/unit/test_sprint1.py::test_calibration_rolling" -q -n 0 > "$LOGDIR/p5.log" 2>&1 &
+"$PYTHON_BIN" -m pytest tests/unit/test_sprint1.py --deselect "tests/unit/test_sprint1.py::test_backtest_simulation" --deselect "tests/unit/test_sprint1.py::test_calibration_rolling" -q -n 0 > "$LOGDIR/p5.log" 2>&1 &
 P5=$!
-.venv-mac/bin/python -m pytest tests/integration/ -q -n auto > "$LOGDIR/p6.log" 2>&1 &
+"$PYTHON_BIN" -m pytest tests/integration/ -q -n auto > "$LOGDIR/p6.log" 2>&1 &
 P6=$!
-.venv-mac/bin/python -m pytest tests/unit/ --ignore=tests/unit/test_sprint0_diagnostics.py --ignore=tests/unit/test_sprint0_qa.py --ignore=tests/unit/test_sprint1.py -q -n auto > "$LOGDIR/p7.log" 2>&1 &
+"$PYTHON_BIN" -m pytest tests/unit/ --ignore=tests/unit/test_sprint0_diagnostics.py --ignore=tests/unit/test_sprint0_qa.py --ignore=tests/unit/test_sprint1.py -q -n auto > "$LOGDIR/p7.log" 2>&1 &
 P7=$!
 
 FAIL=0

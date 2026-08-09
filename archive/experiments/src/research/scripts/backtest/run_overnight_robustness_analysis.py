@@ -14,8 +14,13 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-ROOT = Path(__file__).resolve().parents[3]
+ROOT = Path(__file__).resolve().parent
+while not (ROOT / "pyproject.toml").exists():
+    ROOT = ROOT.parent
 sys.path.insert(0, str(ROOT / "src"))
+sys.path.insert(0, str(ROOT / "archive"))
+
+from legacy_src.models.sre import SectorRelativeEnsembleModel
 
 from leadlag.reporting.metrics import calculate_metrics
 from research.backtest_common import (
@@ -23,10 +28,10 @@ from research.backtest_common import (
     CostParams,
     load_execution_data,
     prepare_target_and_gap_returns,
-    run_baseline_backtest,
     simulate_overnight_holding,
     yearly_metrics,
 )
+from research.backtest_v1 import run_v1_backtest
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
@@ -35,7 +40,13 @@ logger = logging.getLogger(__name__)
 def main():
     logger.info("[1/3] Loading data and running baseline backtest...")
     df_exec = load_execution_data(beta_window=60)
-    baseline = run_baseline_backtest(df_exec, start_date="2015-01-05", slippage_bps=5.0)
+    model = SectorRelativeEnsembleModel({"start_date": "2015-01-05", "slippage_bps": 5.0})
+    baseline = run_v1_backtest(
+        model,
+        df_exec,
+        start_date="2015-01-05",
+        slippage_bps=5.0,
+    )
 
     weights = baseline["weights"]
     sim_dates = weights.index
