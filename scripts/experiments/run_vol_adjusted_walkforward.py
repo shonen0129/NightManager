@@ -22,7 +22,6 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import yaml
 from scipy import stats
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -30,6 +29,7 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from leadlag.data.cache import load_df_exec_from_local_cache
 from leadlag.execution.backtester import BacktestEngine
+from leadlag.execution.config import load_config_from_yaml
 
 logging.basicConfig(
     level=logging.INFO,
@@ -147,7 +147,7 @@ def _estimate_v(
 
 
 def _run_single_backtest(
-    cfg: dict,
+    app_config,
     gap_dir: Path,
     df_exec: pd.DataFrame,
     start_date: str,
@@ -160,7 +160,7 @@ def _run_single_backtest(
     logger.info("  date range: %s to %s", start_date, end_date)
     t0 = pd.Timestamp.now()
     res = BacktestEngine.run_v2_backtest(
-        cfg=cfg,
+        cfg=app_config,
         gap_input_dir=gap_dir,
         df_exec=df_exec,
         start_date=start_date,
@@ -186,13 +186,12 @@ def main() -> int:
     out_dir = Path(args.output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    with open(args.config) as f:
-        cfg = yaml.safe_load(f)
+    app_config = load_config_from_yaml(args.config)
 
     df_exec = load_df_exec_from_local_cache()
 
-    res_false = _run_single_backtest(cfg, args.gap_false, df_exec, args.start, args.end, "vol_adjusted_target=false", args.n_jobs)
-    res_true = _run_single_backtest(cfg, args.gap_true, df_exec, args.start, args.end, "vol_adjusted_target=true", args.n_jobs)
+    res_false = _run_single_backtest(app_config, args.gap_false, df_exec, args.start, args.end, "vol_adjusted_target=false", args.n_jobs)
+    res_true = _run_single_backtest(app_config, args.gap_true, df_exec, args.start, args.end, "vol_adjusted_target=true", args.n_jobs)
 
     # Full-period metrics
     def full_metrics(res: dict, label: str) -> dict:

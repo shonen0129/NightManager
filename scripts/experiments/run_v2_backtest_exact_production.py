@@ -6,7 +6,6 @@ import sys
 from pathlib import Path
 
 import numpy as np
-import yaml
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -16,6 +15,7 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from leadlag.data.cache import load_df_exec_from_local_cache
 from leadlag.execution.backtester import BacktestEngine
+from leadlag.execution.config import load_config_from_yaml
 
 
 def main():
@@ -36,14 +36,13 @@ def main():
     output_dir = ROOT / args.output_dir
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    with open(config_path) as f:
-        cfg = yaml.safe_load(f)
+    app_config = load_config_from_yaml(config_path)
 
     df_exec = load_df_exec_from_local_cache()
     logger.info("df_exec: %s rows", len(df_exec))
 
     results = BacktestEngine.run_v2_backtest(
-        cfg=cfg,
+        cfg=app_config,
         gap_input_dir=gap_dir,
         df_exec=df_exec,
         start_date=args.start_date,

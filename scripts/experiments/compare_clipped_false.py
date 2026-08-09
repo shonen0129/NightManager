@@ -8,7 +8,6 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import yaml
 
 logging.basicConfig(
     level=logging.INFO,
@@ -22,6 +21,7 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from leadlag.data.cache import load_df_exec_from_local_cache
 from leadlag.execution.backtester import BacktestEngine
+from leadlag.execution.config import load_config_from_yaml
 
 
 def _sharpe(s: pd.Series) -> float:
@@ -52,11 +52,10 @@ def main() -> int:
     new_gap_dir = ROOT / "outputs/long_period/gap_adjusted_false_clipped/20260730_173341"
 
     df_exec = load_df_exec_from_local_cache()
-    with open(ROOT / "configs/production/production.yaml") as f:
-        cfg = yaml.safe_load(f)
+    app_config = load_config_from_yaml(ROOT / "configs/production/production.yaml")
 
     old_res = BacktestEngine.run_v2_backtest(
-        cfg=cfg,
+        cfg=app_config,
         gap_input_dir=old_gap_dir,
         df_exec=df_exec,
         start_date="2015-01-05",
@@ -64,7 +63,7 @@ def main() -> int:
         n_jobs=-1,
     )
     new_res = BacktestEngine.run_v2_backtest(
-        cfg=cfg,
+        cfg=app_config,
         gap_input_dir=new_gap_dir,
         df_exec=df_exec,
         start_date="2015-01-05",

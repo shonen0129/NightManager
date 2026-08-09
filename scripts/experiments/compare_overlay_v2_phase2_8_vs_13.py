@@ -9,7 +9,6 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import yaml
 
 logging.basicConfig(
     level=logging.WARNING,
@@ -23,6 +22,7 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from leadlag.data.cache import load_df_exec_from_local_cache
 from leadlag.execution.backtester import BacktestEngine
+from leadlag.execution.config import load_config_from_yaml
 
 
 def _sharpe(s: pd.Series) -> float:
@@ -55,11 +55,10 @@ def main() -> int:
     args = p.parse_args()
 
     df_exec = load_df_exec_from_local_cache()
-    with open(ROOT / "configs/production/production.yaml") as f:
-        cfg = yaml.safe_load(f)
+    app_config = load_config_from_yaml(ROOT / "configs/production/production.yaml")
 
     base_res = BacktestEngine.run_v2_backtest(
-        cfg=cfg,
+        cfg=app_config,
         gap_input_dir=args.gap_input_dir,
         df_exec=df_exec,
         start_date=args.start_date,
@@ -67,7 +66,7 @@ def main() -> int:
         n_jobs=args.n_jobs,
     )
     p8_res = BacktestEngine.run_v2_backtest(
-        cfg=cfg,
+        cfg=app_config,
         gap_input_dir=args.gap_input_dir,
         df_exec=df_exec,
         start_date=args.start_date,
@@ -76,7 +75,7 @@ def main() -> int:
         overlay_model_dir=ROOT / "models/ml_order_overlay/phase2_8",
     )
     p13_res = BacktestEngine.run_v2_backtest(
-        cfg=cfg,
+        cfg=app_config,
         gap_input_dir=args.gap_input_dir,
         df_exec=df_exec,
         start_date=args.start_date,

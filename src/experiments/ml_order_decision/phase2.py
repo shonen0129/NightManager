@@ -25,7 +25,9 @@ from experiments.ml_order_decision.phase1 import (
     _compute_metrics,
     _precompute_market_vol,
     _recompute_w_pre,
+    _resolve_app_config,
 )
+from leadlag.config.schemas import AppConfig, ProductionV2RunConfig
 from leadlag.data.tickers import JP_TICKERS
 from leadlag.execution.backtester import BacktestEngine
 from leadlag.models.sre import compute_jp_target_returns
@@ -170,7 +172,7 @@ def make_overlay_generator_lgbm(
     ema_dates: dict[str, pd.Timestamp] = {}
     ema_alpha = 2.0 / (p_trade_ema_span + 1.0) if p_trade_ema_span and p_trade_ema_span > 0 else 1.0
 
-    def _wrapped(trade_date: str, gap_input_dir: Path, cfg: dict) -> dict:
+    def _wrapped(trade_date: str, gap_input_dir: Path, cfg: ProductionV2RunConfig | dict) -> dict:
         result = original_generate(trade_date, gap_input_dir, cfg)
 
         if result["fallback"]["gap_data_missing"]:
@@ -265,7 +267,7 @@ def _prepare_vix_features(
 def run_phase2_experiment(
     df_exec: pd.DataFrame,
     gap_input_dir: Path,
-    cfg: dict,
+    cfg: AppConfig | dict,
     output_dir: Path,
     train_start: str = "2020-01-06",
     train_end: str = "2022-12-31",
@@ -282,6 +284,8 @@ def run_phase2_experiment(
 ) -> dict:
     """Run the full Phase 2 experiment and save artifacts."""
     output_dir.mkdir(parents=True, exist_ok=True)
+
+    app_config = _resolve_app_config(cfg)
 
     market_vol = _precompute_market_vol(df_exec)
     y_target = compute_jp_target_returns(df_exec, JP_TICKERS)
@@ -310,7 +314,7 @@ def run_phase2_experiment(
 
     # 1. Collect training data and fit LightGBM
     train_df = _collect_training_data(
-        train_dates, df_exec, y_target, gap_input_dir, cfg, market_vol,
+        train_dates, df_exec, y_target, gap_input_dir, app_config, market_vol,
         per_ticker_interactions=per_ticker_interactions,
         vix_features=vix_features,
     )
@@ -328,7 +332,7 @@ def run_phase2_experiment(
     # 2. Baseline V2 backtest
     logger.info("Running baseline V2 backtest...")
     baseline_result = BacktestEngine.run_v2_backtest(
-        cfg,
+        app_config,
         gap_input_dir,
         df_exec,
         start_date=test_start,
@@ -357,7 +361,7 @@ def run_phase2_experiment(
     try:
         logger.info("Running overlay V2 backtest (n_jobs=%s, EMA span=%s)...", overlay_n_jobs, p_trade_ema_span)
         overlay_result = BacktestEngine.run_v2_backtest(
-            cfg,
+            app_config,
             gap_input_dir,
             df_exec,
             start_date=test_start,

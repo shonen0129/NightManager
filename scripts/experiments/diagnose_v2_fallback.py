@@ -6,8 +6,6 @@ import logging
 import sys
 from pathlib import Path
 
-import yaml
-
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
@@ -17,13 +15,13 @@ logging.basicConfig(
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
+from leadlag.execution.config import load_config_from_yaml
 from leadlag.models.production_v2 import generate_v2_production_portfolio
 
 
 def main() -> int:
     gap_dir = ROOT / "outputs/long_period/gap_adjusted_false_clipped/20260730_173341"
-    with open(ROOT / "configs/production/production.yaml") as f:
-        cfg = yaml.safe_load(f)
+    app_config = load_config_from_yaml(ROOT / "configs/production/production.yaml")
 
     dates = [
         "2025-10-28", "2025-10-29", "2025-10-30", "2025-10-31",
@@ -32,7 +30,7 @@ def main() -> int:
     ]
 
     for date_str in dates:
-        res = generate_v2_production_portfolio(date_str, gap_dir, cfg)
+        res = generate_v2_production_portfolio(date_str, gap_dir, cfg=app_config.v2)
         numerical = res["numerical"]
         print(
             f"{date_str}: fallback={res['fallback']} "

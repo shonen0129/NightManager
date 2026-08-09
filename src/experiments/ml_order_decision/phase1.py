@@ -24,14 +24,31 @@ import pandas as pd
 from scipy.special import expit
 from sklearn.linear_model import Ridge
 
+from leadlag.config.schemas import AppConfig, ProductionV2RunConfig
 from leadlag.core.portfolio import solve_baseline_style
 from leadlag.core.signal import build_weights_minvar
 from leadlag.data.tickers import JP_TICKERS
 from leadlag.execution.backtester import BacktestEngine
+from leadlag.execution.config import build_app_config_from_dict
 from leadlag.models.production_v2 import generate_v2_production_portfolio
 from leadlag.models.sre import compute_jp_target_returns
 
 logger = logging.getLogger(__name__)
+
+
+def _resolve_app_config(cfg: AppConfig | dict) -> AppConfig:
+    """Return a validated ``AppConfig`` from either a Pydantic model or a raw dict."""
+    if isinstance(cfg, AppConfig):
+        return cfg
+    return build_app_config_from_dict(cfg)
+
+
+def _resolve_run_cfg(cfg: AppConfig | dict) -> ProductionV2RunConfig:
+    """Return a validated ``ProductionV2RunConfig`` from an ``AppConfig`` or a raw dict."""
+    if isinstance(cfg, AppConfig):
+        return cfg.v2
+    return ProductionV2RunConfig.model_validate(cfg)
+
 
 SLIPPAGE_BPS_PER_SIDE = 5.0
 ROUND_TRIP_COST = 2.0 * SLIPPAGE_BPS_PER_SIDE / 10000.0
@@ -235,12 +252,14 @@ def _collect_training_data(
     df_exec: pd.DataFrame,
     y_target: np.ndarray,
     gap_input_dir: Path,
-    cfg: dict,
+    cfg: AppConfig | dict,
     market_vol: pd.DataFrame,
     per_ticker_interactions: bool = False,
     vix_features: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
     """Loop over training dates and collect per-ticker features + target."""
+    run_cfg = _resolve_run_cfg(cfg)
+
     gap_cols = [f"jp_gap_{tk}" for tk in JP_TICKERS]
     beta_cols = [f"jp_beta_{tk}" for tk in JP_TICKERS]
 
@@ -256,7 +275,7 @@ def _collect_training_data(
 
         date_str = date.strftime("%Y-%m-%d")
         try:
-            v2 = generate_v2_production_portfolio(date_str, gap_input_dir, cfg)
+            v2 = generate_v2_production_portfolio(date_str, gap_input_dir, cfg=run_cfg)
         except Exception as e:
             logger.warning("[%s] V2 generation failed: %s", date_str, e)
             continue
@@ -391,7 +410,7 @@ def make_overlay_generator(
 ) -> callable:
     """Return a wrapped ``generate_v2_production_portfolio`` that applies the overlay."""
 
-    def _wrapped(trade_date: str, gap_input_dir: Path, cfg: dict) -> dict:
+    def _wrapped(trade_date: str, gap_input_dir: Path, cfg: ProductionV2RunConfig | dict) -> dict:
         result = original_generate(trade_date, gap_input_dir, cfg)
 
         if result["fallback"]["gap_data_missing"]:
@@ -443,7 +462,7 @@ def _compute_metrics(daily_returns: pd.Series) -> dict:
 def run_phase1_experiment(
     df_exec: pd.DataFrame,
     gap_input_dir: Path,
-    cfg: dict,
+    cfg: AppConfig | dict,
     output_dir: Path,
     train_start: str = "2020-01-06",
     train_end: str = "2022-12-31",
@@ -456,6 +475,8 @@ def run_phase1_experiment(
 ) -> dict:
     """Run the full Phase 1 experiment and save artifacts."""
     output_dir.mkdir(parents=True, exist_ok=True)
+
+    app_config = _resolve_app_config(cfg)
 
     market_vol = _precompute_market_vol(df_exec)
     y_target = compute_jp_target_returns(df_exec, JP_TICKERS)
@@ -482,7 +503,7 @@ def run_phase1_experiment(
 
     # 1. Collect training data and fit overlay
     train_df = _collect_training_data(
-        train_dates, df_exec, y_target, gap_input_dir, cfg, market_vol,
+        train_dates, df_exec, y_target, gap_input_dir, app_config, market_vol,
         per_ticker_interactions=per_ticker_interactions,
     )
     if train_df.empty:
@@ -497,7 +518,7 @@ def run_phase1_experiment(
     # 2. Baseline V2 backtest
     logger.info("Running baseline V2 backtest...")
     baseline_result = BacktestEngine.run_v2_backtest(
-        cfg,
+        app_config,
         gap_input_dir,
         df_exec,
         start_date=test_start,
@@ -518,7 +539,7 @@ def run_phase1_experiment(
     try:
         logger.info("Running overlay V2 backtest...")
         overlay_result = BacktestEngine.run_v2_backtest(
-            cfg,
+            app_config,
             gap_input_dir,
             df_exec,
             start_date=test_start,
