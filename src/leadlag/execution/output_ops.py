@@ -11,9 +11,7 @@ from __future__ import annotations
 import json
 import logging
 import os
-from dataclasses import asdict, is_dataclass
 from datetime import datetime
-from typing import Any
 
 import pandas as pd
 
@@ -54,7 +52,7 @@ def save_decision_output(
 def save_summary_files(
     results: pd.DataFrame,
     metrics: dict,
-    config: ProductionConfig | dict[str, Any] | Any,
+    config: ProductionConfig,
     output_dir: str,
 ) -> None:
     results_path = os.path.join(output_dir, "daily_results.csv")
@@ -66,14 +64,7 @@ def save_summary_files(
 
     wealth = (1.0 + results["daily_return"]).cumprod()
     drawdown = wealth / wealth.cummax() - 1.0
-    if hasattr(config, "model_dump"):
-        cfg_dict = config.model_dump()
-    elif is_dataclass(config):
-        cfg_dict = asdict(config)
-    elif isinstance(config, dict):
-        cfg_dict = config
-    else:
-        cfg_dict = dict(config)
+    cfg_dict = config.model_dump()
 
     summary = {
         "run_time": datetime.now().isoformat(timespec="seconds"),

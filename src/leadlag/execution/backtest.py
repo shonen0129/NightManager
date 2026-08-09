@@ -17,14 +17,15 @@ from leadlag.core.risk import compute_var_es
 from leadlag.data.fetcher import download_data
 from leadlag.data.preprocessor import preprocess_data
 from leadlag.execution.backtester import BacktestEngine
+from leadlag.execution.config import load_config_from_yaml
 from leadlag.execution.helpers import build_output_dir, save_summary_files
 from leadlag.reporting.metrics import calculate_metrics, generate_report
 
 logger = logging.getLogger(__name__)
 
 
-def _resolve_v2_config(config_path: str | Path | None) -> tuple[dict[str, Any], Path]:
-    """Load and return the V2 production config dict and resolved project root."""
+def _resolve_v2_config(config_path: str | Path | None) -> tuple[dict[str, Any], Path, Path]:
+    """Load and return the V2 production config dict, project root, and resolved path."""
     project_root = Path(__file__).resolve().parents[3]
     if config_path is None:
         resolved = project_root / "configs" / "production" / "production.yaml"
@@ -34,7 +35,7 @@ def _resolve_v2_config(config_path: str | Path | None) -> tuple[dict[str, Any], 
             resolved = project_root / resolved
     with open(resolved, encoding="utf-8") as f:
         cfg = yaml.safe_load(f) or {}
-    return cfg, project_root
+    return cfg, project_root, resolved
 
 
 def _resolve_gap_input_dir(
@@ -84,7 +85,8 @@ def run_production(
     Returns:
         Path to the output directory
     """
-    cfg, project_root = _resolve_v2_config(config_path)
+    cfg, project_root, resolved = _resolve_v2_config(config_path)
+    app_config = load_config_from_yaml(resolved)
 
     output_dir = build_output_dir(output_root, run_tag, run_name="production_backtest")
 
@@ -153,7 +155,7 @@ def run_production(
     summary_results_df = pd.DataFrame(
         {"daily_return": results["daily_returns"]}, index=results["daily_returns"].index
     )
-    save_summary_files(summary_results_df, metrics, cfg, output_dir)
+    save_summary_files(summary_results_df, metrics, app_config.strategy, output_dir)
 
     # Print summary metrics to log
     print("=== Backtest Performance Metrics ===")
