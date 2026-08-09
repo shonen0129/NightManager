@@ -496,7 +496,6 @@ def _compute_scores_and_weights(
     mu_gap: np.ndarray,
     Omega_gap: np.ndarray,
     run_cfg: ProductionV2RunConfig,
-    cfg: dict,
     gap_input_dir: Path | None,
     date_str: str,
     n_j: int,
@@ -508,21 +507,14 @@ def _compute_scores_and_weights(
 
     # Phase 2A: Multi-horizon signal blending
     if run_cfg.mh_blend_enabled and len(run_cfg.mh_horizons) > 1:
-        mh_cfg = cfg.get("multi_horizon_blend", {})
-        mu_pattern = mh_cfg.get(
-            "mu_file_pattern_h", "matrices/mu_gap_h{h}_{date}.npy"
-        )
-        omega_pattern = mh_cfg.get(
-            "omega_file_pattern_h", "matrices/omega_gap_h{h}_{date}.npy"
-        )
         scores, mh_alerts = apply_multi_horizon_blend(
             scores_h1=scores,
             gap_input_dir=gap_input_dir,
             date_str=date_str,
             horizons=run_cfg.mh_horizons,
             weights=run_cfg.mh_weights,
-            mu_pattern=mu_pattern,
-            omega_pattern=omega_pattern,
+            mu_pattern=run_cfg.mh_mu_file_pattern_h,
+            omega_pattern=run_cfg.mh_omega_file_pattern_h,
         )
         alerts.extend(mh_alerts)
         if not any("not found" in a for a in mh_alerts):
@@ -531,16 +523,12 @@ def _compute_scores_and_weights(
 
     # Phase 2D: Cross-sectional rank reversal overlay
     if run_cfg.cs_overlay_enabled:
-        cs_cfg = cfg.get("cs_feature_overlay", {})
-        rr_pattern = cs_cfg.get(
-            "rank_reversal_file_pattern", "matrices/rank_reversal_{date}.npy"
-        )
         scores, cs_alerts = apply_rank_reversal_overlay(
             scores=scores,
             gap_input_dir=gap_input_dir,
             date_str=date_str,
             weight=run_cfg.cs_overlay_weight,
-            file_pattern=rr_pattern,
+            file_pattern=run_cfg.cs_rank_reversal_file_pattern,
         )
         alerts.extend(cs_alerts)
         if not any("not found" in a or "None" in a for a in cs_alerts):
@@ -697,7 +685,7 @@ def generate_v2_production_portfolio(
 
     # 4. Compute scores and pre-gross weights
     scores, w_pre, sigma_gap, alerts = _compute_scores_and_weights(
-        mu_gap, Omega_gap, run_cfg, cfg, gap_input_dir, date_str, n_j, alerts
+        mu_gap, Omega_gap, run_cfg, gap_input_dir, date_str, n_j, alerts
     )
 
     # 5. PIT binning and RuleD multiplier

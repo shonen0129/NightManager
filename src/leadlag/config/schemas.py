@@ -220,10 +220,22 @@ class ProductionV2RunConfig(BaseModel):
     mh_blend_enabled: bool = Field(default=False, description="マルチホライズンブレンド有効フラグ")
     mh_horizons: tuple[int, ...] = Field(default=(1, 3, 5), description="ブレンド対象ホライズン（日）")
     mh_weights: tuple[float, ...] = Field(default=(0.8, 0.1, 0.1), description="各ホライズンのブレンド重み")
+    mh_mu_file_pattern_h: str = Field(
+        default="matrices/mu_gap_h{h}_{date}.npy",
+        description="マルチホライズンブレンド用 mu_gap ファイルパターン",
+    )
+    mh_omega_file_pattern_h: str = Field(
+        default="matrices/omega_gap_h{h}_{date}.npy",
+        description="マルチホライズンブレンド用 omega_gap ファイルパターン",
+    )
 
     # --- Phase 2D: Cross-Sectional Rank Reversal Overlay ---
     cs_overlay_enabled: bool = Field(default=False, description="CS特徴量オーバーレイ有効フラグ")
     cs_overlay_weight: float = Field(default=0.05, ge=0.0, description="ランク反転オーバーレイ重み")
+    cs_rank_reversal_file_pattern: str = Field(
+        default="matrices/rank_reversal_{date}.npy",
+        description="ランク反転オーバーレイ用ファイルパターン",
+    )
 
     # --- MinVar weight optimization ---
     minvar_enabled: bool = Field(default=False, description="共分散対応最小分散weight最適化有効フラグ")
@@ -284,8 +296,11 @@ class ProductionV2RunConfig(BaseModel):
             "mh_blend_enabled": mh.get("enabled"),
             "mh_horizons": mh.get("horizons"),
             "mh_weights": mh.get("weights"),
+            "mh_mu_file_pattern_h": mh.get("mu_file_pattern_h"),
+            "mh_omega_file_pattern_h": mh.get("omega_file_pattern_h"),
             "cs_overlay_enabled": cs.get("enabled"),
             "cs_overlay_weight": cs.get("weight"),
+            "cs_rank_reversal_file_pattern": cs.get("rank_reversal_file_pattern"),
             "minvar_enabled": portfolio.get("minvar_enabled"),
             "minvar_alpha": portfolio.get("minvar_alpha"),
             # Macro keys: production.yaml places them under blpx: (not portfolio:).
