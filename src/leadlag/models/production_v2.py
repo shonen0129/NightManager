@@ -742,19 +742,10 @@ class ProductionV2Model:
     not need to pass the raw ``cfg`` dict on every decision date.
     """
 
-    def __init__(self, config: dict | ProductionV2RunConfig) -> None:
-        """Initialize the model with a validated or raw config.
-
-        Args:
-            config: Raw YAML-style dict or an already-validated
-                ``ProductionV2RunConfig``.
-        """
-        if isinstance(config, ProductionV2RunConfig):
-            self.run_config = config
-            self._raw_config: dict = self.run_config.model_dump()
-        else:
-            self._raw_config = dict(config)
-            self.run_config = parse_run_config(self._raw_config)
+    def __init__(self, config: ProductionV2RunConfig) -> None:
+        """Initialize the model with a validated ``ProductionV2RunConfig``."""
+        self.run_config = config
+        self._raw_config: dict = self.run_config.model_dump()
 
         self.n_u = len(US_TICKERS)
         self.n_j = len(JP_TICKERS)

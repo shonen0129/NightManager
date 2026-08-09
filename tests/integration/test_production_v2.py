@@ -673,7 +673,8 @@ class TestProductionV2Model:
             cfg=cfg,
         )
 
-        model = ProductionV2Model(cfg)
+        run_cfg = parse_run_config(cfg)
+        model = ProductionV2Model(run_cfg)
         result_cls = model.decide(trade_date="2026-06-16", gap_input_dir=tmp_path)
 
         assert np.allclose(result_cls["w_final"], result_fn["w_final"], atol=1e-12)
@@ -682,7 +683,7 @@ class TestProductionV2Model:
 
     def test_model_flat_fallback(self):
         """Model returns flat position when no gap data is provided."""
-        model = ProductionV2Model({})
+        model = ProductionV2Model(parse_run_config({}))
         result = model.decide(trade_date="2026-06-16", gap_input_dir=None)
         assert result["fallback"]["gap_data_missing"] is True
         assert np.allclose(result["w_final"], np.zeros(len(JP_TICKERS)), atol=1e-12)

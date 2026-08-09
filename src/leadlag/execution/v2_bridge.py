@@ -21,6 +21,7 @@ import pandas as pd
 import yaml
 
 from leadlag.broker.tachibana.session_cache import load_open_prices_cache
+from leadlag.config.schemas import ProductionV2RunConfig
 from leadlag.data.cache import get_hist_returns_for_risk as _get_hist_returns_for_risk
 from leadlag.data.tickers import JP_TICKERS, TOPIX_TICKER
 from leadlag.execution.config import load_config_from_yaml
@@ -112,7 +113,8 @@ def run_v2_decision(
 
     # --- Step 1: Generate V2 portfolio ---
     logger.info("[1/4] Generating V2 production portfolio...")
-    model = ProductionV2Model(cfg)
+    run_config = ProductionV2RunConfig.model_validate(cfg)
+    model = ProductionV2Model(run_config)
     result = model.decide(
         trade_date=trade_date,
         gap_input_dir=gap_dir,
