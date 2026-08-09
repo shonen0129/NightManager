@@ -151,14 +151,14 @@ class TestSubmitOrdersViaApiSplit:
         """1629.T BUY 300 → 150 immediate + 150 delayed."""
         decision_df = self._make_decision_df([("1629.T", "BUY", 300)])
         client = _MockBroker([])
-        import leadlag.execution.helpers as helpers_mod
-        _orig_sleep = helpers_mod.time.sleep
-        helpers_mod.time.sleep = lambda *a, **kw: None
+        import leadlag.execution.broker_ops as broker_ops
+        _orig_sleep = broker_ops.time.sleep
+        broker_ops.time.sleep = lambda *a, **kw: None
         try:
             with tempfile.TemporaryDirectory() as tmpdir:
                 submit_orders_via_api(decision_df, client, tmpdir)
         finally:
-            helpers_mod.time.sleep = _orig_sleep
+            broker_ops.time.sleep = _orig_sleep
         assert len(client.batches) == 2
         assert client.batches[0][0].quantity == 150
         assert client.batches[1][0].quantity == 150
@@ -167,14 +167,14 @@ class TestSubmitOrdersViaApiSplit:
         """If immediate batch fails, delayed batch should be skipped."""
         decision_df = self._make_decision_df([("1629.T", "BUY", 300)])
         client = _FailingMockBroker([])
-        import leadlag.execution.helpers as helpers_mod
-        _orig_sleep = helpers_mod.time.sleep
-        helpers_mod.time.sleep = lambda *a, **kw: None
+        import leadlag.execution.broker_ops as broker_ops
+        _orig_sleep = broker_ops.time.sleep
+        broker_ops.time.sleep = lambda *a, **kw: None
         try:
             with tempfile.TemporaryDirectory() as tmpdir:
                 summary = submit_orders_via_api(decision_df, client, tmpdir)
         finally:
-            helpers_mod.time.sleep = _orig_sleep
+            broker_ops.time.sleep = _orig_sleep
         # Only first batch attempted; delayed skipped
         assert len(client.batches) == 1
         assert len(summary["buy_results"]) == 2  # FAILED + SKIPPED

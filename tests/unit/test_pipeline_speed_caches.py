@@ -8,6 +8,7 @@ import pandas as pd
 from leadlag.broker.tachibana import session_cache
 from leadlag.broker.tachibana.api import TachibanaClient
 from leadlag.data import cache as data_cache
+from leadlag.execution import broker_ops
 from leadlag.execution import helpers
 
 
@@ -129,10 +130,10 @@ def test_build_api_client_retries_after_invalid_restored_session(monkeypatch):
         ),
         kabu=None,
     )
-    monkeypatch.setattr(helpers, "load_config_from_yaml", lambda: app_cfg)
-    monkeypatch.setattr(helpers, "create_broker_from_args", lambda **kwargs: fake_client)
+    monkeypatch.setattr(broker_ops, "load_config_from_yaml", lambda: app_cfg)
+    monkeypatch.setattr(broker_ops, "create_broker_from_args", lambda **kwargs: fake_client)
 
-    result = helpers.build_api_client(None, None, False)
+    result = broker_ops.build_api_client(None, None, False)
 
     assert result is fake_client
     assert fake_client.discarded is True
