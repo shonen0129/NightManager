@@ -19,6 +19,11 @@ import numpy as np
 import pandas as pd
 
 from leadlag.data.tickers import JP_TICKERS, TOPIX_TICKER, US_TICKERS
+from leadlag.data.validation import (
+    DataValidationError,
+    validate_exec_record,
+    validate_raw_data_sources,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -130,6 +135,7 @@ def preprocess_data(
     beta_ewma_halflife: float | None = None,
     beta_shrinkage: float = 0.0,
     beta_winsor_sigma: float | None = None,
+    strict_validation: bool = False,
 ) -> pd.DataFrame:
     """Align raw OHLC data and build the execution DataFrame.
 
@@ -151,10 +157,24 @@ def preprocess_data(
         beta_winsor_sigma: If set, winsorize gap and TOPIX returns at this many
             rolling standard deviations before beta estimation (e.g. 3.0).
             When None, no winsorization is applied.
+        strict_validation: If True, raise ``DataValidationError`` as soon as a
+            source-key check or an execution-record check fails. If False (the
+            default for backward compatibility), invalid records are skipped with
+            a warning.
 
     Returns:
         df_exec DataFrame indexed by trade_date
+
+    Raises:
+        DataValidationError: When ``strict_validation=True`` and data quality
+            invariants are violated.
     """
+    raw_alerts = validate_raw_data_sources(data)
+    if raw_alerts and strict_validation:
+        raise DataValidationError("; ".join(raw_alerts))
+    for alert in raw_alerts:
+        logger.warning("preprocess_data source validation: %s", alert)
+
     us_c = data["us_close"].copy()
     if isinstance(us_c, pd.DataFrame):
         us_c = us_c[US_TICKERS].copy()
@@ -270,6 +290,15 @@ def preprocess_data(
             or jp_close_sig.isna().any()
             or jp_open_trade.isna().any()
         ):
+            if strict_validation:
+                raise DataValidationError(
+                    f"NaN in required columns for trade_date={trade_date}; "
+                    f"enable strict_validation to surface this at record level"
+                )
+            logger.warning(
+                "Skipping trade_date=%s due to NaN in required columns",
+                trade_date,
+            )
             continue
 
         # r_oc (target return) may be NaN for today (close not yet available).
@@ -289,6 +318,14 @@ def preprocess_data(
             record[f"jp_gap_{tk}"] = r_gap[tk]
             record[f"jp_close_sig_{tk}"] = jp_close_sig[tk]
             record[f"jp_open_trade_{tk}"] = jp_open_trade[tk]
+
+        record_alerts = validate_exec_record(record)
+        if record_alerts:
+            if strict_validation:
+                raise DataValidationError("; ".join(record_alerts))
+            for alert in record_alerts:
+                logger.warning("preprocess_data record validation: %s", alert)
+            continue
 
         records.append(record)
 

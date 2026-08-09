@@ -12,10 +12,11 @@ from leadlag.core.correlation import (
     compute_correlation,
     regularize_correlation,
 )
+from leadlag.core.pit import PITMatrixView, maybe_as_pit
 
 
 def compute_signal(
-    all_returns: np.ndarray,
+    all_returns: np.ndarray | PITMatrixView,
     current_index: int,
     n_u: int,
     corr_window: int,
@@ -65,8 +66,10 @@ def compute_signal(
     Returns:
         Dict with: signal (N_J,), sigma_s, r_hat_jp_cc (N_J,)
     """
-    window_start = max(0, current_index - corr_window)
-    window_returns = all_returns[window_start:current_index]
+    all_returns = maybe_as_pit(
+        all_returns, as_of=current_index, name="all_returns"
+    )
+    window_returns = all_returns.historical_slice(corr_window)
 
     mu_w, sigma_w, c_t = compute_correlation(window_returns, ewma_half_life)
 
@@ -102,7 +105,7 @@ def compute_signal(
     v_u_t_k = v_t_k[:n_u, :]
     v_j_t_k = v_t_k[n_u:, :]
 
-    r_us_t = all_returns[current_index, :n_u]
+    r_us_t = all_returns.asof_row()[:n_u]
     mu_us = mu_w[:n_u]
     sigma_us = sigma_w[:n_u]
     z_u_t = (r_us_t - mu_us) / sigma_us
@@ -114,7 +117,9 @@ def compute_signal(
     sigma_jp = sigma_w[n_u:]
     if vol_adjusted_target:
         if current_index >= 20:
-            jp_returns_20 = all_returns[current_index - 20 : current_index, n_u:]
+            jp_returns_20 = all_returns.historical_range(
+                current_index - 20, current_index
+            )[:, n_u:]
             sigma_j_t = np.std(jp_returns_20, axis=0, ddof=1)
             sigma_j_t = np.maximum(sigma_j_t, 1e-8)
         else:

@@ -1,5 +1,9 @@
 # 日米リードラグ・ファンド改善ガイド
 
+> **Note**: Architectural and tooling decisions are moving to
+> `docs/decisions/` as ADRs. `AGENTS.md` remains the canonical list of
+> operational invariants that must not be broken.
+
 ## ⚠️ 実行規約（必須・違反禁止）
 
 - **`python3 -c "..."` のインライン実行は禁止** — ハング・スタックの主要原因。必ずスクリプトファイル（`scripts/experiments/` 配下等）を作成して `python3 scripts/...` で実行すること

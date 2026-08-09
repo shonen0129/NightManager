@@ -61,6 +61,54 @@ N_JP: int = len(JP_TICKERS)  # 17
 N_TOTAL: int = N_US + N_JP  # 32
 
 # ---------------------------------------------------------------------------
+# Sensitivity labels for prior subspace construction (w3-w6).
+#
+# These replace the 32-dim hard-coded arrays in core/correlation.py.
+# Changing the universe only requires updating the mapping for the new tickers.
+# ---------------------------------------------------------------------------
+
+def _sens(w3: float, w4: float, w5: float, w6: float) -> dict[str, float]:
+    return {"w3": w3, "w4": w4, "w5": w5, "w6": w6}
+
+
+SENSITIVITY_LABELS: dict[str, dict[str, float]] = {
+    # US tickers
+    "XLB": _sens(1.0, 0.3, 0.3, 1.0),
+    "XLC": _sens(0.3, 0.0, 0.0, -0.3),
+    "XLE": _sens(0.3, 0.0, 1.0, 1.0),
+    "XLF": _sens(1.0, 0.3, 0.0, 0.3),
+    "XLI": _sens(1.0, 0.6, 0.3, 0.3),
+    "XLK": _sens(0.6, 1.0, 0.0, -0.6),
+    "XLP": _sens(-1.0, -0.6, -0.3, -0.3),
+    "XLRE": _sens(0.3, -0.3, 0.0, 0.3),
+    "XLU": _sens(-1.0, -0.6, -1.0, -0.6),
+    "XLV": _sens(-1.0, -0.3, 0.0, -0.3),
+    "XLY": _sens(1.0, 0.6, -0.3, -0.3),
+    "MTUM": _sens(0.0, 0.3, 0.0, 0.0),
+    "VLUE": _sens(0.6, 0.0, 0.3, 0.6),
+    "IUSG": _sens(-0.3, 0.6, 0.0, -0.3),
+    "USMV": _sens(-0.6, -0.3, -0.3, -0.3),
+    # JP tickers (1617.T ... 1633.T)
+    "1617.T": _sens(-1.0, -0.6, -0.3, -0.3),
+    "1618.T": _sens(0.3, 0.3, 1.0, 1.0),
+    "1619.T": _sens(0.6, 0.3, 0.0, 0.3),
+    "1620.T": _sens(1.0, 0.6, 0.3, 0.6),
+    "1621.T": _sens(-1.0, -0.3, 0.0, -0.3),
+    "1622.T": _sens(1.0, 1.0, -0.3, 0.0),
+    "1623.T": _sens(1.0, 0.6, 0.3, 0.6),
+    "1624.T": _sens(1.0, 1.0, 0.0, 0.3),
+    "1625.T": _sens(1.0, 1.0, 0.0, -0.3),
+    "1626.T": _sens(-0.3, -0.3, 0.0, -0.3),
+    "1627.T": _sens(-1.0, -1.0, -1.0, -1.0),
+    "1628.T": _sens(-0.3, -0.3, 0.0, -0.3),
+    "1629.T": _sens(0.6, 1.0, 0.6, 1.0),
+    "1630.T": _sens(-0.6, -0.6, -0.3, -0.6),
+    "1631.T": _sens(1.0, 0.3, 0.0, 0.3),
+    "1632.T": _sens(0.6, 0.0, 0.0, 0.0),
+    "1633.T": _sens(0.6, -1.0, 0.0, 0.3),
+}
+
+# ---------------------------------------------------------------------------
 # Backward-compatible aliases (used by config.py and legacy imports)
 # ---------------------------------------------------------------------------
 N_US_ASSETS: int = N_US

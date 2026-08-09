@@ -8,7 +8,7 @@ from scipy.special import gammaln
 from scipy.stats import kendalltau
 from scipy.stats import t as student_t
 
-from leadlag.data.tickers import JP_TICKERS, US_TICKERS
+from leadlag.data.tickers import JP_TICKERS, SENSITIVITY_LABELS, US_TICKERS
 
 # Numeric constants
 EPSILON_WEIGHT = 1e-12
@@ -49,7 +49,7 @@ def build_base_vectors(n_u: int, n_j: int) -> dict[str, np.ndarray]:
 
 
 def get_static_sensitivity_labels() -> dict[str, np.ndarray]:
-    """Return the hardcoded sensitivity label vectors (single source of truth).
+    """Return sensitivity label vectors built from the ticker registry.
 
     Values use a 7-level discrete grid: {-1.0, -0.6, -0.3, 0.0, +0.3, +0.6, +1.0}.
     Order: US_TICKERS (15) then JP_TICKERS (17), total 32.
@@ -62,48 +62,32 @@ def get_static_sensitivity_labels() -> dict[str, np.ndarray]:
     Raises
     ------
     ValueError
-        If the label length does not match len(US_TICKERS) + len(JP_TICKERS).
-        The labels are hardcoded per-ticker, so any universe change in
-        tickers.py must update them here as well (AGENTS.md invariant #5).
+        If a ticker in the universe has no sensitivity entry, or if the
+        generated length does not match the universe size. This localizes the
+        ``update label arrays here as well`` invariant to the ticker registry
+        itself (AGENTS.md invariant #5).
     """
-    labels = {
-        "w3": np.array(
-            [
-                1.0, 0.3, 0.3, 1.0, 1.0, 0.6, -1.0, 0.3, -1.0, -1.0, 1.0, 0.0, 0.6, -0.3, -0.6,
-                -1.0, 0.3, 0.6, 1.0, -1.0, 1.0, 1.0, 1.0, 1.0, -0.3, -1.0, -0.3, 0.6, -0.6, 1.0, 0.6, 0.6,
-            ],
+    tickers = list(US_TICKERS) + list(JP_TICKERS)
+    missing = [tk for tk in tickers if tk not in SENSITIVITY_LABELS]
+    if missing:
+        raise ValueError(
+            f"Missing sensitivity labels for tickers: {missing}. "
+            "Update SENSITIVITY_LABELS in leadlag/data/tickers.py"
+        )
+
+    names = ["w3", "w4", "w5", "w6"]
+    labels: dict[str, np.ndarray] = {}
+    for name in names:
+        arr = np.array(
+            [SENSITIVITY_LABELS[tk][name] for tk in tickers],
             dtype=float,
-        ),
-        "w4": np.array(
-            [
-                0.3, 0.0, 0.0, 0.3, 0.6, 1.0, -0.6, -0.3, -0.6, -0.3, 0.6, 0.3, 0.0, 0.6, -0.3,
-                -0.6, 0.3, 0.3, 0.6, -0.3, 1.0, 0.6, 1.0, 1.0, -0.3, -1.0, -0.3, 1.0, -0.6, 0.3, 0.0, -1.0,
-            ],
-            dtype=float,
-        ),
-        "w5": np.array(
-            [
-                0.3, 0.0, 1.0, 0.0, 0.3, 0.0, -0.3, 0.0, -1.0, 0.0, -0.3, 0.0, 0.3, 0.0, -0.3,
-                -0.3, 1.0, 0.0, 0.3, 0.0, -0.3, 0.3, 0.0, 0.0, 0.0, -1.0, 0.0, 0.6, -0.3, 0.0, 0.0, 0.0,
-            ],
-            dtype=float,
-        ),
-        "w6": np.array(
-            [
-                1.0, -0.3, 1.0, 0.3, 0.3, -0.6, -0.3, 0.3, -0.6, -0.3, -0.3, 0.0, 0.6, -0.3, -0.3,
-                -0.3, 1.0, 0.3, 0.6, -0.3, 0.0, 0.6, 0.3, -0.3, -0.3, -1.0, -0.3, 1.0, -0.6, 0.3, 0.0, 0.3,
-            ],
-            dtype=float,
-        ),
-    }
-    expected = len(US_TICKERS) + len(JP_TICKERS)
-    for name, arr in labels.items():
-        if arr.shape[0] != expected:
+        )
+        if arr.shape[0] != len(tickers):
             raise ValueError(
-                f"Sensitivity label '{name}' has length {arr.shape[0]}, expected {expected} "
-                f"(len(US_TICKERS) + len(JP_TICKERS)). Update the hardcoded labels in "
-                f"get_static_sensitivity_labels() when changing the universe (AGENTS.md invariant #5)."
+                f"Sensitivity label '{name}' has length {arr.shape[0]}, expected {len(tickers)}"
             )
+        labels[name] = arr
+
     return labels
 
 

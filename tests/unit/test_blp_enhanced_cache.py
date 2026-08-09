@@ -13,7 +13,10 @@ import numpy as np
 import pandas as pd
 import pytest
 
+import copy
+
 import leadlag.core.correlation as corr_mod
+from leadlag.data.tickers import SENSITIVITY_LABELS
 from leadlag.models.sector_relative_ensemble_blp_enhanced import (
     SectorRelativeEnsembleBLPEnhancedModel,
 )
@@ -113,6 +116,11 @@ class TestSensitivityLabelUniverseValidation:
             assert labels[name].shape == (expected,)
 
     def test_labels_raise_on_universe_mismatch(self, monkeypatch):
-        monkeypatch.setattr(corr_mod, "US_TICKERS", corr_mod.US_TICKERS[:-1])
-        with pytest.raises(ValueError, match="Sensitivity label"):
+        # Sensitivity labels now live in the ticker registry. The failure mode
+        # is a ticker existing in the universe but missing from SENSITIVITY_LABELS.
+        missing_ticker = corr_mod.US_TICKERS[-1]
+        pruned_labels = copy.deepcopy(SENSITIVITY_LABELS)
+        pruned_labels.pop(missing_ticker, None)
+        monkeypatch.setattr(corr_mod, "SENSITIVITY_LABELS", pruned_labels)
+        with pytest.raises(ValueError, match="Missing sensitivity labels"):
             corr_mod.get_static_sensitivity_labels()

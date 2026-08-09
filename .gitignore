@@ -72,3 +72,6 @@ live/pipeline_data/cache/
 # Generated experiment outputs and artifacts
 outputs/
 data/adr_features.csv
+
+# Consolidated runtime output directory (new convention)
+var/
