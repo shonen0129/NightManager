@@ -28,6 +28,7 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from leadlag.data.cache import load_df_exec_from_local_cache
 from leadlag.models.ml_order_overlay import train_overlay_model
+from leadlag.models.production_v2 import parse_run_config
 
 logging.basicConfig(
     level=logging.INFO,
@@ -133,7 +134,7 @@ def main() -> int:
     train_overlay_model(
         df_exec=df_exec,
         gap_input_dir=gap_input_dir,
-        cfg=cfg,
+        run_cfg=parse_run_config(cfg),
         train_start=args.train_start,
         train_end=args.train_end,
         output_dir=output_dir,

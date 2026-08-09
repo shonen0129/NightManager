@@ -633,15 +633,17 @@ def _apply_pit_ruleD(
 def generate_v2_production_portfolio(
     trade_date: str,
     gap_input_dir: Path | None,
-    cfg: dict,
+    cfg: ProductionV2RunConfig | dict,
 ) -> dict:
     """Core v2 production portfolio construction.
 
-    All runtime parameters are resolved from *cfg* via ``parse_run_config()``,
-    so the function itself contains no magic numbers.
+    All runtime parameters come from a validated ``ProductionV2RunConfig``.
+    A raw dict is still accepted for backward compatibility with research
+    scripts; it is parsed into ``ProductionV2RunConfig`` at the boundary.
+    New production code should pass a Pydantic config directly.
 
     Pipeline:
-      1. Parse ``cfg`` → ``ProductionV2RunConfig``.
+      1. Parse *cfg* → ``ProductionV2RunConfig`` (if needed).
       2. Load gap-adjusted distribution matrices (or flat fallback).
       3. Ensure Omega_gap is PSD and apply macro adjustments.
       4. Compute mu_over_sigma scores; optionally blend multi-horizon /
@@ -654,8 +656,7 @@ def generate_v2_production_portfolio(
     Args:
         trade_date: Execution date in 'YYYY-MM-DD' format.
         gap_input_dir: Directory containing gap distribution outputs, or None.
-        cfg: Raw YAML config dict.  Parsed into ``ProductionV2RunConfig``
-             internally; all runtime values come from here.
+        cfg: Validated ``ProductionV2RunConfig`` or raw YAML-style dict.
 
     Returns:
         Dict with keys:
@@ -664,7 +665,7 @@ def generate_v2_production_portfolio(
           run_config (ProductionV2RunConfig — passed to writer layer)
     """
     # 1. Parse cfg → single source of truth for all runtime parameters
-    run_cfg = parse_run_config(cfg)
+    run_cfg = cfg if isinstance(cfg, ProductionV2RunConfig) else parse_run_config(cfg)
 
     n_j = len(JP_TICKERS)
     date_str = pd.to_datetime(trade_date).strftime("%Y-%m-%d")
@@ -759,5 +760,5 @@ class ProductionV2Model:
         return generate_v2_production_portfolio(
             trade_date=trade_date,
             gap_input_dir=gap_input_dir,
-            cfg=self._raw_config,
+            cfg=self.run_config,
         )

@@ -26,6 +26,7 @@ import pandas as pd
 from scipy.special import expit
 
 from leadlag.compliance.v2_auditor import run_numerical_audit
+from leadlag.config.schemas import ProductionV2RunConfig
 from leadlag.core.portfolio import solve_baseline_style
 from leadlag.core.signal import build_weights_minvar
 from leadlag.data.tickers import JP_TICKERS
@@ -302,7 +303,7 @@ def _collect_training_data(
     df_exec: pd.DataFrame,
     y_target: np.ndarray,
     gap_input_dir: Path,
-    cfg: dict,
+    run_cfg: ProductionV2RunConfig,
     market_vol: pd.DataFrame,
     per_ticker_interactions: bool = False,
     adr_df: pd.DataFrame | None = None,
@@ -320,7 +321,7 @@ def _collect_training_data(
             v2 = generate_v2_production_portfolio(
                 trade_date=date_str,
                 gap_input_dir=gap_input_dir,
-                cfg=cfg,
+                cfg=run_cfg,
             )
         except Exception as e:
             logger.warning("[%s] Skipping V2 generation: %s", date_str, e)
@@ -487,7 +488,7 @@ def _train_overlay_lgbm(
 def train_overlay_model(
     df_exec: pd.DataFrame,
     gap_input_dir: Path,
-    cfg: dict,
+    run_cfg: ProductionV2RunConfig,
     train_start: str,
     train_end: str,
     output_dir: Path,
@@ -525,7 +526,7 @@ def train_overlay_model(
         df_exec,
         y_target,
         gap_input_dir,
-        cfg,
+        run_cfg,
         market_vol,
         per_ticker_interactions=per_ticker_interactions,
         adr_df=adr_df,
@@ -671,7 +672,7 @@ def apply_overlay(
 def generate_v2_production_portfolio_with_overlay(
     trade_date: str,
     gap_input_dir: Path | None,
-    cfg: dict,
+    run_cfg: ProductionV2RunConfig,
     df_exec: pd.DataFrame | None,
     overlay_model: MLOrderOverlayModel | None,
 ) -> dict:
@@ -684,7 +685,7 @@ def generate_v2_production_portfolio_with_overlay(
     result = generate_v2_production_portfolio(
         trade_date=trade_date,
         gap_input_dir=gap_input_dir,
-        cfg=cfg,
+        cfg=run_cfg,
     )
 
     if overlay_model is None or df_exec is None:

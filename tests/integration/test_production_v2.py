@@ -250,7 +250,7 @@ class TestGenerateV2Portfolio:
         result = generate_v2_production_portfolio(
             trade_date="2026-06-16",
             gap_input_dir=None,
-            cfg={},
+            cfg=parse_run_config({}),
         )
         assert result["fallback"]["gap_data_missing"] is True
         assert np.allclose(result["w_final"], 0.0)
@@ -268,7 +268,7 @@ class TestGenerateV2Portfolio:
         result = generate_v2_production_portfolio(
             trade_date="2026-06-16",
             gap_input_dir=tmp_path,
-            cfg={},
+            cfg=parse_run_config({}),
         )
 
         assert result["fallback"]["gap_data_missing"] is False
@@ -293,7 +293,7 @@ class TestGenerateV2Portfolio:
         result = generate_v2_production_portfolio(
             trade_date="2026-06-16",
             gap_input_dir=tmp_path,
-            cfg={},
+            cfg=parse_run_config({}),
         )
         s = result["summary"]
         for key in [
@@ -318,7 +318,7 @@ class TestGenerateV2Portfolio:
         result = generate_v2_production_portfolio(
             trade_date="2026-06-16",
             gap_input_dir=tmp_path,
-            cfg={},
+            cfg=parse_run_config({}),
         )
         pit = result["pit_binning"]
         for key in [
@@ -354,7 +354,7 @@ class TestGenerateV2Portfolio:
         result = generate_v2_production_portfolio(
             trade_date="2026-06-16",
             gap_input_dir=tmp_path,
-            cfg={},
+            cfg=parse_run_config({}),
         )
         assert result["fallback"]["gap_data_missing"] is False, \
             "Gap data should have been loaded for trade_date"
@@ -468,7 +468,7 @@ class TestCfgPropagation:
         result = generate_v2_production_portfolio(
             trade_date="2026-06-16",
             gap_input_dir=tmp_path,
-            cfg={},
+            cfg=parse_run_config({}),
         )
         assert "run_config" in result
         assert isinstance(result["run_config"], ProductionV2RunConfig)
@@ -480,7 +480,7 @@ class TestCfgPropagation:
         result = generate_v2_production_portfolio(
             trade_date="2026-06-16",
             gap_input_dir=tmp_path,
-            cfg=cfg,
+            cfg=parse_run_config(cfg),
         )
         w = result["w_final"]
         assert int(np.sum(w > 1e-8)) == 3
@@ -493,7 +493,7 @@ class TestCfgPropagation:
         result = generate_v2_production_portfolio(
             trade_date="2026-06-16",
             gap_input_dir=tmp_path,
-            cfg=cfg,
+            cfg=parse_run_config(cfg),
         )
         gross = float(np.sum(np.abs(result["w_final"])))
         assert gross <= 1.5 + 1e-10
@@ -508,7 +508,7 @@ class TestCfgPropagation:
         result = generate_v2_production_portfolio(
             trade_date="2026-06-16",
             gap_input_dir=tmp_path,
-            cfg=cfg,
+            cfg=parse_run_config(cfg),
         )
         gross = result["summary"]["target_gross"]
         expected_cost = result["summary"]["expected_cost_bps"]
@@ -519,7 +519,7 @@ class TestCfgPropagation:
         result = generate_v2_production_portfolio(
             trade_date="2026-06-16",
             gap_input_dir=None,
-            cfg={},
+            cfg=parse_run_config({}),
         )
         assert result["fallback"]["gap_data_missing"] is True
 
@@ -575,7 +575,7 @@ class TestMacroKappaOmegaGapInflation:
         result = generate_v2_production_portfolio(
             trade_date="2026-06-16",
             gap_input_dir=tmp_path,
-            cfg=cfg,
+            cfg=parse_run_config(cfg),
         )
 
         omega_result = result["Omega_gap"]
@@ -609,7 +609,7 @@ class TestMacroKappaOmegaGapInflation:
         result = generate_v2_production_portfolio(
             trade_date="2026-06-16",
             gap_input_dir=tmp_path,
-            cfg=cfg,
+            cfg=parse_run_config(cfg),
         )
 
         omega = result["Omega_gap"]
@@ -622,7 +622,7 @@ class TestMacroKappaOmegaGapInflation:
         result = generate_v2_production_portfolio(
             trade_date="2026-06-16",
             gap_input_dir=tmp_path,
-            cfg={},
+            cfg=parse_run_config({}),
         )
         assert np.allclose(result["Omega_gap"], Omega_gap_orig, atol=1e-10)
 
@@ -670,7 +670,7 @@ class TestProductionV2Model:
         result_fn = generate_v2_production_portfolio(
             trade_date="2026-06-16",
             gap_input_dir=tmp_path,
-            cfg=cfg,
+            cfg=parse_run_config(cfg),
         )
 
         run_cfg = parse_run_config(cfg)

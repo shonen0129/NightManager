@@ -19,7 +19,7 @@ from leadlag.models.ml_order_overlay import (
     generate_v2_production_portfolio_with_overlay,
     load_overlay_model,
 )
-from leadlag.models.production_v2 import ProductionV2Model
+from leadlag.models.production_v2 import ProductionV2Model, parse_run_config
 from leadlag.models.sre import compute_jp_target_returns
 
 logger = logging.getLogger(__name__)
@@ -427,9 +427,14 @@ class BacktestEngine:
         fallback_flags = np.zeros(n_sim_days, dtype=bool)
         v2_summaries = cast(list[dict], [None] * n_sim_days)
 
+        # Resolve V2 config once (single source of truth).  Callers still pass a
+        # raw dict at the public ``run_v2_backtest`` boundary; that boundary will
+        # migrate to Pydantic in a follow-up P2-C1 step.
+        run_cfg = parse_run_config(cfg)
+
         # Use the class interface when no overlay is in play. The overlay path
         # still needs df_exec and remains procedural for now.
-        v2_model = None if overlay_model is not None else ProductionV2Model(cfg)
+        v2_model = None if overlay_model is not None else ProductionV2Model(run_cfg)
 
         def _process_date(i_dt: tuple[int, pd.Timestamp]) -> tuple[int, np.ndarray, bool, dict]:
             i, dt = i_dt
@@ -439,7 +444,7 @@ class BacktestEngine:
                     result = generate_v2_production_portfolio_with_overlay(
                         trade_date=date_str,
                         gap_input_dir=gap_dir,
-                        cfg=cfg,
+                        run_cfg=run_cfg,
                         df_exec=df_exec,
                         overlay_model=overlay_model,
                     )
