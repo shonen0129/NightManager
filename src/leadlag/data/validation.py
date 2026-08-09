@@ -14,7 +14,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from leadlag.data.tickers import JP_TICKERS, US_TICKERS
+from leadlag.data.tickers import JP_TICKERS, TOPIX_TICKER, US_TICKERS
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +64,7 @@ def validate_raw_data_sources(data: dict[str, Any]) -> list[str]:
 
     jp_close = data.get("jp_close")
     if isinstance(jp_close, pd.DataFrame):
-        missing_jp = [tk for tk in JP_TICKERS + ["1306.T"] if tk not in jp_close.columns]
+        missing_jp = [tk for tk in JP_TICKERS + [TOPIX_TICKER] if tk not in jp_close.columns]
         if missing_jp:
             alerts.append(f"jp_close missing tickers: {missing_jp}")
 

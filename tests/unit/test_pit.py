@@ -125,3 +125,15 @@ def test_compute_signal_backward_compatible_and_leakage_free():
         vol_adjusted_target=True,
     )
     np.testing.assert_allclose(result["signal"], result2["signal"], rtol=1e-12, atol=1e-12)
+
+
+def test_historical_range_rejects_negative_start():
+    view = PITMatrixView(np.arange(50.0).reshape(10, 5), as_of=5, name="test")
+    with pytest.raises(PITAccessError):
+        view.historical_range(-2, 5)
+
+
+def test_maybe_as_pit_rejects_asof_mismatch():
+    view = PITMatrixView(np.arange(50.0).reshape(10, 5), as_of=5, name="test")
+    with pytest.raises(ValueError):
+        maybe_as_pit(view, as_of=7)

@@ -183,10 +183,14 @@ def compute_deflated_sharpe(metrics: dict[str, Any]) -> float | None:
         return None
 
     # Expected maximum Sharpe under the null after N trials.
-    gamma = 0.5772156649015329  # Euler-Mascheroni constant
-    z_n = sps.norm.ppf(1.0 - 1.0 / n)
-    z_ne = sps.norm.ppf(1.0 - 1.0 / (n * np.e))
-    sr_0 = np.sqrt(var) * ((1.0 - gamma) * z_n + gamma * z_ne)
+    # For N=1 there is no selection bias, so SR_0 = 0 (DSR reduces to PSR).
+    if n == 1:
+        sr_0 = 0.0
+    else:
+        gamma = 0.5772156649015329  # Euler-Mascheroni constant
+        z_n = sps.norm.ppf(1.0 - 1.0 / n)
+        z_ne = sps.norm.ppf(1.0 - 1.0 / (n * np.e))
+        sr_0 = np.sqrt(var) * ((1.0 - gamma) * z_n + gamma * z_ne)
 
     dsr = sps.norm.cdf((sr - sr_0) / sr_std)
     return float(dsr)

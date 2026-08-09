@@ -1,6 +1,6 @@
 """Point-in-time data access layer.
 
-Provides read-only views of arrays and DataFrames that refuse access to rows
+Provides read-only views of arrays that refuse access to rows
 beyond a fixed as-of index. This turns the "no look-ahead" invariant from a
 convention checked by ComplianceAuditor into a structural guarantee at the
 point of data access.
@@ -9,7 +9,6 @@ point of data access.
 from __future__ import annotations
 
 import numpy as np
-import pandas as pd
 
 
 class PITAccessError(ValueError):
@@ -61,8 +60,12 @@ class PITMatrixView:
         return self._values[start : self._as_of]
 
     def historical_range(self, start: int, end: int) -> np.ndarray:
-        """Return rows ``[start:end]`` with ``end <= as_of`` enforced."""
+        """Return rows ``[start:end]`` with ``end <= as_of`` and ``start >= 0`` enforced."""
         self._validate_end(end)
+        if start < 0:
+            raise PITAccessError(
+                f"{self.name}: requested start={start}, but negative starts are not allowed."
+            )
         return self._values[start:end]
 
     def asof_row(self) -> np.ndarray:
@@ -77,55 +80,23 @@ class PITMatrixView:
         return self._values.shape[0]
 
 
-class PITFrame:
-    """Read-only view of a pandas DataFrame that blocks access beyond a fixed as-of index."""
-
-    __slots__ = ("_frame", "_as_of", "name", "shape", "columns", "index")
-
-    def __init__(self, frame: pd.DataFrame, as_of, *, name: str = "data") -> None:
-        self._frame = frame
-        self._as_of = as_of
-        self.name = str(name)
-        self.shape = frame.shape
-        self.columns = frame.columns
-        self.index = frame.index
-
-    @property
-    def as_of(self):
-        return self._as_of
-
-    def _validate_loc(self, label):
-        if isinstance(self.index, pd.DatetimeIndex) and isinstance(label, str):
-            label = pd.Timestamp(label)
-        if isinstance(self.index, pd.DatetimeIndex) and isinstance(label, pd.Timestamp):
-            if label > self._as_of:
-                raise PITAccessError(
-                    f"{self.name}: requested {label}, but as-of is {self._as_of}."
-                )
-        return label
-
-    def historical_until(self, label) -> pd.DataFrame:
-        """Return rows strictly before (and up to, but not including) ``label``.
-
-        ``label`` must be a valid indexer for ``.loc`` and must not be later
-        than the as-of label.
-        """
-        if self.index[-1] <= label:
-            return self._frame.loc[:label]
-        return self._frame.loc[:label]
-
-    def asof_row(self) -> pd.Series:
-        """Return the row at the as-of label."""
-        return self._frame.loc[self._as_of]
-
-
 def maybe_as_pit(
     values: np.ndarray | PITMatrixView,
     as_of: int,
     *,
     name: str = "data",
 ) -> PITMatrixView:
-    """Wrap a plain ndarray in a PIT view unless it already is one."""
+    """Wrap a plain ndarray in a PIT view unless it already is one.
+
+    If ``values`` is already a ``PITMatrixView`` with a different ``as_of``
+    than the one requested, raise ``ValueError`` to avoid silent stale-data
+    bugs.
+    """
     if isinstance(values, PITMatrixView):
+        if values.as_of != as_of:
+            raise ValueError(
+                f"{name}: existing PIT view has as_of={values.as_of}, "
+                f"but requested as_of={as_of}. Re-wrap or align the as_of."
+            )
         return values
     return PITMatrixView(values, as_of=as_of, name=name)

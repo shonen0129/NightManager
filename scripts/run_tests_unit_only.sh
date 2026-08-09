@@ -1,6 +1,6 @@
 #!/bin/bash
-# Fast unit-only test run (~1 min). Excludes integration and slow tests.
-# Uses pytest markers introduced in pyproject.toml.
+# Fast unit-only test run (~1 min). Runs tests under tests/unit/ and
+# tests/features/, excluding the known slow sprint backtest files.
 #
 # Usage::
 #
@@ -18,4 +18,8 @@ fi
 
 EXTRA_ARGS="$@"
 
-exec "$PYTHON_BIN" -m pytest tests/ -m "not integration and not slow" -q -n auto $EXTRA_ARGS
+exec "$PYTHON_BIN" -m pytest tests/unit tests/features \
+    --ignore=tests/unit/test_sprint0_diagnostics.py \
+    --ignore=tests/unit/test_sprint0_qa.py \
+    --ignore=tests/unit/test_sprint1.py \
+    -q -n auto $EXTRA_ARGS

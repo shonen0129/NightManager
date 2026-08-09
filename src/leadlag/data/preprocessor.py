@@ -293,7 +293,7 @@ def preprocess_data(
             if strict_validation:
                 raise DataValidationError(
                     f"NaN in required columns for trade_date={trade_date}; "
-                    f"enable strict_validation to surface this at record level"
+                    f"strict_validation is enabled, so this record is rejected"
                 )
             logger.warning(
                 "Skipping trade_date=%s due to NaN in required columns",

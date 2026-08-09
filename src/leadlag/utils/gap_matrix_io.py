@@ -103,6 +103,8 @@ def load_gap_matrices(
             if strict:
                 raise DataValidationError("; ".join(v_alerts))
             alerts.extend(v_alerts)
-        else:
-            return mu_gap, Omega_gap, []
+        # Return the arrays in both strict and non-strict paths.
+        # The caller (e.g. production_v2) decides whether to fall back to
+        # flat based on the alerts and its own fallback flags.
+        return mu_gap, Omega_gap, alerts
     return None, None, alerts

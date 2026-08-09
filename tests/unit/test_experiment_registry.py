@@ -78,7 +78,8 @@ def test_deflated_sharpe_basic():
     assert dsr is not None
     assert 0.0 <= dsr <= 1.0
 
-    # With only 1 trial, DSR should be close to the PSR (no selection bias).
+    # With only 1 trial, DSR should reduce to the PSR (no selection bias).
+    # Positive Sharpe -> > 0.5, negative Sharpe -> < 0.5.
     metrics_one = {
         "net_sharpe": 1.0,
         "trials": 1,
@@ -88,6 +89,16 @@ def test_deflated_sharpe_basic():
     dsr_one = compute_deflated_sharpe(metrics_one)
     assert dsr_one is not None
     assert dsr_one > 0.5
+
+    metrics_neg = {
+        "net_sharpe": -1.0,
+        "trials": 1,
+        "n_observations": 1000,
+        "returns": (-returns).tolist(),
+    }
+    dsr_neg = compute_deflated_sharpe(metrics_neg)
+    assert dsr_neg is not None
+    assert dsr_neg < 0.5
 
 
 def test_deflated_sharpe_missing_fields():
