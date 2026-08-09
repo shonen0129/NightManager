@@ -265,18 +265,19 @@ src/
 ```
 ABC (abc.ABC)
 └── BaseModel (base.py)
-    ├── _BLPBase (blp_base.py) — BLP系モデル共通メソッド
-    │   └── SectorRelativeEnsembleBLPEnhancedModel (sector_relative_ensemble_blp_enhanced.py)
-    └── SectorRelativeEnsembleModel (sre.py) — BaseModel 直接継承
+    └── _BLPBase (blp_base.py) — BLP系モデル共通メソッド
+        └── SectorRelativeEnsembleBLPEnhancedModel (sector_relative_ensemble_blp_enhanced.py)
 ```
+
+本番 V2 モデルは現状 `BaseModel` インターフェースを継承していない手続き的オーケストレータ（`production_v2.py::generate_v2_production_portfolio`）として動作している。`SectorRelativeEnsembleModel` (V1) は 2026-07 に `archive/legacy_src/models/sre.py` へ移設された。
 
 | モジュール | 責務 |
 |---|---|
 | `base.py` | BaseModel 抽象インターフェース (`predict_signals`, `build_weights`) および共通ユーティリティ（`_resolve_val`, `_resolve_nested`, `_resolve_slippage_bps`, `normalize_signals`, `build_weights`） |
 | `blp_base.py` | _BLPBase 中間クラス — BLP系モデル共通メソッド（`_prepare_common_inputs`, `_compute_pca_signal`, `compute_production_signal`, `compute_residual_signal`, `_denormalize_signal`, `_apply_gap_adjustment`） |
-| `sre.py` | SectorRelativeEnsembleModel (PCA-Ensemble) ロジック（Raw-PCA/Residual-PCA/P4 シグナル生成、Zスコア正規化、アンサンブル、ウェイト算出）の正本 |
+| `sre.py` | V1 `SectorRelativeEnsembleModel` 移設後のスタブ。`compute_jp_target_returns()` （9:10→大引けリターン計算）のみを提供 |
 | `sector_relative_ensemble_blp_enhanced.py` | SectorRelativeEnsembleBLPEnhancedModel （本番 v2 基盤の BLPX 構造化投影および確信度調整モデル） — `_BLPBase` 継承、`compute_blp_signal` を7つのヘルパーメソッドに分割、Factor-Specific Kappa によるマクロコンファイアンススケーリング統合 |
-| `production_v2.py` | ProductionV2Model (Residual-BLPX-RA v2) — 本番モデル。ギャップ調整予測分布・mu_over_sigma ランキング・PITビニング (RuleD) 統合 |
+| `production_v2.py` | V2 本番ポートフォリオ生成 (`generate_v2_production_portfolio()`)。ギャップ調整予測分布・`mu_over_sigma` ランキング・PITビニング (RuleD) 統合。当面は手続き的モジュールとして運用され、将来的に `BaseModel` 実装への集約が予定されている |
 | `signal_enhancement.py` | マルチホライズンブレンド (`apply_multi_horizon_blend`)・ランク反転オーバーレイ (`apply_rank_reversal_overlay`) — Phase 2A/2D 成果物 |
 | `ml_order_overlay.py` | ML order overlay 補助モデル |
 
@@ -295,6 +296,9 @@ ABC (abc.ABC)
 | `risk.py` | VaR/ES 計算、リスクブリーチ判定 |
 | `market_calendar.py` | 営業日カレンダー・日付判定（米国・日本市場休場日判定） |
 | `macro.py` | マクロ因子（USDJPY, CLF, TNX）のボラティリティ調整サプライズ計算、感度行列（`MACRO_SENS_MATRIX`）、Factor-Specific Kappa リスクスケーリング |
+| `pit.py` | Point-in-time view — ローリング窓アクセスを `as_of` 行で制限しルックアヘッドを実行時に防止 |
+| `experiment_registry.py` | 実験レジストリ — 仮説・パラメータ・指標・DSR を JSONL で記録 |
+| `timeouts.py` | 集中管理されたタイムアウト定数と `with_timeout` デコレータ |
 
 ### 3. Data Layer (`data/`)
 市場データのライフサイクル全体を管理。
@@ -306,6 +310,8 @@ ABC (abc.ABC)
 | `fetcher.py` | yfinance ダウンロード、差分更新、1629.T NAVパッチ |
 | `preprocessor.py` | `df_exec` 構築（日次リターン整列、TOPIX beta計算） |
 | `market_data.py` | 寄付価格取得、ギャップ計算、価格検証 |
+| `schema.py` | `df_exec` の列ファミリ・型付き `ExecutionFrame` ラッパー（ADR-0001 PIT view と連携） |
+| `validation.py` | データ検証ゲート — raw data / exec record / gap 行列の構造的検証 |
 
 ### 4. Broker Layer (`broker/`)
 発注経路をプラグイン可能にするブローカー抽象化レイヤー。
