@@ -7,12 +7,10 @@ production.yaml では long=0.75, short=0.5。これ以外に
 """
 from __future__ import annotations
 
-import copy
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -23,9 +21,10 @@ def main():
 
     from leadlag.data.cache import load_df_exec_from_local_cache
     from leadlag.execution.backtester import BacktestEngine
+    from leadlag.execution.config import load_config_from_yaml
 
     config_path = ROOT / "configs" / "production" / "production.yaml"
-    base_cfg = yaml.safe_load(open(config_path))
+    base_app_config = load_config_from_yaml(config_path)
     df_exec = load_df_exec_from_local_cache()
     gap_dir = ROOT / "live" / "pipeline_data" / "gap_adjusted_distribution" / "20260731_024303"
     overlay_model_dir = ROOT / "models" / "ml_order_overlay" / "phase2_8"
@@ -41,22 +40,19 @@ def main():
 
     records = []
     for name, alpha_long, alpha_short in scenarios:
-        cfg = copy.deepcopy(base_cfg)
-        cfg.setdefault("costs", {})
-        cfg["costs"]["overnight_alpha_long"] = float(alpha_long)
-        cfg["costs"]["overnight_alpha_short"] = float(alpha_short)
-
         run_dir = out_dir / name
         run_dir.mkdir(parents=True, exist_ok=True)
 
         results = BacktestEngine.run_v2_backtest(
-            cfg=cfg,
+            cfg=base_app_config,
             gap_input_dir=gap_dir,
             df_exec=df_exec,
             start_date="2020-01-06",
             end_date="2026-07-29",
             side_leverage=1.5,
             overlay_model_dir=overlay_model_dir,
+            overnight_alpha_long=alpha_long,
+            overnight_alpha_short=alpha_short,
             n_jobs=1,
         )
 

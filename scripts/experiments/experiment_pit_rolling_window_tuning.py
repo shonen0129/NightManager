@@ -7,7 +7,6 @@ net Sharpe / MDD / turnover / bin 分布の影響を測定する。
 from __future__ import annotations
 
 import argparse
-import copy
 import json
 import logging
 import shutil
@@ -22,7 +21,6 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import yaml
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger("PITRollingWindowTuning")
@@ -32,6 +30,7 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from leadlag.data.cache import load_df_exec_from_local_cache
 from leadlag.execution.backtester import BacktestEngine
+from leadlag.execution.config import load_config_from_yaml
 
 
 def _metrics(results: dict, window: int, label: str) -> dict:
@@ -83,24 +82,22 @@ def _metrics(results: dict, window: int, label: str) -> dict:
 
 
 def _run_one(args: tuple) -> dict:
-    """Worker: tune cfg['gross_scaling']['pit_rolling_window'] and run a V2 backtest."""
+    """Worker: tune pit_rolling_window and run a V2 backtest."""
     import sys
 
     sys.path.insert(0, str(ROOT / "src"))
 
-    window, cfg, gap_input_dir, start_date, end_date, output_dir = args
+    window, app_config, gap_input_dir, start_date, end_date, output_dir = args
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    cfg = copy.deepcopy(cfg)
-    if "gross_scaling" not in cfg:
-        cfg["gross_scaling"] = {}
-    cfg["gross_scaling"]["pit_rolling_window"] = window
+    v2_for_run = app_config.v2.model_copy(update={"pit_rolling_window": window})
+    app_config_for_run = app_config.model_copy(update={"v2": v2_for_run})
 
     df_exec = load_df_exec_from_local_cache()
 
     results = BacktestEngine.run_v2_backtest(
-        cfg=cfg,
+        cfg=app_config_for_run,
         gap_input_dir=Path(gap_input_dir),
         df_exec=df_exec,
         start_date=start_date,
@@ -239,8 +236,7 @@ def main():
     report_dir = ROOT / args.report_dir
     report_dir.mkdir(parents=True, exist_ok=True)
 
-    with open(ROOT / "configs/production/production.yaml") as f:
-        cfg = yaml.safe_load(f)
+    app_config = load_config_from_yaml(ROOT / "configs/production/production.yaml")
 
     windows = [int(x) for x in args.window_list.split(",")]
     gap_input_dir = ROOT / args.gap_input_dir
@@ -253,7 +249,7 @@ def main():
             shutil.rmtree(out)
         out.mkdir(parents=True, exist_ok=True)
         run_args.append(
-            (window, copy.deepcopy(cfg), str(gap_input_dir), args.start_date, args.end_date, str(out))
+            (window, app_config, str(gap_input_dir), args.start_date, args.end_date, str(out))
         )
 
     metrics = []

@@ -16,7 +16,6 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
-import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
@@ -62,38 +61,36 @@ def _cached_download_macro_prices(
 
 _macro_module.download_macro_prices = _cached_download_macro_prices
 
+from leadlag.config.schemas import AppConfig
 from leadlag.data.cache import load_df_exec_from_local_cache
 from leadlag.execution.backtester import BacktestEngine
+from leadlag.execution.config import load_config_from_yaml
 from leadlag.reporting.metrics import calculate_metrics
 
 
-def load_production_config() -> dict:
-    """Load canonical production.yaml."""
+def load_production_config() -> AppConfig:
+    """Load canonical production.yaml as a Pydantic AppConfig."""
     prod_path = ROOT / "configs" / "production" / "production.yaml"
-    with open(prod_path) as f:
-        return yaml.safe_load(f)
+    return load_config_from_yaml(prod_path)
 
 
-def build_cfg_with_macro(cfg: dict, enabled: bool, kappas: list[float]) -> dict:
-    """Return a deep copy of cfg with portfolio-level macro kappa settings."""
-    import copy
-
-    cfg = copy.deepcopy(cfg)
-    if "portfolio" not in cfg:
-        cfg["portfolio"] = {}
-    cfg["portfolio"]["macro_kappa_enabled"] = enabled
-    cfg["portfolio"]["macro_kappas"] = kappas
-    cfg["portfolio"]["macro_surprise_halflife_mean"] = cfg["portfolio"].get(
-        "macro_surprise_halflife_mean", 20.0
+def build_cfg_with_macro(
+    app_config: AppConfig, enabled: bool, kappas: list[float]
+) -> AppConfig:
+    """Return an AppConfig with the requested V2 macro kappa settings."""
+    v2 = app_config.v2.model_copy(
+        update={
+            "macro_kappa_enabled": enabled,
+            "macro_kappas": tuple(kappas),
+            "macro_surprise_halflife_mean": app_config.v2.macro_surprise_halflife_mean,
+            "macro_surprise_halflife_vol": app_config.v2.macro_surprise_halflife_vol,
+        }
     )
-    cfg["portfolio"]["macro_surprise_halflife_vol"] = cfg["portfolio"].get(
-        "macro_surprise_halflife_vol", 60.0
-    )
-    return cfg
+    return app_config.model_copy(update={"v2": v2})
 
 
 def run_v2_variant(
-    cfg: dict,
+    app_config: AppConfig,
     df_exec: pd.DataFrame,
     gap_input_dir: Path,
     start_date: str,
@@ -109,7 +106,7 @@ def run_v2_variant(
 ) -> dict[str, Any]:
     """Run a single v2 backtest variant and return flat metrics."""
     results = BacktestEngine.run_v2_backtest(
-        cfg,
+        app_config,
         gap_input_dir=gap_input_dir,
         df_exec=df_exec,
         start_date=start_date,
@@ -204,20 +201,20 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    base_cfg = load_production_config()
-    costs_cfg = base_cfg.get("costs", {})
+    base_app_config = load_production_config()
+    costs_cfg = base_app_config.strategy
 
     if args.production_costs:
-        alpha_long = float(costs_cfg.get("overnight_alpha_long", 0.0))
-        alpha_short = float(costs_cfg.get("overnight_alpha_short", 0.0))
+        alpha_long = costs_cfg.overnight_alpha_long
+        alpha_short = costs_cfg.overnight_alpha_short
     else:
         alpha_long = 0.0
         alpha_short = 0.0
 
     slippage_bps = args.slippage_bps
-    buy_interest = float(costs_cfg.get("buy_interest_annual", 0.025))
-    borrow_fee = float(costs_cfg.get("borrow_fee_annual", 0.0115))
-    reverse_fee = float(costs_cfg.get("reverse_fee_bps", 2.0))
+    buy_interest = costs_cfg.buy_interest_annual
+    borrow_fee = costs_cfg.borrow_fee_annual
+    reverse_fee = costs_cfg.reverse_fee_bps
     side_leverage = 1.5
 
     gap_dir = Path(args.gap_input_dir)
@@ -232,7 +229,7 @@ def main() -> None:
 
     # Baseline: macro kappa disabled
     logger.info("Running baseline (macro kappa disabled)...")
-    baseline_cfg = build_cfg_with_macro(base_cfg, enabled=False, kappas=[3.0, 0.5, 0.5])
+    baseline_cfg = build_cfg_with_macro(base_app_config, enabled=False, kappas=[3.0, 0.5, 0.5])
     baseline_metrics = run_v2_variant(
         baseline_cfg,
         df_exec,
@@ -268,7 +265,7 @@ def main() -> None:
     for kappas in kappa_triples:
         variant_name = f"Kappa USDJPY={kappas[0]:.2f} CLF={kappas[1]:.2f} TNX={kappas[2]:.2f}"
         logger.info("Running %s...", variant_name)
-        cfg = build_cfg_with_macro(base_cfg, enabled=True, kappas=kappas)
+        cfg = build_cfg_with_macro(base_app_config, enabled=True, kappas=kappas)
         m = run_v2_variant(
             cfg,
             df_exec,
