@@ -12,12 +12,11 @@ import logging
 import sys
 from pathlib import Path
 
-import yaml
-
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "src"))
 
 from leadlag.execution.backtester import BacktestEngine
+from leadlag.execution.config import load_config_from_yaml
 from leadlag.reporting.metrics import calculate_metrics
 from research.backtest_common import load_execution_data
 
@@ -43,33 +42,27 @@ def main():
 
     config_path = ROOT / args.config
     logger.info("Loading config from %s", config_path)
-    with open(config_path) as f:
-        cfg = yaml.safe_load(f)
+    app_config = load_config_from_yaml(config_path)
+    strategy = app_config.strategy
 
-    costs = cfg.get("costs", {})
-    slippage_bps = float(costs.get("slippage_bps_per_side", 5.0))
-    overnight_alpha_long = float(costs.get("overnight_alpha_long", 0.75))
-    overnight_alpha_short = float(costs.get("overnight_alpha_short", 0.5))
-    buy_interest_annual = float(costs.get("buy_interest_annual", 0.025))
-    borrow_fee_annual = float(costs.get("borrow_fee_annual", 0.0115))
-    reverse_fee_bps = float(costs.get("reverse_fee_bps", 2.0))
-
-    beta_window = cfg.get("residualization", {}).get("beta_window", 60)
-    beta_ewma_halflife = cfg.get("residualization", {}).get("beta_ewma_halflife")
-    beta_shrinkage = cfg.get("residualization", {}).get("beta_shrinkage", 0.0)
-    beta_winsor_sigma = cfg.get("residualization", {}).get("beta_winsor_sigma")
+    slippage_bps = strategy.slippage_bps
+    overnight_alpha_long = strategy.overnight_alpha_long
+    overnight_alpha_short = strategy.overnight_alpha_short
+    buy_interest_annual = strategy.buy_interest_annual
+    borrow_fee_annual = strategy.borrow_fee_annual
+    reverse_fee_bps = strategy.reverse_fee_bps
 
     logger.info("[1/4] Downloading/loading market data...")
     df_exec = load_execution_data(
-        beta_window=beta_window,
-        beta_ewma_halflife=beta_ewma_halflife,
-        beta_shrinkage=beta_shrinkage,
-        beta_winsor_sigma=beta_winsor_sigma,
+        beta_window=strategy.beta_window,
+        beta_ewma_halflife=strategy.beta_ewma_halflife,
+        beta_shrinkage=strategy.beta_shrinkage,
+        beta_winsor_sigma=strategy.beta_winsor_sigma,
     )
 
     logger.info("[2/4] Resolving V2 gap distribution...")
     if args.gap_dir is None:
-        gap_dir = cfg.get("gap_distribution", {}).get("dir", "")
+        gap_dir = app_config.gap_distribution_dir
     else:
         gap_dir = args.gap_dir
     gap_input_dir = ROOT / gap_dir if gap_dir and not Path(gap_dir).is_absolute() else Path(gap_dir or "/nonexistent")
@@ -82,7 +75,7 @@ def main():
     logger.info("[3/4] Running V2 production backtest: start=%s, slippage=%.1f bps, alpha_long=%.2f, alpha_short=%.2f",
                 args.start_date, slippage_bps, overnight_alpha_long, overnight_alpha_short)
     results = BacktestEngine.run_v2_backtest(
-        cfg=cfg,
+        cfg=app_config,
         gap_input_dir=gap_input_dir,
         df_exec=df_exec,
         start_date=args.start_date,
