@@ -18,20 +18,21 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import yaml
 
 from leadlag.broker.tachibana.session_cache import load_open_prices_cache
-from leadlag.data.cache import get_hist_returns_for_risk as _get_hist_returns_for_risk
 from leadlag.data.tickers import JP_TICKERS, TOPIX_TICKER
-from leadlag.execution.config import load_config_from_yaml
-from leadlag.execution.helpers import (
+from leadlag.execution.broker_ops import (
     build_api_client,
-    build_output_dir,
-    execute_post_decision_flow,
     fetch_current_positions,
-    resolve_daily_open_prices,
     resolve_wallet_capital,
 )
-from leadlag.models.production_v2 import ProductionV2Model
+from leadlag.execution.config import load_config_from_yaml
+from leadlag.execution.output_ops import build_output_dir
+from leadlag.execution.post_decision import execute_post_decision_flow
+from leadlag.execution.pricing import resolve_daily_open_prices
+from leadlag.execution.var_history import get_hist_returns_for_risk as _get_hist_returns_for_risk
+from leadlag.models.production_v2 import generate_v2_production_portfolio
 from leadlag.reporting.production_v2_writer import write_production_files
 
 logger = logging.getLogger(__name__)
@@ -49,6 +50,10 @@ def run_v2_decision(
     output_root: str = "results",
     jp_opens_csv: str | None = None,
     google_opens: bool = False,
+    max_capital: float | None = None,
+    api_url: str | None = None,
+    api_token: str | None = None,
+    run_tag: str | None = None,
 ) -> str:
     """Run V2 production decision and submit orders via broker API.
 
@@ -64,6 +69,10 @@ def run_v2_decision(
         output_root: Root directory for decision output.
         jp_opens_csv: Path to JP opens CSV (fallback if API unavailable).
         google_opens: If True, use Google Sheets for JP opens.
+        max_capital: Default max capital in JPY. Defaults to 350,000.0.
+        api_url: Optional broker API URL override.
+        api_token: Optional broker API token override.
+        run_tag: Optional run tag for output directory.
 
     Returns:
         Path to the decision output CSV.
@@ -75,7 +84,8 @@ def run_v2_decision(
     if not config_path.is_absolute():
         config_path = ROOT / config_path
     logger.info("Loading V2 config: %s", config_path)
-    app_config = load_config_from_yaml(config_path)
+    with open(config_path) as f:
+        cfg = yaml.safe_load(f)
 
     # Resolve trade date
     if trade_date is None:
@@ -94,7 +104,7 @@ def run_v2_decision(
             gap_dir = None
     else:
         # Try default from config
-        default_gap = app_config.gap_distribution_dir
+        default_gap = cfg.get("gap_distribution", {}).get("dir", "")
         if default_gap:
             gap_dir = ROOT / default_gap
             if gap_dir.exists():
@@ -110,10 +120,10 @@ def run_v2_decision(
 
     # --- Step 1: Generate V2 portfolio ---
     logger.info("[1/4] Generating V2 production portfolio...")
-    model = ProductionV2Model(app_config.v2)
-    result = model.decide(
+    result = generate_v2_production_portfolio(
         trade_date=trade_date,
         gap_input_dir=gap_dir,
+        cfg=cfg,
     )
 
     # Write V2 production files (latest_weights.csv, audit, etc.)
@@ -134,13 +144,16 @@ def run_v2_decision(
     # --- Step 2: Fetch JP open prices ---
     api_client = None
     manual_opens: dict[str, float] = {}
-    max_capital = 350000.0  # default fallback
+    if max_capital is None:
+        max_capital = 350000.0  # default fallback
+
+    app_config = load_config_from_yaml(str(config_path))
 
     try:
         if api_enable:
             api_client = build_api_client(
-                api_url=None,
-                api_token=None,
+                api_url=api_url,
+                api_token=api_token,
                 api_dry_run=api_dry_run,
             )
 
@@ -222,7 +235,7 @@ def run_v2_decision(
 
     output_dir = build_output_dir(
         output_root,
-        run_tag=None,
+        run_tag=run_tag,
         run_name="production_decision_v2",
     )
 

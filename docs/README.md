@@ -69,5 +69,5 @@ The backtest automatically triggers a set of safety checks written to `results/s
 - `config_audit.csv`
 
 ## Deprecated Experiments
-All deprecated experimental scripts (P2, P5, P6, Gap Shrinkage, Low-Rank models, risk overlays, etc.) have been archived under `archive/experiments/`. For details on why these were not adopted, see:
+All deprecated experimental scripts (P2, P5, P6, Gap Shrinkage, Low-Rank models, risk overlays, etc.) have been archived under `git tag archive-2026-08` の `archive/experiments/`. For details on why these were not adopted, see:
 [deprecated_experiments.md](deprecated_experiments.md)

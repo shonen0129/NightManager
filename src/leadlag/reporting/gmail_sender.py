@@ -14,6 +14,7 @@ import time
 from collections.abc import Sequence
 from email.message import EmailMessage
 from pathlib import Path
+from typing import Any, cast
 
 try:
     from google.auth.transport.requests import Request
@@ -23,10 +24,10 @@ try:
 
     _GMAIL_LIBS_AVAILABLE = True
 except ImportError:
-    Request = None  # type: ignore[assignment, misc]
-    Credentials = None  # type: ignore[assignment, misc]
-    InstalledAppFlow = None  # type: ignore[assignment, misc]
-    build = None  # type: ignore[assignment]
+    Request = None
+    Credentials = None
+    InstalledAppFlow = None
+    build = None
     _GMAIL_LIBS_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
@@ -65,7 +66,7 @@ class GmailSender:
         self.token_path = Path(token_path)
         self.from_email = from_email
         self.send_timeout = send_timeout
-        self._service = None
+        self._service: Any | None = None
 
     def authenticate(self, *, allow_interactive: bool = False) -> None:
         """Authenticate with Gmail and build the API service.
@@ -155,6 +156,7 @@ class GmailSender:
 
         if self._service is None:
             self.authenticate(allow_interactive=False)
+        assert self._service is not None
 
         message = self.create_message(to, subject, body, from_email)
 
@@ -166,7 +168,7 @@ class GmailSender:
                 self._service.users().messages().send(userId="me", body=message).execute
             )
             try:
-                result = future.result(timeout=self.send_timeout)
+                result = cast(dict[str, Any], future.result(timeout=self.send_timeout))
             except concurrent.futures.TimeoutError as e:
                 raise TimeoutError(
                     f"Gmail API send timed out after {self.send_timeout}s"
@@ -175,7 +177,7 @@ class GmailSender:
         if deadline - time.time() < 0:
             logger.warning("Gmail send completed but exceeded the deadline; result may be stale")
 
-        message_id = result.get("id")
+        message_id = cast(str | None, result.get("id"))
         logger.info("Email sent via Gmail API. Message ID: %s", message_id)
         return message_id
 

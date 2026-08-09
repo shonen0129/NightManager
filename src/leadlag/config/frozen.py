@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import copy
 import logging
+from collections.abc import Iterator
 from typing import Any
 
 from pydantic import BaseModel
@@ -41,7 +42,7 @@ class FrozenConfigDict:
     def __contains__(self, key: str) -> bool:
         return key in self._data
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[str]:
         return iter(self._data)
 
     def __len__(self) -> int:

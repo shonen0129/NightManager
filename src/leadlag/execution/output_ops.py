@@ -12,6 +12,8 @@ import json
 import logging
 import os
 from datetime import datetime
+from pathlib import Path
+from typing import Any
 
 import pandas as pd
 
@@ -41,7 +43,7 @@ def build_output_dir(
 
 
 def save_decision_output(
-    decision_df: pd.DataFrame, output_dir: str, trade_date: pd.Timestamp
+    decision_df: pd.DataFrame, output_dir: str | Path, trade_date: pd.Timestamp
 ) -> str:
     out_path = os.path.join(output_dir, f"decision_{trade_date.strftime('%Y%m%d')}.csv")
     decision_df.to_csv(out_path, index=False, encoding="utf-8-sig")
@@ -53,8 +55,9 @@ def save_summary_files(
     results: pd.DataFrame,
     metrics: dict,
     config: ProductionConfig,
-    output_dir: str,
+    output_dir: str | Path,
 ) -> None:
+    output_dir = Path(output_dir)
     results_path = os.path.join(output_dir, "daily_results.csv")
     metrics_path = os.path.join(output_dir, "metrics.csv")
     summary_path = os.path.join(output_dir, "run_summary.json")
@@ -86,7 +89,7 @@ def save_summary_files(
 
 def save_position_snapshot(
     api_client: BrokerClient,
-    output_dir: str,
+    output_dir: str | Path,
     *,
     label: str = "decision",
     date_str: str | None = None,
@@ -117,7 +120,7 @@ def save_position_snapshot(
         logger.info("[JOURNAL] No open positions for snapshot.")
         return None
 
-    snapshot = {
+    snapshot: dict[str, Any] = {
         "timestamp": datetime.now().isoformat(timespec="seconds"),
         "label": label,
         "positions": [],
@@ -167,7 +170,7 @@ def save_position_snapshot(
 
 def save_wallet_snapshot(
     api_client: BrokerClient,
-    output_dir: str,
+    output_dir: str | Path,
     *,
     label: str = "decision",
     date_str: str | None = None,
@@ -217,7 +220,7 @@ def save_wallet_snapshot(
 
 
 def save_daily_journal(
-    output_dir: str,
+    output_dir: str | Path,
     decision_csv_path: str | None = None,
     api_execution_log_path: str | None = None,
     position_snapshot_path: str | None = None,
@@ -245,7 +248,7 @@ def save_daily_journal(
     os.makedirs(journal_dir, exist_ok=True)
 
     date_str = datetime.now().strftime("%Y%m%d")
-    journal = {
+    journal: dict[str, Any] = {
         "date": date_str,
         "timestamp": datetime.now().isoformat(timespec="seconds"),
         "artifacts": {},

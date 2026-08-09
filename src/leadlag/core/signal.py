@@ -80,7 +80,7 @@ def compute_signal(
         mkt_ret = np.mean(window_returns, axis=1)
         mkt_var = np.var(mkt_ret, ddof=0)
         if mkt_var < 1e-16:
-            mkt_var = 1e-16
+            mkt_var = np.float64(1e-16)
         betas = np.array(
             [
                 np.cov(window_returns[:, j], mkt_ret, ddof=0)[0, 1] / mkt_var
@@ -92,6 +92,7 @@ def compute_signal(
         v0_t = np.column_stack([v1, v2, v3_dyn])
         c0_t = build_c0_from_v0(v0_t, c_full)
     else:
+        assert v0_static is not None
         c0_t = build_c0_from_v0(v0_static, c_full)
 
     c_t_reg = regularize_correlation(c_t, c0_t, lambda_reg, lambda_lw, lw_target, min_raw_weight)
@@ -142,6 +143,7 @@ def compute_signal(
                 use_topix = True
 
         if use_topix:
+            assert topix_night_t is not None
             gap_syst = betas_vec * float(topix_night_t)
             gap_idio = gap_vec - gap_syst
             gap_filt = gap_open_coef * gap_idio + (gap_open_coef - topix_beta_coef) * gap_syst

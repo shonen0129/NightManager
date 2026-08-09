@@ -34,7 +34,7 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument("--source-config", default="configs/production/production.yaml", help="Current production config path")
     parser.add_argument("--target-config", default="configs/production/production_residual_blpx.yaml", help="New candidate config path")
     parser.add_argument("--backup-dir", default="configs/archive", help="Backup directory")
-    parser.add_argument("--output-dir", default="results/production_residual_blpx_validation", help="Output directory of validation")
+    parser.add_argument("--output-dir", default="var/results/production_residual_blpx_validation", help="Output directory of validation")
     parser.add_argument("--require-audit-pass", default="true", choices=["true", "false"], help="Enforce audit check pass before applying")
     parser.add_argument("--apply", action="store_true", help="Apply modifications (dry-run if omitted)")
     return parser.parse_args()

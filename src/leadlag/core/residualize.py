@@ -8,6 +8,7 @@ idiosyncratic shocks.
 from __future__ import annotations
 
 import logging
+from typing import cast
 
 import numpy as np
 import pandas as pd
@@ -60,7 +61,7 @@ def compute_rolling_ols_betas(
         betas_shifted = betas_df.shift(1)
 
         # Convert back to numpy of shape (T, N_targets, 1)
-        betas = betas_shifted.values[:, :, np.newaxis].copy()
+        betas = cast(np.ndarray, betas_shifted.values[:, :, np.newaxis].copy())
         betas[:window] = np.nan
         return betas
 
@@ -198,6 +199,6 @@ class ResidualizedSupervisedLowRankModel:
         y_pred_std = x_pred_std @ B_lowrank  # shape (n_targets,)
 
         # 7. Inverse transform standardized prediction
-        y_pred = mean_Y + y_pred_std * std_Y
+        y_pred = cast(np.ndarray, mean_Y + y_pred_std * std_Y)
 
         return y_pred

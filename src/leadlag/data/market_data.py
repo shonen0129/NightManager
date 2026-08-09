@@ -49,12 +49,12 @@ def fetch_opens_from_google(
             if not price_div:
                 price_div = soup.find("div", class_="YMlKec fxKbKc")
             if not price_div:
-                for p in soup.find_all(attrs={"jsname": "Pdsbrc"}):
+                for p in soup.find_all(name=None, attrs={"jsname": "Pdsbrc"}):
                     if "¥" in p.text:
                         price_div = p
                         break
             if not price_div:
-                p_elements = soup.find_all(attrs={"jsname": "Pdsbrc"})
+                p_elements = soup.find_all(name=None, attrs={"jsname": "Pdsbrc"})
                 if p_elements:
                     price_div = p_elements[-1]
 

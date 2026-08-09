@@ -8,24 +8,53 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from dotenv import load_dotenv
 
-try:
-    from dotenv import load_dotenv
-except ImportError:
-    def load_dotenv(*args, **kwargs):
-        pass
-
+from leadlag.config.paths import live, results
 from leadlag.config.schemas import (
     AppConfig,
     KabuApiConfig,
     MLOrderOverlayConfig,
-    ProductionV2RunConfig,
     RiskConfig,
-    StrategyConfig,
     TachibanaApiConfig,
+)
+from leadlag.config.schemas import (
+    StrategyConfig as StrategyConfig,
 )
 
 logger = logging.getLogger(__name__)
+
+
+class UnknownConfigKeyError(ValueError):
+    """Raised when a YAML config contains an unrecognized top-level key."""
+
+
+# Known top-level YAML sections. Unknown sections trigger UnknownConfigKeyError
+# in strict mode to catch typos early.
+_ALLOWED_TOP_LEVEL_KEYS = frozenset({
+    "model",
+    "signal_components",
+    "final_signal",
+    "ranking",
+    "gross_scaling",
+    "gap_distribution",
+    "portfolio",
+    "risk",
+    "costs",
+    "blpx",
+    "residualization",
+    "features",
+    "multi_horizon_blend",
+    "cs_feature_overlay",
+    "fallback",
+    "audit",
+    "ml_order_overlay",
+    "execution",
+    "output",
+    "broker",
+    "start_date",
+})
+
 
 # Load .env files from typical locations
 _env_paths = [
@@ -70,13 +99,26 @@ def _map_risk_section(risk_data: dict) -> dict:
     }
 
 
-def build_app_config_from_dict(yaml_data: dict[str, Any]) -> AppConfig:
+def build_app_config_from_dict(yaml_data: dict[str, Any], strict: bool = False) -> AppConfig:
     """Build a validated ``AppConfig`` from a raw YAML-style dict + env.
 
     This is the single Pydantic construction point used by
     ``load_config_from_yaml`` and by callers that already have a parsed
     config dict.
+
+    Args:
+        yaml_data: Parsed YAML dict.
+        strict: If True, reject top-level keys not in the allowlist.
+            This catches typos in user-facing config files.
     """
+    if strict:
+        unknown = set(yaml_data.keys()) - _ALLOWED_TOP_LEVEL_KEYS
+        if unknown:
+            raise UnknownConfigKeyError(
+                f"Unknown top-level config keys: {sorted(unknown)}. "
+                f"If these are intentional, run with strict=False."
+            )
+
     # Extract sections
     model_data = yaml_data.get("model", {})
     portfolio_data = yaml_data.get("portfolio", {})
@@ -197,7 +239,9 @@ def build_app_config_from_dict(yaml_data: dict[str, Any]) -> AppConfig:
 
     strategy_cfg = StrategyConfig(**strategy_kwargs)
     risk_cfg = RiskConfig(**risk_kwargs)
-    v2_cfg = ProductionV2RunConfig.model_validate(yaml_data)
+    from leadlag.models.production_v2 import parse_run_config
+
+    v2_cfg = parse_run_config(yaml_data)
     ml_overlay_data = yaml_data.get("ml_order_overlay", {})
     ml_overlay_cfg = MLOrderOverlayConfig(
         enabled=ml_overlay_data.get("enabled", False),
@@ -215,19 +259,23 @@ def build_app_config_from_dict(yaml_data: dict[str, Any]) -> AppConfig:
         tachibana=tachi_cfg,
         ml_order_overlay=ml_overlay_cfg,
         broker_provider=broker_provider,
-        output_base_dir=output_data.get("base_dir", "results/sector_relative_ensemble"),
-        output_live_dir=output_data.get("live_dir", "live/sector_relative_ensemble"),
+        output_base_dir=output_data.get("base_dir", str(results("sector_relative_ensemble"))),
+        output_live_dir=output_data.get("live_dir", str(live("sector_relative_ensemble"))),
         run_audit=output_data.get("run_audit", True),
         gap_distribution_dir=(yaml_data.get("gap_distribution") or {}).get("dir", ""),
     )
 
 
-def load_config_from_yaml(yaml_path: str | Path | None = None) -> AppConfig:
+def load_config_from_yaml(
+    yaml_path: str | Path | None = None,
+    strict: bool = False,
+) -> AppConfig:
     """Load config from YAML, merge with env variables, and validate via Pydantic.
 
     Args:
         yaml_path: Path to the configuration YAML file.
                    Defaults to project_root/configs/production/production.yaml if exists.
+        strict: If True, reject unrecognized top-level YAML keys.
     """
     if yaml_path is None:
         default_yaml = Path(__file__).parent.parent.parent.parent / "configs" / "production" / "production.yaml"
@@ -242,4 +290,4 @@ def load_config_from_yaml(yaml_path: str | Path | None = None) -> AppConfig:
     else:
         logger.info("No configuration YAML found, using default settings")
 
-    return build_app_config_from_dict(yaml_data)
+    return build_app_config_from_dict(yaml_data, strict=strict)

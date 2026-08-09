@@ -23,13 +23,13 @@ ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "src"))
 
 from leadlag.data.preprocessor import preprocess_data
-from leadlag.models.sector_relative_ensemble_blp_enhanced import (
-    SectorRelativeEnsembleBLPEnhancedModel,
-)
 from leadlag.reporting.metrics import calculate_metrics
 from research.backtest_common import (
     load_config,
     run_backtest_with_costs,
+)
+from research.models.sector_relative_ensemble_blp_enhanced import (
+    SectorRelativeEnsembleBLPEnhancedModel,
 )
 
 logging.basicConfig(
@@ -90,7 +90,7 @@ def main():
     )
     parser.add_argument("--start-date", default="2015-01-05", help="Backtest start date")
     parser.add_argument(
-        "--output-dir", default="results/copula_experiment",
+        "--output-dir", default="var/results/copula_experiment",
         help="Output directory",
     )
     parser.add_argument(

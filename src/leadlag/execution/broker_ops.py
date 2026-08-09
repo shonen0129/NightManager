@@ -12,6 +12,7 @@ import logging
 import os
 import time
 from datetime import datetime
+from pathlib import Path
 
 import pandas as pd
 
@@ -395,7 +396,7 @@ def _submit_delayed_orders(
                 summary["sell_results"].append(result_dict)
 
 
-def _write_api_execution_log(summary: dict, output_dir: str) -> str:
+def _write_api_execution_log(summary: dict, output_dir: str | Path) -> str:
     """Write `api_execution_log.json` and return its path."""
     log_path = os.path.join(output_dir, "api_execution_log.json")
     with open(log_path, "w", encoding="utf-8") as f:
@@ -407,7 +408,7 @@ def _write_api_execution_log(summary: dict, output_dir: str) -> str:
 def submit_orders_via_api(
     decision_df: pd.DataFrame,
     api_client: BrokerClient,
-    output_dir: str,
+    output_dir: str | Path,
     current_positions: dict[str, int] | None = None,
 ) -> dict:
     """Submit trade orders to the broker API, accounting for existing positions.

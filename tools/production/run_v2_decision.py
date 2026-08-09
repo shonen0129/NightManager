@@ -39,12 +39,12 @@ def parse_arguments() -> argparse.Namespace:
     )
     p.add_argument(
         "--gap-input-dir",
-        default="live/pipeline_data/gap_adjusted_distribution/latest",
+        default="var/live/pipeline_data/gap_adjusted_distribution/latest",
         help="Directory containing mu_gap/omega_gap .npy files.",
     )
     p.add_argument(
         "--live-dir",
-        default="live/production_residual_blpx",
+        default="var/live/production_residual_blpx",
         help="Live output directory for V2 artifacts.",
     )
     p.add_argument(
@@ -74,7 +74,7 @@ def parse_arguments() -> argparse.Namespace:
     )
     p.add_argument(
         "--output-root",
-        default="results",
+        default="var/results",
         help="Root directory for decision output.",
     )
     p.add_argument(

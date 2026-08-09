@@ -8,6 +8,8 @@ point of data access.
 
 from __future__ import annotations
 
+from typing import cast
+
 import numpy as np
 
 
@@ -70,14 +72,14 @@ class PITMatrixView:
 
     def asof_row(self) -> np.ndarray:
         """Return the full row at the as-of index."""
-        return self._values[self._as_of]
+        return cast(np.ndarray, self._values[self._as_of])
 
     def asof_col(self, col: int) -> float:
         """Return a single value at ``(as_of, col)``."""
-        return self._values[self._as_of, col]
+        return cast(float, self._values[self._as_of, col])
 
     def __len__(self) -> int:
-        return self._values.shape[0]
+        return cast(int, self._values.shape[0])
 
 
 def maybe_as_pit(

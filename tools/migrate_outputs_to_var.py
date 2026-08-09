@@ -30,6 +30,7 @@ MIGRATIONS = {
     "shadow_runs": "var/shadow_runs",
     "live": "var/live",
     "artifacts": "var/artifacts",
+    "market_data": "var/market_data",
 }
 
 

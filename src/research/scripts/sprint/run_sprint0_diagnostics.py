@@ -79,7 +79,7 @@ def main() -> int:
     start_date = args.start_date or cfg.get("start_date")
     end_date = args.end_date or cfg.get("end_date")
     output_dir = args.output_dir or cfg.get("output_dir", "reports/sprint0")
-    artifact_dir = args.artifact_dir or cfg.get("artifact_dir", "artifacts/sprint0")
+    artifact_dir = args.artifact_dir or cfg.get("artifact_dir", "var/artifacts/sprint0")
 
     # Paths resolution
     output_dir = os.path.abspath(os.path.join(ROOT, output_dir))

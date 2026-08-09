@@ -17,11 +17,11 @@ import scipy.stats as stats
 
 from leadlag.data.cache import load_df_exec_from_local_cache, load_intraday_cache
 from leadlag.data.fetcher import _yf_download_with_timeout
+from leadlag.data.preprocessor import compute_jp_target_returns
 from leadlag.data.tickers import JP_TICKERS
-from leadlag.models.sector_relative_ensemble_blp_enhanced import (
+from research.models.sector_relative_ensemble_blp_enhanced import (
     SectorRelativeEnsembleBLPEnhancedModel,
 )
-from leadlag.models.sre import compute_jp_target_returns
 
 logger = logging.getLogger(__name__)
 

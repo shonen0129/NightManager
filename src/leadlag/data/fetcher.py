@@ -17,6 +17,7 @@ import io
 import logging
 import os
 from datetime import datetime
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -29,7 +30,9 @@ logger = logging.getLogger(__name__)
 _YF_DOWNLOAD_TIMEOUT_SECONDS: int = 60
 
 
-def _yf_download_with_timeout(timeout: int = _YF_DOWNLOAD_TIMEOUT_SECONDS, **kwargs):
+def _yf_download_with_timeout(
+    timeout: int = _YF_DOWNLOAD_TIMEOUT_SECONDS, **kwargs: Any
+) -> pd.DataFrame:
     """Wrap yf.download with a timeout to prevent indefinite hangs.
 
     yfinance does not support a native timeout parameter, so we run it in a
@@ -44,6 +47,7 @@ def _yf_download_with_timeout(timeout: int = _YF_DOWNLOAD_TIMEOUT_SECONDS, **kwa
 from leadlag.data.cache import (
     etf_pkl_path,
     is_pkl_cache_valid,
+    load_raw_cache,
     save_raw_cache,
 )
 from leadlag.data.tickers import (
@@ -185,7 +189,7 @@ def _to_daily_index(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def _get_max_date(df: pd.DataFrame):
+def _get_max_date(df: pd.DataFrame) -> pd.Timestamp | None:
     if not isinstance(df, pd.DataFrame) or df.empty:
         return None
     return pd.to_datetime(df.index).tz_localize(None).normalize().max()
@@ -201,7 +205,7 @@ def _has_sufficient_topix_history(jp_close: pd.DataFrame, beta_window: int) -> b
 def _update_stale_cache_missing_only(
     stale_data: dict,
     start_date: str,
-    end_date,
+    end_date: str | None,
     beta_window: int = 60,
 ) -> dict:
     """Update only missing/new dates, preserving existing values.
@@ -302,7 +306,7 @@ def _update_stale_cache_missing_only(
 
 def download_data(
     start_date: str = "2009-01-01",
-    end_date=None,
+    end_date: str | None = None,
     beta_window: int = 60,
     force: bool = False,
 ) -> dict:
@@ -328,15 +332,19 @@ def download_data(
 
     if not force and is_pkl_cache_valid(pkl_path):
         logger.info("Loading data from cache (valid)")
-        return pd.read_pickle(pkl_path)
+        return load_raw_cache()
 
     has_stale_cache = os.path.exists(pkl_path)
     if has_stale_cache:
-        cache_age = datetime.fromtimestamp(os.path.getmtime(pkl_path))
-        logger.info("Cache expired (last modified: %s), re-downloading...", cache_age)
+        try:
+            cache_mtime = os.path.getmtime(pkl_path)
+            cache_age = datetime.fromtimestamp(cache_mtime)
+            logger.info("Cache expired (last modified: %s), re-downloading...", cache_age)
+        except OSError:
+            logger.info("Cache exists but cannot read mtime; attempting incremental update...")
 
         try:
-            stale_data = pd.read_pickle(pkl_path)
+            stale_data = load_raw_cache()
             updated = _update_stale_cache_missing_only(
                 stale_data,
                 start_date=start_date,
@@ -388,7 +396,10 @@ def download_data(
     except Exception:
         if has_stale_cache and os.path.exists(pkl_path):
             logger.warning("Download failed. Falling back to stale cache: %s", pkl_path)
-            return pd.read_pickle(pkl_path)
+            try:
+                return load_raw_cache()
+            except Exception:
+                pass
         raise
 
 

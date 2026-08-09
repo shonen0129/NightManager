@@ -27,12 +27,12 @@ import yaml
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "src"))
 
-from leadlag.models.sector_relative_ensemble_blp_enhanced import (
-    SectorRelativeEnsembleBLPEnhancedModel,
-)
 from leadlag.reporting.metrics import calculate_metrics
 from research.backtest_common import load_execution_data
 from research.backtest_v1 import run_v1_backtest
+from research.models.sector_relative_ensemble_blp_enhanced import (
+    SectorRelativeEnsembleBLPEnhancedModel,
+)
 
 logging.basicConfig(
     level=logging.INFO,

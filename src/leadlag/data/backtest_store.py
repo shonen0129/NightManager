@@ -1,8 +1,16 @@
 """SQLite-backed backtest result store.
 
-Stores daily weights, returns, gross exposure, turnover, drawdown, costs,
-and fallback flags from a full backtest run.  This replaces many per-run
-CSV files with a single queryable database and provides a clean audit trail.
+Stores full backtest ``results`` dicts in a :class:`SqliteCacheStore` while
+keeping queryable ``run_info`` / ``daily_pnl`` / ``daily_weights`` tables for
+fast access to the most commonly inspected time series.
+
+Public API::
+
+    from leadlag.data.backtest_store import BacktestResultStore
+    store = BacktestResultStore("var/results/backtest.sqlite")
+    run_id = store.save_results(results)
+    results = store.load_results(run_id)
+    runs = store.list_runs()
 """
 
 from __future__ import annotations
@@ -10,11 +18,14 @@ from __future__ import annotations
 import json
 import logging
 import sqlite3
+from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pandas as pd
+
+from leadlag.data.cache_store import SqliteCacheStore
 
 logger = logging.getLogger(__name__)
 
@@ -24,24 +35,26 @@ class BacktestStoreError(Exception):
 
 
 class BacktestResultStore:
-    """SQLite-backed store for daily backtest outputs.
+    """SQLite-backed store for full backtest output dicts.
 
     Tables:
-      - ``daily_pnl``: trade_date, daily_return, daily_return_gross, drawdown,
-        equity, turnover, gross_exposure, fallback, slippage_cost, financing_cost,
-        borrow_cost, reverse_cost, total_cost.
-      - ``daily_weights``: trade_date, ticker, weight.
-      - ``run_info``: single row with run metadata (start_date, end_date, config).
+      - ``run_info``: run_id, start_date, end_date, config_json, created_at.
+      - ``daily_pnl``: per-run, per-date P&L record.
+      - ``daily_weights``: per-run, per-date, per-ticker weight.
+
+    Full ``results`` dicts are also cached under ``bt:{run_id}`` so they can be
+    reloaded without reconstructing the individual tables.
     """
 
     def __init__(self, path: str | Path, *, timeout: float = 30.0) -> None:
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._timeout = timeout
+        self._cache = SqliteCacheStore(self.path, timeout=timeout)
         self._init_db()
 
     @contextmanager
-    def _connect(self):
+    def _connect(self) -> Iterator[sqlite3.Connection]:
         conn = sqlite3.connect(
             str(self.path),
             timeout=self._timeout,
@@ -94,11 +107,57 @@ class BacktestResultStore:
                 )
             """)
 
+    # -----------------------------------------------------------------------
+    # New high-level API
+    # -----------------------------------------------------------------------
+
+    def save_results(self, results: dict, run_id: str | int | None = None) -> str:
+        """Store a full ``results`` dict and return the ``run_id``.
+
+        If *run_id* is omitted a new entry is created in ``run_info`` and the
+        start/end dates are derived from ``results['daily_returns']``.
+        """
+        if run_id is None:
+            run_id = self._create_run_info_from_results(results, config=None)
+        run_id_str = str(run_id)
+        try:
+            self._cache.set(f"bt:{run_id_str}", results)
+        except Exception as e:
+            raise BacktestStoreError(
+                f"Failed to cache results for run {run_id_str}: {e}"
+            ) from e
+        return run_id_str
+
+    def load_results(self, run_id: str | int) -> dict[str, Any] | None:
+        """Return the full ``results`` dict for *run_id*.
+
+        Returns ``None`` when the run is not present in the cache.
+        """
+        run_id_str = str(run_id)
+        try:
+            return cast(dict[str, Any] | None, self._cache.get(f"bt:{run_id_str}"))
+        except Exception as e:
+            raise BacktestStoreError(
+                f"Failed to load results for run {run_id_str}: {e}"
+            ) from e
+
+    def list_runs(self) -> list[str]:
+        """Return a list of run ids stored in the database."""
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT run_id FROM run_info ORDER BY run_id"
+            ).fetchall()
+        return [str(r[0]) for r in rows]
+
+    # -----------------------------------------------------------------------
+    # Detailed-table API (legacy, used by tests and CSV-style consumers)
+    # -----------------------------------------------------------------------
+
     def save_run(
         self,
         results: dict,
         config: Any | None = None,
-    ) -> int:
+    ) -> int | None:
         """Save a full backtest run and return the run_id.
 
         *results* must contain the keys produced by
@@ -185,16 +244,38 @@ class BacktestResultStore:
                     )
 
                 conn.execute("COMMIT")
+                # Also cache the full results dict for the high-level API.
+                self.save_results(results, run_id=run_id)
                 return run_id
             except Exception as e:
                 conn.execute("ROLLBACK")
                 raise BacktestStoreError(f"Failed to save backtest run: {e}") from e
 
-    def _resolve_run_id(self, conn, run_id: int | None) -> int | None:
+    def _create_run_info_from_results(
+        self,
+        results: dict,
+        config: Any | None = None,
+    ) -> int | None:
+        """Insert a minimal run_info row for the high-level cache-only API."""
+        with self._connect() as conn:
+            cur = conn.execute(
+                """
+                INSERT INTO run_info (start_date, end_date, config_json)
+                VALUES (?, ?, ?)
+                """,
+                (
+                    _first_date(results.get("daily_returns")),
+                    _last_date(results.get("daily_returns")),
+                    json.dumps(_safe_config(config), default=str, ensure_ascii=False),
+                ),
+            )
+            return cur.lastrowid
+
+    def _resolve_run_id(self, conn: sqlite3.Connection, run_id: int | None) -> int | None:
         if run_id is not None:
             return run_id
         row = conn.execute("SELECT MAX(run_id) FROM run_info").fetchone()
-        return row[0] if row else None
+        return row[0] if row and row[0] is not None else None
 
     def load_pnl(self, run_id: int | None = None) -> pd.DataFrame:
         """Return the daily P&L DataFrame for *run_id* (default: latest run)."""

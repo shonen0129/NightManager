@@ -19,7 +19,7 @@ import pandas as pd
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(ROOT / "src"))
-sys.path.insert(0, str(ROOT / "tools/production"))
+sys.path.insert(0, str(ROOT / "tools/research"))
 
 from compute_gap_adjusted_distribution import (
     GapDistAccumulators,

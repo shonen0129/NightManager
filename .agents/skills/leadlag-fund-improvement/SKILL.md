@@ -20,7 +20,7 @@ V2日次実行に必要な前提データチェーン:
 
 ```
 Step 1: distribution_diagnostics (omega_struct行列)
-  スクリプト: archive/tools/compute_structured_prediction_covariance.py
+  スクリプト: `git tag archive-2026-08` の `archive/tools/compute_structured_prediction_covariance.py`
   入力: df_exec, V1バックテストウェイト (daily_positions_Residual-BLPX_only.csv)
   出力: live/pipeline_data/distribution_diagnostics/<timestamp>/matrices/omega_struct_*.npy
   ※Copula有効時: 相関行列推定にt-copulaブレンドを使用（correlation.py::estimate_t_copula）

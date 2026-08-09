@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+from pathlib import Path
 
 import pandas as pd
 
@@ -167,7 +168,7 @@ def _run_risk_check_and_print(
 def _write_decision_output_and_submit(
     decision_df: pd.DataFrame,
     decision: dict,
-    output_dir: str,
+    output_dir: str | Path,
     text_output: bool,
     api_client: BrokerClient | None,
     current_positions: dict[str, int] | None,
@@ -177,6 +178,7 @@ def _write_decision_output_and_submit(
     Returns:
         Path to the decision output CSV.
     """
+    output_dir = Path(output_dir)
     logger.info("[4/4] Writing decision artifact...")
     out_path = save_decision_output(decision_df, output_dir, decision["trade_date"])
     logger.info("Decision saved: %s", out_path)
@@ -231,7 +233,7 @@ def execute_post_decision_flow(
     manual_opens: dict,
     max_capital: float,
     hist_returns: pd.Series,
-    output_dir: str,
+    output_dir: str | Path,
     api_client: BrokerClient | None = None,
     text_output: bool = False,
     current_positions: dict[str, int] | None = None,

@@ -11,7 +11,7 @@ import json
 import logging
 import urllib.parse
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
 
 import requests
 
@@ -53,9 +53,8 @@ class TachibanaClient:
     def __enter__(self) -> TachibanaClient:
         return self
 
-    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> bool:
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         self.close()
-        return False
 
     def close(self) -> None:
         """Close connection and logout if logged in."""
@@ -105,9 +104,9 @@ class TachibanaClient:
 
         # Try 3: PKCS1_v1_5
         try:
-            cipher = PKCS1_v1_5.new(key)
+            v15_cipher = PKCS1_v1_5.new(key)
             sentinel = b"DECRYPT_FAIL"
-            dec = cipher.decrypt(encrypted_data, sentinel)
+            dec = v15_cipher.decrypt(encrypted_data, sentinel)
             if dec != sentinel:
                 return dec.decode("utf-8").strip()
         except Exception:
@@ -259,7 +258,7 @@ class TachibanaClient:
 
         response = self.session.get(full_url, timeout=self.config.request_timeout)
         response.raise_for_status()
-        result = response.json()
+        result = cast(dict[str, Any], response.json())
 
         # Check gateway-level errors first
         p_errno = result.get("p_errno", "0")
@@ -285,7 +284,7 @@ class TachibanaClient:
             new_full_url = f"{new_virtual_url.rstrip('/')}/?{urllib.parse.quote(new_json_str)}"
             response = self.session.get(new_full_url, timeout=self.config.request_timeout)
             response.raise_for_status()
-            result = response.json()
+            result = cast(dict[str, Any], response.json())
 
             # Check gateway-level errors on retry
             p_errno = result.get("p_errno", "0")

@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import threading
 from collections.abc import Callable
-from typing import TypeVar
+from typing import TypeVar, cast
 
 logger = logging.getLogger(__name__)
 
@@ -49,4 +49,4 @@ def run_with_timeout(
         raise TimeoutError(f"{label} exceeded {timeout}s timeout")
     if "error" in result_box:
         raise result_box["error"]
-    return result_box["value"]
+    return cast(T, result_box["value"])

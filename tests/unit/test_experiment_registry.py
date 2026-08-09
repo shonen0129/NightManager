@@ -9,7 +9,7 @@ from pathlib import Path
 
 import numpy as np
 
-from leadlag.core.experiment_registry import (
+from research.experiment_registry import (
     Decision,
     ExperimentRecord,
     ExperimentRegistry,

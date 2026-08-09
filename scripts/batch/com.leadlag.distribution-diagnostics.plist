@@ -8,11 +8,11 @@
     <key>ProgramArguments</key>
     <array>
         <string>/bin/bash</string>
-        <string>/Users/shonen/日米ラグ/scripts/batch/run_distribution_diagnostics.sh</string>
+        <string>__PROJECT_DIR__/scripts/batch/run_distribution_diagnostics.sh</string>
     </array>
 
     <key>WorkingDirectory</key>
-    <string>/Users/shonen/日米ラグ</string>
+    <string>__PROJECT_DIR__</string>
 
     <!-- update_market_data (08:00) の後、yfinance 遅延を吸収して 08:15 に実行 -->
     <key>StartCalendarInterval</key>
@@ -68,10 +68,10 @@
     </array>
 
     <key>StandardOutPath</key>
-    <string>/Users/shonen/日米ラグ/logs/distribution_diagnostics_launchd.log</string>
+    <string>__PROJECT_DIR__/var/logs/distribution_diagnostics_launchd.log</string>
 
     <key>StandardErrorPath</key>
-    <string>/Users/shonen/日米ラグ/logs/distribution_diagnostics_launchd.log</string>
+    <string>__PROJECT_DIR__/var/logs/distribution_diagnostics_launchd.log</string>
 
     <key>EnvironmentVariables</key>
     <dict>

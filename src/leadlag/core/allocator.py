@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Any, cast
 
 import numpy as np
 
@@ -42,8 +43,8 @@ def allocate_capital(
         CapitalAllocation with quantities, allocated amounts, and budgets
     """
     n = len(tickers)
-    quantities = np.zeros(n, dtype=int)
-    allocated = np.zeros(n, dtype=float)
+    quantities = cast(Any, np.zeros(n, dtype=int))
+    allocated = cast(Any, np.zeros(n, dtype=float))
 
     if max_capital <= 0:
         return CapitalAllocation(
@@ -76,7 +77,7 @@ def allocate_capital(
     buy_budget = gross_budget * (buy_abs_sum / gross_abs_sum)
     sell_budget = gross_budget * (sell_abs_sum / gross_abs_sum)
 
-    def _allocate_side(indices: np.ndarray, abs_weights: np.ndarray, side_budget: float):
+    def _allocate_side(indices: np.ndarray, abs_weights: np.ndarray, side_budget: float) -> None:
         if len(indices) == 0 or side_budget <= 0:
             return
 
@@ -84,7 +85,7 @@ def allocate_capital(
         if side_sum <= 0:
             return
 
-        idx_sorted = indices[np.argsort(-abs_weights)]
+        idx_sorted = [int(i) for i in indices[np.argsort(-abs_weights)]]
         for idx in idx_sorted:
             tk = tickers[idx]
             price = float(open_prices.get(tk, 0))
@@ -142,49 +143,51 @@ def allocate_capital(
             best_move = None  # (abs_new_net, kind, idx, price)
 
             if net > 0:
-                for idx in sell_indices:
-                    price = _lot_price_at(int(idx))
+                for raw_idx in sell_indices:
+                    adj_idx = cast(int, raw_idx)
+                    price = _lot_price_at(adj_idx)
                     if price <= 0:
                         continue
                     if price <= remaining_sell + 1e-9:
                         new_net = net - price
-                        cand = (abs(new_net), "add_sell", int(idx), price)
+                        cand = (abs(new_net), "add_sell", adj_idx, price)
                         if best_move is None or cand < best_move:
                             best_move = cand
                 if best_move is None:
-                    for idx in buy_indices:
-                        idx = int(idx)
-                        lot_size = _lot_size_at(idx)
-                        if quantities[idx] < lot_size:
+                    for raw_idx in buy_indices:
+                        adj_idx = cast(int, raw_idx)
+                        lot_size = _lot_size_at(adj_idx)
+                        if quantities[adj_idx] < lot_size:
                             continue
-                        price = _lot_price_at(idx)
+                        price = _lot_price_at(adj_idx)
                         if price <= 0:
                             continue
                         new_net = net - price
-                        cand = (abs(new_net), "remove_buy", idx, price)
+                        cand = (abs(new_net), "remove_buy", adj_idx, price)
                         if best_move is None or cand < best_move:
                             best_move = cand
             else:
-                for idx in buy_indices:
-                    price = _lot_price_at(int(idx))
+                for raw_idx in buy_indices:
+                    adj_idx = cast(int, raw_idx)
+                    price = _lot_price_at(adj_idx)
                     if price <= 0:
                         continue
                     if price <= remaining_buy + 1e-9:
                         new_net = net + price
-                        cand = (abs(new_net), "add_buy", int(idx), price)
+                        cand = (abs(new_net), "add_buy", adj_idx, price)
                         if best_move is None or cand < best_move:
                             best_move = cand
                 if best_move is None:
-                    for idx in sell_indices:
-                        idx = int(idx)
-                        lot_size = _lot_size_at(idx)
-                        if quantities[idx] < lot_size:
+                    for raw_idx in sell_indices:
+                        adj_idx = cast(int, raw_idx)
+                        lot_size = _lot_size_at(adj_idx)
+                        if quantities[adj_idx] < lot_size:
                             continue
-                        price = _lot_price_at(idx)
+                        price = _lot_price_at(adj_idx)
                         if price <= 0:
                             continue
                         new_net = net + price
-                        cand = (abs(new_net), "remove_sell", idx, price)
+                        cand = (abs(new_net), "remove_sell", adj_idx, price)
                         if best_move is None or cand < best_move:
                             best_move = cand
 

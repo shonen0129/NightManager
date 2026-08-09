@@ -65,7 +65,7 @@ for key in ["signals", "raw_pca_signals", "residual_pca_signals",
 
 ## 注意事項
 
-- **実験コードは除外**: `scripts/experiments/`, `src/experiments/`, `archive/` はリファクタ対象外（本番パスのみ）
+- **実験コードは除外**: `src/research/scripts/experiments/`, `src/research/experiments/`, `archive-2026-08` はリファクタ対象外（本番パスのみ）
 - **段階的実施**: 1回のリファクタリングで複数の技術的負債を同時に解消しない。1つずつ検証
 - **`ComplianceAuditor` の監査項目を無効化しない**: リーク監査は維持
 - **ARCHITECTURE.md の更新**: リファクタリング完了後、`docs/ARCHITECTURE.md` のリファクタリング履歴に追記

@@ -211,4 +211,5 @@ class BacktestResult:
 # StrategyConfig and RiskConfig have been migrated to Pydantic BaseModel
 # in leadlag.config.schemas for unified validation.  Import them from there
 # in new code.  The aliases below keep existing imports working.
-from leadlag.config.schemas import RiskConfig, StrategyConfig  # noqa: F401, E402
+from leadlag.config.schemas import RiskConfig as RiskConfig  # noqa: F401, E402
+from leadlag.config.schemas import StrategyConfig as StrategyConfig

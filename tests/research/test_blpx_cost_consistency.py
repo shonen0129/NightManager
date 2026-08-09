@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import numpy as np
 
-from leadlag.models.sector_relative_ensemble_blp_enhanced import (
+from research.backtest_v1 import run_v1_backtest
+from research.models.sector_relative_ensemble_blp_enhanced import (
     SectorRelativeEnsembleBLPEnhancedModel,
 )
-from research.backtest_v1 import run_v1_backtest
 
 
 def test_cost_consistency(residual_blpx_prod_config, sample_df_exec):

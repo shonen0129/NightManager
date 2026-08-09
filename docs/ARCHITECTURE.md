@@ -10,7 +10,7 @@ US ETF と TOPIX-17 セクター ETF のリードラグ相関を利用した、
 本番モデルは **Production Residual-BLPX-RA v2** （予測期待値を予測標準偏差で割ったリスク調整スコア $\mu_{\text{gap}} / \sigma_{\text{gap}}$ による銘柄選択と、予測 ex-ante IR の過去履歴に基づく動的グロス調整 RuleD を採用した、ギャップ調整予測分布ベースの最適化モデル）。
 旧本番の **Sector Relative Ensemble (PCA-Ensemble)** はベンチマーク用として維持される。
 
-**注意**: v1 fallback (Residual-BLPX) は2026-07-09に廃止されました。gap data欠損時はflat position (w_final=0) を返します。廃止理由は、v2でエラーが出る場合v1でも同様にエラーが出るため、循環依存の問題があったためです。v1 fallback関連コードは `archive/deprecated_v1_fallback/` にアーカイブされています。
+**注意**: v1 fallback (Residual-BLPX) は2026-07-09に廃止されました。gap data欠損時はflat position (w_final=0) を返します。廃止理由は、v2でエラーが出る場合v1でも同様にエラーが出るため、循環依存の問題があったためです。v1 fallback関連コードは `git tag archive-2026-08` の `archive/deprecated_v1_fallback/` にアーカイブされています。
 
 ### リファクタリング履歴
 
@@ -21,17 +21,17 @@ US ETF と TOPIX-17 セクター ETF のリードラグ相関を利用した、
 - **Phase 5**: 設定定義のPydantic移行、モデル層・実行層・安全監査の完全デカップリング（BaseModel導入による純粋化、BacktestEngine / ComplianceAuditor への役割分担）
 - **Phase 6**: 計算ボトルネックの高速化最適化（`compute_us_residualized_returns` のベクトル化、基準相関行列 `c_full` 及び残差空間事前分布 `_prepare_residual_prior` のメモリキャッシュ化による高速化）
 - **Phase 7 (2026-06-15)**: 本番 v2 モデル（Residual-BLPX-RA v2）への昇格に伴い、ギャップ調整予測分布計算、リスク調整ランキング（`mu_over_sigma`）、PIT ビニングに基づく動的グロス制御（`RuleD`）の導入、および v2 → v1 → PCA-Ensemble の多段階自動フォールバック機能の実装。
-- **Phase 15 (2026-07-09)**: v1 fallback (Residual-BLPX) の廃止。循環依存問題によりv2でエラーが出る場合v1でも同様にエラーが出るため、gap data欠損時はflat position (w_final=0) を返すように変更。v1 fallback関連コードを `archive/deprecated_v1_fallback/` にアーカイブ。
+- **Phase 15 (2026-07-09)**: v1 fallback (Residual-BLPX) の廃止。循環依存問題によりv2でエラーが出る場合v1でも同様にエラーが出るため、gap data欠損時はflat position (w_final=0) を返すように変更。v1 fallback関連コードを `git tag archive-2026-08` の `archive/deprecated_v1_fallback/` にアーカイブ。
 - **Phase 8 (2026-06-17)**: AIMA/IOSCO モデルリスクガイドラインに準拠するため、文書体系を再編。運用方針書から詳細なアルゴリズム数理・システムパラメータ・日次実行コマンド等を分離し、別冊の《モデル技術仕様書》および《日次運用手順書》へ移行。
 - **Phase 9 (2026-06-25)**: `monitoring/` 層（HealthScoreCalculator）をアーキテクチャ文書に正式反映。Health Score によるポジションサイズ動的調整のバックテスト検証結果（Sharpe改善なし）を踏まえ、常にフルポジションでの運用を決定。Health Score は記録・監視用のみ。
 - **Phase 10 (2026-06-27)**: モデル層の継承階層をリファクタリング。`BaseModel` に共通ユーティリティメソッド（`_resolve_val`, `_resolve_nested`, `normalize_signals`, `build_weights`, `_resolve_slippage_bps`）を集約し、新規中間クラス `_BLPBase`（`blp_base.py`）に BLP 系モデル共通メソッド（`_prepare_common_inputs`, `compute_production_signal`, `compute_residual_signal`, `_denormalize_signal`, `_apply_gap_adjustment`）を集約。`SectorRelativeEnsembleBLPEnhancedModel`, `SectorRelativeEnsembleBLPModel`, `SectorRelativeEnsembleRRRModel` は `_BLPBase` を継承するよう変更。`compute_blp_signal` を7つのヘルパーメソッドに分割し、実験スクリプトの重複モデル定義を `scripts/experiment_models.py` に共通化。
-- **Phase 11 (2026-07-01)**: アーキテクチャ文書を実態に合わせて全面更新。未記載だった `src/features/`、`src/models/`、`src/reports/` 実験パッケージ、`leadlag/cost/`、`leadlag/diagnostics/` サブパッケージ、`execution/` のLOB/スリッページ関連5ファイル、`compliance/v2_auditor.py`、`core/market_calendar.py`、`models/signal_enhancement.py`、`models/production_v2.py`、`models/net_score_ranking_lob.py`、`reporting/production_v2_writer.py`、`reporting/sprint2c_lob_report.py` を文書に反映。Repository Root に `Papers/`、`artifacts/`、`reports/`、`kabu_auto_login/`、`scratch/`、`archive/`、`live/`、`logs/`、`shadow_runs/`、`data/`、`creds/` 等の未記載ディレクトリを追加。
-- **Phase 12 (2026-07-01)**: ディレクトリ構造リファクタリング実施。実験パッケージ(`features/`, `models/`, `reports/`, `diagnostics/`)を `src/experiments/` に統合。`cost/cost_calculator.py` を `execution/` に移動。LOB/スリッページ関連5ファイルを `execution/microstructure/` サブパッケージに整理。`scripts/` を `experiments/`, `sprint/`, `backtest/`, `batch/`, `test/` に分割。`tools/` を `production/`, `validation/`, `research/` に分離。`configs/` を `production/`, `research/` に分離。`scratch/` を `archive/` に移動し `.gitignore` に追加。
+- **Phase 11 (2026-07-01)**: アーキテクチャ文書を実態に合わせて全面更新。未記載だった `src/features/`、`src/models/`、`src/reports/` 実験パッケージ、`leadlag/cost/`、`leadlag/diagnostics/` サブパッケージ、`execution/` のLOB/スリッページ関連5ファイル、`compliance/v2_auditor.py`、`core/market_calendar.py`、`models/signal_enhancement.py`、`models/production_v2.py`、`models/net_score_ranking_lob.py`、`reporting/production_v2_writer.py`、`reporting/sprint2c_lob_report.py` を文書に反映。Repository Root に `Papers/`、`artifacts/`、`reports/`、`kabu_auto_login/`、`scratch/`、`archive-2026-08`、`live/`、`logs/`、`shadow_runs/`、`data/`、`creds/` 等の未記載ディレクトリを追加。
+- **Phase 12 (2026-07-01)**: ディレクトリ構造リファクタリング実施。実験パッケージ(`features/`, `models/`, `reports/`, `diagnostics/`)を `src/experiments/` に統合。`cost/cost_calculator.py` を `execution/` に移動。LOB/スリッページ関連5ファイルを `execution/microstructure/` サブパッケージに整理。`scripts/` を `experiments/`, `sprint/`, `backtest/`, `batch/`, `test/` に分割。`tools/` を `production/`, `validation/`, `research/` に分離。`configs/` を `production/`, `research/` に分離。`scratch/` を `archive-2026-08` に移動し `.gitignore` に追加。
 - **Phase 13 (2026-07-06)**: Macro Confidence（Factor-Specific Kappa）を本番モデルに統合。`core/macro.py` 新設 — マクロ因子（USDJPY, CLF, TNX）のEWMAベース・ボラティリティ調整サプライズ計算、感度行列を用いた銘柄別リスクスケーリング。`SectorRelativeEnsembleBLPEnhancedModel.predict_signals` 内でアンサンブル結合シグナルに対して `s_ens / scale_j` を適用。シグナル方向はBLPXのまま維持し、ポジションサイズのみマクロ環境に適応。YAML設定に `macro_confidence_enabled`, `macro_kappas`, `macro_surprise_halflife_mean`, `macro_surprise_halflife_vol` を追加。
 - **Phase 14 (2026-07-08)**: ディレクトリ構造の完全統合リファクタリング実施。`src/experiments/` を `src/research/` にリネーム。`scripts/experiments/`（マクロ因子・BLPX実験）を `src/research/scripts/macro/` および `src/research/scripts/blpx/` に移動。`scripts/sprint/` を `src/research/scripts/sprint/` に移動。`scripts/backtest/` を `src/research/scripts/backtest/` に移動。全てのインポートパスを `from experiments.` から `from research.` に更新。研究関連コードを `src/research/` パッケージに完全統合し、Pythonパッケージとしての一貫性を確保。
 - **Phase 16 (2026-07-12)**: JP Residual-PCA 残差化で推定対象の TOPIX リターンを close-to-close (`topix_cc_trade`) から open-to-close (`topix_oc_return`) に変更。`y_jp_target`（9:10→大引け）と同一時間窓のリターンを用いることで、overnight gap 成分が含まれる `topix_cc_trade` による β 推定に起因する系統的暴露の残存を解消。`blp_base.py` と `sre.py` 両方の `_prepare_common_inputs` に統一的に反映し、`beta_regressor` 等の設定不要な実装にハードコード化。比較バックテストで全期間 net Sharpe 8.355 → 8.670、MDD -6.89% → -6.06% の改善を確認。`compute_gap_adjusted_distribution.py` による gap 分布再計算が必要。
 - **Phase 17 (2026-07-14)**: 前日gap行列フォールバックの廃止。`run_gap_distribution.sh` の前日行列コピー機能（`mu_gap_{PREV_DATE}.npy` → `mu_gap_{TODAY}.npy`）を削除。前日のgap行列で発注すると誤ったポジションとなるリスクがあるため、当日のgap行列が存在しない場合は flat position (w_final=0) を返すのが正しい挙動。`preprocess_data`（`preprocessor.py`）を修正し、`r_oc`（target return）がNaNの行も0埋めで残すことで、大引け前に当日のgap行列を計算可能に。AGENTS.md 不変条件 #6 として「前日gap行列の使用禁止」を明文化。
-- **Phase 18 (2026-07-21)**: Fractional Differentiation（分数階差分）の本番適用。US ETFリターン列に対し、López de Prado (2018) のbinomial expansionベース分数階差分フィルター（d=0.1）を適用し、長期記憶を保持しつつ定常性を確保。`features/fractional_diff.py` 新設 — 重み計算・変換・ADF検定・Hurst指数推定・最適d探索。`core/pipeline.py::build_common_inputs` に `frac_diff_enabled`/`frac_diff_d`/`frac_diff_threshold`/`frac_diff_window` パラメータを追加し、USリターン列に 分数差分を適用。`blp_base.py::_prepare_common_inputs` からconfig経由でパラメータを読み取り。ウォークフォワード検証（2015-2026、12年次ウィンドウ、d=0.1/0.5/1.0）でd=0.1が12/12ウィンドウでd=1.0ベースラインを上回る（平均Sharpe 8.87 vs 7.75、ターンオーバー3%低減）。ComplianceAuditor・リーク監査全項目PASS。検証レポート: `reports/fractional_diff_walkforward_audit_report.md`。実験スクリプトは `archive/experiments/` にアーカイブ。
+- **Phase 18 (2026-07-21)**: Fractional Differentiation（分数階差分）の本番適用。US ETFリターン列に対し、López de Prado (2018) のbinomial expansionベース分数階差分フィルター（d=0.1）を適用し、長期記憶を保持しつつ定常性を確保。`features/fractional_diff.py` 新設 — 重み計算・変換・ADF検定・Hurst指数推定・最適d探索。`core/pipeline.py::build_common_inputs` に `frac_diff_enabled`/`frac_diff_d`/`frac_diff_threshold`/`frac_diff_window` パラメータを追加し、USリターン列に 分数差分を適用。`blp_base.py::_prepare_common_inputs` からconfig経由でパラメータを読み取り。ウォークフォワード検証（2015-2026、12年次ウィンドウ、d=0.1/0.5/1.0）でd=0.1が12/12ウィンドウでd=1.0ベースラインを上回る（平均Sharpe 8.87 vs 7.75、ターンオーバー3%低減）。ComplianceAuditor・リーク監査全項目PASS。検証レポート: `reports/fractional_diff_walkforward_audit_report.md`。実験スクリプトは `git tag archive-2026-08` の `archive/experiments/` にアーカイブ。
 - **Phase 19 (2026-07-30)**: BLPX の `mu_gap` 生成を改善。`SectorRelativeEnsembleBLPEnhancedModel._build_blp_diagnostics` で `mu`/`sigma` の X/Y 分割を `len(mu)//2` から `len(US_TICKERS)`/`len(JP_TICKERS)` に修正し、`vol_adjusted_target=false` パスを正しく動作させる。`blpx.vol_adjusted_target` を `true`（0平均 + 20日実現ボラ）から `false`（インサンプル平均 + インサンプル標準偏差）に変更。これにより `mu_raw = mu_Y + sigma_Y * z_hat_j` となり、2015-2026 全期間バックテストで net total 768.90% → 1006.06%、net Sharpe 6.0571 → 7.3882、max DD -8.39% → -6.99%、turnover 1.3725 → 1.3082、fallback 11.33% → 3.63% に改善。本番 `configs/production/production.yaml` に `vol_adjusted_target: false` を追加し、`compute_gap_adjusted_distribution.py` による gap 分布再計算が必要。
 - **Phase 20 (2026-08-06)**: 本番config正本化（Refactoring C）。`start_date` のデフォルトを `2015-01-01` から `2015-01-05` に統一（`cli.py`、`config/schemas.py`、`execution/config.py`）。`side_leverage`（信用取引のロング+ショート合計レバレッジ倍率 = 1.5）を `configs/production/production.yaml` の `execution:` セクションに新設し、`StrategyConfig` / `load_config_from_yaml` / `execution/helpers.py` / `BacktestEngine.run_v2_backtest` で一貫して解決・伝播するよう接続。`BacktestEngine.run_v2_backtest` の fallback 値を本番コスト値（`overnight_alpha_long=0.75`、`overnight_alpha_short=0.5`）に揃え、V2 本番パスの設定再現性を向上。SRE/PCA 汎用パス（`run_backtest`）の legacy フォールバックは既存テストとの互換性のため維持。並列テストで関連 84 件 pass、既存の pandas 3.0 API / seaborn 未インストール / `test_daily_pnl_report` 環境依存以外は pass。レビュー後のフォローアップとして、`execution.side_leverage` を実験スクリプト 4 本でも優先参照するよう修正、`fast.py` の未使用 `start_date` デフォルトを 2015-01-05 に揃え、`load_config_from_yaml` の `side_leverage` 読み出しに `float()` 変換、`execute_post_decision_flow` の `config.side_leverage` に `getattr` フォールバックを追加。
 - **Phase 21 (2026-08-07)**: Refactoring A — バックテスト日次コスト計算ループ（A-1）と gap 行列ローダー（A-2）を共通化。A-1: `BacktestEngine.run_backtest` と `run_v2_backtest` に重複していたコストパラメータ解決・暦日数計算・日次コスト/オーバーナイト/リターン計算ループを `_simulate_daily_pnl()` プライベートクラスメソッドに抽出。差分は `side_leverage` 倍率と OC（Open-to-Close）補助系列の有無のみ。A-2: `production_v2.py::load_gap_matrices` と `signal_enhancement.py::load_horizon_gap_matrices` / `load_rank_reversal_signal` の重複した日付フォーマット・存在確認・`np.load` ロジックを `utils.gap_matrix_io` に集約。`load_gap_matrices` は `mu_pattern` / `omega_pattern` / `pattern_kwargs`（`{h}` 等）を受け取る汎用ローダーとなり、`signal_enhancement` の multi-horizon blend・rank reversal overlay でも共有。いずれも合成データで振る舞い一致を検証し、関連テスト 114 件 pass。
@@ -40,8 +40,8 @@ US ETF と TOPIX-17 セクター ETF のリードラグ相関を利用した、
 - **Phase 22 (2026-08-07)**: Refactoring B-3 — `src/leadlag/cli.py::main` を 3 つのプライベートハンドラー (`_handle_decision` / `_handle_backtest` / `_handle_close`) と短いオーケストレータに分割。`main` はロギング設定・パーサー構築・ヘルプ表示・引数解析・市場休場判定・ハンドラー呼び出し・終了コード返却のみを担当。引数名・デフォルト・lazy import・`--auto-close` 非推奨警告・`--capital-from-wallet requires --api-enable` 検証・各種 `run_*` 呼び出しをすべて保持。parser・decision fast/standard モード・backtest・close の各ヘルプ出力と、mock 化した `run_production` への backtest dispatch を含む動作確認を実施。ruff / mypy パス。
 - **Phase 22 (2026-08-07)**: Refactoring B-4 — `src/leadlag/execution/helpers.py::submit_orders_via_api` / `execute_post_decision_flow` を本番発注パスの段階別ヘルパーに分割。`submit_orders_via_api` から `_build_order_deltas`（target - current の delta 計算・close/new 分離）、`_submit_close_orders`（返済一括発注）、`_submit_new_orders`（新規即時発注）、`_submit_delayed_orders`（1629.T 大口 2 分割遅延発注）、`_write_api_execution_log` を抽出。`execute_post_decision_flow` から `_prepare_decision_df`（gross 調整・資本配分・DataFrame 構築）、`_log_decision_allocations`（予算/配分/未配分 logging）、`_run_risk_check_and_print`（リスク監査）、`_write_decision_output_and_submit`（CSV 出力・API 発注・journal 記録）を抽出。発注順序、`delay_ms=250`、`SPLIT_DELAY_SECONDS` 待機、`RuntimeError` 条件・メッセージ、JSON 出力、API 呼び出し順序は変更せず。DryRunBrokerClient mock を用いた 8 シナリオで baseline と一致し、`test_split_large_orders.py` / `test_close_positions.py` / `test_runner_helpers.py` 31 件 pass。
 - **Phase 22 (2026-08-07)**: Refactoring B-5 — `src/leadlag/core/pipeline.py::build_common_inputs`、`src/leadlag/models/sre.py::_prepare_residual_prior`、`src/leadlag/execution/fast.py::build_precomputed_cache` を段階別ヘルパーに分割。`build_common_inputs` から fractional differencing / US/JP returns / ベースライン相関 / TOPIX 残差化 / P4 入力 / 最終アセンブリを、`sre._prepare_residual_prior` から baseline 窓選択 / V0_resid 構築 / C_full_resid 計算 / C0_resid 構築 / 結果サマリーを、`build_precomputed_cache` から cache 入力抽出 / 静的 cache 成分計算 / cache dict 構築 / 保存を抽出。関数シグネチャ・返却キー・ローリング窓・lazy import・fallback 動作は変更せず、合成データで before/after 一致を検証。ruff pass、mypy は既存エラーのみ、関連テスト 22 件 pass。
-- **Phase 22 (2026-08-07)**: Refactoring D — 未使用のレガシーモデル (`sector_relative_ensemble_blp.py`, `sector_relative_ensemble_rrr.py`, `bayesian_blpx.py`, `net_score_ranking_lob.py`) を `src/leadlag/models/` から `archive/legacy_src/models/` へ移設。関連する参照テスト (`test_sector_relative_ensemble_blp.py`, `test_sector_relative_ensemble_rrr.py`, `test_b3_characterization.py`, `test_sprint2c_lob.py`, `test_sector_relative_ensemble_blp_enhanced.py`) と実験スクリプト (`experiment_a5_bayesian_kalman_fix.py`, `run_sprint2c_lob_slippage.py`, `experiment_bayesian_blpx.py`, `final_model_selection.py`, `analyze_blp_enhanced_refined.py`) を `archive/experiments/` へ集約。`archive/tools/` 内の既存バックテストスクリプトも `legacy_src.models` 経由でアーカイブモデルを参照するよう更新。本番パス (`src/leadlag/`, `tools/production/`, `scripts/experiments/`) から `from leadlag.models.<archived>` インポートを除去し、保守行数を約 7,600 行削減。`SectorRelativeEnsembleBLPEnhancedModel` (本番 v2 基盤) は `src/leadlag/models/` に留保。
-- **Phase 23 (2026-08-08)**: V1 backtest 段階的廃止 — CLI `backtest` サブコマンド、`src/leadlag/execution/backtest.py`、VaR/ES 履歴再構成 (`data/cache.py`, `v2_bridge.py`) を `BacktestEngine.run_v2_backtest` 一本化。レガシー `BacktestEngine.run_backtest` を `src/leadlag/execution/backtester.py` から削除し、残る研究実験向け `BaseModel` 汎用バックテストを `src/research/backtest_v1.py::run_v1_backtest` へ隔離。アクティブな研究スクリプト・テストを `research.backtest_v1` 経由に更新。`src/research/scripts/backtest/run_production_backtest.py` は V2 対応。標準 `decision` パスは V1 SRE モデル使用のため非推奨警告を追加（V2 本番は `tools/production/run_daily_production_v2.py` / `v2_bridge.py` を使用）。その後、CLI `decision` サブコマンドも `v2_bridge.run_v2_decision` 一本化し、`--config` / `--gap-dir` / `--live-dir` / `--capital` / `--api-url` / `--api-token` 等を V2 経路で受け渡し。最終的に未使用となった `src/leadlag/execution/fast.py`（`PrecomputedLeadLagStrategy`、`run_decision_fast`、`build_precomputed_cache`）および `src/leadlag/execution/decision.py::run_decision` を削除。`decision.py` はテストで使用される `generate_daily_decision_results` のみを残す。最終的に `SectorRelativeEnsembleModel`（V1 SRE クラス）も `src/leadlag/models/sre.py` から `archive/legacy_src/models/sre.py` へ移設。`src/leadlag/execution/helpers.py::build_strategy`、`src/research/backtest_common.py::run_baseline_backtest`、SRE 依存の研究スクリプト・ツール・テストを archive へ整理。`src/leadlag/models/sre.py` は V2 本番で使う `compute_jp_target_returns` のみを残す。本番系の `BacktestEngine` は V2 のみ。
+- **Phase 22 (2026-08-07)**: Refactoring D — 未使用のレガシーモデル (`sector_relative_ensemble_blp.py`, `sector_relative_ensemble_rrr.py`, `bayesian_blpx.py`, `net_score_ranking_lob.py`) を `src/leadlag/models/` から `git tag archive-2026-08` の `archive/legacy_src/models/` へ移設。関連する参照テスト (`test_sector_relative_ensemble_blp.py`, `test_sector_relative_ensemble_rrr.py`, `test_b3_characterization.py`, `test_sprint2c_lob.py`, `test_sector_relative_ensemble_blp_enhanced.py`) と実験スクリプト (`experiment_a5_bayesian_kalman_fix.py`, `run_sprint2c_lob_slippage.py`, `experiment_bayesian_blpx.py`, `final_model_selection.py`, `analyze_blp_enhanced_refined.py`) を `git tag archive-2026-08` の `archive/experiments/` へ集約。`git tag archive-2026-08` の `archive/tools/` 内の既存バックテストスクリプトも `legacy_src.models` 経由でアーカイブモデルを参照するよう更新。本番パス (`src/leadlag/`, `tools/production/`, `scripts/experiments/`) から `from leadlag.models.<archived>` インポートを除去し、保守行数を約 7,600 行削減。`SectorRelativeEnsembleBLPEnhancedModel` (本番 v2 基盤) は `src/leadlag/models/` に留保。
+- **Phase 23 (2026-08-08)**: V1 backtest 段階的廃止 — CLI `backtest` サブコマンド、`src/leadlag/execution/backtest.py`、VaR/ES 履歴再構成 (`data/cache.py`, `v2_bridge.py`) を `BacktestEngine.run_v2_backtest` 一本化。レガシー `BacktestEngine.run_backtest` を `src/leadlag/execution/backtester.py` から削除し、残る研究実験向け `BaseModel` 汎用バックテストを `src/research/backtest_v1.py::run_v1_backtest` へ隔離。アクティブな研究スクリプト・テストを `research.backtest_v1` 経由に更新。`src/research/scripts/backtest/run_production_backtest.py` は V2 対応。標準 `decision` パスは V1 SRE モデル使用のため非推奨警告を追加（V2 本番は `tools/production/run_daily_production_v2.py` / `v2_bridge.py` を使用）。その後、CLI `decision` サブコマンドも `v2_bridge.run_v2_decision` 一本化し、`--config` / `--gap-dir` / `--live-dir` / `--capital` / `--api-url` / `--api-token` 等を V2 経路で受け渡し。最終的に未使用となった `decision.py` はテストで使用される `generate_daily_decision_results` のみを残す。最終的に `SectorRelativeEnsembleModel`（V1 SRE クラス）も `src/leadlag/models/sre.py` から `git tag archive-2026-08` の `archive/legacy_src/models/sre.py` へ移設。`src/leadlag/execution/helpers.py::build_strategy`、`src/research/backtest_common.py::run_baseline_backtest`、SRE 依存の研究スクリプト・ツール・テストを archive へ整理。`src/leadlag/models/sre.py` は V2 本番で使う `compute_jp_target_returns` のみを残す。本番系の `BacktestEngine` は V2 のみ。
 - **Phase 24 (2026-08-09)**: Refactoring B-6 — `src/leadlag/execution/helpers.py` を 5 つの責務別サブモジュールに分解。`execution/pricing.py`（寄付価格・約定価格解決）、`execution/broker_ops.py`（BrokerClient 構築・ポジション/資本取得・発注・1629.T 大口分割）、`execution/risk_capital.py`（リスク設定・リスクチェック・gross 調整・資本配分）、`execution/output_ops.py`（出力ディレクトリ・決定 CSV・バックテストサマリー・position/wallet スナップショット・日次 journal）、`execution/post_decision.py`（gross 調整→リスク→配分→発注→出力の一連フロー）を新設。`execution/helpers.py` は後方互換 re-export モジュールに縮小。続けて P1-B3 として `tests/` から `research` パッケージへの依存を整理。V1 backtester テスト (`test_backtester_910.py`)、Residual-BLPX cost consistency テスト、および sprint 診断テスト (`test_sprint0_*`, `test_sprint1`, `test_sprint3b`) を `tests/research/` へ移設。`tests/integration/test_production_residual_blpx.py` から `research` import を除去。`scripts/run_tests_parallel.sh` を 8 プロセスに更新し、並列テストが全件 PASS することを確認。
 - **Phase 25 (2026-08-09)**: Refactoring C-1 — Pydantic 一本化（P2-C1）を V2 パイプラインから開始。`ProductionV2Model.__init__` は `ProductionV2RunConfig` のみ受け付けるように変更。`generate_v2_production_portfolio` は Pydantic config を第一に受け取り、研究スクリプトの raw dict は境界で `parse_run_config` により `ProductionV2RunConfig` に変換。マルチホライズンブレンド・ランク反転オーバーレイのファイルパターンを `ProductionV2RunConfig` のフィールドに移行し、ネストした dict からの読み出しを除去。`BacktestEngine._generate_v2_weights` 内部でも raw dict を V2 用 Pydantic config に変換してから `ProductionV2Model` / overlay ヘルパーへ渡すよう変更。`ml_order_overlay.py` の訓練関数と `tools/production/train_ml_order_overlay.py` も Pydantic 化。続けて `save_summary_files` を `StrategyConfig` のみ受け付けるよう変更し、`backtest.run_production` では `load_config_from_yaml` から `AppConfig` を読み込み `app_config.strategy` を渡すよう変更。
 - **Phase 26 (2026-08-09)**: Refactoring C-2 — `AppConfig` を V2 バックテスト・本番実行の単一正本に昇格。`AppConfig` に `v2: ProductionV2RunConfig` を追加し、`execution.config.build_app_config_from_dict` / `load_config_from_yaml` で同時に構築。`BacktestEngine.run_v2_backtest` は `AppConfig | dict` を受け付け、内部は `AppConfig` 一本化。コストパラメータは `app_config.strategy`、V2 ウェイト生成は `app_config.v2` から取得。`execution.backtest.run_production` は `BacktestEngine.run_v2_backtest` へ `AppConfig` を渡し、残差化・リスクパラメータも Pydantic 経由に変更。`AppConfig` に `gap_distribution_dir` を追加し、`v2_bridge.run_v2_decision` は YAML raw-dict 読み出しを廃止して `AppConfig` のみを使用するように変更。
@@ -71,14 +71,10 @@ tools/              # コマンドツール — tools/production/, tools/validat
 kabu_auto_login/    # kabuステーション自動ログインユーティリティ (独立要件)
 market_data/        # 市場データキャッシュ 及び 1629.T NAV パッチ用 CSV
 data/               # etf_data.pkl および JP セクターバスケットユニバース CSV
-results/            # バックテストおよび日次推論の実行出力ルート
+var/                # 唯一の実行時出力木 (results, artifacts, live, logs, shadow_runs, market_data)
 reports/            # sprint/phase 実験レポート群 (sprint0〜3b, phase3_walkforward)
-artifacts/          # 実験結果キャッシュ (phase1a〜3a, sprint0〜3b, novel_alpha 等)
-live/               # 本番実行ログ出力先
-logs/               # システムログ出力先
-shadow_runs/        # シャドウ実行結果
-scratch/            # 一時分析スクリプト (gitignore対象、中身はarchive/に移動済み)
-archive/            # 廃止済みコード保管庫
+scratch/            # 一時分析スクリプト (gitignore対象、中身は`archive-2026-08`に移動済み)
+`archive-2026-08`            # 廃止済みコード保管庫
 creds/              # 認証情報ディレクトリ (gitignore対象)
 ```
 
@@ -144,7 +140,7 @@ src/research/            # 研究パッケージ（本番実行パスに含ま�
 │   ├── sprint3a_hinge_report.py        # sprint3a ヒンジ特徴量レポート
 │   └── sprint3b_hinge_interaction_report.py  # sprint3b ヒンジ交互作用レポート
 │
-└── scripts/             # 研究スクリプト（実行可能な研究スクリプト）
+├── scripts/             # 研究スクリプト（実行可能な研究スクリプト）
     ├── macro/           # マクロ因子実験スクリプト
     │   ├── analyze_gold_correlation.py
     │   ├── analyze_steel_metal_factors.py
@@ -168,11 +164,21 @@ src/research/            # 研究パッケージ（本番実行パスに含ま�
     │   ├── run_sprint3a_hinge_features.py
     │   └── run_sprint3b_hinge_interactions.py
     │
-    └── backtest/        # バックテスト実行スクリプト
-        ├── run_overnight_holding_backtest.py
-        ├── run_overnight_robustness_analysis.py
-        ├── run_production_backtest.py
-        └── run_selective_overnight_backtest.py
+    ├── backtest/        # バックテスト実行スクリプト
+    │   ├── run_overnight_holding_backtest.py
+    │   ├── run_overnight_robustness_analysis.py
+    │   ├── run_production_backtest.py
+    │   └── run_selective_overnight_backtest.py
+    │
+    └── experiments/     # 実験スクリプト（旧 scripts/experiments 移設）
+        └── _template.py
+
+└── experiments/         # 実験用モジュール
+    └── ml_order_decision/
+        ├── __init__.py
+        ├── phase1.py
+        └── phase2.py
+
 ```
 
 ---
@@ -183,7 +189,7 @@ src/research/            # 研究パッケージ（本番実行パスに含ま�
 src/
 ├── leadlag/                 # 戦略パッケージ正本
 │   ├── __init__.py
-│   ├── cli.py               # 統合 CLI エントリーポイント (subcommands: decision, backtest, close)
+│   ├── cli.py               # 統合 CLI エントリーポイント (subcommands: decision, backtest, close, daily)
 │   │
 │   ├── core/                # 純粋ドメインロジック (I/O-free)
 │   │   ├── types.py         # 型安全なドメインモデル（dataclass/Enum）
@@ -205,19 +211,18 @@ src/
 │   │   └── v2_auditor.py    # v2モデル専用監査ロジック
 │   │
 │   ├── models/              # 本番モデルレイヤー（純粋なシグナル生成・ウェイト計算のみ、I/Oフリー）
-│   │   ├── base.py          # BaseModel 抽象モデルインターフェース（共通ユーティリティ: _resolve_val, normalize_signals, build_weights 等）
-│   │   ├── blp_base.py      # _BLPBase 中間クラス（BLP系モデル共通: _prepare_common_inputs, compute_production_signal, compute_residual_signal, _denormalize_signal, _apply_gap_adjustment）
-│   │   ├── sre.py                         # SectorRelativeEnsembleModel (PCA-Ensemble) — 第2フォールバック
-│   │   ├── sector_relative_ensemble_blp_enhanced.py  # SectorRelativeEnsembleBLPEnhancedModel (BLP拡張) — _BLPBase 継承
 │   │   ├── production_v2.py               # ProductionV2Model (Residual-BLPX-RA v2) — 本番モデル
-│   │   ├── signal_enhancement.py          # マルチホライズンブレンド・ランク反転オーバーレイ (Phase 2A/2D)
+│   │   ├── signal_enhancement.py          # マルチホライズンブレンド・ランク反転オーバーレイ
 │   │   └── ml_order_overlay.py            # ML order overlay 補助モデル
 │   │
 │   ├── data/                # データアクセス・前処理・キャッシュ層
 │   │   ├── tickers.py       # ティッカー定義・変換ユーティリティ
 │   │   ├── cache.py         # pkl/npz キャッシュ I/O、Pydantic設定によるバリデーション
+│   │   ├── cache_store.py   # SQLite ベース汎用キャッシュストア
+│   │   ├── backtest_store.py # バックテスト結果 SQLite 永続化
+│   │   ├── gap_store.py     # gap 行列（mu/omega）SQLite 永続化
 │   │   ├── fetcher.py       # データダウンロード (yfinance / ETFパッチ)
-│   │   ├── preprocessor.py  # データ前処理（残差リターン計算など、df_exec の構築）
+│   │   ├── preprocessor.py  # データ前処理（df_exec 構築、9:10→大引け target 計算）
 │   │   └── market_data.py   # 寄付価格取得、ギャップ計算、価格検証
 │   │
 │   ├── broker/              # ブローカー抽象化レイヤー
@@ -233,9 +238,12 @@ src/
 │   │
 │   ├── execution/           # 実行管理・ランナー層
 │   │   ├── config.py        # 設定ロード・Pydanticを用いた検証呼び出し
-│   │   ├── helpers.py       # 共通ヘルパー (監査ログ・発注指示)
-│   │   ├── decision.py      # run_decision() — 標準判定ランナー、generate_daily_decision_results()
-│   │   ├── fast.py          # run_decision_fast() — 高速判定ランナー (no yfinance)
+│   │   ├── broker_ops.py    # BrokerClient 構築・ポジション/資本取得・発注
+│   │   ├── pricing.py       # 寄付価格・約定価格解決
+│   │   ├── risk_capital.py  # リスク設定・リスクチェック・gross 調整・資本配分
+│   │   ├── output_ops.py    # 出力ディレクトリ・決定 CSV・バックテストサマリー・スナップショット
+│   │   ├── post_decision.py # gross 調整→リスク→配分→発注→出力の一連フロー
+│   │   ├── decision.py      # generate_daily_decision_results()
 │   │   ├── close.py         # 反対売買・自動クローズランナー
 │   │   ├── backtest.py      # run_production() — バックテスト実行管理（CLI経由）
 │   │   ├── backtester.py    # BacktestEngine — 汎用バックテストシミュレータ本体
@@ -276,15 +284,11 @@ ABC (abc.ABC)
         └── SectorRelativeEnsembleBLPEnhancedModel (sector_relative_ensemble_blp_enhanced.py)
 ```
 
-本番 V2 モデルは現状 `BaseModel` インターフェースを継承していない手続き的オーケストレータ（`production_v2.py::generate_v2_production_portfolio`）として動作している。`SectorRelativeEnsembleModel` (V1) は 2026-07 に `archive/legacy_src/models/sre.py` へ移設された。
+本番 V2 モデルは現状 `BaseModel` インターフェースを継承していない手続き的オーケストレータ（`production_v2.py::generate_v2_production_portfolio`）として動作している。`SectorRelativeEnsembleModel` (V1) は 2026-07 に `git tag archive-2026-08` の `archive/legacy_src/models/sre.py` へ移設された。
 
 | モジュール | 責務 |
 |---|---|
-| `base.py` | BaseModel 抽象インターフェース (`predict_signals`, `build_weights`) および共通ユーティリティ（`_resolve_val`, `_resolve_nested`, `_resolve_slippage_bps`, `normalize_signals`, `build_weights`） |
-| `blp_base.py` | _BLPBase 中間クラス — BLP系モデル共通メソッド（`_prepare_common_inputs`, `_compute_pca_signal`, `compute_production_signal`, `compute_residual_signal`, `_denormalize_signal`, `_apply_gap_adjustment`） |
-| `sre.py` | V1 `SectorRelativeEnsembleModel` 移設後のスタブ。`compute_jp_target_returns()` （9:10→大引けリターン計算）のみを提供 |
-| `sector_relative_ensemble_blp_enhanced.py` | SectorRelativeEnsembleBLPEnhancedModel （本番 v2 基盤の BLPX 構造化投影および確信度調整モデル） — `_BLPBase` 継承、`compute_blp_signal` を7つのヘルパーメソッドに分割、Factor-Specific Kappa によるマクロコンファイアンススケーリング統合 |
-| `production_v2.py` | V2 本番ポートフォリオ生成 (`generate_v2_production_portfolio()`)。ギャップ調整予測分布・`mu_over_sigma` ランキング・PITビニング (RuleD) 統合。当面は手続き的モジュールとして運用され、将来的に `BaseModel` 実装への集約が予定されている |
+| `production_v2.py` | V2 本番ポートフォリオ生成 (`generate_v2_production_portfolio()`)。ギャップ調整予測分布・`mu_over_sigma` ランキング・PITビニング (RuleD) 統合。当面は手続き的モジュールとして運用 |
 | `signal_enhancement.py` | マルチホライズンブレンド (`apply_multi_horizon_blend`)・ランク反転オーバーレイ (`apply_rank_reversal_overlay`) — Phase 2A/2D 成果物 |
 | `ml_order_overlay.py` | ML order overlay 補助モデル |
 
@@ -344,9 +348,12 @@ kabuステーションや立花証券からの移行・別ブローカー追加�
 | モジュール | 責務 |
 |---|---|
 | `config.py` | YAML/env の設定パラメータロード・Pydanticスキーマによる検証 (デフォルト: `configs/production/production.yaml`) |
-| `helpers.py` | broker/risk/capital alloc/orders の共有ユーティリティ |
-| `decision.py` | `run_decision()` — 標準発注フロー（yfinance 使用）、`generate_daily_decision_results()` |
-| `fast.py` | `run_decision_fast()` — 高速推論（yfinance 不要・precomputed cache） |
+| `broker_ops.py` | BrokerClient 構築・ポジション/資本取得・発注・1629.T 大口分割 |
+| `pricing.py` | 寄付価格・約定価格解決 |
+| `risk_capital.py` | リスク設定・リスクチェック・gross 調整・資本配分 |
+| `output_ops.py` | 出力ディレクトリ・決定 CSV・バックテストサマリー・position/wallet スナップショット |
+| `post_decision.py` | gross 調整→リスク→配分→発注→出力の一連フロー |
+| `decision.py` | `generate_daily_decision_results()` |
 | `close.py` | `close_all_positions()`, `wait_and_auto_close()` |
 | `backtest.py` | `run_production()` — 生産バックテスト実行管理 |
 | `backtester.py` | `BacktestEngine` — 汎用的なバックテスト実行シミュレータ |
@@ -418,7 +425,7 @@ LOB・スリッページ・執行制御関連モジュール。
 
 ### ブローカー抽象化
 `BrokerClient` ABC が発注・ポジション・残高の全 I/O インターフェースを定義。
-`execution/` レイヤー（`decision.py`, `fast.py`, `close.py` 等）は BrokerClient のみを参照し、kabu 固有コードに依存しない。
+`execution/` レイヤー（`decision.py`, `close.py` 等）は BrokerClient のみを参照し、kabu 固有コードに依存しない。
 
 ### Gross Exposure 調整
 `leadlag/core/portfolio.py::adjust_gross_exposure()` が正本。
@@ -426,18 +433,10 @@ LOB・スリッページ・執行制御関連モジュール。
 
 ### リスクロジックの一本化
 VaR/ES 計算・リスクチェック評価は `leadlag/core/risk.py` が正本。
-`leadlag/execution/helpers.py::run_risk_checks()` はラッパーとして呼び出す。
-
-### fast-mode (高速化モード) と本番処理最適化
-`fast-mode`（高速判定ランナー `fast.py`）を本番運用の推奨とし、ボトルネック解消と高速化のために以下の設計を採用しています：
-
-1. **データ取得の最適化**: `yfinance` による全ヒストリカルデータのダウンロードをスキップし、あらかじめ計算された `strategy_cache.npz` または `etf_data.pkl` 差分キャッシュを利用。kabuステーション API から当日分の US/JP 価格のみを直接取得。
-2. **米国残差リターン計算のベクトル化**: `preprocessor.py::compute_us_residualized_returns()` の Python `for` ループを pandas のローリング窓演算（`rolling().cov()` / `rolling().var()`）に置き換えることでベクトル化。時系列計算の計算量をミリ秒単位に短縮。
-3. **基準相関行列 (`c_full`) のメモリキャッシュ**: 2010〜2014年の基準期間データに対する EWMA 相関行列計算をメモリキャッシュ化。日次実行ごとに発生していた NumPy 縮約・固有値分解計算の重複を排除。
-4. **残差空間事前分布 (`_prepare_residual_prior`) のメモリキャッシュ**: PCA-Ensemble-USRP モデルにおける Gram-Schmidt 直交化及び PCA 関連前処理結果をキャッシュ。
+`leadlag/execution/risk_capital.py::run_risk_checks()` を呼び出す。
 
 ### 結果出力ディレクトリ方針
-`results/YYYYMMDD_HHMMSS_<run_name>/` が唯一の正本ディレクトリ。
+`var/results/YYYYMMDD_HHMMSS_<run_name>/` が実行時出力の一つの形態。
 `results_format.py::create_results_output_dir()` 経由で作成。各実行に `run_manifest.json` を生成。
 
 ---

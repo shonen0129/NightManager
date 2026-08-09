@@ -4,8 +4,10 @@ Consolidates logic previously duplicated across:
   - scripts/backtest/run_overnight_holding_backtest.py
   - scripts/backtest/run_overnight_robustness_analysis.py
   - scripts/backtest/run_selective_overnight_backtest.py
-  - scripts/backtest/run_production_backtest.py
   - scripts/experiments/*.py (30+ experiment scripts)
+
+The official V2 backtest entry point is ``python3 -m leadlag.cli backtest``
+(``src/leadlag/execution/backtest.py::run_production``).
 
 Includes:
   - CostParams: single source of research cost constants
@@ -32,9 +34,8 @@ from scipy import stats
 
 from leadlag.data.cache import load_df_exec_from_local_cache
 from leadlag.data.fetcher import download_data
-from leadlag.data.preprocessor import preprocess_data
+from leadlag.data.preprocessor import compute_jp_target_returns, preprocess_data
 from leadlag.data.tickers import JP_TICKERS
-from leadlag.models.sre import compute_jp_target_returns
 from leadlag.reporting.metrics import calculate_metrics
 from research.backtest_v1 import run_v1_backtest
 

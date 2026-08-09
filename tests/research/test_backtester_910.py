@@ -4,8 +4,8 @@ import numpy as np
 import pandas as pd
 
 from leadlag.data.tickers import JP_TICKERS
-from leadlag.models.base import BaseModel
 from research.backtest_v1 import run_v1_backtest
+from research.models.base import BaseModel
 
 
 class DummyModel(BaseModel):

@@ -19,7 +19,7 @@ import pandas as pd
 
 from leadlag.data.tickers import JP_TICKERS
 from leadlag.execution.backtester import BacktestEngine
-from leadlag.models.base import BaseModel
+from research.models.base import BaseModel
 
 logger = logging.getLogger(__name__)
 

@@ -10,28 +10,28 @@ PROJECT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 LAUNCH_AGENT_DIR="${HOME}/Library/LaunchAgents"
 
 echo "============================================"
-echo " 日米ラグ 自動スケジューラ セットアップ (macOS)"
+echo " leadlag-fund 自動スケジューラ セットアップ (macOS)"
 echo "============================================"
 echo ""
 echo "プロジェクトディレクトリ: ${PROJECT_DIR}"
 echo ""
 
 # ログディレクトリ作成
-mkdir -p "${PROJECT_DIR}/logs"
-echo "[OK] ログディレクトリ: ${PROJECT_DIR}/logs"
+mkdir -p "${PROJECT_DIR}/var/logs"
+echo "[OK] ログディレクトリ: ${PROJECT_DIR}/var/logs"
 
 # LaunchAgents ディレクトリ作成
 mkdir -p "${LAUNCH_AGENT_DIR}"
 
-# --- タスク1: Distribution Diagnostics (Step 1) (毎朝 6:00) ---
+# --- タスク1: Distribution Diagnostics (Step 1) (毎朝 8:15, 月-土) ---
 PLIST_DIST_DIAG="${LAUNCH_AGENT_DIR}/com.leadlag.distribution-diagnostics.plist"
 sed "s|__PROJECT_DIR__|${PROJECT_DIR}|g" "${SCRIPT_DIR}/com.leadlag.distribution-diagnostics.plist" > "${PLIST_DIST_DIAG}"
-echo "[OK] Distribution Diagnostics plist: ${PLIST_DIST_DIAG} (毎朝 6:00)"
+echo "[OK] Distribution Diagnostics plist: ${PLIST_DIST_DIAG} (毎朝 8:15, 月-土)"
 
-# --- タスク2: Decision (毎朝 9:05) ---
+# --- タスク2: Decision (毎朝 9:10, 月-金) ---
 PLIST_DECISION="${LAUNCH_AGENT_DIR}/com.leadlag.decision.plist"
 sed "s|__PROJECT_DIR__|${PROJECT_DIR}|g" "${SCRIPT_DIR}/com.leadlag.decision.plist" > "${PLIST_DECISION}"
-echo "[OK] Decision plist: ${PLIST_DECISION} (毎朝 9:05)"
+echo "[OK] Decision plist: ${PLIST_DECISION} (毎朝 9:10, 月-金)"
 
 # --- タスク3: Close (毎日 14:50) ---
 PLIST_CLOSE="${LAUNCH_AGENT_DIR}/com.leadlag.close.plist"
@@ -62,17 +62,17 @@ echo " セットアップ完了！"
 echo "============================================"
 echo ""
 echo "登録済みジョブ:"
-echo "  com.leadlag.distribution-diagnostics — 毎朝 6:00 (月-金)"
-echo "  com.leadlag.decision                  — 毎朝 9:05 (月-金)"
+echo "  com.leadlag.distribution-diagnostics — 毎朝 8:15 (月-土)"
+echo "  com.leadlag.decision                  — 毎朝 9:10 (月-金)"
 echo "  com.leadlag.close                     — 毎日 14:50 (月-金)"
 echo "  com.leadlag.pnl_report                — 毎日 15:40 (月-金)"
 echo ""
-echo "ログ出力先: ${PROJECT_DIR}/logs/"
+echo "ログ出力先: ${PROJECT_DIR}/var/logs/"
 echo ""
 echo "手動テスト実行:"
 echo "  bash ${SCRIPT_DIR}/run_distribution_diagnostics.sh"
 echo "  bash ${SCRIPT_DIR}/run_gap_distribution.sh"
-echo "  bash ${SCRIPT_DIR}/run_decision.sh"
+echo "  bash ${SCRIPT_DIR}/run_decision_v2.sh"
 echo "  bash ${SCRIPT_DIR}/run_close_positions.sh"
 echo "  bash ${SCRIPT_DIR}/run_pnl_report.sh"
 echo ""

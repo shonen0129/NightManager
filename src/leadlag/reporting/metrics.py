@@ -37,7 +37,7 @@ def _extract_monthly_returns(daily_returns: pd.Series) -> pd.Series | None:
     return monthly.astype(float)
 
 
-def calculate_metrics(daily_returns, risk_free_rate=0.0) -> dict:
+def calculate_metrics(daily_returns: pd.Series, risk_free_rate: float = 0.0) -> dict[str, float]:
     """Calculates AR, RISK, R/R, MDD based on daily returns.
 
     Assume 245 trading days per year for annualized metrics.

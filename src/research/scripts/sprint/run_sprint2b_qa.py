@@ -136,7 +136,7 @@ def solve_mvo(
     return res.x[:n] - res.x[n:], res.x, res.success
 
 def main():
-    qa_dir = ROOT / "artifacts/sprint2_cost_aware_aum1m/qa"
+    qa_dir = ROOT / "var/artifacts/sprint2_cost_aware_aum1m/qa"
     os.makedirs(qa_dir, exist_ok=True)
 
     logger.info("Loading cached data...")
@@ -181,7 +181,7 @@ def main():
         open_prices_df[tk] = op
 
     # Load Quote Width (dynamic spread)
-    spread_path = ROOT / "results/sector_relative_ensemble_execution_cost/quote_width_by_ticker.csv"
+    spread_path = ROOT / "var/results/sector_relative_ensemble_execution_cost/quote_width_by_ticker.csv"
     if os.path.exists(spread_path):
         spread_df = pd.read_csv(spread_path)
         spread_df["trade_date"] = pd.to_datetime(spread_df["trade_date"]).dt.normalize()

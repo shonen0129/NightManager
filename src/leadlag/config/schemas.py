@@ -10,6 +10,8 @@ from typing import Any, ClassVar
 
 from pydantic import BaseModel, Field, model_validator
 
+from leadlag.config.paths import live, results
+
 
 class StrategyConfig(BaseModel):
     """Strategy parameters validation schema.
@@ -188,8 +190,14 @@ class AppConfig(BaseModel):
     kabu: KabuApiConfig = Field(default_factory=KabuApiConfig)
     tachibana: TachibanaApiConfig = Field(default_factory=TachibanaApiConfig)
     broker_provider: str = Field(default="kabu", description="使用するブローカープロバイダー ('kabu' | 'tachibana' | 'dry_run')")
-    output_base_dir: str = Field(default="results/sector_relative_ensemble", description="バックテスト出力ルート")
-    output_live_dir: str = Field(default="live/sector_relative_ensemble", description="本番ライブ出力ルート")
+    output_base_dir: str = Field(
+        default_factory=lambda: str(results("sector_relative_ensemble")),
+        description="バックテスト出力ルート",
+    )
+    output_live_dir: str = Field(
+        default_factory=lambda: str(live("sector_relative_ensemble")),
+        description="本番ライブ出力ルート",
+    )
     run_audit: bool = Field(default=True, description="実行後に ComplianceAuditor を走らせるか")
     gap_distribution_dir: str = Field(default="", description="gap 調整分布ディレクトリ（相対パス可）")
     ml_order_overlay: MLOrderOverlayConfig = Field(default_factory=MLOrderOverlayConfig)
@@ -207,7 +215,7 @@ class ProductionV2RunConfig(BaseModel):
     Acts as the single source of truth for all v2 pipeline constants — replacing
     the module-level literals that previously lived in ``tools/run_daily_production_v2.py``.
     """
-    model_config = {"frozen": True}
+    model_config = {"frozen": True, "extra": "forbid"}
 
     # --- Portfolio construction ---
     long_count: int = Field(default=5, ge=1, description="ロング選択銘柄数")

@@ -19,19 +19,20 @@ import logging
 import pickle
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import pandas as pd
 from scipy.special import expit
 
 from leadlag.compliance.v2_auditor import run_numerical_audit
+from leadlag.config import safe_config_copy
 from leadlag.config.schemas import ProductionV2RunConfig
 from leadlag.core.portfolio import solve_baseline_style
 from leadlag.core.signal import build_weights_minvar
+from leadlag.data.preprocessor import compute_jp_target_returns
 from leadlag.data.tickers import JP_TICKERS
 from leadlag.models.production_v2 import generate_v2_production_portfolio, parse_run_config
-from leadlag.models.sre import compute_jp_target_returns
 
 logger = logging.getLogger(__name__)
 
@@ -112,7 +113,7 @@ def _safe(arr: np.ndarray) -> np.ndarray:
 
 def _sigmoid(x: np.ndarray, scale: float) -> np.ndarray:
     """Numerically stable sigmoid centered at 0 with scale."""
-    return expit(x / max(scale, 1e-8))
+    return cast(np.ndarray, expit(x / max(scale, 1e-8)))
 
 
 def _precompute_market_vol(df_exec: pd.DataFrame) -> pd.DataFrame:
@@ -246,7 +247,7 @@ def _recompute_w_pre(
             short_idx,
             baseline_gross=run_cfg.baseline_gross,
         )
-    return w_pre
+    return cast(np.ndarray, w_pre)
 
 
 # ---------------------------------------------------------------------------
@@ -682,6 +683,7 @@ def generate_v2_production_portfolio_with_overlay(
     already loaded.  It runs the base V2 pipeline and then calls
     ``apply_overlay`` when a model and df_exec are supplied.
     """
+    cfg = safe_config_copy(cfg)
     run_cfg = cfg if isinstance(cfg, ProductionV2RunConfig) else parse_run_config(cfg)
     result = generate_v2_production_portfolio(
         trade_date=trade_date,

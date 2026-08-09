@@ -95,7 +95,7 @@ baseline と experiment の日次リターンを比較し、改善が統計的�
    - `P(delta > 0)` も報告
 
 3. **パラメータスイープ**: 複数configで一括比較
-   - `scripts/experiments/experiment_copula.py --sweep` を参考
+   - `src/research/scripts/blpx/experiment_copula.py --sweep` を参考
    - 比較表: Label, Sharpe, ΔSharpe, AR%, ΔAR%, MDD%, ΔMDD%, Time
 
 ### 検定結果の記載形式

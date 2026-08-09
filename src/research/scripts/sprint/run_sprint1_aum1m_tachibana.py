@@ -85,7 +85,7 @@ def main():
     end_date = args.end_date or config.get("end_date")
 
     output_dir = config.get("output_dir", "reports/sprint1_aum1m_tachibana")
-    artifact_dir = config.get("artifact_dir", "artifacts/sprint1_aum1m_tachibana")
+    artifact_dir = config.get("artifact_dir", "var/artifacts/sprint1_aum1m_tachibana")
     figure_dir = os.path.join(output_dir, "figures")
 
     os.makedirs(output_dir, exist_ok=True)

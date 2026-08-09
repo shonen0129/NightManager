@@ -56,11 +56,11 @@
 
 ### 4. アーカイブ（優先度低）
 
-- `archive/tools/compute_structured_prediction_covariance.py`
-- `archive/tools/backtest_blp_enhanced.py`
-- `archive/tools/backtest_blp_projection.py`
-- `archive/tools/backtest_rrr_projection.py`
-- `archive/experiments/tests/integration/test_sector_relative_ensemble_*.py`
+- `git tag archive-2026-08` の `archive/tools/compute_structured_prediction_covariance.py`
+- `git tag archive-2026-08` の `archive/tools/backtest_blp_enhanced.py`
+- `git tag archive-2026-08` の `archive/tools/backtest_blp_projection.py`
+- `git tag archive-2026-08` の `archive/tools/backtest_rrr_projection.py`
+- `git tag archive-2026-08` の `archive/experiments/tests/integration/test_sector_relative_ensemble_`*.py`
 
 ## 段階的移行計画
 
@@ -84,7 +84,7 @@
 
 1. **`src/research/backtest_common.py` の V2 化**
    - `run_baseline_backtest` / `run_backtest_with_costs` を `BacktestEngine.run_v2_backtest` ベースに変更するか、V2 専用の新しい util（例：`run_baseline_v2_backtest`）を追加。
-   - 既存研究スクリプトは段階的に移行 or `archive/` へ移動。
+   - 既存研究スクリプトは段階的に移行 or `archive-2026-08` へ移動。
 
 2. **BLPX/マクロ感度スクリプトの移行**
    - `src/research/scripts/blpx/compare_sensitivity_matrix.py`
@@ -92,7 +92,7 @@
    - これらは `SectorRelativeEnsembleBLPEnhancedModel` + `run_backtest` を使っている。V2 化する場合は gap 行列が必要なため、実験スクリプト内で `compute_gap_adjusted_distribution` を事前実行 or 既存 gap ディレクトリを指定するように変更。
 
 3. **`scripts/experiments/` 内の整理**
-   - `grep -n "BacktestEngine.run_backtest" scripts/experiments/*.py` で呼び出しを列挙し、まだ有用なものは V2 化、不要なものは `archive/experiments/` へ移動。
+   - `grep -n "BacktestEngine.run_backtest" scripts/experiments/*.py` で呼び出しを列挙し、まだ有用なものは V2 化、不要なものは `git tag archive-2026-08` の `archive/experiments/` へ移動。
 
 ### Phase C: テストの V2 化
 
@@ -134,7 +134,7 @@
 ## 備考
 
 - Phase 22（2026-08-07）のリファクタリングにより、V1/V2 のコスト計算（`_simulate_daily_pnl`）とターゲット/gap リターン計算、シミュレーション期間決定などのヘルパーは既に共通化されている。残っている V1 固有部分はシグナル/ウェイト生成と結果アセンブルに限られるため、削除作業は比較的集中化されている。
-- ただし、V1 は **任意の `BaseModel` サブクラスをバックテストする唯一の汎用インターフェース**でもある。BLPX 以外のモデル（旧 SRE/PCA 等）のバックテストを維持する場合、V2 化ではなく V1 を廃止せずに分離して `archive/` 化する案も検討。
+- ただし、V1 は **任意の `BaseModel` サブクラスをバックテストする唯一の汎用インターフェース**でもある。BLPX 以外のモデル（旧 SRE/PCA 等）のバックテストを維持する場合、V2 化ではなく V1 を廃止せずに分離して `archive-2026-08` 化する案も検討。
 
 ## 関連ファイル
 

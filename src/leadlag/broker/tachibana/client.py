@@ -8,8 +8,9 @@ from __future__ import annotations
 import logging
 import os
 import time
+from collections.abc import Callable
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
 
 from leadlag.broker.base import BrokerClient, BrokerConfig, Position, WalletInfo
 from leadlag.broker.tachibana import session_cache
@@ -185,6 +186,8 @@ class TachibanaBrokerClient(BrokerClient):
                 for item in res:
                     code = item.get("sIssueCode")
                     price_str = item.get(price_field)
+                    if code is None:
+                        continue
                     original_ticker = mapping.get(code)
                     if not original_ticker:
                         continue
@@ -258,7 +261,7 @@ class TachibanaBrokerClient(BrokerClient):
                 t_obj = yf.Ticker(ticker)
 
                 hist = run_with_timeout(
-                    lambda _tobj=t_obj: _tobj.history(period="5d"),
+                    cast(Callable[[], Any], lambda _tobj=t_obj: _tobj.history(period="5d")),
                     _YF_TIMEOUT,
                     label=f"yf.Ticker({ticker}).history()",
                 )

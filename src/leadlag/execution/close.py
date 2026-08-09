@@ -15,6 +15,8 @@ import math
 import os
 import time as time_module
 from datetime import datetime
+from pathlib import Path
+from typing import Any
 
 from leadlag.broker.base import BrokerClient
 from leadlag.core.types import OrderRequest, OrderSide, OrderStatus, OrderType
@@ -25,20 +27,20 @@ from leadlag.execution.broker_ops import (
     split_large_orders,
 )
 from leadlag.execution.config import load_config_from_yaml
-from leadlag.execution.helpers import (
+from leadlag.execution.output_ops import (
     build_output_dir,
-    fetch_fill_prices,
     save_daily_journal,
     save_position_snapshot,
     save_wallet_snapshot,
 )
+from leadlag.execution.pricing import fetch_fill_prices
 
 logger = logging.getLogger(__name__)
 
 
 def close_all_positions(
     api_client: BrokerClient,
-    output_dir: str,
+    output_dir: str | Path,
     dry_run: bool = False,
     margin_trade_type: int = 3,
     account_type: int = 4,
@@ -97,9 +99,9 @@ def close_all_positions(
 
     # Build close-order metadata and OrderRequest list
     # Apply overnight holding ratios: only close (1 - alpha) fraction at 引け
-    close_order_meta = []
+    close_order_meta: list[dict[str, Any]] = []
     close_order_requests: list[OrderRequest] = []
-    held_overnight_meta = []
+    held_overnight_meta: list[dict[str, Any]] = []
     for pos in positions:
         if pos.quantity <= 0:
             continue
@@ -169,7 +171,7 @@ def close_all_positions(
 
     close_meta_by_ticker = {m["ticker"]: m for m in close_order_meta}
 
-    summary = {
+    summary: dict[str, Any] = {
         "timestamp": datetime.now().isoformat(timespec="seconds"),
         "dry_run": dry_run,
         "positions_found": len(positions),
@@ -321,7 +323,7 @@ def close_all_positions(
 
 def wait_and_auto_close(
     api_client: BrokerClient,
-    output_dir: str,
+    output_dir: str | Path,
     auto_close_time: str,
     dry_run: bool = False,
     close_position_order: int = 0,

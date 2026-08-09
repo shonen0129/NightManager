@@ -4,12 +4,61 @@ from __future__ import annotations
 
 import json
 import logging
+from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pandas as pd
 
-from leadlag.models.base import AuditContext
+
+@dataclass
+class AuditContext:
+    """Metadata required by ComplianceAuditor for safety checks.
+
+    Models expose this context through ``get_audit_context()`` so the
+    auditor can access typed metadata without duck-typed ``getattr`` calls.
+    """
+
+    n_u: int
+    """US ETF 銘柄数 (N_US)."""
+
+    n_j: int
+    """JP ETF 銘柄数 (N_JP)."""
+
+    us_res_enabled: bool = False
+    """True if US return residualization (P4 variant) is active."""
+
+    us_res_beta_shift: int = 1
+    """Beta window shift used for US residualization (must be 1 for no-lookahead)."""
+
+    us_res_beta_window: int = 60
+    """Beta estimation window length for US residualization."""
+
+    us_res_gamma: float = 0.5
+    """Blend coefficient for US residualization."""
+
+    prior_variant: str | None = None
+    """Prior subspace variant identifier (e.g. 'resid_v2_removed'), or None."""
+
+    raw_pca_weight: float = 0.5
+    """Ensemble weight for Raw-PCA (Production PCA) signal."""
+
+    residual_pca_weight: float = 0.5
+    """Ensemble weight for Residual-PCA (Residual target PCA) signal."""
+
+    p4_weight: float = 0.0
+    """Ensemble weight for P4 (US-residualized) signal."""
+
+    raw_blpx_weight: float = 0.0
+    """Ensemble weight for Raw-BLPX signal."""
+
+    residual_blpx_weight: float = 0.0
+    """Ensemble weight for Residual-BLPX signal."""
+
+    extra: dict = field(default_factory=dict)
+    """Model-specific auxiliary metadata (arbitrary key-value pairs)."""
+
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +69,7 @@ class ComplianceAuditor:
     @classmethod
     def run_audit(
         cls,
-        model: any,
+        model: Any,
         df_exec: pd.DataFrame,
         results: dict,
         output_dir: str | Path,

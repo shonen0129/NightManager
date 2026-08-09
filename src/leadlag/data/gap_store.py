@@ -2,25 +2,36 @@
 
 Provides an alternative to per-date ``.npy`` files for ``mu_gap``,
 ``omega_gap``, and optional multi-horizon / rank-reversal matrices.
-Matrices are stored as BLOB pickles in a single SQLite file with WAL mode.
+The store is backed by :class:`leadlag.data.cache_store.SqliteCacheStore`
+so gap matrices are stored as versioned, picklable cache values while a
+lightweight ``gap_matrices`` index table keeps track of dates, matrix types
+and horizons for fast listing and look-ups.
 
-The store is designed to be opt-in: callers can still use the file-based
-``utils/gap_matrix_io`` helpers.  When ``gap_input_dir`` (or a new
-``gap_store_path``) points at an ``.sqlite`` file, the V2 pipeline can read
-from the store instead of the directory.
+Public API::
+
+    from leadlag.data.gap_store import GapStore
+    store = GapStore("var/market_data/gap_matrices.sqlite")
+    store.save("2026-08-10", mu_gap, omega_gap, metadata={"sig_date": "2026-08-09"})
+    mu, omega, meta = store.load("2026-08-10")
+
+The legacy ``put`` / ``get`` / ``exists`` methods remain available for
+per-matrix-type storage (e.g. multi-horizon ``mu_gap_h3`` / ``omega_gap_h3``
+and ``rank_reversal`` signals).
 """
 
 from __future__ import annotations
 
 import logging
-import pickle
 import sqlite3
+from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
+import pandas as pd
 
+from leadlag.data.cache_store import SqliteCacheStore
 from leadlag.data.tickers import JP_TICKERS
 
 logger = logging.getLogger(__name__)
@@ -33,11 +44,15 @@ class GapStoreError(Exception):
 class GapStore:
     """SQLite-backed store for gap-adjusted distribution matrices.
 
+    Values are stored in a :class:`SqliteCacheStore`.  The local
+    ``gap_matrices`` table acts as an index with one row per cached matrix
+    so we can quickly list dates, check existence and resolve cache keys.
+
     Schema:
       - trade_date: YYYY-MM-DD
-      - matrix_type: 'mu' | 'omega' | 'rank_reversal' | ...
-      - horizon: int or NULL (for h=1 default / non-horizon-aware matrices)
-      - data: BLOB (pickled np.ndarray)
+      - matrix_type: 'mu' | 'omega' | 'rank_reversal' | 'meta' | ...
+      - horizon: int (``-1`` for the default non-horizon case)
+      - cache_key: TEXT (foreign to ``cache_store.key``)
       - created_at: ISO timestamp
     """
 
@@ -45,10 +60,11 @@ class GapStore:
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._timeout = timeout
+        self._cache = SqliteCacheStore(self.path, timeout=timeout)
         self._init_db()
 
     @contextmanager
-    def _connect(self):
+    def _connect(self) -> Iterator[sqlite3.Connection]:
         conn = sqlite3.connect(
             str(self.path),
             timeout=self._timeout,
@@ -67,7 +83,7 @@ class GapStore:
                     trade_date TEXT NOT NULL,
                     matrix_type TEXT NOT NULL,
                     horizon INTEGER NOT NULL DEFAULT -1,
-                    data BLOB NOT NULL,
+                    cache_key TEXT NOT NULL,
                     created_at TEXT DEFAULT (datetime('now')),
                     PRIMARY KEY (trade_date, matrix_type, horizon)
                 )
@@ -80,46 +96,59 @@ class GapStore:
         """
         return -1 if horizon is None else int(horizon)
 
+    @staticmethod
+    def _cache_key(trade_date: str, matrix_type: str, horizon: int) -> str:
+        """Return the canonical cache key for a matrix."""
+        return f"gap:{trade_date}:{matrix_type}:{horizon}"
+
     def put(
         self,
         trade_date: str,
         matrix_type: str,
-        data: np.ndarray,
+        data: np.ndarray | Any,
         horizon: int | None = None,
     ) -> None:
         """Store a matrix for a given trade date and type."""
-        blob = pickle.dumps(data, protocol=pickle.HIGHEST_PROTOCOL)
         date_key = _normalise_date(trade_date)
         horizon_key = self._horizon_key(horizon)
+        cache_key = self._cache_key(date_key, matrix_type, horizon_key)
         with self._connect() as conn:
             conn.execute("BEGIN")
             try:
                 conn.execute(
                     """
                     INSERT OR REPLACE INTO gap_matrices
-                    (trade_date, matrix_type, horizon, data)
+                    (trade_date, matrix_type, horizon, cache_key)
                     VALUES (?, ?, ?, ?)
                     """,
-                    (date_key, matrix_type, horizon_key, blob),
+                    (date_key, matrix_type, horizon_key, cache_key),
                 )
                 conn.execute("COMMIT")
             except Exception as e:
                 conn.execute("ROLLBACK")
-                raise GapStoreError(f"Failed to store {matrix_type} for {date_key}: {e}") from e
+                raise GapStoreError(
+                    f"Failed to index {matrix_type} for {date_key}: {e}"
+                ) from e
+        try:
+            self._cache.set(cache_key, data)
+        except Exception as e:
+            raise GapStoreError(
+                f"Failed to cache {matrix_type} for {date_key}: {e}"
+            ) from e
 
     def get(
         self,
         trade_date: str,
         matrix_type: str,
         horizon: int | None = None,
-    ) -> np.ndarray | None:
+    ) -> np.ndarray | Any | None:
         """Return the stored matrix, or None if not found."""
         date_key = _normalise_date(trade_date)
         horizon_key = self._horizon_key(horizon)
         with self._connect() as conn:
             row = conn.execute(
                 """
-                SELECT data FROM gap_matrices
+                SELECT cache_key FROM gap_matrices
                 WHERE trade_date = ? AND matrix_type = ? AND horizon = ?
                 """,
                 (date_key, matrix_type, horizon_key),
@@ -127,9 +156,11 @@ class GapStore:
         if row is None:
             return None
         try:
-            return pickle.loads(row[0])
+            return self._cache.get(row[0])
         except Exception as e:
-            raise GapStoreError(f"Failed to load {matrix_type} for {date_key}: {e}") from e
+            raise GapStoreError(
+                f"Failed to load {matrix_type} for {date_key}: {e}"
+            ) from e
 
     def exists(
         self,
@@ -148,6 +179,52 @@ class GapStore:
                 (date_key, matrix_type, horizon_key),
             ).fetchone()
         return row is not None
+
+    def save(
+        self,
+        date: str,
+        mu: np.ndarray,
+        omega: np.ndarray,
+        metadata: dict[str, Any] | None = None,
+    ) -> None:
+        """Store the ``mu_gap`` / ``omega_gap`` pair for a trade date.
+
+        The optional *metadata* dict (e.g. ``sig_date``) is stored together
+        with the matrices and returned by :meth:`load`.
+        """
+        date_key = _normalise_date(date)
+        meta = metadata if metadata is not None else {}
+        self.put(date_key, "mu", mu)
+        self.put(date_key, "omega", omega)
+        self.put(date_key, "meta", meta)
+
+    def load(self, date: str) -> tuple[np.ndarray | None, np.ndarray | None, dict[str, Any] | None]:
+        """Load the ``mu_gap`` / ``omega_gap`` pair and metadata for *date*.
+
+        Returns ``(mu, omega, metadata)``.  Missing components are ``None``.
+        """
+        date_key = _normalise_date(date)
+        mu = self.get(date_key, "mu")
+        omega = self.get(date_key, "omega")
+        meta = self.get(date_key, "meta")
+        if meta is None:
+            meta = {}
+        if mu is None or omega is None:
+            return None, None, None
+        return cast(np.ndarray, mu), cast(np.ndarray, omega), cast(dict[str, Any], meta)
+
+    def latest_date(self) -> str | None:
+        """Return the most recent trade date with both ``mu`` and ``omega``."""
+        with self._connect() as conn:
+            row = conn.execute(
+                """
+                SELECT trade_date FROM gap_matrices
+                WHERE matrix_type IN ('mu', 'omega') AND horizon = -1
+                ORDER BY trade_date DESC
+                LIMIT 1
+                """
+            ).fetchone()
+        return row[0] if row else None
 
     def import_from_directory(
         self,
@@ -184,8 +261,7 @@ class GapStore:
                 logger.warning("[%s] Skipped import: %s", trade_date, alerts)
                 failed += 1
                 continue
-            self.put(trade_date, "mu", mu)
-            self.put(trade_date, "omega", omega)
+            self.save(trade_date, mu, omega)
             imported += 1
 
         return {"imported": imported, "failed": failed, "total_candidates": len(mu_files)}
@@ -193,8 +269,6 @@ class GapStore:
 
 def _normalise_date(date_str: str) -> str:
     """Return YYYY-MM-DD for any parseable date string."""
-    import pandas as pd
-
     return str(pd.to_datetime(date_str).date())
 
 

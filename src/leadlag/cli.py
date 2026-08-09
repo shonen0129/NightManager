@@ -36,8 +36,8 @@ def _add_decision_args(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument(
         "--live-dir",
-        default="live/production_residual_blpx",
-        help="Live output directory for V2 artifacts (default: live/production_residual_blpx).",
+        default="var/live/production_residual_blpx",
+        help="Live output directory for V2 artifacts (default: var/live/production_residual_blpx).",
     )
     parser.add_argument(
         "--output-root",
@@ -177,6 +177,12 @@ def setup_parser() -> argparse.ArgumentParser:
              "Defaults to gap_distribution.dir in the YAML config.",
     )
     backtest_parser.add_argument(
+        "--gap-store",
+        default=None,
+        help="Optional path to a .sqlite GapStore. If provided it overrides "
+             "--gap-dir for matrix loading while keeping --gap-dir as a .npy fallback.",
+    )
+    backtest_parser.add_argument(
         "--start-date",
         default="2015-01-05",
         help="Simulation start date (default: 2015-01-05).",
@@ -207,6 +213,34 @@ def setup_parser() -> argparse.ArgumentParser:
         type=int,
         default=1,
         help="Number of parallel workers for signal computation (1=sequential, -1=all cores).",
+    )
+    backtest_parser.add_argument(
+        "--data-source",
+        choices=["download", "cache"],
+        default="download",
+        help="How to obtain df_exec: download (default) or cache.",
+    )
+    backtest_parser.add_argument(
+        "--end-date",
+        default="latest",
+        help="Backtest end date ('latest' for last available, default: latest).",
+    )
+    backtest_parser.add_argument(
+        "--side-leverage",
+        type=float,
+        default=None,
+        help="Notional side leverage (overrides config if set).",
+    )
+    backtest_parser.add_argument(
+        "--output-level",
+        choices=["minimal", "detailed"],
+        default="detailed",
+        help="Output level: detailed (default) writes full daily CSVs; minimal writes summary only.",
+    )
+    backtest_parser.add_argument(
+        "--overlay-model-dir",
+        default=None,
+        help="Path to an ML order-overlay model directory (optional).",
     )
 
     # --- DAILY SUBCOMMAND ---
@@ -280,6 +314,18 @@ def _handle_backtest(args: argparse.Namespace) -> int:
         backtest_kwargs["config_path"] = args.config
     if args.gap_dir is not None:
         backtest_kwargs["gap_input_dir"] = args.gap_dir
+    if args.gap_store is not None:
+        backtest_kwargs["gap_store_path"] = args.gap_store
+    if args.data_source is not None:
+        backtest_kwargs["data_source"] = args.data_source
+    if args.end_date is not None:
+        backtest_kwargs["end_date"] = args.end_date
+    if args.side_leverage is not None:
+        backtest_kwargs["side_leverage"] = args.side_leverage
+    if args.output_level is not None:
+        backtest_kwargs["output_level"] = args.output_level
+    if args.overlay_model_dir is not None:
+        backtest_kwargs["overlay_model_dir"] = args.overlay_model_dir
     run_production(
         start_date=args.start_date,
         output_root=args.output_root,

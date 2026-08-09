@@ -7,7 +7,9 @@ The CLI production decision path has moved to ``v2_bridge.run_v2_decision``.
 from __future__ import annotations
 
 import logging
+from typing import Any, cast
 
+import numpy as np
 import pandas as pd
 
 from leadlag.data.tickers import JP_TICKERS
@@ -15,16 +17,18 @@ from leadlag.data.tickers import JP_TICKERS
 logger = logging.getLogger(__name__)
 
 
-import numpy as np
-
-
-def generate_daily_decision_results(model, df_exec, trade_date, current_weights=None):
+def generate_daily_decision_results(
+    model: Any,
+    df_exec: pd.DataFrame,
+    trade_date: str | pd.Timestamp,
+    current_weights: dict[str, float] | None = None,
+) -> dict[str, Any]:
     if trade_date == "latest":
         i = len(df_exec) - 1
-        trade_date = df_exec.index[i]
+        resolved_trade_date: pd.Timestamp = cast(pd.Timestamp, df_exec.index[i])
     else:
-        trade_date = pd.to_datetime(trade_date)
-        i = df_exec.index.get_loc(trade_date)
+        resolved_trade_date = cast(pd.Timestamp, pd.to_datetime(trade_date))
+        i = df_exec.index.get_loc(resolved_trade_date)
     sig_date = df_exec["sig_date"].values[i]
 
     pred = model.predict_signals(df_exec)
@@ -52,7 +56,7 @@ def generate_daily_decision_results(model, df_exec, trade_date, current_weights=
     for j, tk in enumerate(JP_TICKERS):
         rec = {
             "signal_date": sig_date,
-            "trade_date": trade_date.strftime("%Y-%m-%d"),
+            "trade_date": resolved_trade_date.strftime("%Y-%m-%d"),
             "ticker": tk,
             "production_signal": float(raw_pca_sig[j]),
             "residual_signal": float(residual_pca_sig[j]),
@@ -77,7 +81,7 @@ def generate_daily_decision_results(model, df_exec, trade_date, current_weights=
     for j, tk in enumerate(JP_TICKERS):
         weight_records.append(
             {
-                "trade_date": trade_date.strftime("%Y-%m-%d"),
+                "trade_date": resolved_trade_date.strftime("%Y-%m-%d"),
                 "ticker": tk,
                 "ensemble_signal": float(s_ens[j]),
                 "weight": float(w[j]),
@@ -104,7 +108,7 @@ def generate_daily_decision_results(model, df_exec, trade_date, current_weights=
 
         order_records.append(
             {
-                "trade_date": trade_date.strftime("%Y-%m-%d"),
+                "trade_date": resolved_trade_date.strftime("%Y-%m-%d"),
                 "ticker": tk,
                 "current_weight": curr_w,
                 "target_weight": target_w,
@@ -119,6 +123,6 @@ def generate_daily_decision_results(model, df_exec, trade_date, current_weights=
         "signal_df": latest_signal_df,
         "weights_df": latest_weights_df,
         "orders_df": latest_orders_df,
-        "trade_date": trade_date,
+        "trade_date": resolved_trade_date,
         "sig_date": sig_date,
     }

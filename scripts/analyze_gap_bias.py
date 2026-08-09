@@ -6,7 +6,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-BASE = Path("/Users/shonen/日米ラグ/live/pipeline_data/gap_adjusted_distribution")
+BASE = Path("/Users/shonen/日米ラグ/var/live/pipeline_data/gap_adjusted_distribution")
 
 # 1. Compare 07-10 matrix between two batch runs (same date, different run times)
 print("=" * 70)

@@ -15,8 +15,8 @@ import yfinance as yf
 from scipy.optimize import minimize
 
 from leadlag.data.cache import load_intraday_cache
+from leadlag.data.preprocessor import compute_jp_target_returns
 from leadlag.data.tickers import JP_TICKERS
-from leadlag.models.sre import compute_jp_target_returns
 from research.diagnostics.sprint0 import find_latest_distribution_diagnostics
 
 logger = logging.getLogger(__name__)

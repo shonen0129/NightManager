@@ -60,10 +60,10 @@
     </array>
 
     <key>StandardOutPath</key>
-    <string>__PROJECT_DIR__/logs/pnl_report_launchd.log</string>
+    <string>__PROJECT_DIR__/var/logs/pnl_report_launchd.log</string>
 
     <key>StandardErrorPath</key>
-    <string>__PROJECT_DIR__/logs/pnl_report_launchd.log</string>
+    <string>__PROJECT_DIR__/var/logs/pnl_report_launchd.log</string>
 
     <key>EnvironmentVariables</key>
     <dict>

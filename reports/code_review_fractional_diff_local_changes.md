@@ -77,7 +77,7 @@ python3 -m pytest tests/features/test_fractional_diff.py tests/unit/test_allocat
 - **なぜテストで防げないか**: configファイルの網羅的整合性テストがない。
 - **修正方針**: 
   - 選択肢A: 旧configにも同一 `features.fractional_diff` ブロックを追記。
-  - 選択肢B: 旧configを `archive/configs/` に移動し、非推奨化。
+  - 選択肢B: 旧configを `git tag archive-2026-08` の `archive/configs/` に移動し、非推奨化。
   - `AGENTS.md` では `production_v2_primary_ruleD.yaml` が「旧版」と明記されているため、少なくとも旧config利用箇所への警告コメントまたは移動を推奨。
 - **確信度**: 高
 

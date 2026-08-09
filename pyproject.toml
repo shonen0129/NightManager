@@ -23,6 +23,9 @@ dependencies = [
     "pycryptodome>=3.10.0",
     "toml>=0.10.2",
     "pyyaml>=6.0.0",
+    "scikit-learn>=1.4.0",
+    "seaborn>=0.13.0",
+    "pyarrow>=25.0.0",
 ]
 
 [project.optional-dependencies]
@@ -90,11 +93,59 @@ known-first-party = ["leadlag"]
 # Mypy
 # ---------------------------------------------------------------------------
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.12"
 mypy_path = "src"
 warn_return_any = true
 warn_unused_configs = true
 ignore_missing_imports = true
+
+# T-P3-3: progressive strict mode.
+# Newly refactored modules are checked with strict; legacy modules are
+# gradually migrated. The exclude list should shrink over time.
+strict = true
+
+[[tool.mypy.overrides]]
+module = ["leadlag.*"]
+disallow_any_generics = false
+
+[[tool.mypy.overrides]]
+module = [
+    "leadlag.config.*",
+    "leadlag.data.cache_store",
+    "leadlag.data.gap_store",
+    "leadlag.data.backtest_store",
+    "leadlag.data.decision_cache",
+    "leadlag.data.market_data_cache",
+]
+strict = true
+
+
+# ---------------------------------------------------------------------------
+# import-linter (T-P3-4)
+# ---------------------------------------------------------------------------
+[tool.importlinter]
+root_packages = ["leadlag", "research"]
+
+[[tool.importlinter.contracts]]
+name = "data does not depend on higher layers"
+type = "forbidden"
+source_modules = ["leadlag.data"]
+forbidden_modules = [
+    "leadlag.execution",
+    "leadlag.cli",
+    "leadlag.reporting",
+]
+
+[[tool.importlinter.contracts]]
+name = "core does not do broker/CLI/execution I/O"
+type = "forbidden"
+source_modules = ["leadlag.core"]
+forbidden_modules = [
+    "leadlag.broker",
+    "leadlag.data.fetcher",
+    "leadlag.execution",
+    "leadlag.cli",
+]
 
 # ---------------------------------------------------------------------------
 # Pytest
@@ -109,4 +160,9 @@ markers = [
     "slow: tests that take more than a few seconds",
     "property: property-based / randomized invariants",
     "leak: look-ahead / leakage specific checks",
+]
+
+[dependency-groups]
+dev = [
+    "import-linter>=2.13",
 ]

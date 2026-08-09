@@ -1269,7 +1269,7 @@ def main() -> None:
 
     # Output directories
     output_cfg = config.get("output", {})
-    artifact_dir = ROOT / output_cfg.get("artifact_dir", "artifacts/sprint3a_hinge_features")
+    artifact_dir = ROOT / output_cfg.get("artifact_dir", "var/artifacts/sprint3a_hinge_features")
     report_dir = ROOT / output_cfg.get("report_dir", "reports/sprint3a_hinge_features")
     figure_dir = ROOT / output_cfg.get("figure_dir", "reports/sprint3a_hinge_features/figures")
 
@@ -1335,7 +1335,7 @@ def main() -> None:
 
     # Save feature panels
     feature_cache_path = ROOT / config.get("data", {}).get(
-        "feature_cache_path", "artifacts/sprint3a_hinge_features/feature_cache.parquet"
+        "feature_cache_path", "var/artifacts/sprint3a_hinge_features/feature_cache.parquet"
     )
     os.makedirs(feature_cache_path.parent, exist_ok=True)
     hinge_features_df.to_parquet(feature_cache_path)
@@ -1487,17 +1487,17 @@ def main() -> None:
     logger.info("")
     logger.info("Generated artifacts:")
     artifacts = [
-        "artifacts/sprint3a_hinge_features/feature_cache.parquet",
-        "artifacts/sprint3a_hinge_features/hinge_features_panel.parquet",
-        "artifacts/sprint3a_hinge_features/selected_features_by_window.csv",
-        "artifacts/sprint3a_hinge_features/oos_predictions.parquet",
-        "artifacts/sprint3a_hinge_features/model_comparison_summary.csv",
-        "artifacts/sprint3a_hinge_features/ic_timeseries.csv",
-        "artifacts/sprint3a_hinge_features/cost_sensitivity_summary.csv",
-        "artifacts/sprint3a_hinge_features/feature_stability_summary.csv",
-        "artifacts/sprint3a_hinge_features/qa/leakage_audit.csv",
-        "artifacts/sprint3a_hinge_features/qa/zscore_audit.csv",
-        "artifacts/sprint3a_hinge_features/qa/fdr_audit.csv",
+        "var/artifacts/sprint3a_hinge_features/feature_cache.parquet",
+        "var/artifacts/sprint3a_hinge_features/hinge_features_panel.parquet",
+        "var/artifacts/sprint3a_hinge_features/selected_features_by_window.csv",
+        "var/artifacts/sprint3a_hinge_features/oos_predictions.parquet",
+        "var/artifacts/sprint3a_hinge_features/model_comparison_summary.csv",
+        "var/artifacts/sprint3a_hinge_features/ic_timeseries.csv",
+        "var/artifacts/sprint3a_hinge_features/cost_sensitivity_summary.csv",
+        "var/artifacts/sprint3a_hinge_features/feature_stability_summary.csv",
+        "var/artifacts/sprint3a_hinge_features/qa/leakage_audit.csv",
+        "var/artifacts/sprint3a_hinge_features/qa/zscore_audit.csv",
+        "var/artifacts/sprint3a_hinge_features/qa/fdr_audit.csv",
     ]
     for a in artifacts:
         logger.info("  - %s", a)

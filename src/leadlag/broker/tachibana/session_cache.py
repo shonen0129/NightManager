@@ -13,7 +13,7 @@ import os
 import tempfile
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import pandas as pd
@@ -108,7 +108,7 @@ def load_session_cache() -> dict[str, Any] | None:
             clear_session_cache()
             return None
         logger.info("[TACHIBANA-CACHE] Loaded session from %s", path)
-        return state
+        return cast(dict[str, Any], state)
     except Exception as e:
         logger.warning("[TACHIBANA-CACHE] Failed to load session cache: %s", e)
         clear_session_cache()

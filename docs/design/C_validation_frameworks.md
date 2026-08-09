@@ -30,7 +30,7 @@ archive の約30実験をどうカウントするか:
 2. **相関補正**: 試行同士のリターン系列相関が高い場合、López de Prado の
    クラスタリング（試行リターン相関行列の固有値分析）で実効数 N_eff に縮約。
    `reports/pbo/returns_matrix.npy` が既にあるため同じ枠組みで実装可能
-3. **過去分の初期値**: archive/experiments 約30本 + configs/archive 15本 + research 10本
+3. **過去分の初期値**: `git tag archive-2026-08` の `archive/experiments` 約30本 + configs/archive 15本 + research 10本
    ≈ 55試行を初期登録とする。正確な復元は不可能なので**保守側（多め）に見積もる**
 
 ### Trials Registry 仕様

@@ -107,7 +107,7 @@
 ### P2: 過学習・評価
 
 - 新しいパラメータ（gap 閾値、score 閾値、銘柄別係数）を追加する場合、walk-forward OOS と Deflated Sharpe が必要。
-- 既に `archive/experiments/` に多数の実験があるため、同一ヒストリー上の繰り返し選択に要注意。
+- 既に `git tag archive-2026-08` の `archive/experiments/` に多数の実験があるため、同一ヒストリー上の繰り返し選択に要注意。
 
 ### P2: テスト・監査
 

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import cast
+
 import numpy as np
 from scipy.optimize import minimize_scalar
 from scipy.special import gammaln
@@ -29,7 +31,7 @@ def _orthogonalize_and_normalize(
     norm = np.linalg.norm(result)
     if norm <= EPSILON_NORM:
         return np.zeros_like(result)
-    return result / norm
+    return cast(np.ndarray, result / norm)
 
 
 def build_base_vectors(n_u: int, n_j: int) -> dict[str, np.ndarray]:
@@ -146,8 +148,8 @@ def build_v3_dynamic(betas: np.ndarray, v1: np.ndarray, v2: np.ndarray) -> np.nd
     w3 = w3 - (w3 @ v2) * v2
     norm = np.linalg.norm(w3)
     if norm < 1e-10:
-        return np.zeros_like(w3)
-    return w3 / norm
+        return cast(np.ndarray, np.zeros_like(w3))
+    return cast(np.ndarray, w3 / norm)
 
 
 def compute_correlation(
@@ -252,7 +254,7 @@ def compute_baseline_correlation(
 
     cache_key = (ewma_half_life, baseline_start, baseline_end, base_returns.shape, hash(base_returns.tobytes()))
     if cache_key in _BASELINE_CORR_CACHE:
-        return _BASELINE_CORR_CACHE[cache_key].copy()
+        return cast(np.ndarray, _BASELINE_CORR_CACHE[cache_key].copy())
 
     _, _, corr = compute_correlation(base_returns, ewma_half_life)
     _BASELINE_CORR_CACHE[cache_key] = corr
@@ -271,7 +273,7 @@ def build_c0_from_v0(v0: np.ndarray, c_full: np.ndarray) -> np.ndarray:
         delta = np.diag(c0_raw)
         delta = np.maximum(delta, 1e-10)
         delta_inv_sqrt = np.diag(1.0 / np.sqrt(delta))
-        c0 = delta_inv_sqrt @ c0_raw @ delta_inv_sqrt
+        c0 = cast(np.ndarray, delta_inv_sqrt @ c0_raw @ delta_inv_sqrt)
     np.fill_diagonal(c0, 1.0)
     return c0
 

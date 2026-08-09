@@ -19,7 +19,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import numpy as np
 import pandas as pd
@@ -134,7 +134,7 @@ class ExecutionFrame:
         return pd.DatetimeIndex(self.df.index)
 
     def _array(self, cols: list[str]) -> np.ndarray:
-        return self.df[cols].to_numpy(dtype=float)
+        return cast(np.ndarray, self.df[cols].to_numpy(dtype=float))
 
     def us_cc(self) -> np.ndarray:
         """US close-to-close returns, shape ``(T, N_US)``."""
@@ -166,15 +166,15 @@ class ExecutionFrame:
 
     def topix_night(self) -> np.ndarray:
         """TOPIX overnight return, shape ``(T,)``."""
-        return self.df[ColumnFamily.TOPIX_NIGHT.value].to_numpy(dtype=float)
+        return cast(np.ndarray, self.df[ColumnFamily.TOPIX_NIGHT.value].to_numpy(dtype=float))
 
     def topix_oc(self) -> np.ndarray:
         """TOPIX open-to-close return, shape ``(T,)``."""
-        return self.df[ColumnFamily.TOPIX_OC.value].to_numpy(dtype=float)
+        return cast(np.ndarray, self.df[ColumnFamily.TOPIX_OC.value].to_numpy(dtype=float))
 
     def topix_cc(self) -> np.ndarray:
         """TOPIX close-to-close return, shape ``(T,)``."""
-        return self.df[ColumnFamily.TOPIX_CC.value].to_numpy(dtype=float)
+        return cast(np.ndarray, self.df[ColumnFamily.TOPIX_CC.value].to_numpy(dtype=float))
 
     def as_pit_view(self, family: ColumnFamily, as_of: int) -> PITMatrixView:
         """Return a point-in-time view of *family* with the given *as_of* row.

@@ -22,11 +22,13 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
+
+from leadlag.config.paths import results as _results_path
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_RESULTS_ROOT = "results"
+DEFAULT_RESULTS_ROOT = str(_results_path())
 DEFAULT_RUN_NAME = "production_close_positions"
 DEFAULT_GMAIL_CREDENTIALS = "creds/credentials.json"
 DEFAULT_GMAIL_SEND_TOKEN = "creds/token_gmail_send.json"
@@ -118,7 +120,7 @@ def load_close_artifacts(
     return close_log, position_snapshot, wallet_snapshot
 
 
-def compute_realized_pnl(close_results: Sequence[dict]) -> list[RealizedPnl]:
+def compute_realized_pnl(close_results: Sequence[dict[str, Any]]) -> list[RealizedPnl]:
     """Compute realized P&L for each filled close order.
 
     ``close_results`` is expected to contain ``original_price`` and
@@ -137,8 +139,8 @@ def compute_realized_pnl(close_results: Sequence[dict]) -> list[RealizedPnl]:
         original_price = _safe_float(r.get("original_price"))
         fill_price_f = _safe_float(fill_price)
         quantity = _safe_int(r.get("fill_quantity", r.get("quantity")))
-        original_side = r.get("original_side") or r.get("side")
-        close_side = r.get("side", "")
+        original_side = cast(str, r.get("original_side") or r.get("side"))
+        close_side = cast(str, r.get("side", ""))
         fill_detail = r.get("fill_detail") or {}
         fee = _safe_float(fill_detail.get("sBaiBaiTesuryo"))
 
@@ -149,7 +151,7 @@ def compute_realized_pnl(close_results: Sequence[dict]) -> list[RealizedPnl]:
 
         realized.append(
             RealizedPnl(
-                ticker=r.get("ticker", ""),
+                ticker=cast(str, r.get("ticker", "")),
                 close_side=close_side,
                 original_side=original_side,
                 quantity=quantity,
@@ -505,7 +507,7 @@ def send_post_close_pnl_report(
 
     # Re-fetch fill prices for orders that have not yet recorded a fill.
     if refresh_fills and api_client is not None:
-        from leadlag.execution.helpers import fetch_fill_prices
+        from leadlag.execution.pricing import fetch_fill_prices
 
         close_log = _load_json(output_dir / "close_execution_log.json") or {}
         close_results = close_log.get("close_results", [])
@@ -527,7 +529,7 @@ def send_post_close_pnl_report(
 
     # Take fresh post-close snapshots of residual positions and wallet.
     if re_snapshot and api_client is not None:
-        from leadlag.execution.helpers import save_position_snapshot, save_wallet_snapshot
+        from leadlag.execution.output_ops import save_position_snapshot, save_wallet_snapshot
 
         try:
             save_position_snapshot(api_client, str(output_dir), label="pnl", date_str=resolved_date)

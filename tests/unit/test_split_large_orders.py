@@ -11,7 +11,7 @@ import pandas as pd
 
 from leadlag.broker.base import BrokerClient, Position
 from leadlag.core.types import OrderRequest, OrderResult, OrderSide, OrderStatus, OrderType
-from leadlag.execution.helpers import split_large_orders, submit_orders_via_api
+from leadlag.execution.broker_ops import split_large_orders, submit_orders_via_api
 
 
 def _req(ticker: str, side: OrderSide, qty: int, mtt: int | None = None, at: int | None = None) -> OrderRequest:

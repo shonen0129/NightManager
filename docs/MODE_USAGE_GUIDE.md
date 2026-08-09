@@ -292,7 +292,7 @@ python3 -m leadlag.cli close \
 
 ```python
 import yaml
-from leadlag.models.sector_relative_ensemble_blp_enhanced import SectorRelativeEnsembleBLPEnhancedModel
+from research.models.sector_relative_ensemble_blp_enhanced import SectorRelativeEnsembleBLPEnhancedModel
 
 # 本番 v2 設定ファイルを読み込んでモデルを初期化
 config_path = "configs/production/production.yaml"

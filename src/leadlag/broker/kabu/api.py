@@ -10,7 +10,7 @@ import os
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
 import requests
 
@@ -113,21 +113,18 @@ class KabuClient:
             }
         )
 
-    def __enter__(self):
+    def __enter__(self) -> KabuClient:
         """Context manager entry"""
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         """Context manager exit: セッションをクローズ"""
         self.close()
-        return False
 
-    def close(self):
+    def close(self) -> None:
         """セッションをクローズし、接続プールを解放"""
-        if self.session is not None:
-            self.session.close()
-            self.session = None
-            logger.debug("HTTP session closed and resources released")
+        self.session.close()
+        logger.debug("HTTP session closed and resources released")
 
     def _refresh_token(self) -> bool:
         """Attempt to refresh the API token by issuing a new one.
@@ -266,7 +263,7 @@ class KabuClient:
                             )
                         )
                         if response.status_code == 200:
-                            return response.json()
+                            return cast(dict[str, Any], response.json())
 
                 # リトライ可能なステータスコードの場合、待機して再試行
                 if response.status_code in RETRYABLE_STATUS_CODES:
@@ -301,7 +298,7 @@ class KabuClient:
                     )
 
                 response.raise_for_status()
-                return response.json()
+                return cast(dict[str, Any], response.json())
 
             except requests.RequestException as e:
                 last_exception = e
@@ -417,7 +414,7 @@ class KabuClient:
         except requests.RequestException as e:
             raise ValueError(f"Failed to fetch cash wallet: {e}")
 
-    def get_price(self, ticker: str) -> dict[str, float] | None:
+    def get_price(self, ticker: str) -> dict[str, float | None] | None:
         """
         Get current stock price and related info
 
@@ -482,7 +479,12 @@ class KabuClient:
                 current_price = price_info.get("last", 0)
                 prev_close = price_info.get("PreviousClose")
 
-                if prev_close is not None and prev_close > 0 and current_price > 0:
+                if (
+                    prev_close is not None
+                    and current_price is not None
+                    and prev_close > 0
+                    and current_price > 0
+                ):
                     return_price = current_price / prev_close - 1.0
                     logger.debug(
                         f"{ticker}: CurrentPrice={current_price}, "
@@ -545,7 +547,7 @@ class KabuClient:
             def _fetch_single(ticker: str) -> tuple:
                 kabu_sym = self._to_kabu_symbol(ticker)
                 price_info = self.get_price(kabu_sym)
-                if price_info is not None and price_info["open"] > 0:
+                if price_info is not None and price_info["open"] is not None and price_info["open"] > 0:
                     return (ticker, price_info["open"])
                 else:
                     return (ticker, None)
@@ -566,7 +568,11 @@ class KabuClient:
                 kabu_sym = self._to_kabu_symbol(ticker)
                 price_info = self.get_price(kabu_sym)
 
-                if price_info is not None and price_info["open"] > 0:
+                if (
+                    price_info is not None
+                    and price_info["open"] is not None
+                    and price_info["open"] > 0
+                ):
                     opens[ticker] = price_info["open"]
                 else:
                     failed.append(ticker)
@@ -603,7 +609,7 @@ class KabuClient:
             def _fetch_single(ticker: str) -> tuple:
                 kabu_sym = self._to_kabu_symbol(ticker)
                 price_info = self.get_price(kabu_sym)
-                if price_info is not None and price_info["last"] > 0:
+                if price_info is not None and price_info["last"] is not None and price_info["last"] > 0:
                     return (ticker, price_info["last"])
                 else:
                     return (ticker, None)
@@ -624,7 +630,11 @@ class KabuClient:
                 kabu_sym = self._to_kabu_symbol(ticker)
                 price_info = self.get_price(kabu_sym)
 
-                if price_info is not None and price_info["last"] > 0:
+                if (
+                    price_info is not None
+                    and price_info["last"] is not None
+                    and price_info["last"] > 0
+                ):
                     prices[ticker] = price_info["last"]
                 else:
                     failed.append(ticker)
@@ -737,7 +747,7 @@ class KabuClient:
             price = 0
         elif order_type == "LO":
             front_order_type = 20
-            price = limit_price if limit_price is not None else 0
+            price = int(limit_price) if limit_price is not None else 0
         else:
             raise ValueError(f"Unknown order_type: {order_type}")
 

@@ -1,9 +1,5 @@
 # 日米リードラグ・ファンド改善ガイド
 
-> **Note**: Architectural and tooling decisions are moving to
-> `docs/decisions/` as ADRs. `AGENTS.md` remains the canonical list of
-> operational invariants that must not be broken.
-
 ## ⚠️ 実行規約（必須・違反禁止）
 
 - **`python3 -c "..."` のインライン実行は禁止** — ハング・スタックの主要原因。必ずスクリプトファイル（`scripts/experiments/` 配下等）を作成して `python3 scripts/...` で実行すること
@@ -34,8 +30,8 @@
 2. **ベースライン期間の分離**: 事前分布・基準相関 `c_full` は 2010–2014 固定（`compute_baseline_correlation`）。バックテスト `start_date` は 2015-01-05 以降を維持。`_prepare_residual_prior` のフォールバック（先頭1260行）が発動する構成は作らない
 3. **テストを弱めない**: 変更後必ず全テストを通す。推奨は並列実行 `bash scripts/run_tests_parallel.sh`（約8分、ログは `/tmp/pytest_parallel/`）。直列 `python3 -m pytest tests/ -v` は約32分。unit + integration（`test_leakage_audit.py`, `test_production_residual_blpx.py` 等）
 4. **市場中立制約**: net exposure ±0.05、gross ≤ 2.0（RuleD 適用後）。リスク正本は `src/leadlag/core/risk.py`、グロス調整正本は `src/leadlag/core/portfolio.py::adjust_gross_exposure()`
-5. **ティッカー定義**: `src/leadlag/data/tickers.py` が単一正本（N_U=15, N_J=17, 計32次元）で、感応度ラベル `w3`–`w6` も `SENSITIVITY_LABELS` として同ファイルに保持。`core/correlation.py` はレジストリから生成するため、ユニバース変更時は `tickers.py` のみ更新すればよい
-6. **前日gap行列の使用禁止**: 当日のgap行列（`mu_gap_{YYYYMMDD}.npy` / `omega_gap_{YYYYMMDD}.npy`）が存在しない場合は **フラットポジション（w_final=0）** を返すこと。前日行列をコピーして当日日付で使用してはならない（誤ったポジションで発注するリスクがある）。`load_gap_matrices`（`utils/gap_matrix_io.py` 実装、`production_v2` から re-export）は当日日付のファイルのみを検索し、シェルスクリプト側のフォールバックコピー（2026-07-14に廃止）に依存しない
+5. **ティッカー定義**: `src/leadlag/data/tickers.py` が単一正本（N_U=15, N_J=17, 計32次元）。`core/correlation.py` の感応度ラベル `w3`–`w6` は32次元ハードコードなので、ユニバース変更時は必ず同時更新
+6. **前日gap行列の使用禁止**: 当日のgap行列（`mu_gap_{YYYYMMDD}.npy` / `omega_gap_{YYYYMMDD}.npy`）が存在しない場合は **フラットポジション（w_final=0）** を返すこと。前日行列をコピーして当日日付で使用してはならない（誤ったポジションで発注するリスクがある）。`load_gap_matrices`（`production_v2.py`）は当日日付のファイルのみを検索し、シェルスクリプト側のフォールバックコピー（2026-07-14に廃止）に依存しない
 
 ## 改善ワークフロー
 
@@ -74,11 +70,14 @@ python3 tools/production/run_daily_production_v2.py
 # gap調整分布の事前計算（v2 の入力）
 python3 tools/production/compute_gap_adjusted_distribution.py
 
-# 本番バックテスト（対応引数: --config / --start-date / --output-dir のみ）
-python3 src/research/scripts/backtest/run_production_backtest.py
+# 本番 V2 バックテスト（gap 行列が事前計算済みの場合は --gap-dir 指定）
+python3 src/research/scripts/backtest/run_production_backtest.py --start-date 2015-01-05
 
-# CLI経由バックテスト（--slippage-bps 等の追加引数はこちら）
+# CLI経由 V2 バックテスト（--config / --gap-dir / --slippage-bps 等）
 python3 -m leadlag.cli backtest --start-date 2015-01-05
+
+# CLI経由 V2 本番決済（--config / --gap-dir / --live-dir / --api-enable 等）
+python3 -m leadlag.cli decision --config configs/production/production.yaml --gap-dir live/pipeline_data/gap_adjusted_distribution/latest --api-enable --capital-from-wallet
 
 # 構文チェック（CLIスタック防止: python3 -c は使わずスクリプト経由で）
 python3 _check_syntax.py

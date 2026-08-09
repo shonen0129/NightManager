@@ -39,7 +39,7 @@ def merge_diagnostics(prev_path: str, new_path: str, output_path: str | None = N
     new = pd.read_csv(new_file)
     combined = pd.concat([old, new], ignore_index=True)
     combined = combined.drop_duplicates(subset="trade_date", keep="last")
-    combined["trade_date"] = pd.to_datetime(combined["trade_date"])
+    combined["trade_date"] = pd.to_datetime(combined["trade_date"], format="ISO8601")
     combined = combined.set_index("trade_date").sort_index().reset_index()
     combined["trade_date"] = combined["trade_date"].dt.strftime("%Y-%m-%d")
     out_file.parent.mkdir(parents=True, exist_ok=True)

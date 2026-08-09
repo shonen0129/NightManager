@@ -113,9 +113,8 @@ class BrokerClient(ABC):
     def __enter__(self) -> BrokerClient:
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb) -> bool:
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         self.close()
-        return False
 
     # -- Lifecycle -----------------------------------------------------------
 

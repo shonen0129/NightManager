@@ -10,15 +10,17 @@ LAUNCH_AGENTS_DIR="${HOME}/Library/LaunchAgents"
 mkdir -p "${LAUNCH_AGENTS_DIR}"
 
 # --- update-market-data ---
-cp "${PROJECT_DIR}/scripts/batch/com.leadlag.update-market-data.plist" "${LAUNCH_AGENTS_DIR}/"
-launchctl unload "${LAUNCH_AGENTS_DIR}/com.leadlag.update-market-data.plist" 2>/dev/null || true
-launchctl load "${LAUNCH_AGENTS_DIR}/com.leadlag.update-market-data.plist"
+PLIST_UPDATE="${LAUNCH_AGENTS_DIR}/com.leadlag.update-market-data.plist"
+sed "s|__PROJECT_DIR__|${PROJECT_DIR}|g" "${PROJECT_DIR}/scripts/batch/com.leadlag.update-market-data.plist" > "${PLIST_UPDATE}"
+launchctl unload "${PLIST_UPDATE}" 2>/dev/null || true
+launchctl load "${PLIST_UPDATE}"
 echo "[OK] com.leadlag.update-market-data installed (08:00 JST, Mon-Sat)"
 
 # --- distribution-diagnostics ---
-cp "${PROJECT_DIR}/scripts/batch/com.leadlag.distribution-diagnostics.plist" "${LAUNCH_AGENTS_DIR}/"
-launchctl unload "${LAUNCH_AGENTS_DIR}/com.leadlag.distribution-diagnostics.plist" 2>/dev/null || true
-launchctl load "${LAUNCH_AGENTS_DIR}/com.leadlag.distribution-diagnostics.plist"
+PLIST_DIST="${LAUNCH_AGENTS_DIR}/com.leadlag.distribution-diagnostics.plist"
+sed "s|__PROJECT_DIR__|${PROJECT_DIR}|g" "${PROJECT_DIR}/scripts/batch/com.leadlag.distribution-diagnostics.plist" > "${PLIST_DIST}"
+launchctl unload "${PLIST_DIST}" 2>/dev/null || true
+launchctl load "${PLIST_DIST}"
 echo "[OK] com.leadlag.distribution-diagnostics updated (08:15 JST, Mon-Sat)"
 
 # --- decision (unchanged, 09:10 JST, Mon-Fri) ---

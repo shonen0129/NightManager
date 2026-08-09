@@ -19,11 +19,11 @@ sys.path.insert(0, str(ROOT / "src"))
 from leadlag.core.macro import (
     MACRO_SENS_MATRIX_3FACTOR,
 )
-from leadlag.models.sector_relative_ensemble_blp_enhanced import (
-    SectorRelativeEnsembleBLPEnhancedModel,
-)
 from leadlag.reporting.metrics import calculate_metrics
 from research.backtest_common import load_execution_data, run_backtest_with_costs
+from research.models.sector_relative_ensemble_blp_enhanced import (
+    SectorRelativeEnsembleBLPEnhancedModel,
+)
 
 logging.basicConfig(
     level=logging.INFO,

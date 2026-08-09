@@ -17,7 +17,7 @@ import pytest
 
 import leadlag.core.correlation as corr_mod
 from leadlag.data.tickers import SENSITIVITY_LABELS
-from leadlag.models.sector_relative_ensemble_blp_enhanced import (
+from research.models.sector_relative_ensemble_blp_enhanced import (
     SectorRelativeEnsembleBLPEnhancedModel,
 )
 

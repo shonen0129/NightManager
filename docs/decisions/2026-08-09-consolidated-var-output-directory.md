@@ -8,7 +8,7 @@
 
 The repository root contains six different output directories
 (`outputs/`, `results/`, `logs/`, `shadow_runs/`, `live/`, `artifacts/`)
-plus `archive/` and `experiments/`. New contributors cannot tell where to write
+plus `archive-2026-08` and `experiments/`. New contributors cannot tell where to write
 output, and cleanup is error-prone.
 
 ## Decision

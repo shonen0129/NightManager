@@ -85,7 +85,7 @@ def parse_arguments() -> argparse.Namespace:
     )
     p.add_argument(
         "--live-dir",
-        default="live/production_residual_blpx",
+        default="var/live/production_residual_blpx",
         help="Live output directory",
     )
     p.add_argument(

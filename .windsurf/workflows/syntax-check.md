@@ -1,59 +1,28 @@
 ---
-description: Pythonファイルの構文チェックをスクリプト経由で実行し、CLIスタックを防止する
+description: Pythonファイルの構文チェックを ruff で実行し、CLIスタックを防止する
 ---
 
-# 構文チェック（スクリプト実行）
+# 構文チェック（ruff 実行）
 
-CLIで `python3 -c "..."` を実行するとスタックする傾向があるため、必ずスクリプトファイル経由で実行すること。
+CLIで `python3 -c "..."` を実行するとスタックする傾向があるため、`ruff` コマンドを使用すること。
 
 ## 手順
 
-1. プロジェクトルートに `_check_syntax.py` が既に存在する場合はそのまま使用
-2. 存在しない場合は作成（内容は下記テンプレート参照）
-3. 以下のコマンドで実行:
+1. 仮想環境に `ruff` が含まれていることを確認（`pyproject.toml` の `dev` 依存に記載）
+2. 以下のいずれかで実行:
 
+```bash
+# システムの python3 を使う場合
+python3 -m ruff check src/
+
+# uv 環境の場合
+uv run ruff check src/
 ```
-python3 _check_syntax.py
-```
 
-4. 結果の `N/N OK` を確認
-
-## テンプレート
-
-```python
-#!/usr/bin/env python
-"""Syntax check for all Python files under scripts/ and src/experiments/."""
-import ast
-import sys
-from pathlib import Path
-
-ROOT = Path(__file__).resolve().parent
-
-dirs = [
-    ROOT / "scripts" / "backtest",
-    ROOT / "scripts" / "experiments",
-    ROOT / "src" / "experiments",
-]
-
-files = []
-for d in dirs:
-    if d.exists():
-        files.extend(sorted(d.glob("*.py")))
-
-ok = 0
-for f in files:
-    try:
-        ast.parse(f.read_text())
-        ok += 1
-    except SyntaxError as e:
-        print(f"ERR {f}: {e}")
-
-print(f"{ok}/{len(files)} OK")
-sys.exit(0 if ok == len(files) else 1)
-```
+3. `All checks passed!` を確認
 
 ## 注意事項
 
 - `python3 -c "..."` は長いコードの場合スタックしやすいので避ける
-- 一時的なチェック用スクリプトは使い回す（毎回作成・削除しない）
-- チェック対象ディレクトリを追加したい場合は `dirs` リストに追記する
+- 設定は `pyproject.toml` の `[tool.ruff]` / `[tool.ruff.lint]` に集約
+- 以前の `_check_syntax.py` は廃止した。AST 構文確認が必要な場合は `python3 -m compileall src/ research/` でも可能

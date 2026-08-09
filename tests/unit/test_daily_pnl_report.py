@@ -270,7 +270,7 @@ def test_send_post_close_pnl_report_refills_and_saves_pnl_snapshots(tmp_path: Pa
                 r["fill_detail"] = {"sBaiBaiTesuryo": 100.0}
 
     monkeypatch.setattr(
-        "leadlag.execution.helpers.fetch_fill_prices", _mock_fetch_fill_prices
+        "leadlag.execution.pricing.fetch_fill_prices", _mock_fetch_fill_prices
     )
 
     # Minimal broker client stub.

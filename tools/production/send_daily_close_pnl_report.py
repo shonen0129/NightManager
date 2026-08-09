@@ -36,7 +36,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
-from leadlag.execution.helpers import build_api_client
+from leadlag.execution.broker_ops import build_api_client
 from leadlag.reporting.daily_pnl_report import send_post_close_pnl_report
 from leadlag.reporting.gmail_sender import authorize_gmail_send
 

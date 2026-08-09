@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 
 from leadlag.data.tickers import JP_TICKERS, US_TICKERS
-from leadlag.models.sector_relative_ensemble_blp_enhanced import (
+from research.models.sector_relative_ensemble_blp_enhanced import (
     SectorRelativeEnsembleBLPEnhancedModel,
 )
 

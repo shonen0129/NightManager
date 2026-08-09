@@ -32,6 +32,7 @@ import numpy as np
 import pandas as pd
 
 from leadlag.compliance.v2_auditor import run_leakage_audit, run_numerical_audit
+from leadlag.config import safe_config_copy
 from leadlag.config.schemas import ProductionV2RunConfig
 from leadlag.core.macro import (
     MACRO_NAMES,
@@ -89,7 +90,10 @@ def parse_run_config(cfg: dict) -> ProductionV2RunConfig:
     Returns:
         Validated, frozen ``ProductionV2RunConfig`` instance.
     """
-    return ProductionV2RunConfig.model_validate(cfg or {})
+    cfg = cfg or {}
+    allowed = set(ProductionV2RunConfig._NESTED_SECTIONS) | set(ProductionV2RunConfig.model_fields)
+    filtered = {k: v for k, v in cfg.items() if k in allowed}
+    return ProductionV2RunConfig.model_validate(filtered)
 
 
 # ---------------------------------------------------------------------------
@@ -170,8 +174,8 @@ def _derive_signal_date(gap_input_dir: Path | None, trade_date: str) -> str:
     Falls back to trade_date minus 1 calendar day when the directory or files
     are not available.
     """
-    trade_dt = pd.to_datetime(trade_date).normalize()
-    fallback_sig_date = (trade_dt - pd.Timedelta(days=1)).strftime("%Y-%m-%d")
+    trade_dt = cast(pd.Timestamp, pd.to_datetime(trade_date).normalize())
+    fallback_sig_date = cast(str, (trade_dt - pd.Timedelta(days=1)).strftime("%Y-%m-%d"))
 
     if gap_input_dir is None:
         return fallback_sig_date
@@ -197,8 +201,8 @@ def _derive_signal_date(gap_input_dir: Path | None, trade_date: str) -> str:
     if not candidate_dates:
         return fallback_sig_date
 
-    latest_signal_dt = max(candidate_dates)
-    return latest_signal_dt.strftime("%Y-%m-%d")
+    latest_signal_dt = cast(pd.Timestamp, max(candidate_dates))
+    return cast(str, latest_signal_dt.strftime("%Y-%m-%d"))
 
 
 def _build_summary(
@@ -665,6 +669,7 @@ def generate_v2_production_portfolio(
           run_config (ProductionV2RunConfig — passed to writer layer)
     """
     # 1. Parse cfg → single source of truth for all runtime parameters
+    cfg = safe_config_copy(cfg)
     run_cfg = cfg if isinstance(cfg, ProductionV2RunConfig) else parse_run_config(cfg)
 
     n_j = len(JP_TICKERS)

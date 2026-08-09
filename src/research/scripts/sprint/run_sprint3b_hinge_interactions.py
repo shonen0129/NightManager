@@ -1667,7 +1667,7 @@ def main() -> None:
     np.random.seed(run_cfg.get("random_seed", 42))
 
     output_cfg = config.get("output", {})
-    artifact_dir = ROOT / output_cfg.get("artifact_dir", "artifacts/sprint3b_hinge_interactions")
+    artifact_dir = ROOT / output_cfg.get("artifact_dir", "var/artifacts/sprint3b_hinge_interactions")
     report_dir = ROOT / output_cfg.get("report_dir", "reports/sprint3b_hinge_interactions")
     figure_dir = ROOT / output_cfg.get("figure_dir", "reports/sprint3b_hinge_interactions/figures")
 
@@ -1728,7 +1728,7 @@ def main() -> None:
     # ========== Build interaction features ==========
     logger.info("Building asset-specific interaction feature panel...")
     feature_cache_path = ROOT / config.get("data", {}).get(
-        "feature_cache_path", "artifacts/sprint3b_hinge_interactions/feature_cache.parquet"
+        "feature_cache_path", "var/artifacts/sprint3b_hinge_interactions/feature_cache.parquet"
     )
     os.makedirs(feature_cache_path.parent, exist_ok=True)
 
@@ -1911,19 +1911,19 @@ def main() -> None:
     logger.info("")
     logger.info("Generated artifacts:")
     artifacts = [
-        "artifacts/sprint3b_hinge_interactions/feature_cache.parquet",
-        "artifacts/sprint3b_hinge_interactions/asset_exposures.parquet",
-        "artifacts/sprint3b_hinge_interactions/hinge_interaction_features.parquet",
-        "artifacts/sprint3b_hinge_interactions/selected_features_by_window.csv",
-        "artifacts/sprint3b_hinge_interactions/oos_predictions.parquet",
-        "artifacts/sprint3b_hinge_interactions/model_comparison_summary.csv",
-        "artifacts/sprint3b_hinge_interactions/ic_timeseries.csv",
-        "artifacts/sprint3b_hinge_interactions/cost_sensitivity_summary.csv",
-        "artifacts/sprint3b_hinge_interactions/feature_stability_summary.csv",
-        "artifacts/sprint3b_hinge_interactions/qa/rank_change_audit.csv",
-        "artifacts/sprint3b_hinge_interactions/qa/within_date_feature_std.csv",
-        "artifacts/sprint3b_hinge_interactions/qa/beta_lag_audit.csv",
-        "artifacts/sprint3b_hinge_interactions/qa/cost_reconciliation_audit.csv",
+        "var/artifacts/sprint3b_hinge_interactions/feature_cache.parquet",
+        "var/artifacts/sprint3b_hinge_interactions/asset_exposures.parquet",
+        "var/artifacts/sprint3b_hinge_interactions/hinge_interaction_features.parquet",
+        "var/artifacts/sprint3b_hinge_interactions/selected_features_by_window.csv",
+        "var/artifacts/sprint3b_hinge_interactions/oos_predictions.parquet",
+        "var/artifacts/sprint3b_hinge_interactions/model_comparison_summary.csv",
+        "var/artifacts/sprint3b_hinge_interactions/ic_timeseries.csv",
+        "var/artifacts/sprint3b_hinge_interactions/cost_sensitivity_summary.csv",
+        "var/artifacts/sprint3b_hinge_interactions/feature_stability_summary.csv",
+        "var/artifacts/sprint3b_hinge_interactions/qa/rank_change_audit.csv",
+        "var/artifacts/sprint3b_hinge_interactions/qa/within_date_feature_std.csv",
+        "var/artifacts/sprint3b_hinge_interactions/qa/beta_lag_audit.csv",
+        "var/artifacts/sprint3b_hinge_interactions/qa/cost_reconciliation_audit.csv",
     ]
     for a in artifacts:
         logger.info("  - %s", a)

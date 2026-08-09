@@ -8,11 +8,11 @@
     <key>ProgramArguments</key>
     <array>
         <string>/bin/bash</string>
-        <string>/Users/shonen/日米ラグ/scripts/batch/update_market_data.sh</string>
+        <string>__PROJECT_DIR__/scripts/batch/update_market_data.sh</string>
     </array>
 
     <key>WorkingDirectory</key>
-    <string>/Users/shonen/日米ラグ</string>
+    <string>__PROJECT_DIR__</string>
 
     <!-- 米国市場クローズ後、yfinance データ遅延を考慮して JST 08:00 に実行 -->
     <!-- US クローズ: JST 05:00 (夏時間) / 06:00 (冬時間) -->
@@ -70,10 +70,10 @@
     </array>
 
     <key>StandardOutPath</key>
-    <string>/Users/shonen/日米ラグ/logs/update_market_data_launchd.log</string>
+    <string>__PROJECT_DIR__/var/logs/update_market_data_launchd.log</string>
 
     <key>StandardErrorPath</key>
-    <string>/Users/shonen/日米ラグ/logs/update_market_data_launchd.log</string>
+    <string>__PROJECT_DIR__/var/logs/update_market_data_launchd.log</string>
 
     <key>EnvironmentVariables</key>
     <dict>

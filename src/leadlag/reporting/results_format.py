@@ -1,6 +1,6 @@
 """Utilities for standardized results directory formatting.
 
-All run artifacts should be written under project-root ``results/`` using a
+All run artifacts should be written under ``var/results/`` using a
 single naming convention: ``YYYYMMDD_HHMMSS_<run_name>``.
 """
 
@@ -13,13 +13,15 @@ from collections.abc import Mapping
 from datetime import datetime
 from typing import Any
 
+from leadlag.config.paths import results as _results_path
+
 RESULTS_FORMAT_VERSION = "v1"
 TIMESTAMP_FMT = "%Y%m%d_%H%M%S"
 
 
 def get_default_results_root() -> str:
     """Return the project-level canonical results root directory."""
-    return os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "results"))
+    return str(_results_path())
 
 
 def _normalize_component(value: str) -> str:

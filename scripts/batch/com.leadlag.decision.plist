@@ -59,10 +59,10 @@
     </array>
 
     <key>StandardOutPath</key>
-    <string>__PROJECT_DIR__/logs/decision_launchd.log</string>
+    <string>__PROJECT_DIR__/var/logs/decision_launchd.log</string>
 
     <key>StandardErrorPath</key>
-    <string>__PROJECT_DIR__/logs/decision_launchd.log</string>
+    <string>__PROJECT_DIR__/var/logs/decision_launchd.log</string>
 
     <key>EnvironmentVariables</key>
     <dict>

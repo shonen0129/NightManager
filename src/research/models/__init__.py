@@ -1,1 +1,1 @@
-"""src/models/__init__.py — Sprint 3-A model modules."""
+"""Research-only legacy model layer (V1 / benchmark models)."""

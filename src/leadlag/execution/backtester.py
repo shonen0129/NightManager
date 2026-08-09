@@ -14,6 +14,7 @@ import numpy as np
 import pandas as pd
 
 from leadlag.config.schemas import AppConfig
+from leadlag.data.preprocessor import compute_jp_target_returns
 from leadlag.data.tickers import JP_TICKERS
 from leadlag.execution.config import build_app_config_from_dict
 from leadlag.models.ml_order_overlay import (
@@ -22,7 +23,6 @@ from leadlag.models.ml_order_overlay import (
     load_overlay_model,
 )
 from leadlag.models.production_v2 import ProductionV2Model
-from leadlag.models.sre import compute_jp_target_returns
 
 logger = logging.getLogger(__name__)
 
@@ -240,6 +240,7 @@ class BacktestEngine:
         n_jobs: int = 1,
         overlay_model: MLOrderOverlayModel | None = None,
         overlay_model_dir: Path | str | None = None,
+        gap_store_path: Path | str | None = None,
     ) -> dict:
         """Run a historical backtest using the V2 production model.
 
@@ -251,8 +252,13 @@ class BacktestEngine:
         Args:
             cfg: Validated ``AppConfig`` or raw V2 production YAML dict.
             gap_input_dir: Directory containing ``matrices/`` with
-                ``mu_gap_{YYYYMMDD}.npy`` and ``omega_gap_{YYYYMMDD}.npy``.
-                If None, every day will be a flat-position fallback.
+                ``mu_gap_{YYYYMMDD}.npy`` and ``omega_gap_{YYYYMMDD}.npy``,
+                or a ``.sqlite`` gap store file.  If None, every day will be a
+                flat-position fallback.
+            gap_store_path: Optional path to a ``.sqlite`` gap store that
+                overrides *gap_input_dir* for matrix loading.  This supports a
+                dedicated ``--gap-store`` CLI flag while keeping the legacy
+                ``.npy`` directory as the default fallback.
             df_exec: Execution DataFrame.
             start_date: Backtest start date.
             end_date: Backtest end date ("latest" for last available).
@@ -300,9 +306,11 @@ class BacktestEngine:
         side_leverage = cost_params["side_leverage"]
 
         gap_dir: Path | None = Path(gap_input_dir) if gap_input_dir is not None else None
+        gap_store = Path(gap_store_path) if gap_store_path is not None else None
 
         logger.info(
             f"Starting V2 backtest: start={start_date}, gap_dir={gap_dir}, "
+            f"gap_store={gap_store}, "
             f"slippage={slip_bps} bps, alpha_long={alpha_long}, alpha_short={alpha_short}, "
             f"financing={fin_annual*100:.2f}% ann, "
             f"borrow={borrow_annual*100:.2f}% ann, reverse={rev_bps:.1f} bps/day, "
@@ -325,6 +333,7 @@ class BacktestEngine:
             n_j,
             overlay_model,
             n_jobs,
+            gap_store_path=gap_store_path,
         )
 
         sre_weights_df = pd.DataFrame(sre_weights, index=sim_dates_slice, columns=JP_TICKERS)
@@ -426,6 +435,7 @@ class BacktestEngine:
         n_j: int,
         overlay_model: MLOrderOverlayModel | None,
         n_jobs: int,
+        gap_store_path: Path | str | None = None,
     ) -> tuple[np.ndarray, np.ndarray, list[dict]]:
         """Generate V2 weights for each simulation date."""
         n_sim_days = len(sim_dates_slice)
@@ -434,6 +444,14 @@ class BacktestEngine:
         v2_summaries = cast(list[dict], [None] * n_sim_days)
 
         run_cfg = app_config.v2
+
+        # Prefer an explicit gap store path, otherwise fall back to gap_dir
+        # (which may be a ``.sqlite`` store or a directory of ``.npy`` files).
+        effective_gap_dir: Path | None = None
+        if gap_store_path is not None:
+            effective_gap_dir = Path(gap_store_path)
+        elif gap_dir is not None:
+            effective_gap_dir = gap_dir
 
         # Use the class interface when no overlay is in play. The overlay path
         # still needs df_exec and remains procedural for now.
@@ -446,15 +464,16 @@ class BacktestEngine:
                 if overlay_model is not None:
                     result = generate_v2_production_portfolio_with_overlay(
                         trade_date=date_str,
-                        gap_input_dir=gap_dir,
-                        run_cfg=run_cfg,
+                        gap_input_dir=effective_gap_dir,
+                        cfg=run_cfg,
                         df_exec=df_exec,
                         overlay_model=overlay_model,
                     )
                 else:
+                    assert v2_model is not None
                     result = v2_model.decide(
                         trade_date=date_str,
-                        gap_input_dir=gap_dir,
+                        gap_input_dir=effective_gap_dir,
                     )
                 w = result["w_final"]
                 fb = result["fallback"]["gap_data_missing"]

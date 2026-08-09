@@ -38,9 +38,9 @@ warnings.filterwarnings("ignore", category=RuntimeWarning)
 def parse_arguments() -> argparse.Namespace:
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(description="Residual-BLPX Shadow Run Performance Monitor")
-    parser.add_argument("--shadow-root", default="shadow_runs/residual_blpx", help="Root directory of shadow runs")
+    parser.add_argument("--shadow-root", default="var/shadow_runs/residual_blpx", help="Root directory of shadow runs")
     parser.add_argument("--gap-input-dir", default=None, help="Gap-adjusted distribution directory (realized returns source)")
-    parser.add_argument("--output-dir", default="results/production_shadow_monitoring", help="Output directory for monitoring results")
+    parser.add_argument("--output-dir", default="var/results/production_shadow_monitoring", help="Output directory for monitoring results")
     parser.add_argument("--cost-bps-per-gross", type=float, default=10.0, help="Cost in bps per unit gross")
     parser.add_argument("--self-test", default="false", choices=["true", "false"], help="Run self-tests and exit")
     return parser.parse_args()

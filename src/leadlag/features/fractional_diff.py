@@ -302,11 +302,11 @@ def hurst_exponent(series: pd.Series | np.ndarray, max_lag: int = 100) -> float:
     while lag <= max_lag:
         lags.append(lag)
         lag = int(lag * 1.5)
-    lags = np.array(lags)
+    lag_array = np.array(lags)
 
     rs_values = []
     lag_values = []
-    for lag in lags:
+    for lag in lag_array:
         n_sub = n // lag
         if n_sub < 2:
             continue

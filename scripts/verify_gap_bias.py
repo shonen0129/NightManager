@@ -14,8 +14,8 @@ import numpy as np
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
-GAP_BASE = ROOT / "live/pipeline_data/gap_adjusted_distribution"
-DIST_BASE = ROOT / "live/pipeline_data/distribution_diagnostics"
+GAP_BASE = ROOT / "var/live/pipeline_data/gap_adjusted_distribution"
+DIST_BASE = ROOT / "var/live/pipeline_data/distribution_diagnostics"
 
 def compare_matrices(dir_a, dir_b, label_a, label_b, dates):
     """Compare mu_gap and omega_gap matrices between two directories."""

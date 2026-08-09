@@ -10,9 +10,9 @@
 set -e
 cd "$(dirname "$0")/.."
 
-VENV_DIR="${VENV_DIR:-.venv-mac}"
-PYTHON_BIN="$VENV_DIR/bin/python"
-if [ ! -x "$PYTHON_BIN" ]; then
+if [ -f ".venv/bin/python" ]; then
+    PYTHON_BIN=".venv/bin/python"
+else
     PYTHON_BIN="python3"
 fi
 

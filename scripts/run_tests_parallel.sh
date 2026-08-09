@@ -6,13 +6,19 @@ set -e
 cd "$(dirname "$0")/.."
 
 # Fail fast on undefined-name lint (prevents NameError regressions like 2026-07-27).
-VENV_DIR="${VENV_DIR:-.venv-mac}"
-RUFF="$VENV_DIR/bin/ruff"
+if [ -f ".venv/bin/python" ]; then
+    PYTHON_BIN=".venv/bin/python"
+    RUFF=".venv/bin/ruff"
+else
+    PYTHON_BIN="python3"
+    RUFF="python3 -m ruff"
+fi
+
 if [ -x "$RUFF" ]; then
     echo "Running ruff F821 lint (undefined names)..."
     "$RUFF" check src/leadlag tools/production --select F821
 else
-    echo "WARNING: $RUFF not found, skipping F821 lint"
+    echo "WARNING: ruff not found, skipping F821 lint"
 fi
 
 LOGDIR=/tmp/pytest_parallel
@@ -20,10 +26,10 @@ mkdir -p "$LOGDIR"
 
 echo "Starting 7-process parallel test run..."
 
-PYTHON_BIN="$VENV_DIR/bin/python"
-if [ ! -x "$PYTHON_BIN" ]; then
-    echo "ERROR: venv python not found: $PYTHON_BIN"
-    exit 1
+if [ -f ".venv/bin/python" ]; then
+    PYTHON_BIN=".venv/bin/python"
+else
+    PYTHON_BIN="python3"
 fi
 
 "$PYTHON_BIN" -m pytest tests/research/test_sprint0_diagnostics.py -q -n 0 > "$LOGDIR/p1.log" 2>&1 &
