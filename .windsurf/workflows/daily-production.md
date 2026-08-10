@@ -11,7 +11,7 @@ ProductionV2Model (Residual-BLPX-RA v2) の日次実行パイプライン。
 1. gap調整分布の事前計算（v2 の入力）:
 
 ```
-python3 tools/production/compute_gap_adjusted_distribution.py
+python3 tools/research/compute_gap_adjusted_distribution.py
 ```
 
 2. 日次本番実行（v2）:

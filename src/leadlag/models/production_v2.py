@@ -42,6 +42,7 @@ from leadlag.core.macro import (
     compute_sigma_yy_inflation,
     download_macro_prices,
 )
+from leadlag.core.market_calendar import previous_trading_day
 from leadlag.core.portfolio import get_rolling_pit_bin, solve_baseline_style
 from leadlag.core.signal import build_weights_minvar
 from leadlag.data.tickers import JP_TICKERS, US_TICKERS
@@ -164,45 +165,17 @@ def load_pit_ir_history(
 
 
 def _derive_signal_date(gap_input_dir: Path | None, trade_date: str) -> str:
-    """Derive signal_date from gap matrix file naming or trade_date - 1 day.
+    """Derive signal_date as the previous TSE trading day of trade_date.
 
-    Gap matrices are computed from data up to (and including) the signal date,
-    which is the US close day before trade_date.  The ``mu_gap_{YYYYMMDD}.npy``
-    filename encodes the signal date.  We find the most-recent matrix file
-    dated strictly before *trade_date* to use as signal_date.
-
-    Falls back to trade_date minus 1 calendar day when the directory or files
-    are not available.
+    Gap matrices for *trade_date* are computed from the US close on the prior
+    JP business day and the JP opening gap on *trade_date*.  The actual signal
+    inputs therefore stop at the previous business day, so the signal_date for
+    the leakage audit is that prior business day.  Japanese holidays are
+    taken into account so that a holiday does not become the signal date.
     """
     trade_dt = cast(pd.Timestamp, pd.to_datetime(trade_date).normalize())
-    fallback_sig_date = cast(str, (trade_dt - pd.Timedelta(days=1)).strftime("%Y-%m-%d"))
-
-    if gap_input_dir is None:
-        return fallback_sig_date
-
-    matrices_dir = gap_input_dir / "matrices"
-    if not matrices_dir.exists():
-        return fallback_sig_date
-
-    import re
-    candidate_dates = []
-    for f in matrices_dir.glob("mu_gap_*.npy"):
-        stem = f.stem  # e.g. "mu_gap_20260612"
-        match = re.search(r"(\d{8})", stem)
-        if match:
-            date_str_candidate = match.group(1)
-            try:
-                cdt = pd.to_datetime(date_str_candidate, format="%Y%m%d").normalize()
-                if cdt < trade_dt:
-                    candidate_dates.append(cdt)
-            except ValueError:
-                pass
-
-    if not candidate_dates:
-        return fallback_sig_date
-
-    latest_signal_dt = cast(pd.Timestamp, max(candidate_dates))
-    return cast(str, latest_signal_dt.strftime("%Y-%m-%d"))
+    prev_day = previous_trading_day(trade_dt.to_pydatetime())
+    return prev_day.strftime("%Y-%m-%d")
 
 
 def _build_summary(
@@ -292,12 +265,24 @@ def _run_safety_audits(
     candidate: str,
 ) -> dict:
     """Run leakage/numerical audits and assemble the final result dict."""
-    leakage = run_leakage_audit(
-        signal_date,
-        date_str,
-        gap_data_loaded=not fallback["gap_data_missing"],
-        pit_history_trade_dates=pit_history_trade_dates,
-    )
+    if fallback["gap_data_missing"]:
+        # Flat fallback means no signal was computed, so there is no leakage.
+        # Return a clearly distinguished status to avoid false FAILED alerts.
+        leakage = {
+            "status": "FLAT",
+            "signal_date_strictly_before_trade_date": True,
+            "post_open_timing_respected": True,
+            "realized_returns_not_used_in_signal": True,
+            "pit_binning_strictly_historical": True,
+            "gap_data_freshness_ok": True,
+        }
+    else:
+        leakage = run_leakage_audit(
+            signal_date,
+            date_str,
+            gap_data_loaded=not fallback["gap_data_missing"],
+            pit_history_trade_dates=pit_history_trade_dates,
+        )
 
     numerical = run_numerical_audit(w_final, scores, Omega_gap)
     if numerical["status"] == "FAILED" and run_cfg.fallback_on_audit_failure:

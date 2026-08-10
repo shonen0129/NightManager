@@ -224,10 +224,13 @@ def run_production(
         _save_detailed_backtest_results(results, output_dir_path)
 
     # Persist the full results dict to the backtest store (CSV files above
-    # remain the user-visible artifacts).
+    # remain the user-visible artifacts).  Save both the detailed daily tables
+    # (save_run) and the full cached results dict (save_results).
     try:
         store = BacktestResultStore(output_dir_path / "backtest_store.sqlite")
-        store.save_results(results)
+        run_id = store.save_run(results, config=app_config)
+        if run_id is not None:
+            store.save_results(results, run_id=run_id)
     except Exception as e:
         logger.warning("Failed to save full results to BacktestResultStore: %s", e)
 

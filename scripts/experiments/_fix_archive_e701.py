@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import re
 from pathlib import Path
 
@@ -30,15 +31,23 @@ def split_line(line: str) -> str | None:
     return f"{header}\n{body_indent}{body}"
 
 
-def fix_file(path: Path) -> bool:
+def fix_file(path: Path, dry_run: bool = False) -> bool:
     text = path.read_text(encoding="utf-8")
     lines = text.splitlines(keepends=True)
     new_lines = []
     changed = False
+    in_multiline_string = False
 
     for line in lines:
         stripped = line.lstrip()
-        if '"""' not in stripped and "'''" not in stripped:
+        # Toggle multiline-string state on each line that contains a triple
+        # quote. This is a simple guard; it can miss pathological cases but
+        # prevents the regex from rewriting strings like docstrings.
+        quote_marks = ['"""', "'''"]
+        if any(q in stripped for q in quote_marks):
+            in_multiline_string = not in_multiline_string
+
+        if not in_multiline_string:
             replacement = split_line(line.rstrip("\n\r"))
             if replacement is not None:
                 new_lines.append(replacement + "\n")
@@ -46,17 +55,26 @@ def fix_file(path: Path) -> bool:
                 continue
         new_lines.append(line)
 
-    if changed:
+    if changed and not dry_run:
         path.write_text("".join(new_lines), encoding="utf-8")
     return changed
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser(description="Split remaining one-line compound statements (E701) in archive .py files.")
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print files that would change without writing them.",
+    )
+    args = parser.parse_args()
+
     changed = 0
     for py_path in sorted(ARCHIVE.rglob("*.py")):
-        if fix_file(py_path):
+        if fix_file(py_path, dry_run=args.dry_run):
             changed += 1
-    print(f"E701 fixed in {changed} files")
+    action = "would be fixed" if args.dry_run else "fixed"
+    print(f"E701 {action} in {changed} files")
     return 0
 
 

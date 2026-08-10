@@ -21,6 +21,8 @@ import pandas as pd
 import yaml
 
 from leadlag.broker.tachibana.session_cache import load_open_prices_cache
+from leadlag.config.paths import live as live_path
+from leadlag.config.paths import results as results_path
 from leadlag.data.tickers import JP_TICKERS, TOPIX_TICKER
 from leadlag.execution.broker_ops import (
     build_api_client,
@@ -41,13 +43,13 @@ logger = logging.getLogger(__name__)
 def run_v2_decision(
     config_path: str | Path,
     gap_input_dir: str | Path | None = None,
-    live_dir: str | Path = "live/production_residual_blpx",
+    live_dir: str | Path = live_path("production_residual_blpx"),
     trade_date: str | None = None,
     api_enable: bool = False,
     api_dry_run: bool = False,
     capital_from_wallet: bool = False,
     text_output: bool = False,
-    output_root: str = "results",
+    output_root: str = str(results_path()),
     jp_opens_csv: str | None = None,
     google_opens: bool = False,
     max_capital: float | None = None,

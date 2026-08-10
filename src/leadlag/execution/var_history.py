@@ -17,6 +17,7 @@ import yaml
 from leadlag.data.cache_store import SqliteCacheStore
 from leadlag.data.market_data_cache import load_df_exec_from_local_cache
 from leadlag.execution.config import build_app_config_from_dict
+from leadlag.utils.threading import run_with_timeout
 
 logger = logging.getLogger(__name__)
 
@@ -85,13 +86,35 @@ def get_hist_returns_for_risk(
     # Local import to avoid a module-level cycle; BacktestEngine lives in execution.
     from leadlag.execution.backtester import BacktestEngine
 
-    out_res = BacktestEngine.run_v2_backtest(
-        cfg=app_config,
-        gap_input_dir=gap_dir,
-        df_exec=df_exec,
-        start_date=start_date,
-        n_jobs=1,
-    )
+    def _run_backtest_for_risk() -> dict[str, Any]:
+        return BacktestEngine.run_v2_backtest(
+            cfg=app_config,
+            gap_input_dir=gap_dir,
+            df_exec=df_exec,
+            start_date=start_date,
+            n_jobs=1,
+        )
+
+    # The full V2 backtest can take longer when no cache is available.
+    # Allow the caller to override the timeout (in seconds); default 5 minutes.
+    if isinstance(config, dict):
+        timeout = config.get("var_history_timeout", 300)
+    else:
+        timeout = getattr(config, "var_history_timeout", 300)
+    timeout = max(1, int(timeout))
+
+    try:
+        out_res = run_with_timeout(
+            _run_backtest_for_risk,
+            timeout=timeout,
+            label="get_hist_returns_for_risk V2 backtest",
+        )
+    except TimeoutError:
+        logger.warning(
+            "V2 backtest for VaR/ES timed out after %d seconds; returning empty series.",
+            timeout,
+        )
+        return pd.Series(dtype=float)
     hist_results = pd.DataFrame(
         {"daily_return": out_res["daily_returns"]},
         index=out_res["daily_returns"].index,

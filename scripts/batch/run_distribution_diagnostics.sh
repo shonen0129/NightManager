@@ -29,7 +29,7 @@ else
 fi
 
 cd "${PROJECT_DIR}"
-PIPELINE_DIR="${PROJECT_DIR}/live/pipeline_data"
+PIPELINE_DIR="${PROJECT_DIR}/var/live/pipeline_data"
 TODAY="$(date +%Y-%m-%d)"
 
 # ---------------------------------------------------------------------------
@@ -37,7 +37,7 @@ TODAY="$(date +%Y-%m-%d)"
 # ---------------------------------------------------------------------------
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] === Step 1a: distribution_diagnostics ===" >> "${LOG_FILE}"
 set +e
-PYTHONPATH=src "${PYTHON_BIN}" tools/production/compute_structured_prediction_covariance.py \
+PYTHONPATH=src "${PYTHON_BIN}" tools/research/compute_structured_prediction_covariance.py \
     --config configs/production/production.yaml \
     --model production_residual_blpx \
     --start "2020-01-01" \

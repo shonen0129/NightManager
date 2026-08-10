@@ -317,7 +317,7 @@ class BacktestEngine:
             f"side_leverage={side_leverage}"
         )
 
-        sim_dates, start_idx, end_idx = cls._resolve_sim_dates(df_exec, start_date, end_date, 60)
+        sim_dates, start_idx, end_idx = cls._resolve_sim_dates(df_exec, start_date, end_date, 0)
         sim_dates_slice = cast(pd.DatetimeIndex, sim_dates[start_idx : end_idx + 1])
 
         y_jp_target_arr, gap_returns_arr = cls._compute_target_and_gap_returns(

@@ -23,6 +23,19 @@ import numpy as np
 import pandas as pd
 import yfinance as yf
 
+from leadlag.config.paths import market_data
+from leadlag.data.cache import (
+    etf_pkl_path,
+    is_pkl_cache_valid,
+    load_raw_cache,
+    save_raw_cache,
+)
+from leadlag.data.tickers import (
+    JP_TICKERS,
+    JP_TICKERS_WITH_TOPIX,
+    TOPIX_TICKER,
+    US_TICKERS,
+)
 from leadlag.utils.threading import run_with_timeout
 
 logger = logging.getLogger(__name__)
@@ -43,19 +56,6 @@ def _yf_download_with_timeout(
         timeout,
         label=f"yf.download(tickers={kwargs.get('tickers', '?')})",
     )
-
-from leadlag.data.cache import (
-    etf_pkl_path,
-    is_pkl_cache_valid,
-    load_raw_cache,
-    save_raw_cache,
-)
-from leadlag.data.tickers import (
-    JP_TICKERS,
-    JP_TICKERS_WITH_TOPIX,
-    TOPIX_TICKER,
-    US_TICKERS,
-)
 
 # Number of recent days to re-fetch during incremental update to absorb
 # delayed / corrected data from Yahoo Finance
@@ -165,9 +165,7 @@ def _try_apply_nav_patch(
     df_jp_open: pd.DataFrame,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Apply 1629.T NAV patch if the vendor CSV exists (silently skips if absent)."""
-    nav_csv_path = os.path.join(
-        os.path.dirname(__file__), "..", "..", "..", "market_data", "ETF_1629.csv"
-    )
+    nav_csv_path = str(market_data("ETF_1629.csv"))
     if not os.path.exists(nav_csv_path):
         return df_jp_close, df_jp_open
     try:

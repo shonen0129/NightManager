@@ -44,8 +44,10 @@ def _winsorize_rolling(
     Returns:
         Winsorized Series or DataFrame
     """
-    rolling_mean = series.rolling(window, min_periods=window).mean()
-    rolling_std = series.rolling(window, min_periods=window).std()
+    # Shift bounds by 1 so the current observation does not influence its own
+    # clipping threshold.
+    rolling_mean = series.rolling(window, min_periods=window).mean().shift(1)
+    rolling_std = series.rolling(window, min_periods=window).std().shift(1)
     lower = rolling_mean - n_sigma * rolling_std
     upper = rolling_mean + n_sigma * rolling_std
     return series.clip(lower=lower, upper=upper)
@@ -258,10 +260,12 @@ def preprocess_data(
                 gap_for_beta, topix_for_beta, beta_window, beta_ewma_halflife
             )
         else:
-            topix_var = topix_for_beta.rolling(beta_window).var()
+            # Shift by 1 so the beta for row t is estimated only from strictly
+            # historical observations (up to t-1).
+            topix_var = topix_for_beta.rolling(beta_window).var().shift(1)
             betas: dict[str, pd.Series] = {}
             for tk in JP_TICKERS:
-                cov = gap_for_beta[tk].rolling(beta_window).cov(topix_for_beta)
+                cov = gap_for_beta[tk].rolling(beta_window).cov(topix_for_beta).shift(1)
                 betas[tk] = cov / topix_var
             beta_df = pd.DataFrame(betas)
 

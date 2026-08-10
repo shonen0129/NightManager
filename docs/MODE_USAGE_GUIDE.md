@@ -210,10 +210,10 @@ python3 -m leadlag.cli close \
   python tools/production/run_daily_production_v2.py --self-test true
   ```
 
-### 5.2 ギャップ調整済み予測分布生成 (`tools/production/compute_gap_adjusted_distribution.py`)
+### 5.2 ギャップ調整済み予測分布生成 (`tools/research/compute_gap_adjusted_distribution.py`)
 当日の日本市場寄付後のギャップオープン価格および前日の米国終値に基づき、ギャップ調整済みの予測期待値 $\mu_{\text{gap}}$ と予測共分散 $\Omega_{\text{gap}}$ を計算して保存する。
   ```bash
-  python tools/production/compute_gap_adjusted_distribution.py \
+  python tools/research/compute_gap_adjusted_distribution.py \
       --trade-date latest \
       --output-dir results/gap_adjusted_distribution/latest
   ```

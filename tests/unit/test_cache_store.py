@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -50,3 +51,41 @@ def test_meta(store):
     meta = store.meta("a")
     assert meta is not None
     assert "updated_at" in meta
+
+
+def test_ndarray_roundtrip(store):
+    arr = np.array([[1.0, 2.0], [3.0, 4.0]])
+    store.set("arr", arr)
+    loaded = store.get("arr")
+    assert isinstance(loaded, np.ndarray)
+    assert loaded.shape == arr.shape
+    assert loaded.dtype == arr.dtype
+    np.testing.assert_allclose(loaded, arr)
+
+
+def test_bytes_roundtrip(store):
+    data = b"hello world"
+    store.set("data", data)
+    loaded = store.get("data")
+    assert isinstance(loaded, bytes)
+    assert loaded == data
+
+
+def test_series_with_datetime_index_roundtrip(store):
+    dates = pd.date_range("2020-01-06", periods=5, freq="B")
+    s = pd.Series([0.01, -0.02, 0.03, 0.0, -0.01], index=dates, name="ret")
+    store.set("s", s)
+    loaded = store.get("s")
+    assert isinstance(loaded, pd.Series)
+    assert isinstance(loaded.index, pd.DatetimeIndex)
+    assert loaded.name == s.name
+    pd.testing.assert_series_equal(loaded, s, check_names=False)
+
+
+def test_nested_dict_with_ndarray_roundtrip(store):
+    payload = {"mu": np.array([0.1, 0.2, 0.3]), "meta": {"n_j": 17}}
+    store.set("payload", payload)
+    loaded = store.get("payload")
+    assert isinstance(loaded["mu"], np.ndarray)
+    np.testing.assert_allclose(loaded["mu"], payload["mu"])
+    assert loaded["meta"] == payload["meta"]

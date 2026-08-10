@@ -29,7 +29,7 @@ cd "${PROJECT_DIR}"
 
 # Step 1: distribution_diagnostics (Step 1) と distribution_validation は
 # 事前計算済みの結果を再利用するため、最新のものを検索
-PIPELINE_DIR="${PROJECT_DIR}/live/pipeline_data"
+PIPELINE_DIR="${PROJECT_DIR}/var/live/pipeline_data"
 DIST_DIR=$(ls -td ${PIPELINE_DIR}/distribution_diagnostics/*/ 2>/dev/null | grep -v '/latest/' | head -1)
 VAL_DIR=$(ls -td ${PIPELINE_DIR}/distribution_validation/*/ 2>/dev/null | head -1)
 VOL_STATE=$(ls -t ${PIPELINE_DIR}/vol_state_diagnostics/*/state_panel.csv 2>/dev/null | head -1)
@@ -117,7 +117,7 @@ fi
 # Step 2: gap調整済み分布の計算
 # 不足営業日のみ再計算（前回latestにmu_gapが存在する日はスキップ）
 set +e
-PYTHONPATH=src "${PYTHON_BIN}" tools/production/compute_gap_adjusted_distribution.py \
+PYTHONPATH=src "${PYTHON_BIN}" tools/research/compute_gap_adjusted_distribution.py \
     --distribution-input-dir "${DIST_DIR}" \
     --validation-input-dir "${VAL_DIR}" \
     --vol-state-panel "${VOL_STATE}" \

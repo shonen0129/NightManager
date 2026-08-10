@@ -72,6 +72,51 @@ def test_gap_store_missing():
         assert store.get("2026-08-10", "mu") is None
 
 
+def test_gap_store_round_trip_preserves_ndarray_type():
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "gap.sqlite"
+        store = GapStore(path)
+        mu = np.array([1.0, 2.0, 3.0])
+        omega = np.eye(3)
+
+        store.put("2026-08-10", "mu", mu)
+        store.put("2026-08-10", "omega", omega)
+
+        loaded_mu = store.get("2026-08-10", "mu")
+        loaded_omega = store.get("2026-08-10", "omega")
+
+        assert isinstance(loaded_mu, np.ndarray)
+        assert isinstance(loaded_omega, np.ndarray)
+        assert np.allclose(loaded_mu, mu)
+        assert np.allclose(loaded_omega, omega)
+
+
+def test_gap_store_import_from_directory():
+    with tempfile.TemporaryDirectory() as tmp:
+        gap_dir = Path(tmp) / "gap_input"
+        matrices_dir = gap_dir / "matrices"
+        matrices_dir.mkdir(parents=True)
+
+        np.save(matrices_dir / "mu_gap_20260810.npy", np.array([0.1, 0.2, 0.3]))
+        np.save(matrices_dir / "omega_gap_20260810.npy", np.eye(3))
+        # Horizon files must not be mistaken for the default horizon=-1 matrices.
+        np.save(matrices_dir / "mu_gap_h1_20260810.npy", np.array([0.1, 0.2, 0.3]))
+
+        store_path = Path(tmp) / "gap.sqlite"
+        store = GapStore(store_path)
+        result = store.import_from_directory(gap_dir)
+
+        assert result["imported"] == 1
+        assert result["failed"] == 0
+        assert result["total_candidates"] == 1
+
+        mu, omega, _ = store.load("2026-08-10")
+        assert mu is not None
+        assert omega is not None
+        assert isinstance(mu, np.ndarray)
+        assert isinstance(omega, np.ndarray)
+
+
 def test_is_gap_store_path():
     assert is_gap_store_path("foo.sqlite")
     assert is_gap_store_path("foo.sqlite3")

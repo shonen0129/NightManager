@@ -212,4 +212,4 @@ class BacktestResult:
 # in leadlag.config.schemas for unified validation.  Import them from there
 # in new code.  The aliases below keep existing imports working.
 from leadlag.config.schemas import RiskConfig as RiskConfig  # noqa: F401, E402
-from leadlag.config.schemas import StrategyConfig as StrategyConfig
+from leadlag.config.schemas import StrategyConfig as StrategyConfig  # noqa: F401, E402

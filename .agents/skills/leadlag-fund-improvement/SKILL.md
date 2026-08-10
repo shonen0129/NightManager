@@ -27,7 +27,7 @@ Step 1: distribution_diagnostics (omega_struct行列)
   ※Macro有効時: マクロサプライズスケールをシグナルに適用（macro.py::compute_factor_kappa_scale）
 
 Step 2: gap_adjusted_distribution (mu_gap, Omega_gap行列)
-  スクリプト: tools/production/compute_gap_adjusted_distribution.py
+  スクリプト: tools/research/compute_gap_adjusted_distribution.py
   入力: Step1のomega_struct, distribution_validation, vol_state_panel, V1ウェイト
   出力: live/pipeline_data/gap_adjusted_distribution/<timestamp>/matrices/mu_gap_*.npy
   日次バッチ: scripts/batch/run_gap_distribution.sh (6:30 JST)

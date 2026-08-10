@@ -16,7 +16,7 @@ fi
 
 if [ -x "$RUFF" ]; then
     echo "Running ruff F821 lint (undefined names)..."
-    "$RUFF" check src/leadlag tools/production --select F821
+    "$RUFF" check src/leadlag tools/production tools/research --select F821
 else
     echo "WARNING: ruff not found, skipping F821 lint"
 fi

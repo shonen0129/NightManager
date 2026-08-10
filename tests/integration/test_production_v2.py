@@ -393,14 +393,14 @@ class TestParseRunConfig:
             "gross_scaling": {
                 "baseline_gross": 1.5,
                 "pit_rolling_window": 100,
-                "multipliers": {"Low": 0.5, "Medium": 1.0, "High": 1.2},
+                "multipliers": {"Low": 0.5, "Medium": 1.0, "High": 0.9},
             }
         }
         rc = parse_run_config(cfg)
         assert abs(rc.baseline_gross - 1.5) < 1e-12
         assert rc.pit_rolling_window == 100
         assert abs(rc.mult_low - 0.5) < 1e-12
-        assert abs(rc.mult_high - 1.2) < 1e-12
+        assert abs(rc.mult_high - 0.9) < 1e-12
 
     def test_custom_cost_bps(self):
         cfg = {"costs": {"cost_bps_per_gross": 15.0}}

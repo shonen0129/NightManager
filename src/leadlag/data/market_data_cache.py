@@ -45,12 +45,10 @@ def _resolve_store_path(cache_file: str | Path | None, default_filename: str) ->
     if cache_file is None:
         return market_data(default_filename)
     p = Path(cache_file)
-    if p.suffix in (".sqlite", ".npz", ".db", ".pkl"):
+    if p.suffix.lower() in (".sqlite", ".sqlite3", ".db"):
         return p
     if p.is_dir():
         return p / default_filename
-    if p.suffix:
-        return p
     return p / default_filename
 
 

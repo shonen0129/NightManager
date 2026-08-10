@@ -13,7 +13,7 @@ Weekend check (Saturday/Sunday) is always applied regardless of strategy.
 from __future__ import annotations
 
 import logging
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import cast
 
 logger = logging.getLogger(__name__)
@@ -156,3 +156,23 @@ def get_holiday_name(d: date | datetime | None = None) -> str | None:
         pass
 
     return None
+
+
+def previous_trading_day(d: date | datetime | None = None) -> date:
+    """Return the nearest TSE trading day strictly before *d*.
+
+    If *d* is None, defaults to today. Raises ValueError if a trading day
+    cannot be found within a one-year defensive bound.
+    """
+    if d is None:
+        d = date.today()
+    elif isinstance(d, datetime):
+        d = d.date()
+
+    candidate = d - timedelta(days=1)
+    for _ in range(366):
+        if is_trading_day(candidate):
+            return candidate
+        candidate -= timedelta(days=1)
+
+    raise ValueError(f"Could not find a TSE trading day before {d} within one year")

@@ -29,8 +29,8 @@ python3 -m leadlag.cli backtest --start-date 2015-01-05
 ## Tests
 
 ```bash
-python3 _check_syntax.py
-python3 -m pytest tests/unit/ -v --ignore=tests/unit/test_health_score.py
+python3 -m compileall src/leadlag tests tools scripts src/research
+python3 -m pytest tests/unit/ -v
 ```
 
 See `docs/ARCHITECTURE.md` for architecture and `AGENTS.md` for invariants.

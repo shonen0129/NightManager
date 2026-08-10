@@ -217,8 +217,8 @@ def setup_parser() -> argparse.ArgumentParser:
     backtest_parser.add_argument(
         "--data-source",
         choices=["download", "cache"],
-        default="download",
-        help="How to obtain df_exec: download (default) or cache.",
+        default="cache",
+        help="How to obtain df_exec: cache (default) or download.",
     )
     backtest_parser.add_argument(
         "--end-date",

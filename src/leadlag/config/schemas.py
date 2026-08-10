@@ -232,9 +232,9 @@ class ProductionV2RunConfig(BaseModel):
     pit_rolling_window: int = Field(default=252, ge=1, description="PIT 三分位ビニング用ローリング窓（営業日）")
     tertile_low_pct: float = Field(default=33.3333, ge=0.0, le=100.0, description="低閾値パーセンタイル")
     tertile_high_pct: float = Field(default=66.6667, ge=0.0, le=100.0, description="高閾値パーセンタイル")
-    mult_low: float = Field(default=0.75, ge=0.0, description="Low ビン グロス乗数")
-    mult_mid: float = Field(default=1.00, ge=0.0, description="Medium ビン グロス乗数")
-    mult_high: float = Field(default=1.00, ge=0.0, description="High ビン グロス乗数")
+    mult_low: float = Field(default=0.75, ge=0.0, le=1.0, description="Low ビン グロス乗数")
+    mult_mid: float = Field(default=1.00, ge=0.0, le=1.0, description="Medium ビン グロス乗数")
+    mult_high: float = Field(default=1.00, ge=0.0, le=1.0, description="High ビン グロス乗数")
     fallback_multiplier: float = Field(default=1.00, ge=0.0, description="PIT 履歴不足時のフォールバック乗数")
 
     # --- Fallback behavior ---

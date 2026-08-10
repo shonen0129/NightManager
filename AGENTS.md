@@ -20,7 +20,7 @@
 
 `df_exec` の行 t の意味:
 - **US列 (`us_cc_*`)**: 米国営業日 D_t のクローズ・トゥ・クローズリターン（JST 翌朝に確定）
-- **JP列（ターゲット）**: 取引日 D_{t+1} の 9:10→大引けリターン（`compute_jp_target_returns` in `src/leadlag/models/sre.py`）
+- **JP列（ターゲット）**: 取引日 D_{t+1} の 9:10→大引けリターン（`compute_jp_target_returns` in `src/leadlag/data/preprocessor.py`）
 - **`jp_gap_*`**: 取引日の寄付ギャップ（9:10 判定時点で既知 → シグナルに使用可）
 - 相関窓は `all_returns[window_start:current_index]` で **当日行を除外**（`src/leadlag/core/signal.py`）。この規約を崩すと即リークになる
 
@@ -68,7 +68,7 @@ python3 -m pytest tests/ -v
 python3 tools/production/run_daily_production_v2.py
 
 # gap調整分布の事前計算（v2 の入力）
-python3 tools/production/compute_gap_adjusted_distribution.py
+python3 tools/research/compute_gap_adjusted_distribution.py
 
 # 本番 V2 バックテスト（gap 行列が事前計算済みの場合は --gap-dir 指定）
 python3 src/research/scripts/backtest/run_production_backtest.py --start-date 2015-01-05
@@ -77,10 +77,10 @@ python3 src/research/scripts/backtest/run_production_backtest.py --start-date 20
 python3 -m leadlag.cli backtest --start-date 2015-01-05
 
 # CLI経由 V2 本番決済（--config / --gap-dir / --live-dir / --api-enable 等）
-python3 -m leadlag.cli decision --config configs/production/production.yaml --gap-dir live/pipeline_data/gap_adjusted_distribution/latest --api-enable --capital-from-wallet
+python3 -m leadlag.cli decision --config configs/production/production.yaml --gap-dir var/live/pipeline_data/gap_adjusted_distribution/latest --api-enable --capital-from-wallet
 
 # 構文チェック（CLIスタック防止: python3 -c は使わずスクリプト経由で）
-python3 _check_syntax.py
+python3 -m compileall src/leadlag tests tools scripts src/research
 ```
 
 ## 評価指標の約束事

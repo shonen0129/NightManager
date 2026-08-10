@@ -38,13 +38,11 @@ def _resolve_store_path(cache_dir: str | Path | None = None) -> Path:
     if cache_dir is None:
         return market_data(_DECISION_CACHE_FILENAME)
     p = Path(cache_dir)
-    # Treat explicit file extensions as a full store path.
-    if p.suffix in (".sqlite", ".npz", ".db", ".pkl"):
+    # Treat explicit SQLite file extensions as a full store path.
+    if p.suffix.lower() in (".sqlite", ".sqlite3", ".db"):
         return p
     if p.is_dir():
         return p / _DECISION_CACHE_FILENAME
-    if p.suffix:
-        return p
     return p / _DECISION_CACHE_FILENAME
 
 

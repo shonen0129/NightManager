@@ -675,6 +675,11 @@ class SignalPipeline:
 
         indices = list(range(start_idx, T))
 
+        # BLPXCombiner reads the previous step's state (i-1), so it must run
+        # sequentially regardless of the requested n_jobs.
+        if isinstance(self._combiner, BLPXCombiner):
+            n_jobs = 1
+
         if n_jobs == 1 or len(indices) <= 1:
             step_results = self._run_sequential(indices, run_ctx, inputs)
         else:
@@ -858,6 +863,8 @@ class BLPXCombiner:
         self._ic_blpx_vals = [0.0] * T
         self._ic_pca_vals = [0.0] * T
         self._meta_weights = [0.8] * T
+        self._raw_pca_signals = np.zeros((T, self._n_j))
+        self._raw_blpx_signals = np.zeros((T, self._n_j))
         self._start_idx = context.start_idx
 
     def end_run(self) -> dict[str, Any]:

@@ -6,6 +6,7 @@ from leadlag.core.market_calendar import (
     get_holiday_name,
     is_market_closed,
     is_trading_day,
+    previous_trading_day,
 )
 
 
@@ -60,6 +61,26 @@ class TestHolidayName:
         # Without jpholiday, static table doesn't provide names
         # Could be None or a name
         assert name is None or isinstance(name, str)
+
+
+class TestPreviousTradingDay:
+    """Previous trading day calculation."""
+
+    def test_previous_weekday(self):
+        # 2025-01-21 (Tuesday) → 2025-01-20 (Monday)
+        assert previous_trading_day(date(2025, 1, 21)) == date(2025, 1, 20)
+
+    def test_skip_weekend(self):
+        # 2025-01-20 (Monday) → 2025-01-17 (Friday)
+        assert previous_trading_day(date(2025, 1, 20)) == date(2025, 1, 17)
+
+    def test_skip_holiday(self):
+        # 2025-01-14 (Tuesday) → 2025-01-10 (Friday), skipping 成人の日
+        assert previous_trading_day(date(2025, 1, 14)) == date(2025, 1, 10)
+
+    def test_skip_long_weekend(self):
+        # 2025-05-07 (Wednesday) → 2025-05-01 (Thursday), skipping 憲法記念日 etc.
+        assert previous_trading_day(date(2025, 5, 7)) == date(2025, 5, 1)
 
 
 class TestDefaultDate:

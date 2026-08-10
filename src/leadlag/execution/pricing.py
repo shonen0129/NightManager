@@ -26,7 +26,7 @@ def resolve_daily_open_prices(
 ) -> tuple[dict[str, float], float | None]:
     """Fetch JP open prices with API -> Google -> CSV fallback mechanism.
 
-    Used by both ``decision.py`` and ``fast.py``.
+    Used by ``decision.py``.
     """
     from leadlag.data.market_data import (
         fetch_opens_from_google as _fetch_opens_from_google,

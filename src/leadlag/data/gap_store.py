@@ -108,7 +108,12 @@ class GapStore:
         data: np.ndarray | Any,
         horizon: int | None = None,
     ) -> None:
-        """Store a matrix for a given trade date and type."""
+        """Store a matrix for a given trade date and type.
+
+        The gap index and the cached matrix are written in a single SQLite
+        transaction so a failure cannot leave an index row pointing to a
+        missing cache value.
+        """
         date_key = _normalise_date(trade_date)
         horizon_key = self._horizon_key(horizon)
         cache_key = self._cache_key(date_key, matrix_type, horizon_key)
@@ -123,18 +128,13 @@ class GapStore:
                     """,
                     (date_key, matrix_type, horizon_key, cache_key),
                 )
+                self._cache._set_with_conn(conn, cache_key, data)
                 conn.execute("COMMIT")
             except Exception as e:
                 conn.execute("ROLLBACK")
                 raise GapStoreError(
-                    f"Failed to index {matrix_type} for {date_key}: {e}"
+                    f"Failed to store {matrix_type} for {date_key}: {e}"
                 ) from e
-        try:
-            self._cache.set(cache_key, data)
-        except Exception as e:
-            raise GapStoreError(
-                f"Failed to cache {matrix_type} for {date_key}: {e}"
-            ) from e
 
     def get(
         self,
@@ -246,7 +246,24 @@ class GapStore:
         imported = 0
         failed = 0
         # Find all candidate date suffixes from mu files.
-        mu_files = sorted(gap_input_dir.glob(mu_pattern.replace("{date}", "*.npy")))
+        # Filter with a regex so horizon files (e.g. mu_gap_h1_YYYYMMDD.npy)
+        # are not mistaken for the default horizon=-1 matrices.
+        import re as _re
+        from pathlib import Path as _Path
+
+        mu_basename = _Path(mu_pattern).name
+        # re.escape does not escape braces, but to be robust we replace the
+        # {date} placeholder with a safe token, escape the rest, then insert
+        # the capture group.
+        _date_placeholder = "__DATE_PLACEHOLDER__"
+        escaped = _re.escape(mu_basename.replace("{date}", _date_placeholder))
+        mu_re = _re.compile(
+            r"^" + escaped.replace(_date_placeholder, r"(\d{8})") + r"$"
+        )
+        mu_files = sorted(
+            f for f in gap_input_dir.glob(mu_pattern.replace("{date}", "*"))
+            if mu_re.fullmatch(f.name)
+        )
         for mu_file in mu_files:
             date_numeric = mu_file.stem.split("_")[-1]
             trade_date = _date_from_numeric(date_numeric)
