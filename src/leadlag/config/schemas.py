@@ -235,7 +235,7 @@ class ProductionV2RunConfig(BaseModel):
     mult_low: float = Field(default=0.75, ge=0.0, le=1.0, description="Low ビン グロス乗数")
     mult_mid: float = Field(default=1.00, ge=0.0, le=1.0, description="Medium ビン グロス乗数")
     mult_high: float = Field(default=1.00, ge=0.0, le=1.0, description="High ビン グロス乗数")
-    fallback_multiplier: float = Field(default=1.00, ge=0.0, description="PIT 履歴不足時のフォールバック乗数")
+    fallback_multiplier: float = Field(default=1.00, ge=0.0, le=1.0, description="PIT 履歴不足時のフォールバック乗数")
 
     # --- Fallback behavior ---
     fallback_on_gap_data_missing: bool = Field(default=True, description="gap data 欠損時に v1 フォールバック")

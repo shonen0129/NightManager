@@ -94,6 +94,9 @@ def parse_run_config(cfg: dict) -> ProductionV2RunConfig:
     cfg = cfg or {}
     allowed = set(ProductionV2RunConfig._NESTED_SECTIONS) | set(ProductionV2RunConfig.model_fields)
     filtered = {k: v for k, v in cfg.items() if k in allowed}
+    dropped = [k for k in cfg if k not in allowed]
+    if dropped:
+        logger.debug("parse_run_config dropped non-V2 top-level keys: %s", dropped)
     return ProductionV2RunConfig.model_validate(filtered)
 
 

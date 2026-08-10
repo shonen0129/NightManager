@@ -101,7 +101,7 @@ Remaining capital: 1,563,800 JPY
 | `etf_amount` | 配置金額（JPY）。BUY のみ金額が必要、SELL/HOLD は 0 |
 | `quantity` | 発注数量（口数） |
 
-**CSV 出力先：** `results/YYYYMMDD_HHMMSS_production_decision/decision_YYYYMMDD.csv`
+**CSV 出力先：** `var/results/YYYYMMDD_HHMMSS_production_decision/decision_YYYYMMDD.csv`
 
 ### 2.6 資金配置のアルゴリズム（Weight-Proportional Allocation）
 
@@ -117,7 +117,7 @@ Remaining capital: 1,563,800 JPY
 |:--|:--|:--|
 | `--config` | V2 production YAML config のパス | 既定 `configs/production/production.yaml` |
 | `--gap-dir` | `mu_gap`/`omega_gap` .npy ファイル群のディレクトリ | 省略時は YAML の `gap_distribution.dir` を使用 |
-| `--live-dir` | V2 アーティファクト出力先 | 既定 `live/production_residual_blpx` |
+| `--live-dir` | V2 アーティファクト出力先 | 既定 `var/live/production_residual_blpx` |
 | `--api-dry-run` | API注文を送らず疑似実行 | 接続確認とログ検証用 |
 | `--auto-close` | （非推奨）判定後に指定時刻で全決済 | 別途 `close` サブコマンドを使用すること |
 | `--auto-close-time HH:MM` | （非推奨）自動クローズ時刻指定 | 既定 `14:50` |
@@ -196,13 +196,13 @@ python3 -m leadlag.cli close \
   ```bash
   python tools/production/run_daily_production_v2.py \
       --trade-date latest \
-      --gap-input-dir results/gap_adjusted_distribution/latest
+      --gap-input-dir var/live/pipeline_data/gap_adjusted_distribution/latest
   ```
 * ドライラン実行（疑似注文生成）：
   ```bash
   python tools/production/run_daily_production_v2.py \
       --trade-date 2026-06-16 \
-      --gap-input-dir results/gap_adjusted_distribution/latest \
+      --gap-input-dir var/live/pipeline_data/gap_adjusted_distribution/latest \
       --dry-run true
   ```
 * セルフテスト実行：
@@ -215,7 +215,7 @@ python3 -m leadlag.cli close \
   ```bash
   python tools/research/compute_gap_adjusted_distribution.py \
       --trade-date latest \
-      --output-dir results/gap_adjusted_distribution/latest
+      --output-dir var/live/pipeline_data/gap_adjusted_distribution/latest
   ```
 
 ### 5.3 日次シャドウ監視ランナー (`tools/validation/run_daily_residual_blpx_shadow.py`)
@@ -223,7 +223,7 @@ python3 -m leadlag.cli close \
   ```bash
   python tools/validation/run_daily_residual_blpx_shadow.py \
       --trade-date latest \
-      --gap-dir results/gap_adjusted_distribution/latest
+      --gap-dir var/live/pipeline_data/gap_adjusted_distribution/latest
   ```
 
 ### 5.4 Legacy PCA-Ensemble ツール
@@ -232,14 +232,14 @@ python3 -m leadlag.cli close \
   python tools/research/backtest_sector_relative_ensemble.py \
       --config configs/archive/production_before_residual_blpx_20260614.yaml \
       --slippage-bps 5 \
-      --output-dir results/sector_relative_ensemble/
+      --output-dir var/results/sector_relative_ensemble/
   ```
 * PCA-Ensemble 日次実行（アーカイブされた PCA-Ensemble 設定ファイルを使用）：
   ```bash
   python tools/research/run_daily_sector_relative_ensemble.py \
       --config configs/archive/production_before_residual_blpx_20260614.yaml \
       --signal-date latest \
-      --output-dir live/sector_relative_ensemble/ \
+      --output-dir var/live/sector_relative_ensemble/ \
       --dry-run
   ```
 
@@ -313,9 +313,9 @@ model = SectorRelativeEnsembleBLPEnhancedModel(config)
 |:---|:---|:---|:---|
 | `--config` | str | `configs/production/production.yaml` | V2 production YAML config パス（decision/backtest 共通） |
 | `--gap-dir` | str | (YAMLの `gap_distribution.dir`) | `mu_gap`/`omega_gap` .npy ファイル群のディレクトリ |
-| `--live-dir` | str | `live/production_residual_blpx` | V2 アーティファクト出力先（decision 専用） |
+| `--live-dir` | str | `var/live/production_residual_blpx` | V2 アーティファクト出力先（decision 専用） |
 | `--start-date` | str | `2015-01-05` | バックテスト開始日（backtest 専用） |
-| `--output-root` | str | `results/` | 出力ディレクトリルート |
+| `--output-root` | str | `var/results/` | 出力ディレクトリルート |
 | `--run-tag` | str | (timestamp) | 出力フォルダの識別子 |
 | `--trade-date` | str | (today) | 取引日 (YYYY-MM-DD) |
 | `--jp-opens-csv` | str | — | JP 寄付き価格 CSV パス |

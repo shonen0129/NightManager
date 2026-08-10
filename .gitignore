@@ -32,9 +32,6 @@ Thumbs.db
 
 # Data cache
 *.pkl
-market_data/*.pkl
-market_data/*.npz
-market_data/*.zip
 
 # Logs
 *.log
@@ -59,7 +56,6 @@ artifacts/
 results/
 shadow_runs/
 live/
-market_data/
 # Exceptions for markdown reports / diffs
 !results/**/*.md
 !results/**/*.patch
@@ -76,7 +72,14 @@ data/adr_features.csv
 # Consolidated runtime output directory (new convention)
 var/
 
-# Symlinks left by var/ migration for backward compatibility (ADR-0006)
+# Symlinks left by var/ migration for backward compatibility (ADR-0006).
+# These must NOT be tracked; the canonical directories live under var/.
+/artifacts
+/live
+/logs
+/market_data
+/results
+/shadow_runs
 /outputs
 /results
 /logs

@@ -13,15 +13,15 @@ This file is intentionally kept as a thin CLI wrapper (~130 lines).
 
 Usage (normal daily run)::
 
-    python tools/run_daily_production_v2.py \\
+    python tools/production/run_daily_production_v2.py \\
         --trade-date latest \\
-        --gap-input-dir results/gap_adjusted_distribution/latest
+        --gap-input-dir var/live/pipeline_data/gap_adjusted_distribution/latest
 
 Usage (dry-run, no file writes)::
 
-    python tools/run_daily_production_v2.py \\
+    python tools/production/run_daily_production_v2.py \\
         --trade-date 2026-06-16 \\
-        --gap-input-dir results/gap_adjusted_distribution/latest \\
+        --gap-input-dir var/live/pipeline_data/gap_adjusted_distribution/latest \\
         --dry-run true
 
 Usage (self-test)::

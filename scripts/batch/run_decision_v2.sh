@@ -43,12 +43,12 @@ echo "[$(date '+%Y-%m-%d %H:%M:%S')] [2/2] decision v2 開始" >> "${LOG_FILE}"
 set +e
 PYTHONPATH=src "${PYTHON_BIN}" tools/production/run_v2_decision.py \
     --config configs/production/production.yaml \
-    --gap-input-dir live/pipeline_data/gap_adjusted_distribution/latest \
-    --live-dir live/production_residual_blpx \
+    --gap-input-dir var/live/pipeline_data/gap_adjusted_distribution/latest \
+    --live-dir var/live/production_residual_blpx \
     --api-enable \
     --capital-from-wallet \
     --text-output \
-    --output-root results \
+    --output-root var/results \
     >> "${LOG_FILE}" 2>&1
 EXIT_CODE=$?
 set -e

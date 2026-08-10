@@ -30,7 +30,7 @@
 2. **ベースライン期間の分離**: 事前分布・基準相関 `c_full` は 2010–2014 固定（`compute_baseline_correlation`）。バックテスト `start_date` は 2015-01-05 以降を維持。`_prepare_residual_prior` のフォールバック（先頭1260行）が発動する構成は作らない
 3. **テストを弱めない**: 変更後必ず全テストを通す。推奨は並列実行 `bash scripts/run_tests_parallel.sh`（約8分、ログは `/tmp/pytest_parallel/`）。直列 `python3 -m pytest tests/ -v` は約32分。unit + integration（`test_leakage_audit.py`, `test_production_residual_blpx.py` 等）
 4. **市場中立制約**: net exposure ±0.05、gross ≤ 2.0（RuleD 適用後）。リスク正本は `src/leadlag/core/risk.py`、グロス調整正本は `src/leadlag/core/portfolio.py::adjust_gross_exposure()`
-5. **ティッカー定義**: `src/leadlag/data/tickers.py` が単一正本（N_U=15, N_J=17, 計32次元）。`core/correlation.py` の感応度ラベル `w3`–`w6` は32次元ハードコードなので、ユニバース変更時は必ず同時更新
+5. **ティッカー定義**: `src/leadlag/data/tickers.py` が単一正本（N_U=15, N_J=17, 計32次元）で、感応度ラベル `w3`–`w6` も `SENSITIVITY_LABELS` として同ファイルに保持。`core/correlation.py` はレジストリから生成するため、ユニバース変更時は `tickers.py` のみ更新すればよい
 6. **前日gap行列の使用禁止**: 当日のgap行列（`mu_gap_{YYYYMMDD}.npy` / `omega_gap_{YYYYMMDD}.npy`）が存在しない場合は **フラットポジション（w_final=0）** を返すこと。前日行列をコピーして当日日付で使用してはならない（誤ったポジションで発注するリスクがある）。`load_gap_matrices`（`production_v2.py`）は当日日付のファイルのみを検索し、シェルスクリプト側のフォールバックコピー（2026-07-14に廃止）に依存しない
 
 ## 改善ワークフロー

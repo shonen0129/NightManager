@@ -290,8 +290,13 @@ def _normalise_date(date_str: str) -> str:
 
 
 def _date_from_numeric(date_numeric: str) -> str:
-    """Convert YYYYMMDD to YYYY-MM-DD."""
-    return f"{date_numeric[:4]}-{date_numeric[4:6]}-{date_numeric[6:8]}"
+    """Convert YYYYMMDD to YYYY-MM-DD, validating the result."""
+    if not isinstance(date_numeric, str) or not date_numeric.isdigit() or len(date_numeric) != 8:
+        raise ValueError(f"Invalid YYYYMMDD numeric date: {date_numeric!r}")
+    y, m, d = int(date_numeric[:4]), int(date_numeric[4:6]), int(date_numeric[6:8])
+    # pd.to_datetime raises on invalid calendar dates (e.g. 2026-13-01).
+    pd.to_datetime(f"{y:04d}-{m:02d}-{d:02d}")
+    return f"{y:04d}-{m:02d}-{d:02d}"
 
 
 def is_gap_store_path(path: str | Path) -> bool:

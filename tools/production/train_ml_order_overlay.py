@@ -10,7 +10,7 @@ Example::
     python tools/production/train_ml_order_overlay.py \
         --train-start 2015-01-05 \
         --train-end 2024-12-31 \
-        --gap-input-dir results/gap_adjusted_distribution/20260615_004113 \
+        --gap-input-dir var/results/gap_adjusted_distribution/20260615_004113 \
         --output-dir models/ml_order_overlay/phase2_8
 """
 
