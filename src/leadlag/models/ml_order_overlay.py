@@ -105,8 +105,8 @@ class MLOrderOverlayModel:
 
 
 def _safe(arr: np.ndarray) -> np.ndarray:
-    """Replace NaN/Inf in place with finite values."""
-    arr = np.asarray(arr, dtype=float)
+    """Replace NaN/Inf with finite values."""
+    arr = np.asarray(arr, dtype=float).copy()
     arr[np.isnan(arr) | np.isinf(arr)] = 0.0
     return arr
 
