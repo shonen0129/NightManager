@@ -108,7 +108,6 @@ class TestComputeJpTargetReturns:
             oc = simple_df_exec[f"jp_oc_{tk}"].values
             close = (1.0 + oc) * open_
             for row in range(2, n):
-                start_idx = row - 2
                 open_start = 100.0 + i
                 expected = close[row] / open_start - 1.0
                 assert np.isclose(y[row, i], expected, rtol=1e-12)
@@ -208,3 +207,34 @@ class TestBuild5m910Prices:
         assert p_910.index.equals(simple_df_exec.index)
         assert list(p_910.columns) == list(JP_TICKERS)
         assert p_910.isna().all().all()
+
+    def test_zero_or_infinite_open_gives_zero_target(self, simple_df_exec):
+        """Zero or inf open prices (data quality outliers) must not yield inf targets."""
+        simple_df_exec.loc[simple_df_exec.index[2], "jp_open_trade_1617.T"] = 0.0
+        simple_df_exec.loc[simple_df_exec.index[3], "jp_open_trade_1617.T"] = np.inf
+
+        p_910 = pd.DataFrame(
+            np.nan, index=simple_df_exec.index, columns=JP_TICKERS, dtype=float
+        )
+
+        y = compute_jp_target_returns(
+            simple_df_exec, JP_TICKERS, horizon=3, p_910_df=p_910
+        )
+
+        assert np.isfinite(y[2:, JP_TICKERS.index("1617.T")]).all()
+        assert not np.isinf(y).any()
+
+    def test_infinite_oc_gives_finite_target(self, simple_df_exec):
+        """An infinite open-to-close return must be guarded by the valid mask."""
+        simple_df_exec.loc[simple_df_exec.index[2], "jp_oc_1617.T"] = np.inf
+
+        p_910 = pd.DataFrame(
+            100.0, index=simple_df_exec.index, columns=JP_TICKERS, dtype=float
+        )
+
+        y = compute_jp_target_returns(
+            simple_df_exec, JP_TICKERS, horizon=3, p_910_df=p_910
+        )
+
+        assert not np.isinf(y).any()
+        assert not np.isnan(y[2:, :]).any()

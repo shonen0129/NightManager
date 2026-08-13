@@ -206,9 +206,14 @@ def preprocess_data(
     us_c_joint = us_c.loc[joint_dates]
     jp_c_joint = jp_c.loc[joint_dates]
 
-    # Close-to-close returns
-    ret_us_cc = us_c_joint.pct_change()
-    ret_jp_cc = jp_c_joint.pct_change()
+    # Close-to-close returns. pct_change can produce inf when the previous
+    # close is zero; treat those as missing so the record-level validator can
+    # reject the affected days.
+    with np.errstate(divide="ignore", invalid="ignore"):
+        ret_us_cc = us_c_joint.pct_change()
+        ret_jp_cc = jp_c_joint.pct_change()
+    ret_us_cc = ret_us_cc.replace([np.inf, -np.inf], np.nan)
+    ret_jp_cc = ret_jp_cc.replace([np.inf, -np.inf], np.nan)
 
     # Proxy returns for ETFs with limited history
     if "XLC" in ret_us_cc.columns and ret_us_cc["XLC"].isna().any():
@@ -252,9 +257,14 @@ def preprocess_data(
             if next_trade_date > last_joint:
                 trade_targets[last_joint] = next_trade_date
 
-    # OC and gap returns for JP
-    ret_jp_oc = jp_c / jp_o - 1.0
-    ret_jp_gap = jp_o / jp_c.shift(1) - 1.0
+    # OC and gap returns for JP. Guard against zero open/close prices (data
+    # errors / split-adjusted historical prices) so we do not propagate inf
+    # into the execution frame and downstream target computations.
+    with np.errstate(divide="ignore", invalid="ignore"):
+        ret_jp_oc = jp_c / jp_o - 1.0
+        ret_jp_gap = jp_o / jp_c.shift(1) - 1.0
+    ret_jp_oc = ret_jp_oc.replace([np.inf, -np.inf], np.nan)
+    ret_jp_gap = ret_jp_gap.replace([np.inf, -np.inf], np.nan)
 
     # TOPIX overnight and rolling betas
     topix_night = None
@@ -262,7 +272,9 @@ def preprocess_data(
     if topix_close is not None and topix_open is not None:
         topix_close.index = pd.to_datetime(topix_close.index).tz_localize(None).normalize()
         topix_open.index = pd.to_datetime(topix_open.index).tz_localize(None).normalize()
-        topix_night = topix_open / topix_close.shift(1) - 1.0
+        with np.errstate(divide="ignore", invalid="ignore"):
+            topix_night = topix_open / topix_close.shift(1) - 1.0
+        topix_night = topix_night.replace([np.inf, -np.inf], np.nan)
 
         gap_for_beta = ret_jp_gap
         topix_for_beta = topix_night
@@ -338,6 +350,11 @@ def preprocess_data(
         # exclude it. Step 1 distribution diagnostics uses r_gap only as a
         # placeholder (np.nan_to_num to 0.0), and compute_gap_adjusted_distribution
         # overwrites these values with Tachibana real-time prices at 9:10 JST.
+        # Collapse any remaining infinities before filling placeholders.
+        r_oc = r_oc.replace([np.inf, -np.inf], np.nan)
+        r_gap = r_gap.replace([np.inf, -np.inf], np.nan)
+        jp_open_trade = jp_open_trade.replace([np.inf, -np.inf], np.nan)
+
         is_provisional = bool(
             r_oc.isna().any()
             or r_gap.isna().any()
@@ -500,7 +517,7 @@ def build_5m_910_prices(
             low = row_910.get(("Low", ticker))
             close = row_910.get(("Close", ticker))
             val = (high + low) / 2 if (pd.notna(high) and pd.notna(low)) else close
-            if pd.notna(val):
+            if pd.notna(val) and np.isfinite(val):
                 p_910.loc[dt_ts, ticker] = float(val)
 
     return p_910
@@ -537,7 +554,10 @@ def _compute_jp_target_returns_h1_legacy(
                     high = row_910.get(("High", ticker))
                     low = row_910.get(("Low", ticker))
                     close = row_910.get(("Close", ticker))
-                    p_910 = (high + low) / 2 if (pd.notna(high) and pd.notna(low)) else close
+                    if pd.notna(high) and pd.notna(low) and np.isfinite(high) and np.isfinite(low):
+                        p_910 = (high + low) / 2
+                    elif pd.notna(close) and np.isfinite(close):
+                        p_910 = close
 
                 p_open_5m = np.nan
                 for time_str in ["09:00:00", "09:05:00", "09:10:00"]:
@@ -547,12 +567,18 @@ def _compute_jp_target_returns_h1_legacy(
                         op = row_time.get(("Open", ticker))
                         cl = row_time.get(("Close", ticker))
                         val = op if pd.notna(op) else cl
-                        if pd.notna(val):
+                        if pd.notna(val) and np.isfinite(val):
                             p_open_5m = val
                             break
 
                 ret_open_910 = 0.0
-                if pd.notna(p_910) and pd.notna(p_open_5m) and p_open_5m > 0:
+                if (
+                    pd.notna(p_910)
+                    and pd.notna(p_open_5m)
+                    and np.isfinite(p_910)
+                    and np.isfinite(p_open_5m)
+                    and p_open_5m > 0
+                ):
                     ret_open_910 = float(p_910 / p_open_5m - 1.0)
                 ticker_returns[ticker] = ret_open_910
             r_open_910_dict[dt_ts] = ticker_returns

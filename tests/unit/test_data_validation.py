@@ -53,7 +53,18 @@ def test_validate_exec_record_detects_nan():
     record["jp_gap_1617.T"] = np.nan
     record["trade_date"] = "2024-01-01"
     alerts = validate_exec_record(record)
-    assert any("jp_gap missing for 1617.T" in a for a in alerts)
+    assert any("jp_gap missing or non-finite for 1617.T" in a for a in alerts)
+
+
+def test_validate_exec_record_detects_inf():
+    record = {f"us_cc_{tk}": 0.01 for tk in US_TICKERS}
+    for tk in JP_TICKERS:
+        for prefix in ("jp_cc_", "jp_gap_", "jp_open_trade_", "jp_close_sig_"):
+            record[f"{prefix}{tk}"] = 0.01
+    record["jp_open_trade_1617.T"] = np.inf
+    record["trade_date"] = "2024-01-01"
+    alerts = validate_exec_record(record)
+    assert any("jp_open_trade missing or non-finite for 1617.T" in a for a in alerts)
 
 
 def test_validate_gap_matrices_clean():

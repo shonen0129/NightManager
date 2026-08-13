@@ -92,14 +92,14 @@ def validate_exec_record(
     alerts: list[str] = []
     for tk in us_tickers:
         col = f"{US_CC_PREFIX}{tk}"
-        if record.get(col) is None or (isinstance(record[col], float) and np.isnan(record[col])):
-            alerts.append(f"us_cc missing for {tk} on {record.get('trade_date')}")
+        if record.get(col) is None or (isinstance(record[col], float) and (np.isnan(record[col]) or np.isinf(record[col]))):
+            alerts.append(f"us_cc missing or non-finite for {tk} on {record.get('trade_date')}")
 
     for tk in jp_tickers:
         for prefix in (JP_CC_PREFIX, JP_GAP_PREFIX, JP_OPEN_PREFIX, JP_CLOSE_PREFIX):
             col = f"{prefix}{tk}"
-            if record.get(col) is None or (isinstance(record[col], float) and np.isnan(record[col])):
-                alerts.append(f"{prefix[:-1]} missing for {tk} on {record.get('trade_date')}")
+            if record.get(col) is None or (isinstance(record[col], float) and (np.isnan(record[col]) or np.isinf(record[col]))):
+                alerts.append(f"{prefix[:-1]} missing or non-finite for {tk} on {record.get('trade_date')}")
 
     return alerts
 
