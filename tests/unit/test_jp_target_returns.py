@@ -253,3 +253,36 @@ class TestBuild5m910Prices:
 
         assert not np.isinf(y).any()
         assert not np.isnan(y[2:, :]).any()
+
+    def test_zero_5m_price_gives_zero_ret_open_910(self, simple_df_exec, monkeypatch):
+        """A zero 9:10 or 09:00 5m price must not create -1 / division by zero."""
+        from leadlag.data import cache as _cache
+
+        # Single-day 5m cache with 0 9:10 price.
+        dates = pd.date_range("2025-01-05 09:00:00", periods=3, freq="5min")
+        data = {
+            ("Open", "1617.T"): [100.0, 100.0, 100.0],
+            ("High", "1617.T"): [100.0, 0.0, 100.0],
+            ("Low", "1617.T"): [100.0, 0.0, 100.0],
+            ("Close", "1617.T"): [100.0, 0.0, 100.0],
+        }
+        for tk in JP_TICKERS[1:]:
+            data[("Open", tk)] = [100.0, 100.0, 100.0]
+            data[("High", tk)] = [100.0, 100.0, 100.0]
+            data[("Low", tk)] = [100.0, 100.0, 100.0]
+            data[("Close", tk)] = [100.0, 100.0, 100.0]
+        df_5m = pd.DataFrame(data, index=dates)
+
+        def _mock_load(_interval):
+            return df_5m
+
+        monkeypatch.setattr(_cache, "load_intraday_cache", _mock_load)
+
+        # h=1 without p_910 triggers the legacy path
+        y = compute_jp_target_returns(simple_df_exec, JP_TICKERS, horizon=1)
+
+        assert not np.isinf(y).any()
+        assert not np.isnan(y).any()
+        # 0 9:10 price should not yield -1 target; fallback to open-to-close.
+        idx_0 = list(JP_TICKERS).index("1617.T")
+        assert y[0, idx_0] == simple_df_exec["jp_oc_1617.T"].iloc[0]

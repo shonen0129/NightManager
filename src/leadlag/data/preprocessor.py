@@ -579,6 +579,7 @@ def _compute_jp_target_returns_h1_legacy(
                     and pd.notna(p_open_5m)
                     and np.isfinite(p_910)
                     and np.isfinite(p_open_5m)
+                    and p_910 > 0
                     and p_open_5m > 0
                 ):
                     ret_open_910 = float(p_910 / p_open_5m - 1.0)
