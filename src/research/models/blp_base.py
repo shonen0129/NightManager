@@ -21,11 +21,33 @@ class _BLPBase(BaseModel):
     compute_residual_signal, _apply_gap_adjustment, and _denormalize_signal.
     """
 
-    def _prepare_common_inputs(self, df_exec: pd.DataFrame) -> dict:
-        """Prepare inputs common to signal computation (raw targets, residuals, betas)."""
+    def _prepare_common_inputs(
+        self,
+        df_exec: pd.DataFrame,
+        *,
+        horizon: int = 1,
+        p_910_df: pd.DataFrame | None = None,
+        y_jp_target: np.ndarray | None = None,
+    ) -> dict:
+        """Prepare inputs common to signal computation (raw targets, residuals, betas).
+
+        Args:
+            df_exec: Execution DataFrame with US/JP columns.
+            horizon: Target horizon in trading days.  Used by multi-horizon models.
+            p_910_df: Pre-built 09:10 midpoint prices (date × tickers).  If None,
+                ``compute_jp_target_returns`` builds it from the 5m cache.
+            y_jp_target: Optional pre-computed target returns.  When provided,
+                ``compute_jp_target_returns`` is skipped, which is useful for
+                multi-horizon setups where the caller computes the true h-day
+                9:10-to-close target from the h=1 ``df_exec``.
+        """
         from leadlag.core.pipeline import build_common_inputs
         from leadlag.data.preprocessor import compute_jp_target_returns
-        y_jp_target = compute_jp_target_returns(df_exec, JP_TICKERS)
+
+        if y_jp_target is None:
+            y_jp_target = compute_jp_target_returns(
+                df_exec, JP_TICKERS, horizon=horizon, p_910_df=p_910_df
+            )
 
         # Read fractional diff config from the features section
         frac_cfg = {}

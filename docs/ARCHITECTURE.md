@@ -1,6 +1,6 @@
 # Lead-Lag Market-Neutral Strategy — Architecture (v3.0)
 
-> **最終更新**: 2026-08-10
+> **最終更新**: 2026-08-13
 
 ## Overview
 
@@ -49,6 +49,7 @@ US ETF と TOPIX-17 セクター ETF のリードラグ相関を利用した、
 - **Phase 28 (2026-08-10)**: P2-D2 — gap 行列・weights・PnL の SQLite DB 化。`leadlag.data.gap_store.GapStore` を新設し、`mu_gap` / `omega_gap` / マルチホライズン / ランク反転行列を 1 つの SQLite ファイル（BLOB pickle、WAL）に保存。`leadlag.data.backtest_store.BacktestResultStore` を新設し、日次 PnL（return / equity / drawdown / turnover / gross / costs）と日次 weights を RDB に永続化。`utils/gap_matrix_io` から SQLite gap store を優先読み、存在しなければ `.npy` ファイルにフォールバックする統合パスを提供。DuckDB を検討したが、現時点では `sqlite3` 標準ライブラリで十分と判断（将来分析的クエリがボトルネックになれば再検討）。
 - **Phase 29 (2026-08-10)**: P2-E1 — 日次運用 CLI 一本化。`leadlag.cli` に `daily` サブコマンドを追加。朝のカットオフ時刻（デフォルト 09:15）より前は `decision`、以降は `close` を自動実行。`_add_decision_args` / `_add_close_args` ヘルパーで引数定義を共通化。市場休場判定も `daily` を対象に拡張し、cron/launchd のエントリポイントを一本化。
 - **Phase 30 (2026-08-10)**: P3-F1 — テスト高速化。`tests/conftest.py` に `synthetic_df_exec` フィクスチャを追加し、全カラムを満たす小規模な合成 `df_exec` を提供。`sample_df_exec` / `synthetic_df_exec` / `residual_blpx_prod_config` を `scope="session"` に変更し、ダウンロード・前処理をテスト間で共有。`tests/unit/test_synthetic_smoke.py` を新設し、schema validation、`ExecutionFrame` アクセサ、V2 フラットフォールバックをサブ秒で検証。
+- **Phase 31 (2026-08-13)**: マルチホライズン h-day ターゲットを再定義。`src/leadlag/data/preprocessor.py::compute_jp_target_returns` において、h>1 のターゲットを `close_i / p_910_{i-h+1} - 1`（5分足 09:10 midpoint が得られない場合は open フォールバック）に修正。これにより h-day 9:10→大引けリターンが正しく計算される。`build_5m_910_prices` で 5分足 09:10 価格を 1 回構築して再利用し、`src/research/models/blp_base.py::_prepare_common_inputs` および `tools/research/compute_gap_adjusted_distribution.py` で multi-horizon 入力に反映。2020-2024 全期間バックテストで net Sharpe 4.0477 → 4.1320、total return 4.1631 → 4.2618 と改善。追加の Phase 2 案（開始日 gap/topix/beta 使用、h>1 および全 horizon の gap 調整除去）を実験的に検証したが、いずれも劣化（Sharpe 3.77 前後）したため不採用。実験コードは破棄、レポートは `reports/mh_target_phase1/phase1_hday_target_definition_report.md` に残す。
 
 ---
 

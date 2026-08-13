@@ -35,10 +35,19 @@ sys.path.insert(0, str(ROOT / "src"))
 from leadlag.broker.tachibana.session_cache import save_open_prices_cache
 from leadlag.core.portfolio import solve_baseline_style
 from leadlag.core.signal import build_weights_minvar
-from leadlag.data.cache import is_decision_cache_valid, load_decision_cache
+from leadlag.data.cache import (
+    is_decision_cache_valid,
+    load_decision_cache,
+    save_decision_cache,
+    save_df_exec_to_local_cache,
+)
 from leadlag.data.fetcher import download_data
 from leadlag.data.gap_store import GapStore
-from leadlag.data.preprocessor import preprocess_data
+from leadlag.data.preprocessor import (
+    build_5m_910_prices,
+    compute_jp_target_returns,
+    preprocess_data,
+)
 from leadlag.data.tickers import JP_TICKERS, TOPIX_TICKER, US_TICKERS
 from leadlag.models.signal_enhancement import apply_multi_horizon_blend, apply_rank_reversal_overlay
 from research.models.sector_relative_ensemble_blp_enhanced import (
@@ -127,7 +136,8 @@ def inject_tachibana_realtime_prices(
     own_client = api_client is None
     if own_client:
         api_client = build_api_client(api_url=None, api_token=None, api_dry_run=False)
-    assert api_client is not None
+    if api_client is None:
+        raise RuntimeError("build_api_client returned None")
 
     tickers_to_fetch = JP_TICKERS + [TOPIX_TICKER]
     current_prices = api_client.fetch_current_prices(tickers_to_fetch, allow_missing=True)
@@ -192,7 +202,11 @@ def inject_tachibana_realtime_prices(
     last_row = df_exec.iloc[-1]
 
     # --- 5. Build the record ---
-    record: dict = {"trade_date": today, "sig_date": sig_date}
+    record: dict = {
+        "trade_date": today,
+        "sig_date": sig_date,
+        "is_provisional": True,
+    }
 
     for tk in JP_TICKERS:
         prev_close = float(jp_close.loc[prev_date, tk]) if tk in jp_close.columns else np.nan
@@ -1198,11 +1212,21 @@ def main():
     mh_inputs = {}   # {h: inputs_dict}
 
     if save_mh and mh_horizons:
+        # 5分足 09:10 価格は h-day target 計算で使う。h=3/h=5 両方に共有。
+        p_910_df = build_5m_910_prices(df_exec, JP_TICKERS)
+
         for h in mh_horizons:
             logger.info(f"Setting up multi-horizon model for h={h}...")
             df_exec_h = compute_cumulative_returns(df_exec, h, method=args.cumulative_method)
+            # h-day 9:10→大引け target を元の h=1 df_exec から直接計算。
+            # df_exec_h 内の jp_oc は h 日積上げなので target 計算に使わない。
+            y_jp_target_h = compute_jp_target_returns(
+                df_exec, JP_TICKERS, horizon=h, p_910_df=p_910_df
+            )
             model_h = SectorRelativeEnsembleBLPEnhancedModel(cfg)
-            inputs_h = model_h._prepare_common_inputs(df_exec_h)
+            inputs_h = model_h._prepare_common_inputs(
+                df_exec_h, y_jp_target=y_jp_target_h
+            )
             mh_models[h] = model_h
             mh_inputs[h] = inputs_h
             logger.info(f"  h={h} model ready (corr_window={model_h.corr_window})")
@@ -1296,6 +1320,16 @@ def main():
             _merge_accumulators(acc, partial_acc)
 
     logger.info("Reconstruction loops completed.")
+
+    # Persist Tachibana-injected df_exec so downstream production steps
+    # (e.g. ML overlay) see today's real 9:10 gaps instead of stale placeholders.
+    if str_to_bool(args.use_tachibana_prices):
+        try:
+            save_df_exec_to_local_cache(df_exec)
+            save_decision_cache(df_exec)
+            logger.info("Persisted Tachibana-injected df_exec to local cache.")
+        except Exception as e:
+            logger.warning("Failed to persist Tachibana-injected df_exec: %s", e)
 
     # Save ticker level summary
     ticker_gap_summary = []
