@@ -55,3 +55,15 @@ def test_zero_prev_close_does_not_create_inf_gap():
     df_exec = preprocess_data(raw)
 
     assert not np.isinf(df_exec[[f"jp_gap_{tk}" for tk in JP_TICKERS]].values).any()
+
+
+def test_zero_topix_open_does_not_create_inf_oc():
+    """A zero TOPIX open must not create inf topix_oc_return."""
+    dates = pd.bdate_range("2024-01-01", periods=5)
+    raw = _make_raw(dates, jp_open_values=100.0, jp_close_values=101.0)
+    raw["jp_open"].loc[dates[1], TOPIX_TICKER] = 0.0
+
+    df_exec = preprocess_data(raw)
+
+    assert not np.isinf(df_exec["topix_oc_return"].values).any()
+    assert not np.isinf(df_exec["topix_cc_trade"].values).any()

@@ -397,7 +397,9 @@ def preprocess_data(
     df_exec["topix_oc_return"] = np.nan
     df_exec["topix_cc_trade"] = np.nan
     if topix_close is not None and topix_open is not None:
-        r_topix_oc = topix_close / topix_open - 1.0
+        with np.errstate(divide="ignore", invalid="ignore"):
+            r_topix_oc = topix_close / topix_open - 1.0
+        r_topix_oc = r_topix_oc.replace([np.inf, -np.inf], np.nan)
         df_exec["topix_oc_return"] = r_topix_oc.reindex(df_exec.index).values
         df_exec["topix_cc_trade"] = (1.0 + df_exec["topix_night_return"]) * (
             1.0 + df_exec["topix_oc_return"]
