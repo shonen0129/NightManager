@@ -67,6 +67,21 @@ def test_validate_exec_record_detects_inf():
     assert any("jp_open_trade missing or non-finite for 1617.T" in a for a in alerts)
 
 
+def test_validate_exec_record_detects_non_positive_open():
+    record = {f"us_cc_{tk}": 0.01 for tk in US_TICKERS}
+    for tk in JP_TICKERS:
+        for prefix in ("jp_cc_", "jp_gap_", "jp_open_trade_", "jp_close_sig_"):
+            record[f"{prefix}{tk}"] = 0.01
+    record["jp_open_trade_1617.T"] = 0.0
+    record["trade_date"] = "2024-01-01"
+    alerts = validate_exec_record(record)
+    assert any("jp_open_trade non-positive for 1617.T" in a for a in alerts)
+
+    record["jp_open_trade_1617.T"] = -10.0
+    alerts = validate_exec_record(record)
+    assert any("jp_open_trade non-positive for 1617.T" in a for a in alerts)
+
+
 def test_validate_gap_matrices_clean():
     n_j = len(JP_TICKERS)
     rng = np.random.default_rng(42)

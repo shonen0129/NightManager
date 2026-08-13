@@ -98,8 +98,12 @@ def validate_exec_record(
     for tk in jp_tickers:
         for prefix in (JP_CC_PREFIX, JP_GAP_PREFIX, JP_OPEN_PREFIX, JP_CLOSE_PREFIX):
             col = f"{prefix}{tk}"
-            if record.get(col) is None or (isinstance(record[col], float) and (np.isnan(record[col]) or np.isinf(record[col]))):
+            val = record.get(col)
+            if val is None or (isinstance(val, float) and (np.isnan(val) or np.isinf(val))):
                 alerts.append(f"{prefix[:-1]} missing or non-finite for {tk} on {record.get('trade_date')}")
+                continue
+            if prefix == JP_OPEN_PREFIX and isinstance(val, (int, float)) and float(val) <= 0.0:
+                alerts.append(f"{prefix[:-1]} non-positive for {tk} on {record.get('trade_date')}")
 
     return alerts
 
