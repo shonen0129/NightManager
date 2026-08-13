@@ -197,9 +197,14 @@ def evaluate_risk_checks(
         elif es_loss >= config.es_warning:
             warning_breaches.append(f"ES99={es_loss:.4%} >= warning {config.es_warning:.2%}")
     else:
-        warning_breaches.append(
-            f"VaR/ES skipped due to insufficient history ({var_es.samples}/{var_es.window})"
-        )
+        if var_es.samples == 0:
+            stop_breaches.append(
+                f"VaR/ES unavailable due to insufficient history ({var_es.samples}/{var_es.window}); blocking"
+            )
+        else:
+            warning_breaches.append(
+                f"VaR/ES skipped due to insufficient history ({var_es.samples}/{var_es.window})"
+            )
 
     return RiskReport(
         target_net_exposure=target_net_exposure,

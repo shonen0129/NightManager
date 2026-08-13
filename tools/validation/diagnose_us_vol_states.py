@@ -1056,6 +1056,30 @@ def main():
     worst_mdd_str = f"`{worst_mdd_row['state_variable']}` ({worst_mdd_row['bin']}) MDD: `{worst_mdd_row['max_drawdown']*100:.2f}%`" if worst_mdd_row is not None else "N/A"
     best_ic_str = f"`{best_ic_row['state_variable']}` ({best_ic_row['bin']}) Mean IC: `{best_ic_row['mean_signal_ic_spearman']:.4f}`" if best_ic_row is not None else "N/A"
 
+    if vix_loaded and 'bin' in vix_uni.columns:
+        high_vix = vix_uni[vix_uni['bin'] == 'High']['sharpe_net']
+        vix_sharpe_str = f"{high_vix.values[0]:.4f}" if len(high_vix) > 0 else "N/A"
+    else:
+        vix_sharpe_str = "N/A"
+
+    def _high_bin_value(uni_df: pd.DataFrame, metric: str) -> float | None:
+        if 'bin' not in uni_df.columns:
+            return None
+        high_bin = uni_df[uni_df['bin'] == 'High']
+        if high_bin.empty or metric not in high_bin.columns:
+            return None
+        return float(high_bin[metric].values[0])
+
+    disp_high_ret = _high_bin_value(disp_uni, 'annualized_return_net')
+    disp_high_sharpe = _high_bin_value(disp_uni, 'sharpe_net')
+    corr_high_ret = _high_bin_value(corr_uni, 'annualized_return_net')
+    corr_high_sharpe = _high_bin_value(corr_uni, 'sharpe_net')
+
+    disp_high_ret_str = f"{disp_high_ret*100:.2f}%" if disp_high_ret is not None else "N/A"
+    disp_high_sharpe_str = f"{disp_high_sharpe:.4f}" if disp_high_sharpe is not None else "N/A"
+    corr_high_ret_str = f"{corr_high_ret*100:.2f}%" if corr_high_ret is not None else "N/A"
+    corr_high_sharpe_str = f"{corr_high_sharpe:.4f}" if corr_high_sharpe is not None else "N/A"
+
     report_md = f"""# US Volatility State Diagnostic Report (Phase 1)
 
 ## Summary
@@ -1084,9 +1108,9 @@ def main():
 - **Highest Spearman IC State**: {best_ic_str}
 - **Worst Drawdown State**: {worst_mdd_str}
 - **High Volatility Impact**:
-  - High US dispersion (`US_ret_dispersion_z_60` High bin) net return: {disp_uni[disp_uni['bin']=='High']['annualized_return_net'].values[0]*100:.2f}% if any, Sharpe: {disp_uni[disp_uni['bin']=='High']['sharpe_net'].values[0]:.4f}.
-  - High US correlation (`US_avg_corr_60` High bin) net return: {corr_uni[corr_uni['bin']=='High']['annualized_return_net'].values[0]*100:.2f}% if any, Sharpe: {corr_uni[corr_uni['bin']=='High']['sharpe_net'].values[0]:.4f}.
-  - High VIX (`VIX_z_60` High bin) Sharpe: {vix_uni[vix_uni['bin']=='High']['sharpe_net'].values[0]:.4f} if loaded else N/A.
+  - High US dispersion (`US_ret_dispersion_z_60` High bin) net return: {disp_high_ret_str}, Sharpe: {disp_high_sharpe_str}.
+  - High US correlation (`US_avg_corr_60` High bin) net return: {corr_high_ret_str}, Sharpe: {corr_high_sharpe_str}.
+  - High VIX (`VIX_z_60` High bin) Sharpe: {vix_sharpe_str}.
 
 ### Bivariate Matrix Insights (Return / Sharpe)
 

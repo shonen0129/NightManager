@@ -113,17 +113,23 @@ blpx:
   topix_beta_coef_neg: 0.60
   vol_adjusted_target: false       # インサンプル平均+標準偏差で mu_raw を復元 (2024-フル期間で Sharpe +1.33)
   # --- Macro Confidence (Factor-Specific Kappa) ---
-  # NOTE: これらのパラメータは v1 フォールバックパス（SectorRelativeEnsembleBLPEnhancedModel）
-  # でのみ有効です。v2 プライマリパス（ProductionV2Model）は gap-adjusted distribution
-  # matrices を使用するため、この設定は v1 フォールバック時にのみ適用されます。
+  # Step 1/2 (SectorRelativeEnsembleBLPEnhancedModel):
+  #   macro_confidence_enabled  -> scales signal strength by kappa * |surprise| * |sensitivity|
+  #   macro_direction_enabled   -> signed surprise * signed sensitivity multiplicative adjustment
+  # V2 primary (ProductionV2Model):
+  #   macro_kappa_enabled       -> inflates Omega_gap predictive covariance by the same kappa factor
+  #   macro_direction_enabled   -> multiplicatively adjusts mu_gap by signed macro surprise
   macro_confidence_enabled: true
+  macro_kappa_enabled: true
+  macro_direction_enabled: true
   macro_kappas: [3.0, 0.5, 0.5]   # [USDJPY, CLF, TNX]
   macro_surprise_halflife_mean: 20.0
   macro_surprise_halflife_vol: 60.0
 
-  # --- Copula correlation blending (Step 1: signal generation) ---
+  # --- Copula correlation blending (Step 1/2: signal generation) ---
   # t-copula captures tail dependence that Pearson correlation misses.
   # Dynamic blend activates copula only during stress periods.
+  # Used by SectorRelativeEnsembleBLPEnhancedModel when building omega_struct / mu_gap.
   copula_enabled: true
   copula_blend_weight: 1.0        # Copula weight in blended correlation (1.0 = full copula when active)
   copula_dynamic_blend: true      # Stress-activated blending (recommended)

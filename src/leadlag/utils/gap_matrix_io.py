@@ -52,6 +52,7 @@ def _try_load_gap_from_store(
     date_str: str,
     file_pattern: str,
     pattern_kwargs: dict | None,
+    required: bool = False,
 ) -> tuple[np.ndarray | None, list[str]]:
     """Try to load a gap matrix from a SQLite ``GapStore``.
 
@@ -72,7 +73,12 @@ def _try_load_gap_from_store(
 
     arr = store.get(date_str, matrix_type, horizon=horizon)
     if arr is None:
-        return None, [f"GapStore missing {matrix_type} (h={horizon}) for {date_str}"]
+        alert = f"GapStore missing {matrix_type} (h={horizon}) for {date_str}"
+        if required:
+            logger.warning(alert)
+        else:
+            logger.debug(alert)
+        return None, [alert]
     return arr, []
 
 
@@ -118,6 +124,8 @@ def load_gap_npy(
     date_str: str,
     file_pattern: str,
     pattern_kwargs: dict | None = None,
+    *,
+    required: bool = False,
 ) -> tuple[np.ndarray | None, list[str]]:
     """Load a single gap matrix from a ``.npy`` file or a SQLite ``GapStore``.
 
@@ -128,6 +136,7 @@ def load_gap_npy(
         file_pattern: Path template with ``{date}`` placeholder and optional
             additional named placeholders (e.g. ``{h}`` for horizon).
         pattern_kwargs: Optional extra format arguments for *file_pattern*.
+        required: If True, a missing file is logged at WARNING; otherwise DEBUG.
 
     Returns:
         Tuple of (array, alerts).  Array is ``None`` when the matrix is missing
@@ -137,7 +146,7 @@ def load_gap_npy(
 
     # 1. Try SQLite gap store first (opt-in via .sqlite/.db path).
     arr, alerts = _try_load_gap_from_store(
-        gap_input_dir, date_str, file_pattern, pattern_kwargs
+        gap_input_dir, date_str, file_pattern, pattern_kwargs, required=required
     )
     if arr is not None:
         return arr, []
@@ -150,7 +159,10 @@ def load_gap_npy(
 
     if not file_path.exists():
         alert = f"Gap file missing: {file_path}"
-        logger.debug(alert)
+        if required:
+            logger.warning(alert)
+        else:
+            logger.debug(alert)
         return None, [alert]
 
     try:
@@ -236,8 +248,14 @@ def load_gap_matrices(
         DataValidationError: When ``strict=True`` and validation fails.
     """
     pattern_kwargs = pattern_kwargs or {}
-    mu_gap, mu_alerts = load_gap_npy(gap_input_dir, date_str, mu_pattern, pattern_kwargs)
-    Omega_gap, omega_alerts = load_gap_npy(gap_input_dir, date_str, omega_pattern, pattern_kwargs)
+    horizon = pattern_kwargs.get("h")
+    is_h1_required = horizon is None or int(horizon) == 1
+    mu_gap, mu_alerts = load_gap_npy(
+        gap_input_dir, date_str, mu_pattern, pattern_kwargs, required=is_h1_required
+    )
+    Omega_gap, omega_alerts = load_gap_npy(
+        gap_input_dir, date_str, omega_pattern, pattern_kwargs, required=is_h1_required
+    )
 
     alerts = mu_alerts + omega_alerts
     if strict and (mu_gap is None or Omega_gap is None):

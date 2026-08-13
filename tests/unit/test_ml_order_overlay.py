@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
@@ -12,6 +13,7 @@ from leadlag.data.tickers import JP_TICKERS
 from leadlag.models.ml_order_overlay import (
     MLOrderOverlayModel,
     _build_ticker_features,
+    _load_adr_features,
     _predict_p_trade,
     _safe,
     _sigmoid,
@@ -215,6 +217,58 @@ def test_apply_overlay_skips_when_date_missing():
     )
     out = apply_overlay(result, df_exec, model, "2023-03-28")
     assert out is result
+
+
+def test_load_adr_features_staleness(tmp_path: Path):
+    """Stale or missing-row ADR features should be rejected."""
+    p = tmp_path / "adr_features.pkl"
+    df = pd.DataFrame(
+        {"adr_1617.T": [0.1, 0.2, 0.3]},
+        index=pd.to_datetime(["2026-08-06", "2026-08-07", "2026-08-12"]),
+    )
+    df.to_pickle(p)
+    # 2026-08-12 + 3 business days = 2026-08-17, so 2026-08-18 is stale.
+    out = _load_adr_features(p, trade_date="2026-08-18", max_stale_bdays=3)
+    assert out is None
+
+    # Trade date absent from the ADR index should be rejected.
+    out = _load_adr_features(p, trade_date="2026-08-13", max_stale_bdays=3)
+    assert out is None
+
+    # Within the stale window and present in the index should load successfully.
+    out = _load_adr_features(p, trade_date="2026-08-12", max_stale_bdays=3)
+    assert out is not None
+    assert out.index[-1] == pd.Timestamp("2026-08-12")
+
+
+def test_build_ticker_features_logs_adr_missing(caplog):
+    """Missing per-ticker ADR values should fall back to 0.0 with a warning."""
+    trade_date = pd.Timestamp("2023-03-27")
+    df_exec = _make_df_exec(trade_date)
+    v2_result = _base_result(np.linspace(-1.0, 1.0, N_J))
+    v2_result["mu_gap"] = np.full(N_J, 0.0)
+    v2_result["sigma_gap"] = np.full(N_J, 0.01)
+    market_vol = df_exec[[f"jp_oc_{tk}" for tk in JP_TICKERS]].abs().rolling(
+        window=20, min_periods=5
+    ).mean().shift(1)
+    market_vol.columns = JP_TICKERS
+
+    # adr_df exists for the date but lacks a column for 1618.T.
+    adr_df = pd.DataFrame({"adr_1617.T": [0.01]}, index=[trade_date])
+
+    with caplog.at_level("WARNING", logger="leadlag.models.ml_order_overlay"):
+        features = _build_ticker_features(
+            df_exec,
+            v2_result,
+            trade_date,
+            market_vol,
+            per_ticker_interactions=False,
+            adr_df=adr_df,
+        )
+    assert len(features) == N_J
+    assert "ADR feature missing" in caplog.text
+    assert features.loc[features["ticker"] == "1617.T", "adr_return"].iloc[0] == pytest.approx(0.01)
+    assert (features.loc[features["ticker"] != "1617.T", "adr_return"] == 0.0).all()
 
 
 def test_apply_overlay_falls_back_on_numerical_audit_failure():

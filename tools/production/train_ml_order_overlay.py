@@ -126,7 +126,7 @@ def main() -> int:
         return 1
 
     logger.info("Loading df_exec...")
-    df_exec = load_df_exec_from_local_cache()
+    df_exec = load_df_exec_from_local_cache(max_stale_bdays=3)
     logger.info("df_exec loaded: %d rows", len(df_exec))
 
     output_dir = ROOT / args.output_dir

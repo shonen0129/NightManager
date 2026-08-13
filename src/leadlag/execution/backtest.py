@@ -75,7 +75,7 @@ def _load_df_exec(app_config: AppConfig, data_source: str) -> pd.DataFrame:
 
     if data_source == "cache":
         try:
-            return load_df_exec_from_local_cache()
+            return load_df_exec_from_local_cache(max_stale_bdays=3)
         except Exception as exc:
             logger.warning("Failed to load df_exec from cache (%s); falling back to download", exc)
 

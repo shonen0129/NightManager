@@ -17,7 +17,7 @@ import pandas as pd
 
 from leadlag.config.paths import market_data
 from leadlag.data.cache_store import SqliteCacheStore
-from leadlag.data.tickers import JP_TICKERS
+from leadlag.data.schema import all_expected_columns
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +43,9 @@ def _resolve_store_path(cache_dir: str | Path | None = None) -> Path:
         return p
     if p.is_dir():
         return p / _DECISION_CACHE_FILENAME
-    return p / _DECISION_CACHE_FILENAME
+    raise ValueError(
+        f"cache_dir must be a directory or SQLite file path, got {p!r}"
+    )
 
 
 def _store(cache_dir: str | Path | None = None) -> SqliteCacheStore:
@@ -51,7 +53,7 @@ def _store(cache_dir: str | Path | None = None) -> SqliteCacheStore:
 
 
 def _required_columns() -> set[str]:
-    return {"topix_night_return"} | {f"jp_beta_{tk}" for tk in JP_TICKERS}
+    return set(all_expected_columns())
 
 
 def _meta_key_for(key: str) -> str:
@@ -84,6 +86,10 @@ def save_decision_cache(
         key = f"{_DATE_KEY_PREFIX}_{_format_date(date)}"
     meta_key = _meta_key_for(key)
 
+    last_trade_date = df.index.max()
+    last_trade_date_str = (
+        None if pd.isna(last_trade_date) else pd.to_datetime(last_trade_date).strftime("%Y-%m-%d")
+    )
     store.set(key, df)
     store.set(
         meta_key,
@@ -92,6 +98,7 @@ def save_decision_cache(
             "n_rows": len(df),
             "updated_at": datetime.now(UTC).replace(tzinfo=None).isoformat(),
             "date": _format_date(date) if date is not None else None,
+            "last_trade_date": last_trade_date_str,
         },
     )
     logger.info("Decision cache saved: %s (key=%s, rows=%d)", store.path, key, len(df))
@@ -136,16 +143,19 @@ def is_decision_cache_valid(
     if not meta:
         return False
 
-    columns = set(meta.get("columns", []))
-    if not _required_columns().issubset(columns):
-        return False
+    # Column validation only makes sense for the full df_exec cache.
+    # Per-date records have a different, narrower schema.
+    if date is None:
+        columns = set(meta.get("columns", []))
+        if not _required_columns().issubset(columns):
+            return False
 
     # For the full df_exec, also ensure it is not older than the raw ETF cache.
     if date is None:
         raw_path = _raw_etf_cache_path()
         if raw_path.exists() and store.path.exists():
-            decision_mtime = os.path.getmtime(store.path)
-            raw_mtime = os.path.getmtime(raw_path)
+            decision_mtime = os.stat(store.path).st_mtime_ns
+            raw_mtime = os.stat(raw_path).st_mtime_ns
             if decision_mtime < raw_mtime:
                 logger.info(
                     "Decision cache is older than raw ETF cache; rebuild required"

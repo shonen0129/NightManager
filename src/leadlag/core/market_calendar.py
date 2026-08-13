@@ -16,6 +16,8 @@ import logging
 from datetime import date, datetime, timedelta
 from typing import cast
 
+import pandas as pd
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -61,8 +63,7 @@ _STATIC_HOLIDAYS: dict[int, set[date]] = {
         date(2026, 7, 20),   # 海の日
         date(2026, 8, 11),   # 山の日
         date(2026, 9, 21),   # 敬老の日
-        date(2026, 9, 22),   # 秋分の日（予定）
-        date(2026, 9, 23),   # 秋分の日（予定）
+        date(2026, 9, 23),   # 秋分の日
         date(2026, 10, 12),  # スポーツの日
         date(2026, 11, 3),   # 文化の日
         date(2026, 11, 23),  # 勤労感謝の日
@@ -176,3 +177,36 @@ def previous_trading_day(d: date | datetime | None = None) -> date:
         candidate -= timedelta(days=1)
 
     raise ValueError(f"Could not find a TSE trading day before {d} within one year")
+
+
+def next_trading_day(d: date | datetime | None = None) -> date:
+    """Return the nearest TSE trading day strictly after *d*.
+
+    If *d* is None, defaults to today. Raises ValueError if a trading day
+    cannot be found within a one-year defensive bound.
+    """
+    if d is None:
+        d = date.today()
+    elif isinstance(d, datetime):
+        d = d.date()
+
+    candidate = d + timedelta(days=1)
+    for _ in range(366):
+        if is_trading_day(candidate):
+            return candidate
+        candidate += timedelta(days=1)
+
+    raise ValueError(f"Could not find a TSE trading day after {d} within one year")
+
+
+def count_tse_bdays(start: pd.Timestamp, end: pd.Timestamp) -> int:
+    """Count TSE trading days strictly between *start* and *end* (inclusive of end)."""
+    count = 0
+    d = start + timedelta(days=1)
+    limit = 0
+    while d <= end and limit < 1000:
+        if is_trading_day(d.to_pydatetime()):
+            count += 1
+        d += timedelta(days=1)
+        limit += 1
+    return count

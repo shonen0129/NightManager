@@ -470,7 +470,8 @@ class BacktestEngine:
                         overlay_model=overlay_model,
                     )
                 else:
-                    assert v2_model is not None
+                    if v2_model is None:
+                        raise RuntimeError("v2_model is None but overlay is disabled")
                     result = v2_model.decide(
                         trade_date=date_str,
                         gap_input_dir=effective_gap_dir,

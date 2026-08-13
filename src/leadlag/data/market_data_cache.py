@@ -17,8 +17,9 @@ from typing import Any, cast
 import pandas as pd
 
 from leadlag.config.paths import market_data
+from leadlag.core.market_calendar import count_tse_bdays
 from leadlag.data.cache_store import SqliteCacheStore
-from leadlag.data.tickers import JP_TICKERS
+from leadlag.data.schema import all_expected_columns
 
 logger = logging.getLogger(__name__)
 
@@ -49,11 +50,37 @@ def _resolve_store_path(cache_file: str | Path | None, default_filename: str) ->
         return p
     if p.is_dir():
         return p / default_filename
-    return p / default_filename
+    raise ValueError(
+        f"cache_file must be a directory or SQLite file path, got {p!r}"
+    )
 
 
 def _required_df_exec_columns() -> set[str]:
-    return {"topix_night_return"} | {f"jp_beta_{tk}" for tk in JP_TICKERS}
+    return set(all_expected_columns())
+
+
+def _check_df_exec_staleness(
+    df_exec: pd.DataFrame,
+    max_stale_bdays: int | None,
+) -> None:
+    """Raise RuntimeError if df_exec is older than max_stale_bdays TSE trading days."""
+    if max_stale_bdays is None:
+        return
+    if df_exec is None or df_exec.empty:
+        raise RuntimeError("df_exec cache is empty")
+    last = df_exec.index.max()
+    if pd.isna(last):
+        raise RuntimeError("df_exec cache has no valid trade date")
+    last = pd.to_datetime(last).normalize()
+    today = pd.Timestamp.now().replace(tzinfo=None).normalize()
+    if today < last:
+        raise RuntimeError(f"df_exec cache last trade date {last.date()} is in the future")
+    stale_bdays = count_tse_bdays(last, today)
+    if stale_bdays > max_stale_bdays:
+        raise RuntimeError(
+            f"df_exec cache is stale: last={last.date()}, today={today.date()}, "
+            f"{stale_bdays} TSE trading days old (max={max_stale_bdays})"
+        )
 
 
 def etf_pkl_path() -> str:
@@ -153,8 +180,8 @@ def is_df_exec_cache_valid() -> bool:
 
     raw_path = _etf_store_path()
     if raw_path.exists() and store.path.exists():
-        df_exec_mtime = os.path.getmtime(store.path)
-        raw_mtime = os.path.getmtime(raw_path)
+        df_exec_mtime = os.stat(store.path).st_mtime_ns
+        raw_mtime = os.stat(raw_path).st_mtime_ns
         if df_exec_mtime < raw_mtime:
             logger.info("df_exec cache is older than raw ETF cache; rebuild required")
             return False
@@ -166,12 +193,17 @@ def save_df_exec_to_local_cache(df_exec: pd.DataFrame) -> None:
     """Store a pre-processed df_exec under ``var/market_data/df_exec.sqlite``."""
     store = SqliteCacheStore(_df_exec_store_path())
     store.set(_DF_EXEC_KEY, df_exec)
+    last_trade_date = df_exec.index.max()
+    last_trade_date_str = (
+        None if pd.isna(last_trade_date) else pd.to_datetime(last_trade_date).strftime("%Y-%m-%d")
+    )
     store.set(
         _DF_EXEC_META_KEY,
         {
             "columns": list(df_exec.columns),
             "n_rows": len(df_exec),
             "updated_at": datetime.now(UTC).replace(tzinfo=None).isoformat(),
+            "last_trade_date": last_trade_date_str,
         },
     )
     # Keep the legacy decision cache in sync so callers using the old helpers
@@ -185,14 +217,29 @@ def save_df_exec_to_local_cache(df_exec: pd.DataFrame) -> None:
     logger.info("df_exec cache saved: %s", store.path)
 
 
-def load_df_exec_from_local_cache() -> pd.DataFrame:
-    """Load execution DataFrame from local data cache (no network)."""
+def load_df_exec_from_local_cache(max_stale_bdays: int | None = None) -> pd.DataFrame:
+    """Load execution DataFrame from local data cache (no network).
+
+    Args:
+        max_stale_bdays: If set, raise RuntimeError when the cache's last trade
+            date is more than this many TSE trading days in the past.  The
+            default ``None`` keeps the old behaviour for research and tests.
+    """
+
+    def _validate(df_exec: pd.DataFrame | None, source: str) -> pd.DataFrame:
+        if df_exec is None:
+            raise RuntimeError(f"Loaded df_exec is None from {source}")
+        _check_df_exec_staleness(df_exec, max_stale_bdays)
+        return df_exec
+
     # 1. Prefer the dedicated df_exec SQLite cache.
     try:
         if is_df_exec_cache_valid():
             logger.info("[FAST MODE] Loading execution data from df_exec cache...")
             store = SqliteCacheStore(_df_exec_store_path())
-            return store.get(_DF_EXEC_KEY)
+            df_exec = store.get(_DF_EXEC_KEY)
+            if df_exec is not None:
+                return _validate(df_exec, "df_exec cache")
     except Exception as exc:
         logger.warning("[FAST MODE] df_exec cache not usable: %s", exc)
 
@@ -204,7 +251,7 @@ def load_df_exec_from_local_cache() -> pd.DataFrame:
             logger.info("[FAST MODE] Loading execution data from decision cache...")
             df_exec = decision_cache.load_decision_cache()
             save_df_exec_to_local_cache(df_exec)
-            return df_exec
+            return _validate(df_exec, "decision cache")
     except Exception as exc:
         logger.warning("[FAST MODE] Decision cache not usable: %s", exc)
 
@@ -224,7 +271,7 @@ def load_df_exec_from_local_cache() -> pd.DataFrame:
                     "[FAST MODE] Failed to refresh df_exec cache from raw ETF: %s",
                     cache_err,
                 )
-            return df_exec
+            return _validate(df_exec, "raw ETF cache")
         except Exception as e:
             logger.warning(
                 "[FAST MODE] Failed to rebuild from raw ETF cache; "
@@ -232,7 +279,14 @@ def load_df_exec_from_local_cache() -> pd.DataFrame:
                 e,
             )
 
-    # 4. Stale fallback: return whatever df_exec cache exists, even if invalid.
+    # 4. Stale fallback: only allowed when max_stale_bdays is None.
+    if max_stale_bdays is not None:
+        raise RuntimeError(
+            "[FAST MODE] Could not load a fresh df_exec cache and rebuilding from raw "
+            "ETF cache also failed; stale cache fallback is disabled when max_stale_bdays "
+            "is set. Prepare fresh caches via the non-fast path before running fast mode."
+        )
+
     try:
         store = SqliteCacheStore(_df_exec_store_path())
         df_exec = store.get(_DF_EXEC_KEY)

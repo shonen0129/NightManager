@@ -31,7 +31,8 @@ class DryRunBrokerClient(BrokerClient):
         config = BrokerConfig(provider="dry_run")
         with DryRunBrokerClient(config) as client:
             result = client.submit_order(order)
-            assert result.status == OrderStatus.SIMULATED
+            if result.status != OrderStatus.SIMULATED:
+                raise RuntimeError(f"Unexpected dry-run order status: {result.status}")
     """
 
     def __init__(

@@ -156,7 +156,8 @@ class GmailSender:
 
         if self._service is None:
             self.authenticate(allow_interactive=False)
-        assert self._service is not None
+        if self._service is None:
+            raise RuntimeError("Gmail service is None after authenticate()")
 
         message = self.create_message(to, subject, body, from_email)
 

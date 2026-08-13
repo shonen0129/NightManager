@@ -2,10 +2,14 @@
 
 from datetime import date
 
+import pandas as pd
+
 from leadlag.core.market_calendar import (
+    count_tse_bdays,
     get_holiday_name,
     is_market_closed,
     is_trading_day,
+    next_trading_day,
     previous_trading_day,
 )
 
@@ -43,6 +47,11 @@ class TestHolidayCheck:
     def test_regular_weekday_is_open(self):
         # 2025-01-21 is a regular Tuesday
         assert is_trading_day(date(2025, 1, 21))
+
+    def test_2026_autumnal_equinox_only_sep23(self):
+        # 2026-09-22 is a regular Tuesday; only 2026-09-23 is 秋分の日
+        assert is_trading_day(date(2026, 9, 22))
+        assert is_market_closed(date(2026, 9, 23))
 
     def test_dec31_is_open(self):
         # TSE is typically open on Dec 31
@@ -93,3 +102,44 @@ class TestDefaultDate:
     def test_is_market_closed_no_arg(self):
         result = is_market_closed()
         assert isinstance(result, bool)
+
+
+class TestNextTradingDay:
+    """Next trading day calculation."""
+
+    def test_next_weekday(self):
+        # 2025-01-21 (Tuesday) → 2025-01-22 (Wednesday)
+        assert next_trading_day(date(2025, 1, 21)) == date(2025, 1, 22)
+
+    def test_skip_weekend(self):
+        # 2025-01-17 (Friday) → 2025-01-20 (Monday)
+        assert next_trading_day(date(2025, 1, 17)) == date(2025, 1, 20)
+
+    def test_skip_holiday(self):
+        # 2025-01-10 (Friday) → 2025-01-14 (Tuesday), skipping 成人の日
+        assert next_trading_day(date(2025, 1, 10)) == date(2025, 1, 14)
+
+
+class TestCountTseBdays:
+    """TSE trading day counting."""
+
+    def test_same_day(self):
+        d = pd.Timestamp("2025-01-21")
+        assert count_tse_bdays(d, d) == 0
+
+    def test_one_day(self):
+        start = pd.Timestamp("2025-01-21")
+        end = pd.Timestamp("2025-01-22")
+        assert count_tse_bdays(start, end) == 1
+
+    def test_skip_weekend(self):
+        # Friday 2025-01-17 → Monday 2025-01-20: only Monday is counted
+        start = pd.Timestamp("2025-01-17")
+        end = pd.Timestamp("2025-01-20")
+        assert count_tse_bdays(start, end) == 1
+
+    def test_skip_holiday(self):
+        # Friday 2025-01-10 → Tuesday 2025-01-14: skipping 成人の日
+        start = pd.Timestamp("2025-01-10")
+        end = pd.Timestamp("2025-01-14")
+        assert count_tse_bdays(start, end) == 1

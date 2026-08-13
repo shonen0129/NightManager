@@ -225,14 +225,28 @@ def main() -> None:
         if latest_file.exists():
             try:
                 import pandas as pd
+
                 df_tmp = pd.read_csv(latest_file)
-                trade_date = str(
-                    df_tmp.iloc[0].get("trade_date", datetime.now().strftime("%Y-%m-%d"))
-                )
-            except Exception:
-                trade_date = datetime.now().strftime("%Y-%m-%d")
+                raw_date = df_tmp.iloc[0]["trade_date"]
+                if pd.isna(raw_date):
+                    raise ValueError("trade_date is NaN")
+                trade_date = pd.to_datetime(str(raw_date)).strftime("%Y-%m-%d")
+            except Exception as e:
+                logger.error("Failed to parse latest trade_date from %s: %s", latest_file, e)
+                raise
         else:
-            trade_date = datetime.now().strftime("%Y-%m-%d")
+            from leadlag.core.market_calendar import is_market_closed, previous_trading_day
+
+            today = pd.Timestamp.now().date()
+            if is_market_closed(today):
+                trade_date = previous_trading_day(today).strftime("%Y-%m-%d")
+                logger.warning(
+                    "latest_weights.csv not found and today is a non-trading day; using %s",
+                    trade_date,
+                )
+            else:
+                trade_date = today.strftime("%Y-%m-%d")
+                logger.warning("latest_weights.csv not found; using today: %s", trade_date)
     else:
         trade_date = args.trade_date
 
@@ -255,7 +269,7 @@ def main() -> None:
         if model_path.exists():
             try:
                 overlay_model = load_overlay_model(model_path)
-                df_exec = load_df_exec_from_local_cache()
+                df_exec = load_df_exec_from_local_cache(max_stale_bdays=1)
                 logger.info(
                     "ML order overlay enabled. Model loaded from %s", model_path
                 )

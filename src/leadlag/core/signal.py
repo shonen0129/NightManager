@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import logging
+
 import numpy as np
+
+logger = logging.getLogger(__name__)
 
 from leadlag.core.correlation import (
     EPSILON_SIGMA,
@@ -92,7 +96,8 @@ def compute_signal(
         v0_t = np.column_stack([v1, v2, v3_dyn])
         c0_t = build_c0_from_v0(v0_t, c_full)
     else:
-        assert v0_static is not None
+        if v0_static is None:
+            raise ValueError("v0_static is required when v3_mode != 'dynamic'")
         c0_t = build_c0_from_v0(v0_static, c_full)
 
     c_t_reg = regularize_correlation(c_t, c0_t, lambda_reg, lambda_lw, lw_target, min_raw_weight)
@@ -143,7 +148,8 @@ def compute_signal(
                 use_topix = True
 
         if use_topix:
-            assert topix_night_t is not None
+            if topix_night_t is None:
+                raise ValueError("topix_night_t is None but use_topix is True")
             gap_syst = betas_vec * float(topix_night_t)
             gap_idio = gap_vec - gap_syst
             gap_filt = gap_open_coef * gap_idio + (gap_open_coef - topix_beta_coef) * gap_syst
@@ -263,13 +269,26 @@ def _solve_minvar_sub(
     if k == 1:
         return np.array([1.0])
 
+    has_nan_inf = not np.isfinite(Sigma_sub).all()
     Sigma_sub = np.nan_to_num(Sigma_sub, nan=0.0, posinf=0.0, neginf=0.0)
+    if has_nan_inf:
+        logger.warning(
+            "MinVar basket: NaN/Inf detected in Sigma_sub and replaced with 0.0 (k=%d)",
+            k,
+        )
+
     # Ensure PSD
     try:
         eigvals = np.linalg.eigvalsh(Sigma_sub)
         if eigvals.min() < 1e-10:
+            logger.warning(
+                "MinVar basket: PSD repair shifted smallest eigenvalue %e to 1e-10 (k=%d)",
+                eigvals.min(),
+                k,
+            )
             Sigma_sub = Sigma_sub + (1e-10 - eigvals.min()) * np.eye(k)
     except np.linalg.LinAlgError:
+        logger.warning("MinVar basket: eigvalsh failed; falling back to identity covariance (k=%d)", k)
         Sigma_sub = np.eye(k)
 
     # Closed-form: (alpha*Sigma + (1-alpha)*I) w = (1-alpha) * w_signal
@@ -277,6 +296,7 @@ def _solve_minvar_sub(
     try:
         w = np.linalg.solve(A, (1.0 - alpha) * raw_weights)
     except np.linalg.LinAlgError:
+        logger.warning("MinVar basket: solve failed; falling back to raw signal weights (k=%d)", k)
         w = raw_weights.copy()
 
     w = np.clip(w, 1e-8, max_abs_weight)

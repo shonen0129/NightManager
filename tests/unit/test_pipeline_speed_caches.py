@@ -12,7 +12,7 @@ from leadlag.execution import broker_ops
 
 
 def test_decision_cache_round_trip(tmp_path, monkeypatch):
-    path = tmp_path / "decision_cache.npz"
+    path = tmp_path / "decision_cache.sqlite"
     monkeypatch.setattr(data_cache, "decision_cache_path", lambda: str(path))
     index = pd.DatetimeIndex(["2026-07-28"], name="trade_date")
     df_exec = pd.DataFrame(

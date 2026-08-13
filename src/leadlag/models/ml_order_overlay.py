@@ -47,11 +47,14 @@ DEFAULT_ADR_FEATURES_PATH = (
 
 def _load_adr_features(
     path: Path | str | None = None,
+    trade_date: pd.Timestamp | str | None = None,
+    max_stale_bdays: int = 3,
 ) -> pd.DataFrame | None:
     """Load ADR feature DataFrame if available.
 
-    Returns None if the file is missing, which lets callers fall back to
-    the legacy feature set without breaking existing models.
+    Returns None if the file is missing, stale, or unreadable. Returning None
+    lets callers fall back to the legacy feature set without breaking existing
+    models, and makes staleness visible in logs.
     """
     if path is None:
         path = DEFAULT_ADR_FEATURES_PATH
@@ -63,10 +66,33 @@ def _load_adr_features(
         # sig_date is not used by the overlay; drop to keep DataFrame numeric
         if "sig_date" in adr_df.columns:
             adr_df = adr_df.drop(columns=["sig_date"])
-        return adr_df
     except Exception as e:
         logger.warning("Failed to load ADR features from %s: %s", path, e)
         return None
+
+    if trade_date is not None and not adr_df.empty:
+        t = pd.Timestamp(trade_date)
+        latest = adr_df.index.max()
+        if not (latest is None or pd.isna(latest)):
+            if t not in adr_df.index:
+                logger.warning(
+                    "ADR feature row missing for trade_date=%s (latest=%s); "
+                    "returning None.",
+                    t,
+                    latest,
+                )
+                return None
+            threshold = latest + pd.offsets.BDay(max_stale_bdays)
+            if threshold < t:
+                logger.warning(
+                    "ADR features are stale (latest=%s, trade_date=%s, "
+                    "max_stale_bdays=%d); returning None.",
+                    latest,
+                    t,
+                    max_stale_bdays,
+                )
+                return None
+    return adr_df
 SLIPPAGE_BPS_PER_SIDE = 5.0
 ROUND_TRIP_COST = 2.0 * SLIPPAGE_BPS_PER_SIDE / 10000.0
 
@@ -162,6 +188,11 @@ def _build_ticker_features(
             try:
                 adr_ret = float(adr_df.loc[trade_date, f"adr_{tk}"])
             except Exception:
+                logger.warning(
+                    "[%s] ADR feature missing for %s; using 0.0 fallback.",
+                    trade_date,
+                    tk,
+                )
                 adr_ret = 0.0
         adr_ret = _safe(np.array([adr_ret]))[0]
 
@@ -354,6 +385,10 @@ def _collect_training_data(
                 try:
                     adr_ret = float(adr_df.loc[date, f"adr_{tk}"])
                 except Exception:
+                    logger.warning(
+                        "[%s] ADR feature missing for %s during training/collection; using 0.0 fallback.",
+                        date, tk,
+                    )
                     adr_ret = 0.0
             adr_ret = _safe(np.array([adr_ret]))[0]
 
@@ -581,7 +616,7 @@ def apply_overlay(
 
     adr_df = None
     if any(col.startswith("adr_") for col in overlay_model.cont_cols):
-        adr_df = _load_adr_features()
+        adr_df = _load_adr_features(trade_date=date)
         if adr_df is not None:
             logger.debug("[%s] Loaded ADR features for overlay application", trade_date)
 
