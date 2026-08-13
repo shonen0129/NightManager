@@ -644,11 +644,14 @@ def _compute_jp_target_returns_h(
     with np.errstate(divide="ignore", invalid="ignore"):
         y = close_arr / p_use - 1.0
 
-    # Guard against invalid / zero denominators and NaN/Inf close values.
+    # Guard against invalid / zero denominators, NaN/Inf close values, and
+    # non-positive open prices (which make both close and the target undefined).
     valid = (
         np.isfinite(p_use)
         & (p_use > 0)
         & np.isfinite(close_arr)
+        & np.isfinite(open_arr)
+        & (open_arr > 0)
         & np.isfinite(y)
     )
     y = np.where(valid, y, 0.0)

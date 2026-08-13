@@ -224,6 +224,21 @@ class TestBuild5m910Prices:
         assert np.isfinite(y[2:, JP_TICKERS.index("1617.T")]).all()
         assert not np.isinf(y).any()
 
+    def test_zero_open_with_p910_gives_zero_target(self, simple_df_exec):
+        """Zero open with a positive p_910 must not produce -1 target."""
+        simple_df_exec.loc[simple_df_exec.index[2], "jp_open_trade_1617.T"] = 0.0
+
+        p_910 = pd.DataFrame(
+            100.0, index=simple_df_exec.index, columns=JP_TICKERS, dtype=float
+        )
+
+        y = compute_jp_target_returns(
+            simple_df_exec, JP_TICKERS, horizon=3, p_910_df=p_910
+        )
+
+        assert not np.isinf(y).any()
+        assert y[2, JP_TICKERS.index("1617.T")] == 0.0
+
     def test_infinite_oc_gives_finite_target(self, simple_df_exec):
         """An infinite open-to-close return must be guarded by the valid mask."""
         simple_df_exec.loc[simple_df_exec.index[2], "jp_oc_1617.T"] = np.inf
