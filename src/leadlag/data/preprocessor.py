@@ -377,11 +377,25 @@ def preprocess_data(
 
         record_alerts = validate_exec_record(record)
         if record_alerts:
-            if strict_validation:
-                raise DataValidationError("; ".join(record_alerts))
-            for alert in record_alerts:
-                logger.warning("preprocess_data record validation: %s", alert)
-            continue
+            # Allow provisional rows with a zero/non-positive open price to pass;
+            # they are placeholders for today and will be overwritten by
+            # Tachibana real-time prices downstream (see P1-002). Non-provisional
+            # zero opens are data-quality outliers and must be skipped.
+            open_alerts_only = all("non-positive" in a for a in record_alerts) and all(
+                "jp_open_trade" in a for a in record_alerts
+            )
+            # Only allow a zero/non-positive open for the placeholder today row,
+            # which is appended beyond the raw data and will be overwritten by
+            # Tachibana real-time prices.  Historical zero opens are data errors.
+            is_today_placeholder = last_joint is not None and trade_date > last_joint
+            if is_provisional and open_alerts_only and is_today_placeholder:
+                logger.warning("Keeping provisional row with non-positive open: %s", record_alerts)
+            else:
+                if strict_validation:
+                    raise DataValidationError("; ".join(record_alerts))
+                for alert in record_alerts:
+                    logger.warning("preprocess_data record validation: %s", alert)
+                continue
 
         records.append(record)
 

@@ -67,3 +67,25 @@ def test_zero_topix_open_does_not_create_inf_oc():
 
     assert not np.isinf(df_exec["topix_oc_return"].values).any()
     assert not np.isinf(df_exec["topix_cc_trade"].values).any()
+
+
+def test_provisional_zero_open_is_kept():
+    """A provisional row (close not yet known) with zero open must be kept."""
+    dates = pd.bdate_range("2024-01-01", periods=5)
+    raw = _make_raw(dates, jp_open_values=100.0, jp_close_values=101.0)
+    # Simulate today's close being unknown
+    raw["jp_close"].loc[dates[-1], JP_TICKERS] = np.nan
+    raw["jp_close"].loc[dates[-1], TOPIX_TICKER] = np.nan
+    # yfinance-style placeholder: open is 0 because market has not opened yet
+    raw["jp_open"].loc[dates[-1], JP_TICKERS] = 0.0
+    raw["jp_open"].loc[dates[-1], TOPIX_TICKER] = 0.0
+
+    df_exec = preprocess_data(raw)
+
+    # The last (provisional) day should still be in df_exec with is_provisional=True
+    assert dates[-1] in df_exec.index
+    assert df_exec.loc[dates[-1], "is_provisional"]
+    # It must be finite for downstream consumption
+    assert np.isfinite(
+        df_exec.loc[dates[-1], [f"jp_open_trade_{tk}" for tk in JP_TICKERS]].values
+    ).all()
