@@ -365,6 +365,11 @@ def preprocess_data(
             r_gap = r_gap.fillna(0.0)
             jp_open_trade = jp_open_trade.fillna(0.0)
 
+        # Only allow a zero/non-positive open for the placeholder today row,
+        # which is appended beyond the raw data and will be overwritten by
+        # Tachibana real-time prices.  Historical zero opens are data errors.
+        is_today_placeholder = last_joint is not None and trade_date > last_joint
+
         record: dict = {"trade_date": trade_date, "sig_date": sig_date, "is_provisional": is_provisional}
         for tk in US_TICKERS:
             record[f"us_cc_{tk}"] = r_us[tk]
@@ -375,6 +380,22 @@ def preprocess_data(
             record[f"jp_close_sig_{tk}"] = jp_close_sig[tk]
             record[f"jp_open_trade_{tk}"] = jp_open_trade[tk]
 
+        # Historical zero TOPIX open prices (data quality) must not enter df_exec,
+        # as they break TOPIX OC returns and beta estimation. Allow zero only for
+        # the placeholder today row.
+        if topix_open is not None and trade_date in topix_open.index:
+            topix_o_t = topix_open.loc[trade_date]
+            if (
+                pd.notna(topix_o_t)
+                and float(topix_o_t) <= 0.0
+                and not (is_today_placeholder and is_provisional)
+            ):
+                msg = f"topix_open non-positive on {trade_date}"
+                if strict_validation:
+                    raise DataValidationError(msg)
+                logger.warning("preprocess_data record validation: %s", msg)
+                continue
+
         record_alerts = validate_exec_record(record)
         if record_alerts:
             # Allow provisional rows with a zero/non-positive open price to pass;
@@ -384,10 +405,6 @@ def preprocess_data(
             open_alerts_only = all("non-positive" in a for a in record_alerts) and all(
                 "jp_open_trade" in a for a in record_alerts
             )
-            # Only allow a zero/non-positive open for the placeholder today row,
-            # which is appended beyond the raw data and will be overwritten by
-            # Tachibana real-time prices.  Historical zero opens are data errors.
-            is_today_placeholder = last_joint is not None and trade_date > last_joint
             if is_provisional and open_alerts_only and is_today_placeholder:
                 logger.warning("Keeping provisional row with non-positive open: %s", record_alerts)
             else:

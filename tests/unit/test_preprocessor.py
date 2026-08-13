@@ -67,6 +67,8 @@ def test_zero_topix_open_does_not_create_inf_oc():
 
     assert not np.isinf(df_exec["topix_oc_return"].values).any()
     assert not np.isinf(df_exec["topix_cc_trade"].values).any()
+    # The zero-TOPIX-open day should be skipped unless it is the today placeholder.
+    assert dates[1] not in df_exec.index
 
 
 def test_provisional_zero_open_is_kept():

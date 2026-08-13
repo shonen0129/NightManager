@@ -1166,12 +1166,14 @@ def main():
         opens_executor = ThreadPoolExecutor(max_workers=1)
         opens_future = opens_executor.submit(_fetch_and_cache_opens)
 
-    # Compute TOPIX returns
+    # Compute TOPIX returns (guard against zero TOPIX open prices).
     topix_close = raw_data["jp_close"][TOPIX_TICKER].copy()
     topix_open = raw_data["jp_open"][TOPIX_TICKER].copy()
     topix_close.index = pd.to_datetime(topix_close.index, format="ISO8601").tz_localize(None).normalize()
     topix_open.index = pd.to_datetime(topix_open.index, format="ISO8601").tz_localize(None).normalize()
-    r_topix_oc = topix_close / topix_open - 1.0
+    with np.errstate(divide="ignore", invalid="ignore"):
+        r_topix_oc = topix_close / topix_open - 1.0
+    r_topix_oc = r_topix_oc.replace([np.inf, -np.inf], np.nan)
     df_exec["topix_oc_return"] = r_topix_oc.reindex(df_exec.index).values
     # Preserve injected 0.0 for today (Tachibana real-time prices do not have today's close)
     if str_to_bool(args.use_tachibana_prices):
