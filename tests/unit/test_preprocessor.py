@@ -58,17 +58,21 @@ def test_zero_prev_close_does_not_create_inf_gap():
 
 
 def test_zero_topix_open_does_not_create_inf_oc():
-    """A zero TOPIX open must not create inf topix_oc_return."""
+    """A non-finite or zero TOPIX open/close must not enter df_exec."""
     dates = pd.bdate_range("2024-01-01", periods=5)
     raw = _make_raw(dates, jp_open_values=100.0, jp_close_values=101.0)
     raw["jp_open"].loc[dates[1], TOPIX_TICKER] = 0.0
+    raw["jp_open"].loc[dates[2], TOPIX_TICKER] = np.inf
+    raw["jp_close"].loc[dates[3], TOPIX_TICKER] = 0.0
 
     df_exec = preprocess_data(raw)
 
     assert not np.isinf(df_exec["topix_oc_return"].values).any()
     assert not np.isinf(df_exec["topix_cc_trade"].values).any()
-    # The zero-TOPIX-open day should be skipped unless it is the today placeholder.
+    # The non-finite TOPIX open/close days should be skipped unless it is the today placeholder.
     assert dates[1] not in df_exec.index
+    assert dates[2] not in df_exec.index
+    assert dates[3] not in df_exec.index
 
 
 def test_provisional_zero_open_is_kept():

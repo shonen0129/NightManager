@@ -380,14 +380,14 @@ def preprocess_data(
             record[f"jp_close_sig_{tk}"] = jp_close_sig[tk]
             record[f"jp_open_trade_{tk}"] = jp_open_trade[tk]
 
-        # Historical zero TOPIX open prices (data quality) must not enter df_exec,
-        # as they break TOPIX OC returns and beta estimation. Allow zero only for
-        # the placeholder today row.
+        # Historical non-finite or non-positive TOPIX open/close prices (data
+        # quality) must not enter df_exec, as they break TOPIX OC returns and
+        # beta estimation. Allow only the placeholder today row.
         if topix_open is not None and trade_date in topix_open.index:
             topix_o_t = topix_open.loc[trade_date]
             if (
                 pd.notna(topix_o_t)
-                and float(topix_o_t) <= 0.0
+                and (not np.isfinite(float(topix_o_t)) or float(topix_o_t) <= 0.0)
                 and not (is_today_placeholder and is_provisional)
             ):
                 msg = f"topix_open non-positive on {trade_date}"
@@ -396,16 +396,29 @@ def preprocess_data(
                 logger.warning("preprocess_data record validation: %s", msg)
                 continue
 
+        if topix_close is not None and trade_date in topix_close.index:
+            topix_c_t = topix_close.loc[trade_date]
+            if (
+                pd.notna(topix_c_t)
+                and (not np.isfinite(float(topix_c_t)) or float(topix_c_t) <= 0.0)
+                and not (is_today_placeholder and is_provisional)
+            ):
+                msg = f"topix_close non-positive on {trade_date}"
+                if strict_validation:
+                    raise DataValidationError(msg)
+                logger.warning("preprocess_data record validation: %s", msg)
+                continue
+
         record_alerts = validate_exec_record(record)
         if record_alerts:
-            # Allow provisional rows with a zero/non-positive open price to pass;
-            # they are placeholders for today and will be overwritten by
-            # Tachibana real-time prices downstream (see P1-002). Non-provisional
-            # zero opens are data-quality outliers and must be skipped.
-            open_alerts_only = all("non-positive" in a for a in record_alerts) and all(
-                "jp_open_trade" in a for a in record_alerts
+            # Allow provisional placeholder today rows to pass even if they have
+            # a zero open and a missing close_sig (today's close is not yet known).
+            # These will be overwritten by Tachibana real-time prices (see P1-002).
+            allowed_for_today = all(
+                ("jp_open_trade" in a and "non-positive" in a) or "jp_close_sig" in a
+                for a in record_alerts
             )
-            if is_provisional and open_alerts_only and is_today_placeholder:
+            if is_provisional and allowed_for_today and is_today_placeholder:
                 logger.warning("Keeping provisional row with non-positive open: %s", record_alerts)
             else:
                 if strict_validation:
