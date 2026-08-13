@@ -355,20 +355,33 @@ def preprocess_data(
         r_gap = r_gap.replace([np.inf, -np.inf], np.nan)
         jp_open_trade = jp_open_trade.replace([np.inf, -np.inf], np.nan)
 
+        # Only allow a zero/non-positive open for the placeholder today row,
+        # which is appended beyond the raw data and will be overwritten by
+        # Tachibana real-time prices.  Historical zero opens are data errors.
+        is_today_placeholder = last_joint is not None and trade_date > last_joint
+
         is_provisional = bool(
             r_oc.isna().any()
             or r_gap.isna().any()
             or jp_open_trade.isna().any()
         )
+        # A NaN gap on an otherwise non-provisional row means the previous close
+        # was zero (data-quality error). Provisional placeholder rows are allowed.
+        if (
+            not is_today_placeholder
+            and not (r_oc.isna().any() or jp_open_trade.isna().any())
+            and r_gap.isna().any()
+        ):
+            msg = f"jp_gap missing for non-provisional row on {trade_date}"
+            if strict_validation:
+                raise DataValidationError(msg)
+            logger.warning("preprocess_data record validation: %s", msg)
+            continue
+
         if is_provisional:
             r_oc = r_oc.fillna(0.0)
             r_gap = r_gap.fillna(0.0)
             jp_open_trade = jp_open_trade.fillna(0.0)
-
-        # Only allow a zero/non-positive open for the placeholder today row,
-        # which is appended beyond the raw data and will be overwritten by
-        # Tachibana real-time prices.  Historical zero opens are data errors.
-        is_today_placeholder = last_joint is not None and trade_date > last_joint
 
         record: dict = {"trade_date": trade_date, "sig_date": sig_date, "is_provisional": is_provisional}
         for tk in US_TICKERS:

@@ -55,6 +55,10 @@ def test_zero_prev_close_does_not_create_inf_gap():
     df_exec = preprocess_data(raw)
 
     assert not np.isinf(df_exec[[f"jp_gap_{tk}" for tk in JP_TICKERS]].values).any()
+    # The day after a zero close on the same ticker must not be added with a fake 0 gap.
+    assert dates[1] not in df_exec.index or np.isfinite(
+        df_exec.loc[dates[1], "jp_gap_1619.T"]
+    )
 
 
 def test_zero_topix_open_does_not_create_inf_oc():
