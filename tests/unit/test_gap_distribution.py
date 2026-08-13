@@ -35,6 +35,9 @@ from leadlag.data.tickers import JP_TICKERS
 def _make_minimal_ctx(tmp_path: Path, df_exec: pd.DataFrame, model: MagicMock, **overrides) -> GapDistContext:
     """Build a minimal GapDistContext with sensible defaults for testing."""
     n_j = len(JP_TICKERS)
+    out_dir = tmp_path / "out"
+    out_dir.mkdir(exist_ok=True)
+    (out_dir / "matrices").mkdir(exist_ok=True)
     defaults = dict(
         df_exec=df_exec,
         model=model,
@@ -89,7 +92,7 @@ def _make_df_exec(n_rows: int = 100, corr_window: int = 60) -> pd.DataFrame:
     return df
 
 
-def _make_mock_model(n_j: int = 17, corr_window: int = 60, vol_adjusted_target: bool = True) -> MagicMock:
+def _make_mock_model(n_j: int = 17, corr_window: int = 60, vol_adjusted_target: bool = True, return_matrices: bool = False) -> MagicMock:
     """Build a mock model with attributes used by _process_date_impl."""
     model = MagicMock()
     model.n_j = n_j
@@ -98,13 +101,21 @@ def _make_mock_model(n_j: int = 17, corr_window: int = 60, vol_adjusted_target: 
     model.gap_open_coef = 0.7
     model.topix_beta_coef = 0.6
     # compute_blp_signal returns a dict with required keys
-    model.compute_blp_signal.return_value = {
+    res = {
         "z_hat_j_t1": np.zeros(n_j),
         "sigma_Y_denorm": np.ones(n_j),
         "mu_Y": np.zeros(n_j),
         "sigma_Y": np.ones(n_j),
         "signal": np.zeros(n_j),
     }
+    if return_matrices:
+        res.update({
+            "B_struct": np.eye(n_j),
+            "Sigma_XX": np.eye(n_j),
+            "Sigma_YX": np.zeros((n_j, n_j)),
+            "Sigma_YY": np.eye(n_j),
+        })
+    model.compute_blp_signal.return_value = res
     return model
 
 
@@ -451,3 +462,100 @@ class TestProcessDateWorker:
         assert len(parallel_acc.portfolio_diagnostics_records) == len(serial_acc.portfolio_diagnostics_records)
         assert len(parallel_acc.gap_long_records) == len(serial_acc.gap_long_records)
         assert len(parallel_acc.gap_daily_records) == len(serial_acc.gap_daily_records)
+
+
+class TestMultiHorizonOmegaStruct:
+    """Test that h=3/h=5 distributions use horizon-specific Omega_struct."""
+
+    def _make_mh_inputs(self, df_exec, n_j: int, h: int) -> dict:
+        inputs_h = {
+            "jp_res_returns_p3": np.zeros((len(df_exec), n_j)),
+            "c_full_p3": np.eye(n_j),
+            "v0_static": np.zeros(n_j),
+            "v1": np.zeros(n_j),
+            "v2": np.zeros(n_j),
+            "jp_gap": np.zeros((len(df_exec), n_j)),
+            "jp_beta": np.ones((len(df_exec), n_j)),
+            "topix_night": np.zeros(len(df_exec)),
+            "y_jp_target": np.zeros((len(df_exec), n_j)),
+        }
+        # Shape checks in _process_date_impl use these as 2D arrays; keep simple.
+        return inputs_h
+
+    def test_multi_horizon_uses_res_h_omega_struct(self, tmp_path):
+        """P1 regression: h>1 must not reuse the h=1 Step 1 Omega_struct file."""
+        df_exec = _make_df_exec(n_rows=100, corr_window=60)
+        n_j = len(JP_TICKERS)
+
+        # h=1 model is irrelevant for mh processing
+        model = _make_mock_model(corr_window=60)
+
+        # h=3 model must return matrix outputs so _omega_from_blp_res can build Omega_struct_h.
+        # B_struct=zeros makes _omega_from_blp_res == Sigma_YY == eye, distinguishing
+        # it from the h=1 Step 1 file which is 2*eye.
+        model_h = _make_mock_model(corr_window=60, return_matrices=True)
+        res_h = model_h.compute_blp_signal.return_value
+        res_h["B_struct"] = np.zeros((n_j, n_j))
+
+        dist_in = tmp_path / "dist_in" / "matrices"
+        dist_in.mkdir(parents=True)
+        dt = df_exec.index[60]
+        dt_str = dt.strftime("%Y%m%d")
+        # Intentionally save a *different* h=1 Omega_struct to detect reuse
+        omega_h1 = np.eye(n_j) * 2.0
+        np.save(dist_in / f"omega_struct_{dt_str}.npy", omega_h1)
+
+        ctx = _make_minimal_ctx(
+            tmp_path,
+            df_exec,
+            model,
+            save_mh=True,
+            mh_horizons=[3],
+            mh_models={3: model_h},
+            mh_inputs={3: self._make_mh_inputs(df_exec, n_j, 3)},
+        )
+        acc = GapDistAccumulators(omega_gap_ticker_records={tk: [] for tk in JP_TICKERS})
+
+        _process_date_impl(dt, ctx, acc)
+
+        # Multi-horizon matrices should be saved
+        mh_files = list(ctx.out_dir.glob("matrices/omega_gap_h3_*.npy"))
+        assert len(mh_files) == 1
+
+        # If h=1 Omega_struct was reused, the scaled matrix would be 2 * I.
+        # If the h=3 res_h matrix was used, the result is 1 * I (eye).
+        omega_gap_h3 = np.load(mh_files[0])
+        assert np.allclose(np.diag(omega_gap_h3), np.ones(n_j), atol=1e-6)
+
+    def test_multi_horizon_omega_struct_h_finite(self, tmp_path):
+        """h>1 Omega_struct_h must be finite and positive semi-definite-ish."""
+        df_exec = _make_df_exec(n_rows=100, corr_window=60)
+        n_j = len(JP_TICKERS)
+        model = _make_mock_model(corr_window=60)
+        model_h = _make_mock_model(corr_window=60, return_matrices=True)
+
+        dist_in = tmp_path / "dist_in" / "matrices"
+        dist_in.mkdir(parents=True)
+        dt = df_exec.index[60]
+        dt_str = dt.strftime("%Y%m%d")
+        np.save(dist_in / f"omega_struct_{dt_str}.npy", np.eye(n_j))
+
+        ctx = _make_minimal_ctx(
+            tmp_path,
+            df_exec,
+            model,
+            save_mh=True,
+            mh_horizons=[3],
+            mh_models={3: model_h},
+            mh_inputs={3: self._make_mh_inputs(df_exec, n_j, 3)},
+        )
+        acc = GapDistAccumulators(omega_gap_ticker_records={tk: [] for tk in JP_TICKERS})
+
+        _process_date_impl(dt, ctx, acc)
+
+        mh_files = list(ctx.out_dir.glob("matrices/omega_gap_h3_*.npy"))
+        assert len(mh_files) == 1
+        omega_gap_h3 = np.load(mh_files[0])
+        assert np.isfinite(omega_gap_h3).all()
+        eigvals = np.linalg.eigvalsh(0.5 * (omega_gap_h3 + omega_gap_h3.T))
+        assert eigvals.min() > -1e-6

@@ -406,6 +406,29 @@ def compute_rank_reversal_for_date(df_exec: pd.DataFrame, i: int) -> np.ndarray:
     return vals
 
 
+def _omega_from_blp_res(res: dict) -> np.ndarray:
+    """Compute standardized Omega_struct from compute_blp_signal matrix outputs.
+
+    This is the same formula used in compute_structured_prediction_covariance.py,
+    applied here to the h-day BLPX return matrices so multi-horizon gap
+    distributions use the correct horizon-specific correlation structure.
+    """
+    Sigma_XX = res["Sigma_XX"]
+    Sigma_YX = res["Sigma_YX"]
+    Sigma_YY = res["Sigma_YY"]
+    B_struct = res["B_struct"]
+    Sigma_XY = Sigma_YX.T
+
+    Omega_struct = (
+        Sigma_YY
+        - B_struct @ Sigma_XY
+        - Sigma_YX @ B_struct.T
+        + B_struct @ Sigma_XX @ B_struct.T
+    )
+    Omega_struct = 0.5 * (Omega_struct + Omega_struct.T)
+    return Omega_struct
+
+
 def run_self_tests() -> int:
     """Run validation self-tests."""
     logger.info("=== Running Self-Tests ===")
@@ -787,7 +810,11 @@ def _process_date_impl(dt: pd.Timestamp, ctx: GapDistContext, acc: GapDistAccumu
                 else:
                     mu_raw_h = mu_Y_h + res_h["sigma_Y"] * z_hat_h
 
-                Omega_raw_h = np.diag(sigma_Y_denorm_h) @ Omega_struct @ np.diag(sigma_Y_denorm_h)
+                # Build Omega_struct from the h-day BLPX matrices instead of
+                # reusing the h=1 Step 1 matrix.  This is the correct covariance
+                # of the standardized h-day residual returns.
+                Omega_struct_h = _omega_from_blp_res(res_h)
+                Omega_raw_h = np.diag(sigma_Y_denorm_h) @ Omega_struct_h @ np.diag(sigma_Y_denorm_h)
 
                 gap_syst_h = betas_t_h * topix_night_t_h
                 gap_idio_h = gap_override_h - gap_syst_h
@@ -1075,6 +1102,9 @@ def main():
     save_daily_m = str_to_bool(args.save_daily_matrices)
     save_to_gap_store = str_to_bool(args.save_to_gap_store)
     compare_pre = str_to_bool(args.compare_pre_gap)
+    save_mh = str_to_bool(args.save_multi_horizon)
+    save_rr = str_to_bool(args.save_rank_reversal)
+    mh_horizons = [int(h) for h in args.mh_horizons.split(",")] if save_mh else []
 
     # Setup output paths
     run_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -1088,7 +1118,7 @@ def main():
         gap_store = GapStore(gap_store_path)
         logger.info("Canonical gap store: %s", gap_store.path)
 
-    if save_daily_m:
+    if save_daily_m or (save_mh and mh_horizons):
         (out_dir / "matrices").mkdir(exist_ok=True)
     plots_dir = out_dir / "plots"
     plots_dir.mkdir(exist_ok=True)
@@ -1206,10 +1236,6 @@ def main():
     v0_static = inputs["v0_static"]
 
     # --- Phase 2A: Multi-horizon model setup ---
-    save_mh = str_to_bool(args.save_multi_horizon)
-    save_rr = str_to_bool(args.save_rank_reversal)
-    mh_horizons = [int(h) for h in args.mh_horizons.split(",")] if save_mh else []
-
     mh_models = {}   # {h: model_instance}
     mh_inputs = {}   # {h: inputs_dict}
 
