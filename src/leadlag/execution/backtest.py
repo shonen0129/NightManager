@@ -67,11 +67,15 @@ def _load_df_exec(app_config: AppConfig, data_source: str) -> pd.DataFrame:
     - ``cache``: load from local decision/etf cache if valid; otherwise fall
       back to ``download`` with a warning.
     """
-    residual_cfg = app_config.strategy
-    beta_window = residual_cfg.beta_window
-    beta_ewma_halflife = residual_cfg.beta_ewma_halflife
-    beta_shrinkage = residual_cfg.beta_shrinkage
-    beta_winsor_sigma = residual_cfg.beta_winsor_sigma
+    # Prefer V2 residualization parameters; fall back to legacy strategy config.
+    v2 = app_config.v2
+    legacy = app_config.strategy
+    beta_window = int(getattr(v2, "residualization_beta_window", legacy.beta_window))
+    beta_shrinkage = float(
+        getattr(v2, "residualization_beta_shrinkage", legacy.beta_shrinkage)
+    )
+    beta_winsor_sigma = getattr(v2, "residualization_beta_winsor_sigma", legacy.beta_winsor_sigma)
+    beta_ewma_halflife = legacy.beta_ewma_halflife
 
     if data_source == "cache":
         try:
@@ -171,7 +175,17 @@ def run_production(
     df_exec = _load_df_exec(app_config, data_source)
 
     logger.info("[2/4] Running V2 production backtest...")
-    resolved_slippage = slippage_bps if slippage_bps is not None else app_config.strategy.slippage_bps
+    v2_costs = getattr(app_config.v2, "costs", None)
+    v2_slippage = (
+        getattr(v2_costs, "slippage_bps_per_side", None)
+        if v2_costs is not None
+        else None
+    )
+    resolved_slippage = (
+        slippage_bps
+        if slippage_bps is not None
+        else (v2_slippage if v2_slippage is not None else app_config.strategy.slippage_bps)
+    )
     logger.info(
         "Slippage: %.1f bps one-way (round-trip = 2 x %.1f bps x gross_exposure/day)",
         resolved_slippage,

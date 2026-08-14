@@ -47,7 +47,7 @@ gross_scaling:
 # --- v2 拡張: gap 調整済み分布の参照先 ---
 gap_distribution:
   # 日次更新される latest/ シンボリックリンクを参照
-  # run_daily_production_v2.py --gap-input-dir で上書き可能
+  # `leadlag.cli decision --gap-dir` で上書き可能
   dir: var/live/pipeline_data/gap_adjusted_distribution/latest
   mu_file_pattern: "matrices/mu_gap_{date}.npy"    # date = YYYYMMDD
   omega_file_pattern: "matrices/omega_gap_{date}.npy"

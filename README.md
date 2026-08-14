@@ -16,8 +16,8 @@ pip install -e .
 # 朝（09:15 前）= decision、以降 = close を自動実行
 python3 -m leadlag.cli daily --config configs/production/production.yaml
 
-# or 従来の本番スクリプト
-python3 tools/production/run_daily_production_v2.py
+# 日次本番実行
+python3 -m leadlag.cli decision --trade-date latest --api-enable
 ```
 
 ## Backtest

@@ -633,14 +633,10 @@ class TestMacroKappaOmegaGapInflation:
 
 class TestSelfTestParity:
     def test_entry_point_self_test_exits_zero(self):
-        """The tools/ entry-point self-test function should return 0."""
-        # Import from entry-point directly
-        import importlib.util
-        tools_script = ROOT / "tools" / "production" / "run_daily_production_v2.py"
-        spec = importlib.util.spec_from_file_location("run_daily_v2", tools_script)
-        mod = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(mod)
-        assert mod.run_self_tests() == 0
+        """The CLI self-test helper should return 0."""
+        from leadlag.execution.self_test import run_self_tests
+
+        assert run_self_tests() == 0
 
 
 # ---------------------------------------------------------------------------

@@ -176,11 +176,19 @@ def download_macro_prices(
             auto_adjust=False,
         )
 
-    raw = run_with_timeout(
-        _do_download,
-        timeout,
-        label=f"yf.download(tickers={MACRO_TICKERS}, start={start}, end={end})",
-    )
+    try:
+        raw = run_with_timeout(
+            _do_download,
+            timeout,
+            label=f"yf.download(tickers={MACRO_TICKERS}, start={start}, end={end})",
+        )
+    except TimeoutError:
+        # Preserve the explicit timeout contract for callers and tests.
+        raise
+    except Exception as e:
+        # yfinance may raise generic exceptions for network/ticker errors;
+        # normalize to RuntimeError so callers can catch a concrete type.
+        raise RuntimeError(f"yfinance macro download failed: {e}") from e
 
     # Extract Close prices
     if isinstance(raw.columns, pd.MultiIndex):

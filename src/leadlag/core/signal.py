@@ -6,8 +6,6 @@ import logging
 
 import numpy as np
 
-logger = logging.getLogger(__name__)
-
 from leadlag.core.correlation import (
     EPSILON_SIGMA,
     EPSILON_WEIGHT,
@@ -17,6 +15,8 @@ from leadlag.core.correlation import (
     regularize_correlation,
 )
 from leadlag.core.pit import PITMatrixView, maybe_as_pit
+
+logger = logging.getLogger(__name__)
 
 
 def compute_signal(

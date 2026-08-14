@@ -6,6 +6,7 @@ All modules should import StrategyConfig / RiskConfig from here.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any, ClassVar
 
 from pydantic import BaseModel, Field, model_validator
@@ -177,43 +178,165 @@ class MLOrderOverlayConfig(BaseModel):
     per_ticker_interactions: bool = Field(default=True, description="ticker × score / gap 交互作用を使用")
 
 
-class AppConfig(BaseModel):
-    """Full application configuration.
+class BLPXConfig(BaseModel):
+    """BLPX signal model parameters.
 
-    The canonical top-level config assembled from YAML + environment variables.
-    Instantiated via ``execution.config.load_config_from_yaml()``.
+    These values are consumed by ``leadlag.models.blpx.ProductionBLPXModel``.
+    Defaults are aligned with ``configs/production/production.yaml``.
     """
-    model_config = {"frozen": True}
+    model_config = {"frozen": True, "extra": "forbid"}
 
-    strategy: StrategyConfig = Field(default_factory=StrategyConfig)
-    risk: RiskConfig = Field(default_factory=RiskConfig)
-    kabu: KabuApiConfig = Field(default_factory=KabuApiConfig)
-    tachibana: TachibanaApiConfig = Field(default_factory=TachibanaApiConfig)
-    broker_provider: str = Field(default="kabu", description="使用するブローカープロバイダー ('kabu' | 'tachibana' | 'dry_run')")
-    output_base_dir: str = Field(
-        default_factory=lambda: str(results("sector_relative_ensemble")),
-        description="バックテスト出力ルート",
-    )
-    output_live_dir: str = Field(
-        default_factory=lambda: str(live("sector_relative_ensemble")),
-        description="本番ライブ出力ルート",
-    )
-    run_audit: bool = Field(default=True, description="実行後に ComplianceAuditor を走らせるか")
-    gap_distribution_dir: str = Field(default="", description="gap 調整分布ディレクトリ（相対パス可）")
-    ml_order_overlay: MLOrderOverlayConfig = Field(default_factory=MLOrderOverlayConfig)
-    v2: ProductionV2RunConfig = Field(
-        default_factory=lambda: ProductionV2RunConfig(),
-        description="V2 本番ポートフォリオ生成パラメータ",
-    )
+    # Identity
+    param_set: str = Field(default="default", description="BLPX parameter set name")
+    model_name: str = Field(default="ProductionBLPXModel", description="Model identifier for diagnostics")
+
+    # Universe / meta
+    n_u: int = Field(default=15, ge=1, description="Number of US tickers")
+    n_j: int = Field(default=17, ge=1, description="Number of JP tickers")
+
+    # PCA / core
+    k: int = Field(default=6, ge=1, description="Number of retained eigenvectors")
+    q: float = Field(default=0.3, ge=0.0, le=1.0, description="Long/short selection fraction")
+    weight_mode: str = Field(default="signal", description="Weight construction mode")
+    normalization: str = Field(default="zscore", description="Signal normalization method")
+    rank: str = Field(default="full", description="Correlation rank scheme")
+
+    # Window / EWMA
+    ewma_halflife: int = Field(default=120, ge=1, description="Baseline correlation EWMA half-life")
+    blp_ewma_halflife: float = Field(default=120.0, ge=1.0, description="BLP window correlation EWMA half-life")
+    blp_window: int = Field(default=504, ge=1, description="BLP rolling window (days)")
+    corr_window: int = Field(default=60, ge=1, description="PCA correlation rolling window")
+    corr_min_periods: int = Field(default=60, ge=1, description="Minimum periods for correlation")
+    beta_window: int = Field(default=60, ge=1, description="TOPIX residualization beta window")
+    beta_floor: float = Field(default=0.0, ge=0.0, description="Minimum beta value")
+    prior_variant: str | None = Field(default=None, description="Prior variant override")
+
+    # Shrinkage
+    lambda_reg: float = Field(default=0.75, ge=0.0, le=1.0)
+    lambda_lw: float = Field(default=0.5, ge=0.0, le=1.0)
+    lw_target: str = Field(default="equicorrelation")
+    include_v4_prior: bool = Field(default=True)
+    min_raw_weight: float = Field(default=0.0, ge=0.0, le=1.0)
+
+    # Ensemble / signal component weights
+    raw_pca_weight: float = Field(default=0.0, ge=0.0, le=1.0)
+    residual_pca_weight: float = Field(default=0.0, ge=0.0, le=1.0)
+    raw_blpx_weight: float = Field(default=0.0, ge=0.0, le=1.0)
+    residual_blpx_weight: float = Field(default=1.0, ge=0.0, le=1.0)
+    p4_weight: float = Field(default=0.0, ge=0.0, le=1.0)
+
+    # BLP structured prior / Tikhonov
+    rho: float = Field(default=0.01, ge=0.0)
+    alpha_xx: float = Field(default=0.20, ge=0.0, le=1.0)
+    alpha_yx: float = Field(default=0.15, ge=0.0, le=1.0)
+    alpha_yy: float = Field(default=0.50, ge=0.0, le=1.0)
+    lambda_pca: float = Field(default=0.10, ge=0.0)
+    lambda_sector: float = Field(default=0.60, ge=0.0)
+    beta_conf: float = Field(default=0.25, ge=0.0)
+    frobenius_scale_priors: bool = Field(default=False)
+    winsor_sigma: float | None = Field(default=3.0, ge=0.0)
+    sector_eta: float = Field(default=0.5, ge=0.0)
+    sector_gamma: float = Field(default=4.0, ge=0.0)
+
+    # Target / gap adjustment
+    target: str = Field(default="topix_residual")
+    use_raw_target: bool = Field(default=False)
+    gap_open_coef: float = Field(default=0.70, ge=0.0)
+    gap_open_coef_neg: float | None = Field(default=0.60, ge=0.0)
+    topix_beta_coef: float = Field(default=0.60, ge=0.0)
+    topix_beta_coef_neg: float | None = Field(default=0.60, ge=0.0)
+    vol_adjusted_target: bool = Field(default=False)
+    execution_target_cost_adjustment: str = Field(default="none")
+
+    # Asymmetry
+    asymmetry_mode: str = Field(default="scalar")
+    asymmetry_delta: float = Field(default=0.30, ge=0.0)
+    asymmetry_post_gap_delta: float = Field(default=0.0, ge=0.0)
+    asymmetry_post_gap_mode: str = Field(default="signal_split")
+
+    # Macro
+    macro_confidence_enabled: bool = Field(default=True)
+    macro_kappa_enabled: bool = Field(default=True)
+    macro_direction_enabled: bool = Field(default=True)
+    macro_kappas: tuple[float, float, float] = Field(default=(3.0, 0.5, 0.5))
+    macro_surprise_halflife_mean: float = Field(default=20.0, ge=1.0)
+    macro_surprise_halflife_vol: float = Field(default=60.0, ge=1.0)
+    macro_sigma_yy_inflation_enabled: bool = Field(default=False)
+
+    # Copula
+    copula_enabled: bool = Field(default=True)
+    copula_blend_weight: float = Field(default=1.0, ge=0.0, le=1.0)
+    copula_dynamic_blend: bool = Field(default=True)
+    copula_stress_threshold: float = Field(default=1.5, ge=0.0)
+    copula_nu_init: float = Field(default=5.0, ge=2.0)
+    copula_marginal_method: str = Field(default="empirical")
+
+    # Min-variance (used by BLPX build_weights path)
+    minvar_enabled: bool = Field(default=False)
+    minvar_alpha: float = Field(default=0.5, ge=0.0, le=1.0)
+
+
+class CostConfig(BaseModel):
+    """Cost and financing parameters shared by production and backtest."""
+    model_config = {"frozen": True, "extra": "forbid"}
+
+    cost_bps_per_gross: float = Field(default=10.0, ge=0.0)
+    slippage_bps_per_side: float = Field(default=5.0, ge=0.0)
+    overnight_alpha_long: float = Field(default=0.75, ge=0.0, le=1.0)
+    overnight_alpha_short: float = Field(default=0.5, ge=0.0, le=1.0)
+    buy_interest_annual: float = Field(default=0.025, ge=0.0)
+    borrow_fee_annual: float = Field(default=0.0115, ge=0.0)
+    reverse_fee_bps: float = Field(default=2.0, ge=0.0)
+    side_leverage: float = Field(default=1.5, ge=0.0)
+
+
+_BLPX_PREFIX = "blpx_"
+_COSTS_FLAT_FIELDS = {
+    "slippage_bps_per_side",
+    "cost_bps_per_gross",
+    "overnight_alpha_long",
+    "overnight_alpha_short",
+    "buy_interest_annual",
+    "borrow_fee_annual",
+    "reverse_fee_bps",
+    "side_leverage",
+}
+
+
+def _map_flat_to_nested(raw: dict[str, Any]) -> dict[str, Any]:
+    """Move flat ``blpx_*`` and known cost keys into nested ``blpx``/``costs`` dicts.
+
+    Flat keys take precedence over values inside the nested sections.
+    This makes both the new flat YAML layout and the existing nested YAML
+    layout validate through the same Pydantic schema.
+    """
+    out = dict(raw)
+    blpx = dict(out.pop("blpx", {}) or {})
+    costs = dict(out.pop("costs", {}) or {})
+
+    for k, v in list(out.items()):
+        if k.startswith(_BLPX_PREFIX):
+            blpx[k[len(_BLPX_PREFIX):]] = v
+            del out[k]
+        elif k in _COSTS_FLAT_FIELDS:
+            costs[k] = v
+            del out[k]
+
+    if blpx:
+        out["blpx"] = blpx
+    if costs:
+        out["costs"] = costs
+    return out
 
 
 class ProductionV2RunConfig(BaseModel):
     """Runtime parameters for the v2 daily production pipeline.
 
     Parsed from the YAML ``portfolio:``, ``gross_scaling:``, ``costs:``,
-    and ``fallback:`` sections via ``models.production_v2.parse_run_config(cfg)``.
-    Acts as the single source of truth for all v2 pipeline constants — replacing
-    the module-level literals that previously lived in ``tools/run_daily_production_v2.py``.
+    ``fallback:``, ``blpx:``, ``residualization:``, ``features:``,
+    ``ml_order_overlay:``, ``gap_distribution:``, and other V2 sections
+    via ``_flatten_nested_yaml``.  Acts as the single source of truth for
+    all v2 pipeline constants.
     """
     model_config = {"frozen": True, "extra": "forbid"}
 
@@ -222,7 +345,7 @@ class ProductionV2RunConfig(BaseModel):
     short_count: int = Field(default=5, ge=1, description="ショート選択銘柄数")
     baseline_gross: float = Field(default=2.0, ge=0.0, description="pre-gross 基準グロスエクスポージャー")
 
-    # --- Cost model ---
+    # --- Cost model (flat alias, canonical value lives in ``costs``) ---
     cost_bps_per_gross: float = Field(
         default=10.0, ge=0.0,
         description="ex-ante コスト (bps/unit gross)。IR 計算のみに使用。実取引コストではない。"
@@ -238,8 +361,8 @@ class ProductionV2RunConfig(BaseModel):
     fallback_multiplier: float = Field(default=1.00, ge=0.0, le=1.0, description="PIT 履歴不足時のフォールバック乗数")
 
     # --- Fallback behavior ---
-    fallback_on_gap_data_missing: bool = Field(default=True, description="gap data 欠損時に v1 フォールバック")
-    fallback_on_audit_failure: bool = Field(default=True, description="数値監査失敗時に v1 フォールバック")
+    fallback_on_gap_data_missing: bool = Field(default=True, description="gap data 欠損時に flat position (w_final=0) を返す")
+    fallback_on_audit_failure: bool = Field(default=True, description="数値監査失敗時に flat position (w_final=0) を返す")
 
     # --- Phase 2A: Multi-Horizon Signal Blending ---
     mh_blend_enabled: bool = Field(default=False, description="マルチホライズンブレンド有効フラグ")
@@ -272,19 +395,51 @@ class ProductionV2RunConfig(BaseModel):
     macro_surprise_halflife_mean: float = Field(default=20.0, ge=1.0, description="EWMA平均推定半減期")
     macro_surprise_halflife_vol: float = Field(default=60.0, ge=1.0, description="EWMAボラティリティ推定半減期")
 
-    # --- Macro Directional Adjustment (signed surprise × signed sensitivity) ---
+    # --- Macro Directional Adjustment ---
     macro_direction_enabled: bool = Field(default=False, description="符号付きマクロサプライズによる方向調整有効フラグ")
 
-    #: Top-level YAML sections that this validator flattens into flat fields.
+    # --- Gap distribution / ranking ---
+    gap_input_dir: Path | None = Field(default=None, description="gap 調整済み分布ディレクトリ")
+    mu_file_pattern: str = Field(default="matrices/mu_gap_{date}.npy", description="mu_gap ファイルパターン")
+    omega_file_pattern: str = Field(default="matrices/omega_gap_{date}.npy", description="omega_gap ファイルパターン")
+    sigma_floor: float = Field(default=1.0e-6, gt=0.0, description="mu_over_sigma ゼロ除算防止フロア")
+
+    # --- Residualization ---
+    residualization_enabled_for_p3: bool = Field(default=True, description="JP residualization (P3) 有効フラグ")
+    residualization_beta_window: int = Field(default=60, ge=1, description="TOPIX residualization beta 窓")
+    residualization_beta_winsor_sigma: float = Field(default=3.0, ge=0.0, description="beta 推定前のウィンソライズ sigma")
+    residualization_beta_shrinkage: float = Field(default=0.05, ge=0.0, le=1.0, description="beta の 1.0 へのベイズ縮小強度")
+
+    # --- Fractional Differentiation ---
+    frac_diff_enabled: bool = Field(default=False, description="分数階差分有効フラグ")
+    frac_diff_d: float = Field(default=0.1, ge=0.0, le=1.0, description="分数階差分次数")
+    frac_diff_threshold: float = Field(default=1.0e-5, gt=0.0, description="二項展開の重み打ち切り閾値")
+    frac_diff_window: int = Field(default=100, ge=1, description="分数階差分の最大ルックバック")
+    frac_diff_normalize: str | None = Field(default=None, description="重み正規化方法")
+
+    # --- ML Order Overlay ---
+    ml_overlay_enabled: bool = Field(default=False, description="ML order overlay を有効化")
+    ml_overlay_model_dir: str = Field(default="", description="overlay モデルディレクトリ")
+    ml_overlay_use_ticker: bool = Field(default=True, description="ticker 特徴量を使用")
+    ml_overlay_use_classification: bool = Field(default=False, description="分類モデルを使用")
+    ml_overlay_per_ticker_interactions: bool = Field(default=True, description="ticker × score / gap 交互作用を使用")
+
+    # --- Nested BLPX and cost sub-models ---
+    blpx: BLPXConfig = Field(default_factory=BLPXConfig, description="BLPX シグナルパラメータ")
+    costs: CostConfig = Field(default_factory=CostConfig, description="コスト・ファイナンスパラメータ")
+
+    #: Top-level YAML sections that this validator flattens into flat fields and sub-models.
     _NESTED_SECTIONS: ClassVar[tuple[str, ...]] = (
         "portfolio", "gross_scaling", "costs", "fallback",
         "multi_horizon_blend", "cs_feature_overlay", "blpx",
+        "residualization", "features", "ml_order_overlay",
+        "gap_distribution", "execution", "ranking", "signal_components",
     )
 
     @model_validator(mode="before")
     @classmethod
     def _flatten_nested_yaml(cls, data: Any) -> Any:
-        """Flatten the nested production YAML structure into flat fields.
+        """Flatten the nested production YAML structure into flat fields and sub-models.
 
         Only keys explicitly present in the YAML are mapped; everything else
         falls back to the ``Field`` defaults above (single source of truth).
@@ -292,6 +447,9 @@ class ProductionV2RunConfig(BaseModel):
         """
         if not isinstance(data, dict):
             return data
+
+        data = _map_flat_to_nested(data)
+
         portfolio = data.get("portfolio") or {}
         gross_scaling = data.get("gross_scaling") or {}
         costs = data.get("costs") or {}
@@ -299,11 +457,55 @@ class ProductionV2RunConfig(BaseModel):
         mh = data.get("multi_horizon_blend") or {}
         cs = data.get("cs_feature_overlay") or {}
         blpx = data.get("blpx") or {}
-        multipliers = gross_scaling.get("multipliers") or {}
-        if not any([portfolio, gross_scaling, costs, fallback, mh, cs, blpx]):
+        residualization = data.get("residualization") or {}
+        features = data.get("features") or {}
+        frac_diff = features.get("fractional_diff") or {}
+        ml = data.get("ml_order_overlay") or {}
+        gap_dist = data.get("gap_distribution") or {}
+        execution = data.get("execution") or {}
+        ranking = data.get("ranking") or {}
+        signal_components = data.get("signal_components") or {}
+        multipliers = (gross_scaling.get("multipliers") or {}) if isinstance(gross_scaling, dict) else {}
+
+        if not any(
+            [
+                portfolio, gross_scaling, costs, fallback, mh, cs, blpx,
+                residualization, features, ml, gap_dist, execution, ranking,
+                signal_components,
+            ]
+        ):
             return data
 
         flat = {k: v for k, v in data.items() if k not in cls._NESTED_SECTIONS}
+
+        # Build nested blpx sub-model (do not emit flat blpx_* aliases)
+        blpx_cfg = dict(blpx) if isinstance(blpx, dict) else {}
+        if residualization and isinstance(residualization, dict):
+            if residualization.get("beta_window") is not None and "beta_window" not in blpx_cfg:
+                blpx_cfg["beta_window"] = residualization["beta_window"]
+            if residualization.get("topix_beta_coef") is not None and "topix_beta_coef" not in blpx_cfg:
+                blpx_cfg["topix_beta_coef"] = residualization["topix_beta_coef"]
+        if signal_components and isinstance(signal_components, dict):
+            for comp, weight_key in (
+                ("raw_pca", "raw_pca_weight"),
+                ("residual_pca", "residual_pca_weight"),
+                ("raw_blpx", "raw_blpx_weight"),
+                ("residual_blpx", "residual_blpx_weight"),
+            ):
+                comp_cfg = signal_components.get(comp)
+                if isinstance(comp_cfg, dict) and weight_key not in blpx_cfg:
+                    enabled = bool(comp_cfg.get("enabled", False))
+                    blpx_cfg[weight_key] = float(comp_cfg.get("weight", 1.0 if enabled else 0.0)) if enabled else 0.0
+        if blpx_cfg and "blpx" not in flat:
+            flat["blpx"] = blpx_cfg
+
+        # Build nested costs sub-model
+        costs_cfg = dict(costs) if isinstance(costs, dict) else {}
+        if execution and isinstance(execution, dict) and execution.get("side_leverage") is not None:
+            costs_cfg.setdefault("side_leverage", execution["side_leverage"])
+        if costs_cfg and "costs" not in flat:
+            flat["costs"] = costs_cfg
+
         candidates = {
             "long_count": portfolio.get("long_count"),
             "short_count": portfolio.get("short_count"),
@@ -341,8 +543,58 @@ class ProductionV2RunConfig(BaseModel):
             "macro_direction_enabled": portfolio.get(
                 "macro_direction_enabled", blpx.get("macro_direction_enabled")
             ),
+            "gap_input_dir": gap_dist.get("dir"),
+            "mu_file_pattern": gap_dist.get("mu_file_pattern"),
+            "omega_file_pattern": gap_dist.get("omega_file_pattern"),
+            "sigma_floor": ranking.get("sigma_floor"),
+            "residualization_enabled_for_p3": residualization.get("enabled_for_p3"),
+            "residualization_beta_window": residualization.get("beta_window"),
+            "residualization_beta_winsor_sigma": residualization.get("beta_winsor_sigma"),
+            "residualization_beta_shrinkage": residualization.get("beta_shrinkage"),
+            "frac_diff_enabled": frac_diff.get("enabled"),
+            "frac_diff_d": frac_diff.get("d"),
+            "frac_diff_threshold": frac_diff.get("threshold"),
+            "frac_diff_window": frac_diff.get("window"),
+            "frac_diff_normalize": frac_diff.get("normalize"),
+            "ml_overlay_enabled": ml.get("enabled"),
+            "ml_overlay_model_dir": ml.get("model_dir"),
+            "ml_overlay_use_ticker": ml.get("use_ticker"),
+            "ml_overlay_use_classification": ml.get("use_classification"),
+            "ml_overlay_per_ticker_interactions": ml.get("per_ticker_interactions"),
         }
         for key, value in candidates.items():
             if value is not None and key not in flat:
                 flat[key] = value
         return flat
+
+
+class AppConfig(BaseModel):
+    """Full application configuration.
+
+    The canonical top-level config assembled from YAML + environment variables.
+    Instantiated via ``execution.config.load_config_from_yaml()``.
+    """
+    model_config = {"frozen": True}
+
+    strategy: StrategyConfig = Field(default_factory=StrategyConfig)
+    risk: RiskConfig = Field(default_factory=RiskConfig)
+    kabu: KabuApiConfig = Field(default_factory=KabuApiConfig)
+    tachibana: TachibanaApiConfig = Field(default_factory=TachibanaApiConfig)
+    broker_provider: str = Field(default="kabu", description="使用するブローカープロバイダー ('kabu' | 'tachibana' | 'dry_run')")
+    output_base_dir: str = Field(
+        default_factory=lambda: str(results("sector_relative_ensemble")),
+        description="バックテスト出力ルート",
+    )
+    output_live_dir: str = Field(
+        default_factory=lambda: str(live("sector_relative_ensemble")),
+        description="本番ライブ出力ルート",
+    )
+    run_audit: bool = Field(default=True, description="実行後に ComplianceAuditor を走らせるか")
+    gap_distribution_dir: str = Field(default="", description="gap 調整分布ディレクトリ（相対パス可）")
+    ml_order_overlay: MLOrderOverlayConfig = Field(default_factory=MLOrderOverlayConfig)
+    v2: ProductionV2RunConfig = Field(
+        default_factory=ProductionV2RunConfig,
+        description="V2 本番ポートフォリオ生成パラメータ",
+    )
+
+

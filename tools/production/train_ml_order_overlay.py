@@ -2,7 +2,7 @@
 """Train and save the ML order-decision overlay model for production.
 
 The model is trained on a historical PIT window and saved to a directory that
-``run_daily_production_v2.py`` can load at runtime.  It is a one-off or
+``leadlag.cli decision`` can load at runtime.  It is a one-off or
 scheduled training step, not part of the daily execution path.
 
 Example::

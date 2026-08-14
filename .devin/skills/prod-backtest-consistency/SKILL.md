@@ -16,7 +16,7 @@ description: 本番環境・バックテスト・docs の設定・コード間�
 
 - `AGENTS.md` の不変条件とデータ整合規約を遵守
 - 本番 config 正本は `configs/production/production.yaml`（`production_v2_primary_ruleD.yaml` は旧版）
-- 本番 entrypoint は `tools/production/run_daily_production_v2.py`
+- 本番 entrypoint は `python3 -m leadlag.cli decision`（内部は `src/leadlag/execution/v2_bridge.py`）
 - バックテスト入口は `scripts/experiments/run_v2_backtest_exact_production.py`（`BacktestEngine.run_v2_backtest`）
 - 本番 shadow は `scripts/experiments/build_v2_production_shadow_run.py` + `tools/validation/monitor_residual_blpx_shadow_performance.py`
 
@@ -39,18 +39,18 @@ grep -A20 "costs:" configs/production/production.yaml
 grep -A5 "portfolio:" configs/production/production.yaml
 ```
 
-基準: 本番用の値が `run_daily_production_v2.py` と `run_v2_backtest_exact_production.py` で同一であること。旧版 config を本番参照に使っていないこと。
+基準: 本番用の値が `v2_bridge.run_v2_decision`（`leadlag.cli decision` 経由）と `run_v2_backtest_exact_production.py` で同一であること。旧版 config を本番参照に使っていないこと。
 
 ### 2. コード経路の同一性
 
 本番とバックテストが同一のポートフォリオ生成ロジックを使っているか:
 
 ```bash
-grep -E "generate_v2_production_portfolio_with_overlay|generate_v2_production_portfolio" tools/production/run_daily_production_v2.py
-grep -E "generate_v2_production_portfolio_with_overlay|generate_v2_production_portfolio" scripts/experiments/run_v2_backtest_exact_production.py
+grep -E "ProductionRunner|ProductionV2Model" src/leadlag/execution/v2_bridge.py
+grep -E "ProductionRunner|ProductionV2Model" scripts/experiments/run_v2_backtest_exact_production.py
 ```
 
-基準: 本番・バックテストともに `generate_v2_production_portfolio_with_overlay` を使用し、同一 `cfg` オブジェクトを読み込むこと。手動ハック（`latest` 別 config、コメントアウトのパラメータ変更）がないこと。
+基準: 本番・バックテストともに `ProductionRunner` / `ProductionV2Model.decide` を使用し、同一 `ProductionV2RunConfig`（`AppConfig.v2`）を読み込むこと。手動ハック（`latest` 別 config、コメントアウトのパラメータ変更）がないこと。
 
 ### 3. gap 分布・PIT 履歴
 
@@ -219,7 +219,7 @@ python3 scripts/experiments/run_v2_backtest_exact_production.py
 |-----------|--------|------|
 | **08:00** | `scripts/batch/update_market_data.sh` | yfinance から US/JP ETF OHLC を **force** 再取得。US クローズは夏時間 05:00 / 冬時間 06:00 JST なので、08:00 ならデータが安定している。 |
 | **08:15** | `scripts/batch/run_distribution_diagnostics.sh` | `etf_data.pkl` を使い `Omega_struct` を計算。`download_data(force=True)` により、07:00 以前に cron などで更新していた TTL 切れ cache も吸収できる。 |
-| **09:10** | `scripts/batch/run_decision_v2.sh` | `run_gap_distribution.sh` → `run_v2_decision.py` を実行。Tachibana 9:10 価格を gap 行列に注入して発注。 |
+| **09:10** | `scripts/batch/run_decision_v2.sh` | `run_gap_distribution.sh` → `python3 -m leadlag.cli decision` を実行。Tachibana 9:10 価格を gap 行列に注入して発注。 |
 | **14:50** | `scripts/batch/run_close_positions.sh` | 大引け成り寄りでポジション解消。 |
 
 ### 鮮度チェック（失敗時は安全側に倒れる）

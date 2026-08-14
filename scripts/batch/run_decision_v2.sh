@@ -41,9 +41,9 @@ fi
 # --- Step 2: decision v2 ---
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] [2/2] decision v2 開始" >> "${LOG_FILE}"
 set +e
-PYTHONPATH=src "${PYTHON_BIN}" tools/production/run_v2_decision.py \
+PYTHONPATH=src "${PYTHON_BIN}" -m leadlag.cli decision \
     --config configs/production/production.yaml \
-    --gap-input-dir var/live/pipeline_data/gap_adjusted_distribution/latest \
+    --gap-dir var/live/pipeline_data/gap_adjusted_distribution/latest \
     --live-dir var/live/production_residual_blpx \
     --api-enable \
     --capital-from-wallet \

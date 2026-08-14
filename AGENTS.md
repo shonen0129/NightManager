@@ -65,7 +65,7 @@ bash scripts/run_tests_parallel.sh
 python3 -m pytest tests/ -v
 
 # 日次本番実行（v2）
-python3 tools/production/run_daily_production_v2.py
+python3 -m leadlag.cli decision --trade-date latest --api-enable
 
 # gap調整分布の事前計算（v2 の入力）
 python3 tools/research/compute_gap_adjusted_distribution.py

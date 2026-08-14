@@ -17,12 +17,15 @@ from leadlag.config.schemas import AppConfig
 from leadlag.data.preprocessor import compute_jp_target_returns
 from leadlag.data.tickers import JP_TICKERS
 from leadlag.execution.config import build_app_config_from_dict
+from leadlag.models.blpx import ProductionBLPXModel
 from leadlag.models.ml_order_overlay import (
     MLOrderOverlayModel,
-    generate_v2_production_portfolio_with_overlay,
     load_overlay_model,
 )
-from leadlag.models.production_v2 import ProductionV2Model
+from leadlag.models.production_v2 import (
+    ProductionV2Model,
+    _build_current_prices_from_df_exec,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -381,40 +384,39 @@ class BacktestEngine:
         side_leverage: float | None,
     ) -> dict:
         """Resolve cost/financing and side-leverage parameters for run_v2_backtest."""
+        # Prefer the V2 cost sub-model; fall back to the legacy StrategyConfig fields.
+        v2_costs = getattr(app_config.v2, "costs", None)
+        v2_costs = v2_costs or app_config.strategy
         strategy = app_config.strategy
-        slip_bps = (
-            slippage_bps
-            if slippage_bps is not None
-            else strategy.slippage_bps
-        )
-        alpha_long = (
-            overnight_alpha_long
-            if overnight_alpha_long is not None
-            else strategy.overnight_alpha_long
-        )
-        alpha_short = (
-            overnight_alpha_short
-            if overnight_alpha_short is not None
-            else strategy.overnight_alpha_short
-        )
-        fin_annual = (
-            buy_interest_annual
-            if buy_interest_annual is not None
-            else strategy.buy_interest_annual
-        )
-        borrow_annual = (
-            borrow_fee_annual
-            if borrow_fee_annual is not None
-            else strategy.borrow_fee_annual
-        )
-        rev_bps = (
-            reverse_fee_bps
-            if reverse_fee_bps is not None
-            else strategy.reverse_fee_bps
-        )
+
+        def _get(attr: str, prefer_v2: bool = True):
+            if prefer_v2 and v2_costs is not None and hasattr(v2_costs, attr):
+                v = getattr(v2_costs, attr)
+                if v is not None:
+                    return v
+            if hasattr(strategy, attr):
+                return getattr(strategy, attr)
+            return None
+
+        def _resolve(override, attr):
+            if override is not None:
+                return override
+            v2_v = _get(attr)
+            if v2_v is not None:
+                return v2_v
+            return _get(attr, prefer_v2=False)
+
+        slip_bps = _resolve(slippage_bps, "slippage_bps_per_side")
+        if slip_bps is None:
+            slip_bps = _resolve(slippage_bps, "slippage_bps")
+        alpha_long = _resolve(overnight_alpha_long, "overnight_alpha_long")
+        alpha_short = _resolve(overnight_alpha_short, "overnight_alpha_short")
+        fin_annual = _resolve(buy_interest_annual, "buy_interest_annual")
+        borrow_annual = _resolve(borrow_fee_annual, "borrow_fee_annual")
+        rev_bps = _resolve(reverse_fee_bps, "reverse_fee_bps")
 
         if side_leverage is None:
-            side_leverage = strategy.side_leverage
+            side_leverage = _resolve(None, "side_leverage")
 
         return {
             "slip_bps": slip_bps,
@@ -437,7 +439,7 @@ class BacktestEngine:
         n_jobs: int,
         gap_store_path: Path | str | None = None,
     ) -> tuple[np.ndarray, np.ndarray, list[dict]]:
-        """Generate V2 weights for each simulation date."""
+        """Generate V2 weights for each simulation date using the unified V2 model."""
         n_sim_days = len(sim_dates_slice)
         sre_weights = np.zeros((n_sim_days, n_j))
         fallback_flags = np.zeros(n_sim_days, dtype=bool)
@@ -453,29 +455,30 @@ class BacktestEngine:
         elif gap_dir is not None:
             effective_gap_dir = gap_dir
 
-        # Use the class interface when no overlay is in play. The overlay path
-        # still needs df_exec and remains procedural for now.
-        v2_model = None if overlay_model is not None else ProductionV2Model(run_cfg)
+        # Build the BLPX model and the unified V2 decision model.
+        blpx_model = ProductionBLPXModel(run_cfg.model_dump())
+        if n_jobs > 1:
+            blpx_model.clear_caches()
+
+        v2_model = ProductionV2Model(
+            run_cfg,
+            blpx_model=blpx_model,
+            overlay_model=overlay_model,
+        )
 
         def _process_date(i_dt: tuple[int, pd.Timestamp]) -> tuple[int, np.ndarray, bool, dict]:
             i, dt = i_dt
             date_str = dt.strftime("%Y-%m-%d")
             try:
-                if overlay_model is not None:
-                    result = generate_v2_production_portfolio_with_overlay(
-                        trade_date=date_str,
-                        gap_input_dir=effective_gap_dir,
-                        cfg=run_cfg,
-                        df_exec=df_exec,
-                        overlay_model=overlay_model,
-                    )
-                else:
-                    if v2_model is None:
-                        raise RuntimeError("v2_model is None but overlay is disabled")
-                    result = v2_model.decide(
-                        trade_date=date_str,
-                        gap_input_dir=effective_gap_dir,
-                    )
+                current_prices = _build_current_prices_from_df_exec(df_exec, date_str)
+                result = v2_model.decide(
+                    trade_date=date_str,
+                    gap_input_dir=effective_gap_dir,
+                    df_exec=df_exec,
+                    current_prices=current_prices,
+                    overlay_enabled=run_cfg.ml_overlay_enabled,
+                    use_file_cache=True,
+                )
                 w = result["w_final"]
                 fb = result["fallback"]["gap_data_missing"]
                 summary = result.get("summary", {})

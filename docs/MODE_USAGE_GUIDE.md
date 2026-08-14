@@ -190,24 +190,25 @@ python3 -m leadlag.cli close \
 
 本番 v2 モデル（Residual-BLPX-RA v2）および legacy PCA-Ensemble 用の実行・検証スクリプトが `tools/` に用意されている。
 
-### 5.1 本番 v2 日次実行スクリプト (`tools/production/run_daily_production_v2.py`)
-本番 v2 （Residual-BLPX-RA v2: `mu_over_sigma` ランキング + `RuleD` 動的グロス）のデイリー注文生成および自動安全監査（Safety Audit）を実行する。
+### 5.1 本番 v2 日次実行 (CLI `decision`)
+本番 v2 （Residual-BLPX-RA v2: `mu_over_sigma` ランキング + `RuleD` 動的グロス）のデイリー注文生成および自動安全監査（Safety Audit）を `leadlag.cli` 経由で実行する。
 * 本番実行（9:10 POST_OPEN データ取得後）：
   ```bash
-  python tools/production/run_daily_production_v2.py \
+  python3 -m leadlag.cli decision \
       --trade-date latest \
-      --gap-input-dir var/live/pipeline_data/gap_adjusted_distribution/latest
+      --gap-dir var/live/pipeline_data/gap_adjusted_distribution/latest \
+      --api-enable
   ```
 * ドライラン実行（疑似注文生成）：
   ```bash
-  python tools/production/run_daily_production_v2.py \
+  python3 -m leadlag.cli decision \
       --trade-date 2026-06-16 \
-      --gap-input-dir var/live/pipeline_data/gap_adjusted_distribution/latest \
-      --dry-run true
+      --gap-dir var/live/pipeline_data/gap_adjusted_distribution/latest \
+      --dry-run
   ```
 * セルフテスト実行：
   ```bash
-  python tools/production/run_daily_production_v2.py --self-test true
+  python3 -m leadlag.cli self-test
   ```
 
 ### 5.2 ギャップ調整済み予測分布生成 (`tools/research/compute_gap_adjusted_distribution.py`)

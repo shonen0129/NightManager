@@ -17,13 +17,13 @@ python3 tools/research/compute_gap_adjusted_distribution.py
 2. 日次本番実行（v2）:
 
 ```
-python3 tools/production/run_daily_production_v2.py
-```
-
-3. CLI経由のデシジョン（代替）:
-
-```
 python3 -m leadlag.cli decision --config configs/production/production.yaml
+```
+
+3. CLI経由のデシジョン（`latest` 日付解決）:
+
+```
+python3 -m leadlag.cli decision --config configs/production/production.yaml --trade-date latest
 ```
 
 4. クローズ処理（必要時）:

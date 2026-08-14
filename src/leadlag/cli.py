@@ -52,7 +52,7 @@ def _add_decision_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--trade-date",
         default=None,
-        help="Trade date in YYYY-MM-DD for decision mode (default: today).",
+        help="Trade date in YYYY-MM-DD or 'latest' for decision mode (default: today).",
     )
     parser.add_argument(
         "--jp-opens-csv",
@@ -115,6 +115,11 @@ def _add_decision_args(parser: argparse.ArgumentParser) -> None:
         "--text-output",
         action="store_true",
         help="Output trade orders in text format to the console.",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Calculate weights but do not write files or submit orders.",
     )
 
 
@@ -261,6 +266,9 @@ def setup_parser() -> argparse.ArgumentParser:
     close_parser = subparsers.add_parser("close", help="Run end-of-day position closing logic")
     _add_close_args(close_parser)
 
+    # --- SELF-TEST SUBCOMMAND ---
+    subparsers.add_parser("self-test", help="Run CLI production self-tests and exit")
+
     return parser
 
 
@@ -295,6 +303,7 @@ def _handle_decision(args: argparse.Namespace) -> int:
         api_url=args.api_url,
         api_token=args.api_token,
         run_tag=args.run_tag,
+        dry_run=args.dry_run,
     )
     logger.info("V2 decision completed. Output: %s", result_path)
 
@@ -351,6 +360,13 @@ def _handle_close(args: argparse.Namespace) -> int:
     return 0
 
 
+def _handle_self_test(args: argparse.Namespace) -> int:
+    """Run production self-tests."""
+    from leadlag.execution.self_test import run_self_tests
+
+    return run_self_tests()
+
+
 def _handle_daily(args: argparse.Namespace) -> int:
     """Run the daily operation: decision before cutoff, close after.
 
@@ -389,8 +405,12 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     args = parser.parse_args(argv)
 
-    # Skip execution on non-trading days (weekends & Japanese holidays)
-    if args.command in ("decision", "close", "daily"):
+    # Skip execution on non-trading days (weekends & Japanese holidays).
+    # An explicit --trade-date (e.g. a backfill or ``latest`` resolution)
+    # bypasses this check so users can rerun for a specific date.
+    if args.command in ("close", "daily") or (
+        args.command == "decision" and args.trade_date is None
+    ):
         from leadlag.core.market_calendar import is_market_closed
 
         today = pd.Timestamp.now().date()
@@ -414,6 +434,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _handle_close(args)
     if args.command == "daily":
         return _handle_daily(args)
+    if args.command == "self-test":
+        return _handle_self_test(args)
 
     return 0
 
