@@ -363,6 +363,8 @@ class ProductionV2RunConfig(BaseModel):
     # --- Fallback behavior ---
     fallback_on_gap_data_missing: bool = Field(default=True, description="gap data 欠損時に flat position (w_final=0) を返す")
     fallback_on_audit_failure: bool = Field(default=True, description="数値監査失敗時に flat position (w_final=0) を返す")
+    ondemand_fallback_enabled: bool = Field(default=True, description="gap ファイル不在時に on-demand BLPX 計算でフォールバックする")
+    shadow_ondemand_validation: bool = Field(default=False, description="file cache 読み込み時に on-demand 計算と shadow 比較を実行する")
 
     # --- Phase 2A: Multi-Horizon Signal Blending ---
     mh_blend_enabled: bool = Field(default=False, description="マルチホライズンブレンド有効フラグ")
@@ -520,6 +522,8 @@ class ProductionV2RunConfig(BaseModel):
             "fallback_multiplier": gross_scaling.get("fallback_multiplier"),
             "fallback_on_gap_data_missing": fallback.get("fallback_on_gap_data_missing"),
             "fallback_on_audit_failure": fallback.get("fallback_on_audit_failure"),
+            "ondemand_fallback_enabled": fallback.get("ondemand_fallback_enabled"),
+            "shadow_ondemand_validation": fallback.get("shadow_ondemand_validation"),
             "mh_blend_enabled": mh.get("enabled"),
             "mh_horizons": mh.get("horizons"),
             "mh_weights": mh.get("weights"),

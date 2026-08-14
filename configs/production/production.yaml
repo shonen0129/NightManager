@@ -180,14 +180,16 @@ cs_feature_overlay:
 
 # --- v2: フォールバック階層 ---
 # 注意: v1 fallback (Residual-BLPX) は2026-07-09に廃止されました
-# gap data欠損時はflat position (w_final=0) を返します
+# gap data欠損時はまず on-demand BLPX 計算を試み、失敗/無効時は flat position (w_final=0) を返します
 fallback:
   enabled: true
   fallback_on_audit_failure: true
   fallback_on_missing_data: true
   fallback_on_invalid_confidence_variance: true
   fallback_on_sector_prior_error: true
-  fallback_on_gap_data_missing: true   # gap data 欠損時に flat position を返す
+  fallback_on_gap_data_missing: true   # gap data 欠損/on-demand 失敗時に flat position を返す
+  ondemand_fallback_enabled: true       # gap ファイル不在時に on-demand BLPX でフォールバック
+  shadow_ondemand_validation: false     # 本番では file cache 読み込み時に on-demand shadow 比較を行う（遅延増大）
 
 audit:
   enforce_signal_weighting: true

@@ -62,8 +62,8 @@ def _add_decision_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--capital",
         type=float,
-        default=1000000.0,
-        help="Equity capital in JPY for position sizing (default: 1000000).",
+        default=300000.0,
+        help="Equity capital in JPY for position sizing (default: 300000).",
     )
     parser.add_argument(
         "--capital-from-wallet",

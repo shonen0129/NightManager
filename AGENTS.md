@@ -12,7 +12,9 @@
 
 - **本番モデル**: `ProductionV2Model` (Residual-BLPX-RA v2) — `src/leadlag/models/production_v2.py`
   - BLPX 構造化投影シグナル + gap調整予測分布 + `mu_over_sigma` ランキング + RuleD 動的グロス（PIT三分位: Low→0.75x, Mid/High→1.00x）
-- **フォールバック**: gapデータ欠損時・監査失敗時は **フラットポジション（w_final=0）** を返す（V1フォールバックは2026-07に廃止）
+- **フォールバック**: 
+  - 監査失敗時は **フラットポジション（w_final=0）** を返す。
+  - gap ファイル欠損時は、`ondemand_fallback_enabled=true` の場合 on-demand BLPX 計算を試みる。失敗・無効時は **フラットポジション（w_final=0）** を返す（V1フォールバックは2026-07に廃止）。
 - **本番config**: `configs/production/production.yaml`（正本）。`production_v2_primary_ruleD.yaml` は旧版（overnight holding・multi-horizon blend・rank reversal overlay 未含む）
 - **アーキテクチャ詳細**: `docs/ARCHITECTURE.md`、数理仕様: `docs/モデル技術仕様書.md`
 
@@ -31,7 +33,10 @@
 3. **テストを弱めない**: 変更後必ず全テストを通す。推奨は並列実行 `bash scripts/run_tests_parallel.sh`（約8分、ログは `/tmp/pytest_parallel/`）。直列 `python3 -m pytest tests/ -v` は約32分。unit + integration（`test_leakage_audit.py`, `test_production_residual_blpx.py` 等）
 4. **市場中立制約**: net exposure ±0.05、gross ≤ 2.0（RuleD 適用後）。リスク正本は `src/leadlag/core/risk.py`、グロス調整正本は `src/leadlag/core/portfolio.py::adjust_gross_exposure()`
 5. **ティッカー定義**: `src/leadlag/data/tickers.py` が単一正本（N_U=15, N_J=17, 計32次元）で、感応度ラベル `w3`–`w6` も `SENSITIVITY_LABELS` として同ファイルに保持。`core/correlation.py` はレジストリから生成するため、ユニバース変更時は `tickers.py` のみ更新すればよい
-6. **前日gap行列の使用禁止**: 当日のgap行列（`mu_gap_{YYYYMMDD}.npy` / `omega_gap_{YYYYMMDD}.npy`）が存在しない場合は **フラットポジション（w_final=0）** を返すこと。前日行列をコピーして当日日付で使用してはならない（誤ったポジションで発注するリスクがある）。`load_gap_matrices`（`production_v2.py`）は当日日付のファイルのみを検索し、シェルスクリプト側のフォールバックコピー（2026-07-14に廃止）に依存しない
+6. **前日gap行列の使用禁止**: 前日行列をコピーして当日日付で使用してはならない（誤ったポジションで発注するリスクがある）。`load_gap_matrices`（`production_v2.py`）は当日日付のファイルのみを検索し、シェルスクリプト側のフォールバックコピー（2026-07-14に廃止）に依存しない。当日のgap行列が存在しない場合の挙動は `fallback.ondemand_fallback_enabled` で制御する：
+   - `true`（本番推奨）: まず on-demand BLPX 計算を試みる。失敗/無効時は **フラットポジション（w_final=0）** を返す。
+   - `false`: **フラットポジション（w_final=0）** を返す。
+   - さらに `shadow_ondemand_validation=true` とすると、file cache 読み込み時に on-demand 計算と shadow 比較を行い、差異が >1% の場合に警告を発する。
 
 ## 改善ワークフロー
 
@@ -91,7 +96,7 @@ python3 -m compileall src/leadlag tests tools scripts src/research
 - **不採用実験の記録**（再検証防止用）:
   - **Robust PCA伝播行列**（2026-07）: B_struct を低ランク+スパース分解（L+S）で置換する方針を検証。セクター事前知識（M_sector）とPCA事前分布（B_pca）の統合が失われ、confidence weighting の inv_A_tikh も単位行列フォールバックになった結果、Sharpe -35%、IC -32%と大幅劣化。チューニングでは埋められない構造的欠陥が原因。コードは全て破棄済み
   - **V1フォールバック廃止**（2026-07）: gapデータ欠損時のV1ウェイトフォールバックを廃止しフラットポジション化。理由: (1) `production_v2_writer.py` がV2実行のたびに `v1_baseline_weights.csv` を `w_v1` で上書きする循環参照があり、V1ウェイトが新規計算されず凍結化していた (2) 一度ゼロになると永久にゼロになる（実例あり） (3) データパイプライン障害時に古いシグナルで取引するより取引を見送る方がリスク管理として健全
-  - **前日gap行列フォールバック廃止**（2026-07-14）: `run_gap_distribution.sh` の前日行列コピー機能を廃止。当日のgap行列が生成できない場合、前日行列を当日日付でコピーして使用していたが、これにより誤ったポジションで発注するリスクがあった（2026-07-14に発生: 手動フル再計算が `latest` シンボリックリンクを上書きし、フォールバックなしで `mu_gap_20260714.npy` が不在になりフラットポジション化）。廃止後は当日行列不在時にフラットポジションを返すのが正しい挙動。`preprocess_data` を修正し `r_oc` NaNの行も0埋めで残すことで、大引け前に当日のgap行列を計算可能にしたことで再発防止
+  - **前日gap行列フォールバック廃止 / on-demand フォールバック導入**（2026-07-14 / 2026-08-13）: `run_gap_distribution.sh` の前日行列コピー機能を廃止。当日のgap行列が生成できない場合、前日行列を当日日付でコピーして使用していたが、これにより誤ったポジションで発注するリスクがあった（2026-07-14に発生: 手動フル再計算が `latest` シンボリックリンクを上書きし、フォールバックなしで `mu_gap_20260714.npy` が不在になりフラットポジション化）。廃止後は当日行列不在時にフラットポジションを返すのが基本挙動。2026-08-13 のリファクタリングで `ondemand_fallback_enabled=true` 時は file cache を優先しつつ、欠損時に on-demand BLPX 計算でフォールバックする経路を追加。on-demand 失敗時はフラットポジションを返す。`shadow_ondemand_validation=true` では file cache 読み込み時に on-demand 計算と shadow 比較を実施する。
   - **Fractional Differentiation採用**（2026-07-21）: US ETFリターンにLópez de Prado (2018)の分数階差分（d=0.1）を適用。ウォークフォワード検証（2015-2026、12年次ウィンドウ）でd=0.1がd=1.0ベースラインを12/12ウィンドウで上回る（平均Sharpe 8.87 vs 7.75）。d=0.5も12/12で上回るが改善幅が小さい（+0.67 vs +1.12）。実験スクリプトは `archive/experiments/` にアーカイブ、検証レポートは `reports/fractional_diff_walkforward_audit_report.md`
   - **Transfer Entropy統合**（2026-07-22）: TEによる共分散行列調整（diagonal congruence transform `D @ Omega @ D`）を検証。ウォークフォワード（252日訓練/63日テスト、6窓）で6窓中5窓の動的最適alpha=0.0（TE無効化が最適）。TE-Static（固定alpha=0.5）はSharpe 7.02 vs Base 7.66と劣化。MDD改善はポジション縮小の副作用でリスク調整後リターンは悪化。本番未統合。コードは実験用として保持（`src/leadlag/features/transfer_entropy.py`、`src/leadlag/models/production_v2_te.py`）、詳細レポートは `reports/te_walkforward_experiment.md`
   - **非線形シュリンケージ不採用**（2026-07-24）: Ledoit & Wolf (2020)の解析的非線形シュリンケージ（MPベース・Empiricalベース）で `regularize_correlation` の Stage 1（線形LW）を置換する方針を検証。ウォークフォワード（2015-2026、12年次ウィンドウ）でNL-MPは0/12窓で劣化（平均Sharpe 8.04 vs 8.87、Δ=-0.83）、NL-Empiricalは7/12窓で微改善（平均Sharpe 8.91、Δ=+0.04、統計的に有意でない）。MP法はシグナル固有値を過度に縮小、Empirical法は縮小が弱く線形LWと同等。既存の2段階正則化（線形LW + 構造事前分布C0）がN=32/T=504で十分に最適化されており、Stage 2（構造事前分布）が性能の主要因。実験コードは `src/experiments/nonlinear_shrinkage.py`、詳細レポートは `reports/nonlinear_shrinkage_walkforward_report.md`

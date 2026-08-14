@@ -579,6 +579,10 @@ def _repair_and_adjust(
             macro_start = (pd.to_datetime(date_str) - pd.Timedelta(days=365 * 2)).strftime("%Y-%m-%d")
             macro_end = date_str
             close_prices = download_macro_prices(start=macro_start, end=macro_end)
+            if close_prices is not None:
+                # yfinance end is normally exclusive, but guard against any
+                # trade-date (JST) macro close that is not yet known at 9:10.
+                close_prices = close_prices[close_prices.index < pd.to_datetime(date_str)]
             if close_prices is not None and len(close_prices) >= 30:
                 macro_returns = close_prices.pct_change()
                 macro_returns = macro_returns.replace([np.inf, -np.inf], np.nan)
@@ -640,79 +644,6 @@ def _repair_and_adjust(
             logger.warning("[%s] Macro adjustment failed: %s", date_str, e)
 
     return mu_gap, Omega_gap, alerts
-
-
-def _compute_scores_and_weights(
-    mu_gap: np.ndarray,
-    Omega_gap: np.ndarray,
-    run_cfg: ProductionV2RunConfig,
-    gap_input_dir: Path | None,
-    date_str: str,
-    n_j: int,
-    alerts: list[str],
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, list[str]]:
-    """Compute mu_over_sigma scores and the pre-gross weights."""
-    sigma_gap = np.sqrt(np.maximum(np.diag(Omega_gap), 1e-6))
-    scores = mu_gap / sigma_gap
-
-    # Phase 2A: Multi-horizon signal blending
-    if run_cfg.mh_blend_enabled and len(run_cfg.mh_horizons) > 1:
-        scores, mh_alerts = apply_multi_horizon_blend(
-            scores_h1=scores,
-            gap_input_dir=gap_input_dir,
-            date_str=date_str,
-            horizons=run_cfg.mh_horizons,
-            weights=run_cfg.mh_weights,
-            mu_pattern=run_cfg.mh_mu_file_pattern_h,
-            omega_pattern=run_cfg.mh_omega_file_pattern_h,
-        )
-        alerts.extend(mh_alerts)
-        if not any("not found" in a for a in mh_alerts):
-            logger.info("[%s] Multi-horizon blend applied: horizons=%s, weights=%s",
-                        date_str, run_cfg.mh_horizons, run_cfg.mh_weights)
-
-    # Phase 2D: Cross-sectional rank reversal overlay
-    if run_cfg.cs_overlay_enabled:
-        scores, cs_alerts = apply_rank_reversal_overlay(
-            scores=scores,
-            gap_input_dir=gap_input_dir,
-            date_str=date_str,
-            weight=run_cfg.cs_overlay_weight,
-            file_pattern=run_cfg.cs_rank_reversal_file_pattern,
-        )
-        alerts.extend(cs_alerts)
-        if not any("not found" in a or "None" in a for a in cs_alerts):
-            logger.info("[%s] Rank reversal overlay applied: weight=%.2f",
-                        date_str, run_cfg.cs_overlay_weight)
-
-    # Select longs / shorts by score using run_cfg counts
-    sorted_idx = np.argsort(scores)
-    short_idx = sorted_idx[:run_cfg.short_count]
-    long_idx = sorted_idx[-run_cfg.long_count:]
-
-    # Compute pre-gross weights
-    if run_cfg.minvar_enabled:
-        # MinVar: use Omega_gap as predicted covariance for weight optimization
-        w_minvar = build_weights_minvar(
-            signal=scores,
-            q=float(run_cfg.long_count) / n_j,
-            n_j=n_j,
-            Sigma_YY=Omega_gap,
-            alpha=run_cfg.minvar_alpha,
-            enforce_sign=False,
-        )
-        # Scale to baseline_gross (build_weights_minvar normalizes each side to 1)
-        w_pre = w_minvar * (run_cfg.baseline_gross / 2.0)
-        logger.info(
-            "[%s] MinVar weights applied: alpha=%.2f, gross=%.4f",
-            date_str, run_cfg.minvar_alpha, float(np.sum(np.abs(w_pre))),
-        )
-    else:
-        w_pre = solve_baseline_style(
-            scores, long_idx, short_idx, baseline_gross=run_cfg.baseline_gross
-        )
-
-    return scores, w_pre, sigma_gap, alerts
 
 
 def _apply_pit_ruleD(
@@ -911,38 +842,52 @@ class ProductionV2Model:
         # Keep the directory available to compute_distribution / file loaders.
         self._current_gap_input_dir = gap_input_dir
 
-        # Path A: on-demand BLPX computation.
+        # Path A: on-demand BLPX computation with optional file-cache shadow.
         if self._blpx_model is not None and df_exec is not None:
             if current_prices is None:
                 raise ValueError("current_prices is required for on-demand V2 decision.")
 
-            # Multi-horizon blend or single-horizon.
-            if self.run_config.mh_blend_enabled and len(self.run_config.mh_horizons) > 1:
-                mu_gap, omega_gap, scores = self._multi_horizon_scores(
-                    trade_date=trade_date,
-                    df_exec=df_exec,
-                    current_prices=current_prices,
-                    use_file_cache=use_file_cache,
-                )
-            else:
-                mu_gap, omega_gap = self.compute_distribution(
-                    trade_date=trade_date,
-                    df_exec=df_exec,
-                    current_prices=current_prices,
-                    horizon=1,
-                    use_file_cache=use_file_cache,
-                )
-                scores = None
+            try:
+                # Multi-horizon blend or single-horizon.
+                if self.run_config.mh_blend_enabled and len(self.run_config.mh_horizons) > 1:
+                    mu_gap, omega_gap, scores = self._multi_horizon_scores(
+                        trade_date=trade_date,
+                        df_exec=df_exec,
+                        current_prices=current_prices,
+                        use_file_cache=use_file_cache,
+                    )
+                else:
+                    mu_gap, omega_gap = self.compute_distribution(
+                        trade_date=trade_date,
+                        df_exec=df_exec,
+                        current_prices=current_prices,
+                        horizon=1,
+                        use_file_cache=use_file_cache,
+                    )
+                    scores = None
 
-            result = generate_v2_production_portfolio_from_distribution(
-                mu_gap=mu_gap,
-                omega_gap=omega_gap,
-                trade_date=trade_date,
-                run_config=self.run_config,
-                df_exec=df_exec,
-                gap_input_dir=gap_input_dir,
-                scores=scores,
-            )
+                result = generate_v2_production_portfolio_from_distribution(
+                    mu_gap=mu_gap,
+                    omega_gap=omega_gap,
+                    trade_date=trade_date,
+                    run_config=self.run_config,
+                    df_exec=df_exec,
+                    gap_input_dir=gap_input_dir,
+                    scores=scores,
+                )
+            except Exception as e:
+                if self.run_config.fallback_on_gap_data_missing:
+                    logger.error(
+                        "[%s] On-demand V2 computation failed: %s. Returning flat position.",
+                        trade_date, e,
+                    )
+                    result = _load_gap_or_flat(
+                        gap_input_dir, self.run_config, self.n_j, trade_date
+                    ).get("result")
+                    if result is None:
+                        raise
+                else:
+                    raise
 
         # Path B: pre-computed file cache.
         else:
@@ -964,6 +909,28 @@ class ProductionV2Model:
     # Distribution computation
     # ------------------------------------------------------------------
 
+    def _compare_distribution(self, label: str, mu_file: np.ndarray, omega_file: np.ndarray,
+                              mu_ondemand: np.ndarray, omega_ondemand: np.ndarray) -> None:
+        """Compare file cache to on-demand and log divergence warnings."""
+        max_abs_mu = float(np.max(np.abs(mu_file - mu_ondemand)))
+        mu_scale = float(np.max(np.abs(mu_file))) + 1e-8
+        rel_mu = max_abs_mu / mu_scale
+
+        frob_omega = float(np.linalg.norm(omega_file - omega_ondemand, "fro"))
+        omega_scale = float(np.linalg.norm(omega_file, "fro")) + 1e-8
+        rel_omega = frob_omega / omega_scale
+
+        logger.info(
+            "[%s] Shadow on-demand vs file cache: max|dmu|=%.6g (rel=%.4g), frob|dOmega|=%.6g (rel=%.4g)",
+            label, max_abs_mu, rel_mu, frob_omega, rel_omega,
+        )
+        if rel_mu > 0.01 or rel_omega > 0.01:
+            logger.warning(
+                "[%s] On-demand distribution differs from file cache by >1%% (rel_mu=%.4g, rel_omega=%.4g). "
+                "File cache is used; investigate model/dataset drift.",
+                label, rel_mu, rel_omega,
+            )
+
     def compute_distribution(
         self,
         trade_date: str,
@@ -978,7 +945,10 @@ class ProductionV2Model:
         """Compute (mu_gap, Omega_gap) for trade_date and horizon.
 
         1. The validated Step 2 file cache is the primary, trusted path.
-        2. If the cache is missing, fall back to on-demand computation.
+        2. If the cache is missing and ``ondemand_fallback_enabled`` is True,
+           fall back to on-demand BLPX computation.
+        3. If ``shadow_ondemand_validation`` is True, also compute on-demand
+           when the file cache exists and compare the two distributions.
         """
         if self._blpx_model is None:
             raise RuntimeError("compute_distribution requires a blpx_model")
@@ -987,6 +957,11 @@ class ProductionV2Model:
             self.run_config, "gap_input_dir", None
         )
 
+        ondemand_fallback = getattr(self.run_config, "ondemand_fallback_enabled", True)
+        shadow_validation = getattr(self.run_config, "shadow_ondemand_validation", False)
+
+        file_mu: np.ndarray | None = None
+        file_omega: np.ndarray | None = None
         if use_file_cache and gap_input_dir is not None:
             if horizon == 1:
                 _mu_pattern = mu_pattern or "matrices/mu_gap_{date}.npy"
@@ -1005,14 +980,30 @@ class ProductionV2Model:
                 n_j=self.n_j,
                 strict=False,
             )
-            if file_mu is not None and file_omega is not None:
-                return file_mu, file_omega
 
-        return self._compute_ondemand(
-            trade_date=trade_date,
-            df_exec=df_exec,
-            current_prices=current_prices,
-            horizon=horizon,
+        if file_mu is not None and file_omega is not None:
+            if shadow_validation:
+                mu_ondemand, omega_ondemand = self._compute_ondemand(
+                    trade_date=trade_date,
+                    df_exec=df_exec,
+                    current_prices=current_prices,
+                    horizon=horizon,
+                )
+                label = f"{trade_date}:h{horizon}"
+                self._compare_distribution(label, file_mu, file_omega, mu_ondemand, omega_ondemand)
+            return file_mu, file_omega
+
+        if ondemand_fallback:
+            logger.warning("[%s] Gap file cache missing (h=%d); computing on-demand.", trade_date, horizon)
+            return self._compute_ondemand(
+                trade_date=trade_date,
+                df_exec=df_exec,
+                current_prices=current_prices,
+                horizon=horizon,
+            )
+
+        raise RuntimeError(
+            f"Gap matrices missing for {trade_date} (h={horizon}) and on-demand fallback is disabled."
         )
 
     def _compute_ondemand(

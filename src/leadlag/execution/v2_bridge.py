@@ -79,7 +79,17 @@ def _resolve_trade_date(
     - If the CSV is missing, ``latest`` falls back to today (or the previous
       trading day if today is a market holiday).
     - ``None`` defaults to today.
+    - Future dates are rejected to prevent accidentally running for a date
+      that has not yet occurred.
     """
+    today = pd.Timestamp.now().tz_localize(None).normalize()
+
+    def _assert_not_future(date_str: str) -> str:
+        parsed = pd.to_datetime(date_str).normalize()
+        if parsed > today:
+            raise ValueError(f"trade_date {date_str} is in the future (today: {today.date()})")
+        return date_str
+
     if trade_date == "latest":
         latest_file = live_dir / "latest_weights.csv"
         if latest_file.exists():
@@ -90,14 +100,13 @@ def _resolve_trade_date(
                     raise ValueError("trade_date is NaN")
                 resolved = pd.to_datetime(str(raw_date)).strftime("%Y-%m-%d")
                 logger.info("Resolved latest trade date from %s: %s", latest_file, resolved)
-                return resolved
+                return _assert_not_future(resolved)
             except Exception as e:
                 logger.error("Failed to parse latest trade_date from %s: %s", latest_file, e)
                 raise
         else:
             from leadlag.core.market_calendar import is_market_closed, previous_trading_day
 
-            today = pd.Timestamp.now().date()
             if is_market_closed(today):
                 resolved = previous_trading_day(today).strftime("%Y-%m-%d")
                 logger.warning(
@@ -107,14 +116,14 @@ def _resolve_trade_date(
             else:
                 resolved = today.strftime("%Y-%m-%d")
                 logger.warning("latest_weights.csv not found; using today: %s", resolved)
-            return resolved
+            return _assert_not_future(resolved)
 
     if trade_date is None:
-        resolved = pd.Timestamp.now().tz_localize(None).normalize().strftime("%Y-%m-%d")
+        resolved = today.strftime("%Y-%m-%d")
         logger.info("No trade date provided; using today: %s", resolved)
         return resolved
 
-    return trade_date
+    return _assert_not_future(trade_date)
 
 
 def _resolve_current_prices(
@@ -168,11 +177,13 @@ def run_v2_decision(
         output_root: Root directory for decision output.
         jp_opens_csv: Path to JP opens CSV (fallback if API unavailable).
         google_opens: If True, use Google Sheets for JP opens.
-        max_capital: Default max capital in JPY. Defaults to 350,000.0.
+        max_capital: Default max capital in JPY. Defaults to 300,000.0.
         api_url: Optional broker API URL override.
         api_token: Optional broker API token override.
         run_tag: Optional run tag for output directory.
         dry_run: If True, calculate weights but do not write files or submit orders.
+            Also forces ``api_dry_run=True`` when ``api_enable=True`` to avoid
+            live API calls.
 
     Returns:
         Path to the decision output CSV, or a dry-run summary path.
@@ -202,7 +213,14 @@ def run_v2_decision(
         logger.info("Using gap input dir: %s", gap_dir)
 
     if max_capital is None:
-        max_capital = 350000.0  # default fallback
+        max_capital = 300000.0  # default fallback
+
+    # Dry-run should never hit a live API: force api_dry_run when live orders
+    # are already suppressed, but keep api_enable so price/wallet simulation
+    # can still run through a dry-run broker client if requested.
+    if dry_run and api_enable and not api_dry_run:
+        logger.warning("[DRY-RUN] Forcing api_dry_run=True to avoid live API calls.")
+        api_dry_run = True
 
     # --- Step 1: Build df_exec (historical data + today's placeholders) ---
     logger.info("[1/5] Loading/building df_exec...")

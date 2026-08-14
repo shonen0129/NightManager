@@ -320,7 +320,7 @@ model = SectorRelativeEnsembleBLPEnhancedModel(config)
 | `--run-tag` | str | (timestamp) | 出力フォルダの識別子 |
 | `--trade-date` | str | (today) | 取引日 (YYYY-MM-DD) |
 | `--jp-opens-csv` | str | — | JP 寄付き価格 CSV パス |
-| `--capital` | float | `1000000` | 手持ち資金 (JPY) |
+| `--capital` | float | `300000` | 手持ち資金 (JPY) |
 | `--capital-from-wallet` | flag | — | ブローカー API 残高を資金量として使用（立花証券: 受入保証金、kabu: 現物買付可能額） |
 | `--api-enable` | flag | — | ブローカー API 有効化（立花証券 / kabu） |
 | `--api-url` | str | (env) | API URL |

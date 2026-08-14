@@ -1,10 +1,9 @@
 """Self-test diagnostics for the production CLI.
 
-Replaces the inline assertions previously embedded in
-``tools/production/run_daily_production_v2.py`` with explicit status checks
-that return a non-zero exit code on failure.  The same checks are used by
-``tests/unit/test_cli_self_test.py`` so the CLI and the test suite share one
-implementation.
+These checks were previously embedded in the legacy daily production script.
+They are now shared by ``python3 -m leadlag.cli self-test`` and the test
+suite.  Each check returns a non-zero exit code on failure instead of using
+``assert``.
 """
 
 from __future__ import annotations

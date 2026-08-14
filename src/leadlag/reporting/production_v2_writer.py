@@ -254,7 +254,7 @@ def _write_daily_report(trade_date: str, live_dir: Path, result: dict) -> None:
 | Numerical Audit | **{result['numerical']['status']}** |
 {alert_text}
 ---
-*This file is generated automatically by `run_daily_production_v2.py`.
+*This file is generated automatically by `python3 -m leadlag.cli decision`.
 No trades are placed by this script; it writes weight targets only.*
 """
 

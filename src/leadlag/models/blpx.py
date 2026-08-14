@@ -763,6 +763,7 @@ class ProductionBLPXModel(_BLPBase):
         gap_override: np.ndarray | None = None,
         betas_t: np.ndarray | None = None,
         topix_night_t: float | None = None,
+        rolling_std: np.ndarray | None = None,
         v0_static: np.ndarray | None = None,
         c_full: np.ndarray | None = None,
         is_residual: bool = False,
@@ -776,7 +777,7 @@ class ProductionBLPXModel(_BLPBase):
         ``B_struct`` and ``z_U_t``.
         """
         # 1. Prepare window returns (vol-scaling + winsorization)
-        window_returns = self._prepare_window_returns(all_returns, current_index, None)
+        window_returns = self._prepare_window_returns(all_returns, current_index, rolling_std)
 
         # 2. Estimate correlation
         mu, sigma, corr = self._estimate_correlation(window_returns, current_index, is_residual)
@@ -1194,6 +1195,7 @@ class ProductionBLPXModel(_BLPBase):
             return self.compute_blp_signal(
                 inp.all_returns_raw, i,
                 gap_override=gap_override, betas_t=betas_t, topix_night_t=topix_night_t,
+                rolling_std=rolling_std,
                 v0_static=inp.v0_static, c_full=inp.c_full,
                 is_residual=False,
             )
@@ -1209,6 +1211,7 @@ class ProductionBLPXModel(_BLPBase):
             result = self.compute_blp_signal(
                 inp.jp_res_returns_p3, i,
                 gap_override=gap_override, betas_t=betas_t, topix_night_t=topix_night_t,
+                rolling_std=rolling_std,
                 v0_static=inp.v0_static, c_full=inp.c_full_p3,
                 is_residual=True,
             )
