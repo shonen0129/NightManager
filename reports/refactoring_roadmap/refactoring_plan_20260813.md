@@ -2434,3 +2434,34 @@ python3 tools/validation/monitor_residual_blpx_shadow_performance.py \
 - `configs/production/production.yaml`
 - `AGENTS.md`
 - `docs/ARCHITECTURE.md`
+
+---
+
+## 14. 実行進捗
+
+### 2026-08-14 時点
+
+- [x] Phase 0: 回帰ベースライン整備
+  - `tests/regression/__init__.py`, `conftest.py`, `test_v2_baseline.py` 新設
+  - `scripts/capture_v2_baseline.py` 新設
+  - ベースライン `tests/regression/baselines/v2_snapshot_v20260813.json` および gap 行列・PIT history をコミット
+- [x] Phase 1: `research` パッケージ import 断ち切り（前セッションで完了済）
+- [x] Phase 2: Step 2 gap 調整済み分布 on-demand 化（前セッションで完了済）
+- [x] Phase 10: ベースライン V2 バックテスト実行
+  - 期間: 2026-06-15 〜 2026-08-13（40 日）
+  - 指標: net Sharpe 10.49, AR 141.79%, MDD -6.96%, ターンバー平均 1.46, fallback 0%
+  - `reports/refactoring_roadmap/baseline_metrics_20260813.json` 保存
+- [x] 全テスト通過: 507 tests ALL PASSED（新規 `tests/regression/test_v2_baseline.py` 含む）
+
+### 未完了・次回対象
+
+- [ ] Phase 3/6: `production.yaml` フラット化 + `_flatten_nested_yaml` 廃止 + `build_app_config_from_dict` 対応
+- [ ] Phase 5: `ProductionV2Model` クラス中心整理（`generate_v2_production_portfolio` 解体）
+- [ ] Phase 8: `DataProvider` ABC（decision 項目・最小実装）
+- [ ] Phase 10.4: シャドー運用 3 営業日（連続したライブ市場の観察が必要なため、セッション外で実施）
+- [ ] 本来の full 期間バックテスト: 2015-01-05 〜 2026-08-13（現状は OOS 短期サンプルのみ取得済）
+
+### 作業ブランチ
+
+- `refactor/complete-plan`
+
