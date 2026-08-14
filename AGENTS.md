@@ -73,13 +73,15 @@ python3 -m pytest tests/ -v
 python3 -m leadlag.cli decision --trade-date latest --api-enable
 
 # gap調整分布の事前計算（v2 の入力）
+# on-demand フォールバックがあるため必須ではなくなったが、計算時間短縮のため朝 9:10 前に推奨
 python3 tools/research/compute_gap_adjusted_distribution.py
 
-# 本番 V2 バックテスト（gap 行列が事前計算済みの場合は --gap-dir 指定）
-python3 src/research/scripts/backtest/run_production_backtest.py --start-date 2015-01-05
+# 本番 V2 バックテスト（推奨）
+python3 -m leadlag.cli backtest --config configs/production/production.yaml --start-date 2015-01-05 --gap-dir var/live/pipeline_data/gap_adjusted_distribution/latest
 
-# CLI経由 V2 バックテスト（--config / --gap-dir / --slippage-bps 等）
-python3 -m leadlag.cli backtest --start-date 2015-01-05
+# 本番 V2 バックテスト（gap 行列が事前計算済みの場合は --gap-dir 指定）
+# 注: src/research/scripts/backtest/run_production_backtest.py は 2026-08 以降 deprecated
+#     2026-08 のリファクタリングで BacktestEngine.run_v2_backtest / CLI `backtest` へ一本化
 
 # CLI経由 V2 本番決済（--config / --gap-dir / --live-dir / --api-enable 等）
 python3 -m leadlag.cli decision --config configs/production/production.yaml --gap-dir var/live/pipeline_data/gap_adjusted_distribution/latest --api-enable --capital-from-wallet

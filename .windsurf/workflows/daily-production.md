@@ -14,6 +14,10 @@ ProductionV2Model (Residual-BLPX-RA v2) の日次実行パイプライン。
 python3 tools/research/compute_gap_adjusted_distribution.py
 ```
 
+   - `production.yaml` の `fallback.ondemand_fallback_enabled=true` の場合、
+     当日 gap 行列が不在でも on-demand BLPX 計算を試みます。
+   - ただし計算時間・マクロデータ取得の観点から、9:10 前の事前計算は推奨です。
+
 2. 日次本番実行（v2）:
 
 ```

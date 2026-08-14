@@ -360,7 +360,8 @@ python run_research.py sprint run_sprint2_cost_aware_aum1m
 
 # バックテスト実験
 python run_research.py backtest run_overnight_holding_backtest
-python run_research.py backtest run_production_backtest
+# 本番 V2 バックテストは CLI 一本化
+python3 -m leadlag.cli backtest --config configs/production/production.yaml --start-date 2015-01-05
 ```
 
 ### 7.2 引数の渡し方
