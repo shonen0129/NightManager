@@ -1,7 +1,7 @@
 # V2 本番リファクタリング 実装仕様書
 
 > 作成日: 2026-08-13
-> 最終更新: 2026-08-14（Phase 6 追加版）
+> 最終更新: 2026-08-13
 > 目的: 一から作り直すかリファクタリングするかの議論を踏まえ、段階的リファクタリングの**推奨実装仕様**を定義する
 
 ---
@@ -2439,7 +2439,7 @@ python3 tools/validation/monitor_residual_blpx_shadow_performance.py \
 
 ## 14. 実行進捗
 
-### 2026-08-14 時点
+### 2026-08-13 時点
 
 - [x] Phase 0: 回帰ベースライン整備
   - `tests/regression/__init__.py`, `conftest.py`, `test_v2_baseline.py` 新設
@@ -2453,13 +2453,26 @@ python3 tools/validation/monitor_residual_blpx_shadow_performance.py \
   - `reports/refactoring_roadmap/baseline_metrics_20260813.json` 保存
 - [x] 全テスト通過: 507 tests ALL PASSED（新規 `tests/regression/test_v2_baseline.py` 含む）
 
+### 2026-08-13 時点（本セッション完了）
+
+- [x] Phase 3/6: `production.yaml` フラット化 + `_flatten_nested_yaml` 廃止 + `build_app_config_from_dict` 対応
+  - `configs/production/production.yaml` をフラット化。旧ネスト版は `configs/production/production.yaml.legacy` に保存。
+  - `src/leadlag/config/schemas.py` から `_flatten_nested_yaml` を廃止。設定正規化は `_map_flat_to_nested` のみで実施。
+  - `parse_run_config` / `build_app_config_from_dict` / `load_config_from_yaml` が新旧両方の YAML レイアウトを受け入れるように更新。
+- [x] Phase 5: `ProductionV2Model` クラス中心整理（`generate_v2_production_portfolio` 解体）
+  - `ProductionV2Model._file_cache_or_flat` を新設し、file cache 読み込み / flat fallback をクラス内で完結。
+  - `decide()` が on-demand 計算、file cache、on-demand 失敗時の file cache フォールバックを統一的に制御。
+  - `generate_v2_production_portfolio()` は `ProductionV2Model.decide()` への薄いラッパーに変更。
+- [x] Phase 8: `DataProvider` ABC（decision 項目・最小実装）
+  - `src/leadlag/data/providers/__init__.py` に `DataProvider` ABC、`YFinanceProvider`、`TachibanaProvider` を新設。
+  - `src/leadlag/data/session.py` に `Session` / `SessionState` / `ExchangeCalendarPatch` の雛形を新設。
+  - `tests/unit/test_data_provider.py` を新設し、両プロバイダの基本動作を検証。
+- [x] 全テスト通過: `bash scripts/run_tests_parallel.sh` で 507 tests ALL PASSED（ruff F821 も pass）
+
 ### 未完了・次回対象
 
-- [ ] Phase 3/6: `production.yaml` フラット化 + `_flatten_nested_yaml` 廃止 + `build_app_config_from_dict` 対応
-- [ ] Phase 5: `ProductionV2Model` クラス中心整理（`generate_v2_production_portfolio` 解体）
-- [ ] Phase 8: `DataProvider` ABC（decision 項目・最小実装）
 - [ ] Phase 10.4: シャドー運用 3 営業日（連続したライブ市場の観察が必要なため、セッション外で実施）
-- [ ] 本来の full 期間バックテスト: 2015-01-05 〜 2026-08-13（現状は OOS 短期サンプルのみ取得済）
+- [ ] 本来の full 期間バックテスト: 2015-01-05 〜 2026-08-13（`var/live/pipeline_data/gap_adjusted_distribution/latest` に 2026-08-14 当日分のみ存在するため、full 期間はデータ不足。OOS 短期サンプル / ユニットテストで振る舞いを担保）
 
 ### 作業ブランチ
 

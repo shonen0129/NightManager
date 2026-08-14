@@ -7,9 +7,9 @@ All modules should import StrategyConfig / RiskConfig from here.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import Any
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field
 
 from leadlag.config.paths import live, results
 
@@ -302,41 +302,199 @@ _COSTS_FLAT_FIELDS = {
     "side_leverage",
 }
 
+# Legacy top-level keys that are consumed by the BLPX sub-model but may
+# appear unprefixed in older flat files or nested residualization sections.
+_BLPX_ALIASES: dict[str, str] = {
+    "topix_beta_coef": "topix_beta_coef",
+    "residualization_topix_beta_coef": "topix_beta_coef",
+    "residualization_beta_window": "beta_window",
+}
+
 
 def _map_flat_to_nested(raw: dict[str, Any]) -> dict[str, Any]:
-    """Move flat ``blpx_*`` and known cost keys into nested ``blpx``/``costs`` dicts.
+    """Normalize both flat and nested production YAML to ``ProductionV2RunConfig`` input.
 
-    Flat keys take precedence over values inside the nested sections.
-    This makes both the new flat YAML layout and the existing nested YAML
-    layout validate through the same Pydantic schema.
+    The returned dict contains flat V2 fields plus nested ``blpx`` and
+    ``costs`` sub-dicts.  Unknown keys are filtered out so the result
+    validates cleanly against ``ProductionV2RunConfig`` (``extra=forbid``).
+
+    Flat keys take precedence over values inside nested sections.
     """
-    out = dict(raw)
-    blpx = dict(out.pop("blpx", {}) or {})
-    costs = dict(out.pop("costs", {}) or {})
+    if not isinstance(raw, dict):
+        return raw
 
-    for k, v in list(out.items()):
+    # Runtime references are safe because this function is called after the
+    # module has finished loading.
+    v2_keys = set(ProductionV2RunConfig.model_fields) - {"blpx", "costs"}
+    blpx_keys = set(BLPXConfig.model_fields)
+    costs_keys = set(CostConfig.model_fields)
+
+    out: dict[str, Any] = {}
+    blpx: dict[str, Any] = {}
+    costs: dict[str, Any] = {}
+
+    # First pass: separate flat blpx_*, cost keys, and other flat keys.
+    for k, v in raw.items():
         if k.startswith(_BLPX_PREFIX):
-            blpx[k[len(_BLPX_PREFIX):]] = v
-            del out[k]
+            key = k[len(_BLPX_PREFIX):]
+            if key in blpx_keys:
+                blpx[key] = v
         elif k in _COSTS_FLAT_FIELDS:
-            costs[k] = v
-            del out[k]
+            if k in costs_keys:
+                costs[k] = v
+        else:
+            out[k] = v
 
+    def _pop_section(name: str) -> dict[str, Any]:
+        sec = out.pop(name, None)
+        return dict(sec) if isinstance(sec, dict) else {}
+
+    # Pull nested sections (they are removed from ``out``).
+    portfolio = _pop_section("portfolio")
+    gross_scaling = _pop_section("gross_scaling")
+    costs_section = _pop_section("costs")
+    fallback = _pop_section("fallback")
+    mh = _pop_section("multi_horizon_blend")
+    cs = _pop_section("cs_feature_overlay")
+    blpx_section = _pop_section("blpx")
+    residualization = _pop_section("residualization")
+    features = _pop_section("features")
+    ml = _pop_section("ml_order_overlay")
+    gap_dist = _pop_section("gap_distribution")
+    execution = _pop_section("execution")
+    ranking = _pop_section("ranking")
+    signal_components = _pop_section("signal_components")
+
+    # Merge nested blpx/costs with flat-prefixed values (flat wins).
+    if blpx_section:
+        for k, v in blpx_section.items():
+            blpx.setdefault(k, v)
+    if costs_section:
+        for k, v in costs_section.items():
+            costs.setdefault(k, v)
+
+    # Flatten gross scaling multipliers.
+    multipliers = gross_scaling.get("multipliers", {}) if isinstance(gross_scaling, dict) else {}
+
+    # Section-to-flat mappings.  Each tuple is (section, source_key, target_key).
+    # Some target keys are in sub-models and will be routed there by the
+    # per-key routing below.
+    section_mappings: list[tuple[dict[str, Any], str, str]] = [
+        (portfolio, "long_count", "long_count"),
+        (portfolio, "short_count", "short_count"),
+        (portfolio, "minvar_enabled", "minvar_enabled"),
+        (portfolio, "minvar_alpha", "minvar_alpha"),
+        (portfolio, "macro_kappa_enabled", "macro_kappa_enabled"),
+        (portfolio, "macro_kappas", "macro_kappas"),
+        (portfolio, "macro_surprise_halflife_mean", "macro_surprise_halflife_mean"),
+        (portfolio, "macro_surprise_halflife_vol", "macro_surprise_halflife_vol"),
+        (portfolio, "macro_direction_enabled", "macro_direction_enabled"),
+        (gross_scaling, "baseline_gross", "baseline_gross"),
+        (gross_scaling, "pit_rolling_window", "pit_rolling_window"),
+        (gross_scaling, "tertile_low_pct", "tertile_low_pct"),
+        (gross_scaling, "tertile_high_pct", "tertile_high_pct"),
+        (multipliers, "Low", "mult_low"),
+        (multipliers, "Medium", "mult_mid"),
+        (multipliers, "High", "mult_high"),
+        (gross_scaling, "fallback_multiplier", "fallback_multiplier"),
+        (fallback, "fallback_on_gap_data_missing", "fallback_on_gap_data_missing"),
+        (fallback, "fallback_on_audit_failure", "fallback_on_audit_failure"),
+        (fallback, "ondemand_fallback_enabled", "ondemand_fallback_enabled"),
+        (fallback, "shadow_ondemand_validation", "shadow_ondemand_validation"),
+        (mh, "enabled", "mh_blend_enabled"),
+        (mh, "horizons", "mh_horizons"),
+        (mh, "weights", "mh_weights"),
+        (mh, "mu_file_pattern_h", "mh_mu_file_pattern_h"),
+        (mh, "omega_file_pattern_h", "mh_omega_file_pattern_h"),
+        (cs, "enabled", "cs_overlay_enabled"),
+        (cs, "weight", "cs_overlay_weight"),
+        (cs, "rank_reversal_file_pattern", "cs_rank_reversal_file_pattern"),
+        (residualization, "enabled_for_p3", "residualization_enabled_for_p3"),
+        (residualization, "beta_window", "residualization_beta_window"),
+        (residualization, "winsor_sigma", "residualization_beta_winsor_sigma"),
+        (residualization, "shrinkage", "residualization_beta_shrinkage"),
+        (residualization, "topix_beta_coef", "residualization_topix_beta_coef"),
+        (gap_dist, "dir", "gap_input_dir"),
+        (gap_dist, "mu_file_pattern", "mu_file_pattern"),
+        (gap_dist, "omega_file_pattern", "omega_file_pattern"),
+        (ranking, "mode", "ranking_mode"),
+        (ranking, "sigma_floor", "sigma_floor"),
+        (ml, "enabled", "ml_overlay_enabled"),
+        (ml, "model_dir", "ml_overlay_model_dir"),
+        (ml, "use_ticker", "ml_overlay_use_ticker"),
+        (ml, "use_classification", "ml_overlay_use_classification"),
+        (ml, "per_ticker_interactions", "ml_overlay_per_ticker_interactions"),
+        (ml, "p_trade_ema_span", "ml_overlay_p_trade_ema_span"),
+        (ml, "fallback_to_baseline", "ml_overlay_fallback_to_baseline"),
+    ]
+
+    # fractional_diff sub-section.
+    frac_diff = features.get("fractional_diff", {}) if isinstance(features, dict) else {}
+    section_mappings.extend([
+        (frac_diff, "enabled", "frac_diff_enabled"),
+        (frac_diff, "d", "frac_diff_d"),
+        (frac_diff, "threshold", "frac_diff_threshold"),
+        (frac_diff, "window", "frac_diff_window"),
+        (frac_diff, "normalize", "frac_diff_normalize"),
+    ])
+
+    for section, source_key, target_key in section_mappings:
+        if source_key in section and target_key not in out:
+            out[target_key] = section[source_key]
+
+    # Signal component weights -> blpx sub-model.
+    if signal_components and isinstance(signal_components, dict):
+        for comp, weight_key in (
+            ("raw_pca", "raw_pca_weight"),
+            ("residual_pca", "residual_pca_weight"),
+            ("raw_blpx", "raw_blpx_weight"),
+            ("residual_blpx", "residual_blpx_weight"),
+        ):
+            comp_cfg = signal_components.get(comp)
+            if isinstance(comp_cfg, dict) and weight_key not in blpx:
+                enabled = bool(comp_cfg.get("enabled", False))
+                blpx[weight_key] = float(comp_cfg.get("weight", 1.0 if enabled else 0.0)) if enabled else 0.0
+
+    # execution.side_leverage -> costs.
+    if execution and isinstance(execution, dict) and "side_leverage" in execution:
+        costs.setdefault("side_leverage", execution["side_leverage"])
+
+    # Residualization -> blpx aliases for the BLPX model.
+    if "beta_window" not in blpx and "residualization_beta_window" in out:
+        blpx["beta_window"] = out["residualization_beta_window"]
+    for alias, blpx_key in _BLPX_ALIASES.items():
+        if blpx_key not in blpx and alias in out:
+            if blpx_key in blpx_keys:
+                blpx[blpx_key] = out.pop(alias)
+
+    # Copy any overlapping sub-model keys to the top-level aliases that
+    # ``ProductionV2RunConfig`` also accepts (e.g. macro_kappas).
+    for k, v in list(blpx.items()):
+        if k in v2_keys and k not in out:
+            out[k] = v
+    for k, v in list(costs.items()):
+        if k in v2_keys and k not in out:
+            out[k] = v
+
+    # Filter each layer to allowed keys.
+    out = {k: v for k, v in out.items() if k in v2_keys}
     if blpx:
-        out["blpx"] = blpx
+        blpx = {k: v for k, v in blpx.items() if k in blpx_keys}
+        if blpx:
+            out["blpx"] = blpx
     if costs:
-        out["costs"] = costs
+        costs = {k: v for k, v in costs.items() if k in costs_keys}
+        if costs:
+            out["costs"] = costs
+
     return out
 
 
 class ProductionV2RunConfig(BaseModel):
     """Runtime parameters for the v2 daily production pipeline.
 
-    Parsed from the YAML ``portfolio:``, ``gross_scaling:``, ``costs:``,
-    ``fallback:``, ``blpx:``, ``residualization:``, ``features:``,
-    ``ml_order_overlay:``, ``gap_distribution:``, and other V2 sections
-    via ``_flatten_nested_yaml``.  Acts as the single source of truth for
-    all v2 pipeline constants.
+    Parsed from flat or nested YAML via ``_map_flat_to_nested``.  Acts as the
+    single source of truth for all v2 pipeline constants.
     """
     model_config = {"frozen": True, "extra": "forbid"}
 
@@ -430,146 +588,9 @@ class ProductionV2RunConfig(BaseModel):
     blpx: BLPXConfig = Field(default_factory=BLPXConfig, description="BLPX シグナルパラメータ")
     costs: CostConfig = Field(default_factory=CostConfig, description="コスト・ファイナンスパラメータ")
 
-    #: Top-level YAML sections that this validator flattens into flat fields and sub-models.
-    _NESTED_SECTIONS: ClassVar[tuple[str, ...]] = (
-        "portfolio", "gross_scaling", "costs", "fallback",
-        "multi_horizon_blend", "cs_feature_overlay", "blpx",
-        "residualization", "features", "ml_order_overlay",
-        "gap_distribution", "execution", "ranking", "signal_components",
-    )
-
-    @model_validator(mode="before")
-    @classmethod
-    def _flatten_nested_yaml(cls, data: Any) -> Any:
-        """Flatten the nested production YAML structure into flat fields and sub-models.
-
-        Only keys explicitly present in the YAML are mapped; everything else
-        falls back to the ``Field`` defaults above (single source of truth).
-        Explicit top-level (flat) keys take precedence over nested sections.
-        """
-        if not isinstance(data, dict):
-            return data
-
-        data = _map_flat_to_nested(data)
-
-        portfolio = data.get("portfolio") or {}
-        gross_scaling = data.get("gross_scaling") or {}
-        costs = data.get("costs") or {}
-        fallback = data.get("fallback") or {}
-        mh = data.get("multi_horizon_blend") or {}
-        cs = data.get("cs_feature_overlay") or {}
-        blpx = data.get("blpx") or {}
-        residualization = data.get("residualization") or {}
-        features = data.get("features") or {}
-        frac_diff = features.get("fractional_diff") or {}
-        ml = data.get("ml_order_overlay") or {}
-        gap_dist = data.get("gap_distribution") or {}
-        execution = data.get("execution") or {}
-        ranking = data.get("ranking") or {}
-        signal_components = data.get("signal_components") or {}
-        multipliers = (gross_scaling.get("multipliers") or {}) if isinstance(gross_scaling, dict) else {}
-
-        if not any(
-            [
-                portfolio, gross_scaling, costs, fallback, mh, cs, blpx,
-                residualization, features, ml, gap_dist, execution, ranking,
-                signal_components,
-            ]
-        ):
-            return data
-
-        flat = {k: v for k, v in data.items() if k not in cls._NESTED_SECTIONS}
-
-        # Build nested blpx sub-model (do not emit flat blpx_* aliases)
-        blpx_cfg = dict(blpx) if isinstance(blpx, dict) else {}
-        if residualization and isinstance(residualization, dict):
-            if residualization.get("beta_window") is not None and "beta_window" not in blpx_cfg:
-                blpx_cfg["beta_window"] = residualization["beta_window"]
-            if residualization.get("topix_beta_coef") is not None and "topix_beta_coef" not in blpx_cfg:
-                blpx_cfg["topix_beta_coef"] = residualization["topix_beta_coef"]
-        if signal_components and isinstance(signal_components, dict):
-            for comp, weight_key in (
-                ("raw_pca", "raw_pca_weight"),
-                ("residual_pca", "residual_pca_weight"),
-                ("raw_blpx", "raw_blpx_weight"),
-                ("residual_blpx", "residual_blpx_weight"),
-            ):
-                comp_cfg = signal_components.get(comp)
-                if isinstance(comp_cfg, dict) and weight_key not in blpx_cfg:
-                    enabled = bool(comp_cfg.get("enabled", False))
-                    blpx_cfg[weight_key] = float(comp_cfg.get("weight", 1.0 if enabled else 0.0)) if enabled else 0.0
-        if blpx_cfg and "blpx" not in flat:
-            flat["blpx"] = blpx_cfg
-
-        # Build nested costs sub-model
-        costs_cfg = dict(costs) if isinstance(costs, dict) else {}
-        if execution and isinstance(execution, dict) and execution.get("side_leverage") is not None:
-            costs_cfg.setdefault("side_leverage", execution["side_leverage"])
-        if costs_cfg and "costs" not in flat:
-            flat["costs"] = costs_cfg
-
-        candidates = {
-            "long_count": portfolio.get("long_count"),
-            "short_count": portfolio.get("short_count"),
-            "baseline_gross": gross_scaling.get("baseline_gross"),
-            "cost_bps_per_gross": costs.get("cost_bps_per_gross"),
-            "pit_rolling_window": gross_scaling.get("pit_rolling_window"),
-            "tertile_low_pct": gross_scaling.get("tertile_low_pct"),
-            "tertile_high_pct": gross_scaling.get("tertile_high_pct"),
-            "mult_low": multipliers.get("Low"),
-            "mult_mid": multipliers.get("Medium"),
-            "mult_high": multipliers.get("High"),
-            "fallback_multiplier": gross_scaling.get("fallback_multiplier"),
-            "fallback_on_gap_data_missing": fallback.get("fallback_on_gap_data_missing"),
-            "fallback_on_audit_failure": fallback.get("fallback_on_audit_failure"),
-            "ondemand_fallback_enabled": fallback.get("ondemand_fallback_enabled"),
-            "shadow_ondemand_validation": fallback.get("shadow_ondemand_validation"),
-            "mh_blend_enabled": mh.get("enabled"),
-            "mh_horizons": mh.get("horizons"),
-            "mh_weights": mh.get("weights"),
-            "mh_mu_file_pattern_h": mh.get("mu_file_pattern_h"),
-            "mh_omega_file_pattern_h": mh.get("omega_file_pattern_h"),
-            "cs_overlay_enabled": cs.get("enabled"),
-            "cs_overlay_weight": cs.get("weight"),
-            "cs_rank_reversal_file_pattern": cs.get("rank_reversal_file_pattern"),
-            "minvar_enabled": portfolio.get("minvar_enabled"),
-            "minvar_alpha": portfolio.get("minvar_alpha"),
-            # Macro keys: production.yaml places them under blpx: (not portfolio:).
-            # portfolio: takes precedence if both are present.
-            "macro_kappa_enabled": portfolio.get("macro_kappa_enabled", blpx.get("macro_kappa_enabled")),
-            "macro_kappas": portfolio.get("macro_kappas", blpx.get("macro_kappas")),
-            "macro_surprise_halflife_mean": portfolio.get(
-                "macro_surprise_halflife_mean", blpx.get("macro_surprise_halflife_mean")
-            ),
-            "macro_surprise_halflife_vol": portfolio.get(
-                "macro_surprise_halflife_vol", blpx.get("macro_surprise_halflife_vol")
-            ),
-            "macro_direction_enabled": portfolio.get(
-                "macro_direction_enabled", blpx.get("macro_direction_enabled")
-            ),
-            "gap_input_dir": gap_dist.get("dir"),
-            "mu_file_pattern": gap_dist.get("mu_file_pattern"),
-            "omega_file_pattern": gap_dist.get("omega_file_pattern"),
-            "sigma_floor": ranking.get("sigma_floor"),
-            "residualization_enabled_for_p3": residualization.get("enabled_for_p3"),
-            "residualization_beta_window": residualization.get("beta_window"),
-            "residualization_beta_winsor_sigma": residualization.get("beta_winsor_sigma"),
-            "residualization_beta_shrinkage": residualization.get("beta_shrinkage"),
-            "frac_diff_enabled": frac_diff.get("enabled"),
-            "frac_diff_d": frac_diff.get("d"),
-            "frac_diff_threshold": frac_diff.get("threshold"),
-            "frac_diff_window": frac_diff.get("window"),
-            "frac_diff_normalize": frac_diff.get("normalize"),
-            "ml_overlay_enabled": ml.get("enabled"),
-            "ml_overlay_model_dir": ml.get("model_dir"),
-            "ml_overlay_use_ticker": ml.get("use_ticker"),
-            "ml_overlay_use_classification": ml.get("use_classification"),
-            "ml_overlay_per_ticker_interactions": ml.get("per_ticker_interactions"),
-        }
-        for key, value in candidates.items():
-            if value is not None and key not in flat:
-                flat[key] = value
-        return flat
+    # --- Class helpers ---
+    # ``_map_flat_to_nested`` in this module handles both nested and flat YAML
+    # normalization; the model itself no longer needs a pre-validation hook.
 
 
 class AppConfig(BaseModel):

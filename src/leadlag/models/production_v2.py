@@ -33,7 +33,7 @@ import pandas as pd
 
 from leadlag.compliance.v2_auditor import run_leakage_audit, run_numerical_audit
 from leadlag.config import safe_config_copy
-from leadlag.config.schemas import ProductionV2RunConfig
+from leadlag.config.schemas import ProductionV2RunConfig, _map_flat_to_nested
 from leadlag.core.gap_adjustment import (
     build_raw_distribution,
     compute_gap_adjusted_distribution,
@@ -50,7 +50,7 @@ from leadlag.core.market_calendar import previous_trading_day
 from leadlag.core.portfolio import get_rolling_pit_bin, solve_baseline_style
 from leadlag.core.signal import build_weights_minvar
 from leadlag.data.tickers import JP_TICKERS, US_TICKERS
-from leadlag.models.signal_enhancement import apply_multi_horizon_blend, apply_rank_reversal_overlay
+from leadlag.models.signal_enhancement import apply_rank_reversal_overlay
 from leadlag.utils.gap_matrix_io import load_gap_matrices
 
 logger = logging.getLogger(__name__)
@@ -138,18 +138,11 @@ SHORT_COUNT = 5
 
 
 def parse_run_config(cfg: dict) -> ProductionV2RunConfig:
-    """Convert a raw YAML cfg dict to a validated ``ProductionV2RunConfig``.
+    """Convert a raw (possibly flat) YAML cfg dict to a validated ``ProductionV2RunConfig``.
 
-    Reads the following top-level YAML sections:
-      - ``portfolio``     → ``long_count``, ``short_count``
-      - ``gross_scaling`` → ``baseline_gross``, PIT binning params, RuleD multipliers
-      - ``costs``         → ``cost_bps_per_gross``
-      - ``fallback``      → fallback behavior flags
-
-    Any missing key falls back to the Pydantic field default so the function
-    is safe to call with an empty dict (e.g. in tests). Nested YAML sections
-    are flattened by ``ProductionV2RunConfig._flatten_nested_yaml`` so that
-    field defaults live only in the Pydantic schema (single source of truth).
+    Reads both the legacy nested YAML sections and the new flat top-level
+    keys, normalizes them through ``_map_flat_to_nested``, and validates
+    against the Pydantic schema.  Missing keys fall back to field defaults.
 
     Args:
         cfg: Raw dict loaded from the production YAML file.
@@ -157,13 +150,9 @@ def parse_run_config(cfg: dict) -> ProductionV2RunConfig:
     Returns:
         Validated, frozen ``ProductionV2RunConfig`` instance.
     """
-    cfg = cfg or {}
-    allowed = set(ProductionV2RunConfig._NESTED_SECTIONS) | set(ProductionV2RunConfig.model_fields)
-    filtered = {k: v for k, v in cfg.items() if k in allowed}
-    dropped = [k for k in cfg if k not in allowed]
-    if dropped:
-        logger.debug("parse_run_config dropped non-V2 top-level keys: %s", dropped)
-    return ProductionV2RunConfig.model_validate(filtered)
+    cfg = safe_config_copy(cfg) or {}
+    mapped = _map_flat_to_nested(cfg)
+    return ProductionV2RunConfig(**mapped)
 
 
 # ---------------------------------------------------------------------------
@@ -716,23 +705,12 @@ def generate_v2_production_portfolio(
     gap_input_dir: Path | None,
     cfg: ProductionV2RunConfig | dict,
 ) -> dict:
-    """Core v2 production portfolio construction.
+    """Backward-compatible wrapper around ``ProductionV2Model.decide``.
 
     All runtime parameters come from a validated ``ProductionV2RunConfig``.
     A raw dict is still accepted for backward compatibility with research
     scripts; it is parsed into ``ProductionV2RunConfig`` at the boundary.
-    New production code should pass a Pydantic config directly.
-
-    Pipeline:
-      1. Parse *cfg* → ``ProductionV2RunConfig`` (if needed).
-      2. Load gap-adjusted distribution matrices (or flat fallback).
-      3. Ensure Omega_gap is PSD and apply macro adjustments.
-      4. Compute mu_over_sigma scores; optionally blend multi-horizon /
-         apply rank-reversal overlay.
-      5. Select longs/shorts and compute pre-gross weights.
-      6. PIT binning (RuleD) using strictly historical IR history.
-      7. Apply RuleD gross multiplier.
-      8. Safety audits; if numerical audit fails → return flat position.
+    New production code should construct a ``ProductionV2Model`` directly.
 
     Args:
         trade_date: Execution date in 'YYYY-MM-DD' format.
@@ -740,31 +718,19 @@ def generate_v2_production_portfolio(
         cfg: Validated ``ProductionV2RunConfig`` or raw YAML-style dict.
 
     Returns:
-        Dict with keys:
-          w_final, scores, mu_gap, sigma_gap, Omega_gap,
-          fallback, pit_binning, leakage, numerical, alerts, summary,
-          run_config (ProductionV2RunConfig — passed to writer layer)
+        V2 result dict (same as ``ProductionV2Model.decide`` with overlay off).
     """
-    # 1. Parse cfg → single source of truth for all runtime parameters
     cfg = safe_config_copy(cfg)
     run_cfg = cfg if isinstance(cfg, ProductionV2RunConfig) else parse_run_config(cfg)
 
-    n_j = len(JP_TICKERS)
-    date_str = pd.to_datetime(trade_date).strftime("%Y-%m-%d")
-
-    # 2. Load gap matrices or flat fallback
-    gap_stage = _load_gap_or_flat(gap_input_dir, run_cfg, n_j, date_str)
-    if gap_stage["is_flat"]:
-        return cast(dict, gap_stage["result"])
-
-    # 3. Build final portfolio from the file gap-adjusted distribution.
-    return generate_v2_production_portfolio_from_distribution(
-        mu_gap=gap_stage["mu_gap"],
-        omega_gap=gap_stage["Omega_gap"],
+    v2_model = ProductionV2Model(run_cfg, blpx_model=None, overlay_model=None)
+    return v2_model.decide(
         trade_date=trade_date,
-        run_config=run_cfg,
-        df_exec=None,
         gap_input_dir=gap_input_dir,
+        df_exec=None,
+        current_prices=None,
+        overlay_enabled=False,
+        use_file_cache=True,
     )
 
 
@@ -801,6 +767,36 @@ class ProductionV2Model:
 
         self.n_u = len(US_TICKERS)
         self.n_j = len(JP_TICKERS)
+
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+
+    def _file_cache_or_flat(
+        self,
+        trade_date: str,
+        gap_input_dir: Path | None,
+    ) -> dict:
+        """Load pre-computed gap matrices or return a flat-position result.
+
+        This is the file-cache decision path; it does not use the on-demand
+        BLPX model.
+        """
+        gap_stage = _load_gap_or_flat(
+            gap_input_dir, self.run_config, self.n_j, trade_date
+        )
+        if gap_stage["is_flat"]:
+            return cast(dict, gap_stage["result"])
+
+        return generate_v2_production_portfolio_from_distribution(
+            mu_gap=gap_stage["mu_gap"],
+            omega_gap=gap_stage["Omega_gap"],
+            trade_date=trade_date,
+            run_config=self.run_config,
+            df_exec=None,
+            gap_input_dir=gap_input_dir,
+            scores=None,
+        )
 
     # ------------------------------------------------------------------
     # Public API
@@ -878,14 +874,10 @@ class ProductionV2Model:
             except Exception as e:
                 if self.run_config.fallback_on_gap_data_missing:
                     logger.error(
-                        "[%s] On-demand V2 computation failed: %s. Returning flat position.",
+                        "[%s] On-demand V2 computation failed: %s. Falling back to file cache / flat.",
                         trade_date, e,
                     )
-                    result = _load_gap_or_flat(
-                        gap_input_dir, self.run_config, self.n_j, trade_date
-                    ).get("result")
-                    if result is None:
-                        raise
+                    result = self._file_cache_or_flat(trade_date, gap_input_dir)
                 else:
                     raise
 
@@ -896,11 +888,7 @@ class ProductionV2Model:
                     "[%s] blpx_model not available; falling back to file cache.",
                     trade_date,
                 )
-            result = generate_v2_production_portfolio(
-                trade_date=trade_date,
-                gap_input_dir=gap_input_dir,
-                cfg=self.run_config,
-            )
+            result = self._file_cache_or_flat(trade_date, gap_input_dir)
 
         # Optional overlay.
         return self._apply_overlay(result, trade_date, df_exec, overlay_enabled)

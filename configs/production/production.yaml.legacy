@@ -1,0 +1,227 @@
+model:
+  name: production_residual_blpx
+  display_name: "Production Residual-BLPX-RA v2 (mu_over_sigma + RuleD)"
+  short_name: "Residual-BLPX-RA-v2"
+  version: "production_residual_blpx_v2"
+
+signal_components:
+  residual_blpx:
+    enabled: true
+    weight: 1.0
+  raw_pca:
+    enabled: false
+    weight: 0.0
+  residual_pca:
+    enabled: false
+    weight: 0.0
+  raw_blpx:
+    enabled: false
+    weight: 0.0
+
+final_signal:
+  type: residual_blpx_only
+  formula: z(Residual-BLPX)
+
+# --- v2 拡張: ランキング方式 ---
+ranking:
+  mode: mu_over_sigma           # gap 調整済み予測分布ベースのリスク調整スコア
+  score_formula: "mu_gap / sigma_gap"
+  sigma_floor: 1.0e-6           # ゼロ除算防止フロア
+  # mu_over_sigma スコアが利用不可の場合は baseline Residual-BLPX スコアにフォールバック
+  fallback_to_base_signal: true
+
+# --- v2 拡張: 動的グロスエクスポージャー (RuleD) ---
+gross_scaling:
+  rule: RuleD                   # Low→0.75, Medium→1.00, High→1.00
+  pit_rolling_window: 252       # PIT 三分位ビニング用ローリング窓（営業日）
+  multipliers:
+    Low: 0.75
+    Medium: 1.00
+    High: 1.00
+  tertile_low_pct: 33.3333      # 低閾値パーセンタイル
+  tertile_high_pct: 66.6667     # 高閾値パーセンタイル
+  baseline_gross: 2.0           # pre-gross 基準グロスエクスポージャー
+  # 252日未満の履歴の場合は multiplier=1.00 にフォールバック
+  fallback_multiplier: 1.00
+
+# --- v2 拡張: gap 調整済み分布の参照先 ---
+gap_distribution:
+  # 日次更新される latest/ シンボリックリンクを参照
+  # `leadlag.cli decision --gap-dir` で上書き可能
+  dir: var/live/pipeline_data/gap_adjusted_distribution/latest
+  mu_file_pattern: "matrices/mu_gap_{date}.npy"    # date = YYYYMMDD
+  omega_file_pattern: "matrices/omega_gap_{date}.npy"
+  diagnostics_file: "portfolio_gap_distribution_diagnostics.csv"
+
+portfolio:
+  long_short_frac: 0.3
+  n_assets: 17
+  weight_mode: signal           # baseline_style = signal 加重（シグナルに mu_over_sigma を使用）
+  net_target: 0.0
+  long_count: 5
+  short_count: 5
+  # --- MinVar weight optimization (Step 2: portfolio construction) ---
+  # When enabled, uses Omega_gap (predicted covariance) to minimize portfolio variance
+  # within long/short baskets. Blends signal-proportional weights with min-variance weights.
+  # alpha=0.8 is the optimal balance (0=signal only, 1=pure minvar).
+  minvar_enabled: true
+  minvar_alpha: 0.8             # 0=signal比例, 1=純最小分散, 0.8=最適バランス
+
+risk:
+  max_gross_exposure: 3.0       # RuleD 乗数適用後の上限（side_leverage=1.5 × gross_abs_sum=2.0 = 3.0）
+  max_net_exposure: 0.05
+  var_confidence: 0.99
+  var_window: 250
+  var_warning: 0.02
+  var_stop: 0.03
+  es_warning: 0.025
+  es_stop: 0.04
+  daily_loss_warning: 0.015
+  daily_loss_stop: 0.025
+  monthly_loss_stop: 0.05
+
+costs:
+  slippage_bps_per_side: 5
+  cost_bps_per_gross: 10.0      # 動的グロス計算の ex-ante コスト（bps/unit gross）
+  # --- Overnight holding (position carry-over) ---
+  overnight_alpha_long: 0.75     # ロング持ち越し比率 (0=日次全額決済, 1=全額持ち越し)
+  overnight_alpha_short: 0.5     # ショート持ち越し比率 (0=日次全額決済, 1=全額持ち越し)
+  buy_interest_annual: 0.025    # ロング資金調達コスト (年率 2.5%)
+  borrow_fee_annual: 0.0115     # 空売り貸株コスト (年率 1.15%)
+  reverse_fee_bps: 2.0          # 逆日歩 (bps/day, ショート側のみ)
+
+blpx:
+  param_set: phase1d_optimized_residual_blpx_production
+  rho: 0.01
+  alpha_xx: 0.20
+  alpha_yx: 0.15
+  alpha_yy: 0.50
+  lambda_pca: 0.10
+  lambda_sector: 0.60
+  beta_conf: 0.25
+  winsor_sigma: 3.0
+  blp_window: 504
+  ewma_halflife: 120
+  sector_eta: 0.5
+  sector_gamma: 4.0
+  execution_target_cost_adjustment: none
+  target: topix_residual
+  use_raw_target: false
+  asymmetry_mode: "scalar"
+  asymmetry_delta: 0.30
+  gap_open_coef_neg: 0.60
+  topix_beta_coef_neg: 0.60
+  vol_adjusted_target: false       # インサンプル平均+標準偏差で mu_raw を復元 (2024-フル期間で Sharpe +1.33)
+  # --- Macro Confidence (Factor-Specific Kappa) ---
+  # Step 1/2 (SectorRelativeEnsembleBLPEnhancedModel):
+  #   macro_confidence_enabled  -> scales signal strength by kappa * |surprise| * |sensitivity|
+  #   macro_direction_enabled   -> signed surprise * signed sensitivity multiplicative adjustment
+  # V2 primary (ProductionV2Model):
+  #   macro_kappa_enabled       -> inflates Omega_gap predictive covariance by the same kappa factor
+  #   macro_direction_enabled   -> multiplicatively adjusts mu_gap by signed macro surprise
+  macro_confidence_enabled: true
+  macro_kappa_enabled: true
+  macro_direction_enabled: true
+  macro_kappas: [3.0, 0.5, 0.5]   # [USDJPY, CLF, TNX]
+  macro_surprise_halflife_mean: 20.0
+  macro_surprise_halflife_vol: 60.0
+
+  # --- Copula correlation blending (Step 1/2: signal generation) ---
+  # t-copula captures tail dependence that Pearson correlation misses.
+  # Dynamic blend activates copula only during stress periods.
+  # Used by SectorRelativeEnsembleBLPEnhancedModel when building omega_struct / mu_gap.
+  copula_enabled: true
+  copula_blend_weight: 1.0        # Copula weight in blended correlation (1.0 = full copula when active)
+  copula_dynamic_blend: true      # Stress-activated blending (recommended)
+  copula_stress_threshold: 1.5    # Volatility ratio threshold for stress detection
+  copula_nu_init: 5.0             # t-copula degrees of freedom (lower = stronger tail dependence)
+
+residualization:
+  enabled_for_p3: true
+  jp_market_proxy: TOPIX
+  beta_window: 60
+  beta_winsor_sigma: 3.0    # ベータ推定前のローリングウィンソライズ (3σ)
+  beta_shrinkage: 0.05      # ベータの1.0へのベイズ縮小強度
+  method: rolling_ols
+  lookahead_safe: true
+  topix_beta_coef: 0.6  # バックテスト検証により0.6が1.20より優れたパフォーマンスを示す
+
+# --- Fractional Differentiation (本番適用: 2026-07-21) ---
+# US return series are transformed via fractional differencing to preserve
+# long memory while maintaining stationarity. Walk-forward validation
+# (2015-2026, 12 yearly windows) confirmed d=0.1 outperforms d=1.0 baseline
+# in 12/12 windows (mean Sharpe 8.87 vs 7.75, turnover -3%).
+# See: López de Prado (2018), "Advances in Financial Machine Learning", Ch.5
+# Validation report: reports/fractional_diff_walkforward_audit_report.md
+features:
+  fractional_diff:
+    enabled: true
+    d: 0.1
+    threshold: 1.0e-5
+    window: 100
+
+# --- Phase 2A: マルチホライズン信号ブレンド ---
+multi_horizon_blend:
+  enabled: true
+  horizons: [1, 3, 5]             # ブレンド対象ホライズン（日）
+  weights: [0.8, 0.1, 0.1]        # 各ホライズンのブレンド重み
+  # h>1 の累積リターンに対応する gap matrix は別途計算・保存される
+  # ファイルが存在しない場合は h1 のみでフォールバック（graceful degradation）
+  mu_file_pattern_h: "matrices/mu_gap_h{h}_{date}.npy"     # h>1 用パターン
+  omega_file_pattern_h: "matrices/omega_gap_h{h}_{date}.npy"
+
+# --- Phase 2D: クロスセクショナル・ランク反転オーバーレイ ---
+cs_feature_overlay:
+  enabled: true
+  feature: rank_reversal
+  weight: 0.05                    # ブレンド重み（z(base) + weight * z(rank_reversal)）
+  # ランク反転シグナルは gap distribution 計算プロセスで事前計算・保存される
+  rank_reversal_file_pattern: "matrices/rank_reversal_{date}.npy"
+
+# --- v2: フォールバック階層 ---
+# 注意: v1 fallback (Residual-BLPX) は2026-07-09に廃止されました
+# gap data欠損時はまず on-demand BLPX 計算を試み、失敗/無効時は flat position (w_final=0) を返します
+fallback:
+  enabled: true
+  fallback_on_audit_failure: true
+  fallback_on_missing_data: true
+  fallback_on_invalid_confidence_variance: true
+  fallback_on_sector_prior_error: true
+  fallback_on_gap_data_missing: true   # gap data 欠損/on-demand 失敗時に flat position を返す
+  ondemand_fallback_enabled: true       # gap ファイル不在時に on-demand BLPX でフォールバック
+  shadow_ondemand_validation: false     # 本番では file cache 読み込み時に on-demand shadow 比較を行う（遅延増大）
+
+audit:
+  enforce_signal_weighting: true
+  forbid_uniform_weighting: true
+  check_date_alignment: true
+  check_residualization_leakage: true
+  check_cost_consistency: true
+  check_weight_constraints: true
+  # v2 追加監査項目
+  check_pit_binning_lookahead: true    # PIT ビニングが strictly historical であること
+  check_gap_data_freshness: true       # gap data の日付が trade_date と整合すること
+
+ml_order_overlay:
+  enabled: true
+  model_dir: models/ml_order_overlay/phase2_8
+  use_ticker: true
+  use_classification: false
+  per_ticker_interactions: true
+  p_trade_ema_span: 0.0
+  fallback_to_baseline: true
+
+# --- 実行パラメーター ---
+execution:
+  side_leverage: 1.5        # 信用取引のロング+ショート合計レバレッジ倍率（gross = weights × side_leverage）
+
+output:
+  base_dir: results/production_residual_blpx
+  live_dir: live/production_residual_blpx
+  save_signals: true
+  save_weights: true
+  save_plots: true
+  run_audit: true
+  # v2 追加出力
+  save_pit_binning: true              # PIT ビニング詳細を pit_binning.json に保存
+  save_scores: true                   # mu_over_sigma スコアを production_scores.csv に保存
