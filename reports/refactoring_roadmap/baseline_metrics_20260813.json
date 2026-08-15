@@ -1,0 +1,20 @@
+{
+  "version": "v20260813",
+  "description": "Baseline V2 backtest metrics captured for the refactoring roadmap. This run covers a short OOS window used to validate the refactored pipeline; the full 2015-01-05 to 2026-08-13 run remains the canonical long-term baseline.",
+  "period": {
+    "start_date": "2026-06-15",
+    "end_date": "2026-08-13",
+    "samples": 40
+  },
+  "annualized_return": 1.417929614534744,
+  "annualized_risk": 0.1351881217794118,
+  "risk_return_ratio": 10.488566568358705,
+  "net_sharpe": 10.488566568358703,
+  "max_drawdown": -0.06960401974598507,
+  "total_return": 0.3962935605344138,
+  "mean_turnover": 1.4643586774944277,
+  "fallback_count": 0,
+  "fallback_rate": 0.0,
+  "run_time": "2026-08-14T15:48:45",
+  "command": "python3 -m leadlag.cli backtest --config configs/production/production.yaml --start-date 2026-06-15 --end-date 2026-08-14 --gap-dir var/live/pipeline_data/gap_adjusted_distribution/regression_20260814/20260814_154825"
+}

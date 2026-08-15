@@ -241,8 +241,9 @@ def run_sprint0_calculations(
     from pathlib import Path
     prod_config_path = Path(__file__).resolve().parents[3] / "configs" / "production" / "production.yaml"
     import yaml
+    from leadlag.models.production_v2 import parse_run_config
     with open(prod_config_path) as f:
-        prod_config = yaml.safe_load(f)
+        prod_config = parse_run_config(yaml.safe_load(f)).model_dump()
 
     # Standard model (with gap adjustment)
     model_gap = SectorRelativeEnsembleBLPEnhancedModel(prod_config)
