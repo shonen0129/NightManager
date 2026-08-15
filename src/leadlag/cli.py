@@ -266,6 +266,27 @@ def setup_parser() -> argparse.ArgumentParser:
     close_parser = subparsers.add_parser("close", help="Run end-of-day position closing logic")
     _add_close_args(close_parser)
 
+    # --- NEXTGEN SHADOW SUBCOMMAND ---
+    shadow_parser = subparsers.add_parser(
+        "nextgen-shadow", help="Run Next-Gen Convex Pipeline shadow comparison against Production V2"
+    )
+    shadow_parser.add_argument(
+        "--trade-date",
+        default="latest",
+        help="Trade date in YYYY-MM-DD or 'latest' (default: latest).",
+    )
+    shadow_parser.add_argument(
+        "--config",
+        default="configs/production/production.yaml",
+        help="Path to V2 production YAML config (default: configs/production/production.yaml).",
+    )
+    shadow_parser.add_argument(
+        "--capital",
+        type=float,
+        default=1_000_000.0,
+        help="Equity capital in JPY (default: 1000000).",
+    )
+
     # --- SELF-TEST SUBCOMMAND ---
     subparsers.add_parser("self-test", help="Run CLI production self-tests and exit")
 
@@ -360,6 +381,18 @@ def _handle_close(args: argparse.Namespace) -> int:
     return 0
 
 
+def _handle_nextgen_shadow(args: argparse.Namespace) -> int:
+    """Run Next-Gen Convex Pipeline shadow comparison against Production V2."""
+    from tools.validation.run_nextgen_shadow_pipeline import run_shadow_comparison
+
+    run_shadow_comparison(
+        trade_date=args.trade_date,
+        config_path=args.config,
+        capital=args.capital,
+    )
+    return 0
+
+
 def _handle_self_test(args: argparse.Namespace) -> int:
     """Run production self-tests."""
     from leadlag.execution.self_test import run_self_tests
@@ -434,6 +467,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _handle_close(args)
     if args.command == "daily":
         return _handle_daily(args)
+    if args.command == "nextgen-shadow":
+        return _handle_nextgen_shadow(args)
     if args.command == "self-test":
         return _handle_self_test(args)
 
