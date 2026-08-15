@@ -593,6 +593,22 @@ class ProductionV2RunConfig(BaseModel):
     # normalization; the model itself no longer needs a pre-validation hook.
 
 
+class NextGenConfig(BaseModel):
+    """Next-Gen convex portfolio optimizer configuration."""
+
+    model_config = {"frozen": True}
+
+    lambda_risk: float = Field(default=3.0, ge=0.0, description="リスク回避係数")
+    cost_bps: float = Field(default=5.0, ge=0.0, description="取引コスト bps")
+    turnover_penalty: float = Field(default=0.0001, ge=0.0, description="ターンオーバーペナルティ")
+    max_single_weight: float = Field(default=0.25, gt=0.0, le=1.0, description="銘柄別最大ウェイト")
+    gross_target: float = Field(default=2.0, gt=0.0, description="目標グロスエクスポージャー")
+    min_weight_threshold: float = Field(default=1e-4, ge=0.0, description="ゼロ切り捨て閾値")
+    solver_tol: float = Field(default=1e-7, gt=0.0, description="SLSQP 停止許容値")
+    max_iter: int = Field(default=100, ge=1, description="SLSQP 最大反復回数")
+    smooth_eps: float = Field(default=1e-4, gt=0.0, description="Pseudo-Huber 平滑化パラメータ")
+
+
 class AppConfig(BaseModel):
     """Full application configuration.
 
@@ -620,6 +636,10 @@ class AppConfig(BaseModel):
     v2: ProductionV2RunConfig = Field(
         default_factory=ProductionV2RunConfig,
         description="V2 本番ポートフォリオ生成パラメータ",
+    )
+    nextgen: NextGenConfig = Field(
+        default_factory=NextGenConfig,
+        description="Next-Gen convex optimizer parameters",
     )
 
 

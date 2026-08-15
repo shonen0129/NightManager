@@ -2,6 +2,7 @@
 
 import sys
 
+
 def main() -> None:
     print(f"Python version: {sys.version}")
     packages = ["numpy", "pandas", "scipy", "pydantic", "polars", "cvxpy", "osqp", "httpx", "pytest"]

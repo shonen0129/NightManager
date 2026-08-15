@@ -13,9 +13,9 @@ import logging
 import sys
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 import numpy as np
-import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
@@ -25,7 +25,7 @@ from leadlag.data.market_data_cache import load_df_exec_from_local_cache
 from leadlag.data.pit_lake import PITDataLake
 from leadlag.data.tickers import JP_TICKERS
 from leadlag.execution.config import load_config_from_yaml
-from leadlag.execution.nextgen_pipeline import NextGenPipeline
+from leadlag.execution.nextgen_pipeline import NextGenDecisionResult, NextGenPipeline
 from leadlag.models.blpx import ProductionBLPXModel
 from leadlag.models.production_v2 import (
     ProductionV2Model,
@@ -40,7 +40,8 @@ def run_shadow_comparison(
     trade_date: str = "latest",
     config_path: str = "configs/production/production.yaml",
     capital: float = 1_000_000.0,
-) -> dict:
+    pit_ir_history_path: str = "var/shadow/nextgen_pit_ir_history.csv",
+) -> dict[str, Any]:
     """Run parallel shadow execution and comparison."""
     # 1. Load data & config
     df_exec = load_df_exec_from_local_cache()
@@ -54,12 +55,13 @@ def run_shadow_comparison(
     app_config = load_config_from_yaml(config_path)
 
     # 2. Run Baseline Production V2
-    print(f"\n=======================================================")
+    print("\n=======================================================")
     print(f"  SHADOW RUN EXECUTION COMPARISON: {trade_date}")
-    print(f"=======================================================")
+    print("=======================================================")
     print("\n[1/2] Running Baseline Production V2...")
     t0_base = datetime.now()
-    blpx_model = ProductionBLPXModel(app_config.model_dump())
+    # ProductionBLPXModel expects the v2 config so nested blpx/costs settings resolve.
+    blpx_model = ProductionBLPXModel(app_config.v2.model_dump())
     v2_model = ProductionV2Model(app_config.v2, blpx_model=blpx_model)
     current_prices = _build_current_prices_from_df_exec(df_exec, trade_date)
 
@@ -75,9 +77,9 @@ def run_shadow_comparison(
     # 3. Run Next-Gen Pipeline
     print("[2/2] Running Next-Gen Convex Pipeline...")
     t0_next = datetime.now()
-    nextgen = NextGenPipeline(app_config)
-    
-    async def _run_nextgen():
+    nextgen = NextGenPipeline(app_config, pit_ir_history_path=pit_ir_history_path)
+
+    async def _run_nextgen() -> NextGenDecisionResult:
         async with AsyncDryRunBrokerClient(simulated_latency_ms=10.0) as broker:
             return await nextgen.run_daily_decision(
                 trade_date=trade_date,
@@ -116,6 +118,11 @@ def run_shadow_comparison(
         print(f"{tk:<10} | {w_base[i]:>18.4f} | {w_next[i]:>18.4f} | {delta:>+12.4f}")
     print("-" * 65)
 
+    base_summary = base_decision.get("summary", {})
+    base_ex_ante_ret = float(base_summary.get("predicted_portfolio_mean", 0.0))
+    base_ex_ante_vol = float(base_summary.get("predicted_portfolio_vol", 0.0))
+    base_ex_ante_ir = float(base_summary.get("predicted_portfolio_ir", 0.0))
+
     summary_metrics = [
         ("Trade Date", trade_date, trade_date),
         ("Net Exposure", f"{np.sum(w_base):.6f}", f"{np.sum(w_next):.6f}"),
@@ -126,9 +133,9 @@ def run_shadow_comparison(
         ("Short Selection Overlap", "100.0% (Ref)", f"{short_overlap*100:.1f}%"),
         ("Active Long Positions", f"{len(base_longs)}", f"{len(next_longs)}"),
         ("Active Short Positions", f"{len(base_shorts)}", f"{len(next_shorts)}"),
-        ("Ex-ante Return", f"{base_decision.get('summary', {}).get('ret_ex_ante', 0.0)*10000:.2f} bps", f"{next_res.opt_result.ex_ante_return*10000:.2f} bps"),
-        ("Ex-ante Volatility", f"{base_decision.get('summary', {}).get('vol_ex_ante', 0.0)*10000:.2f} bps", f"{next_res.opt_result.ex_ante_vol*10000:.2f} bps"),
-        ("Ex-ante IR", f"{base_decision.get('summary', {}).get('ir_ex_ante', 0.0):.4f}", f"{next_res.opt_result.ex_ante_ir:.4f}"),
+        ("Ex-ante Return", f"{base_ex_ante_ret*10000:.2f} bps", f"{next_res.opt_result.ex_ante_return*10000:.2f} bps"),
+        ("Ex-ante Volatility", f"{base_ex_ante_vol*10000:.2f} bps", f"{next_res.opt_result.ex_ante_vol*10000:.2f} bps"),
+        ("Ex-ante IR", f"{base_ex_ante_ir:.4f}", f"{next_res.opt_result.ex_ante_ir:.4f}"),
         ("Execution Time", f"{t_base_elapsed:.3f}s", f"{t_next_elapsed:.3f}s"),
     ]
 
@@ -167,6 +174,15 @@ def main() -> None:
     parser.add_argument("--config", default="configs/production/production.yaml", help="YAML config path")
     parser.add_argument("--capital", type=float, default=1_000_000.0, help="Capital in JPY")
     args = parser.parse_args()
+
+    # Market holiday check for explicit trade dates (skip non-trading days)
+    if args.trade_date != "latest":
+        from leadlag.core.market_calendar import is_market_closed
+
+        check_date = datetime.strptime(args.trade_date, "%Y-%m-%d").date()
+        if is_market_closed(check_date):
+            logger.info("Market closed on %s. Skipping nextgen-shadow.", check_date)
+            return
 
     run_shadow_comparison(
         trade_date=args.trade_date,

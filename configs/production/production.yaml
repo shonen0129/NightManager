@@ -3,6 +3,15 @@ short_count: 5
 minvar_enabled: true
 minvar_alpha: 0.8
 baseline_gross: 2.0
+nextgen_lambda_risk: 3.0
+nextgen_cost_bps: 5.0
+nextgen_turnover_penalty: 0.0001
+nextgen_max_single_weight: 0.25
+nextgen_gross_target: 2.0
+nextgen_min_weight_threshold: 0.0001
+nextgen_solver_tol: 1e-07
+nextgen_max_iter: 100
+nextgen_smooth_eps: 0.0001
 pit_rolling_window: 252
 tertile_low_pct: 33.3333
 tertile_high_pct: 66.6667

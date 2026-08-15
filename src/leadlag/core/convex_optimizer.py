@@ -14,24 +14,17 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from typing import TypeAlias, cast
+
 import numpy as np
 from scipy.optimize import minimize
 
+from leadlag.config.schemas import NextGenConfig
+
 logger = logging.getLogger(__name__)
 
-
-@dataclass(frozen=True)
-class ConvexOptimizerConfig:
-    """Configuration for Convex Portfolio Optimizer."""
-    lambda_risk: float = 5.0
-    cost_bps: float = 5.0
-    turnover_penalty: float = 0.0001
-    max_single_weight: float = 0.25
-    gross_target: float = 2.0
-    min_weight_threshold: float = 1e-4
-    solver_tol: float = 1e-7
-    max_iter: int = 100
-    smooth_eps: float = 1e-4  # Pseudo-Huber smoothing parameter
+# Backward-compatible alias for the Pydantic NextGenConfig.
+ConvexOptimizerConfig: TypeAlias = NextGenConfig
 
 
 @dataclass(frozen=True)
@@ -57,24 +50,24 @@ def ensure_psd(matrix: np.ndarray, min_eigenvalue: float = 1e-8) -> np.ndarray:
         eigvals = np.maximum(eigvals, min_eigenvalue)
         sym = eigvecs @ np.diag(eigvals) @ eigvecs.T
         sym = 0.5 * (sym + sym.T)
-    return sym
+    return cast(np.ndarray, sym)
 
 
 def _smooth_abs(x: np.ndarray, eps: float = 1e-4) -> np.ndarray:
     """Smooth pseudo-Huber approximation of |x|: sqrt(x^2 + eps^2) - eps."""
-    return np.sqrt(x ** 2 + eps ** 2) - eps
+    return cast(np.ndarray, np.sqrt(x ** 2 + eps ** 2) - eps)
 
 
 def _smooth_abs_grad(x: np.ndarray, eps: float = 1e-4) -> np.ndarray:
     """Derivative of smooth pseudo-Huber: x / sqrt(x^2 + eps^2)."""
-    return x / np.sqrt(x ** 2 + eps ** 2)
+    return cast(np.ndarray, x / np.sqrt(x ** 2 + eps ** 2))
 
 
 def optimize_portfolio_convex(
     mu_gap: np.ndarray,
     omega_gap: np.ndarray,
     w_prev: np.ndarray | None = None,
-    config: ConvexOptimizerConfig | None = None,
+    config: NextGenConfig | None = None,
     gross_multiplier: float = 1.0,
 ) -> OptimizationResult:
     """Solve the convex portfolio optimization problem.
@@ -93,8 +86,41 @@ def optimize_portfolio_convex(
         config = ConvexOptimizerConfig()
 
     n_j = len(mu_gap)
+    if n_j == 0:
+        return OptimizationResult(
+            weights=np.zeros(0),
+            gross_exposure=0.0,
+            net_exposure=0.0,
+            ex_ante_return=0.0,
+            ex_ante_vol=0.0,
+            ex_ante_ir=0.0,
+            turnover=0.0,
+            converged=True,
+            iterations=0,
+            message="Empty input vector; returned flat position.",
+        )
+
     if w_prev is None:
         w_prev = np.zeros(n_j)
+    elif len(w_prev) != n_j:
+        w_prev = np.zeros(n_j)
+
+    # Sanity guard: Check for NaN or Inf in inputs
+    if not np.all(np.isfinite(mu_gap)) or not np.all(np.isfinite(omega_gap)) or not np.all(np.isfinite(w_prev)):
+        logger.warning("NaN or Inf detected in optimizer inputs. Returning safe flat position.")
+        zeros = np.zeros(n_j)
+        return OptimizationResult(
+            weights=zeros,
+            gross_exposure=0.0,
+            net_exposure=0.0,
+            ex_ante_return=0.0,
+            ex_ante_vol=0.0,
+            ex_ante_ir=0.0,
+            turnover=float(np.sum(np.abs(w_prev))),
+            converged=False,
+            iterations=0,
+            message="NaN/Inf input detected; safety fallback to flat position.",
+        )
 
     # Effective gross target incorporating dynamic scaling (e.g. RuleD)
     effective_gross = config.gross_target * gross_multiplier
@@ -135,7 +161,10 @@ def optimize_portfolio_convex(
         d_alpha = mu_gap
         d_risk = config.lambda_risk * np.dot(omega_psd, w)
         d_cost = cost_coeff * _smooth_abs_grad(w - w_prev, eps)
-        return -(d_alpha - d_risk - d_cost)
+        return cast(np.ndarray, -(d_alpha - d_risk - d_cost))
+
+    def _eq_jac(_w: np.ndarray) -> np.ndarray:
+        return np.ones(n_j, dtype=float)
 
     # Constraints:
     # 1. Exact market neutrality: sum(w) = 0
@@ -144,7 +173,7 @@ def optimize_portfolio_convex(
         {
             "type": "eq",
             "fun": lambda w: float(np.sum(w)),
-            "jac": lambda w: np.ones(n_j),
+            "jac": _eq_jac,
         },
         {
             "type": "ineq",
@@ -178,9 +207,14 @@ def optimize_portfolio_convex(
         },
     )
 
-    if not res.success and res.status != 0:
-        # Fallback: if optimizer didn't converge perfectly, still take current point if reasonable
-        w_opt = res.x.copy()
+    if not res.success:
+        # Optimizer did not converge: fall back to a flat position to avoid
+        # using an invalid or constraint-violating solution live.
+        logger.warning(
+            "SLSQP did not converge (status=%d, message=%s). Falling back to flat position.",
+            res.status, res.message,
+        )
+        w_opt = np.zeros(n_j)
         converged = False
     else:
         w_opt = res.x.copy()

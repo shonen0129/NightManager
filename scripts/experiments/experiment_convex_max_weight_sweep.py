@@ -7,6 +7,7 @@ and bridge the return gap to 199%+ (Sharpe 4.10+).
 
 import sys
 from pathlib import Path
+
 import numpy as np
 import pandas as pd
 
@@ -33,7 +34,7 @@ from leadlag.reporting.metrics import calculate_metrics
 def run_weight_cap_sweep(df_exec: pd.DataFrame) -> dict:
     app_config = load_config_from_yaml("configs/production/production.yaml")
     cfg = app_config.v2
-    blpx_model = ProductionBLPXModel(app_config.model_dump())
+    blpx_model = ProductionBLPXModel(cfg.model_dump())
     v2_model = ProductionV2Model(cfg, blpx_model=blpx_model)
 
     sim_dates, start_idx, end_idx = BacktestEngine._resolve_sim_dates(
@@ -64,8 +65,9 @@ def run_weight_cap_sweep(df_exec: pd.DataFrame) -> dict:
                 current_prices=current_prices,
                 horizon=1,
             )
-        except Exception:
-            mu1, om1 = np.zeros(n_j), np.eye(n_j)
+        except Exception as e:
+            print(f"Warning: distribution computation failed for {trade_date_str}: {e}. Skipping day.")
+            continue
 
         sig1 = np.sqrt(np.maximum(np.diag(om1), 1e-8))
         score1 = mu1 / sig1
@@ -77,8 +79,9 @@ def run_weight_cap_sweep(df_exec: pd.DataFrame) -> dict:
                 current_prices=current_prices,
                 use_file_cache=True,
             )
-        except Exception:
-            mu_mh, om_mh, score_mh = mu1, om1, score1
+        except Exception as e:
+            print(f"Warning: multi-horizon scores failed for {trade_date_str}: {e}. Falling back to single horizon.")
+            _, _, score_mh = mu1, om1, score1
 
         if score_mh is None:
             score_mh = score1
@@ -98,6 +101,8 @@ def run_weight_cap_sweep(df_exec: pd.DataFrame) -> dict:
                 history_ir=np.array(pit_ir_history),
                 current_ir=raw_ir,
                 rolling_window=cfg.pit_rolling_window,
+                low_pct=cfg.tertile_low_pct,
+                high_pct=cfg.tertile_high_pct,
                 mult_low=cfg.mult_low,
                 mult_mid=cfg.mult_mid,
                 mult_high=cfg.mult_high,

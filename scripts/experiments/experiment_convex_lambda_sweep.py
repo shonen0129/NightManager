@@ -6,6 +6,7 @@ Investigates how relaxing risk penalty restores alpha concentration and Sharpe r
 
 import sys
 from pathlib import Path
+
 import numpy as np
 import pandas as pd
 
@@ -31,7 +32,7 @@ from leadlag.reporting.metrics import calculate_metrics
 def run_sweep(df_exec: pd.DataFrame, lambda_list: list[float]) -> dict:
     app_config = load_config_from_yaml("configs/production/production.yaml")
     cfg = app_config.v2
-    blpx_model = ProductionBLPXModel(app_config.model_dump())
+    blpx_model = ProductionBLPXModel(cfg.model_dump())
     v2_model = ProductionV2Model(cfg, blpx_model=blpx_model)
 
     sim_dates, start_idx, end_idx = BacktestEngine._resolve_sim_dates(
@@ -61,8 +62,9 @@ def run_sweep(df_exec: pd.DataFrame, lambda_list: list[float]) -> dict:
                 current_prices=current_prices,
                 horizon=1,
             )
-        except Exception:
-            mu_gap, omega_gap = np.zeros(n_j), np.eye(n_j)
+        except Exception as e:
+            print(f"Warning: distribution computation failed for {trade_date_str}: {e}. Skipping day.")
+            continue
 
         sigma_gap = np.sqrt(np.maximum(np.diag(omega_gap), 1e-8))
         raw_ir = float(np.mean(mu_gap / sigma_gap)) if len(mu_gap) > 0 else 0.0
@@ -72,6 +74,8 @@ def run_sweep(df_exec: pd.DataFrame, lambda_list: list[float]) -> dict:
                 history_ir=np.array(pit_ir_history),
                 current_ir=raw_ir,
                 rolling_window=cfg.pit_rolling_window,
+                low_pct=cfg.tertile_low_pct,
+                high_pct=cfg.tertile_high_pct,
                 mult_low=cfg.mult_low,
                 mult_mid=cfg.mult_mid,
                 mult_high=cfg.mult_high,

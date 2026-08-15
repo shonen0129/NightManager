@@ -6,6 +6,7 @@ on the Full Production V2 Pipeline.
 
 import sys
 from pathlib import Path
+
 import numpy as np
 import pandas as pd
 
@@ -29,7 +30,7 @@ def run_test(df_exec: pd.DataFrame) -> None:
         start_date="2015-01-05",
         end_date="latest",
     )
-    base_net_m = calculate_metrics(base_results["daily_returns"])
+    _ = calculate_metrics(base_results["daily_returns"])
 
     sim_dates, start_idx, end_idx = BacktestEngine._resolve_sim_dates(df_exec, "2015-01-05", "latest", 250)
     sim_dates_slice = sim_dates[start_idx : end_idx + 1]

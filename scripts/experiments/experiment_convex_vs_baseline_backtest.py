@@ -15,19 +15,18 @@ Evaluates:
 
 import sys
 from pathlib import Path
+
 import numpy as np
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
-from leadlag.config.schemas import ProductionV2RunConfig
 from leadlag.core.convex_optimizer import (
     ConvexOptimizerConfig,
     optimize_portfolio_convex,
 )
 from leadlag.core.portfolio import get_rolling_pit_bin
 from leadlag.data.market_data_cache import load_df_exec_from_local_cache
-from leadlag.data.preprocessor import compute_jp_target_returns
 from leadlag.data.tickers import JP_TICKERS
 from leadlag.execution.backtester import BacktestEngine
 from leadlag.execution.config import load_config_from_yaml
@@ -50,7 +49,7 @@ def run_convex_backtest(
     # 1. Setup V2 model for distribution computation
     app_config = load_config_from_yaml("configs/production/production.yaml")
     cfg = app_config.v2
-    blpx_model = ProductionBLPXModel(app_config.model_dump())
+    blpx_model = ProductionBLPXModel(cfg.model_dump())
     v2_model = ProductionV2Model(cfg, blpx_model=blpx_model)
 
     # 2. Setup dates and targets
@@ -91,8 +90,9 @@ def run_convex_backtest(
                 current_prices=current_prices,
                 horizon=1,
             )
-        except Exception:
-            mu_gap, omega_gap = np.zeros(n_j), np.eye(n_j)
+        except Exception as e:
+            print(f"Warning: distribution computation failed for {trade_date_str}: {e}. Skipping day.")
+            continue
 
         # Ex-ante IR for RuleD PIT binning
         sigma_gap = np.sqrt(np.maximum(np.diag(omega_gap), 1e-8))
@@ -104,6 +104,8 @@ def run_convex_backtest(
                 history_ir=np.array(pit_ir_history),
                 current_ir=raw_ir,
                 rolling_window=cfg.pit_rolling_window,
+                low_pct=cfg.tertile_low_pct,
+                high_pct=cfg.tertile_high_pct,
                 mult_low=cfg.mult_low,
                 mult_mid=cfg.mult_mid,
                 mult_high=cfg.mult_high,
@@ -149,7 +151,7 @@ def run_convex_backtest(
 
 def main() -> None:
     print("=== Backtest Comparison: Baseline Production V2 vs Unified Convex Optimization ===")
-    
+
     df_exec = load_df_exec_from_local_cache()
     if df_exec is None:
         print("df_exec not found in local cache.")
@@ -182,10 +184,10 @@ def main() -> None:
 
     base_net_metrics = calculate_metrics(base_results["daily_returns"])
     base_gross_metrics = calculate_metrics(base_results["daily_returns_gross"])
-    
+
     sim_dates, start_idx, end_idx = BacktestEngine._resolve_sim_dates(df_exec, "2015-01-05", "latest", 250)
     sim_dates_slice = sim_dates[start_idx : end_idx + 1]
-    
+
     conv_net_series = pd.Series(convex_pnl["net_returns"], index=sim_dates_slice)
     conv_gross_series = pd.Series(convex_pnl["gross_returns"], index=sim_dates_slice)
     conv_net_metrics = calculate_metrics(conv_net_series)
@@ -219,7 +221,7 @@ def main() -> None:
     out_dir = Path("reports/nextgen_convex_backtest")
     out_dir.mkdir(parents=True, exist_ok=True)
     report_path = out_dir / "convex_vs_baseline_comparison.md"
-    
+
     with open(report_path, "w", encoding="utf-8") as f:
         f.write("# Next-Gen Convex Optimization vs Baseline Production V2 Backtest Report\n\n")
         f.write(f"**Period**: 2015-01-05 to {df_exec.index[-1].strftime('%Y-%m-%d')}\n\n")

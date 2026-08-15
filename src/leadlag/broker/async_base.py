@@ -8,7 +8,6 @@ from __future__ import annotations
 import asyncio
 import logging
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
@@ -105,7 +104,7 @@ class AsyncDryRunBrokerClient(AsyncBrokerClient):
         """Simulate order execution with non-blocking async delay."""
         await asyncio.sleep(self.latency_sec)
         order_id = f"DRY_{datetime.now().strftime('%Y%m%d%H%M%S%f')}_{order.ticker}"
-        
+
         # Simulate fill
         fill_price = order.limit_price if (order.limit_price is not None and order.limit_price > 0) else 1000.0
         result = OrderResult(
@@ -120,22 +119,29 @@ class AsyncDryRunBrokerClient(AsyncBrokerClient):
         )
         self.submitted_orders.append(result)
 
-        # Update simulated positions
+        # Update simulated positions with signed quantities (BUY=+, SELL=-)
         current_pos = self.positions.get(order.ticker)
-        current_qty = current_pos.quantity if current_pos else 0
-        current_side = current_pos.side if current_pos else str(order.side)
-
-        if str(order.side) == "BUY":
-            new_qty = current_qty + order.quantity if current_side == "BUY" else current_qty - order.quantity
+        if current_pos is None:
+            current_qty = 0
         else:
-            new_qty = current_qty + order.quantity if current_side == "SELL" else current_qty - order.quantity
+            current_qty = current_pos.quantity if current_pos.side == "BUY" else -current_pos.quantity
 
-        if new_qty <= 0:
+        signed_qty = order.quantity if str(order.side) == "BUY" else -order.quantity
+        new_qty = current_qty + signed_qty
+
+        if new_qty == 0:
             self.positions.pop(order.ticker, None)
+        elif new_qty > 0:
+            self.positions[order.ticker] = Position(
+                ticker=order.ticker,
+                side="BUY",
+                quantity=abs(new_qty),
+                price=fill_price,
+            )
         else:
             self.positions[order.ticker] = Position(
                 ticker=order.ticker,
-                side=str(order.side),
+                side="SELL",
                 quantity=abs(new_qty),
                 price=fill_price,
             )

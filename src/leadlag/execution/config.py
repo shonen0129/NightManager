@@ -17,6 +17,7 @@ from leadlag.config.schemas import (
     CostConfig,
     KabuApiConfig,
     MLOrderOverlayConfig,
+    NextGenConfig,
     ProductionV2RunConfig,
     RiskConfig,
     TachibanaApiConfig,
@@ -58,6 +59,7 @@ _ALLOWED_TOP_LEVEL_KEYS = frozenset({
     "output",
     "broker",
     "start_date",
+    "nextgen",
 })
 
 
@@ -66,7 +68,8 @@ def _allowed_top_level_keys() -> frozenset[str]:
     v2_keys = set(ProductionV2RunConfig.model_fields)
     blpx_flat = {f"blpx_{k}" for k in BLPXConfig.model_fields}
     costs_flat = set(CostConfig.model_fields)
-    return _ALLOWED_TOP_LEVEL_KEYS | frozenset(v2_keys | blpx_flat | costs_flat)
+    nextgen_flat = {f"nextgen_{k}" for k in NextGenConfig.model_fields}
+    return _ALLOWED_TOP_LEVEL_KEYS | frozenset(v2_keys | blpx_flat | costs_flat | nextgen_flat)
 
 
 # Load .env files from typical locations
@@ -287,6 +290,13 @@ def build_app_config_from_dict(yaml_data: dict[str, Any], strict: bool = False) 
     if gap_dir is None:
         gap_dir = str(v2_cfg.gap_input_dir or "")
 
+    # Next-Gen convex optimizer config (nested ``nextgen:`` or flat ``nextgen_*``)
+    nextgen_data: dict[str, Any] = {
+        k[8:]: v for k, v in yaml_data.items() if k.startswith("nextgen_")
+    }
+    nextgen_data.update(yaml_data.get("nextgen", {}) or {})
+    nextgen_cfg = NextGenConfig(**nextgen_data)
+
     return AppConfig(
         strategy=strategy_cfg,
         risk=risk_cfg,
@@ -299,6 +309,7 @@ def build_app_config_from_dict(yaml_data: dict[str, Any], strict: bool = False) 
         output_live_dir=output_data.get("live_dir", str(live("sector_relative_ensemble"))),
         run_audit=output_data.get("run_audit", True),
         gap_distribution_dir=gap_dir,
+        nextgen=nextgen_cfg,
     )
 
 

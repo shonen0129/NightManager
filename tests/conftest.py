@@ -73,12 +73,15 @@ def synthetic_df_exec() -> pd.DataFrame:
         ("jp_cc", JP_TICKERS),
         ("jp_oc", JP_TICKERS),
         ("jp_gap", JP_TICKERS),
-        ("jp_close_sig", JP_TICKERS),
-        ("jp_open_trade", JP_TICKERS),
         ("jp_beta", JP_TICKERS),
     ]:
         for tk in tickers:
             df[f"{family}_{tk}"] = rng.normal(0, 0.01, n_rows)
+
+    # Prices must be strictly positive
+    for family in ("jp_close_sig", "jp_open_trade"):
+        for tk in JP_TICKERS:
+            df[f"{family}_{tk}"] = 1000.0 + rng.normal(0, 10.0, n_rows)
 
     for col in ["topix_night_return", "topix_oc_return", "topix_cc_trade"]:
         df[col] = rng.normal(0, 0.01, n_rows)

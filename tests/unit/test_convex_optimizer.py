@@ -14,7 +14,7 @@ def test_ensure_psd():
     # Non-PSD matrix with negative eigenvalue
     A = np.array([[1.0, 2.0], [2.0, 1.0]])  # eigenvalues: 3.0, -1.0
     psd_A = ensure_psd(A, min_eigenvalue=1e-6)
-    
+
     # Must be symmetric
     assert np.allclose(psd_A, psd_A.T, atol=1e-12)
     # Eigenvalues must be >= 1e-6
@@ -27,7 +27,7 @@ def test_optimize_portfolio_convex_basic():
     n_j = 17
     np.random.seed(42)
     mu_gap = np.random.randn(n_j) * 0.01  # 1% standard deviation
-    
+
     # Random positive definite covariance matrix
     L = np.random.randn(n_j, n_j) * 0.01
     omega_gap = L @ L.T + np.eye(n_j) * 1e-4
@@ -38,7 +38,7 @@ def test_optimize_portfolio_convex_basic():
         gross_target=2.0,
         max_single_weight=0.25,
     )
-    
+
     res = optimize_portfolio_convex(
         mu_gap=mu_gap,
         omega_gap=omega_gap,
@@ -78,7 +78,7 @@ def test_optimize_portfolio_convex_turnover_penalty():
     np.random.seed(123)
     mu_gap = np.random.randn(n_j) * 0.01
     omega_gap = np.eye(n_j) * 1e-4
-    
+
     # Previous weights
     w_prev = np.zeros(n_j)
     w_prev[0] = 0.2

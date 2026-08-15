@@ -9,14 +9,11 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime
-from pathlib import Path
-from typing import Any
 
 import numpy as np
 import pandas as pd
 
-from leadlag.data.tickers import JP_TICKERS, TOPIX_TICKER, US_TICKERS
+from leadlag.data.tickers import JP_TICKERS, US_TICKERS
 
 logger = logging.getLogger(__name__)
 
@@ -41,13 +38,42 @@ class MarketSnapshot:
     current_prices: dict[str, float]  # JP tickers -> 9:10 execution prices
     prev_closes: dict[str, float]  # JP tickers -> previous day close prices
 
-    def __post_init__(self) -> None:
-        if len(self.us_returns) != len(US_TICKERS):
-            raise ValueError(f"Expected {len(US_TICKERS)} US returns, got {len(self.us_returns)}")
-        if len(self.jp_gap_returns) != len(JP_TICKERS):
-            raise ValueError(f"Expected {len(JP_TICKERS)} JP gap returns, got {len(self.jp_gap_returns)}")
-        if len(self.jp_betas) != len(JP_TICKERS):
-            raise ValueError(f"Expected {len(JP_TICKERS)} JP betas, got {len(self.jp_betas)}")
+    def validate(self, max_abs_return: float = 0.20) -> tuple[bool, list[str]]:
+        """Run sanity checks on snapshot data (prices, returns, NaN/Inf).
+
+        Returns:
+            (is_valid, list_of_error_messages)
+        """
+        errors: list[str] = []
+
+        # 1. Finite and bounded US returns
+        if not np.all(np.isfinite(self.us_returns)):
+            errors.append("Non-finite values detected in us_returns")
+        elif np.any(np.abs(self.us_returns) > max_abs_return):
+            errors.append(f"US returns exceed max_abs_return threshold ({max_abs_return:.1%})")
+
+        # 2. Finite and bounded JP gap returns
+        if not np.all(np.isfinite(self.jp_gap_returns)):
+            errors.append("Non-finite values detected in jp_gap_returns")
+        elif np.any(np.abs(self.jp_gap_returns) > max_abs_return):
+            errors.append(f"JP gap returns exceed max_abs_return threshold ({max_abs_return:.1%})")
+
+        # 3. Finite Betas
+        if not np.all(np.isfinite(self.jp_betas)):
+            errors.append("Non-finite values detected in jp_betas")
+
+        # 4. Valid current prices (positive and finite)
+        for tk in JP_TICKERS:
+            price = self.current_prices.get(tk, 0.0)
+            if not np.isfinite(price) or price <= 0.0:
+                errors.append(f"Invalid or missing execution price for {tk}: {price}")
+
+        return (len(errors) == 0, errors)
+
+    def is_valid(self, max_abs_return: float = 0.20) -> bool:
+        """Return True if the snapshot passes all sanity checks."""
+        valid, _ = self.validate(max_abs_return=max_abs_return)
+        return valid
 
 
 class PITDataLake:
@@ -83,6 +109,11 @@ class PITDataLake:
     def end_date(self) -> pd.Timestamp:
         return self._trade_dates[-1]
 
+    @property
+    def df_exec(self) -> pd.DataFrame:
+        """Return the full execution DataFrame (assumed to contain no future rows)."""
+        return self._df
+
     def available_dates_up_to(self, as_of: pd.Timestamp | str) -> pd.DatetimeIndex:
         """Return trade dates that occurred on or before as_of."""
         as_of_ts = pd.to_datetime(as_of)
@@ -100,13 +131,23 @@ class PITDataLake:
         as_of_ts = pd.to_datetime(as_of)
 
         if as_of_ts not in self._df.index:
-            # Find the closest previous date
-            past_dates = self._df.index[self._df.index <= as_of_ts]
-            if len(past_dates) == 0:
-                raise PITLookaheadError(f"No historical data available prior to {as_of}")
-            target_ts = past_dates[-1]
-        else:
-            target_ts = as_of_ts
+            if as_of_ts > self._trade_dates[-1]:
+                raise PITLookaheadError(
+                    f"as_of {as_of} is beyond the latest available trade date "
+                    f"{self._trade_dates[-1].date()}. Future data is not allowed."
+                )
+            if as_of_ts < self._trade_dates[0]:
+                raise PITLookaheadError(
+                    f"as_of {as_of} is before the earliest available trade date "
+                    f"{self._trade_dates[0].date()}."
+                )
+            # as_of is within the lake range but not a trade date in the index.
+            raise PITLookaheadError(
+                f"as_of {as_of} is not a trade date in the lake. "
+                f"Use available_dates_up_to({as_of}) to find the nearest prior date."
+            )
+
+        target_ts = as_of_ts
 
         row = self._df.loc[target_ts]
         trade_date_str = target_ts.strftime("%Y-%m-%d")
@@ -114,8 +155,8 @@ class PITDataLake:
         # 1. US Returns (US close on previous US day, finalized overnight)
         us_cols = [f"us_cc_{tk}" for tk in US_TICKERS]
         us_returns = np.array([float(row.get(col, 0.0)) for col in us_cols], dtype=float)
-        # NaN safe replacement
-        us_returns = np.nan_to_num(us_returns, nan=0.0)
+        # NaN/Inf safe replacement
+        us_returns = np.nan_to_num(us_returns, nan=0.0, posinf=0.0, neginf=0.0)
 
         # 2. JP 9:10 Execution Prices & Previous Closes
         current_prices: dict[str, float] = {}
@@ -167,7 +208,22 @@ class PITDataLake:
     def validate_no_lookahead(self, test_date: pd.Timestamp | str) -> bool:
         """Audit method: verify that fetching a snapshot does not leak same-day close returns."""
         snap = self.get_snapshot(test_date)
-        # Snapshot must never expose jp_oc (9:10-to-close) or jp_close_trade prices
-        if hasattr(snap, "jp_oc_returns") or hasattr(snap, "close_prices"):
-            raise PITLookaheadError("MarketSnapshot contains same-day closing data!")
+        # Only pre-approved snapshot attributes may be present. Any same-day
+        # close return/price attributes (e.g. jp_oc_returns, close_prices)
+        # would indicate a look-ahead leak.
+        allowed = {
+            "as_of",
+            "trade_date",
+            "us_returns",
+            "jp_gap_returns",
+            "jp_betas",
+            "topix_night_return",
+            "current_prices",
+            "prev_closes",
+        }
+        extra = set(vars(snap).keys()) - allowed
+        if extra:
+            raise PITLookaheadError(
+                f"MarketSnapshot contains forbidden attributes: {extra}"
+            )
         return True

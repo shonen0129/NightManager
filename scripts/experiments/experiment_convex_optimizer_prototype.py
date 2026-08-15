@@ -11,13 +11,12 @@ Compares resulting weights against the existing heuristic top-5/bottom-5 ranking
 
 import sys
 from pathlib import Path
+
 import numpy as np
-import pandas as pd
 from scipy.optimize import minimize
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
-from leadlag.config.schemas import ProductionV2RunConfig
 from leadlag.data.market_data_cache import load_df_exec_from_local_cache
 from leadlag.data.tickers import JP_TICKERS
 from leadlag.execution.config import load_config_from_yaml
@@ -39,14 +38,14 @@ def solve_convex_portfolio(
     turnover_penalty: float = 0.0001,
 ) -> np.ndarray:
     """Solve the single-stage convex optimization problem via SLSQP.
-    
+
     Returns:
         w_opt: Optimized weight vector (n_j,)
     """
     n_j = len(mu_gap)
     if w_prev is None:
         w_prev = np.zeros(n_j)
-        
+
     cost_coeff = cost_bps * 1e-4 + turnover_penalty
 
     # Negative utility function for minimization
@@ -103,7 +102,7 @@ def solve_convex_portfolio(
         active = np.abs(w_opt) > 0
         if np.sum(active) > 0:
             w_opt[active] -= net_exposure / np.sum(active)
-            
+
     return w_opt
 
 
@@ -117,7 +116,7 @@ def main() -> None:
 
     app_config = load_config_from_yaml("configs/production/production.yaml")
     cfg = app_config.v2
-    blpx_model = ProductionBLPXModel(app_config.model_dump())
+    blpx_model = ProductionBLPXModel(cfg.model_dump())
     v2_model = ProductionV2Model(cfg, blpx_model=blpx_model)
 
     test_date = str(df_exec.index[-20])
@@ -134,7 +133,7 @@ def main() -> None:
     sigma = np.sqrt(np.maximum(np.diag(omega_gap), 1e-8))
     scores = mu_gap / sigma
     sorted_idx = np.argsort(scores)
-    
+
     w_heuristic = np.zeros(len(JP_TICKERS))
     w_heuristic[sorted_idx[-5:]] = 1.0 / 5.0  # Top 5 long (gross=1.0)
     w_heuristic[sorted_idx[:5]] = -1.0 / 5.0  # Bottom 5 short (gross=1.0)
@@ -159,7 +158,7 @@ def main() -> None:
     print("-" * 75)
     print(f"Heuristic: Net={np.sum(w_heuristic):.6f}, Gross={np.sum(np.abs(w_heuristic)):.4f}, Ex-ante Return={np.dot(w_heuristic, mu_gap)*10000:.2f} bps, Ex-ante Vol={np.sqrt(np.dot(w_heuristic, np.dot(omega_gap, w_heuristic)))*10000:.2f} bps")
     print(f"Convex:    Net={np.sum(w_convex):.6f}, Gross={np.sum(np.abs(w_convex)):.4f}, Ex-ante Return={np.dot(w_convex, mu_gap)*10000:.2f} bps, Ex-ante Vol={np.sqrt(np.dot(w_convex, np.dot(omega_gap, w_convex)))*10000:.2f} bps")
-    
+
     # Ex-ante IR
     ir_heur = np.dot(w_heuristic, mu_gap) / np.sqrt(np.dot(w_heuristic, np.dot(omega_gap, w_heuristic)))
     ir_conv = np.dot(w_convex, mu_gap) / np.sqrt(np.dot(w_convex, np.dot(omega_gap, w_convex)))

@@ -1,4 +1,5 @@
 import asyncio
+
 import numpy as np
 
 from leadlag.broker.async_base import AsyncDryRunBrokerClient
@@ -26,7 +27,7 @@ def test_async_dry_run_broker_lifecycle():
 def test_compute_order_deltas():
     """Test delta calculation separating close vs new orders."""
     engine = AsyncExecutionEngine()
-    
+
     n_j = len(JP_TICKERS)
     target_weights = np.zeros(n_j)
     target_weights[0] = 0.20  # 1617.T long
@@ -54,16 +55,55 @@ def test_compute_order_deltas():
     assert len(new_orders) >= 1
 
 
+def test_compute_order_deltas_lot_rounding_sign_symmetric():
+    """Lot rounding must be sign-symmetric and not over-order on the short side."""
+    engine = AsyncExecutionEngine()
+
+    n_j = len(JP_TICKERS)
+    current_prices = {tk: 1000.0 for tk in JP_TICKERS}
+    total_capital = 1_000_000.0
+
+    # 1629.T has lot size 10.  A tiny long and a tiny short should both round to 0.
+    for sign in (1, -1):
+        target_weights = np.zeros(n_j)
+        target_weights[JP_TICKERS.index("1629.T")] = sign * 0.0006
+        close_orders, new_orders = engine.compute_order_deltas(
+            target_weights=target_weights,
+            current_prices=current_prices,
+            current_positions=[],
+            total_capital=total_capital,
+        )
+        assert len(close_orders) == 0
+        assert len(new_orders) == 0, f"Expected no order for tiny {'long' if sign > 0 else 'short'} 1629.T"
+
+    # A moderate short -0.10 should not round away from zero to -20.
+    target_weights = np.zeros(n_j)
+    target_weights[JP_TICKERS.index("1629.T")] = -0.10
+    close_orders, new_orders = engine.compute_order_deltas(
+        target_weights=target_weights,
+        current_prices=current_prices,
+        current_positions=[],
+        total_capital=total_capital,
+    )
+    assert len(close_orders) == 0
+    assert len(new_orders) == 1
+    order = new_orders[0]
+    assert order.ticker == "1629.T"
+    assert order.side == "SELL"
+    # 0.10 * 1M / 1000 = 100 shares; aligned to lot 10 -> 100, not 110.
+    assert order.quantity == 100
+
+
 def test_async_portfolio_execution_end_to_end():
     """Test end-to-end asynchronous staged execution."""
     async def _run():
         engine = AsyncExecutionEngine(split_delay_seconds=0.01)
-        
+
         n_j = len(JP_TICKERS)
         target_weights = np.zeros(n_j)
         target_weights[0] = 0.10  # Long 1617.T
         target_weights[1] = -0.10 # Short 1618.T
-        
+
         # 1629.T is the large order ticker
         idx_1629 = JP_TICKERS.index("1629.T")
         target_weights[idx_1629] = 0.10
@@ -82,8 +122,9 @@ def test_async_portfolio_execution_end_to_end():
 
             assert isinstance(journal, ExecutionJournal)
             assert journal.success
-            assert journal.total_orders == 3
-            assert journal.filled_orders == 3
+            # 1617.T, 1618.T (standard) + 1629.T split into 2 child orders
+            assert journal.total_orders == 4
+            assert journal.filled_orders == 4
             assert journal.failed_orders == 0
             assert journal.elapsed_seconds > 0.0
 

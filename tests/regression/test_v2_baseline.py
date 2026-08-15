@@ -13,7 +13,6 @@ from leadlag.data.tickers import JP_TICKERS
 from leadlag.execution.config import load_config_from_yaml
 from leadlag.models.production_v2 import ProductionV2Model
 
-
 BASELINE_VERSION = "v20260813"
 
 

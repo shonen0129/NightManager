@@ -11,6 +11,7 @@ Goal: Achieve Annual Return >= 199.14% AND Volatility < 48.71% (Sharpe > 4.10+).
 
 import sys
 from pathlib import Path
+
 import numpy as np
 import pandas as pd
 
@@ -20,11 +21,6 @@ from leadlag.data.market_data_cache import load_df_exec_from_local_cache
 from leadlag.data.tickers import JP_TICKERS
 from leadlag.execution.backtester import BacktestEngine
 from leadlag.execution.config import load_config_from_yaml
-from leadlag.models.blpx import ProductionBLPXModel
-from leadlag.models.production_v2 import (
-    ProductionV2Model,
-    _build_current_prices_from_df_exec,
-)
 from leadlag.reporting.metrics import calculate_metrics
 
 

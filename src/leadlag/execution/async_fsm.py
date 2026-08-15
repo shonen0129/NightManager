@@ -11,14 +11,13 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum, auto
-from typing import Any
 
 import numpy as np
 
 from leadlag.broker.async_base import AsyncBrokerClient
 from leadlag.broker.base import Position
 from leadlag.core.types import OrderRequest, OrderResult, OrderSide, OrderStatus, OrderType
-from leadlag.data.tickers import JP_TICKERS
+from leadlag.data.tickers import JP_TICKERS, lot_size_for
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +72,65 @@ class ExecutionJournal:
     success: bool
 
 
+def _align_to_lot(qty: int, lot: int) -> int:
+    """Truncate ``qty`` to the nearest lot multiple towards zero.
+
+    Python's ``//`` floors toward negative infinity, which over-orders on the
+    short side. This helper preserves the sign and truncates the absolute
+    quantity to a multiple of ``lot``.
+    """
+    if lot <= 1:
+        return qty
+    sign = 1 if qty >= 0 else -1
+    return sign * (abs(qty) // lot) * lot
+
+
+class AsyncRateLimiter:
+    """Token-bucket asynchronous rate limiter for broker API guardrails.
+
+    Prevents HTTP 429 Too Many Requests, session drops, and API overloads
+    by enforcing strict requests-per-second and burst limits.
+    """
+
+    def __init__(self, rate_limit_per_second: float = 5.0, burst_limit: int = 5) -> None:
+        self.rate_limit = max(0.1, rate_limit_per_second)
+        self.burst_limit = max(1, burst_limit)
+        self._tokens: float = float(self.burst_limit)
+        self._last_update: float = 0.0
+        self._lock: asyncio.Lock | None = None
+
+    def _ensure_lock(self) -> asyncio.Lock:
+        if self._lock is None:
+            self._lock = asyncio.Lock()
+        return self._lock
+
+    async def acquire(self) -> None:
+        """Acquire a token, waiting asynchronously if rate limit is reached."""
+        lock = self._ensure_lock()
+        async with lock:
+            loop = asyncio.get_running_loop()
+            now = loop.time()
+            if self._last_update == 0.0:
+                self._last_update = now
+
+            # Replenish tokens based on elapsed time
+            elapsed = now - self._last_update
+            self._tokens = min(self.burst_limit, self._tokens + elapsed * self.rate_limit)
+            self._last_update = now
+
+            if self._tokens < 1.0:
+                # Need to wait for token replenishment
+                wait_seconds = (1.0 - self._tokens) / self.rate_limit
+                await asyncio.sleep(wait_seconds)
+                # Recompute after sleep
+                now_after = loop.time()
+                self._tokens = min(self.burst_limit, self._tokens + (now_after - self._last_update) * self.rate_limit)
+                self._last_update = now_after
+
+            # Consume 1 token
+            self._tokens = max(0.0, self._tokens - 1.0)
+
+
 class AsyncExecutionEngine:
     """Non-blocking Asynchronous Portfolio Execution Engine."""
 
@@ -81,10 +139,18 @@ class AsyncExecutionEngine:
         split_delay_seconds: float = 1.0,
         large_order_ticker: str = "1629.T",
         order_timeout_seconds: float = 30.0,
+        split_threshold: int = 100,
+        rate_limit_per_second: float = 5.0,
+        burst_limit: int = 5,
     ) -> None:
         self.split_delay_seconds = split_delay_seconds
         self.large_order_ticker = large_order_ticker
         self.order_timeout_seconds = order_timeout_seconds
+        self.split_threshold = split_threshold
+        self.rate_limiter = AsyncRateLimiter(
+            rate_limit_per_second=rate_limit_per_second,
+            burst_limit=burst_limit,
+        )
 
     def compute_order_deltas(
         self,
@@ -107,11 +173,14 @@ class AsyncExecutionEngine:
         for j, tk in enumerate(JP_TICKERS):
             price = current_prices.get(tk, 0.0)
             if price <= 0.0:
+                logger.warning("Missing or invalid price for %s, skipping order", tk)
                 continue
 
             target_w = target_weights[j]
             target_value = target_w * total_capital
-            target_qty = int(np.round(target_value / price))
+            lot = lot_size_for(tk)
+            target_qty_raw = int(np.round(target_value / price))
+            target_qty = _align_to_lot(target_qty_raw, lot)
             current_qty = pos_map.get(tk, 0)
 
             delta_qty = target_qty - current_qty
@@ -122,7 +191,10 @@ class AsyncExecutionEngine:
             if current_qty != 0:
                 if (current_qty > 0 and delta_qty < 0) or (current_qty < 0 and delta_qty > 0):
                     # Close existing position partially or completely
-                    close_qty = min(abs(current_qty), abs(delta_qty))
+                    close_qty_raw = min(abs(current_qty), abs(delta_qty))
+                    close_qty = _align_to_lot(close_qty_raw, lot)
+                    if close_qty == 0:
+                        close_qty = min(lot, abs(current_qty))
                     side = "SELL" if current_qty > 0 else "BUY"
                     close_orders.append(
                         OrderRequest(
@@ -136,6 +208,9 @@ class AsyncExecutionEngine:
                     # Remaining delta becomes a new order
                     remaining_delta = delta_qty + close_qty if current_qty > 0 else delta_qty - close_qty
                     if remaining_delta != 0:
+                        remaining_delta = _align_to_lot(remaining_delta, lot)
+                        if remaining_delta == 0:
+                            continue
                         new_side = "BUY" if remaining_delta > 0 else "SELL"
                         new_orders.append(
                             OrderRequest(
@@ -170,6 +245,9 @@ class AsyncExecutionEngine:
         """Submit a single order and update its lifecycle state asynchronously."""
         lifecycle.transition_to(OrderState.SUBMITTING)
         try:
+            # Enforce API rate limiter token acquisition before network call
+            await self.rate_limiter.acquire()
+
             # Submit with strict timeout guard
             result = await asyncio.wait_for(
                 broker.submit_order(lifecycle.order),
@@ -180,10 +258,74 @@ class AsyncExecutionEngine:
                 lifecycle.transition_to(OrderState.FILLED, result.message)
             else:
                 lifecycle.transition_to(OrderState.FAILED, result.message)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             lifecycle.transition_to(OrderState.FAILED, "Order submission timed out")
         except Exception as e:
             lifecycle.transition_to(OrderState.FAILED, str(e))
+
+    def _should_split(self, lifecycle: OrderLifecycle) -> bool:
+        """Return True if an order should be split into delayed children."""
+        if lifecycle.order.ticker != self.large_order_ticker:
+            return False
+        lot = lot_size_for(lifecycle.order.ticker)
+        threshold = max(self.split_threshold, lot)
+        return lifecycle.order.quantity >= threshold
+
+    def _split_lifecycle(self, lc: OrderLifecycle) -> list[OrderLifecycle]:
+        """Split a large lifecycle order into two lot-aligned children."""
+        qty = lc.order.quantity
+        lot = lot_size_for(lc.order.ticker)
+        first_qty = (qty // 2 // lot) * lot
+        second_qty = qty - first_qty
+        if first_qty <= 0 or second_qty <= 0:
+            return [lc]
+
+        return [
+            OrderLifecycle(
+                order=OrderRequest(
+                    ticker=lc.order.ticker,
+                    side=lc.order.side,
+                    quantity=first_qty,
+                    limit_price=lc.order.limit_price,
+                    order_type=lc.order.order_type,
+                ),
+                state=OrderState.VALIDATED,
+            ),
+            OrderLifecycle(
+                order=OrderRequest(
+                    ticker=lc.order.ticker,
+                    side=lc.order.side,
+                    quantity=second_qty,
+                    limit_price=lc.order.limit_price,
+                    order_type=lc.order.order_type,
+                ),
+                state=OrderState.VALIDATED,
+            ),
+        ]
+
+    async def _execute_split_order(
+        self,
+        lc: OrderLifecycle,
+        broker: AsyncBrokerClient,
+    ) -> list[OrderLifecycle]:
+        """Execute a large order as two children with a non-blocking delay between."""
+        children = self._split_lifecycle(lc)
+        if len(children) == 1:
+            await self._execute_single_order(children[0], broker)
+            return children
+
+        await self._execute_single_order(children[0], broker)
+        await asyncio.sleep(self.split_delay_seconds)
+        await self._execute_single_order(children[1], broker)
+
+        # Parent lifecycle reflects combined child state
+        if all(c.state == OrderState.FILLED for c in children):
+            lc.transition_to(OrderState.FILLED, "Split order fully filled")
+        elif any(c.state == OrderState.FILLED for c in children):
+            lc.transition_to(OrderState.FILLED, "Split order partially filled")
+        else:
+            lc.transition_to(OrderState.FAILED, "Split order failed")
+        return children
 
     async def execute_portfolio(
         self,
@@ -219,15 +361,22 @@ class AsyncExecutionEngine:
             len(new_lifecycles),
         )
 
-        # 3. Stage 1: Execute all CLOSE orders concurrently
-        if close_lifecycles:
+        # 3. Stage 1: Execute all CLOSE orders concurrently (with split handling)
+        close_split_children = []
+        standard_close = [lc for lc in close_lifecycles if not self._should_split(lc)]
+        split_close = [lc for lc in close_lifecycles if self._should_split(lc)]
+
+        if standard_close:
             await asyncio.gather(
-                *[self._execute_single_order(lc, broker) for lc in close_lifecycles]
+                *[self._execute_single_order(lc, broker) for lc in standard_close]
             )
+        for lc in split_close:
+            close_split_children.extend(await self._execute_split_order(lc, broker))
 
         # 4. Stage 2: Execute NEW orders (with non-blocking delay for split large orders)
-        standard_new = [lc for lc in new_lifecycles if lc.order.ticker != self.large_order_ticker]
-        split_new = [lc for lc in new_lifecycles if lc.order.ticker == self.large_order_ticker]
+        new_split_children = []
+        standard_new = [lc for lc in new_lifecycles if not self._should_split(lc)]
+        split_new = [lc for lc in new_lifecycles if self._should_split(lc)]
 
         # Submit standard new orders concurrently
         if standard_new:
@@ -237,44 +386,15 @@ class AsyncExecutionEngine:
 
         # Submit split large orders with async non-blocking delay
         for lc in split_new:
-            # If quantity is large (> 100 shares), split into two half orders
-            if lc.order.quantity >= 10:
-                half_qty = lc.order.quantity // 2
-                rem_qty = lc.order.quantity - half_qty
-
-                lc1 = OrderLifecycle(
-                    order=OrderRequest(
-                        ticker=lc.order.ticker,
-                        side=lc.order.side,
-                        quantity=half_qty,
-                        limit_price=lc.order.limit_price,
-                        order_type=lc.order.order_type,
-                    ),
-                    state=OrderState.VALIDATED,
-                )
-                await self._execute_single_order(lc1, broker)
-
-                # Non-blocking async sleep
-                await asyncio.sleep(self.split_delay_seconds)
-
-                lc2 = OrderLifecycle(
-                    order=OrderRequest(
-                        ticker=lc.order.ticker,
-                        side=lc.order.side,
-                        quantity=rem_qty,
-                        limit_price=lc.order.limit_price,
-                        order_type=lc.order.order_type,
-                    ),
-                    state=OrderState.VALIDATED,
-                )
-                await self._execute_single_order(lc2, broker)
-
-                lc.state = OrderState.FILLED if (lc1.state == OrderState.FILLED and lc2.state == OrderState.FILLED) else OrderState.FAILED
-            else:
-                await self._execute_single_order(lc, broker)
+            new_split_children.extend(await self._execute_split_order(lc, broker))
 
         # 5. Assemble Journal
-        all_lifecycles = close_lifecycles + new_lifecycles
+        all_lifecycles = (
+            standard_close
+            + close_split_children
+            + standard_new
+            + new_split_children
+        )
         filled_count = sum(1 for lc in all_lifecycles if lc.state == OrderState.FILLED)
         failed_count = sum(1 for lc in all_lifecycles if lc.state == OrderState.FAILED)
         elapsed = (datetime.now() - start_time).total_seconds()

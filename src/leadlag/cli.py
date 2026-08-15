@@ -383,9 +383,17 @@ def _handle_close(args: argparse.Namespace) -> int:
 
 def _handle_nextgen_shadow(args: argparse.Namespace) -> int:
     """Run Next-Gen Convex Pipeline shadow comparison against Production V2."""
-    from tools.validation.run_nextgen_shadow_pipeline import run_shadow_comparison
+    import sys
+    from pathlib import Path
 
-    run_shadow_comparison(
+    # tools/validation is not a package; add it to sys.path and import the
+    # script directly so it can resolve its own src/ imports.
+    tools_validation_dir = Path(__file__).resolve().parents[2] / "tools" / "validation"
+    if str(tools_validation_dir) not in sys.path:
+        sys.path.insert(0, str(tools_validation_dir))
+    import run_nextgen_shadow_pipeline
+
+    run_nextgen_shadow_pipeline.run_shadow_comparison(
         trade_date=args.trade_date,
         config_path=args.config,
         capital=args.capital,
@@ -443,20 +451,24 @@ def main(argv: Sequence[str] | None = None) -> int:
     # bypasses this check so users can rerun for a specific date.
     if args.command in ("close", "daily") or (
         args.command == "decision" and args.trade_date is None
+    ) or (
+        args.command == "nextgen-shadow" and args.trade_date != "latest"
     ):
         from leadlag.core.market_calendar import is_market_closed
 
-        today = pd.Timestamp.now().date()
-        if is_market_closed(today):
+        check_date = pd.Timestamp.now().date()
+        if args.command == "nextgen-shadow" and args.trade_date != "latest":
+            check_date = pd.to_datetime(args.trade_date).date()
+        if is_market_closed(check_date):
             holiday_name = None
             try:
                 from leadlag.core.market_calendar import get_holiday_name
 
-                holiday_name = get_holiday_name(today)
+                holiday_name = get_holiday_name(check_date)
             except Exception:
                 pass
             label = holiday_name or "non-trading day"
-            logger.info("Market closed today (%s: %s). Skipping %s.", today, label, args.command)
+            logger.info("Market closed on %s (%s). Skipping %s.", check_date, label, args.command)
             return 0
 
     if args.command == "decision":
