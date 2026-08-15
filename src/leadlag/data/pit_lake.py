@@ -153,10 +153,14 @@ class PITDataLake:
         trade_date_str = target_ts.strftime("%Y-%m-%d")
 
         # 1. US Returns (US close on previous US day, finalized overnight)
+        # Missing or non-finite US returns are kept as NaN so that
+        # MarketSnapshot.validate() rejects the snapshot instead of silently
+        # feeding 0.0 into the BLPX signal.
         us_cols = [f"us_cc_{tk}" for tk in US_TICKERS]
-        us_returns = np.array([float(row.get(col, 0.0)) for col in us_cols], dtype=float)
-        # NaN/Inf safe replacement
-        us_returns = np.nan_to_num(us_returns, nan=0.0, posinf=0.0, neginf=0.0)
+        us_returns = np.array(
+            [float(row[col]) if col in row and np.isfinite(float(row[col])) else np.nan for col in us_cols],
+            dtype=float,
+        )
 
         # 2. JP 9:10 Execution Prices & Previous Closes
         current_prices: dict[str, float] = {}

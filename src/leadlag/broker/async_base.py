@@ -52,13 +52,136 @@ class AsyncBrokerClient(ABC):
 
     @abstractmethod
     async def submit_order(self, order: OrderRequest) -> OrderResult:
-        """Submit a single order asynchronously."""
+        """Submit a single order asynchronously.
+
+        Implementations are expected to either block internally until the order
+        is filled or return SUBMITTED and support get_order_status polling.
+        """
         ...
 
     @abstractmethod
     async def cancel_order(self, order_id: str) -> bool:
         """Cancel an open order asynchronously."""
         ...
+
+
+class AsyncThreadedBrokerClient(AsyncBrokerClient):
+    """Async wrapper that runs an existing synchronous BrokerClient in a thread pool.
+
+    This lets production-grade sync broker adapters (Kabu, Tachibana, dry-run)
+    be used by the async execution FSM without rewriting their internals.
+    """
+
+    def __init__(
+        self,
+        sync_client: Any,
+        broker_request_timeout: float = 30.0,
+    ) -> None:
+        # Accept either a BrokerConfig or a BrokerClient instance.
+        from leadlag.broker.base import BrokerClient
+
+        self._timeout = broker_request_timeout
+        if isinstance(sync_client, BrokerClient):
+            self._client = sync_client
+            self._config = sync_client.config if hasattr(sync_client, "config") else BrokerConfig()
+        else:
+            self._config = sync_client
+            from leadlag.broker import create_broker
+
+            self._client = create_broker(self._config)
+        super().__init__(self._config)
+
+    async def connect(self) -> None:
+        # No async connection handshake for threaded clients by default.
+        pass
+
+    async def disconnect(self) -> None:
+        await asyncio.to_thread(self._client.close)
+
+    async def get_wallet(self) -> WalletInfo:
+        return await asyncio.wait_for(
+            asyncio.to_thread(self._client.get_wallet),
+            timeout=self._timeout,
+        )
+
+    async def get_positions(self) -> list[Position]:
+        return await asyncio.wait_for(
+            asyncio.to_thread(self._client.get_positions),
+            timeout=self._timeout,
+        )
+
+    async def _wait_for_fill(self, order_result: OrderResult) -> OrderResult:
+        """Optionally poll the underlying client until the order is filled.
+
+        If get_order_status is not implemented, return the original SUBMITTED
+        result and let the FSM handle it.
+        """
+        if order_result.status != OrderStatus.SUBMITTED or not order_result.order_id:
+            return order_result
+
+        if not hasattr(self._client, "get_order_status"):
+            return order_result
+
+        deadline = asyncio.get_running_loop().time() + self._timeout
+        while asyncio.get_running_loop().time() < deadline:
+            try:
+                status = await asyncio.to_thread(
+                    self._client.get_order_status,
+                    order_result.order_id,
+                )
+                if status == OrderStatus.FILLED:
+                    return OrderResult(
+                        order_id=order_result.order_id,
+                        status=OrderStatus.FILLED,
+                        ticker=order_result.ticker,
+                        side=order_result.side,
+                        quantity=order_result.quantity,
+                        order_type=order_result.order_type,
+                        limit_price=order_result.limit_price,
+                        margin_trade_type=order_result.margin_trade_type,
+                        eigyou_day=order_result.eigyou_day,
+                        message="Filled (polled)",
+                    )
+                if status in (OrderStatus.CANCELLED, OrderStatus.FAILED):
+                    return OrderResult(
+                        order_id=order_result.order_id,
+                        status=status,
+                        ticker=order_result.ticker,
+                        side=order_result.side,
+                        quantity=order_result.quantity,
+                        order_type=order_result.order_type,
+                        limit_price=order_result.limit_price,
+                        margin_trade_type=order_result.margin_trade_type,
+                        eigyou_day=order_result.eigyou_day,
+                        message=f"Order ended as {status.value}",
+                    )
+            except Exception as e:
+                logger.warning(
+                    "Failed to poll order status for %s: %s",
+                    order_result.order_id,
+                    e,
+                )
+            await asyncio.sleep(1.0)
+
+        # Timed out without fill confirmation.
+        return order_result
+
+    async def submit_order(self, order: OrderRequest) -> OrderResult:
+        result = await asyncio.wait_for(
+            asyncio.to_thread(self._client.submit_order, order),
+            timeout=self._timeout,
+        )
+        if result.status == OrderStatus.SUBMITTED:
+            return await self._wait_for_fill(result)
+        return result
+
+    async def cancel_order(self, order_id: str) -> bool:
+        if not hasattr(self._client, "cancel_order"):
+            return False
+        return await asyncio.wait_for(
+            asyncio.to_thread(self._client.cancel_order, order_id),
+            timeout=self._timeout,
+        )
 
 
 class AsyncDryRunBrokerClient(AsyncBrokerClient):

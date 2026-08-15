@@ -246,6 +246,23 @@ class KabuBrokerClient(BrokerClient):
                 message=str(e),
             )
 
+    def get_order_status(self, order_id: str) -> OrderStatus:
+        """Poll kabuステーション order status and map to neutral OrderStatus."""
+        raw_orders = self.inner.get_order_status(order_id=order_id)
+        if not raw_orders:
+            return OrderStatus.SUBMITTED
+        order = raw_orders[0]
+        state = int(order.get("state", 0))
+        cum_qty = int(order.get("cum_qty", 0))
+        order_qty = int(order.get("order_qty", 0))
+
+        if cum_qty >= order_qty and order_qty > 0:
+            return OrderStatus.FILLED
+        if state >= 4:
+            # 4/5/6 are typically cancelled, error, or expired states.
+            return OrderStatus.CANCELLED
+        return OrderStatus.SUBMITTED
+
     def submit_orders_batch(
         self,
         orders: list[OrderRequest],

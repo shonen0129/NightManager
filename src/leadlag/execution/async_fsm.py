@@ -142,11 +142,13 @@ class AsyncExecutionEngine:
         split_threshold: int = 100,
         rate_limit_per_second: float = 5.0,
         burst_limit: int = 5,
+        get_positions_timeout_seconds: float = 30.0,
     ) -> None:
         self.split_delay_seconds = split_delay_seconds
         self.large_order_ticker = large_order_ticker
         self.order_timeout_seconds = order_timeout_seconds
         self.split_threshold = split_threshold
+        self.get_positions_timeout_seconds = get_positions_timeout_seconds
         self.rate_limiter = AsyncRateLimiter(
             rate_limit_per_second=rate_limit_per_second,
             burst_limit=burst_limit,
@@ -179,7 +181,9 @@ class AsyncExecutionEngine:
             target_w = target_weights[j]
             target_value = target_w * total_capital
             lot = lot_size_for(tk)
-            target_qty_raw = int(np.round(target_value / price))
+            # Round half-up (matching core/allocator.py and broker_ops.py convention)
+            # and then truncate to the nearest lot multiple toward zero.
+            target_qty_raw = int(np.floor(target_value / price + 0.5))
             target_qty = _align_to_lot(target_qty_raw, lot)
             current_qty = pos_map.get(tk, 0)
 
@@ -254,8 +258,14 @@ class AsyncExecutionEngine:
                 timeout=self.order_timeout_seconds,
             )
             lifecycle.result = result
-            if result.status in (OrderStatus.FILLED, OrderStatus.SUBMITTED, OrderStatus.SIMULATED):
+            if result.status == OrderStatus.FILLED:
                 lifecycle.transition_to(OrderState.FILLED, result.message)
+            elif result.status == OrderStatus.SIMULATED:
+                lifecycle.transition_to(OrderState.FILLED, result.message)
+            elif result.status == OrderStatus.SUBMITTED:
+                # Broker accepted the order but has not yet confirmed fill.
+                # Do not treat as filled; downstream callers should poll/wait.
+                lifecycle.transition_to(OrderState.SUBMITTED, result.message)
             else:
                 lifecycle.transition_to(OrderState.FAILED, result.message)
         except TimeoutError:
@@ -340,8 +350,25 @@ class AsyncExecutionEngine:
         if not trade_date:
             trade_date = start_time.strftime("%Y-%m-%d")
 
-        # 1. Fetch current positions asynchronously
-        positions = await broker.get_positions()
+        # 1. Fetch current positions asynchronously with timeout
+        try:
+            positions = await asyncio.wait_for(
+                broker.get_positions(),
+                timeout=self.get_positions_timeout_seconds,
+            )
+        except TimeoutError:
+            logger.error("[%s] get_positions timed out; aborting execution.", trade_date)
+            return ExecutionJournal(
+                trade_date=trade_date,
+                total_orders=0,
+                filled_orders=0,
+                failed_orders=0,
+                close_orders_count=0,
+                new_orders_count=0,
+                lifecycles=[],
+                elapsed_seconds=(datetime.now() - start_time).total_seconds(),
+                success=False,
+            )
 
         # 2. Compute order deltas
         close_orders, new_orders = self.compute_order_deltas(
@@ -373,6 +400,41 @@ class AsyncExecutionEngine:
         for lc in split_close:
             close_split_children.extend(await self._execute_split_order(lc, broker))
 
+        close_lifecycles_executed = standard_close + close_split_children
+        close_phase_failed = any(
+            lc.state != OrderState.FILLED for lc in close_lifecycles_executed
+        )
+        if close_phase_failed:
+            logger.error(
+                "[%s] Close phase had non-FILLED orders; aborting NEW order stage.",
+                trade_date,
+            )
+            # Do NOT proceed to new orders; existing positions remain.
+            all_lifecycles = close_lifecycles_executed
+            elapsed = (datetime.now() - start_time).total_seconds()
+            filled_count = sum(1 for lc in all_lifecycles if lc.state == OrderState.FILLED)
+            failed_count = sum(1 for lc in all_lifecycles if lc.state == OrderState.FAILED)
+
+            journal = ExecutionJournal(
+                trade_date=trade_date,
+                total_orders=len(all_lifecycles),
+                filled_orders=filled_count,
+                failed_orders=failed_count,
+                close_orders_count=len(standard_close) + len(close_split_children),
+                new_orders_count=0,
+                lifecycles=all_lifecycles,
+                elapsed_seconds=elapsed,
+                success=False,
+            )
+            logger.info(
+                "[%s] Async execution completed in %.2fs: %d filled, %d failed (NEW stage aborted).",
+                trade_date,
+                elapsed,
+                filled_count,
+                failed_count,
+            )
+            return journal
+
         # 4. Stage 2: Execute NEW orders (with non-blocking delay for split large orders)
         new_split_children = []
         standard_new = [lc for lc in new_lifecycles if not self._should_split(lc)]
@@ -390,8 +452,7 @@ class AsyncExecutionEngine:
 
         # 5. Assemble Journal
         all_lifecycles = (
-            standard_close
-            + close_split_children
+            close_lifecycles_executed
             + standard_new
             + new_split_children
         )
@@ -404,11 +465,11 @@ class AsyncExecutionEngine:
             total_orders=len(all_lifecycles),
             filled_orders=filled_count,
             failed_orders=failed_count,
-            close_orders_count=len(close_lifecycles),
-            new_orders_count=len(new_lifecycles),
+            close_orders_count=len(standard_close) + len(close_split_children),
+            new_orders_count=len(standard_new) + len(new_split_children),
             lifecycles=all_lifecycles,
             elapsed_seconds=elapsed,
-            success=(failed_count == 0),
+            success=all(lc.state == OrderState.FILLED for lc in all_lifecycles),
         )
 
         logger.info(

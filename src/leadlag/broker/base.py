@@ -12,7 +12,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any
 
-from leadlag.core.types import OrderRequest, OrderResult
+from leadlag.core.types import OrderRequest, OrderResult, OrderStatus
 
 logger = logging.getLogger(__name__)
 
@@ -227,6 +227,22 @@ class BrokerClient(ABC):
         Returns:
             OrderResult with status and order ID
         """
+
+    def get_order_status(self, order_id: str) -> OrderStatus:
+        """Poll the broker for the current status of an open order.
+
+        This is optional; subclasses may override it to enable the async
+        execution engine to wait for fill confirmations.
+
+        Returns:
+            OrderStatus (FILLED, SUBMITTED, CANCELLED, FAILED, etc.)
+
+        Raises:
+            NotImplementedError: If the broker does not support order status polling.
+        """
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not implement get_order_status"
+        )
 
     def submit_orders_batch(
         self,

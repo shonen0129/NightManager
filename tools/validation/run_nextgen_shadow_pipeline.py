@@ -21,6 +21,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 from leadlag.broker.async_base import AsyncDryRunBrokerClient
+from leadlag.config.schemas import AppConfig, ProductionV2RunConfig
 from leadlag.data.market_data_cache import load_df_exec_from_local_cache
 from leadlag.data.pit_lake import PITDataLake
 from leadlag.data.tickers import JP_TICKERS
@@ -36,11 +37,26 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 logger = logging.getLogger(__name__)
 
 
+def _build_shadow_v2_config(app_config: AppConfig) -> ProductionV2RunConfig:
+    """Return a V2 config copy with all overlays/blending disabled for a clean comparison."""
+    return app_config.v2.model_copy(
+        update={
+            "mh_blend_enabled": False,
+            "cs_overlay_enabled": False,
+            "ml_overlay_enabled": False,
+            "minvar_enabled": False,
+            "macro_kappa_enabled": False,
+            "macro_direction_enabled": False,
+        }
+    )
+
+
 def run_shadow_comparison(
     trade_date: str = "latest",
     config_path: str = "configs/production/production.yaml",
     capital: float = 1_000_000.0,
     pit_ir_history_path: str = "var/shadow/nextgen_pit_ir_history.csv",
+    w_prev: np.ndarray | None = None,
 ) -> dict[str, Any]:
     """Run parallel shadow execution and comparison."""
     # 1. Load data & config
@@ -53,6 +69,8 @@ def run_shadow_comparison(
         trade_date = str(lake.end_date.strftime("%Y-%m-%d"))
 
     app_config = load_config_from_yaml(config_path)
+    shadow_v2_cfg = _build_shadow_v2_config(app_config)
+    shadow_app_config = app_config.model_copy(update={"v2": shadow_v2_cfg})
 
     # 2. Run Baseline Production V2
     print("\n=======================================================")
@@ -61,8 +79,8 @@ def run_shadow_comparison(
     print("\n[1/2] Running Baseline Production V2...")
     t0_base = datetime.now()
     # ProductionBLPXModel expects the v2 config so nested blpx/costs settings resolve.
-    blpx_model = ProductionBLPXModel(app_config.v2.model_dump())
-    v2_model = ProductionV2Model(app_config.v2, blpx_model=blpx_model)
+    blpx_model = ProductionBLPXModel(shadow_v2_cfg.model_dump())
+    v2_model = ProductionV2Model(shadow_v2_cfg, blpx_model=blpx_model)
     current_prices = _build_current_prices_from_df_exec(df_exec, trade_date)
 
     base_decision = v2_model.decide(
@@ -70,6 +88,7 @@ def run_shadow_comparison(
         df_exec=df_exec,
         current_prices=current_prices,
         use_file_cache=False,  # On-demand comparison
+        overlay_enabled=False,
     )
     w_base = base_decision["w_final"]
     t_base_elapsed = (datetime.now() - t0_base).total_seconds()
@@ -77,7 +96,7 @@ def run_shadow_comparison(
     # 3. Run Next-Gen Pipeline
     print("[2/2] Running Next-Gen Convex Pipeline...")
     t0_next = datetime.now()
-    nextgen = NextGenPipeline(app_config, pit_ir_history_path=pit_ir_history_path)
+    nextgen = NextGenPipeline(shadow_app_config, pit_ir_history_path=pit_ir_history_path)
 
     async def _run_nextgen() -> NextGenDecisionResult:
         async with AsyncDryRunBrokerClient(simulated_latency_ms=10.0) as broker:
@@ -86,7 +105,9 @@ def run_shadow_comparison(
                 lake=lake,
                 broker=broker,
                 capital=capital,
+                w_prev=w_prev,
                 submit_orders=True,
+                use_file_cache=False,
             )
 
     next_res = asyncio.run(_run_nextgen())
@@ -135,7 +156,7 @@ def run_shadow_comparison(
         ("Active Short Positions", f"{len(base_shorts)}", f"{len(next_shorts)}"),
         ("Ex-ante Return", f"{base_ex_ante_ret*10000:.2f} bps", f"{next_res.opt_result.ex_ante_return*10000:.2f} bps"),
         ("Ex-ante Volatility", f"{base_ex_ante_vol*10000:.2f} bps", f"{next_res.opt_result.ex_ante_vol*10000:.2f} bps"),
-        ("Ex-ante IR", f"{base_ex_ante_ir:.4f}", f"{next_res.opt_result.ex_ante_ir:.4f}"),
+        ("Ex-ante IR", f"{base_ex_ante_ir:.4f}", f"{next_res.opt_result.ex_ante_net_ir:.4f}"),
         ("Execution Time", f"{t_base_elapsed:.3f}s", f"{t_next_elapsed:.3f}s"),
     ]
 
@@ -165,7 +186,13 @@ def run_shadow_comparison(
             f.write(f"| {tk} | {w_base[i]:.4f} | {w_next[i]:.4f} | {w_next[i]-w_base[i]:+.4f} |\n")
 
     print(f"\n[SUCCESS] Shadow Run Report generated: {report_file}")
-    return {"trade_date": trade_date, "cosine_sim": cosine_sim, "correlation": corr}
+    return {
+        "trade_date": trade_date,
+        "w_next": w_next,
+        "w_base": w_base,
+        "cosine_sim": cosine_sim,
+        "correlation": corr,
+    }
 
 
 def main() -> None:

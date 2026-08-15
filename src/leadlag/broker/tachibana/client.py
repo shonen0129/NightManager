@@ -417,6 +417,27 @@ class TachibanaBrokerClient(BrokerClient):
                 message=str(e),
             )
 
+    def get_order_status(self, order_id: str) -> OrderStatus:
+        """Poll Tachibana order detail and map to neutral OrderStatus."""
+        eigyou_day = datetime.now().strftime("%Y%m%d")
+        try:
+            detail = self._client.get_order_detail(order_id, eigyou_day)
+        except Exception:
+            return OrderStatus.SUBMITTED
+
+        # Execution quantity (total filled) and ordered quantity.
+        cum_qty = int(detail.get("sYakuzyouSuryou", 0) or 0)
+        order_qty = int(detail.get("sOrderSuryou", 0) or 0)
+        if order_qty > 0 and cum_qty >= order_qty:
+            return OrderStatus.FILLED
+
+        # Order status code; 8=fully cancelled, 9=error/failure.
+        status = str(detail.get("sStatus", ""))
+        if status in ("8", "9"):
+            return OrderStatus.CANCELLED
+
+        return OrderStatus.SUBMITTED
+
     def submit_orders_batch(
         self,
         orders: list[OrderRequest],

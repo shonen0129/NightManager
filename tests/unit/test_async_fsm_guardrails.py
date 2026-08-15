@@ -64,10 +64,12 @@ class SlowHangingBrokerClient(AsyncBrokerClient):
         await asyncio.sleep(5.0)
         return OrderResult(
             order_id="hang_1",
-            ticker=order.ticker,
             status=OrderStatus.FILLED,
-            filled_quantity=order.quantity,
-            filled_price=order.limit_price,
+            ticker=order.ticker,
+            side=order.side,
+            quantity=order.quantity,
+            order_type=order.order_type,
+            limit_price=order.limit_price,
             message="Filled after hang",
         )
 

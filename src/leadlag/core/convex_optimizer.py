@@ -36,10 +36,13 @@ class OptimizationResult:
     ex_ante_return: float
     ex_ante_vol: float
     ex_ante_ir: float
-    turnover: float
-    converged: bool
-    iterations: int
-    message: str
+    ex_ante_cost: float = 0.0
+    ex_ante_net_return: float = 0.0
+    ex_ante_net_ir: float = 0.0
+    turnover: float = 0.0
+    converged: bool = True
+    iterations: int = 0
+    message: str = ""
 
 
 def ensure_psd(matrix: np.ndarray, min_eigenvalue: float = 1e-8) -> np.ndarray:
@@ -61,6 +64,60 @@ def _smooth_abs(x: np.ndarray, eps: float = 1e-4) -> np.ndarray:
 def _smooth_abs_grad(x: np.ndarray, eps: float = 1e-4) -> np.ndarray:
     """Derivative of smooth pseudo-Huber: x / sqrt(x^2 + eps^2)."""
     return cast(np.ndarray, x / np.sqrt(x ** 2 + eps ** 2))
+
+
+def _smooth_pos(x: np.ndarray, eps: float = 1e-4) -> np.ndarray:
+    """Smooth approximation of max(x, 0) using the pseudo-Huber envelope."""
+    return cast(np.ndarray, 0.5 * (_smooth_abs(x, eps) + x))
+
+
+def _smooth_pos_grad(x: np.ndarray, eps: float = 1e-4) -> np.ndarray:
+    """Derivative of _smooth_pos: 0.5 * (smooth_abs_grad(x) + 1)."""
+    return cast(np.ndarray, 0.5 * (_smooth_abs_grad(x, eps) + 1.0))
+
+
+def _smooth_neg(x: np.ndarray, eps: float = 1e-4) -> np.ndarray:
+    """Smooth approximation of max(-x, 0) using the pseudo-Huber envelope."""
+    return cast(np.ndarray, 0.5 * (_smooth_abs(x, eps) - x))
+
+
+def _smooth_neg_grad(x: np.ndarray, eps: float = 1e-4) -> np.ndarray:
+    """Derivative of _smooth_neg: 0.5 * (smooth_abs_grad(x) - 1)."""
+    return cast(np.ndarray, 0.5 * (_smooth_abs_grad(x, eps) - 1.0))
+
+
+def _compute_net_cost(
+    w: np.ndarray,
+    w_prev: np.ndarray,
+    config: NextGenConfig,
+) -> float:
+    """Estimate daily net cost (slippage + financing + borrow + reverse) in decimal.
+
+    Mirrors the cost decomposition in ``BacktestEngine._simulate_daily_pnl`` for
+    a one-day holding period.
+    """
+    financing_daily = config.buy_interest_annual / 365.0
+    borrow_daily = config.borrow_fee_annual / 365.0
+    reverse_daily = config.reverse_fee_bps / 10000.0
+    slip = config.slippage_bps_per_side / 10000.0
+    leverage = config.side_leverage
+
+    alpha_mask = np.where(w > 0, config.overnight_alpha_long, np.where(w < 0, config.overnight_alpha_short, 0.0))
+    gross_abs = np.abs(w)
+    turnover = np.abs(w - w_prev)
+
+    # Slippage: intraday portion gets a full round-trip (2x), overnight portion
+    # pays half-turnover on the rebalanced notional.
+    intraday_gross = np.sum((1.0 - alpha_mask) * gross_abs)
+    overnight_turnover = np.sum(alpha_mask * turnover)
+    slip_cost = leverage * slip * (2.0 * intraday_gross + 0.5 * overnight_turnover)
+
+    held_long = np.sum(alpha_mask * np.maximum(w, 0.0))
+    held_short = np.sum(alpha_mask * np.maximum(-w, 0.0))
+    fin_cost = leverage * held_long * financing_daily
+    borrow_cost = leverage * held_short * borrow_daily
+    reverse_cost = leverage * held_short * reverse_daily
+    return float(slip_cost + fin_cost + borrow_cost + reverse_cost)
 
 
 def optimize_portfolio_convex(
@@ -94,6 +151,9 @@ def optimize_portfolio_convex(
             ex_ante_return=0.0,
             ex_ante_vol=0.0,
             ex_ante_ir=0.0,
+            ex_ante_cost=0.0,
+            ex_ante_net_return=0.0,
+            ex_ante_net_ir=0.0,
             turnover=0.0,
             converged=True,
             iterations=0,
@@ -116,6 +176,9 @@ def optimize_portfolio_convex(
             ex_ante_return=0.0,
             ex_ante_vol=0.0,
             ex_ante_ir=0.0,
+            ex_ante_cost=0.0,
+            ex_ante_net_return=0.0,
+            ex_ante_net_ir=0.0,
             turnover=float(np.sum(np.abs(w_prev))),
             converged=False,
             iterations=0,
@@ -134,6 +197,9 @@ def optimize_portfolio_convex(
             ex_ante_return=0.0,
             ex_ante_vol=0.0,
             ex_ante_ir=0.0,
+            ex_ante_cost=0.0,
+            ex_ante_net_return=0.0,
+            ex_ante_net_ir=0.0,
             turnover=float(np.sum(np.abs(w_prev))),
             converged=True,
             iterations=0,
@@ -147,6 +213,14 @@ def optimize_portfolio_convex(
     cost_coeff = (config.cost_bps * 1e-4) + config.turnover_penalty
     eps = config.smooth_eps
 
+    # Daily holding cost rates (decimal per day)
+    financing_daily = config.buy_interest_annual / 365.0
+    borrow_daily = config.borrow_fee_annual / 365.0
+    reverse_daily = config.reverse_fee_bps / 10000.0
+    leverage = config.side_leverage
+    long_hold_rate = leverage * config.overnight_alpha_long * financing_daily
+    short_hold_rate = leverage * config.overnight_alpha_short * (borrow_daily + reverse_daily)
+
     # Objective: Minimize negative net utility (Smooth C-infinity function)
     def objective(w: np.ndarray) -> float:
         # Alpha term
@@ -154,14 +228,23 @@ def optimize_portfolio_convex(
         # Variance risk term
         risk_term = 0.5 * config.lambda_risk * float(np.dot(w, np.dot(omega_psd, w)))
         # Smooth transaction & turnover cost term
-        cost_term = cost_coeff * float(np.sum(_smooth_abs(w - w_prev, eps)))
-        return -(alpha_term - risk_term - cost_term)
+        trans_term = cost_coeff * float(np.sum(_smooth_abs(w - w_prev, eps)))
+        # Smooth holding cost term (financing + borrow + reverse)
+        holding_term = float(
+            long_hold_rate * np.sum(_smooth_pos(w, eps))
+            + short_hold_rate * np.sum(_smooth_neg(w, eps))
+        )
+        return -(alpha_term - risk_term - trans_term - holding_term)
 
     def jacobian(w: np.ndarray) -> np.ndarray:
         d_alpha = mu_gap
         d_risk = config.lambda_risk * np.dot(omega_psd, w)
-        d_cost = cost_coeff * _smooth_abs_grad(w - w_prev, eps)
-        return cast(np.ndarray, -(d_alpha - d_risk - d_cost))
+        d_trans = cost_coeff * _smooth_abs_grad(w - w_prev, eps)
+        d_hold = (
+            long_hold_rate * _smooth_pos_grad(w, eps)
+            + short_hold_rate * _smooth_neg_grad(w, eps)
+        )
+        return cast(np.ndarray, -(d_alpha - d_risk - d_trans - d_hold))
 
     def _eq_jac(_w: np.ndarray) -> np.ndarray:
         return np.ones(n_j, dtype=float)
@@ -241,6 +324,13 @@ def optimize_portfolio_convex(
     ex_ante_vol = float(np.sqrt(max(port_var, 1e-12)))
     ex_ante_ir = ex_ante_return / ex_ante_vol if ex_ante_vol > 1e-8 else 0.0
     turnover = float(np.sum(np.abs(w_opt - w_prev)))
+    ex_ante_cost = _compute_net_cost(w_opt, w_prev, config)
+    ex_ante_net_return = ex_ante_return - ex_ante_cost
+    ex_ante_net_ir = ex_ante_net_return / ex_ante_vol if ex_ante_vol > 1e-8 else 0.0
+
+    message = res.message
+    if actual_gross > effective_gross + 1e-12:
+        message = f"{message}; clipped to effective gross {effective_gross:.6f}"
 
     return OptimizationResult(
         weights=w_opt,
@@ -249,8 +339,11 @@ def optimize_portfolio_convex(
         ex_ante_return=ex_ante_return,
         ex_ante_vol=ex_ante_vol,
         ex_ante_ir=ex_ante_ir,
+        ex_ante_cost=ex_ante_cost,
+        ex_ante_net_return=ex_ante_net_return,
+        ex_ante_net_ir=ex_ante_net_ir,
         turnover=turnover,
         converged=converged,
         iterations=res.nit,
-        message=res.message,
+        message=message,
     )

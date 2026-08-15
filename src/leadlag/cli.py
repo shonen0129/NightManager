@@ -383,17 +383,25 @@ def _handle_close(args: argparse.Namespace) -> int:
 
 def _handle_nextgen_shadow(args: argparse.Namespace) -> int:
     """Run Next-Gen Convex Pipeline shadow comparison against Production V2."""
+    import importlib.util
     import sys
     from pathlib import Path
 
-    # tools/validation is not a package; add it to sys.path and import the
-    # script directly so it can resolve its own src/ imports.
-    tools_validation_dir = Path(__file__).resolve().parents[2] / "tools" / "validation"
-    if str(tools_validation_dir) not in sys.path:
-        sys.path.insert(0, str(tools_validation_dir))
-    import run_nextgen_shadow_pipeline
+    # tools/validation is not a package; load it as a module without mutating
+    # sys.path so it cannot collide with installed packages.
+    script_path = Path(__file__).resolve().parents[2] / "tools" / "validation" / "run_nextgen_shadow_pipeline.py"
+    spec = importlib.util.spec_from_file_location(
+        "run_nextgen_shadow_pipeline",
+        script_path,
+        submodule_search_locations=[str(script_path.parent)],
+    )
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"Failed to load {script_path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["run_nextgen_shadow_pipeline"] = module
+    spec.loader.exec_module(module)
 
-    run_nextgen_shadow_pipeline.run_shadow_comparison(
+    module.run_shadow_comparison(
         trade_date=args.trade_date,
         config_path=args.config,
         capital=args.capital,
