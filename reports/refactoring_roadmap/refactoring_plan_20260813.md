@@ -2468,11 +2468,15 @@ python3 tools/validation/monitor_residual_blpx_shadow_performance.py \
   - `src/leadlag/data/session.py` に `Session` / `SessionState` / `ExchangeCalendarPatch` の雛形を新設。
   - `tests/unit/test_data_provider.py` を新設し、両プロバイダの基本動作を検証。
 - [x] 全テスト通過: `bash scripts/run_tests_parallel.sh` で 507 tests ALL PASSED（ruff F821 も pass）
+- [x] 本来の full 期間バックテスト: 2015-01-05 〜 2026-08-13
+  - `var/live/pipeline_data/gap_adjusted_distribution/20260731_024303`（2020-01-06 〜 2026-07-29 の gap 行列）を使用。2020-01-05 以前と 2026-07-30 以降は on-demand BLPX 計算で gap 行列を補完。
+  - 指標: net Sharpe 4.1214, AR 199.04%, MDD -8.26%, ターンバー平均 1.43, fallback 0%
+  - 最終 wealth: 875,838,871x, 総コスト 5.28（スリッページ 81.1%, 逆日歩 11.3%, ロング金利 5.8%, 貸株 1.8%）
+  - 結果保存先: `var/results/20260815_111443_full_2015_20260813`
 
 ### 未完了・次回対象
 
 - [ ] Phase 10.4: シャドー運用 3 営業日（連続したライブ市場の観察が必要なため、セッション外で実施）
-- [ ] 本来の full 期間バックテスト: 2015-01-05 〜 2026-08-13（`var/live/pipeline_data/gap_adjusted_distribution/latest` に 2026-08-14 当日分のみ存在するため、full 期間はデータ不足。OOS 短期サンプル / ユニットテストで振る舞いを担保）
 
 ### 作業ブランチ
 
