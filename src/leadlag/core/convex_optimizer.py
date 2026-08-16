@@ -290,6 +290,29 @@ def optimize_portfolio_convex(
         },
     )
 
+    # Retry once with doubled iterations from the last iterate if we hit the
+    # iteration limit.  SLSQP can be sensitive to the initial guess; the last
+    # iterate is usually close to the feasible region and needs only a few more
+    # iterations to converge.
+    if not res.success and res.status == 9 and res.x is not None:
+        w0 = np.clip(res.x, -max_w, max_w)
+        if np.sum(np.abs(w0)) > effective_gross:
+            w0 *= effective_gross / np.sum(np.abs(w0))
+        w0 -= np.mean(w0)
+        res = minimize(
+            objective,
+            w0,
+            jac=jacobian,
+            method="SLSQP",
+            bounds=bounds,
+            constraints=constraints,
+            options={
+                "ftol": config.solver_tol,
+                "maxiter": max(config.max_iter * 2, 200),
+                "disp": False,
+            },
+        )
+
     if not res.success:
         # Optimizer did not converge: fall back to a flat position to avoid
         # using an invalid or constraint-violating solution live.
