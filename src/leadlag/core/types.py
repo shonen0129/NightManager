@@ -174,6 +174,8 @@ class OrderRequest:
     limit_price: float | None = None
     margin_trade_type: int | None = None
     account_type: int | None = None
+    is_close: bool = False
+    close_position_order: int = 0
 
 
 @dataclass

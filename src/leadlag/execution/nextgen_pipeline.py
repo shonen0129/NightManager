@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import csv
+import json
 import logging
 from dataclasses import dataclass
 from datetime import date, datetime
@@ -32,10 +33,11 @@ from leadlag.core.convex_optimizer import (
 from leadlag.core.market_calendar import previous_trading_day
 from leadlag.core.portfolio import get_rolling_pit_bin, solve_baseline_style
 from leadlag.data.pit_lake import MarketSnapshot, PITDataLake
-from leadlag.data.tickers import JP_TICKERS
+from leadlag.data.tickers import JP_TICKERS, lot_size_for
 from leadlag.execution.async_fsm import AsyncExecutionEngine, ExecutionJournal
 from leadlag.models.blpx import ProductionBLPXModel
-from leadlag.models.production_v2 import ProductionV2Model
+from leadlag.models.production_v2 import VERSION, ProductionV2Model
+from leadlag.reporting.formatter import print_text_orders as _print_text_orders
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +57,11 @@ class NextGenDecisionResult:
     pit_history_count: int
     elapsed_seconds: float
     success: bool
+    mu_gap: np.ndarray | None = None
+    sigma_gap: np.ndarray | None = None
+    capital: float = 0.0
+    leakage_audit: dict | None = None
+    numerical_audit: dict | None = None
 
 
 class NextGenPipeline:
@@ -162,7 +169,7 @@ class NextGenPipeline:
         omega_gap: np.ndarray,
         trade_date: str,
         snapshot: MarketSnapshot,
-    ) -> tuple[np.ndarray, str]:
+    ) -> tuple[np.ndarray, str, dict, dict]:
         """Run compliance/numerical audits and fall back to flat if required."""
         fallback = False
         message = ""
@@ -199,9 +206,9 @@ class NextGenPipeline:
             message = f"{message}; Leakage audit FAILED: {leakage}".strip("; ")
 
         if fallback:
-            return np.zeros_like(weights), message
+            return np.zeros_like(weights), message, leakage, numerical
 
-        return weights, ""
+        return weights, "", leakage, numerical
 
     def compute_decision(
         self,
@@ -210,7 +217,7 @@ class NextGenPipeline:
         w_prev: np.ndarray | None = None,
         pit_ir_history: list[float] | None = None,
         use_file_cache: bool = True,
-    ) -> tuple[np.ndarray, OptimizationResult, float, str, MarketSnapshot, float, list[float]]:
+    ) -> tuple[np.ndarray, OptimizationResult, float, str, MarketSnapshot, float, list[float], np.ndarray, np.ndarray, dict | None, dict | None]:
         """Compute optimal target weights synchronously without I/O blocking.
 
         Args:
@@ -255,6 +262,10 @@ class NextGenPipeline:
                 snapshot,
                 0.0,
                 pit_ir_history if pit_ir_history is not None else [],
+                np.zeros(n_j),
+                np.zeros(n_j),
+                None,
+                None,
             )
 
         try:
@@ -266,6 +277,7 @@ class NextGenPipeline:
                 horizon=1,
                 use_file_cache=use_file_cache,
             )
+            sigma_gap = np.sqrt(np.maximum(np.diag(omega_gap), 1e-8))
 
             # 2. Ex-ante IR & RuleD Dynamic Gross Scaling (V2-compatible portfolio IR)
             raw_ir = self._compute_current_ir(mu_gap, omega_gap)
@@ -317,10 +329,14 @@ class NextGenPipeline:
                     snapshot,
                     raw_ir,
                     history,
+                    mu_gap,
+                    sigma_gap,
+                    None,
+                    None,
                 )
 
             # 4. Compliance audits (post-optimization, before persisting IR)
-            audited_weights, audit_message = self._audit_and_fallback(
+            audited_weights, audit_message, leakage, numerical = self._audit_and_fallback(
                 opt_res.weights,
                 mu_gap,
                 omega_gap,
@@ -351,6 +367,10 @@ class NextGenPipeline:
                     snapshot,
                     raw_ir,
                     history,
+                    mu_gap,
+                    sigma_gap,
+                    leakage,
+                    numerical,
                 )
 
             # 5. Persist PIT IR only after a successful audited decision
@@ -361,7 +381,19 @@ class NextGenPipeline:
                 else:
                     self._pit_ir_history.append(raw_ir)
 
-            return opt_res.weights, opt_res, gross_mult, bin_label, snapshot, raw_ir, history
+            return (
+                opt_res.weights,
+                opt_res,
+                gross_mult,
+                bin_label,
+                snapshot,
+                raw_ir,
+                history,
+                mu_gap,
+                sigma_gap,
+                leakage,
+                numerical,
+            )
 
         except Exception as e:
             logger.error("[%s] Decision computation failed: %s. Falling back to flat.", trade_date, e, exc_info=True)
@@ -388,6 +420,10 @@ class NextGenPipeline:
                 snapshot,
                 0.0,
                 pit_ir_history if pit_ir_history is not None else [],
+                np.zeros(n_j),
+                np.zeros(n_j),
+                None,
+                None,
             )
 
     async def run_daily_decision(
@@ -424,6 +460,10 @@ class NextGenPipeline:
             snapshot,
             raw_ir,
             history,
+            mu_gap,
+            sigma_gap,
+            leakage,
+            numerical,
         ) = await loop.run_in_executor(
             None,
             self.compute_decision,
@@ -482,28 +522,128 @@ class NextGenPipeline:
             pit_history_count=len(history),
             elapsed_seconds=elapsed,
             success=success,
+            mu_gap=mu_gap,
+            sigma_gap=sigma_gap,
+            capital=capital,
+            leakage_audit=leakage,
+            numerical_audit=numerical,
         )
+
+    def _build_decision_df(self, result: NextGenDecisionResult) -> pd.DataFrame:
+        """Build a V2-compatible decision DataFrame for text output and reporting."""
+        rows = []
+        for i, tk in enumerate(JP_TICKERS):
+            w = result.target_weights.get(tk, 0.0)
+            price = result.snapshot.current_prices.get(tk, 0.0)
+            signal = (
+                float(result.mu_gap[i] / max(result.sigma_gap[i], 1e-8))
+                if result.mu_gap is not None and result.sigma_gap is not None
+                else 0.0
+            )
+            if w > 1e-8:
+                action = "BUY"
+            elif w < -1e-8:
+                action = "SELL"
+            else:
+                action = "HOLD"
+
+            if price > 0 and abs(w) > 1e-8:
+                lot = lot_size_for(tk)
+                target_value = abs(w) * result.capital
+                qty_raw = int(np.floor(target_value / price + 0.5))
+                qty = (qty_raw // lot) * lot
+                if qty <= 0:
+                    qty = lot
+                quantity = qty if w > 0 else -qty
+            else:
+                quantity = 0
+
+            etf_amount = abs(quantity) * price
+            rows.append({
+                "ticker": tk,
+                "open_price": price,
+                "signal": signal,
+                "weight": float(w),
+                "action": action,
+                "quantity": quantity,
+                "etf_amount": etf_amount,
+            })
+        return pd.DataFrame(rows)
 
     def save_decision_artifacts(
         self,
         result: NextGenDecisionResult,
-        output_dir: Path | str,
+        output_root: Path | str,
+        *,
+        run_tag: str | None = None,
+        live_dir: Path | str | None = None,
+        dry_run: bool = False,
+        text_output: bool = False,
     ) -> Path:
         """Persist Next-Gen decision artifacts (latest_weights.csv, summary.json, journal.json)."""
-        import json
-
-        out_path = Path(output_dir)
+        out_path = Path(output_root)
+        if run_tag:
+            out_path = out_path / run_tag
+        out_path = out_path / f"decision_{result.trade_date.replace('-', '')}"
         out_path.mkdir(parents=True, exist_ok=True)
 
-        # 1. Save latest_weights.csv
+        live_path = Path(live_dir) if live_dir else None
+
+        if dry_run:
+            logger.info("[DRY-RUN] Would write decision artifacts to: %s", out_path)
+            if live_path:
+                logger.info("[DRY-RUN] Would write live artifacts to: %s", live_path)
+            if text_output:
+                _print_text_orders(self._build_decision_df(result))
+            return out_path
+
+        # 1. Save latest_weights.csv (V2-compatible columns)
+        weights_rows = []
+        for i, tk in enumerate(JP_TICKERS):
+            w = float(result.target_weights.get(tk, 0.0))
+            side = "LONG" if w > 1e-8 else ("SHORT" if w < -1e-8 else "NEUTRAL")
+            score = (
+                float(result.mu_gap[i] / max(result.sigma_gap[i], 1e-8))
+                if result.mu_gap is not None and result.sigma_gap is not None
+                else 0.0
+            )
+            mu_gap = float(result.mu_gap[i]) if result.mu_gap is not None else 0.0
+            sigma_gap = float(result.sigma_gap[i]) if result.sigma_gap is not None else 0.0
+            weights_rows.append({
+                "trade_date": result.trade_date,
+                "ticker": tk,
+                "weight": w,
+                "side": side,
+                "score": score,
+                "mu_gap": mu_gap,
+                "sigma_gap": sigma_gap,
+                "ensemble_signal": score,
+                "gross_multiplier": result.rule_d_multiplier,
+                "pit_bin": result.rule_d_bin,
+                "version": VERSION,
+                "fallback_flag": 0 if result.success else 1,
+            })
+
+        weights_df = pd.DataFrame(weights_rows)
         weights_file = out_path / "latest_weights.csv"
-        with weights_file.open("w", newline="") as f:
-            writer = csv.writer(f)
-            writer.writerow(["ticker", "target_weight", "price", "trade_date"])
-            for tk in JP_TICKERS:
-                w = result.target_weights.get(tk, 0.0)
-                price = result.snapshot.current_prices.get(tk, 0.0)
-                writer.writerow([tk, f"{w:.6f}", f"{price:.2f}", result.trade_date])
+        weights_df.to_csv(weights_file, index=False)
+
+        # 1b. production_scores.csv
+        score_rows = [
+            {
+                "trade_date": result.trade_date,
+                "ticker": JP_TICKERS[i],
+                "mu_gap": float(result.mu_gap[i]) if result.mu_gap is not None else 0.0,
+                "sigma_gap": float(result.sigma_gap[i]) if result.sigma_gap is not None else 0.0,
+                "mu_over_sigma_score": float(result.mu_gap[i] / max(result.sigma_gap[i], 1e-8))
+                if result.mu_gap is not None and result.sigma_gap is not None
+                else 0.0,
+            }
+            for i in range(len(JP_TICKERS))
+        ]
+        score_df = pd.DataFrame(score_rows)
+        score_file = out_path / "production_scores.csv"
+        score_df.to_csv(score_file, index=False)
 
         # 2. Save decision_summary.json
         summary_file = out_path / "decision_summary.json"
@@ -524,9 +664,43 @@ class NextGenPipeline:
             "message": result.opt_result.message,
         }
         with summary_file.open("w") as f:
-            json.dump(summary_data, f, indent=2)
+            json.dump(summary_data, f, indent=2, ensure_ascii=False)
 
-        # 3. Save execution journal if available
+        # 3. PIT binning / audit files
+        pit = {
+            "trade_date": result.trade_date,
+            "assigned_bin": result.rule_d_bin,
+            "multiplier": result.rule_d_multiplier,
+            "raw_ir": result.raw_ir,
+            "pit_history_count": result.pit_history_count,
+        }
+        with (out_path / "pit_binning.json").open("w") as f:
+            json.dump(pit, f, indent=2, ensure_ascii=False)
+
+        if result.leakage_audit is not None:
+            with (out_path / "leakage_audit.json").open("w") as f:
+                json.dump(result.leakage_audit, f, indent=2, ensure_ascii=False)
+
+        if result.numerical_audit is not None:
+            with (out_path / "numerical_audit.json").open("w") as f:
+                json.dump(result.numerical_audit, f, indent=2, ensure_ascii=False)
+
+        all_passed = (
+            result.success
+            and (result.leakage_audit or {}).get("status") == "PASSED"
+            and (result.numerical_audit or {}).get("status") == "PASSED"
+        )
+        production_audit = {
+            "trade_date": result.trade_date,
+            "all_passed": all_passed,
+            "leakage": result.leakage_audit,
+            "numerical": result.numerical_audit,
+            "converged": result.opt_result.converged,
+        }
+        with (out_path / "production_audit.json").open("w") as f:
+            json.dump(production_audit, f, indent=2, ensure_ascii=False)
+
+        # 4. Save execution journal if available
         if result.journal is not None:
             journal_file = out_path / "execution_journal.json"
             journal_data = {
@@ -550,7 +724,33 @@ class NextGenPipeline:
                 ],
             }
             with journal_file.open("w") as f:
-                json.dump(journal_data, f, indent=2)
+                json.dump(journal_data, f, indent=2, ensure_ascii=False)
+
+        # 5. Mirror primary live artifacts to live_dir if configured
+        if live_path:
+            live_path.mkdir(parents=True, exist_ok=True)
+            weights_df.to_csv(live_path / "latest_weights.csv", index=False)
+            score_df.to_csv(live_path / "production_scores.csv", index=False)
+            with (live_path / "decision_summary.json").open("w") as f:
+                json.dump(summary_data, f, indent=2, ensure_ascii=False)
+            with (live_path / "pit_binning.json").open("w") as f:
+                json.dump(pit, f, indent=2, ensure_ascii=False)
+            if result.leakage_audit is not None:
+                with (live_path / "leakage_audit.json").open("w") as f:
+                    json.dump(result.leakage_audit, f, indent=2, ensure_ascii=False)
+            if result.numerical_audit is not None:
+                with (live_path / "numerical_audit.json").open("w") as f:
+                    json.dump(result.numerical_audit, f, indent=2, ensure_ascii=False)
+            with (live_path / "production_audit.json").open("w") as f:
+                json.dump(production_audit, f, indent=2, ensure_ascii=False)
+            if result.journal is not None:
+                with (live_path / "execution_journal.json").open("w") as f:
+                    json.dump(journal_data, f, indent=2, ensure_ascii=False)
+
+        if text_output:
+            _print_text_orders(self._build_decision_df(result))
 
         logger.info("[%s] Saved decision artifacts to %s", result.trade_date, out_path)
+        if live_path:
+            logger.info("[%s] Mirrored live artifacts to %s", result.trade_date, live_path)
         return out_path

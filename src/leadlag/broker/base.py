@@ -322,6 +322,10 @@ class BrokerClient(ABC):
                     side=close_side,
                     quantity=pos.quantity,
                     order_type=ot,
+                    margin_trade_type=pos.margin_trade_type,
+                    account_type=pos.account_type,
+                    is_close=True,
+                    close_position_order=close_position_order,
                 )
             )
 

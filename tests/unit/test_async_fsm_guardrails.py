@@ -11,7 +11,7 @@ import time
 import numpy as np
 
 from leadlag.broker.async_base import AsyncBrokerClient
-from leadlag.broker.base import Position, WalletInfo
+from leadlag.broker.base import BrokerConfig, Position, WalletInfo
 from leadlag.core.types import OrderRequest, OrderResult, OrderSide, OrderStatus, OrderType
 from leadlag.data.pit_lake import MarketSnapshot
 from leadlag.data.tickers import JP_TICKERS, US_TICKERS
@@ -23,9 +23,9 @@ from leadlag.execution.async_fsm import (
 )
 
 
-def test_rate_limiter_throttling():
+def test_rate_limiter_throttling() -> None:
     """Verify AsyncRateLimiter enforces minimum intervals between token acquisitions."""
-    async def _run():
+    async def _run() -> None:
         # Limit to 10 requests / sec (1 token every 0.1s), burst = 1
         limiter = AsyncRateLimiter(rate_limit_per_second=10.0, burst_limit=1)
 
@@ -45,7 +45,7 @@ class SlowHangingBrokerClient(AsyncBrokerClient):
     """Mock broker client that hangs forever on order submission."""
 
     def __init__(self) -> None:
-        super().__init__(config=None)
+        super().__init__(config=BrokerConfig(provider="dry_run"))
 
     async def connect(self) -> None:
         pass
@@ -77,9 +77,9 @@ class SlowHangingBrokerClient(AsyncBrokerClient):
         return True
 
 
-def test_async_order_timeout_guard():
+def test_async_order_timeout_guard() -> None:
     """Verify that hanging broker requests trigger timeout and do not block the engine."""
-    async def _run():
+    async def _run() -> None:
         # Set short timeout of 0.05 seconds
         engine = AsyncExecutionEngine(order_timeout_seconds=0.05)
         broker = SlowHangingBrokerClient()
@@ -107,7 +107,7 @@ def test_async_order_timeout_guard():
     asyncio.run(_run())
 
 
-def test_market_snapshot_sanity_validation():
+def test_market_snapshot_sanity_validation() -> None:
     """Verify MarketSnapshot detects invalid prices, NaN/Inf, and extreme return outliers."""
     import pandas as pd
 
@@ -164,3 +164,37 @@ def test_market_snapshot_sanity_validation():
     is_valid, errors = snap_bad_price.validate()
     assert not is_valid
     assert any("Invalid or missing execution price" in e for e in errors)
+
+
+def test_close_all_positions_sets_close_attributes() -> None:
+    """Verify close_all_positions builds is_close=True orders and clears positions."""
+    from leadlag.broker.async_base import AsyncDryRunBrokerClient
+    from leadlag.broker.base import Position
+    from leadlag.core.types import OrderType
+
+    async def _run() -> None:
+        broker = AsyncDryRunBrokerClient(simulated_latency_ms=1.0)
+        broker.positions = {
+            "1617.T": Position(ticker="1617.T", side="BUY", quantity=100, price=1000.0),
+            "1629.T": Position(ticker="1629.T", side="SELL", quantity=60, price=500.0, margin_trade_type=3, account_type=4),
+        }
+        engine = AsyncExecutionEngine()
+        journal = await engine.close_all_positions(broker, trade_date="2026-08-15", close_position_order=7)
+
+        assert journal.total_orders == 2
+        assert journal.filled_orders == 2
+        assert journal.success
+        # Positions are closed (long +100 and short -60 both net to zero)
+        assert len(broker.positions) == 0
+
+        # Inspect submitted order requests
+        assert len(broker.submitted_order_requests) == 2
+        for order in broker.submitted_order_requests:
+            assert order.order_type == OrderType.CLOSE
+            assert order.is_close is True
+            if order.ticker == "1629.T":
+                assert order.margin_trade_type == 3
+                assert order.account_type == 4
+                assert order.close_position_order == 7
+
+    asyncio.run(_run())

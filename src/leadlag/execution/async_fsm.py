@@ -27,6 +27,7 @@ class OrderState(Enum):
     CREATED = auto()
     VALIDATED = auto()
     SUBMITTING = auto()
+    SUBMITTED = auto()
     FILLED = auto()
     FAILED = auto()
     CANCELLED = auto()
@@ -168,6 +169,7 @@ class AsyncExecutionEngine:
         """
         # Map current positions
         pos_map = {p.ticker: (p.quantity if p.side == "BUY" else -p.quantity) for p in current_positions}
+        pos_meta = {p.ticker: p for p in current_positions}
 
         close_orders: list[OrderRequest] = []
         new_orders: list[OrderRequest] = []
@@ -200,13 +202,17 @@ class AsyncExecutionEngine:
                     if close_qty == 0:
                         close_qty = min(lot, abs(current_qty))
                     side = "SELL" if current_qty > 0 else "BUY"
+                    pos = pos_meta.get(tk)
                     close_orders.append(
                         OrderRequest(
                             ticker=tk,
                             side=OrderSide(side),
                             quantity=close_qty,
                             limit_price=price,
-                            order_type=OrderType.MARKET,
+                            order_type=OrderType.CLOSE,
+                            margin_trade_type=pos.margin_trade_type if pos else None,
+                            account_type=pos.account_type if pos else None,
+                            is_close=True,
                         )
                     )
                     # Remaining delta becomes a new order
@@ -298,6 +304,10 @@ class AsyncExecutionEngine:
                     quantity=first_qty,
                     limit_price=lc.order.limit_price,
                     order_type=lc.order.order_type,
+                    margin_trade_type=lc.order.margin_trade_type,
+                    account_type=lc.order.account_type,
+                    is_close=lc.order.is_close,
+                    close_position_order=lc.order.close_position_order,
                 ),
                 state=OrderState.VALIDATED,
             ),
@@ -308,6 +318,10 @@ class AsyncExecutionEngine:
                     quantity=second_qty,
                     limit_price=lc.order.limit_price,
                     order_type=lc.order.order_type,
+                    margin_trade_type=lc.order.margin_trade_type,
+                    account_type=lc.order.account_type,
+                    is_close=lc.order.is_close,
+                    close_position_order=lc.order.close_position_order,
                 ),
                 state=OrderState.VALIDATED,
             ),
@@ -378,6 +392,31 @@ class AsyncExecutionEngine:
             total_capital=total_capital,
         )
 
+        # Ensure new orders carry the broker's default margin/account settings.
+        default_margin = (
+            broker.config.margin_trade_type
+            if broker.config and broker.config.margin_trade_type is not None
+            else None
+        )
+        default_account = (
+            broker.config.account_type
+            if broker.config and broker.config.account_type is not None
+            else None
+        )
+        new_orders = [
+            OrderRequest(
+                ticker=o.ticker,
+                side=o.side,
+                quantity=o.quantity,
+                order_type=o.order_type,
+                limit_price=o.limit_price,
+                margin_trade_type=default_margin,
+                account_type=default_account,
+                is_close=False,
+            )
+            for o in new_orders
+        ]
+
         close_lifecycles = [OrderLifecycle(order=o, state=OrderState.VALIDATED) for o in close_orders]
         new_lifecycles = [OrderLifecycle(order=o, state=OrderState.VALIDATED) for o in new_orders]
 
@@ -402,7 +441,8 @@ class AsyncExecutionEngine:
 
         close_lifecycles_executed = standard_close + close_split_children
         close_phase_failed = any(
-            lc.state != OrderState.FILLED for lc in close_lifecycles_executed
+            lc.state not in (OrderState.FILLED, OrderState.SUBMITTED)
+            for lc in close_lifecycles_executed
         )
         if close_phase_failed:
             logger.error(
@@ -424,7 +464,10 @@ class AsyncExecutionEngine:
                 new_orders_count=0,
                 lifecycles=all_lifecycles,
                 elapsed_seconds=elapsed,
-                success=False,
+                success=all(
+                    lc.state in (OrderState.FILLED, OrderState.SUBMITTED)
+                    for lc in all_lifecycles
+                ),
             )
             logger.info(
                 "[%s] Async execution completed in %.2fs: %d filled, %d failed (NEW stage aborted).",
@@ -469,7 +512,10 @@ class AsyncExecutionEngine:
             new_orders_count=len(standard_new) + len(new_split_children),
             lifecycles=all_lifecycles,
             elapsed_seconds=elapsed,
-            success=all(lc.state == OrderState.FILLED for lc in all_lifecycles),
+            success=all(
+                lc.state in (OrderState.FILLED, OrderState.SUBMITTED)
+                for lc in all_lifecycles
+            ),
         )
 
         logger.info(
@@ -485,6 +531,7 @@ class AsyncExecutionEngine:
         self,
         broker: AsyncBrokerClient,
         trade_date: str = "",
+        close_position_order: int = 0,
     ) -> ExecutionJournal:
         """Close all open positions with async parallel execution and rate limiting."""
         start_time = datetime.now()
@@ -537,7 +584,11 @@ class AsyncExecutionEngine:
                     side=OrderSide(side),
                     quantity=p.quantity,
                     limit_price=p.price if p.price > 0 else 0.0,
-                    order_type=OrderType.MARKET,
+                    order_type=OrderType.CLOSE,
+                    margin_trade_type=p.margin_trade_type,
+                    account_type=p.account_type,
+                    is_close=True,
+                    close_position_order=close_position_order,
                 )
             )
 
@@ -574,7 +625,10 @@ class AsyncExecutionEngine:
             new_orders_count=0,
             lifecycles=all_lifecycles,
             elapsed_seconds=elapsed,
-            success=(failed_count == 0 and filled_count == len(all_lifecycles)),
+            success=all(
+                lc.state in (OrderState.FILLED, OrderState.SUBMITTED)
+                for lc in all_lifecycles
+            ),
         )
 
         logger.info(

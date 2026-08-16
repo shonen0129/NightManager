@@ -132,6 +132,11 @@ def _add_decision_args(parser: argparse.ArgumentParser) -> None:
 def _add_close_args(parser: argparse.ArgumentParser) -> None:
     """Add arguments for the close (and daily) subcommand."""
     parser.add_argument(
+        "--config",
+        default="configs/production/production.yaml",
+        help="Path to V2 production YAML config (used by the Next-Gen path; ignored by the V2 legacy path).",
+    )
+    parser.add_argument(
         "--engine",
         choices=["nextgen", "v2"],
         default="nextgen",
@@ -346,27 +351,105 @@ def _handle_decision(args: argparse.Namespace) -> int:
     import asyncio
     from pathlib import Path
 
-    from leadlag.broker.async_base import AsyncDryRunBrokerClient
+    from leadlag.broker.async_base import (
+        AsyncBrokerClient,
+        AsyncDryRunBrokerClient,
+        AsyncThreadedBrokerClient,
+    )
+    from leadlag.config.paths import project_root
+    from leadlag.core.market_calendar import is_market_closed, previous_trading_day
     from leadlag.data.market_data_cache import load_df_exec_from_local_cache
     from leadlag.data.pit_lake import PITDataLake
+    from leadlag.execution.broker_ops import build_api_client
     from leadlag.execution.config import load_config_from_yaml
-    from leadlag.execution.nextgen_pipeline import NextGenPipeline
+    from leadlag.execution.nextgen_pipeline import NextGenDecisionResult, NextGenPipeline
 
     df_exec = load_df_exec_from_local_cache()
     if df_exec is None:
         raise RuntimeError("df_exec cache not found.")
 
     lake = PITDataLake(df_exec)
-    trade_date = args.trade_date or "latest"
-    if trade_date == "latest":
-        trade_date = str(lake.end_date.strftime("%Y-%m-%d"))
 
-    app_config = load_config_from_yaml(args.config)
+    # Resolve trade date consistently with V2 (latest -> today/previous trading day)
+    trade_date = args.trade_date or "latest"
+    today = pd.Timestamp.now().tz_localize(None).normalize()
+    if trade_date == "latest":
+        resolved = today if not is_market_closed(today) else previous_trading_day(today)
+        trade_date = resolved.strftime("%Y-%m-%d")
+        if pd.to_datetime(trade_date) not in lake.df_exec.index:
+            trade_date = lake.end_date.strftime("%Y-%m-%d")
+            logger.warning("Resolved latest trade date not in PITDataLake; using %s", trade_date)
+    else:
+        if pd.to_datetime(trade_date).normalize() > today:
+            raise ValueError(f"trade_date {trade_date} is in the future (today: {today.date()})")
+        if pd.to_datetime(trade_date) not in lake.df_exec.index:
+            raise ValueError(
+                f"trade_date {trade_date} is not a trade date in the local cache. "
+                "Use 'latest' or a valid historical trading day."
+            )
+
+    config_path = Path(args.config)
+    if not config_path.is_absolute():
+        config_path = project_root() / config_path
+    app_config = load_config_from_yaml(str(config_path))
+
+    # Override gap input dir if --gap-dir provided
+    if args.gap_dir:
+        gap_dir = Path(args.gap_dir)
+        if not gap_dir.is_absolute():
+            gap_dir = project_root() / gap_dir
+        gap_dir_str = str(gap_dir)
+        v2_cfg = app_config.v2.model_copy(update={"gap_input_dir": gap_dir_str})
+        app_config = app_config.model_copy(
+            update={"gap_distribution_dir": gap_dir_str, "v2": v2_cfg}
+        )
+
+    # Resolve live output dir
+    live_dir = None
+    if args.live_dir:
+        live_dir = Path(args.live_dir)
+        if not live_dir.is_absolute():
+            live_dir = project_root() / live_dir
+        app_config = app_config.model_copy(update={"output_live_dir": str(live_dir)})
+    else:
+        live_dir = Path(app_config.output_live_dir)
+        if not live_dir.is_absolute():
+            live_dir = project_root() / live_dir
+
+    # Resolve output root
+    output_root = Path(args.output_root)
+    if not output_root.is_absolute():
+        output_root = project_root() / output_root
+
     nextgen = NextGenPipeline(app_config)
 
-    async def _run_nextgen():
-        # Dry-run or simulated execution
-        async with AsyncDryRunBrokerClient(simulated_latency_ms=10.0) as broker:
+    async def _run_nextgen() -> NextGenDecisionResult:
+        # Build broker client: live API or dry-run simulator
+        broker: AsyncBrokerClient
+        if args.api_enable and not args.dry_run and not args.api_dry_run:
+            sync_client = build_api_client(
+                api_url=args.api_url,
+                api_token=args.api_token,
+                api_dry_run=False,
+            )
+            broker = AsyncThreadedBrokerClient(
+                sync_client,
+                broker_request_timeout=app_config.nextgen.broker_request_timeout_seconds,
+            )
+        elif args.api_enable and args.api_dry_run:
+            sync_client = build_api_client(
+                api_url=args.api_url,
+                api_token=args.api_token,
+                api_dry_run=True,
+            )
+            broker = AsyncThreadedBrokerClient(
+                sync_client,
+                broker_request_timeout=app_config.nextgen.broker_request_timeout_seconds,
+            )
+        else:
+            broker = AsyncDryRunBrokerClient(simulated_latency_ms=10.0)
+
+        async with broker:
             capital = args.capital
             if args.capital_from_wallet:
                 wallet = await broker.get_wallet()
@@ -380,8 +463,14 @@ def _handle_decision(args: argparse.Namespace) -> int:
                 submit_orders=not args.dry_run and args.api_enable,
             )
 
-            out_dir = Path(args.output_root) / f"decision_{trade_date.replace('-', '')}"
-            nextgen.save_decision_artifacts(res, out_dir)
+            nextgen.save_decision_artifacts(
+                res,
+                output_root=output_root,
+                run_tag=args.run_tag,
+                live_dir=live_dir,
+                dry_run=args.dry_run,
+                text_output=args.text_output,
+            )
             return res
 
     res = asyncio.run(_run_nextgen())
@@ -448,21 +537,92 @@ def _handle_close(args: argparse.Namespace) -> int:
 
     # --- Next-Gen Async Close ---
     import asyncio
+    import json
+    from pathlib import Path
 
-    from leadlag.broker.async_base import AsyncDryRunBrokerClient
-    from leadlag.execution.async_fsm import AsyncExecutionEngine
+    from leadlag.broker.async_base import (
+        AsyncBrokerClient,
+        AsyncDryRunBrokerClient,
+        AsyncThreadedBrokerClient,
+    )
+    from leadlag.config.paths import project_root
+    from leadlag.execution.async_fsm import AsyncExecutionEngine, ExecutionJournal
+    from leadlag.execution.broker_ops import build_api_client
+    from leadlag.execution.config import load_config_from_yaml
+    from leadlag.execution.output_ops import build_output_dir
+
+    config_path = Path(args.config)
+    if not config_path.is_absolute():
+        config_path = project_root() / config_path
+    app_config = load_config_from_yaml(str(config_path))
+
+    output_root = Path(args.output_root)
+    if not output_root.is_absolute():
+        output_root = project_root() / output_root
+    output_dir = Path(
+        build_output_dir(
+            str(output_root),
+            args.run_tag,
+            "production_close_positions",
+        )
+    )
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     engine = AsyncExecutionEngine()
 
-    async def _run_close():
-        async with AsyncDryRunBrokerClient(simulated_latency_ms=10.0) as broker:
-            journal = await engine.close_all_positions(broker)
+    async def _run_close() -> ExecutionJournal:
+        broker: AsyncBrokerClient
+        if args.api_enable and not args.api_dry_run:
+            sync_client = build_api_client(
+                api_url=args.api_url,
+                api_token=args.api_token,
+                api_dry_run=False,
+            )
+            broker = AsyncThreadedBrokerClient(
+                sync_client,
+                broker_request_timeout=app_config.nextgen.broker_request_timeout_seconds,
+            )
+        elif args.api_enable and args.api_dry_run:
+            sync_client = build_api_client(
+                api_url=args.api_url,
+                api_token=args.api_token,
+                api_dry_run=True,
+            )
+            broker = AsyncThreadedBrokerClient(
+                sync_client,
+                broker_request_timeout=app_config.nextgen.broker_request_timeout_seconds,
+            )
+        else:
+            broker = AsyncDryRunBrokerClient(simulated_latency_ms=10.0)
+
+        async with broker:
+            trade_date = pd.Timestamp.now().strftime("%Y-%m-%d")
+            journal = await engine.close_all_positions(
+                broker,
+                trade_date=trade_date,
+                close_position_order=args.close_position_order,
+            )
             logger.info(
                 "Next-Gen async close completed. Filled: %d, Failed: %d, Success: %s",
                 journal.filled_orders,
                 journal.failed_orders,
                 journal.success,
             )
+
+            journal_data = {
+                "trade_date": journal.trade_date,
+                "total_orders": journal.total_orders,
+                "filled_orders": journal.filled_orders,
+                "failed_orders": journal.failed_orders,
+                "close_orders_count": journal.close_orders_count,
+                "new_orders_count": journal.new_orders_count,
+                "elapsed_seconds": journal.elapsed_seconds,
+                "success": journal.success,
+            }
+            journal_file = output_dir / "execution_journal.json"
+            with journal_file.open("w") as f:
+                json.dump(journal_data, f, indent=2, ensure_ascii=False)
+            logger.info("Close journal saved: %s", journal_file)
             return journal
 
     journal = asyncio.run(_run_close())

@@ -168,7 +168,12 @@ class AsyncThreadedBrokerClient(AsyncBrokerClient):
 
     async def submit_order(self, order: OrderRequest) -> OrderResult:
         result = await asyncio.wait_for(
-            asyncio.to_thread(self._client.submit_order, order),
+            asyncio.to_thread(
+                self._client.submit_order,
+                order,
+                is_close=order.is_close,
+                close_position_order=order.close_position_order,
+            ),
             timeout=self._timeout,
         )
         if result.status == OrderStatus.SUBMITTED:
@@ -202,6 +207,7 @@ class AsyncDryRunBrokerClient(AsyncBrokerClient):
         self.cash = initial_cash
         self.positions: dict[str, Position] = {}
         self.submitted_orders: list[OrderResult] = []
+        self.submitted_order_requests: list[OrderRequest] = []
         self.latency_sec = simulated_latency_ms / 1000.0
         self._connected = False
 
@@ -240,6 +246,7 @@ class AsyncDryRunBrokerClient(AsyncBrokerClient):
             limit_price=fill_price,
             message="Simulated fill",
         )
+        self.submitted_order_requests.append(order)
         self.submitted_orders.append(result)
 
         # Update simulated positions with signed quantities (BUY=+, SELL=-)
