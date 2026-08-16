@@ -1,6 +1,6 @@
 #!/bin/bash
 # Fast unit-only test run (~1 min). Runs tests under tests/unit/ and
-# tests/features/, excluding the known slow sprint backtest files.
+# tests/features/, excluding slow / integration tests via markers.
 #
 # Usage::
 #
@@ -19,7 +19,5 @@ fi
 EXTRA_ARGS="$@"
 
 exec "$PYTHON_BIN" -m pytest tests/unit tests/features \
-    --ignore=tests/unit/test_sprint0_diagnostics.py \
-    --ignore=tests/unit/test_sprint0_qa.py \
-    --ignore=tests/unit/test_sprint1.py \
+    -m "unit and not slow and not integration" \
     -q -n auto $EXTRA_ARGS

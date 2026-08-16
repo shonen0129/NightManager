@@ -31,6 +31,7 @@ sys.path.insert(0, str(ROOT / "tools" / "validation"))
 
 from run_daily_residual_blpx_shadow import generate_daily_shadow_portfolio, write_daily_files
 
+from leadlag.config.paths import results, shadow_runs
 from leadlag.data.tickers import JP_TICKERS
 
 logging.basicConfig(
@@ -78,9 +79,9 @@ def run_self_tests() -> int:
     logger.info("=== Running Batch Shadow Runner Self-Tests ===")
 
     # 1. Create a temporary folder inside workspace
-    temp_out = ROOT / "results" / "temp_shadow_self_test"
+    temp_out = results("temp_shadow_self_test")
     temp_out.mkdir(parents=True, exist_ok=True)
-    temp_shadow = ROOT / "shadow_runs" / "temp_shadow_self_test"
+    temp_shadow = shadow_runs("temp_shadow_self_test")
     temp_shadow.mkdir(parents=True, exist_ok=True)
 
     # Create dummy mock inputs for 5 dates

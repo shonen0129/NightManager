@@ -22,6 +22,7 @@ import yaml
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "src"))
 
+from leadlag.config.paths import market_data
 from leadlag.data.preprocessor import preprocess_data
 from leadlag.reporting.metrics import calculate_metrics
 from research.backtest_common import (
@@ -42,7 +43,7 @@ logger = logging.getLogger(__name__)
 
 def load_cached_data() -> dict:
     """Load market data from etf_data.pkl cache directly."""
-    pkl_path = ROOT / "market_data" / "etf_data.pkl"
+    pkl_path = market_data("etf_data.pkl")
     if not pkl_path.exists():
         raise FileNotFoundError(
             f"Market data cache not found: {pkl_path}\n"

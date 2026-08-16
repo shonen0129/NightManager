@@ -30,6 +30,7 @@ import matplotlib.pyplot as plt
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
+from leadlag.config.paths import market_data
 from leadlag.data.fetcher import download_data
 from leadlag.data.preprocessor import preprocess_data
 from leadlag.data.tickers import JP_TICKERS, US_TICKERS
@@ -857,7 +858,7 @@ def main():
     vix_series = pd.Series(np.nan, index=us_returns_raw.index)
     vix_loaded = False
     try:
-        macro_path = ROOT / "market_data" / "macro_data.pkl"
+        macro_path = market_data("macro_data.pkl")
         if macro_path.exists():
             macro_df = pd.read_pickle(macro_path)
             # Find ^VIX

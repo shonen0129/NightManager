@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -16,6 +17,32 @@ sys.path.insert(0, str(ROOT / "src"))
 from leadlag.data.fetcher import download_data
 from leadlag.data.preprocessor import preprocess_data
 from leadlag.data.tickers import TOPIX_TICKER
+
+
+def pytest_collection_modifyitems(config: pytest.Config, items: list[Any]) -> None:
+    """Automatically assign pytest markers based on test file location.
+
+    This avoids manually decorating every test file and keeps marker categories
+    consistent with ``pyproject.toml``:
+    - unit: tests/unit, tests/features
+    - integration: tests/integration, tests/regression, tests/research
+    - slow: research/regression tests and any test in a sprint file
+    - leak: tests whose name contains 'leak' or 'leakage'
+    """
+    for item in items:
+        nodeid = item.nodeid
+        if "tests/unit" in nodeid or "tests/features" in nodeid:
+            item.add_marker("unit")
+        if "tests/integration" in nodeid or "tests/regression" in nodeid or "tests/research" in nodeid:
+            item.add_marker("integration")
+        if (
+            "tests/research" in nodeid
+            or "tests/regression" in nodeid
+            or "/test_sprint" in nodeid
+        ):
+            item.add_marker("slow")
+        if "leak" in nodeid.lower():
+            item.add_marker("leak")
 
 
 @pytest.fixture

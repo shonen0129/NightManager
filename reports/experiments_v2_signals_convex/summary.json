@@ -1,0 +1,64 @@
+{
+  "period": {
+    "start": "2020-01-06",
+    "end": "2026-07-29",
+    "days": 1544
+  },
+  "hyperparameters": {
+    "lambda_risk": 5.0,
+    "cost_bps": 5.0,
+    "turnover_penalty": 0.0001,
+    "max_single_weight": 0.25,
+    "gap_dir": "var/live/pipeline_data/gap_adjusted_distribution/20260731_024303"
+  },
+  "fallback_count": 0,
+  "convex_fail_count": 0,
+  "convex_nonconverged_count": 293,
+  "variants": {
+    "V2 Baseline": {
+      "net_sharpe": 4.816229330031524,
+      "gross_sharpe": 5.931995722485418,
+      "annualized_net_return": 1.6529169393622074,
+      "annualized_net_vol": 0.3431973077061487,
+      "return_risk": 4.816229330031524,
+      "total_net_return": 20159.99264114584,
+      "max_drawdown": -0.06609350115770918,
+      "avg_daily_turnover": 1.2890850877239297,
+      "avg_gross_exposure": 1.7849740932642486,
+      "total_slippage_cost": 2.2305078749031604,
+      "total_financing_cost": 0.16501284246575343,
+      "total_borrow_cost": 0.05060393835616439,
+      "total_reverse_fee": 0.321225
+    },
+    "Convex (V2 prior)": {
+      "net_sharpe": 2.440129449269044,
+      "gross_sharpe": 3.6188754434952313,
+      "annualized_net_return": 0.7498472943511404,
+      "annualized_net_vol": 0.3072981618150471,
+      "return_risk": 2.440129449269044,
+      "total_net_return": 90.2384025951374,
+      "max_drawdown": -0.28857973602749254,
+      "avg_daily_turnover": 1.2213721011357106,
+      "avg_gross_exposure": 1.6089810096799928,
+      "total_slippage_cost": 2.0613425390239177,
+      "total_financing_cost": 0.1483953631270323,
+      "total_borrow_cost": 0.04550791135895657,
+      "total_reverse_fee": 0.2888763068872895
+    },
+    "Convex (convex prior)": {
+      "net_sharpe": 2.500421775956674,
+      "gross_sharpe": 3.7741786162540456,
+      "annualized_net_return": 0.7247150548420646,
+      "annualized_net_vol": 0.2898371234048243,
+      "return_risk": 2.5004217759566743,
+      "total_net_return": 79.3248864727145,
+      "max_drawdown": -0.29257249585573664,
+      "avg_daily_turnover": 1.1841613206470547,
+      "avg_gross_exposure": 1.6433922633605549,
+      "total_slippage_cost": 2.077348881272305,
+      "total_financing_cost": 0.15196745589260977,
+      "total_borrow_cost": 0.04660335314040033,
+      "total_reverse_fee": 0.2958299808042803
+    }
+  }
+}

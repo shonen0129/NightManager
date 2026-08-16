@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -21,6 +22,9 @@ import pandas as pd
 ROOT = Path(__file__).resolve()
 while not (ROOT / "pyproject.toml").exists():
     ROOT = ROOT.parent
+sys.path.insert(0, str(ROOT / "src"))
+
+from leadlag.config.paths import live, results
 def parse_args():
     p = argparse.ArgumentParser()
     p.add_argument("--config", default="configs/production/production.yaml")
@@ -39,7 +43,7 @@ def find_gap_dir_for_date(trade_date: str) -> Path | None:
     date_numeric = trade_date.replace("-", "")
     candidates = sorted(
         d
-        for d in (ROOT / "live" / "pipeline_data" / "gap_adjusted_distribution").iterdir()
+        for d in live("pipeline_data", "gap_adjusted_distribution").iterdir()
         if d.is_dir() and d.name.startswith(date_numeric)
     )
     if not candidates:
@@ -52,7 +56,7 @@ def find_gap_dir_for_date(trade_date: str) -> Path | None:
 
 
 def load_actual_decision_weights(trade_date: str) -> pd.Series | None:
-    dirs = list(ROOT.glob(f"var/results/{trade_date.replace('-','')}_*_production_decision_v2"))
+    dirs = list(results().glob(f"{trade_date.replace('-','')}_*_production_decision_v2"))
     if not dirs:
         return None
     csv = dirs[0] / f"decision_{trade_date.replace('-','')}.csv"
