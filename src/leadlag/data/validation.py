@@ -71,6 +71,133 @@ def validate_raw_data_sources(data: dict[str, Any]) -> list[str]:
     return alerts
 
 
+def _check_series_nan_blocks(series: pd.Series) -> dict[str, Any]:
+    """Return NaN block statistics for a single-ticker price series."""
+    if series.empty:
+        return {
+            "all_nan": True,
+            "n_nan": len(series),
+            "first_valid": None,
+            "last_valid": None,
+            "leading_nan": len(series),
+            "trailing_nan": len(series),
+        }
+
+    n_nan = int(series.isna().sum())
+    n_total = len(series)
+    all_nan = n_nan == n_total
+    first_valid = series.first_valid_index()
+    last_valid = series.last_valid_index()
+    idx = series.index
+    leading_nan = 0
+    if first_valid is not None:
+        leading_nan = int((idx < first_valid).sum())
+    trailing_nan = 0
+    if last_valid is not None:
+        trailing_nan = int((idx > last_valid).sum())
+
+    return {
+        "all_nan": all_nan,
+        "n_nan": n_nan,
+        "first_valid": first_valid,
+        "last_valid": last_valid,
+        "leading_nan": leading_nan,
+        "trailing_nan": trailing_nan,
+    }
+
+
+def validate_etf_raw_data(
+    data: dict[str, Any],
+    *,
+    min_history_days: int = 30,
+) -> dict[str, Any]:
+    """Validate raw ETF OHLC cache quality.
+
+    Checks for all-NaN tickers, leading / trailing NaN blocks, and short history.
+    Returns a dict with ``ok`` (bool), ``alerts`` (list[str]), and ``fatals``
+    (list[str]).
+    """
+    required = {"us_close", "jp_close", "jp_open"}
+    missing_keys = required - set(data.keys())
+    if missing_keys:
+        raise DataValidationError(f"Raw data missing required keys: {sorted(missing_keys)}")
+
+    ok = True
+    alerts: list[str] = []
+    fatals: list[str] = []
+    ticker_stats: dict[str, dict[str, Any]] = {}
+
+    tables = {
+        "us_close": (data["us_close"], US_TICKERS),
+        "jp_close": (data["jp_close"], JP_TICKERS + [TOPIX_TICKER]),
+        "jp_open": (data["jp_open"], JP_TICKERS + [TOPIX_TICKER]),
+    }
+
+    for table_name, (df, expected_tickers) in tables.items():
+        if not isinstance(df, pd.DataFrame):
+            fatals.append(f"{table_name} is not a DataFrame")
+            ok = False
+            continue
+        if df.empty:
+            fatals.append(f"{table_name} is empty")
+            ok = False
+            continue
+
+        missing = [tk for tk in expected_tickers if tk not in df.columns]
+        if missing:
+            fatals.append(f"{table_name} missing tickers: {missing}")
+            ok = False
+
+        for tk in expected_tickers:
+            if tk not in df.columns:
+                continue
+            series = df[tk]
+            stats = _check_series_nan_blocks(series)
+            ticker_stats[f"{table_name}.{tk}"] = stats
+
+            if stats["all_nan"]:
+                fatals.append(f"{table_name}.{tk} is all-NaN")
+                ok = False
+                continue
+
+            valid_count = len(series) - stats["n_nan"]
+            if valid_count < min_history_days:
+                fatals.append(
+                    f"{table_name}.{tk} has only {valid_count} valid rows "
+                    f"(min {min_history_days})"
+                )
+                ok = False
+
+            if stats["trailing_nan"] > 0:
+                last_valid = stats["last_valid"]
+                last_idx = df.index[-1]
+                alerts.append(
+                    f"{table_name}.{tk} has {stats['trailing_nan']} trailing NaN "
+                    f"(last valid {last_valid}, last index {last_idx})"
+                )
+
+            if stats["leading_nan"] > 0:
+                first_valid = stats["first_valid"]
+                first_idx = df.index[0]
+                alerts.append(
+                    f"{table_name}.{tk} has {stats['leading_nan']} leading NaN "
+                    f"(first valid {first_valid}, first index {first_idx})"
+                )
+
+            isolated = stats["n_nan"] - stats["leading_nan"] - stats["trailing_nan"]
+            if isolated > 0:
+                alerts.append(
+                    f"{table_name}.{tk} has {isolated} isolated NaN(s)"
+                )
+
+    return {
+        "ok": ok,
+        "alerts": alerts,
+        "fatals": fatals,
+        "ticker_stats": ticker_stats,
+    }
+
+
 def validate_exec_record(
     record: dict[str, Any],
     *,
