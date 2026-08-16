@@ -150,19 +150,22 @@ def download_macro_prices(
     end: str | None = None,
     period: str = "10y",
     timeout: float = _MACRO_DOWNLOAD_TIMEOUT,
+    cache: dict | None = None,
 ) -> pd.DataFrame:
     """Download daily close prices for the three macro factors.
 
-    Uses a module-level cache to avoid redundant downloads within the same
-    session.  If the download does not complete within *timeout* seconds,
+    Uses an optional per-instance *cache* to avoid redundant downloads; if no
+    cache is supplied the module-level fallback is used for backward
+    compatibility.  If the download does not complete within *timeout* seconds,
     a TimeoutError is raised.
 
     Returns a DataFrame with columns MACRO_NAMES and a DatetimeIndex.
     Values are daily close prices.
     """
+    active_cache = _MACRO_PRICE_CACHE if cache is None else cache
     cache_key = (start, end, period)
-    if cache_key in _MACRO_PRICE_CACHE:
-        return _MACRO_PRICE_CACHE[cache_key].copy()
+    if cache_key in active_cache:
+        return active_cache[cache_key].copy()
 
     import yfinance as yf
 
@@ -199,7 +202,7 @@ def download_macro_prices(
     close.columns = MACRO_NAMES
     close = close.dropna(how="all")
 
-    _MACRO_PRICE_CACHE[cache_key] = close.copy()
+    active_cache[cache_key] = close.copy()
     return close
 
 
@@ -208,13 +211,14 @@ def download_macro_data(
     end: str | None = None,
     period: str = "10y",
     timeout: float = _MACRO_DOWNLOAD_TIMEOUT,
+    cache: dict | None = None,
 ) -> pd.DataFrame:
     """Download daily macro factor returns aligned to trading days.
 
     Returns a DataFrame with columns MACRO_NAMES and a DatetimeIndex.
     Values are daily percentage returns.
     """
-    close = download_macro_prices(start=start, end=end, period=period, timeout=timeout)
+    close = download_macro_prices(start=start, end=end, period=period, timeout=timeout, cache=cache)
 
     macro_returns = close.pct_change()
     macro_returns = macro_returns.replace([np.inf, -np.inf], np.nan)

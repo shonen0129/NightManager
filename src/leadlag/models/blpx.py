@@ -245,6 +245,7 @@ class ProductionBLPXModel(_BLPBase):
         self._raw_pca_cache: dict = {}
         self._residual_pca_cache: dict = {}
         self._blp_corr_cache: dict = {}
+        self._macro_price_cache: dict = {}
 
     def _build_sector_prior(self) -> np.ndarray:
         """Build the fixed 日米業種対応行列 M_sector of size (n_j x n_u).
@@ -290,7 +291,11 @@ class ProductionBLPXModel(_BLPBase):
 
         # download_macro_prices normalizes yfinance/network errors to RuntimeError.
         try:
-            close_prices = download_macro_prices(start=start, end=end)
+            close_prices = download_macro_prices(
+                start=start,
+                end=end,
+                cache=self._macro_price_cache,
+            )
         except (RuntimeError, TimeoutError, OSError, ValueError, TypeError, KeyError, IndexError) as e:
             logger.warning("Failed to download macro prices: %s", e)
             return None
@@ -704,7 +709,9 @@ class ProductionBLPXModel(_BLPBase):
 
         try:
             _, _, corr_pos = compute_correlation(
-                window_returns[pos_mask], self.blp_ewma_halflife
+                window_returns[pos_mask],
+                self.blp_ewma_halflife,
+                cache=self._blp_corr_cache,
             )
             C_YX_pos = corr_pos[self.n_u:, :self.n_u]
         except (ValueError, np.linalg.LinAlgError, RuntimeError) as e:
@@ -713,7 +720,9 @@ class ProductionBLPXModel(_BLPBase):
 
         try:
             _, _, corr_neg = compute_correlation(
-                window_returns[neg_mask], self.blp_ewma_halflife
+                window_returns[neg_mask],
+                self.blp_ewma_halflife,
+                cache=self._blp_corr_cache,
             )
             C_YX_neg = corr_neg[self.n_u:, :self.n_u]
         except (ValueError, np.linalg.LinAlgError, RuntimeError) as e:

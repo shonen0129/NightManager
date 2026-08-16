@@ -331,17 +331,40 @@ def preprocess_data(
         else:
             jp_open_trade = pd.Series(np.nan, index=JP_TICKERS)
 
-        if r_us.isna().any() or r_jp.isna().any() or jp_close_sig.isna().any():
+        # Per-ticker NaN handling: keep the row and zero-fill individual missing
+        # tickers rather than dropping the entire trade_date. Dropping whole rows
+        # for one bad ticker (e.g., IJR) creates gaps in df_exec and breaks
+        # downstream rolling computations.  Entirely missing series is still
+        # rejected because zero-filling all tickers would be a look-free signal.
+        if r_us.isna().all() or r_jp.isna().all() or jp_close_sig.isna().all():
             if strict_validation:
                 raise DataValidationError(
-                    f"NaN in required columns for trade_date={trade_date}; "
+                    f"All required values are NaN for trade_date={trade_date}; "
                     f"strict_validation is enabled, so this record is rejected"
                 )
             logger.warning(
-                "Skipping trade_date=%s due to NaN in required columns",
+                "Skipping trade_date=%s because all required values are NaN",
                 trade_date,
             )
             continue
+
+        nan_us = r_us.isna()
+        if nan_us.any():
+            missing = r_us[nan_us].index.tolist()
+            r_us = r_us.fillna(0.0)
+            logger.warning("%s: filled NaN us_cc for tickers %s", trade_date, missing)
+
+        nan_jp = r_jp.isna()
+        if nan_jp.any():
+            missing = r_jp[nan_jp].index.tolist()
+            r_jp = r_jp.fillna(0.0)
+            logger.warning("%s: filled NaN jp_cc for tickers %s", trade_date, missing)
+
+        nan_close = jp_close_sig.isna()
+        if nan_close.any():
+            missing = jp_close_sig[nan_close].index.tolist()
+            jp_close_sig = jp_close_sig.fillna(0.0)
+            logger.warning("%s: filled NaN jp_close_sig for tickers %s", trade_date, missing)
 
         # r_oc (target return), r_gap, and jp_open_trade may be NaN for today
         # because the Japanese market has not opened yet or the 9:10 real-time

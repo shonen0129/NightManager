@@ -159,6 +159,7 @@ def compute_correlation(
     copula_blend_weight: float = 0.0,
     copula_nu_init: float = 5.0,
     use_cache: bool = True,
+    cache: dict | None = None,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Compute rolling mean, std, and correlation (equal-weight or EWMA).
 
@@ -174,15 +175,18 @@ def compute_correlation(
             1 = copula only. Ignored when use_copula=False.
         copula_nu_init: Initial degrees-of-freedom for t-copula estimation.
         use_cache: If True, cache correlation matrices to avoid recomputation.
+        cache: Optional per-instance cache dict. If None and *use_cache*, the
+            module-level cache is used for backward compatibility.
 
     Returns:
         mu, sigma, correlation_matrix
     """
     # Create cache key from input parameters
+    active_cache = _ROLLING_CORR_CACHE if cache is None else cache
     if use_cache:
         cache_key = (window_returns.shape, ewma_half_life, use_copula, copula_blend_weight, copula_nu_init, hash(window_returns.tobytes()))
-        if cache_key in _ROLLING_CORR_CACHE:
-            cached_result = _ROLLING_CORR_CACHE[cache_key]
+        if cache_key in active_cache:
+            cached_result = active_cache[cache_key]
             return cached_result[0].copy(), cached_result[1].copy(), cached_result[2].copy()
 
     with np.errstate(invalid="ignore"):
@@ -218,10 +222,10 @@ def compute_correlation(
             corr = blend_correlation(corr, corr_copula, copula_blend_weight)
 
     if use_cache:
-        _ROLLING_CORR_CACHE[cache_key] = (mu.copy(), sigma.copy(), corr.copy())
+        active_cache[cache_key] = (mu.copy(), sigma.copy(), corr.copy())
         # Limit cache size to prevent memory bloat
-        if len(_ROLLING_CORR_CACHE) > 1000:
-            _ROLLING_CORR_CACHE.clear()
+        if len(active_cache) > 1000:
+            active_cache.clear()
 
     return mu, sigma, corr
 
@@ -236,6 +240,7 @@ def compute_baseline_correlation(
     ewma_half_life: float | None = None,
     baseline_start: str = "2010-01-01",
     baseline_end: str = "2014-12-31",
+    cache: dict | None = None,
 ) -> np.ndarray:
     """Compute baseline correlation matrix from a specified period.
 
@@ -252,14 +257,15 @@ def compute_baseline_correlation(
     if base_returns.shape[0] == 0:
         raise ValueError(f"No rows found for baseline period ({baseline_start} to {baseline_end})")
 
+    active_cache = _BASELINE_CORR_CACHE if cache is None else cache
     cache_key = (ewma_half_life, baseline_start, baseline_end, base_returns.shape, hash(base_returns.tobytes()))
-    if cache_key in _BASELINE_CORR_CACHE:
-        return cast(np.ndarray, _BASELINE_CORR_CACHE[cache_key].copy())
+    if cache_key in active_cache:
+        return cast(np.ndarray, active_cache[cache_key].copy())
 
-    _, _, corr = compute_correlation(base_returns, ewma_half_life)
-    _BASELINE_CORR_CACHE[cache_key] = corr
-    if len(_BASELINE_CORR_CACHE) > 100:
-        _BASELINE_CORR_CACHE.clear()
+    _, _, corr = compute_correlation(base_returns, ewma_half_life, cache=active_cache)
+    active_cache[cache_key] = corr
+    if len(active_cache) > 100:
+        active_cache.clear()
     return corr.copy()
 
 

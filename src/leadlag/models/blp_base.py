@@ -217,6 +217,7 @@ class _BLPBase(BLPModelBase):
             "_residual_pca_cache",
             "_blp_corr_cache",
             "_common_inputs_cache",
+            "_macro_price_cache",
         ):
             if hasattr(self, attr):
                 getattr(self, attr).clear()

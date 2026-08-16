@@ -385,6 +385,7 @@ def generate_v2_production_portfolio_from_distribution(
     df_exec: pd.DataFrame | None,
     gap_input_dir: Path | None,
     scores: np.ndarray | None = None,
+    cache: dict | None = None,
 ) -> dict:
     """Build a V2 portfolio from a pre-computed (mu_gap, Omega_gap) distribution.
 
@@ -402,12 +403,12 @@ def generate_v2_production_portfolio_from_distribution(
 
     # Ensure PSD and optionally apply macro adjustments.
     mu_gap, omega_gap, alerts = _repair_and_adjust(
-        mu_gap, omega_gap, run_config, date_str, n_j, alerts
+        mu_gap, omega_gap, run_config, date_str, n_j, alerts, cache=cache
     )
 
     # Scores (mu_over_sigma).  If the caller already blended multiple horizons,
     # use the supplied scores; otherwise derive from mu_gap / sigma_gap.
-    sigma_gap = np.sqrt(np.maximum(np.diag(omega_gap), 1e-6))
+    sigma_gap = np.sqrt(np.maximum(np.diag(omega_gap), run_config.sigma_floor))
     if scores is None:
         scores = mu_gap / sigma_gap
 
@@ -554,6 +555,7 @@ def _repair_and_adjust(
     date_str: str,
     n_j: int,
     alerts: list[str],
+    cache: dict | None = None,
 ) -> tuple[np.ndarray, np.ndarray, list[str]]:
     """Ensure Omega_gap is PSD and optionally apply macro adjustments."""
     # Ensure Omega_gap is PSD
@@ -567,7 +569,7 @@ def _repair_and_adjust(
         try:
             macro_start = (pd.to_datetime(date_str) - pd.Timedelta(days=365 * 2)).strftime("%Y-%m-%d")
             macro_end = date_str
-            close_prices = download_macro_prices(start=macro_start, end=macro_end)
+            close_prices = download_macro_prices(start=macro_start, end=macro_end, cache=cache)
             if close_prices is not None:
                 # yfinance end is normally exclusive, but guard against any
                 # trade-date (JST) macro close that is not yet known at 9:10.
@@ -768,6 +770,9 @@ class ProductionV2Model:
         self.n_u = len(US_TICKERS)
         self.n_j = len(JP_TICKERS)
 
+        # Per-instance cache for macro price downloads (avoids module-level global).
+        self._macro_price_cache: dict = {}
+
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
@@ -796,6 +801,7 @@ class ProductionV2Model:
             df_exec=None,
             gap_input_dir=gap_input_dir,
             scores=None,
+            cache=self._macro_price_cache,
         )
 
     # ------------------------------------------------------------------
@@ -870,6 +876,7 @@ class ProductionV2Model:
                     df_exec=df_exec,
                     gap_input_dir=gap_input_dir,
                     scores=scores,
+                    cache=self._macro_price_cache,
                 )
             except Exception as e:
                 if self.run_config.fallback_on_gap_data_missing:
@@ -1072,7 +1079,7 @@ class ProductionV2Model:
                 horizon=h,
                 use_file_cache=use_file_cache,
             )
-            sigma_h = np.sqrt(np.maximum(np.diag(omega_h), 1e-8))
+            sigma_h = np.sqrt(np.maximum(np.diag(omega_h), self.run_config.sigma_floor))
             score_h = mu_h / sigma_h
 
             if h == 1:

@@ -562,10 +562,10 @@ class ProductionV2RunConfig(BaseModel):
     gap_input_dir: Path | None = Field(default=None, description="gap 調整済み分布ディレクトリ")
     mu_file_pattern: str = Field(default="matrices/mu_gap_{date}.npy", description="mu_gap ファイルパターン")
     omega_file_pattern: str = Field(default="matrices/omega_gap_{date}.npy", description="omega_gap ファイルパターン")
-    sigma_floor: float = Field(default=1.0e-6, gt=0.0, description="mu_over_sigma ゼロ除算防止フロア")
+    sigma_floor: float = Field(default=1.0e-6, gt=0.0, description="Omega_gap 対角（予測分散）のフロア。mu_over_sigma 計算時に sigma_gap = sqrt(max(diag(Omega), sigma_floor)) として使用")
 
     # --- Residualization ---
-    residualization_enabled_for_p3: bool = Field(default=True, description="JP residualization (P3) 有効フラグ")
+    residualization_enabled_for_p3: bool = Field(default=True, description="JP residualization (P3) 有効フラグ（現行 V2 実装では未使用・予約）")
     residualization_beta_window: int = Field(default=60, ge=1, description="TOPIX residualization beta 窓")
     residualization_beta_winsor_sigma: float = Field(default=3.0, ge=0.0, description="beta 推定前のウィンソライズ sigma")
     residualization_beta_shrinkage: float = Field(default=0.05, ge=0.0, le=1.0, description="beta の 1.0 へのベイズ縮小強度")
