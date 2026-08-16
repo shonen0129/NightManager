@@ -483,3 +483,74 @@ class NextGenPipeline:
             elapsed_seconds=elapsed,
             success=success,
         )
+
+    def save_decision_artifacts(
+        self,
+        result: NextGenDecisionResult,
+        output_dir: Path | str,
+    ) -> Path:
+        """Persist Next-Gen decision artifacts (latest_weights.csv, summary.json, journal.json)."""
+        import json
+
+        out_path = Path(output_dir)
+        out_path.mkdir(parents=True, exist_ok=True)
+
+        # 1. Save latest_weights.csv
+        weights_file = out_path / "latest_weights.csv"
+        with weights_file.open("w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(["ticker", "target_weight", "price", "trade_date"])
+            for tk in JP_TICKERS:
+                w = result.target_weights.get(tk, 0.0)
+                price = result.snapshot.current_prices.get(tk, 0.0)
+                writer.writerow([tk, f"{w:.6f}", f"{price:.2f}", result.trade_date])
+
+        # 2. Save decision_summary.json
+        summary_file = out_path / "decision_summary.json"
+        summary_data = {
+            "trade_date": result.trade_date,
+            "success": result.success,
+            "gross_exposure": result.opt_result.gross_exposure,
+            "net_exposure": result.opt_result.net_exposure,
+            "rule_d_multiplier": result.rule_d_multiplier,
+            "rule_d_bin": result.rule_d_bin,
+            "raw_ir": result.raw_ir,
+            "ex_ante_return_bps": result.opt_result.ex_ante_return * 10000.0,
+            "ex_ante_vol_bps": result.opt_result.ex_ante_vol * 10000.0,
+            "ex_ante_ir": result.opt_result.ex_ante_ir,
+            "turnover": result.opt_result.turnover,
+            "elapsed_seconds": result.elapsed_seconds,
+            "converged": result.opt_result.converged,
+            "message": result.opt_result.message,
+        }
+        with summary_file.open("w") as f:
+            json.dump(summary_data, f, indent=2)
+
+        # 3. Save execution journal if available
+        if result.journal is not None:
+            journal_file = out_path / "execution_journal.json"
+            journal_data = {
+                "trade_date": result.journal.trade_date,
+                "total_orders": result.journal.total_orders,
+                "filled_orders": result.journal.filled_orders,
+                "failed_orders": result.journal.failed_orders,
+                "close_orders_count": result.journal.close_orders_count,
+                "new_orders_count": result.journal.new_orders_count,
+                "elapsed_seconds": result.journal.elapsed_seconds,
+                "success": result.journal.success,
+                "orders": [
+                    {
+                        "ticker": lc.order.ticker,
+                        "side": lc.order.side.value if hasattr(lc.order.side, "value") else str(lc.order.side),
+                        "quantity": lc.order.quantity,
+                        "state": lc.state.name,
+                        "message": lc.error_message,
+                    }
+                    for lc in result.journal.lifecycles
+                ],
+            }
+            with journal_file.open("w") as f:
+                json.dump(journal_data, f, indent=2)
+
+        logger.info("[%s] Saved decision artifacts to %s", result.trade_date, out_path)
+        return out_path

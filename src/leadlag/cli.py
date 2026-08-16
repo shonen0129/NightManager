@@ -117,6 +117,12 @@ def _add_decision_args(parser: argparse.ArgumentParser) -> None:
         help="Output trade orders in text format to the console.",
     )
     parser.add_argument(
+        "--engine",
+        choices=["nextgen", "v2"],
+        default="nextgen",
+        help="Execution engine: 'nextgen' (default, Unified Convex + Async FSM) or 'v2' (legacy).",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Calculate weights but do not write files or submit orders.",
@@ -125,6 +131,12 @@ def _add_decision_args(parser: argparse.ArgumentParser) -> None:
 
 def _add_close_args(parser: argparse.ArgumentParser) -> None:
     """Add arguments for the close (and daily) subcommand."""
+    parser.add_argument(
+        "--engine",
+        choices=["nextgen", "v2"],
+        default="nextgen",
+        help="Execution engine: 'nextgen' (default, Async FSM) or 'v2' (legacy).",
+    )
     parser.add_argument(
         "--output-root",
         default=get_default_results_root(),
@@ -305,30 +317,82 @@ def _handle_decision(args: argparse.Namespace) -> int:
     if args.capital_from_wallet and not args.api_enable:
         raise ValueError("--capital-from-wallet requires --api-enable")
 
-    # --- V2 decision ---
-    from leadlag.execution.v2_bridge import run_v2_decision
+    if getattr(args, "engine", "nextgen") == "v2":
+        # --- V2 Legacy Decision ---
+        from leadlag.execution.v2_bridge import run_v2_decision
 
-    result_path = run_v2_decision(
-        config_path=args.config,
-        gap_input_dir=args.gap_dir,
-        live_dir=args.live_dir,
-        trade_date=args.trade_date,
-        api_enable=args.api_enable,
-        api_dry_run=args.api_dry_run,
-        capital_from_wallet=args.capital_from_wallet,
-        text_output=args.text_output,
-        output_root=args.output_root,
-        jp_opens_csv=args.jp_opens_csv,
-        google_opens=args.google_opens,
-        max_capital=args.capital,
-        api_url=args.api_url,
-        api_token=args.api_token,
-        run_tag=args.run_tag,
-        dry_run=args.dry_run,
+        result_path = run_v2_decision(
+            config_path=args.config,
+            gap_input_dir=args.gap_dir,
+            live_dir=args.live_dir,
+            trade_date=args.trade_date,
+            api_enable=args.api_enable,
+            api_dry_run=args.api_dry_run,
+            capital_from_wallet=args.capital_from_wallet,
+            text_output=args.text_output,
+            output_root=args.output_root,
+            jp_opens_csv=args.jp_opens_csv,
+            google_opens=args.google_opens,
+            max_capital=args.capital,
+            api_url=args.api_url,
+            api_token=args.api_token,
+            run_tag=args.run_tag,
+            dry_run=args.dry_run,
+        )
+        logger.info("V2 legacy decision completed. Output: %s", result_path)
+        return 0
+
+    # --- Next-Gen Unified Convex + Async FSM Decision ---
+    import asyncio
+    from pathlib import Path
+
+    from leadlag.broker.async_base import AsyncDryRunBrokerClient
+    from leadlag.data.market_data_cache import load_df_exec_from_local_cache
+    from leadlag.data.pit_lake import PITDataLake
+    from leadlag.execution.config import load_config_from_yaml
+    from leadlag.execution.nextgen_pipeline import NextGenPipeline
+
+    df_exec = load_df_exec_from_local_cache()
+    if df_exec is None:
+        raise RuntimeError("df_exec cache not found.")
+
+    lake = PITDataLake(df_exec)
+    trade_date = args.trade_date or "latest"
+    if trade_date == "latest":
+        trade_date = str(lake.end_date.strftime("%Y-%m-%d"))
+
+    app_config = load_config_from_yaml(args.config)
+    nextgen = NextGenPipeline(app_config)
+
+    async def _run_nextgen():
+        # Dry-run or simulated execution
+        async with AsyncDryRunBrokerClient(simulated_latency_ms=10.0) as broker:
+            capital = args.capital
+            if args.capital_from_wallet:
+                wallet = await broker.get_wallet()
+                capital = wallet.cash_available if wallet.cash_available > 0 else args.capital
+
+            res = await nextgen.run_daily_decision(
+                trade_date=trade_date,
+                lake=lake,
+                broker=broker,
+                capital=capital,
+                submit_orders=not args.dry_run and args.api_enable,
+            )
+
+            out_dir = Path(args.output_root) / f"decision_{trade_date.replace('-', '')}"
+            nextgen.save_decision_artifacts(res, out_dir)
+            return res
+
+    res = asyncio.run(_run_nextgen())
+    logger.info(
+        "Next-Gen decision completed. Date: %s, Success: %s, IR: %.4f, Gross: %.2f",
+        res.trade_date,
+        res.success,
+        res.opt_result.ex_ante_ir,
+        res.opt_result.gross_exposure,
     )
-    logger.info("V2 decision completed. Output: %s", result_path)
-
-    return 0
+    return 0 if res.success else 1
 
 
 def _handle_backtest(args: argparse.Namespace) -> int:
@@ -368,17 +432,41 @@ def _handle_backtest(args: argparse.Namespace) -> int:
 
 def _handle_close(args: argparse.Namespace) -> int:
     """Run end-of-day position closing logic."""
-    from leadlag.execution.close import run_close_positions_mode
+    if getattr(args, "engine", "nextgen") == "v2":
+        # --- V2 Legacy Close ---
+        from leadlag.execution.close import run_close_positions_mode
 
-    run_close_positions_mode(
-        output_root=args.output_root,
-        run_tag=args.run_tag,
-        api_url=args.api_url,
-        api_token=args.api_token,
-        api_dry_run=args.api_dry_run,
-        close_position_order=args.close_position_order,
-    )
-    return 0
+        run_close_positions_mode(
+            output_root=args.output_root,
+            run_tag=args.run_tag,
+            api_url=args.api_url,
+            api_token=args.api_token,
+            api_dry_run=args.api_dry_run,
+            close_position_order=args.close_position_order,
+        )
+        return 0
+
+    # --- Next-Gen Async Close ---
+    import asyncio
+
+    from leadlag.broker.async_base import AsyncDryRunBrokerClient
+    from leadlag.execution.async_fsm import AsyncExecutionEngine
+
+    engine = AsyncExecutionEngine()
+
+    async def _run_close():
+        async with AsyncDryRunBrokerClient(simulated_latency_ms=10.0) as broker:
+            journal = await engine.close_all_positions(broker)
+            logger.info(
+                "Next-Gen async close completed. Filled: %d, Failed: %d, Success: %s",
+                journal.filled_orders,
+                journal.failed_orders,
+                journal.success,
+            )
+            return journal
+
+    journal = asyncio.run(_run_close())
+    return 0 if journal.success else 1
 
 
 def _handle_nextgen_shadow(args: argparse.Namespace) -> int:

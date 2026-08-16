@@ -480,3 +480,108 @@ class AsyncExecutionEngine:
             failed_count,
         )
         return journal
+
+    async def close_all_positions(
+        self,
+        broker: AsyncBrokerClient,
+        trade_date: str = "",
+    ) -> ExecutionJournal:
+        """Close all open positions with async parallel execution and rate limiting."""
+        start_time = datetime.now()
+        if not trade_date:
+            trade_date = start_time.strftime("%Y-%m-%d")
+
+        # 1. Fetch open positions
+        try:
+            positions = await asyncio.wait_for(
+                broker.get_positions(),
+                timeout=self.get_positions_timeout_seconds,
+            )
+        except TimeoutError:
+            logger.error("[%s] get_positions timed out during close_all_positions; aborting.", trade_date)
+            return ExecutionJournal(
+                trade_date=trade_date,
+                total_orders=0,
+                filled_orders=0,
+                failed_orders=0,
+                close_orders_count=0,
+                new_orders_count=0,
+                lifecycles=[],
+                elapsed_seconds=(datetime.now() - start_time).total_seconds(),
+                success=False,
+            )
+
+        if not positions:
+            logger.info("[%s] No open positions to close.", trade_date)
+            return ExecutionJournal(
+                trade_date=trade_date,
+                total_orders=0,
+                filled_orders=0,
+                failed_orders=0,
+                close_orders_count=0,
+                new_orders_count=0,
+                lifecycles=[],
+                elapsed_seconds=(datetime.now() - start_time).total_seconds(),
+                success=True,
+            )
+
+        # 2. Build closing orders for each open position
+        close_orders: list[OrderRequest] = []
+        for p in positions:
+            if p.quantity <= 0:
+                continue
+            side = "SELL" if p.side.upper() in ("BUY", "LONG") else "BUY"
+            close_orders.append(
+                OrderRequest(
+                    ticker=p.ticker,
+                    side=OrderSide(side),
+                    quantity=p.quantity,
+                    limit_price=p.price if p.price > 0 else 0.0,
+                    order_type=OrderType.MARKET,
+                )
+            )
+
+        close_lifecycles = [OrderLifecycle(order=o, state=OrderState.VALIDATED) for o in close_orders]
+        logger.info(
+            "[%s] Closing %d open positions asynchronously (rate limited + split guard)...",
+            trade_date,
+            len(close_lifecycles),
+        )
+
+        # 3. Execute closing orders (with split handling for large/thin tickers like 1629.T)
+        standard_close = [lc for lc in close_lifecycles if not self._should_split(lc)]
+        split_close = [lc for lc in close_lifecycles if self._should_split(lc)]
+        close_split_children = []
+
+        if standard_close:
+            await asyncio.gather(
+                *[self._execute_single_order(lc, broker) for lc in standard_close]
+            )
+        for lc in split_close:
+            close_split_children.extend(await self._execute_split_order(lc, broker))
+
+        all_lifecycles = standard_close + close_split_children
+        filled_count = sum(1 for lc in all_lifecycles if lc.state == OrderState.FILLED)
+        failed_count = sum(1 for lc in all_lifecycles if lc.state == OrderState.FAILED)
+        elapsed = (datetime.now() - start_time).total_seconds()
+
+        journal = ExecutionJournal(
+            trade_date=trade_date,
+            total_orders=len(all_lifecycles),
+            filled_orders=filled_count,
+            failed_orders=failed_count,
+            close_orders_count=len(all_lifecycles),
+            new_orders_count=0,
+            lifecycles=all_lifecycles,
+            elapsed_seconds=elapsed,
+            success=(failed_count == 0 and filled_count == len(all_lifecycles)),
+        )
+
+        logger.info(
+            "[%s] close_all_positions completed in %.2fs: %d filled, %d failed",
+            trade_date,
+            elapsed,
+            filled_count,
+            failed_count,
+        )
+        return journal
