@@ -263,6 +263,7 @@ def _build_order_deltas(
 def _submit_close_orders(
     api_client: BrokerClient,
     close_orders: list[tuple[str, OrderSide, int]],
+    close_position_order: int = 0,
 ) -> tuple[list[OrderResult], list[dict]]:
     """Build OrderRequests for close orders, submit them, and return result dicts."""
     close_order_requests = [
@@ -271,6 +272,8 @@ def _submit_close_orders(
             side=side,
             quantity=qty,
             order_type=OrderType.MARKET,
+            is_close=True,
+            close_position_order=close_position_order,
         )
         for ticker, side, qty in close_orders
     ]
@@ -280,7 +283,10 @@ def _submit_close_orders(
     if close_order_requests:
         logger.info("[CLOSE PHASE] Submitting %d close (返済) orders first...", len(close_order_requests))
         close_results = api_client.submit_orders_batch(
-            close_order_requests, delay_ms=250, is_close=True,
+            close_order_requests,
+            delay_ms=250,
+            is_close=True,
+            close_position_order=close_position_order,
         )
         for result in close_results:
             logger.info(

@@ -349,6 +349,13 @@ class TachibanaBrokerClient(BrokerClient):
         # Margin Trade Type mapping
         # 1 = 制度信用 (Tachibana: 2=新規, 4=返済)
         # 2, 3 = 一般信用 (Tachibana: 6=新規, 8=返済)
+        if close_position_order and is_close:
+            logger.warning(
+                "Tachibana API does not support close_position_order (%d); "
+                "it will be ignored. Specific position repayment is not available.",
+                close_position_order,
+            )
+
         m_type = order.margin_trade_type if order.margin_trade_type is not None else self._broker_config.margin_trade_type
         if is_close:
             genkin_shinyou = "4" if m_type == 1 else "8"
@@ -433,8 +440,10 @@ class TachibanaBrokerClient(BrokerClient):
 
         # Order status code; 8=fully cancelled, 9=error/failure.
         status = str(detail.get("sStatus", ""))
-        if status in ("8", "9"):
+        if status == "8":
             return OrderStatus.CANCELLED
+        if status == "9":
+            return OrderStatus.FAILED
 
         return OrderStatus.SUBMITTED
 
@@ -538,7 +547,7 @@ class TachibanaBrokerClient(BrokerClient):
             return [
                 OrderResult(
                     order_id=r.order_id,
-                    status=OrderStatus.FAILED,
+                    status=OrderStatus.CANCELLED,
                     ticker=r.ticker,
                     side=r.side,
                     quantity=r.quantity,

@@ -119,8 +119,8 @@ def _add_decision_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--engine",
         choices=["nextgen", "v2"],
-        default="nextgen",
-        help="Execution engine: 'nextgen' (default, Unified Convex + Async FSM) or 'v2' (legacy).",
+        default="v2",
+        help="Execution engine: 'v2' (default, Residual-BLPX-RA v2 production model) or 'nextgen' (Unified Convex + Async FSM, experimental).",
     )
     parser.add_argument(
         "--dry-run",
@@ -134,13 +134,13 @@ def _add_close_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--config",
         default="configs/production/production.yaml",
-        help="Path to V2 production YAML config (used by the Next-Gen path; ignored by the V2 legacy path).",
+        help="Path to V2 production YAML config (used by both V2 and Next-Gen paths).",
     )
     parser.add_argument(
         "--engine",
         choices=["nextgen", "v2"],
-        default="nextgen",
-        help="Execution engine: 'nextgen' (default, Async FSM) or 'v2' (legacy).",
+        default="v2",
+        help="Execution engine: 'v2' (default, Residual-BLPX-RA v2 production model) or 'nextgen' (Unified Convex + Async FSM, experimental).",
     )
     parser.add_argument(
         "--output-root",
@@ -322,7 +322,7 @@ def _handle_decision(args: argparse.Namespace) -> int:
     if args.capital_from_wallet and not args.api_enable:
         raise ValueError("--capital-from-wallet requires --api-enable")
 
-    if getattr(args, "engine", "nextgen") == "v2":
+    if getattr(args, "engine", "v2") == "v2":
         # --- V2 Legacy Decision ---
         from leadlag.execution.v2_bridge import run_v2_decision
 
@@ -348,6 +348,10 @@ def _handle_decision(args: argparse.Namespace) -> int:
         return 0
 
     # --- Next-Gen Unified Convex + Async FSM Decision ---
+    logger.warning(
+        "Next-Gen engine is experimental and has been deprecated for production. "
+        "Use at your own risk; V2 is the supported execution path."
+    )
     import asyncio
     from pathlib import Path
 
@@ -521,7 +525,7 @@ def _handle_backtest(args: argparse.Namespace) -> int:
 
 def _handle_close(args: argparse.Namespace) -> int:
     """Run end-of-day position closing logic."""
-    if getattr(args, "engine", "nextgen") == "v2":
+    if getattr(args, "engine", "v2") == "v2":
         # --- V2 Legacy Close ---
         from leadlag.execution.close import run_close_positions_mode
 
@@ -536,6 +540,10 @@ def _handle_close(args: argparse.Namespace) -> int:
         return 0
 
     # --- Next-Gen Async Close ---
+    logger.warning(
+        "Next-Gen close engine is experimental and has been deprecated for production. "
+        "Use at your own risk; V2 close is the supported path."
+    )
     import asyncio
     import json
     from pathlib import Path

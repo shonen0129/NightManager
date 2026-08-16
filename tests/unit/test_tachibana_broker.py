@@ -265,6 +265,6 @@ class TestTachibanaBrokerClient:
         ]
 
         results = client.submit_orders_batch(orders)
-        # Verify both sides show failure due to rollback
-        assert all(r.status == OrderStatus.FAILED for r in results)
+        # Verify both sides are marked CANCELLED after market-neutrality rollback
+        assert all(r.status == OrderStatus.CANCELLED for r in results)
         assert mock_get.call_count == 3

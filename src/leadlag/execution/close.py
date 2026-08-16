@@ -38,6 +38,76 @@ from leadlag.execution.pricing import fetch_fill_prices
 logger = logging.getLogger(__name__)
 
 
+def _wait_for_close_fills_sync(
+    api_client: BrokerClient,
+    close_results: list[dict],
+    timeout_seconds: float = 60.0,
+    poll_interval: float = 1.0,
+) -> None:
+    """Poll close order statuses until they are no longer SUBMITTED or timeout.
+
+    Updates ``close_results`` entries with the latest status.  This prevents
+    moving on before a close order has been confirmed at the exchange.
+    """
+    if not callable(getattr(api_client, "get_order_status", None)):
+        logger.debug("Broker client does not support get_order_status; skip fill polling")
+        return
+
+    pending = [r for r in close_results if r.get("status") == OrderStatus.SUBMITTED.value]
+    if not pending:
+        return
+
+    # Probe whether the broker actually implements status polling.
+    test_order_id = pending[0].get("order_id", "")
+    try:
+        api_client.get_order_status(test_order_id)
+    except NotImplementedError:
+        logger.debug("Broker client get_order_status is not implemented; skip fill polling")
+        return
+    except Exception:
+        # Non-fatal probe error; continue with polling.
+        pass
+
+    deadline = time_module.time() + timeout_seconds
+    logger.info(
+        "[CLOSE FILL POLL] Waiting for %d close order(s) to fill (timeout=%.1fs)...",
+        len(pending),
+        timeout_seconds,
+    )
+
+    while pending and time_module.time() < deadline:
+        for result in pending:
+            order_id = result.get("order_id", "")
+            if not order_id:
+                continue
+            try:
+                status = api_client.get_order_status(order_id)
+                if status != OrderStatus.SUBMITTED:
+                    result["status"] = status.value
+                    logger.info(
+                        "  [CLOSE FILL] %s: %s",
+                        result.get("ticker"),
+                        status.value,
+                    )
+            except Exception as e:
+                logger.warning(
+                    "Failed to poll close order %s: %s",
+                    order_id,
+                    e,
+                )
+
+        pending = [r for r in close_results if r.get("status") == OrderStatus.SUBMITTED.value]
+        if pending:
+            time_module.sleep(poll_interval)
+
+    if pending:
+        logger.warning(
+            "%d close order(s) still SUBMITTED after %.1fs",
+            len(pending),
+            timeout_seconds,
+        )
+
+
 def close_all_positions(
     api_client: BrokerClient,
     output_dir: str | Path,
@@ -110,9 +180,21 @@ def close_all_positions(
         alpha = overnight_alpha_long if pos.side == "BUY" else overnight_alpha_short
         close_fraction = 1.0 - alpha
         lot_size = lot_size_for(pos.ticker)
-        close_qty = math.floor(pos.quantity * close_fraction / lot_size + 0.5) * lot_size
-        if close_qty > pos.quantity:
-            close_qty = pos.quantity - (pos.quantity % lot_size)
+
+        # Round target hold quantity to lot size, then derive close quantity.
+        # This keeps the actual overnight holding ratio as close to alpha as possible
+        # and avoids the old rounding approach drifting from the configured alpha.
+        hold_qty_target = pos.quantity * alpha
+        hold_qty = min(
+            pos.quantity,
+            math.floor(hold_qty_target / lot_size + 0.5) * lot_size,
+        )
+        close_qty = pos.quantity - hold_qty
+
+        # Close quantity must be a lot multiple; floor any residual caused by
+        # the position not being on a lot boundary.  The residual is held.
+        close_qty = math.floor(close_qty / lot_size) * lot_size
+        close_qty = max(0, min(close_qty, pos.quantity))
         hold_qty = pos.quantity - close_qty
 
         if hold_qty > 0:
@@ -241,6 +323,14 @@ def close_all_positions(
             if result.status == OrderStatus.FAILED:
                 first_batch_failed = True
 
+        # Wait for close fills before deciding whether to proceed.
+        _wait_for_close_fills_sync(api_client, summary["close_results"])
+        first_batch_failed = any(
+            r.get("status") == OrderStatus.FAILED.value
+            for r in summary["close_results"]
+            if not r.get("delayed")
+        )
+
         # Delayed close batch (1629.T second half)
         if delayed_close:
             if first_batch_failed:
@@ -296,6 +386,9 @@ def close_all_positions(
                             "original_price": meta.get("original_price"),
                         }
                     )
+
+                # Wait for delayed close fills as well.
+                _wait_for_close_fills_sync(api_client, summary["close_results"])
 
     # Fetch fill prices for close orders (約定価格取得)
     if not dry_run and summary["close_results"]:

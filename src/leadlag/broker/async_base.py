@@ -110,6 +110,19 @@ class AsyncThreadedBrokerClient(AsyncBrokerClient):
             timeout=self._timeout,
         )
 
+    async def get_order_status(self, order_id: str) -> OrderStatus:
+        """Poll the wrapped synchronous client for order status.
+
+        Falls back to NotImplementedError so the FSM can treat the broker as
+        non-polling when get_order_status is not supported.
+        """
+        if not hasattr(self._client, "get_order_status"):
+            raise NotImplementedError("Underlying broker client does not support get_order_status")
+        return await asyncio.wait_for(
+            asyncio.to_thread(self._client.get_order_status, order_id),
+            timeout=self._timeout,
+        )
+
     async def _wait_for_fill(self, order_result: OrderResult) -> OrderResult:
         """Optionally poll the underlying client until the order is filled.
 
@@ -155,6 +168,13 @@ class AsyncThreadedBrokerClient(AsyncBrokerClient):
                         eigyou_day=order_result.eigyou_day,
                         message=f"Order ended as {status.value}",
                     )
+            except NotImplementedError:
+                logger.debug(
+                    "Broker client does not implement get_order_status; "
+                    "stopping fill polling for %s",
+                    order_result.order_id,
+                )
+                return order_result
             except Exception as e:
                 logger.warning(
                     "Failed to poll order status for %s: %s",
@@ -164,6 +184,11 @@ class AsyncThreadedBrokerClient(AsyncBrokerClient):
             await asyncio.sleep(1.0)
 
         # Timed out without fill confirmation.
+        logger.warning(
+            "Order %s fill confirmation timed out after %.1fs; returning SUBMITTED",
+            order_result.order_id,
+            self._timeout,
+        )
         return order_result
 
     async def submit_order(self, order: OrderRequest) -> OrderResult:

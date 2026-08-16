@@ -144,12 +144,14 @@ class AsyncExecutionEngine:
         rate_limit_per_second: float = 5.0,
         burst_limit: int = 5,
         get_positions_timeout_seconds: float = 30.0,
+        close_fill_timeout_seconds: float = 60.0,
     ) -> None:
         self.split_delay_seconds = split_delay_seconds
         self.large_order_ticker = large_order_ticker
         self.order_timeout_seconds = order_timeout_seconds
         self.split_threshold = split_threshold
         self.get_positions_timeout_seconds = get_positions_timeout_seconds
+        self.close_fill_timeout_seconds = close_fill_timeout_seconds
         self.rate_limiter = AsyncRateLimiter(
             rate_limit_per_second=rate_limit_per_second,
             burst_limit=burst_limit,
@@ -278,6 +280,79 @@ class AsyncExecutionEngine:
             lifecycle.transition_to(OrderState.FAILED, "Order submission timed out")
         except Exception as e:
             lifecycle.transition_to(OrderState.FAILED, str(e))
+
+    async def _wait_for_close_fills(
+        self,
+        lifecycles: list[OrderLifecycle],
+        broker: AsyncBrokerClient,
+        trade_date: str = "",
+    ) -> None:
+        """Poll close order lifecycles until they fill, fail, or time out.
+
+        Close orders must reach a terminal state (FILLED, CANCELLED, or FAILED)
+        before the NEW order stage can safely begin.  This prevents accidental
+        double exposure when a close order is still SUBMITTED.
+        """
+        if not hasattr(broker, "get_order_status"):
+            logger.debug("Broker does not support get_order_status; skipping close fill polling")
+            return
+
+        pending = [lc for lc in lifecycles if lc.state == OrderState.SUBMITTED]
+        if not pending:
+            return
+
+        deadline = asyncio.get_running_loop().time() + self.close_fill_timeout_seconds
+        poll_interval = 1.0
+
+        logger.info(
+            "[%s] Waiting for %d close order(s) to fill (timeout=%.1fs)...",
+            trade_date,
+            len(pending),
+            self.close_fill_timeout_seconds,
+        )
+
+        while pending and asyncio.get_running_loop().time() < deadline:
+            for lc in pending:
+                if lc.result is None or not lc.result.order_id:
+                    continue
+                try:
+                    result = await asyncio.wait_for(
+                        broker.get_order_status(lc.result.order_id),
+                        timeout=self.order_timeout_seconds,
+                    )
+                    if result in (OrderStatus.FILLED, OrderStatus.SIMULATED):
+                        lc.transition_to(OrderState.FILLED, "Filled (polled)")
+                    elif result == OrderStatus.CANCELLED:
+                        lc.transition_to(OrderState.FAILED, "Close order was cancelled")
+                    elif result == OrderStatus.FAILED:
+                        lc.transition_to(OrderState.FAILED, "Close order failed")
+                except TimeoutError:
+                    pass
+                except NotImplementedError:
+                    logger.debug(
+                        "Broker does not implement get_order_status; "
+                        "stopping close fill polling"
+                    )
+                    return
+                except Exception as e:
+                    logger.warning(
+                        "Failed to poll close order %s: %s",
+                        lc.result.order_id,
+                        e,
+                    )
+
+            pending = [lc for lc in lifecycles if lc.state == OrderState.SUBMITTED]
+            if pending:
+                await asyncio.sleep(poll_interval)
+
+        if pending:
+            logger.warning(
+                "%d close order(s) still SUBMITTED after %.1fs; treating as failed",
+                len(pending),
+                self.close_fill_timeout_seconds,
+            )
+            for lc in pending:
+                lc.transition_to(OrderState.FAILED, "Close fill confirmation timeout")
 
     def _should_split(self, lifecycle: OrderLifecycle) -> bool:
         """Return True if an order should be split into delayed children."""
@@ -440,6 +515,10 @@ class AsyncExecutionEngine:
             close_split_children.extend(await self._execute_split_order(lc, broker))
 
         close_lifecycles_executed = standard_close + close_split_children
+
+        # Wait for close orders to fill before opening new positions.
+        await self._wait_for_close_fills(close_lifecycles_executed, broker, trade_date)
+
         close_phase_failed = any(
             lc.state not in (OrderState.FILLED, OrderState.SUBMITTED)
             for lc in close_lifecycles_executed

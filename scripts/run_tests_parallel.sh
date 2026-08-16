@@ -24,7 +24,7 @@ fi
 LOGDIR=/tmp/pytest_parallel
 mkdir -p "$LOGDIR"
 
-echo "Starting 7-process parallel test run..."
+echo "Starting 8-process parallel test run..."
 
 if [ -f ".venv/bin/python" ]; then
     PYTHON_BIN=".venv/bin/python"

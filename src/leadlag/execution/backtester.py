@@ -483,9 +483,12 @@ class BacktestEngine:
                 fb = result["fallback"]["gap_data_missing"]
                 summary = result.get("summary", {})
                 return i, w, fb, summary
-            except Exception as e:
+            except (ValueError, RuntimeError, FileNotFoundError) as e:
                 logger.warning("[%s] V2 generation failed: %s — flat position", date_str, e)
                 return i, np.zeros(n_j), True, {"trade_date": date_str, "error": str(e)}
+            except Exception as e:
+                logger.error("[%s] Unexpected V2 generation error: %s", date_str, e)
+                raise
 
         date_index_pairs = list(enumerate(sim_dates_slice))
 

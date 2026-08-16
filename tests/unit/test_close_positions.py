@@ -122,7 +122,7 @@ class TestCloseQtyRounding:
     """Test that close_qty is rounded to the nearest lot-size multiple."""
 
     def test_1629_short_half_rounds_up(self):
-        """1629.T SELL x330, alpha_short=0.5 -> close 170 (round 165/10=16.5->17*10)."""
+        """1629.T SELL x330, alpha_short=0.5 -> close 160, hold 170 (round 165/10=16.5->17*10)."""
         positions = [_make_position("1629.T", "SELL", 330)]
         client = MockBrokerClient(positions)
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -134,7 +134,7 @@ class TestCloseQtyRounding:
         # Find the 1629.T order
         close_orders = [r for r in summary["close_results"] if r["ticker"] == "1629.T"]
         assert len(close_orders) == 1
-        assert close_orders[0]["quantity"] == 170
+        assert close_orders[0]["quantity"] == 160
 
     def test_1629_long_quarter_rounds(self):
         """1629.T BUY x330, alpha_long=0.75 -> close 85 (round 82.5/10=8.25->8*10=80)."""
@@ -220,7 +220,7 @@ class TestCloseQtyRounding:
                 overnight_alpha_long=0.0, overnight_alpha_short=0.5,
             )
         qty_by_ticker = {r["ticker"]: r["quantity"] for r in summary["close_results"]}
-        assert qty_by_ticker.get("1629.T") == 170  # round(165/10)*10
+        assert qty_by_ticker.get("1629.T") == 160  # hold 170 rounded up, close 160
         assert qty_by_ticker.get("1617.T") == 50   # round(50/1)*1
 
 
