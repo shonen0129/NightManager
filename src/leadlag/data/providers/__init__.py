@@ -63,7 +63,7 @@ class _DataProviderError(Exception):
     """Base exception for data provider failures."""
 
 
-from leadlag.data.providers.tachibana_provider import TachibanaProvider
-from leadlag.data.providers.yfinance_provider import YFinanceProvider
+from leadlag.data.providers.tachibana_provider import TachibanaProvider  # noqa: E402
+from leadlag.data.providers.yfinance_provider import YFinanceProvider  # noqa: E402
 
 __all__ = ["DataProvider", "OHLC", "YFinanceProvider", "TachibanaProvider"]

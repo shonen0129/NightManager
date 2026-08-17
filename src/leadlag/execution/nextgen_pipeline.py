@@ -34,7 +34,11 @@ from leadlag.core.market_calendar import previous_trading_day
 from leadlag.core.portfolio import get_rolling_pit_bin, solve_baseline_style
 from leadlag.data.pit_lake import MarketSnapshot, PITDataLake
 from leadlag.data.tickers import JP_TICKERS, lot_size_for
-from leadlag.execution.async_fsm import AsyncExecutionEngine, ExecutionJournal
+from leadlag.execution.async_fsm import (
+    AsyncExecutionEngine,
+    ExecutionJournal,
+    _align_to_lot,
+)
 from leadlag.models.blpx import ProductionBLPXModel
 from leadlag.models.production_v2 import VERSION, ProductionV2Model, _repair_and_adjust
 from leadlag.reporting.formatter import print_text_orders as _print_text_orders
@@ -506,6 +510,7 @@ class NextGenPipeline:
                         total_capital=capital,
                         broker=broker,
                         trade_date=trade_date,
+                        side_leverage=self.opt_config.side_leverage,
                     ),
                     timeout=self.opt_config.execute_portfolio_timeout_seconds,
                 )
@@ -561,11 +566,10 @@ class NextGenPipeline:
 
             if price > 0 and abs(w) > 1e-8:
                 lot = lot_size_for(tk)
-                target_value = abs(w) * result.capital
+                # Apply side leverage to match actual executed notional.
+                target_value = abs(w) * result.capital * self.opt_config.side_leverage
                 qty_raw = int(np.floor(target_value / price + 0.5))
-                qty = (qty_raw // lot) * lot
-                if qty <= 0:
-                    qty = lot
+                qty = _align_to_lot(qty_raw, lot)
                 quantity = qty if w > 0 else -qty
             else:
                 quantity = 0

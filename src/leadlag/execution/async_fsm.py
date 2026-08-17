@@ -165,6 +165,7 @@ class AsyncExecutionEngine:
         current_prices: dict[str, float],
         current_positions: list[Position],
         total_capital: float,
+        side_leverage: float = 1.0,
     ) -> tuple[list[OrderRequest], list[OrderRequest]]:
         """Compute delta orders separating close orders and new orders.
 
@@ -185,7 +186,8 @@ class AsyncExecutionEngine:
                 continue
 
             target_w = target_weights[j]
-            target_value = target_w * total_capital
+            # Apply side leverage so live notional matches the cost model / V2 sizing.
+            target_value = target_w * total_capital * side_leverage
             lot = lot_size_for(tk)
             # Round half-up (matching core/allocator.py and broker_ops.py convention)
             # and then truncate to the nearest lot multiple toward zero.
@@ -512,6 +514,7 @@ class AsyncExecutionEngine:
         total_capital: float,
         broker: AsyncBrokerClient,
         trade_date: str = "",
+        side_leverage: float = 1.0,
     ) -> ExecutionJournal:
         """Execute full portfolio transition with staged non-blocking execution."""
         start_time = datetime.now()
@@ -544,6 +547,7 @@ class AsyncExecutionEngine:
             current_prices=current_prices,
             current_positions=positions,
             total_capital=total_capital,
+            side_leverage=side_leverage,
         )
 
         # Ensure new orders carry the broker's default margin/account settings.
