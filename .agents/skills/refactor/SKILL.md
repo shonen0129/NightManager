@@ -39,7 +39,8 @@ description: 重複排除・関数分割・責務整理を提案・実装する�
 8. **型チェック実行**: `python3 -m mypy --config-file pyproject.toml src/leadlag` を実行し、リファクタリング起因の新規エラーがないことを確認
 9. **テスト実行**: 手順4のコマンドで回帰確認
 10. **コードレビュー**: `/code-review` スキルを使用して変更をレビュー
-11. **レポート**: `reports/<sprint名>/` に変更内容・影響範囲・検証結果を記録
+11. **ロードマップ整合確認**: `docs/refactor_roadmap.md` および未完了 ADR を開き、該当 Phase に属する未チェックタスクがないか確認する。完了報告前に必ず `grep -n "\[ \]" docs/refactor_roadmap.md` を実行し、対象 Phase の未了タスクをゼロにする
+12. **レポート**: `reports/<sprint名>/` に変更内容・影響範囲・検証結果を記録
 
 ## 振る舞い一致の検証方法
 

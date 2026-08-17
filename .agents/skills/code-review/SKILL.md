@@ -63,6 +63,7 @@ description: リリース前の最終監査として、コードベース全体�
 最初に確認すべきファイル:
 - `AGENTS.md` — 不変条件・既知の落とし穴・よく使うコマンド
 - `docs/ARCHITECTURE.md` — アーキテクチャ詳細・リファクタリング履歴
+- `docs/refactor_roadmap.md` — 完了済み/未完了タスクのマスターリスト。レビュー対象の Phase に未チェックタスクが残っていないか確認する
 - `configs/production/production.yaml` — 本番config（正本）
 - `requirements.txt`, `pyproject.toml` — 依存関係
 - `tests/` — テストコード

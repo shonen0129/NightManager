@@ -41,7 +41,8 @@
 ## 改善ワークフロー
 
 1. **仮説→実験**: 実験スクリプトは `src/research/scripts/experiments/` に作成（本番パス `src/leadlag/` に直接実験コードを入れない）。実験用モジュールは `src/research/experiments/` へ
-2. **バックテスト・日次決済**: 本番 V2 は `BacktestEngine.run_v2_backtest()`（`src/leadlag/execution/backtester.py`）を使用。CLI `backtest` / `decision` は V2 一本化。V1 SRE モデル `SectorRelativeEnsembleModel` は `archive/legacy_src/models/sre.py` に移設。レガシー V1 汎用 `BaseModel` バックテストは `research.backtest_v1.run_v1_backtest()` に移設。コストは片道5bps + 金利・貸株・逆日歩を含む **net** で評価
+2. **完了報告前のロードマップ確認**: `docs/refactor_roadmap.md` および未完了 ADR を開き、対象 Phase の未チェックタスク（`[ ]`）が残っていないか `grep -n "\[ \]" docs/refactor_roadmap.md` で確認。テスト通過だけでなく、ドキュメント・設定・運用手順の整合をもって初めて「完了」と報告する
+3. **バックテスト・日次決済**: 本番 V2 は `BacktestEngine.run_v2_backtest()`（`src/leadlag/execution/backtester.py`）を使用。CLI `backtest` / `decision` は V2 一本化。V1 SRE モデル `SectorRelativeEnsembleModel` は `archive/legacy_src/models/sre.py` に移設。レガシー V1 汎用 `BaseModel` バックテストは `research.backtest_v1.run_v1_backtest()` に移設。コストは片道5bps + 金利・貸株・逆日歩を含む **net** で評価
 3. **過学習ガード（必須）**:
    - このリポジトリには過去の実験config・スクリプトが大量にあり（`archive/experiments/` 約30本）、同一ヒストリー上での反復選択が既に多い。**新パラメータ追加は原則避け、追加時はパラメータ±摂動の感度分析と Deflated Sharpe（試行回数補正）を必ずレポートに含める**
    - ウォークフォワード検証（先例: `reports/phase3_walkforward_validation_report.md`）で OOS 確認
