@@ -985,7 +985,7 @@ class ProductionV2Model:
                 _mu_pattern = mu_pattern or self.run_config.mh_mu_file_pattern_h
                 _omega_pattern = omega_pattern or self.run_config.mh_omega_file_pattern_h
                 _pattern_kwargs = {"h": horizon}
-            file_mu, file_omega, _ = load_gap_matrices(
+            file_mu, file_omega, file_alerts = load_gap_matrices(
                 gap_input_dir,
                 trade_date,
                 mu_pattern=_mu_pattern,
@@ -994,6 +994,12 @@ class ProductionV2Model:
                 n_j=self.n_j,
                 strict=False,
             )
+            if _gap_alerts_fatal(file_alerts):
+                logger.error(
+                    "[%s] File cache gap matrices are invalid (%s); falling back to on-demand.",
+                    trade_date, ", ".join(file_alerts),
+                )
+                file_mu, file_omega = None, None
 
         if file_mu is not None and file_omega is not None:
             if shadow_validation:

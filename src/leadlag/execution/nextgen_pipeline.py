@@ -36,7 +36,7 @@ from leadlag.data.pit_lake import MarketSnapshot, PITDataLake
 from leadlag.data.tickers import JP_TICKERS, lot_size_for
 from leadlag.execution.async_fsm import AsyncExecutionEngine, ExecutionJournal
 from leadlag.models.blpx import ProductionBLPXModel
-from leadlag.models.production_v2 import VERSION, ProductionV2Model
+from leadlag.models.production_v2 import VERSION, ProductionV2Model, _repair_and_adjust
 from leadlag.reporting.formatter import print_text_orders as _print_text_orders
 
 logger = logging.getLogger(__name__)
@@ -277,6 +277,18 @@ class NextGenPipeline:
                 horizon=1,
                 use_file_cache=use_file_cache,
             )
+            # Ensure symmetry/PSD and apply the same macro adjustments as V2.
+            date_str = pd.to_datetime(trade_date).strftime("%Y-%m-%d")
+            repair_alerts: list[str] = []
+            mu_gap, omega_gap, _ = _repair_and_adjust(
+                mu_gap,
+                omega_gap,
+                self.v2_cfg,
+                date_str,
+                n_j,
+                repair_alerts,
+                cache=self.v2_model._macro_price_cache,
+            )
             sigma_gap = np.sqrt(np.maximum(np.diag(omega_gap), 1e-8))
 
             # 2. Ex-ante IR & RuleD Dynamic Gross Scaling (V2-compatible portfolio IR)
@@ -504,7 +516,7 @@ class NextGenPipeline:
 
         elapsed = (datetime.now() - start_time).total_seconds()
         success = (
-            (journal.success if journal is not None else True)
+            (journal.success if journal is not None else not should_submit)
             and opt_res.converged
             and not bin_label == "SanityFallback"
         )

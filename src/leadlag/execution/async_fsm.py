@@ -318,6 +318,8 @@ class AsyncExecutionEngine:
                 if lc.result is None or not lc.result.order_id:
                     continue
                 try:
+                    # Enforce API rate limiter token acquisition before polling.
+                    await self.rate_limiter.acquire()
                     result = await asyncio.wait_for(
                         broker.get_order_status(lc.result.order_id),
                         timeout=self.order_timeout_seconds,
@@ -391,6 +393,8 @@ class AsyncExecutionEngine:
                 if lc.result is None or not lc.result.order_id:
                     continue
                 try:
+                    # Enforce API rate limiter token acquisition before polling.
+                    await self.rate_limiter.acquire()
                     result = await asyncio.wait_for(
                         broker.get_order_status(lc.result.order_id),
                         timeout=self.order_timeout_seconds,
