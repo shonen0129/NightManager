@@ -291,13 +291,26 @@ def _solve_minvar_sub(
         logger.warning("MinVar basket: eigvalsh failed; falling back to identity covariance (k=%d)", k)
         Sigma_sub = np.eye(k)
 
-    # Closed-form: (alpha*Sigma + (1-alpha)*I) w = (1-alpha) * w_signal
-    A = alpha * Sigma_sub + (1.0 - alpha) * np.eye(k)
-    try:
-        w = np.linalg.solve(A, (1.0 - alpha) * raw_weights)
-    except np.linalg.LinAlgError:
-        logger.warning("MinVar basket: solve failed; falling back to raw signal weights (k=%d)", k)
-        w = raw_weights.copy()
+    if alpha >= 0.999:
+        # Pure minimum variance: solve Sigma_sub w = 1 subject to sum(w) = 1.
+        try:
+            w = np.linalg.solve(Sigma_sub, np.ones(k))
+            total = w.sum()
+            if total > 0:
+                w = w / total
+            else:
+                w = np.ones(k) / k
+        except np.linalg.LinAlgError:
+            logger.warning("MinVar basket: pure min-var solve failed; falling back to raw signal weights (k=%d)", k)
+            w = raw_weights.copy()
+    else:
+        # Closed-form: (alpha*Sigma + (1-alpha)*I) w = (1-alpha) * w_signal
+        A = alpha * Sigma_sub + (1.0 - alpha) * np.eye(k)
+        try:
+            w = np.linalg.solve(A, (1.0 - alpha) * raw_weights)
+        except np.linalg.LinAlgError:
+            logger.warning("MinVar basket: solve failed; falling back to raw signal weights (k=%d)", k)
+            w = raw_weights.copy()
 
     w = np.clip(w, 1e-8, max_abs_weight)
     total = w.sum()

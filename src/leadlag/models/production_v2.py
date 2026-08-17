@@ -470,6 +470,18 @@ def generate_v2_production_portfolio_from_distribution(
     )
 
 
+def _gap_alerts_fatal(gap_alerts: list[str]) -> bool:
+    """Return True if loaded gap matrices must not be used.
+
+    Shape or non-finite alerts are fatal. Symmetry / PSD alerts are repairable
+    downstream and therefore not fatal.
+    """
+    for alert in gap_alerts:
+        if "shape" in alert or "non-finite" in alert:
+            return True
+    return False
+
+
 def _load_gap_or_flat(
     gap_input_dir: Path | None,
     run_cfg: ProductionV2RunConfig,
@@ -485,6 +497,7 @@ def _load_gap_or_flat(
       - alerts (list[str]): alerts from this stage.
     """
     alerts: list[str] = []
+    gap_alerts: list[str] = []
     fallback = {"gap_data_missing": False}
 
     mu_gap: np.ndarray | None = None
@@ -495,13 +508,13 @@ def _load_gap_or_flat(
     else:
         alerts.append("--gap-input-dir not specified.")
 
-    if mu_gap is None or Omega_gap is None:
+    if mu_gap is None or Omega_gap is None or _gap_alerts_fatal(gap_alerts):
         fallback["gap_data_missing"] = True
         logger.error(
-            "[%s] Gap data missing. Returning flat position (w_final=0). No trading today.",
+            "[%s] Gap data missing or invalid. Returning flat position (w_final=0). No trading today.",
             date_str,
         )
-        alerts.append("Gap data missing. Flat position (w_final=0) returned.")
+        alerts.append("Gap data missing or invalid. Flat position (w_final=0) returned.")
 
         dummy_scores = np.zeros(n_j)
         dummy_Omega = np.eye(n_j) * 0.01
@@ -557,7 +570,13 @@ def _repair_and_adjust(
     alerts: list[str],
     cache: dict | None = None,
 ) -> tuple[np.ndarray, np.ndarray, list[str]]:
-    """Ensure Omega_gap is PSD and optionally apply macro adjustments."""
+    """Ensure Omega_gap is symmetric and PSD; optionally apply macro adjustments."""
+    # Symmetrize before any eigenvalue or quadratic-form operation.
+    sym_err = float(np.max(np.abs(Omega_gap - Omega_gap.T)))
+    if sym_err > 1e-8:
+        Omega_gap = 0.5 * (Omega_gap + Omega_gap.T)
+        alerts.append(f"Omega_gap was non-symmetric (err={sym_err:.3e}); symmetrized before PSD repair.")
+
     # Ensure Omega_gap is PSD
     min_eig = np.min(np.linalg.eigvalsh(Omega_gap))
     if min_eig < 0.0:

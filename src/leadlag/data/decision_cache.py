@@ -154,12 +154,28 @@ def is_decision_cache_valid(
     if date is None:
         raw_path = _raw_etf_cache_path()
         if raw_path.exists() and store.path.exists():
-            decision_mtime = os.stat(store.path).st_mtime_ns
-            raw_mtime = os.stat(raw_path).st_mtime_ns
-            if decision_mtime < raw_mtime:
-                logger.info(
-                    "Decision cache is older than raw ETF cache; rebuild required"
-                )
-                return False
+            decision_meta = store.get(meta_key) or {}
+            from leadlag.data.market_data_cache import _ETF_META_KEY
+
+            raw_store = SqliteCacheStore(raw_path)
+            raw_meta = raw_store.get(_ETF_META_KEY) or {}
+            decision_updated_at = decision_meta.get("updated_at")
+            raw_updated_at = raw_meta.get("updated_at")
+            if decision_updated_at and raw_updated_at:
+                if pd.to_datetime(decision_updated_at) < pd.to_datetime(raw_updated_at):
+                    logger.info(
+                        "Decision cache (updated_at=%s) is older than raw ETF cache (updated_at=%s); rebuild required",
+                        decision_updated_at, raw_updated_at,
+                    )
+                    return False
+            else:
+                # Fallback to mtime if either cache lacks explicit updated_at.
+                decision_mtime = os.stat(store.path).st_mtime_ns
+                raw_mtime = os.stat(raw_path).st_mtime_ns
+                if decision_mtime < raw_mtime:
+                    logger.info(
+                        "Decision cache is older than raw ETF cache; rebuild required"
+                    )
+                    return False
 
     return True

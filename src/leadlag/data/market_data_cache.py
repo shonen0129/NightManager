@@ -180,11 +180,25 @@ def is_df_exec_cache_valid() -> bool:
 
     raw_path = _etf_store_path()
     if raw_path.exists() and store.path.exists():
-        df_exec_mtime = os.stat(store.path).st_mtime_ns
-        raw_mtime = os.stat(raw_path).st_mtime_ns
-        if df_exec_mtime < raw_mtime:
-            logger.info("df_exec cache is older than raw ETF cache; rebuild required")
-            return False
+        df_exec_meta = store.get(_DF_EXEC_META_KEY) or {}
+        raw_store = SqliteCacheStore(_etf_store_path())
+        raw_meta = raw_store.get(_ETF_META_KEY) or {}
+        df_exec_updated_at = df_exec_meta.get("updated_at")
+        raw_updated_at = raw_meta.get("updated_at")
+        if df_exec_updated_at and raw_updated_at:
+            if pd.to_datetime(df_exec_updated_at) < pd.to_datetime(raw_updated_at):
+                logger.info(
+                    "df_exec cache (updated_at=%s) is older than raw ETF cache (updated_at=%s); rebuild required",
+                    df_exec_updated_at, raw_updated_at,
+                )
+                return False
+        else:
+            # Fallback to mtime if either cache lacks explicit updated_at.
+            df_exec_mtime = os.stat(store.path).st_mtime_ns
+            raw_mtime = os.stat(raw_path).st_mtime_ns
+            if df_exec_mtime < raw_mtime:
+                logger.info("df_exec cache is older than raw ETF cache; rebuild required")
+                return False
 
     return True
 

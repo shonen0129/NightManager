@@ -82,6 +82,7 @@ def run_numerical_audit(
     w: np.ndarray,
     scores: np.ndarray,
     Omega: np.ndarray,
+    gross_limit: float = 2.0,
 ) -> dict:
     """Validate weight vector and covariance matrix for numerical consistency.
 
@@ -89,6 +90,7 @@ def run_numerical_audit(
         w: Portfolio weight vector (shape n_j).
         scores: Signal score vector (shape n_j) — used only for NaN/Inf check.
         Omega: Covariance matrix (shape n_j × n_j).
+        gross_limit: Maximum allowed gross exposure before side leverage.
 
     Returns:
         Dict with keys:
@@ -98,20 +100,41 @@ def run_numerical_audit(
           net_exposure_near_zero: bool
           net_exposure_value: float
           gross_exposure_value: float
+          gross_exposure_within_limit: bool
           covariance_diag_nonneg: bool
           covariance_symmetric: bool
           covariance_symmetry_max_err: float
+          covariance_psd: bool
+          covariance_min_eigval: float
     """
     nan_scores = bool(np.isnan(scores).any() or np.isinf(scores).any())
     nan_w = bool(np.isnan(w).any() or np.isinf(w).any())
     net_exp = float(np.sum(w))
     gross_exp = float(np.sum(np.abs(w)))
     net_zero = abs(net_exp) < 1e-8
+    gross_ok = gross_exp <= gross_limit + 1e-8
     diag_ok = bool((np.diag(Omega) >= 0.0).all())
     sym_err = float(np.max(np.abs(Omega - Omega.T)))
     sym_ok = sym_err < 1e-8
 
-    all_passed = not nan_scores and not nan_w and net_zero and diag_ok and sym_ok
+    try:
+        sym_Omega = 0.5 * (Omega + Omega.T)
+        eigvals = np.linalg.eigvalsh(sym_Omega)
+        psd_ok = bool(np.all(eigvals >= -1e-8))
+        min_eig = float(eigvals.min())
+    except Exception:
+        psd_ok = False
+        min_eig = float("nan")
+
+    all_passed = (
+        not nan_scores
+        and not nan_w
+        and net_zero
+        and gross_ok
+        and diag_ok
+        and sym_ok
+        and psd_ok
+    )
 
     return {
         "status": "PASSED" if all_passed else "FAILED",
@@ -120,7 +143,10 @@ def run_numerical_audit(
         "net_exposure_near_zero": net_zero,
         "net_exposure_value": net_exp,
         "gross_exposure_value": gross_exp,
+        "gross_exposure_within_limit": gross_ok,
         "covariance_diag_nonneg": diag_ok,
         "covariance_symmetric": sym_ok,
         "covariance_symmetry_max_err": sym_err,
+        "covariance_psd": psd_ok,
+        "covariance_min_eigval": min_eig,
     }

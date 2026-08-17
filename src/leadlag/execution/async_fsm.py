@@ -145,6 +145,7 @@ class AsyncExecutionEngine:
         burst_limit: int = 5,
         get_positions_timeout_seconds: float = 30.0,
         close_fill_timeout_seconds: float = 60.0,
+        new_fill_timeout_seconds: float = 30.0,
     ) -> None:
         self.split_delay_seconds = split_delay_seconds
         self.large_order_ticker = large_order_ticker
@@ -152,6 +153,7 @@ class AsyncExecutionEngine:
         self.split_threshold = split_threshold
         self.get_positions_timeout_seconds = get_positions_timeout_seconds
         self.close_fill_timeout_seconds = close_fill_timeout_seconds
+        self.new_fill_timeout_seconds = new_fill_timeout_seconds
         self.rate_limiter = AsyncRateLimiter(
             rate_limit_per_second=rate_limit_per_second,
             burst_limit=burst_limit,
@@ -354,6 +356,79 @@ class AsyncExecutionEngine:
             for lc in pending:
                 lc.transition_to(OrderState.FAILED, "Close fill confirmation timeout")
 
+    async def _wait_for_new_fills(
+        self,
+        lifecycles: list[OrderLifecycle],
+        broker: AsyncBrokerClient,
+        trade_date: str = "",
+    ) -> None:
+        """Poll new order lifecycles until they fill, fail, or time out.
+
+        New orders must reach a terminal state (FILLED or FAILED) before the
+        execution journal can report success. This avoids treating an order
+        that is merely accepted by the broker as an actual fill.
+        """
+        if not hasattr(broker, "get_order_status"):
+            logger.debug("Broker does not support get_order_status; skipping new fill polling")
+            return
+
+        pending = [lc for lc in lifecycles if lc.state == OrderState.SUBMITTED]
+        if not pending:
+            return
+
+        deadline = asyncio.get_running_loop().time() + self.new_fill_timeout_seconds
+        poll_interval = 1.0
+
+        logger.info(
+            "[%s] Waiting for %d new order(s) to fill (timeout=%.1fs)...",
+            trade_date,
+            len(pending),
+            self.new_fill_timeout_seconds,
+        )
+
+        while pending and asyncio.get_running_loop().time() < deadline:
+            for lc in pending:
+                if lc.result is None or not lc.result.order_id:
+                    continue
+                try:
+                    result = await asyncio.wait_for(
+                        broker.get_order_status(lc.result.order_id),
+                        timeout=self.order_timeout_seconds,
+                    )
+                    if result in (OrderStatus.FILLED, OrderStatus.SIMULATED):
+                        lc.transition_to(OrderState.FILLED, "Filled (polled)")
+                    elif result == OrderStatus.CANCELLED:
+                        lc.transition_to(OrderState.FAILED, "New order was cancelled")
+                    elif result == OrderStatus.FAILED:
+                        lc.transition_to(OrderState.FAILED, "New order failed")
+                except TimeoutError:
+                    pass
+                except NotImplementedError:
+                    logger.debug(
+                        "Broker does not implement get_order_status; "
+                        "stopping new fill polling"
+                    )
+                    return
+                except Exception as e:
+                    logger.warning(
+                        "Failed to poll new order %s: %s",
+                        lc.result.order_id,
+                        e,
+                    )
+
+            pending = [lc for lc in lifecycles if lc.state == OrderState.SUBMITTED]
+            if pending:
+                await asyncio.sleep(poll_interval)
+
+        if pending:
+            logger.warning(
+                "%d new order(s) still SUBMITTED after %.1fs; treating as failed",
+                len(pending),
+                self.new_fill_timeout_seconds,
+            )
+            for lc in pending:
+                lc.transition_to(OrderState.FAILED, "New fill confirmation timeout")
+
     def _should_split(self, lifecycle: OrderLifecycle) -> bool:
         """Return True if an order should be split into delayed children."""
         if lifecycle.order.ticker != self.large_order_ticker:
@@ -520,7 +595,7 @@ class AsyncExecutionEngine:
         await self._wait_for_close_fills(close_lifecycles_executed, broker, trade_date)
 
         close_phase_failed = any(
-            lc.state not in (OrderState.FILLED, OrderState.SUBMITTED)
+            lc.state != OrderState.FILLED
             for lc in close_lifecycles_executed
         )
         if close_phase_failed:
@@ -543,10 +618,7 @@ class AsyncExecutionEngine:
                 new_orders_count=0,
                 lifecycles=all_lifecycles,
                 elapsed_seconds=elapsed,
-                success=all(
-                    lc.state in (OrderState.FILLED, OrderState.SUBMITTED)
-                    for lc in all_lifecycles
-                ),
+                success=all(lc.state == OrderState.FILLED for lc in all_lifecycles),
             )
             logger.info(
                 "[%s] Async execution completed in %.2fs: %d filled, %d failed (NEW stage aborted).",
@@ -572,6 +644,10 @@ class AsyncExecutionEngine:
         for lc in split_new:
             new_split_children.extend(await self._execute_split_order(lc, broker))
 
+        # Wait for new orders to fill before reporting success.
+        new_lifecycles_executed = standard_new + new_split_children
+        await self._wait_for_new_fills(new_lifecycles_executed, broker, trade_date)
+
         # 5. Assemble Journal
         all_lifecycles = (
             close_lifecycles_executed
@@ -591,10 +667,7 @@ class AsyncExecutionEngine:
             new_orders_count=len(standard_new) + len(new_split_children),
             lifecycles=all_lifecycles,
             elapsed_seconds=elapsed,
-            success=all(
-                lc.state in (OrderState.FILLED, OrderState.SUBMITTED)
-                for lc in all_lifecycles
-            ),
+            success=all(lc.state == OrderState.FILLED for lc in all_lifecycles),
         )
 
         logger.info(
@@ -691,6 +764,10 @@ class AsyncExecutionEngine:
             close_split_children.extend(await self._execute_split_order(lc, broker))
 
         all_lifecycles = standard_close + close_split_children
+
+        # Wait for close orders to fill before reporting success.
+        await self._wait_for_close_fills(all_lifecycles, broker, trade_date)
+
         filled_count = sum(1 for lc in all_lifecycles if lc.state == OrderState.FILLED)
         failed_count = sum(1 for lc in all_lifecycles if lc.state == OrderState.FAILED)
         elapsed = (datetime.now() - start_time).total_seconds()
@@ -704,10 +781,7 @@ class AsyncExecutionEngine:
             new_orders_count=0,
             lifecycles=all_lifecycles,
             elapsed_seconds=elapsed,
-            success=all(
-                lc.state in (OrderState.FILLED, OrderState.SUBMITTED)
-                for lc in all_lifecycles
-            ),
+            success=all(lc.state == OrderState.FILLED for lc in all_lifecycles),
         )
 
         logger.info(

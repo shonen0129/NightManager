@@ -33,6 +33,8 @@ logger = logging.getLogger(__name__)
 SPLIT_TICKER = "1629.T"
 SPLIT_THRESHOLD = 100
 SPLIT_DELAY_SECONDS = 60
+FILL_POLL_TIMEOUT_SECONDS = 30.0
+FILL_POLL_INTERVAL_SECONDS = 1.0
 
 
 def build_api_client(
@@ -208,6 +210,87 @@ def split_large_orders(
     return immediate, delayed
 
 
+def _wait_for_fills_sync(
+    api_client: BrokerClient,
+    results: list[OrderResult],
+    timeout_seconds: float = FILL_POLL_TIMEOUT_SECONDS,
+    poll_interval: float = FILL_POLL_INTERVAL_SECONDS,
+) -> tuple[list[OrderResult], bool]:
+    """Poll order statuses until all are terminal or the timeout expires.
+
+    Updates each ``OrderResult`` in place with the latest status. Submitted
+    market orders at 9:10 should fill quickly; if they are still SUBMITTED
+    after the timeout, the caller must decide whether to proceed.
+
+    Returns:
+        (results, polled): the (possibly updated) results and a bool that is
+        True when the broker actually supported status polling and was used.
+    """
+    if not results:
+        return results, False
+    if not callable(getattr(api_client, "get_order_status", None)):
+        logger.debug("Broker client does not support get_order_status; skipping fill polling")
+        return results, False
+
+    pending = [r for r in results if r.status == OrderStatus.SUBMITTED]
+    if not pending:
+        return results, False
+
+    # Probe whether the broker actually implements polling.
+    test_order_id = pending[0].order_id
+    try:
+        if test_order_id:
+            api_client.get_order_status(test_order_id)
+    except NotImplementedError:
+        logger.debug("Broker get_order_status is not implemented; skipping fill polling")
+        return results, False
+    except Exception:
+        # Non-fatal probe error; continue with polling.
+        pass
+
+    deadline = time.time() + timeout_seconds
+    logger.info(
+        "[FILL POLL] Waiting for %d order(s) to fill (timeout=%.1fs)...",
+        len(pending), timeout_seconds,
+    )
+
+    polled = True
+    while pending and time.time() < deadline:
+        still_pending: list[OrderResult] = []
+        for result in pending:
+            order_id = result.order_id
+            if not order_id:
+                still_pending.append(result)
+                continue
+            try:
+                status = api_client.get_order_status(order_id)
+                if status != OrderStatus.SUBMITTED:
+                    result.status = status
+                    result.message = f"Polled to {status.value}"
+                    logger.info(
+                        "  [FILL] %s: %s (order_id=%s)",
+                        result.ticker, status.value, order_id,
+                    )
+                else:
+                    still_pending.append(result)
+            except NotImplementedError:
+                logger.debug("Broker get_order_status not implemented; stopping fill polling")
+                return results, polled
+            except Exception as e:
+                logger.warning("Failed to poll order %s: %s", order_id, e)
+                still_pending.append(result)
+        pending = still_pending
+        if pending:
+            time.sleep(poll_interval)
+
+    if pending:
+        logger.warning(
+            "%d order(s) still SUBMITTED after %.1fs",
+            len(pending), timeout_seconds,
+        )
+    return results, polled
+
+
 def _build_order_deltas(
     decision_df: pd.DataFrame,
     current_positions: dict[str, int] | None,
@@ -264,7 +347,7 @@ def _submit_close_orders(
     api_client: BrokerClient,
     close_orders: list[tuple[str, OrderSide, int]],
     close_position_order: int = 0,
-) -> tuple[list[OrderResult], list[dict]]:
+) -> tuple[list[OrderResult], list[dict], bool]:
     """Build OrderRequests for close orders, submit them, and return result dicts."""
     close_order_requests = [
         OrderRequest(
@@ -279,6 +362,7 @@ def _submit_close_orders(
     ]
     close_results: list[OrderResult] = []
     close_result_dicts: list[dict] = []
+    close_polled = False
 
     if close_order_requests:
         logger.info("[CLOSE PHASE] Submitting %d close (返済) orders first...", len(close_order_requests))
@@ -288,6 +372,7 @@ def _submit_close_orders(
             is_close=True,
             close_position_order=close_position_order,
         )
+        close_results, close_polled = _wait_for_fills_sync(api_client, close_results)
         for result in close_results:
             logger.info(
                 "  [CLOSE] %s: %d shares (Order ID: %s, Status: %s)",
@@ -306,20 +391,22 @@ def _submit_close_orders(
                 "eigyou_day": result.eigyou_day,
             })
 
-    return close_results, close_result_dicts
+    return close_results, close_result_dicts, close_polled
 
 
 def _submit_new_orders(
     api_client: BrokerClient,
     immediate_orders: list[OrderRequest],
-) -> tuple[list[OrderResult], bool]:
+) -> tuple[list[OrderResult], bool, bool]:
     """Submit the immediate new-order batch and detect any first-batch failure."""
     first_batch_failed = False
     results: list[OrderResult] = []
+    polled = False
 
     if immediate_orders:
         logger.info("[NEW PHASE] Submitting %d new (新規) orders...", len(immediate_orders))
         results = api_client.submit_orders_batch(immediate_orders, delay_ms=250)
+        results, polled = _wait_for_fills_sync(api_client, results)
         for result in results:
             result_side = result.side.value
             logger.info(
@@ -332,8 +419,10 @@ def _submit_new_orders(
             )
             if result.status == OrderStatus.FAILED:
                 first_batch_failed = True
+            elif polled and result.status not in (OrderStatus.FILLED, OrderStatus.SIMULATED):
+                first_batch_failed = True
 
-    return results, first_batch_failed
+    return results, first_batch_failed, polled
 
 
 def _submit_delayed_orders(
@@ -341,13 +430,14 @@ def _submit_delayed_orders(
     delayed_orders: list[OrderRequest],
     first_batch_failed: bool,
     summary: dict,
-) -> None:
+) -> bool:
     """Sleep and submit delayed orders, or mark SKIPPED if first batch failed.
 
     Modifies ``summary["buy_results"]`` and ``summary["sell_results"]`` in place.
+    Returns True if the delayed batch itself had a fill/terminal failure.
     """
     if not delayed_orders:
-        return
+        return False
 
     if first_batch_failed:
         logger.warning(
@@ -368,38 +458,46 @@ def _submit_delayed_orders(
                 summary["buy_results"].append(result_dict)
             elif req.side == OrderSide.SELL:
                 summary["sell_results"].append(result_dict)
-    else:
-        delayed_requests = list(delayed_orders)
+        return False
+
+    delayed_requests = list(delayed_orders)
+    logger.info(
+        "[DELAYED PHASE] Waiting %d seconds before submitting %d delayed order(s)...",
+        SPLIT_DELAY_SECONDS, len(delayed_requests),
+    )
+    time.sleep(SPLIT_DELAY_SECONDS)
+    logger.info("[DELAYED PHASE] Submitting %d delayed (新規) orders...", len(delayed_requests))
+    delayed_results = api_client.submit_orders_batch(delayed_requests, delay_ms=250)
+    delayed_results, delayed_polled = _wait_for_fills_sync(api_client, delayed_results)
+    delayed_failed = False
+    for result in delayed_results:
+        result_side = result.side.value
         logger.info(
-            "[DELAYED PHASE] Waiting %d seconds before submitting %d delayed order(s)...",
-            SPLIT_DELAY_SECONDS, len(delayed_requests),
+            "  [DELAYED %s] %s: %d shares (Order ID: %s, Status: %s)",
+            result_side,
+            result.ticker,
+            result.quantity,
+            result.order_id,
+            result.status.value,
         )
-        time.sleep(SPLIT_DELAY_SECONDS)
-        logger.info("[DELAYED PHASE] Submitting %d delayed (新規) orders...", len(delayed_requests))
-        delayed_results = api_client.submit_orders_batch(delayed_requests, delay_ms=250)
-        for result in delayed_results:
-            result_side = result.side.value
-            logger.info(
-                "  [DELAYED %s] %s: %d shares (Order ID: %s, Status: %s)",
-                result_side,
-                result.ticker,
-                result.quantity,
-                result.order_id,
-                result.status.value,
-            )
-            result_dict = {
-                "order_id": result.order_id,
-                "status": result.status.value,
-                "ticker": result.ticker,
-                "side": result_side,
-                "quantity": result.quantity,
-                "message": result.message,
-                "delayed": True,
-            }
-            if result_side == "BUY":
-                summary["buy_results"].append(result_dict)
-            elif result_side == "SELL":
-                summary["sell_results"].append(result_dict)
+        if result.status == OrderStatus.FAILED:
+            delayed_failed = True
+        elif delayed_polled and result.status not in (OrderStatus.FILLED, OrderStatus.SIMULATED):
+            delayed_failed = True
+        result_dict = {
+            "order_id": result.order_id,
+            "status": result.status.value,
+            "ticker": result.ticker,
+            "side": result_side,
+            "quantity": result.quantity,
+            "message": result.message,
+            "delayed": True,
+        }
+        if result_side == "BUY":
+            summary["buy_results"].append(result_dict)
+        elif result_side == "SELL":
+            summary["sell_results"].append(result_dict)
+    return delayed_failed
 
 
 def _write_api_execution_log(summary: dict, output_dir: str | Path) -> str:
@@ -460,8 +558,25 @@ def submit_orders_via_api(
         "close_results": [],
     }
 
-    _, close_result_dicts = _submit_close_orders(api_client, close_orders)
+    close_results, close_result_dicts, close_polled = _submit_close_orders(api_client, close_orders)
     summary["close_results"] = close_result_dicts
+
+    close_failed = any(
+        r.status == OrderStatus.FAILED
+        or (close_polled and r.status not in (OrderStatus.FILLED, OrderStatus.SIMULATED))
+        for r in close_results
+    )
+    if close_failed:
+        n_failed = sum(
+            1 for r in close_results
+            if r.status == OrderStatus.FAILED
+            or (close_polled and r.status not in (OrderStatus.FILLED, OrderStatus.SIMULATED))
+        )
+        logger.error(
+            "[EXECUTION] %d close order(s) did not reach a terminal success state; "
+            "skipping new order submission to avoid double exposure.",
+            n_failed,
+        )
 
     unsplit_new_order_requests = [
         OrderRequest(
@@ -479,9 +594,9 @@ def submit_orders_via_api(
     summary["expected_orders_count"] = expected_orders_count
 
     new_results: list[OrderResult] = []
-    first_batch_failed = False
-    if new_order_requests:
-        new_results, first_batch_failed = _submit_new_orders(api_client, new_order_requests)
+    first_batch_failed = close_failed
+    if not close_failed and new_order_requests:
+        new_results, first_batch_failed, _ = _submit_new_orders(api_client, new_order_requests)
         for result in new_results:
             result_side = result.side.value
             result_dict = {
@@ -499,18 +614,22 @@ def submit_orders_via_api(
             elif result_side == "SELL":
                 summary["sell_results"].append(result_dict)
 
+    delayed_failed = False
     if delayed_orders:
-        _submit_delayed_orders(api_client, delayed_orders, first_batch_failed, summary)
+        delayed_failed = _submit_delayed_orders(api_client, delayed_orders, first_batch_failed, summary)
 
     submitted_orders_count = (
         len(summary["buy_results"]) + len(summary["sell_results"]) + len(summary["close_results"])
     )
     summary["submitted_orders_count"] = submitted_orders_count
     summary["failed_orders_count"] = max(0, expected_orders_count - submitted_orders_count)
+    summary["close_failed"] = close_failed
+    summary["first_batch_failed"] = first_batch_failed
+    summary["delayed_failed"] = delayed_failed
 
     log_path = _write_api_execution_log(summary, output_dir)
 
-    if not is_dry_run and summary["failed_orders_count"] > 0:
+    if not is_dry_run and submitted_orders_count < expected_orders_count:
         raise RuntimeError(
             "Order submission incomplete: "
             f"submitted={submitted_orders_count}/expected={expected_orders_count}. "

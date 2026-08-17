@@ -193,7 +193,7 @@ def compute_correlation(
         if ewma_half_life is None:
             mu = np.mean(window_returns, axis=0)
             sigma = np.std(window_returns, axis=0, ddof=0)
-            sigma[sigma == 0] = 1e-8
+            sigma = np.maximum(sigma, 1e-8)
             z_window = (window_returns - mu) / sigma
             corr = np.dot(z_window.T, z_window) / window_returns.shape[0]
             np.fill_diagonal(corr, 1.0)
@@ -209,7 +209,7 @@ def compute_correlation(
             mu = np.sum(window_returns * weights[:, None], axis=0)
             var = np.sum(((window_returns - mu) ** 2) * weights[:, None], axis=0)
             sigma = np.sqrt(np.maximum(var, 1e-16))
-            sigma[sigma == 0] = 1e-8
+            sigma = np.maximum(sigma, 1e-8)
 
             z_window = (window_returns - mu) / sigma
             corr = np.dot((z_window * weights[:, None]).T, z_window)

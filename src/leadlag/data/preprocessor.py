@@ -198,9 +198,13 @@ def preprocess_data(
     if TOPIX_TICKER in jp_o.columns:
         jp_o = jp_o[JP_TICKERS].copy()
 
-    # Joint dates: days where both US and JP have valid data
-    us_valid_dates = us_c.dropna(subset=["XLB"]).index
-    jp_valid_dates = jp_c.dropna(subset=["1617.T"]).index
+    # Joint dates: days where both US and JP have enough valid tickers.
+    # Require at least 50% of tickers to be non-NaN on each side so that a
+    # single delisted/missing ticker does not drop the whole day.
+    us_min_valid = int(np.ceil(0.5 * len(US_TICKERS)))
+    jp_min_valid = int(np.ceil(0.5 * len(JP_TICKERS)))
+    us_valid_dates = us_c.dropna(thresh=us_min_valid).index
+    jp_valid_dates = jp_c.dropna(thresh=jp_min_valid).index
     joint_dates = us_valid_dates.intersection(jp_valid_dates).sort_values()
 
     us_c_joint = us_c.loc[joint_dates]
@@ -348,23 +352,35 @@ def preprocess_data(
             )
             continue
 
+        # Validity threshold: require at least 50% valid tickers per side.
+        us_min_valid = int(np.ceil(0.5 * len(US_TICKERS)))
+        jp_min_valid = int(np.ceil(0.5 * len(JP_TICKERS)))
+        if r_us.count() < us_min_valid or r_jp.count() < jp_min_valid or jp_close_sig.count() < jp_min_valid:
+            msg = f"Too many NaN values for trade_date={trade_date}; skipping"
+            if strict_validation:
+                raise DataValidationError(msg)
+            logger.warning("preprocess_data record validation: %s", msg)
+            continue
+
         nan_us = r_us.isna()
         if nan_us.any():
             missing = r_us[nan_us].index.tolist()
-            r_us = r_us.fillna(0.0)
-            logger.warning("%s: filled NaN us_cc for tickers %s", trade_date, missing)
+            median_us = float(r_us.median())
+            r_us = r_us.fillna(median_us)
+            logger.warning("%s: imputed NaN us_cc for tickers %s with side median %.6g", trade_date, missing, median_us)
 
         nan_jp = r_jp.isna()
         if nan_jp.any():
             missing = r_jp[nan_jp].index.tolist()
-            r_jp = r_jp.fillna(0.0)
-            logger.warning("%s: filled NaN jp_cc for tickers %s", trade_date, missing)
+            median_jp = float(r_jp.median())
+            r_jp = r_jp.fillna(median_jp)
+            logger.warning("%s: imputed NaN jp_cc for tickers %s with side median %.6g", trade_date, missing, median_jp)
 
         nan_close = jp_close_sig.isna()
         if nan_close.any():
             missing = jp_close_sig[nan_close].index.tolist()
             jp_close_sig = jp_close_sig.fillna(0.0)
-            logger.warning("%s: filled NaN jp_close_sig for tickers %s", trade_date, missing)
+            logger.warning("%s: filled NaN jp_close_sig for tickers %s with 0.0", trade_date, missing)
 
         # r_oc (target return), r_gap, and jp_open_trade may be NaN for today
         # because the Japanese market has not opened yet or the 9:10 real-time

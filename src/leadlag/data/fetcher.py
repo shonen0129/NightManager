@@ -127,7 +127,15 @@ def _apply_1629_nav_patch(
     jp_open.index = pd.to_datetime(jp_open.index).tz_localize(None).normalize()
 
     close_series = pd.to_numeric(jp_close[ticker], errors="coerce")
-    bad_dates = close_series[(close_series < 10) & np.isfinite(close_series)].index
+    # Detect one-off split anomalies against a rolling median. A close is
+    # considered broken if it is both below 10% of the recent median and below
+    # a hard ceiling, preventing the patch from firing on legitimate low prices.
+    rolling_median = close_series.rolling(window=20, min_periods=5).median().shift(1)
+    bad_dates = close_series[
+        (close_series < 0.1 * rolling_median)
+        & (close_series < 50)
+        & np.isfinite(close_series)
+    ].index
     bad_dates = bad_dates.intersection(nav.index)
 
     if len(bad_dates) == 0:
@@ -277,15 +285,18 @@ def _update_stale_cache_missing_only(
             "Incremental download returned empty market data (us_close/jp_close/jp_open)"
         )
 
-    # Normalize indices and merge (old values take priority via combine_first)
+    # Normalize indices and merge. Within the incremental lookback window, the
+    # new yfinance download takes priority so that data corrections/revisions
+    # are applied. Older cached values are retained for dates outside the update
+    # range via combine_first (new has priority because it is the first operand).
     df_us_close = (
-        _to_daily_index(us_close_old).combine_first(_to_daily_index(us_close_new)).sort_index()
+        _to_daily_index(us_close_new).combine_first(_to_daily_index(us_close_old)).sort_index()
     )
     df_jp_close = (
-        _to_daily_index(jp_close_old).combine_first(_to_daily_index(jp_close_new)).sort_index()
+        _to_daily_index(jp_close_new).combine_first(_to_daily_index(jp_close_old)).sort_index()
     )
     df_jp_open = (
-        _to_daily_index(jp_open_old).combine_first(_to_daily_index(jp_open_new)).sort_index()
+        _to_daily_index(jp_open_new).combine_first(_to_daily_index(jp_open_old)).sort_index()
     )
 
     df_jp_close, df_jp_open = _try_apply_nav_patch(df_jp_close, df_jp_open)

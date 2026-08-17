@@ -57,7 +57,7 @@
 - **金利コスト日割り（解決済み）**: `backtester.py` は `calendar_days` で暦日数を計算し、`financing_daily * days_held` で課金。週末（金曜→月曜=3日）も正しく加算される
 - **VaR99 の不安定性**: 250日窓の99%は尾部標本 ~2.5個。stop 判定の変更時は注意
 - **ハング既知パターン**（CLI実行時）: yfinance ダウンロード、`cache.py` の fcntl ファイルロック、`close.py` の auto-close 無限待機、API再試行バックオフ。詳細は `docs/スタック再発防止策.md`。長時間実行はタイムアウト付きで
-- **yfinanceのティッカー別NaN欠損**: yfinanceダウンロード時に特定ティッカー（IJR等）のデータが日付以降全てNaNになることがある。`preprocess_data()` のNaNチェック（`preprocessor.py:264-272`）で1ティッカーでもNaNがあると該当日の全レコードがスキップされ、df_execが途中で切断される。`etf_data.pkl` の異常は `preprocess_data` 呼び出し前に検査・修正すること
+- **yfinanceのティッカー別NaN欠損（修正済み）**: yfinanceダウンロード時に特定ティッカー（IJR等）のデータが欠損することがある。`preprocess_data()` は US/JP それぞれで 50% 以上のティッカーに有効値がある日を `joint_dates` とし、欠損があっても side（US/JP）中央値で補間する。ただし 50% 未満の有効ティッカー数の日はスキップされる。`etf_data.pkl` の異常は `preprocess_data` 呼び出し前に検査・修正すること
 - **config dictのshallow copy**: `base_cfg.copy()` はネストした dict（`cfg["blpx"]` 等）を共有参照する。比較実験で2つのモデルに異なるconfigを渡す際は `copy.deepcopy(base_cfg)` を使うこと。shallow copy だと一方の変更が他方に伝播し、両モデルが同一設定になる（実例: Robust PCA 比較実験で両モデルが Robust PCA 有効化されシグナルが完全一致した）
 
 ## よく使うコマンド
