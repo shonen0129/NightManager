@@ -62,92 +62,92 @@ class ProductionBLPXModel(_BLPBase):
         "num_training_samples": 0,
     }
 
-    def __init__(self, cfg: dict) -> None:
+    def __init__(self, cfg: Any) -> None:
         """Initialize ProductionBLPXModel.
 
         Args:
-            cfg: Configuration dict, normally ``ProductionV2RunConfig.model_dump()``
-                or the raw production YAML with ``blpx`` / ``costs`` sections.
+            cfg: ``BLPXConfig`` or a dict compatible with ``BLPXConfig`` validation.
         """
         super().__init__(cfg)
 
         # Universe dimensions (configurable, but defaults to the canonical ticker lists)
-        self.n_u = int(self._resolve_val("n_u", len(US_TICKERS)))
-        self.n_j = int(self._resolve_val("n_j", len(JP_TICKERS)))
+        self.n_u = int(getattr(self.cfg, 'n_u', len(US_TICKERS)))
+        self.n_j = int(getattr(self.cfg, 'n_j', len(JP_TICKERS)))
 
         # Model metadata
-        self.model_name = str(self._resolve_val("model_name", "ProductionBLPXModel"))
-        self.param_set = str(self._resolve_val("param_set", "default"))
+        self.model_name = str(getattr(self.cfg, 'model_name', "ProductionBLPXModel"))
+        self.param_set = str(getattr(self.cfg, 'param_set', "default"))
 
         # PCA / core parameters
-        self.k = int(self._resolve_val("k", 6))
-        self.q = float(self._resolve_val("q", 0.3))
-        self.weight_mode = str(self._resolve_val("weight_mode", "signal"))
-        self.normalization_method = str(self._resolve_val("normalization", "zscore"))
-        self.rank = self._resolve_val("rank", "full")
+        self.k = int(getattr(self.cfg, 'k', 6))
+        self.q = float(getattr(self.cfg, 'q', 0.3))
+        self.weight_mode = str(getattr(self.cfg, 'weight_mode', "signal"))
+        self.normalization_method = str(getattr(self.cfg, 'normalization', "zscore"))
+        self.rank = getattr(self.cfg, 'rank', "full")
 
         # Window / prior parameters
-        self.blp_window = int(self._resolve_val("blp_window", 252))
-        self.corr_window = int(self._resolve_val("corr_window", 60))
-        self.corr_min_periods = int(self._resolve_val("corr_min_periods", self.corr_window))
-        self.beta_window = int(self._resolve_val("beta_window", 60))
-        self.beta_floor = float(self._resolve_val("beta_floor", 0.0))
-        self.prior_variant = self._resolve_val("prior_variant", None)
+        self.blp_window = int(getattr(self.cfg, 'blp_window', 252))
+        self.corr_window = int(getattr(self.cfg, 'corr_window', 60))
+        self.corr_min_periods = int(getattr(self.cfg, 'corr_min_periods', self.corr_window))
+        self.beta_window = int(getattr(self.cfg, 'beta_window', 60))
+        self.beta_floor = float(getattr(self.cfg, 'beta_floor', 0.0))
+        self.prior_variant = getattr(self.cfg, 'prior_variant', None)
 
         # EWMA / shrinkage
-        self.blp_ewma_halflife = float(self._resolve_val("blp_ewma_halflife", self.ewma_halflife))
+        self.blp_ewma_halflife = float(getattr(self.cfg, 'blp_ewma_halflife', self.ewma_halflife))
         self.ewma_half_life = self.ewma_halflife
-        self.lambda_reg = float(self._resolve_val("lambda_reg", 0.75))
-        self.lambda_lw = float(self._resolve_val("lambda_lw", 0.5))
-        self.lw_target = str(self._resolve_val("lw_target", "equicorrelation"))
-        self.include_v4_prior = bool(self._resolve_val("include_v4_prior", True))
+        self.lambda_reg = float(getattr(self.cfg, 'lambda_reg', 0.75))
+        self.lambda_lw = float(getattr(self.cfg, 'lambda_lw', 0.5))
+        self.lw_target = str(getattr(self.cfg, 'lw_target', "equicorrelation"))
+        self.include_v4_prior = bool(getattr(self.cfg, 'include_v4_prior', True))
 
         # BLP coefficient regularization
-        self.rho = float(self._resolve_val("rho", 0.003))
-        self.alpha_xx = float(self._resolve_val("alpha_xx", 0.75))
-        self.alpha_yx = float(self._resolve_val("alpha_yx", 0.0))
-        self.alpha_yy = float(self._resolve_val("alpha_yy", 0.5))
+        self.rho = float(getattr(self.cfg, 'rho', 0.003))
+        self.alpha_xx = float(getattr(self.cfg, 'alpha_xx', 0.75))
+        self.alpha_yx = float(getattr(self.cfg, 'alpha_yx', 0.0))
+        self.alpha_yy = float(getattr(self.cfg, 'alpha_yy', 0.5))
 
         # Structured prior / Tikhonov
-        self.lambda_pca = float(self._resolve_val("lambda_pca", 0.0))
-        self.lambda_sector = float(self._resolve_val("lambda_sector", 0.0))
-        self.beta_conf = float(self._resolve_val("beta_conf", 0.0))
-        self.frobenius_scale_priors = bool(self._resolve_val("frobenius_scale_priors", False))
-        self.sector_eta = float(self._resolve_val("sector_eta", 0.0))
-        self.sector_gamma = float(self._resolve_val("sector_gamma", 2.0))
+        self.lambda_pca = float(getattr(self.cfg, 'lambda_pca', 0.0))
+        self.lambda_sector = float(getattr(self.cfg, 'lambda_sector', 0.0))
+        self.beta_conf = float(getattr(self.cfg, 'beta_conf', 0.0))
+        self.frobenius_scale_priors = bool(getattr(self.cfg, 'frobenius_scale_priors', False))
+        self.sector_eta = float(getattr(self.cfg, 'sector_eta', 0.0))
+        self.sector_gamma = float(getattr(self.cfg, 'sector_gamma', 2.0))
 
         # Robust winsorization
-        winsor_val = self._resolve_val("winsor_sigma", None)
+        winsor_val = getattr(self.cfg, 'winsor_sigma', None)
+        self.winsor_sigma: float | None
         if winsor_val is not None and str(winsor_val).lower() != "none":
             self.winsor_sigma = float(winsor_val)
         else:
             self.winsor_sigma = None
 
         # Execution / gap adjustment
-        self.exec_adjustment = str(self._resolve_val("exec_adjustment", "none"))
-        self.gap_open_coef = float(self._resolve_val("gap_open_coef", 0.70))
-        self.topix_beta_coef = float(self._resolve_val("topix_beta_coef", 0.6))
-        self.vol_adjusted_target = bool(self._resolve_val("vol_adjusted_target", True))
-        self.target = str(self._resolve_val("target", "topix_residual"))
-        self.use_raw_target = bool(self._resolve_val("use_raw_target", False))
+        self.exec_adjustment = str(getattr(self.cfg, 'exec_adjustment', "none"))
+        self.gap_open_coef = float(getattr(self.cfg, 'gap_open_coef', 0.70))
+        self.topix_beta_coef = float(getattr(self.cfg, 'topix_beta_coef', 0.6))
+        self.vol_adjusted_target = bool(getattr(self.cfg, 'vol_adjusted_target', True))
+        self.target = str(getattr(self.cfg, 'target', "topix_residual"))
+        self.use_raw_target = bool(getattr(self.cfg, 'use_raw_target', False))
 
-        gap_neg = self._resolve_val("gap_open_coef_neg", None)
+        gap_neg = getattr(self.cfg, 'gap_open_coef_neg', None)
         self.gap_open_coef_neg = float(gap_neg) if gap_neg is not None and str(gap_neg).lower() != "none" else None
 
-        beta_neg = self._resolve_val("topix_beta_coef_neg", None)
+        beta_neg = getattr(self.cfg, 'topix_beta_coef_neg', None)
         self.topix_beta_coef_neg = float(beta_neg) if beta_neg is not None and str(beta_neg).lower() != "none" else None
 
         # Asymmetric propagation
-        self.asymmetry_delta = float(self._resolve_val("asymmetry_delta", 0.0))
-        self.asymmetry_mode = str(self._resolve_val("asymmetry_mode", "scalar"))
-        self.asymmetry_post_gap_delta = float(self._resolve_val("asymmetry_post_gap_delta", 0.0))
-        self.asymmetry_post_gap_mode = str(self._resolve_val("asymmetry_post_gap_mode", "signal_split"))
+        self.asymmetry_delta = float(getattr(self.cfg, 'asymmetry_delta', 0.0))
+        self.asymmetry_mode = str(getattr(self.cfg, 'asymmetry_mode', "scalar"))
+        self.asymmetry_post_gap_delta = float(getattr(self.cfg, 'asymmetry_post_gap_delta', 0.0))
+        self.asymmetry_post_gap_mode = str(getattr(self.cfg, 'asymmetry_post_gap_mode', "signal_split"))
 
         # Ensemble / signal component weights
-        raw_pca_val = self._resolve_val("raw_pca_weight", None)
-        residual_pca_val = self._resolve_val("residual_pca_weight", None)
-        raw_blpx_val = self._resolve_val("raw_blpx_weight", None) or self._resolve_val("p5_weight", None)
-        residual_blpx_val = self._resolve_val("residual_blpx_weight", None) or self._resolve_val("p5p3_weight", None)
+        raw_pca_val = getattr(self.cfg, 'raw_pca_weight', None)
+        residual_pca_val = getattr(self.cfg, 'residual_pca_weight', None)
+        raw_blpx_val = getattr(self.cfg, 'raw_blpx_weight', None) or getattr(self.cfg, 'p5_weight', None)
+        residual_blpx_val = getattr(self.cfg, 'residual_blpx_weight', None) or getattr(self.cfg, 'p5p3_weight', None)
 
         if raw_pca_val is not None or residual_pca_val is not None or raw_blpx_val is not None or residual_blpx_val is not None:
             self.raw_pca_weight = float(raw_pca_val) if raw_pca_val is not None else 0.0
@@ -155,7 +155,7 @@ class ProductionBLPXModel(_BLPBase):
             self.raw_blpx_weight = float(raw_blpx_val) if raw_blpx_val is not None else 0.0
             self.residual_blpx_weight = float(residual_blpx_val) if residual_blpx_val is not None else 0.0
         else:
-            sig_comps = self._resolve_val("signal_components", None)
+            sig_comps = getattr(self.cfg, 'signal_components', None)
             if isinstance(sig_comps, dict):
                 self.raw_pca_weight = float(sig_comps.get("raw_pca", {}).get("weight", 0.0)) if sig_comps.get("raw_pca", {}).get("enabled", False) else 0.0
                 self.residual_pca_weight = float(sig_comps.get("residual_pca", {}).get("weight", 0.0)) if sig_comps.get("residual_pca", {}).get("enabled", False) else 0.0
@@ -167,38 +167,38 @@ class ProductionBLPXModel(_BLPBase):
                 self.raw_blpx_weight = 0.1
                 self.residual_blpx_weight = 0.1
 
-        self.p4_weight = float(self._resolve_val("p4_weight", 0.0))
+        self.p4_weight = float(getattr(self.cfg, 'p4_weight', 0.0))
 
         # Min-variance weight optimization
-        self.minvar_enabled = bool(self._resolve_val("minvar_enabled", False))
-        self.minvar_alpha = float(self._resolve_val("minvar_alpha", 0.5))
+        self.minvar_enabled = bool(getattr(self.cfg, 'minvar_enabled', False))
+        self.minvar_alpha = float(getattr(self.cfg, 'minvar_alpha', 0.5))
 
         # Copula correlation blending
-        self.copula_enabled = bool(self._resolve_val("copula_enabled", False))
-        self.copula_blend_weight = float(self._resolve_val("copula_blend_weight", 0.3))
-        self.copula_dynamic_blend = bool(self._resolve_val("copula_dynamic_blend", True))
-        self.copula_stress_threshold = float(self._resolve_val("copula_stress_threshold", 1.5))
-        self.copula_nu_init = float(self._resolve_val("copula_nu_init", 5.0))
-        self.copula_marginal_method = str(self._resolve_val("copula_marginal_method", "empirical"))
+        self.copula_enabled = bool(getattr(self.cfg, 'copula_enabled', False))
+        self.copula_blend_weight = float(getattr(self.cfg, 'copula_blend_weight', 0.3))
+        self.copula_dynamic_blend = bool(getattr(self.cfg, 'copula_dynamic_blend', True))
+        self.copula_stress_threshold = float(getattr(self.cfg, 'copula_stress_threshold', 1.5))
+        self.copula_nu_init = float(getattr(self.cfg, 'copula_nu_init', 5.0))
+        self.copula_marginal_method = str(getattr(self.cfg, 'copula_marginal_method', "empirical"))
 
         # Macro confidence (Factor-Specific Kappa)
-        self.macro_confidence_enabled = bool(self._resolve_val("macro_confidence_enabled", False))
-        self.macro_kappa_enabled = bool(self._resolve_val("macro_kappa_enabled", self.macro_confidence_enabled))
-        self.macro_direction_enabled = bool(self._resolve_val("macro_direction_enabled", False))
-        self.macro_sigma_yy_inflation_enabled = bool(self._resolve_val("macro_sigma_yy_inflation_enabled", False))
-        self.macro_kappas = self._resolve_val("macro_kappas", None)
+        self.macro_confidence_enabled = bool(getattr(self.cfg, 'macro_confidence_enabled', False))
+        self.macro_kappa_enabled = bool(getattr(self.cfg, 'macro_kappa_enabled', self.macro_confidence_enabled))
+        self.macro_direction_enabled = bool(getattr(self.cfg, 'macro_direction_enabled', False))
+        self.macro_sigma_yy_inflation_enabled = bool(getattr(self.cfg, 'macro_sigma_yy_inflation_enabled', False))
+        self.macro_kappas = getattr(self.cfg, 'macro_kappas', None)
         if self.macro_kappas is not None and not isinstance(self.macro_kappas, (list, tuple, np.ndarray)):
             self.macro_kappas = None
         if isinstance(self.macro_kappas, (list, tuple)):
             self.macro_kappas = np.array(self.macro_kappas, dtype=float)
-        self.macro_surprise_halflife_mean = float(self._resolve_val("macro_surprise_halflife_mean", 20.0))
-        self.macro_surprise_halflife_vol = float(self._resolve_val("macro_surprise_halflife_vol", 60.0))
+        self.macro_surprise_halflife_mean = float(getattr(self.cfg, 'macro_surprise_halflife_mean', 20.0))
+        self.macro_surprise_halflife_vol = float(getattr(self.cfg, 'macro_surprise_halflife_vol', 60.0))
         self._macro_surprise_raw: np.ndarray | None = None
         self._macro_scales: np.ndarray | None = None
         self._macro_direction_adj: np.ndarray | None = None
 
         # Sensitivity matrix override (for experimentation); defaults to MACRO_SENS_MATRIX
-        _sens_override = self._resolve_val("macro_sens_matrix", None)
+        _sens_override = getattr(self.cfg, 'macro_sens_matrix', None)
         if _sens_override == "derived":
             from leadlag.core.macro import MACRO_SENS_MATRIX_DERIVED
             self._macro_sens_matrix = MACRO_SENS_MATRIX_DERIVED
@@ -209,10 +209,10 @@ class ProductionBLPXModel(_BLPBase):
         self.slippage_bps = self._resolve_slippage_bps()
 
         # Meta-learning parameters
-        self.meta_enabled = bool(self._resolve_val("meta_learning_enabled", False))
-        self.meta_model_type = str(self._resolve_val("meta_learning_model_type", "logistic_regression"))
-        self.meta_train_window = int(self._resolve_val("meta_learning_train_window", 252))
-        self.meta_smooth_factor = float(self._resolve_val("meta_learning_smooth_factor", 1.0))
+        self.meta_enabled = bool(getattr(self.cfg, 'meta_learning_enabled', False))
+        self.meta_model_type = str(getattr(self.cfg, 'meta_learning_model_type', "logistic_regression"))
+        self.meta_train_window = int(getattr(self.cfg, 'meta_learning_train_window', 252))
+        self.meta_smooth_factor = float(getattr(self.cfg, 'meta_learning_smooth_factor', 1.0))
 
         # Precompute the fixed Sector Mapping matrix M_sector
         self.M_sector = self._build_sector_prior()
@@ -228,18 +228,6 @@ class ProductionBLPXModel(_BLPBase):
                     if jp_tk in JP_TICKERS:
                         j_indices.append(JP_TICKERS.index(jp_tk))
                 self._sector_mapping_indices[u_idx] = j_indices
-
-        # Fractional differencing is nested under ``features`` in production YAML.
-        # The base class resolves the top-level keys only, so re-derive from the
-        # nested section when present.
-        frac_cfg = self.cfg.get("features", {}).get("fractional_diff", {})
-        if frac_cfg:
-            self.frac_diff_enabled = bool(frac_cfg.get("enabled", self.frac_diff_enabled))
-            self.frac_diff_d = float(frac_cfg.get("d", self.frac_diff_d))
-            self.frac_diff_threshold = float(frac_cfg.get("threshold", self.frac_diff_threshold))
-            self.frac_diff_window = int(frac_cfg.get("window", self.frac_diff_window))
-            _norm = frac_cfg.get("normalize", self.frac_diff_normalize)
-            self.frac_diff_normalize = _norm if _norm is None else str(_norm)
 
         # Per-instance caches (replaces module-level globals)
         self._raw_pca_cache: dict = {}
@@ -936,8 +924,8 @@ class ProductionBLPXModel(_BLPBase):
         min_samples = 100
 
         # Let's collect training features and targets
-        X_train = []
-        Y_train = []
+        X_train_list: list[list[float]] = []
+        Y_train_list: list[float] = []
 
         start_train = max(self.corr_window + 10, i - self.meta_train_window)
         for j in range(start_train, i):
@@ -961,14 +949,14 @@ class ProductionBLPXModel(_BLPBase):
             if np.isnan(target_j):
                 continue
 
-            X_train.append(f_j)
-            Y_train.append(target_j)
+            X_train_list.append(f_j)
+            Y_train_list.append(target_j)
 
-        if len(X_train) < min_samples:
+        if len(X_train_list) < min_samples:
             return 0.8  # Fallback to static weight
 
-        X_train = np.array(X_train)
-        Y_train = np.array(Y_train)
+        X_train = np.array(X_train_list)
+        Y_train = np.array(Y_train_list)
 
         # Current features at day i (to predict for tomorrow)
         rec_ic_blpx_i = np.nanmean(ic_blpx_vals[i - 10 : i])
@@ -1167,7 +1155,7 @@ class ProductionBLPXModel(_BLPBase):
         )
 
         # Build component closures
-        def _raw_pca_fn(ctx):
+        def _raw_pca_fn(ctx: Any) -> dict:
             i = ctx.i
             if not need_raw_pca:
                 return {"signal": np.zeros(self.n_j)}
@@ -1180,7 +1168,7 @@ class ProductionBLPXModel(_BLPBase):
             )
             return {"signal": sig}
 
-        def _residual_pca_fn(ctx):
+        def _residual_pca_fn(ctx: Any) -> dict:
             i = ctx.i
             if not need_residual_pca:
                 return {"signal": np.zeros(self.n_j)}
@@ -1193,7 +1181,7 @@ class ProductionBLPXModel(_BLPBase):
             )
             return {"signal": sig}
 
-        def _raw_blpx_fn(ctx):
+        def _raw_blpx_fn(ctx: Any) -> dict:
             i = ctx.i
             if not need_raw_blpx or i < start_idx_raw:
                 return {**self._ZERO_BLP_DIAGNOSTICS, "signal": np.zeros(self.n_j)}
@@ -1209,7 +1197,7 @@ class ProductionBLPXModel(_BLPBase):
                 is_residual=False,
             )
 
-        def _residual_blpx_fn(ctx):
+        def _residual_blpx_fn(ctx: Any) -> dict:
             i = ctx.i
             if not need_residual_blpx or i < start_idx_raw:
                 return {**self._ZERO_BLP_DIAGNOSTICS, "signal": np.zeros(self.n_j)}

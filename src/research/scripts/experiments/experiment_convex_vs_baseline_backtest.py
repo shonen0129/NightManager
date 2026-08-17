@@ -49,7 +49,7 @@ def run_convex_backtest(
     # 1. Setup V2 model for distribution computation
     app_config = load_config_from_yaml("configs/production/production.yaml")
     cfg = app_config.v2
-    blpx_model = ProductionBLPXModel(cfg.model_dump())
+    blpx_model = ProductionBLPXModel(cfg.blpx)
     v2_model = ProductionV2Model(cfg, blpx_model=blpx_model)
 
     # 2. Setup dates and targets

@@ -176,7 +176,7 @@ def _build_df_exec(app_config: Any, args: argparse.Namespace) -> pd.DataFrame:
     logger.info("Downloading market data (residualization=%s)...", params)
     raw_data = download_data(beta_window=params["beta_window"])
     logger.info("Preprocessing market data...")
-    df_exec = preprocess_data(raw_data, **params)
+    df_exec = preprocess_data(raw_data, **params, strict_validation=True)
     if df_exec is None or df_exec.empty:
         raise RuntimeError("preprocess_data returned an empty df_exec")
     return df_exec
@@ -198,7 +198,7 @@ def _build_blpx_model(app_config: Any) -> Any:
     """Build the residual-BLPX model from the validated V2 config."""
     from leadlag.models.blpx import ProductionBLPXModel
 
-    return ProductionBLPXModel(app_config.v2.model_dump())
+    return ProductionBLPXModel(app_config.v2.blpx)
 
 
 def _select_trade_dates(

@@ -20,13 +20,16 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from typing import cast
 
 import numpy as np
 import pandas as pd
 
+from leadlag.broker.base import BrokerClient
 from leadlag.broker.tachibana.session_cache import load_open_prices_cache
 from leadlag.config.paths import live as live_path
 from leadlag.config.paths import results as results_path
+from leadlag.config.schemas import AppConfig
 from leadlag.data.tickers import JP_TICKERS, TOPIX_TICKER
 from leadlag.execution.backtest import _load_df_exec
 from leadlag.execution.broker_ops import (
@@ -47,7 +50,7 @@ logger = logging.getLogger(__name__)
 
 def _resolve_gap_dir(
     gap_input_dir: str | Path | None,
-    app_config,
+    app_config: AppConfig,
     root: Path,
 ) -> Path | None:
     """Resolve the V2 gap input directory from CLI or config."""
@@ -82,7 +85,7 @@ def _resolve_trade_date(
     - Future dates are rejected to prevent accidentally running for a date
       that has not yet occurred.
     """
-    today = pd.Timestamp.now().tz_localize(None).normalize()
+    today = cast(pd.Timestamp, pd.Timestamp.now().tz_localize(None).normalize())
 
     def _assert_not_future(date_str: str) -> str:
         parsed = pd.to_datetime(date_str).normalize()
@@ -98,7 +101,7 @@ def _resolve_trade_date(
                 raw_date = df_tmp.iloc[0]["trade_date"]
                 if pd.isna(raw_date):
                     raise ValueError("trade_date is NaN")
-                resolved = pd.to_datetime(str(raw_date)).strftime("%Y-%m-%d")
+                resolved = str(pd.to_datetime(str(raw_date)).strftime("%Y-%m-%d"))
                 logger.info("Resolved latest trade date from %s: %s", latest_file, resolved)
                 return _assert_not_future(resolved)
             except Exception as e:
@@ -108,18 +111,18 @@ def _resolve_trade_date(
             from leadlag.core.market_calendar import is_market_closed, previous_trading_day
 
             if is_market_closed(today):
-                resolved = previous_trading_day(today).strftime("%Y-%m-%d")
+                resolved = str(previous_trading_day(today).strftime("%Y-%m-%d"))
                 logger.warning(
                     "latest_weights.csv not found and today is a non-trading day; using %s",
                     resolved,
                 )
             else:
-                resolved = today.strftime("%Y-%m-%d")
+                resolved = str(today.strftime("%Y-%m-%d"))
                 logger.warning("latest_weights.csv not found; using today: %s", resolved)
             return _assert_not_future(resolved)
 
     if trade_date is None:
-        resolved = today.strftime("%Y-%m-%d")
+        resolved = str(today.strftime("%Y-%m-%d"))
         logger.info("No trade date provided; using today: %s", resolved)
         return resolved
 
@@ -127,8 +130,8 @@ def _resolve_trade_date(
 
 
 def _resolve_current_prices(
-    app_config,
-    api_client,
+    app_config: AppConfig,
+    api_client: BrokerClient,
     jp_opens_csv: str | None,
     google_opens: bool,
 ) -> dict[str, float]:

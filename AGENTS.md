@@ -2,7 +2,7 @@
 
 ## ⚠️ 実行規約（必須・違反禁止）
 
-- **`python3 -c "..."` のインライン実行は禁止** — ハング・スタックの主要原因。必ずスクリプトファイル（`scripts/experiments/` 配下等）を作成して `python3 scripts/...` で実行すること
+- **`python3 -c "..."` のインライン実行は禁止** — ハング・スタックの主要原因。必ずスクリプトファイル（`src/research/scripts/experiments/` 配下等）を作成して `python3 scripts/...` で実行すること
 - 長時間実行コマンドには必ずタイムアウトを設定すること
 - 詳細は `docs/スタック再発防止策.md` 参照
 
@@ -40,7 +40,7 @@
 
 ## 改善ワークフロー
 
-1. **仮説→実験**: 実験スクリプトは `scripts/experiments/` に作成（本番パス `src/leadlag/` に直接実験コードを入れない）。実験用モジュールは `src/experiments/` へ
+1. **仮説→実験**: 実験スクリプトは `src/research/scripts/experiments/` に作成（本番パス `src/leadlag/` に直接実験コードを入れない）。実験用モジュールは `src/research/experiments/` へ
 2. **バックテスト・日次決済**: 本番 V2 は `BacktestEngine.run_v2_backtest()`（`src/leadlag/execution/backtester.py`）を使用。CLI `backtest` / `decision` は V2 一本化。V1 SRE モデル `SectorRelativeEnsembleModel` は `archive/legacy_src/models/sre.py` に移設。レガシー V1 汎用 `BaseModel` バックテストは `research.backtest_v1.run_v1_backtest()` に移設。コストは片道5bps + 金利・貸株・逆日歩を含む **net** で評価
 3. **過学習ガード（必須）**:
    - このリポジトリには過去の実験config・スクリプトが大量にあり（`archive/experiments/` 約30本）、同一ヒストリー上での反復選択が既に多い。**新パラメータ追加は原則避け、追加時はパラメータ±摂動の感度分析と Deflated Sharpe（試行回数補正）を必ずレポートに含める**
@@ -77,14 +77,14 @@ python3 -m leadlag.cli decision --trade-date latest --api-enable
 python3 tools/research/compute_gap_adjusted_distribution.py
 
 # 本番 V2 バックテスト（推奨）
-python3 -m leadlag.cli backtest --config configs/production/production.yaml --start-date 2015-01-05 --gap-dir var/live/pipeline_data/gap_adjusted_distribution/latest
+python3 -m leadlag.cli backtest --config configs/production/production.yaml --start-date 2015-01-05 --gap-dir var/live/pipeline_data/gap_adjusted_distribution/gap_store.sqlite
 
 # 本番 V2 バックテスト（gap 行列が事前計算済みの場合は --gap-dir 指定）
 # 注: src/research/scripts/backtest/run_production_backtest.py は 2026-08 以降 deprecated
 #     2026-08 のリファクタリングで BacktestEngine.run_v2_backtest / CLI `backtest` へ一本化
 
 # CLI経由 V2 本番決済（--config / --gap-dir / --live-dir / --api-enable 等）
-python3 -m leadlag.cli decision --config configs/production/production.yaml --gap-dir var/live/pipeline_data/gap_adjusted_distribution/latest --api-enable --capital-from-wallet
+python3 -m leadlag.cli decision --config configs/production/production.yaml --gap-dir var/live/pipeline_data/gap_adjusted_distribution/gap_store.sqlite --api-enable --capital-from-wallet
 
 # 構文チェック（CLIスタック防止: python3 -c は使わずスクリプト経由で）
 python3 -m compileall src/leadlag tests tools scripts src/research
@@ -101,8 +101,8 @@ python3 -m compileall src/leadlag tests tools scripts src/research
   - **前日gap行列フォールバック廃止 / on-demand フォールバック導入**（2026-07-14 / 2026-08-13）: `run_gap_distribution.sh` の前日行列コピー機能を廃止。当日のgap行列が生成できない場合、前日行列を当日日付でコピーして使用していたが、これにより誤ったポジションで発注するリスクがあった（2026-07-14に発生: 手動フル再計算が `latest` シンボリックリンクを上書きし、フォールバックなしで `mu_gap_20260714.npy` が不在になりフラットポジション化）。廃止後は当日行列不在時にフラットポジションを返すのが基本挙動。2026-08-13 のリファクタリングで `ondemand_fallback_enabled=true` 時は file cache を優先しつつ、欠損時に on-demand BLPX 計算でフォールバックする経路を追加。on-demand 失敗時はフラットポジションを返す。`shadow_ondemand_validation=true` では file cache 読み込み時に on-demand 計算と shadow 比較を実施する。
   - **Fractional Differentiation採用**（2026-07-21）: US ETFリターンにLópez de Prado (2018)の分数階差分（d=0.1）を適用。ウォークフォワード検証（2015-2026、12年次ウィンドウ）でd=0.1がd=1.0ベースラインを12/12ウィンドウで上回る（平均Sharpe 8.87 vs 7.75）。d=0.5も12/12で上回るが改善幅が小さい（+0.67 vs +1.12）。実験スクリプトは `archive/experiments/` にアーカイブ、検証レポートは `reports/fractional_diff_walkforward_audit_report.md`
   - **Transfer Entropy統合**（2026-07-22）: TEによる共分散行列調整（diagonal congruence transform `D @ Omega @ D`）を検証。ウォークフォワード（252日訓練/63日テスト、6窓）で6窓中5窓の動的最適alpha=0.0（TE無効化が最適）。TE-Static（固定alpha=0.5）はSharpe 7.02 vs Base 7.66と劣化。MDD改善はポジション縮小の副作用でリスク調整後リターンは悪化。本番未統合。コードは実験用として保持（`src/leadlag/features/transfer_entropy.py`、`src/leadlag/models/production_v2_te.py`）、詳細レポートは `reports/te_walkforward_experiment.md`
-  - **非線形シュリンケージ不採用**（2026-07-24）: Ledoit & Wolf (2020)の解析的非線形シュリンケージ（MPベース・Empiricalベース）で `regularize_correlation` の Stage 1（線形LW）を置換する方針を検証。ウォークフォワード（2015-2026、12年次ウィンドウ）でNL-MPは0/12窓で劣化（平均Sharpe 8.04 vs 8.87、Δ=-0.83）、NL-Empiricalは7/12窓で微改善（平均Sharpe 8.91、Δ=+0.04、統計的に有意でない）。MP法はシグナル固有値を過度に縮小、Empirical法は縮小が弱く線形LWと同等。既存の2段階正則化（線形LW + 構造事前分布C0）がN=32/T=504で十分に最適化されており、Stage 2（構造事前分布）が性能の主要因。実験コードは `src/experiments/nonlinear_shrinkage.py`、詳細レポートは `reports/nonlinear_shrinkage_walkforward_report.md`
-  - **時変gap係数（Kalman filter）不採用**（2026-07-24）: Dangl & Halling (2012)に基づき固定gap_open_coef=0.70/topix_beta_coef=0.60をKalman filter+BMAによる時変係数に置換する方針を検証。ウォークフォワード（2015-2026、12年次ウィンドウ）でKalmanは1/12窓のみ固定を上回る（平均Sharpe 7.58 vs 8.88、Δ=-1.30）。感度分析は安定（0.4% range）。劣化原因: Kalmanが予測誤差最小化を目指すのに対し、実際のパフォーマンスはcross-sectional ranking→weight→net returnの多段階プロセスで目的関数がミスマッチ。実験コードは `src/experiments/tv_gap_coef.py`・`scripts/experiments/experiment_tv_gap_coef.py`、詳細レポートは `reports/tv_gap_coef/tv_gap_coef_walkforward_report.md`
+  - **非線形シュリンケージ不採用**（2026-07-24）: Ledoit & Wolf (2020)の解析的非線形シュリンケージ（MPベース・Empiricalベース）で `regularize_correlation` の Stage 1（線形LW）を置換する方針を検証。ウォークフォワード（2015-2026、12年次ウィンドウ）でNL-MPは0/12窓で劣化（平均Sharpe 8.04 vs 8.87、Δ=-0.83）、NL-Empiricalは7/12窓で微改善（平均Sharpe 8.91、Δ=+0.04、統計的に有意でない）。MP法はシグナル固有値を過度に縮小、Empirical法は縮小が弱く線形LWと同等。既存の2段階正則化（線形LW + 構造事前分布C0）がN=32/T=504で十分に最適化されており、Stage 2（構造事前分布）が性能の主要因。実験コードは `src/research/experiments/nonlinear_shrinkage.py`、詳細レポートは `reports/nonlinear_shrinkage_walkforward_report.md`
+  - **時変gap係数（Kalman filter）不採用**（2026-07-24）: Dangl & Halling (2012)に基づき固定gap_open_coef=0.70/topix_beta_coef=0.60をKalman filter+BMAによる時変係数に置換する方針を検証。ウォークフォワード（2015-2026、12年次ウィンドウ）でKalmanは1/12窓のみ固定を上回る（平均Sharpe 7.58 vs 8.88、Δ=-1.30）。感度分析は安定（0.4% range）。劣化原因: Kalmanが予測誤差最小化を目指すのに対し、実際のパフォーマンスはcross-sectional ranking→weight→net returnの多段階プロセスで目的関数がミスマッチ。実験コードは `src/research/experiments/tv_gap_coef.py`・`src/research/scripts/experiments/experiment_tv_gap_coef.py`、詳細レポートは `reports/tv_gap_coef/tv_gap_coef_walkforward_report.md`
   - **USセクター横断面ランク入力不採用**（2026-07-29）: BLPX投影前にUS 15銘柄のリターンを横断面ランク（[-1,1]スケール）に変換する案を検証。ウォークフォワード（2018-2026、9年次ウィンドウ）でベースラインに対し1/9窓のみ勝利、プールSharpe 6.45 vs 7.20、Rank IC 0.226 vs 0.229と劣化。ボラティリティ規模を除去すると共分散構造・PCA/BLPX事前分布との整合性が損なわれ、相対順位のみでは予測力が低下。実験コードは破棄済み、レポートは `reports/us_cs_rank_blpx/us_cs_rank_blpx_report.md`
   - **ML order overlay US 特徴量追加不採用**（2026-08-01）: `ticker × score / gap` の per-ticker 交互作用ベース LightGBM overlay に、米国セクター close-to-close 特徴量（mapped US return / US 横断面 zscore・rank / 60日 rolling correlation 等）を追加する案を検証。basic US も refined US も per-ticker only と比べて OOS 改善なし（pooled OOS Sharpe: per-ticker 6.6992、basic US 6.7043、refined US 6.6904）。US 特徴量は統計的に有意な追加効果をもたらさず、本番モデル `models/ml_order_overlay/phase2_8`（per-ticker 交互作用のみ）を継続。レポートは `reports/ml_order_decision/us_features_experiment_decision_20260801.md`
   - **US→JP gap 予測精度ベースの信頼度オーバーレイ不採用**（2026-08-01）: 各JP銘柄の寄りギャップ（`jp_gap`）を米国セクターcc + `topix_night` からrolling OLSで予測し、その外れ具合でBLPXシグナルをスケール/キルする案を検証。2015-2026 全期間バックテストで、baseline net Sharpe 4.57 → daily 4.06 → per-asset 1.73、MDD -7.20% → -21.60% と大幅劣化。直近5日ドローダウンは軽減できた（-6.51% → -5.45%）が全期間でリスク調整後リターンが悪化。原因: (1) 日次スカラー信頼度は `build_weights` のスケール不変性で実質0/1キルに等しく、28%の取引日を落としてαを損失 (2) 銘柄別信頼度はgap予測誤差が本戦略の residual 9:10→大引け予測と弱相関。実験スクリプト・レポートは本セッションで一時ファイルとして削除済み。
@@ -111,4 +111,4 @@ python3 -m compileall src/leadlag tests tools scripts src/research
   - **counter_overnight_shock 不採用**（2026-08-01）: 年次OOS（12年）で平均 net Sharpe は `scale=2.00, vol=63` で 5.61（baseline 5.34）、MDD -3.33%（baseline -4.01%）と改善するも、AR は平均 137.8% → 116.7% と大幅低下。対 baseline の年次 Sharpe の paired t-test p値はすべて > 0.05（scale=2.00/vol=63: p=0.27、scale=2.00/vol=252: p=0.20、scale=1.50/vol=252: p=0.55）で統計的有意差なし。α 損失に対するリスク調整後リターン改善が限界のため本戦略には採用しない。実験スクリプト・レポートは本セッションで一時ファイルとして削除済み。
   - **Overnight Reversal 追加検証不採用**（2026-08-01）: `counter_overnight_shock` の逆仮説として「gap が r_hat を大きく上回る（過反発）銘柄に高信頼度」を試した。`reversal_distance`（4.48 / -9.88%）と `reversal_overshoot`（4.53 / -11.13%）はいずれも baseline（4.57 / -7.20%）と `counter_overnight_shock`（4.63 / -5.99%）を下回った。大きなショックがある日に BLPX シグナルを強めるのはリスク上昇だけでリスク調整後リターンは改善しない。実験スクリプト・レポートは本セッションで一時ファイルとして削除済み。
   - **US-JP per-asset linkage overlay 不採用**（2026-08-01）: US-JP 連動度を per-asset 信頼度に変換する3案（per-asset us-gap IC, per-asset us-rhat IC, per-asset US t-stat）を検証。`per_asset_us_rhat_ic_inv`（window=63）が全期間で最も良好（net Sharpe 4.72, MDD -7.21%, AR 142.06%）に見えたが、ウォークフォワード（2015-2026、12年次）では baseline（平均 Sharpe 5.34）と `rhat_inv_w63`（5.35, p=0.91, wins 5/12）、`rhat_inv_w76`（5.36, p=0.88, wins 7/12）で有意差なし。パラメータ感度（window 50/63/76/126）も安定した改善を示さず、OOS ロバスト性がないため不採用。実験スクリプト・レポートは本セッションで一時ファイルとして削除済み。
-  - **LGBM overlay 日米VIX特徴量追加不採用**（2026-08-02）: `ticker × score / gap` の per-ticker 交互作用ベース LightGBM overlay に、lagged 60日 log z-score の `us_vix_z` / `jp_vix_z` / `vix_spread_z` と各種交互作用を追加する案を検証。ウォークフォワード（2022-2024、3年次）で VIX overlay は no-VIX overlay と比べて marginal 改善に留まり（pooled OOS Sharpe: no-VIX 7.0280、VIX 7.0348、Δ=+0.0068）、年次勝率は2/3、平均日次リターン差は -0.000010（p=0.4245）で統計的有意差なし。さらに 2026 年後半（データは 2026-07 まで）の直近 7 日（2026-07-23〜31）で大きな DD（baseline MDD -10.66%）が発生したが、VIX overlay は no-VIX  overlay とほぼ同一（MDD -10.8864% vs -10.8842%）で下落保護効果は認められず、かつ overlay 全般が baseline よりも DD を拡大。VIX 特徴量は一部 importance を示すものの、実質的な追加 α/ダウンサイド保護は小さく、既存 `phase2_8` per-ticker 交互作用モデルを継続。実験コードは `scripts/experiments/experiment_ml_order_vix_walkforward.py` および `scripts/experiments/experiment_ml_order_vix_2026h2.py`、レポートは `reports/ml_order_decision/vix_overlay_walkforward/vix_overlay_walkforward_report.md` および `reports/ml_order_decision/vix_overlay_2026h2/report.md`
+  - **LGBM overlay 日米VIX特徴量追加不採用**（2026-08-02）: `ticker × score / gap` の per-ticker 交互作用ベース LightGBM overlay に、lagged 60日 log z-score の `us_vix_z` / `jp_vix_z` / `vix_spread_z` と各種交互作用を追加する案を検証。ウォークフォワード（2022-2024、3年次）で VIX overlay は no-VIX overlay と比べて marginal 改善に留まり（pooled OOS Sharpe: no-VIX 7.0280、VIX 7.0348、Δ=+0.0068）、年次勝率は2/3、平均日次リターン差は -0.000010（p=0.4245）で統計的有意差なし。さらに 2026 年後半（データは 2026-07 まで）の直近 7 日（2026-07-23〜31）で大きな DD（baseline MDD -10.66%）が発生したが、VIX overlay は no-VIX  overlay とほぼ同一（MDD -10.8864% vs -10.8842%）で下落保護効果は認められず、かつ overlay 全般が baseline よりも DD を拡大。VIX 特徴量は一部 importance を示すものの、実質的な追加 α/ダウンサイド保護は小さく、既存 `phase2_8` per-ticker 交互作用モデルを継続。実験コードは `src/research/scripts/experiments/experiment_ml_order_vix_walkforward.py` および `src/research/scripts/experiments/experiment_ml_order_vix_2026h2.py`、レポートは `reports/ml_order_decision/vix_overlay_walkforward/vix_overlay_walkforward_report.md` および `reports/ml_order_decision/vix_overlay_2026h2/report.md`

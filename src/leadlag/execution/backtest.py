@@ -13,13 +13,13 @@ from typing import Any
 
 import pandas as pd
 
-from leadlag.config.paths import gap_distribution_latest
 from leadlag.config.schemas import AppConfig
 from leadlag.core.risk import compute_var_es
 from leadlag.data.backtest_store import BacktestResultStore
 from leadlag.data.cache import load_df_exec_from_local_cache
 from leadlag.data.fetcher import download_data
 from leadlag.data.preprocessor import preprocess_data
+from leadlag.config.paths import gap_store_path
 from leadlag.execution.backtester import BacktestEngine
 from leadlag.execution.config import load_config_from_yaml
 from leadlag.execution.output_ops import build_output_dir, save_summary_files
@@ -47,7 +47,7 @@ def _resolve_gap_input_dir(
 ) -> Path | None:
     """Resolve V2 gap input directory, returning None if it does not exist."""
     if gap_input_dir is None:
-        gap_input_dir = app_config.gap_distribution_dir or str(gap_distribution_latest())
+        gap_input_dir = app_config.gap_distribution_dir or str(gap_store_path())
     gap_dir = Path(gap_input_dir)
     if not gap_dir.is_absolute():
         gap_dir = project_root / gap_dir
@@ -90,6 +90,7 @@ def _load_df_exec(app_config: AppConfig, data_source: str) -> pd.DataFrame:
         beta_ewma_halflife=beta_ewma_halflife,
         beta_shrinkage=beta_shrinkage,
         beta_winsor_sigma=beta_winsor_sigma,
+        strict_validation=True,
     )
 
 
@@ -136,7 +137,6 @@ def run_production(
     side_leverage: float | None = None,
     output_level: str = "detailed",
     overlay_model_dir: str | Path | None = None,
-    gap_store_path: str | Path | None = None,
 ) -> Path:
     """Run the full V2 production backtest and save performance artifacts.
 
@@ -148,9 +148,7 @@ def run_production(
         slippage_bps: Override slippage bps. If None, use YAML default.
         n_jobs: Parallel workers for V2 weight generation.
         config_path: Path to V2 production YAML config.
-        gap_input_dir: Directory containing mu_gap/omega_gap .npy files.
-        gap_store_path: Optional path to a ``.sqlite`` gap store that
-            overrides *gap_input_dir* for matrix loading.
+        gap_input_dir: Path to a SQLite GapStore or a directory with .npy gap files.
         data_source: ``download`` to fetch/refresh data, ``cache`` to use the
             local fast-mode cache (``load_df_exec_from_local_cache``).
         end_date: Backtest end date; ``latest`` for the last available date.
@@ -204,7 +202,6 @@ def run_production(
         side_leverage=side_leverage,
         n_jobs=n_jobs,
         overlay_model_dir=overlay_model_dir,
-        gap_store_path=gap_store_path,
     )
 
     valid_returns = results["daily_returns"]

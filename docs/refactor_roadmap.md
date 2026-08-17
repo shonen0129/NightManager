@@ -1,6 +1,8 @@
 # リファクタリング・クリーンアップ ロードマップ
 
+> **最終更新**: 2026-08-17  
 > **Note**: 本ファイルは 2026-08-10 の調査（プロジェクト全体の再設計案と、決定済み方針の未実行状況）を踏まえた **実行候補タスクのマスターリスト** です。  
+> 2026-08-10 以降の Phase 24-34 で、表中の大部分が実装・ADR 化されました。本更新はその完了状況を反映し、新たに浮上した **V2 同期パス vs Next-Gen 非同期パスの正本決定** およびそれに伴う再設計論点を追加したものです。  
 > 実行時は AGENTS.md の不変条件（ルックアヘッド禁止・ベースライン期間分離・市場中立制約・ティッカー定義・前日 gap 行列使用禁止）を崩さないことを前提とする。  
 > セクション 4 以降は **実装レベルの詳細設計**（実測値・コードスケッチ・移行手順・検証・ロールバック）を含む。
 
@@ -10,11 +12,12 @@
 
 ### 1.1 現状の構造的負債
 
-- **決定済み方針（ADR / Phase）の未実行が多数** 残っている。
-- V1 系モデルの抽象層（`BaseModel` / `_BLPBase` / `SignalPipeline` 内の未使用 Combiner）が本番パッケージに残存。
-- エントリポイント、設定、出力パスが複数系統に分裂。
-- `var/` 移行は半端：ディレクトリ・シンボリックリンクはあるが、コード内のパスは未移行。
-- テストが実ネットワーク / `market_data/etf_data.pkl` に依存し、クリーンクローンで再現困難。
+- **決定済み方針（ADR / Phase）の未実行が多数** 残っていたが、Phase 24-34（2026-08-09 〜 08-16）で **7〜8 割が解消**。
+- V1 系モデル抽象層（`BaseModel` / `sre.py` / `sector_relative_ensemble_blp_enhanced.py`）は既に `archive/` へ移設されたが、**`_BLPBase` は V2 用に縮小されながらも `src/leadlag/models/blp_base.py` に残存**。
+- `var/` 移行・パス統一・SQLite 化は完了。`market_data/` → `var/market_data/` 移行済み。
+- **新たな構造的問題**: V2 同期パス（`v2_bridge.py` / `post_decision.py` / `broker_ops.py` / `close.py`）と Next-Gen 非同期パス（`async_fsm.py` / `nextgen_pipeline.py`）が **CLI レベルで併存**。`production.yaml` に `nextgen_*` パラメータが同居し、どちらを本番正本とするかが未決。
+- `ProductionBLPXModel.__init__(cfg: dict)` が Pydantic 一本化から漏れており、`_resolve_val` が `blpx.py` / `blp_base.py` に 84 箇所残存。
+- テストの `sample_df_exec` が未だ yfinance 実データに依存。
 - 日本語 + NFD/NFC Unicode 正規化が混在するリポジトリパスが移植性・自動化の妨げ。
 
 ### 1.2 目指す姿
@@ -27,26 +30,27 @@
 
 ---
 
-## 2. ADR / Phase 未実行の完遂
+## 2. ADR / Phase 完遂状況（2026-08-17 時点）
 
-以下はすでに「受け入れられた決定」だが、コードに完全に反映されていない項目。
+以下は 2026-08-10 時点では「未実行」だった決定済み方針。2026-08-17 時点の状況を反映し、新たに **V2 / Next-Gen パイプライン正本化** という構造問題を追加する。
 
-| # | 元方針 | タスク | 未実行の実態 | 完了基準 |
-|---|---|---|---|---|
-| 2.1 | ADR-0002 | **Experiment Registry を稼働させる** | `leadlag.core.experiment_registry` がモジュール単独で、実験スクリプトから全く呼ばれていない。 | すべての `src/research/scripts/experiments/` 実行時に `ExperimentRecord` を JSONL へ追記。DSR 自動計算。 |
-| 2.2 | ADR-0003 | **Data validation gates を strict に** | `preprocess_data` / `load_gap_matrices` に `strict` パラメータはあるがデフォルト `False`、本番ツール・`execution/` から `strict=True` が未呼出。 | 本番経路（`tools/production/`, `v2_bridge`）が `strict=True` を使い、無効データは即失敗 or flat position。 |
-| 2.3 | ADR-0004 | **SqliteCacheStore への移行** | `data/cache_store.py` は作成済みだが、未使用。`data/cache.py` が pickle + fcntl のまま。 | `etf_data`・`decision_cache`・5分足キャッシュを SQLite 化 or 削除。pickle/fcntl 使用箇所ゼロ。 |
-| 2.4 | ADR-0005 | **Frozen config helpers の採用** | `config/frozen.py` はテスト以外で未使用。研究スクリプトは `cfg.copy()` のまま。 | 全 `base_cfg.copy()` を `safe_config_copy` に置換。機械的 grep で根絶。 |
-| 2.5 | ADR-0006 | **var/ への完全移行** | `var/` ディレクトリはあるが、コード内に `results/`, `artifacts/`, `logs/`, `live/` のハードコードが残る。`market_data/` はルート実体。 | `src/leadlag` / `tools/` 内でハードコードされた旧パスがゼロ。`market_data/` を `var/market_data/` へ移行。 |
-| 2.6 | ADR-0008 | **テストマーカー徹底** | 57テスト中 2ファイルのみマーカー使用。`run_tests_unit_only.sh` は `--ignore` による除外で、マーカー未使用。 | `@pytest.mark.unit|integration|slow|property|leak` を全テストに付与。`run_tests_unit_only.sh` は `-m "not integration and not slow"` に。 |
-| 2.7 | Phase 23 | **V1 抽象層の撤去** | `BaseModel`、`_BLPBase`、`sre.py` スタブ、`SignalPipeline` 内の SRE/BLP/RRR/Bayesian Combiner が残存。 | 上記を `git tag archive-2026-08` の `archive/legacy_src/` へ完全移設し `src/leadlag` から削除。削除後全テスト pass。 |
-| 2.8 | Phase 24 | **helpers.py の削除** | `execution/helpers.py` が re-export shim として残存。 | `helpers.py` 自身を削除。既存 import を新モジュールへ機械的リダイレクト。 |
-| 2.9 | Phase 25 | **全モデル・モジュールの Pydantic 一本化** | `sector_relative_ensemble_blp_enhanced.py` `__init__` 内 `_resolve_val` 61回。`ml_order_overlay.py` も `AppConfig \| dict` 受け入れ。 | 全モデル入口が `AppConfig` / `ProductionV2RunConfig` のみ。`_resolve_val` 削除。 |
-| 2.10 | Phase 26 | **AppConfig 出力パスの一元化** | `config/schemas.py:191` と `execution/config.py:218` で `output_base_dir` デフォルト重複。`results/...` 直書き。 | 全出力ディレクトリが `AppConfig` 経由 or `var/` 決定。同じデフォルトが複数箇所に存在しない。 |
-| 2.11 | Phase 27 | **研究スクリプト Pydantic 化** | `src/research/scripts/experiments/` 75本中14本のみ Pydantic 使用。`src/research/experiments/ml_order_decision/` は未移行。 | 全 `src/research/scripts/experiments/` と `src/research/experiments/` を Pydantic/AppConfig 化 or `src/research/` へ集約。 |
-| 2.12 | Phase 28 | **SQLite gap / backtest store 一本化** | `GapStore` は `.npy` フォールバック付き；`BacktestResultStore` はテスト未使用。 | `.npy` フォールバック削除。`BacktestResultStore` を `BacktestEngine` で使用。 |
-| 2.13 | Phase 29 | **daily CLI 一本化** | `daily` サブコマンドはあるが、`.sh` / `.plist` / `.bat` が個別に残る。 | `scripts/batch/run_decision*.sh`, `run_close_positions.sh`, 旧 plist を非推奨化・削除。 |
-| 2.14 | Phase 30 | **テスト完全 hermetic 化** | `sample_df_exec` が yfinance ダウンロードに依存。 | `sample_df_exec` を合成 or 固定 fixture に置換。integration テスト以外はネットワークゼロ。 |
+| # | 元方針 | タスク | 2026-08-17 状況 | 未完了の実態 | 完了基準 |
+|---|---|---|---|---|---|
+| 2.1 | ADR-0002 | **Experiment Registry を稼働させる** | 🟡 部分完了 | モジュールは `src/research/experiment_registry.py` へ移設済み。テンプレートと一部スクリプトで import されるが、全実験の DSR 自動記録には至っていない。 | 全 `src/research/scripts/experiments/` 実行時に `ExperimentRecord` へ追記。DSR 自動計算。 |
+| 2.2 | ADR-0003 | **Data validation gates を strict に** | 🟡 部分完了 | `load_config_from_yaml(strict=True)` 実装済み。`preprocess_data(strict_validation=True)` の本番経路呼出は未完了。 | `preprocess_data` / `load_gap_matrices` を本番経路で `strict=True` 呼出。無効データは即失敗 or flat position。 |
+| 2.3 | ADR-0004 | **SqliteCacheStore への移行** | ✅ 完了 | `data/cache.py` は互換シム（90行）に縮小。実体は `market_data_cache.py` / `decision_cache.py` / `cache_store.py` へ。pickle/fcntl の直接使用箇所は消失。 | — |
+| 2.4 | ADR-0005 | **Frozen config helpers の採用** | 🟡 部分完了 | `config/frozen.py` 実装済み。研究コードに `cfg.copy()` / `deepcopy` 直書きが 43 箇所残存。 | 全 `base_cfg.copy()` を `safe_config_copy` に置換。機械的 grep で根絶。 |
+| 2.5 | ADR-0006 | **var/ への完全移行** | ✅ 完了 | `src/leadlag/config/paths.py` 新設。`src/leadlag` / `tools/` 内の旧パスハードコードは 0 件。`market_data/` → `var/market_data/` 移行済み。 | — |
+| 2.6 | ADR-0008 | **テストマーカー徹底** | 🟡 部分完了 | `pyproject.toml` に markers 定義、`conftest.py` でディレクトリベース自動付与。手動デコレータは未徹底、`sample_df_exec` は未だ yfinance 依存。 | 全テストに手動マーカー。`sample_df_exec` を合成データへ置換。 |
+| 2.7 | Phase 23 | **V1 抽象層の撤去** | ✅ 完了 | `BaseModel` / `sre.py` / `sector_relative_ensemble_blp_enhanced.py` は削除・archive 移設。`_BLPBase` は V2 用に `blp_base.py` に縮小存続。`core/pipeline.py` から SRE/RRR/Bayesian 系 Combiner は削除済み。 | — |
+| 2.8 | Phase 24 | **helpers.py の削除** | ✅ 完了 | `execution/helpers.py` は削除。機能は `pricing.py` / `broker_ops.py` / `risk_capital.py` / `output_ops.py` / `post_decision.py` へ分解。 | — |
+| 2.9 | Phase 25 | **全モデル・モジュールの Pydantic 一本化** | 🟡 部分完了 | `ProductionV2Model` は `ProductionV2RunConfig` のみ受付。`ProductionBLPXModel.__init__(cfg: dict)` が残存し、`_resolve_val` が 84 箇所残る。 | 全モデル入口を Pydantic のみに。`_resolve_val` 削除。 |
+| 2.10 | Phase 26 | **AppConfig 出力パスの一元化** | ✅ 完了 | パスは `config/paths.py` 経由に一本化。`config/schemas.py` / `execution/config.py` の重複デフォルトは解消されている。 | — |
+| 2.11 | Phase 27 | **研究スクリプト Pydantic 化** | 🟡 部分完了 | Pydantic 化済みスクリプトは増加。`scripts/experiments/` に 16 本、`src/research/experiments/ml_order_decision/` も存続。 | 全研究スクリプトを `src/research/` へ集約。`scripts/experiments/` を空に。 |
+| 2.12 | Phase 28 | **SQLite gap / backtest store 一本化** | ✅ 概ね完了 | `GapStore` / `BacktestResultStore` は `backtester.py` / `backtest.py` / `cli.py` で使用。ただし `gap_input_dir` はまだ `.npy` ディレクトリを指す。 | `gap_input_dir` を SQLite パス or store 経由に一本化。`.npy` フォールバックを最終廃止。 |
+| 2.13 | Phase 29 | **daily CLI 一本化** | ✅ 概ね完了 | `leadlag daily` サブコマンド追加済み。`run_v2_backtest.py` / `run_production_backtest.py` は DeprecationWarning 付き thin wrapper 化。Windows `.bat` / `.ps1` の非推奨化は未完了。 | wrapper 化された旧スクリプトを削除。`.bat` / `.ps1` を非推奨化・削除。 |
+| 2.14 | Phase 30 | **テスト完全 hermetic 化** | 🟡 部分完了 | `synthetic_df_exec` フィクスチャ追加。`sample_df_exec` の yfinance 依存は解消していない。 | `sample_df_exec` を完全に合成 or 固定 fixture へ。 |
+| 2.15 | **新設 (Phase 35)** | **V2 / Next-Gen パイプライン正本化** | 🟠 未対応 | `cli.py` の `decision` / `close` サブコマンドが `--engine {nextgen, v2}` 引数で V2 同期パスと Next-Gen 非同期パスを併存。`v2` がデフォルト、`nextgen` は help テキストで "experimental" 表記。`production.yaml` に `nextgen_*` パラメータが同居。 | どちらを本番正本とするかを意思決定。選択した方一本に CLI / 設定 / ドキュメントを統一。 |
 
 ---
 
@@ -63,7 +67,8 @@ leadlag-fund/
 │   ├── config/
 │   ├── domain/                 # 現 core/ を改名（I/O-free）
 │   ├── data/
-│   ├── models/v2/              # production_v2 を責務別に分割
+│   ├── domain/                 # Signal / PortfolioDecision / GapSnapshot 等のドメイン型
+│   ├── models/v2/              # production_v2 / blpx を責務別に分割 (BLPXSignalComputer / DecisionEngine / OverlayApplier)
 │   ├── execution/
 │   ├── compliance/
 │   ├── reporting/
@@ -79,12 +84,13 @@ leadlag-fund/
 
 #### 3.2.1 エントリポイント統一
 
-- [ ] `scripts/run_v2_backtest.py` → `leadlag.cli backtest` 一本化
-- [ ] `src/research/scripts/backtest/run_production_backtest.py` → `leadlag.cli backtest` へ吸収
-- [ ] `tools/production/run_v2_decision.py` → `leadlag.cli decision` 一本化
+- [x] `scripts/run_v2_backtest.py` → `leadlag.cli backtest` 一本化（DeprecationWarning 付き thin wrapper 化済）
+- [x] `src/research/scripts/backtest/run_production_backtest.py` → `leadlag.cli backtest` へ吸収（同上）
+- [x] `tools/production/run_v2_decision.py` → `leadlag.cli decision` 一本化（削除済）
+- [ ] **V2 同期パス vs Next-Gen 非同期パスの正本決定**: `cli.py` が `v2_bridge` 系（`post_decision.py`/`broker_ops.py`/`close.py`）と `nextgen_pipeline.py`/`async_fsm.py` を併存。`production.yaml` に `nextgen_*` パラメータが同居。一本化する方を決定。
 - [ ] 実験用 V2 バックテスト4本を引数化（`--mode=exact|realistic|pessimistic|theoretical_5m`）
 - [ ] `scripts/analyze_gap_bias.py` / `compare_gap_matrices.py` / `verify_gap_bias.py` を 1 本化
-- [ ] `fix_mh_rankreversal.py` / `fix_pit_history.py` を `git tag archive-2026-08` の `archive/tools/` へ移動
+- [ ] `fix_mh_rankreversal.py` / `fix_pit_history.py` を `archive/tools/` へ移動
 - [ ] `run_research.py` エイリアスを `leadlag.cli research` サブコマンド or 削除
 - [ ] `scripts/test/test_tachibana_*.py` を `tools/validation/` へ移設、pytest テストと区別
 - [ ] Windows `.bat` / `.ps1` を非推奨化（macOS 運用一本化）
@@ -94,52 +100,53 @@ leadlag-fund/
 - [ ] `configs/base.yaml` 新設：全パラメータのデフォルト正本
 - [ ] `configs/production.yaml` / `experiments/*.yaml` を base との差分のみに
 - [ ] `StrategyConfig` / `AppConfig` / `ProductionV2RunConfig` の重複フィールド整理
-- [ ] `config/frozen.py` の活用（shallow copy バグ根絶）
-- [ ] `_resolve_val` 削除
-- [ ] 出力パスデフォルトの重複解消
+- [x] `config/frozen.py` 実装済み。ただし研究コードの `.copy()` 直書き 43 箇所は未置換
+- [ ] `_resolve_val` 削除（`blpx.py` / `blp_base.py` に 84 箇所残存）
+- [x] 出力パスデフォルトの重複解消（`config/paths.py` 経由に一本化）
 
 #### 3.2.3 データ・出力層
 
-- [ ] `var/` 配下の canonical パスを `leadlag.config.paths` として定義
-- [ ] 全スクリプト・コードの出力パスを `var/` 化
-- [ ] `market_data/` → `var/market_data/` 移行
-- [ ] `src/results/` 削除 or `var/results/` へ
+- [x] `var/` 配下の canonical パスを `leadlag.config.paths` として定義
+- [x] 全スクリプト・コードの出力パスを `var/` 化
+- [x] `market_data/` → `var/market_data/` 移行
+- [x] `src/results/` 削除（ディレクトリ非存在を確認）
+- [ ] `configs/production/production.yaml:122-123` の `output.base_dir` / `output.live_dir` を `var/` 直指定に（現状 `results/...` / `live/...` 相対パス。symlink 経由で動作するが `var/results/` / `var/live/` 直指定に統一）
 - [ ] `GapStore` を gap 行列の第一正本に、`.npy` フォールバック廃止
-- [ ] `BacktestResultStore` を `BacktestEngine` に統合
-- [ ] `SqliteCacheStore` で pickle キャッシュを置換
-- [ ] `live/` シンボリックリンク経由のパスを `var/live/` 直指定に
+- [x] `BacktestResultStore` を `BacktestEngine` に統合
+- [x] `SqliteCacheStore` で pickle キャッシュを置換
+- [x] `live/` シンボリックリンク経由のパスを `var/live/` 直指定に（コード・シェル内の旧パス参照は 0 件）
 
 #### 3.2.4 本番コードの責務整理
 
-- [ ] `core/pipeline.py` から V1 用 Combiner/Adapter（SRE/BLP/RRR/Bayesian）を削除
-- [ ] `core/pipeline.py` を PCA/BLPX 用に分割・縮小
-- [ ] `models/sector_relative_ensemble_blp_enhanced.py` を `research/` へ隔離 or 削除
-- [ ] `models/base.py` `BaseModel` を `archive-2026-08` へ or 削除
-- [ ] `models/blp_base.py` を V2 専用に縮小
-- [ ] `sre.py` 内 `compute_jp_target_returns` を `data/` or `models/v2/` へ移動
-- [ ] `core/experiment_registry.py` を `research/` へ移動 or 本番スクリプトに統合
-- [ ] `monitoring/health_score.py` を `archive-2026-08` へ
-- [ ] `reporting/sprint2c_lob_report.py` を `archive-2026-08` or `research/reports/` へ
-- [ ] `data/cache.py` の `execution/` への逆依存を解消
-- [ ] `data/cache.py` を `SqliteCacheStore` ベースに再実装 or 削除
+- [x] `core/pipeline.py` から V1 用 Combiner/Adapter（SRE/BLP/RRR/Bayesian）を削除（SRE/RRR/Bayesian/PCACombiner の grep ヒットなし、残存は `BLPXCombiner` / `BLPXOutputAdapter` のみ）
+- [ ] `core/pipeline.py` を PCA/BLPX 用に分割・縮小（`BLPXCombiner` 等を別モジュールへ）
+- [x] `models/sector_relative_ensemble_blp_enhanced.py` を `research/` へ隔離 or 削除（削除済）
+- [x] `models/base.py` `BaseModel` を archive へ or 削除（削除済）
+- [ ] `models/blp_base.py` を V2 専用に縮小（`_resolve_val` 依存を根絶）
+- [x] `sre.py` 内 `compute_jp_target_returns` を `data/` へ移動（`data/preprocessor.py:765` に移設済み）
+- [x] `core/experiment_registry.py` を `research/` へ移動（移設済）
+- [x] `monitoring/health_score.py` を archive へ（削除済）
+- [x] `reporting/sprint2c_lob_report.py` を archive or `research/reports/` へ（削除済）
+- [x] `data/cache.py` の `execution/` への逆依存を解消
+- [x] `data/cache.py` を `SqliteCacheStore` ベースに再実装 or 削除（互換シム化）
 
 #### 3.2.5 テスト改革
 
-- [ ] 全テストに pytest marker 付与
+- [x] 全テストへの pytest marker 自動付与（`conftest.py` ディレクトリベース）。手動マーカーは未徹底
 - [ ] `sample_df_exec` の yfinance 依存を排除（合成 data へ）
 - [ ] `tests/research/` の位置づけ明確化
-- [ ] `run_tests_unit_only.sh` を `-m "not integration and not slow"` に修正
+- [x] `run_tests_unit_only.sh` を `-m "unit and not slow and not integration"` に修正（完了済み）
 - [ ] unit テストの目標時間を 2 分以内に
 - [ ] `test_pit_leak_property.py` の内容を全 signal 計算関数に展開
 
 #### 3.2.6 ドキュメント・レポート
 
-- [ ] ルート `README.md` 新設
-- [ ] `docs/README.md`（旧 PCA-Ensemble 説明）を `git tag archive-2026-08` の `archive/docs/` へ
-- [ ] `ARCHITECTURE.md` のツリー記述を現状に更新
-- [ ] `運用方針書オリジナル.md` を `git tag archive-2026-08` の `archive/docs/` へ
-- [ ] Phase 25〜30 を ADR 化
-- [ ] AGENTS.md から「不採用実験の記録」セクションを `docs/experiment_graveyard.md` へ分離
+- [x] ルート `README.md` 新設（存在を確認、setup/日次運用記載済み）
+- [ ] `docs/README.md`（旧 PCA-Ensemble 説明）を `archive/docs/` へ
+- [ ] `ARCHITECTURE.md` のツリー記述を現状に更新（Next-Gen パイプライン・`PITDataLake` 等を反映）
+- [ ] `運用方針書オリジナル.md` を `archive/docs/` へ
+- [x] Phase 25〜30 を ADR 化（2026-08-09 〜 08-13 に 16 件の ADR を作成済）
+- [ ] AGENTS.md から「不採用実験の記録」セクションを `docs/experiment_graveyard.md` へ分離（`experiment_graveyard.md` 自体も 2026-08 の不採用実験 8 件を追加更新）
 - [ ] `reports/` の命名規則を統一
 - [ ] `archive-2026-08` 実験資産を別 git repo or git tag へ移設
 
@@ -148,19 +155,31 @@ leadlag-fund/
 - [ ] `.venv` / `.venv-mac` / `.venv312` を一本化（`.python-version` + uv）
 - [ ] Python バージョンを固定
 - [ ] リポジトリ名を ASCII 化
-- [ ] import-linter 導入（`data → domain → models → execution → cli`）
-- [ ] `mypy --strict` 漸進的適用
-- [ ] `_check_syntax.py` を `ruff check` への置換
+- [x] import-linter 導入（`data → domain → models → execution → cli`）
+- [x] `mypy --strict` 漸進的適用
+- [x] `_check_syntax.py` を `ruff check` への置換（`_check_syntax.py` 削除済み）
+
+#### 3.2.8 構造的再設計（白紙からの視点）
+
+- [ ] **V2 / Next-Gen パイプライン正本化**: `cli.py` の `--engine {nextgen, v2}` 引数で同期パスと非同期パスを併存。`v2` が default、`nextgen` は experimental 表記。どちらを正本とするかを決定し、未選択側を archive へ。`production.yaml` から未使用側のパラメータを削除。
+- [ ] **フォールバックをポリシーとして分離**: `production_v2.py` に散在する on-demand → file cache → flat position → 監査失敗 flat の分岐を `DistributionSource` チェーン + `FallbackPolicy` として集約。
+- [ ] **PIT データレイクの一本化**: 全モデル・バックテスト経路で `PITDataLake` の as-of アクセスを唯一のデータ入口とする。
+- [ ] **キャッシュの集約**: 6 種類のインスタンスキャッシュ（`_raw_pca_cache` 等）を `CacheManager`（LRU + config ハッシュキー）へ一本化。
+- [ ] **ドメイン型層の導入**: DataFrame/dict の素通しをやめ、`Signal` / `PortfolioDecision` / `GapSnapshot` / `DistributionResult` 等の frozen dataclass を `domain/` 層に新設。`ProductionV2Model.predict_signals` / `decide` の境界を型安全にする。
+- [ ] **巨大ファイルの責務分割**: `production_v2.py`（1166 行）を `decide` / gap 分布取得 / フォールバック / オーバーレイ適用 / 多ホライズン統合 / 監査比較 に分割。`blpx.py`（1289 行）を 信号計算 / 事前分布構築 / 診断出力 に分割。目標は各ファイル 300 行未満。
+- [ ] **ドキュメントの階層分離**: ARCHITECTURE.md から Phase 履歴を `docs/history.md` へ分離。日次運用手順書の廃止済み手順を現行化。
 
 ---
 
 ## 4. タスク詳細（実装レベル）
 
+> **2026-08-17 完了状況サマリ**: P0〜P2 の多くは Phase 23-34 で完了。本章の詳細設計は**完了済みタスクの記録として残す**。未完了・新設タスクにはタイトルに `[Phase XX]` / `[WIP]` / `[新設]` を付与。完了済みタスクの本文は当時の設計を記録したものであり、現状ではすでに実装されている。
+
 ### 4.1 P0（即座に着手）
 
 ---
 
-#### T-P0-1. var/ ハードコードパス統一（ADR-0006 完遂）
+#### [DONE] T-P0-1. var/ ハードコードパス統一（ADR-0006 完遂）
 
 **現状の実測（ハードコード一覧）**
 
@@ -231,7 +250,7 @@ def get_paths() -> ProjectPaths  # モジュールレベルシングルトン（
 
 ---
 
-#### T-P0-2. バックテスト入口 1 本化
+#### [DONE] T-P0-2. バックテスト入口 1 本化
 
 **現状の実測（3 入口の差分）**
 
@@ -274,7 +293,7 @@ def get_paths() -> ProjectPaths  # モジュールレベルシングルトン（
 
 ---
 
-#### T-P0-3. 死にコードの扱い決定と削除/移設
+#### [DONE] T-P0-3. 死にコードの扱い決定と削除/移設
 
 **現状の実測**
 
@@ -305,7 +324,7 @@ def get_paths() -> ProjectPaths  # モジュールレベルシングルトン（
 
 ---
 
-#### T-P0-4. 本番経路の strict validation 有効化（ADR-0003 完遂）
+#### [Phase 38] [WIP] T-P0-4. 本番経路の strict validation 有効化（ADR-0003 完遂）
 
 **現状の実測（strict パラメータの呼出状況）**
 
@@ -338,13 +357,68 @@ def get_paths() -> ProjectPaths  # モジュールレベルシングルトン（
 
 ---
 
+#### [Phase 35] [新設] T-P0-5. V2 / Next-Gen 実行パイプライン正本化
+
+**現状の実測**
+
+- `src/leadlag/cli.py` の `decision` / `close` サブコマンドは `--engine {nextgen, v2}` 引数で V2 同期パス（`v2_bridge.run_v2_decision` → `post_decision.execute_post_decision_flow` → `broker_ops.submit_orders_via_api`）と Next-Gen 非同期パス（`NextGenPipeline.run_daily_decision` → `AsyncExecutionEngine.execute_portfolio`）を分岐で併存
+- `cli.py` は `nextgen` 選択肢の help テキストを "experimental" 表記としている（`v2` が default）
+- `configs/production/production.yaml` には `nextgen_lambda_risk` / `nextgen_cost_bps` / `nextgen_max_single_weight` 等 `nextgen_*` パラメータが V2 パラメータと同居
+- `execution/nextgen_pipeline.py:compute_decision` は PITDataLake + 凸最適化 + async FSM を統合。シャドー比較ではウェイト相関 0.9463、執行速度 3.2 倍
+
+**設計（意思決定が先）**
+
+1. まず Next-Gen 3 要素（`PITDataLake`、`convex_optimizer`、`AsyncExecutionEngine`）の本番適用可否をシャドー運用で判定
+2. 採用決定後、V2 同期パスを `archive/` へ、CLI / 設定 / ドキュメントを Next-Gen 一本に
+3. 不採用なら Next-Gen コードを `archive/` へ、V2 パスをクリーンアップ（`_resolve_val` 削除・フォールバック階層集約）
+
+**検証**
+
+- 同一期間（最低 1 ヶ月）で Next-Gen と V2 の日次 `w_final` 相関を 1e-10 レベルで一致、または本番リスク制限（net ±0.05 / gross ≤ 2.0）を常に満たすこと
+- シャドー運用後、未使用側パラメータを `production.yaml` から削除
+
+**依存**: 他の P0/P1 作業より先に意思決定すべき。パイプライン正本が未定では設定整理・コード削除の方向性が定まらない。
+
+---
+
+#### [Phase 36] [新設] T-P0-6. BLPX モデルの Pydantic 一本化
+
+**現状の実測**
+
+- `src/leadlag/models/blpx.py::ProductionBLPXModel.__init__(self, cfg: dict)` が dict を受け取る
+- `_resolve_val` が `blpx.py` / `blp_base.py` に 84 箇所残存
+- `ProductionV2Model` は `ProductionV2RunConfig`（Pydantic）を受け付けるが、内部で `self._raw_config = self.run_config.model_dump()` して dict 化し `ProductionBLPXModel` に渡している
+- 結果、Pydantic 化は `V2 境界` で止まっており、BLPX 計算内部は dict 解決ロジックが残る
+
+**設計**
+
+1. 新規 `BLPXConfig` Pydantic モデルを `config/schemas.py` に定義（`blpx_*` パラメータ 48 フィールドのうち現在使用されている 22 フィールドに絞る）
+2. `ProductionBLPXModel.__init__(self, cfg: BLPXConfig)` に変更。`_resolve_val` は削除
+3. `ProductionV2RunConfig` が内部で `BLPXConfig` を保持（`computed_field` or nested model）
+4. `blp_base.py` の `_resolve_val` も削除。必要なパラメータは `BLPXConfig` 経由で型安全に取得
+
+**検証**
+
+- `blpx.py` / `blp_base.py` から `_resolve_val` の文字列が消失
+- `grep -rn "_resolve_val" src/leadlag` = 0
+- 合成データで `predict_signals` / `w_final` が before/after で一致
+
+**リスク/エッジケース**
+
+- `ProductionBLPXModel` は `compute_gap_adjusted_distribution.py`（Step 1 行列計算）や旧 V1 経路から dict で呼ばれている可能性がある → 境界で `BLPXConfig.model_validate(cfg)` する変換レイヤを一時的に設ける
+- エイリアス（`_config_aliases`）の扱いは `BLPXConfig` の `Field(alias=...)` または validation 時の正規化で再現
+
+**依存**: T-P0-5（パイプライン正本）が先。Next-Gen 一本化なら `ProductionBLPXModel` の役割自体が `PITDataLake` + `convex_optimizer` に置き換わる可能性がある。
+
+---
+
 ### 4.2 P1（短期）
 
 ---
 
-#### T-P1-1. Experiment Registry 稼働（ADR-0002 完遂）
+#### [Phase 38] [WIP] T-P1-1. Experiment Registry 稼働（ADR-0002 完遂）
 
-**現状の実測**: `core/experiment_registry.py`（278 行）に `ExperimentRecord` / `ExperimentRegistry` / DSR 計算が実装済み。参照は `tests/unit/test_experiment_registry.py` のみ。AGENTS.md の「不採用実験の記録」は手書き。
+**現状の実測**: `experiment_registry.py` は `src/research/experiment_registry.py`（278 行）へ移設済み。`ExperimentRecord` / `ExperimentRegistry` / DSR 計算が実装済み。テンプレートと一部スクリプトで import されるが、全実験の DSR 自動記録には至っていない。AGENTS.md の「不採用実験の記録」は手書き。
 
 **設計**
 
@@ -380,7 +454,7 @@ with registry.record(
 
 ---
 
-#### T-P1-2. cache.py 分解と SqliteCacheStore 移行（ADR-0004 完遂）
+#### [DONE] T-P1-2. cache.py 分解と SqliteCacheStore 移行（ADR-0004 完遂）
 
 **現状の実測**: `data/cache.py`（675 行、24 関数）の 4 責務:
 
@@ -416,7 +490,7 @@ with registry.record(
 
 ---
 
-#### T-P1-3. Frozen config helpers の全面採用（ADR-0005 完遂）
+#### [Phase 36] [WIP] T-P1-3. Frozen config helpers の全面採用（ADR-0005 完遂）
 
 **現状の実測**: `config/frozen.py`（`safe_config_copy` / `FrozenConfigDict` / `freeze_config_dict`）は `tests/unit/test_config_frozen.py` と `config/__init__.py` の export のみ。研究スクリプトは `cfg.copy()` / `deepcopy` 直書きが残る（AGENTS.md「config dict の shallow copy」の落とし穴が未根絶）。
 
@@ -435,7 +509,7 @@ with registry.record(
 
 ---
 
-#### T-P1-4. モデル層の Pydantic 一本化（Phase 25 完遂）
+#### [Phase 39] [WIP] T-P1-4. モデル層の Pydantic 一本化（Phase 25 完遂）
 
 **現状の実測**
 
@@ -463,7 +537,7 @@ with registry.record(
 
 ---
 
-#### T-P1-5. AppConfig 出力パス一元化（Phase 26 完遂）
+#### [DONE] T-P1-5. AppConfig 出力パス一元化（Phase 26 完遂）
 
 **現状の実測**: `schemas.py:191-192`（`output_base_dir="results/sector_relative_ensemble"` / `output_live_dir="live/sector_relative_ensemble"`）と `execution/config.py:218-219`（dict 経由のフォールバック）で同一デフォルトが二重定義。`StrategyConfig` と `AppConfig` で役割が重複。
 
@@ -479,13 +553,13 @@ with registry.record(
 
 ---
 
-#### T-P1-6. GapStore / BacktestResultStore 一本化（Phase 28 完遂）
+#### [Phase 39] [概ね完了] T-P1-6. GapStore / BacktestResultStore 一本化（Phase 28 完遂）
 
-**現状の実測**
+**現状の実測（2026-08-17）**
 
-- `gap_matrix_io.py:100-105`: SQLite store は **パスが `.sqlite` / `.db` で終わる場合のみ** opt-in。本番 config の `gap_distribution.dir` は `live/pipeline_data/gap_adjusted_distribution/latest`（symlink → ディレクトリ）なので、**現行本番は常に .npy 経路**。
-- `BacktestResultStore` は `tests/unit/test_backtest_store.py` のみ。
-- `compute_gap_adjusted_distribution.py` が `mu_gap_{YYYYMMDD}.npy` / `omega_gap_{YYYYMMDD}.npy` を生成（マルチホライズン `mu_gap_h{h}_*.npy`、rank reversal 行列も）。
+- `GapStore` / `BacktestResultStore` は `backtester.py` / `backtest.py` / `cli.py` で使用されている。
+- `gap_matrix_io.py:95-156`: SQLite store はパスが `.sqlite` / `.db` で終わる場合に有効。本番 config の `gap_input_dir` は `var/live/pipeline_data/gap_adjusted_distribution/latest`（`.npy` ディレクトリ）なので、**フォールバック経路で .npy 読み出しが現役**。
+- `compute_gap_adjusted_distribution.py` は `mu_gap_{YYYYMMDD}.npy` / `omega_gap_{YYYYMMDD}.npy` を生成（マルチホライズン `mu_gap_h{h}_*.npy`、rank reversal 行列も）。
 
 **設計**
 
@@ -516,7 +590,7 @@ with registry.record(
 
 ---
 
-#### T-P2-1. V1 抽象層の撤去（Phase 23 完遂 + 3.2.4）
+#### [DONE] T-P2-1. V1 抽象層の撤去（Phase 23 完遂 + 3.2.4）
 
 **対象と処置（実測つき）**
 
@@ -536,7 +610,7 @@ with registry.record(
 
 ---
 
-#### T-P2-2. `execution/helpers.py` 削除（Phase 24 完遂）
+#### [DONE] T-P2-2. `execution/helpers.py` 削除（Phase 24 完遂）
 
 **現状**: Phase 24 で `pricing.py` / `broker_ops.py` / `risk_capital.py` / `output_ops.py` / `post_decision.py` に分割済み、`helpers.py` は re-export shim。
 
@@ -546,7 +620,7 @@ with registry.record(
 
 ---
 
-#### T-P2-3. 研究スクリプト集約（3.2.1 残り + Phase 27 完遂）
+#### [Phase 40] [WIP] T-P2-3. 研究スクリプト集約（3.2.1 残り + Phase 27 完遂）
 
 **現状の実測**: `src/research/scripts/experiments/` 75 本（Pydantic 化済み 14 本）、`src/research/experiments/ml_order_decision/` 3 本、`src/research/scripts/` 14 本。AGENTS.md（`src/research/scripts/experiments/` へ作れ）と Phase 14（`src/research/` へ統合）が併存。
 
@@ -558,7 +632,7 @@ with registry.record(
 
 ---
 
-#### T-P2-4. ドキュメント・レポート整理（3.2.6）
+#### [Phase 40] [WIP] T-P2-4. ドキュメント・レポート整理（3.2.6）
 
 **個別手順**
 
@@ -575,7 +649,7 @@ with registry.record(
 
 ---
 
-#### T-P3-1. リポジトリ名 ASCII 化
+#### [Phase 42] [TODO] T-P3-1. リポジトリ名 ASCII 化
 
 **現状**: ワークスペース `/Users/shonen/日米ラグ` と symlink 先 `/Users/shonen/日米ラグ` は **同一 inode**（NFC/NFD 違い）。git・シェル・Python のパス比較で事故る種。
 
@@ -583,49 +657,106 @@ with registry.record(
 
 **リスク**: 本番スケジューラ（plist）のパス書き換え漏れが最大リスク。切替は週末など市場閉場時に。
 
-#### T-P3-2. `archive-2026-08` 完全分離
+#### [Phase 42] [TODO] T-P3-2. `archive-2026-08` 完全分離
 
 **現状**: 144 ファイルが git 管理下に同居（`git tag archive-2026-08` の `archive/legacy_src` 34 / `git tag archive-2026-08` の `archive/experiments` 101 等）。現役コードからの import ゼロ（確認済み）。
 
 **手順**: (1) `archive-2026-08` を git subtree split or 別リポジトリ化 → (2) 本リポジトリから削除 → (3) 参照が必要なら git tag `archive-2026-08` に残す。
 
-#### T-P3-3. `mypy --strict` 漸進適用
+#### [DONE] T-P3-3. `mypy --strict` 漸進適用
 
 **手順**: (1) `pyproject.toml` に per-module strict 設定（新規ファイルは strict、既存は除外リスト）→ (2) 除外リストを週次で削減。ランタイム不変。
 
-#### T-P3-4. 環境一本化・import-linter
+#### [DONE] T-P3-4. 環境一本化・import-linter
 
 **手順**: (1) `.python-version`（3.12 固定）+ `uv sync` に統一、`.venv-mac` / `.venv312` 削除 → (2) `import-linter` の contracts: `data → core → models → execution → cli` 一方向、`core` は I/O 禁止 → (3) CI/pre-commit に組込み。`_check_syntax.py` は `ruff check` で代替し削除。
 
 ---
 
-## 5. 依存関係と実行順序
+#### [Phase 41] [新設] T-P3-5. 構造的再設計タスク群の実行
+
+**目的**: P0-P3 の漸進クリーンアップでは解決できない、世代同居や責務分散による構造問題を処理する。
+
+**タスク群**
+
+1. **フォールバックポリシーの集約**
+   - 対象: `production_v2.py`（`_load_gap_or_flat` / `compute_distribution` / `_run_safety_audits`）
+   - 現状: on-demand → file cache → flat position → 監査失敗 flat の分岐が 3 箇所に分散
+   - 設計: `DistributionSource` チェーン（`FileCacheSource` / `OnDemandSource` / `FlatSource`）+ `FallbackPolicy` オブジェクトで集約
+
+2. **PIT データレイクの全パイプライン一本化**
+   - 対象: `execution/backtester.py`、`v2_bridge.py`
+   - 現状: `PITDataLake` は Next-Gen 経路のみ使用。V2 バックテスト・本番経路は旧 `df_exec` 素通し
+   - 設計: `PITDataLake.snapshot(as_of=date)` を `BacktestEngine` / `ProductionV2Model` の唯一の入力に
+
+3. **キャッシュ管理の集約**
+   - 対象: `blpx.py` / `blp_base.py` / `production_v2.py` の 6 種類のインスタンスキャッシュ
+   - 設計: `CacheManager`（LRU + config ハッシュキー + サイズ上限）を導入。キャッシュキーは自動導出
+
+4. **ドキュメントの階層分離**
+   - 対象: `docs/ARCHITECTURE.md`、`docs/日次運用手順書.md`
+   - 現状: ARCHITECTURE.md の Phase 履歴が非線形（32,33,34 の後に 24-28）、日次運用手順書が廃止済み v1 フォールバックを記載
+   - 設計: Phase 履歴を `docs/history.md` へ分離。日次運用手順書を現行 Next-Gen 仕様へ更新。
+
+5. **ドメイン型層の導入**
+   - 対象: `models/production_v2.py` / `models/blpx.py` / `core/pipeline.py` の入出力境界
+   - 現状: `predict_signals` / `decide` / `_load_gap_or_flat` の境界が `dict[str, np.ndarray]` / `pd.DataFrame` の素通し。シグナルの as-of 時刻・provenance・有効期限が型で表現されていない
+   - 設計: `src/leadlag/domain/` へ `Signal` / `PortfolioDecision` / `GapSnapshot` / `DistributionResult` の frozen dataclass を新設。`ProductionV2Model.predict_signals(...) -> DecisionPackage` / `decide(...) -> PortfolioDecision` の interface 変更
+
+6. **巨大ファイルの責務分割**
+   - 対象: `models/production_v2.py`（1166 行） / `models/blpx.py`（1289 行） / `core/pipeline.py`（1038 行）
+   - 現状: `production_v2.py` に decide / gap 分布取得 / フォールバック / オーバーレイ / 多ホライズン統合 / 監査比較が混在。`blpx.py` に 信号計算 / 事前分布 / 診断出力 / フォールバックが混在
+   - 設計: `models/v2/` パッケージを作成。`production_v2.py` → `DecisionEngine` / `GapDistributionResolver` / `OverlayApplier` / `MultiHorizonMixer` / `AuditComparator` へ。`blpx.py` → `BLPXSignalComputer` / `PriorBuilder` / `DiagnosticsCollector` へ。目標は各ファイル 300 行未満
+
+**検証**
+
+- `production_v2.py` から `w_final` / `scores` / summary の before/after 一致（合成 7 シナリオ）
+- `blpx.py` からの `predict_signals` / `w_final` の before/after 一致（合成 7 シナリオ）
+- 全モデル入口が `PortfolioDecision` / `Signal` / `DistributionResult` の dataclass 受け渡しに変更
+- 各ファイルの行数が 300 行未満
+- `ARCHITECTURE.md` の Phase 番号が時系列順に整理される
+
+**依存**: T-P0-5（パイプライン正本決定）が先。このタスク群は T-P0-5 の意思決定後に着手。
+
+---
+
+## 5. Phase 化された実装計画
+
+Phase 23-34 は 2026-08-09 〜 08-13 に ADR 化・実装済み。本ロードマップ未了タスクを **Phase 35-42** に再編する。各 Phase 内は並行可能。Phase 間は依存関係で順序付け。**Phase 35（パイプライン正本決定）が全 Phase の前提となる重要意思決定**。
 
 ```
-Wave 1（独立・即着手可）
-  T-P0-1 var/ パス統一 ──────────────┐
-  T-P0-3 死にコード処置決定           │
-  T-P1-3 frozen config 採用           │
+Phase 35: パイプライン正本決定（意思決定）
+  └─ V2 / Next-Gen どちらを正本とするかを決定。未選択側を archive へ。
 
-Wave 2（Wave 1 完了後）
-  T-P0-2 バックテスト入口一本化（T-P0-1 の出力先に乗せる）
-  T-P0-4 strict validation（shadow 検証を並走）
-  T-P1-1 Experiment Registry 稼働（T-P0-1 の var/ 保存先、T-P0-3 の配置決定に依存）
-  T-P1-2 cache 分解・SQLite 化（T-P0-1 の var/market_data に依存）
+Phase 36: BLPX Pydantic 一本化の完遂
+  └─ T-P0-6: BLPX モデルの Pydantic 化（`_resolve_val` 84 箇所根絶）
+  └─ T-P1-3: 研究コードの frozen config 全面採用
 
-Wave 3
-  T-P1-4 モデル層 Pydantic 一本化（T-P1-3 後、T-P2-1 と一体）
-  T-P1-5 AppConfig 出力パス一元化（T-P0-1 後）
-  T-P1-6 GapStore/BacktestResultStore 一本化（T-P0-1・T-P0-4 後）
+Phase 37: var/ パス正本化の最終整理
+  └─ T-P0-1 残件: `production.yaml:122-123` の `output.base_dir` / `output.live_dir` を `var/` 直指定に
+  └─ T-P0-2 残件: wrapper 化された旧スクリプトの削除
 
-Wave 4（P2）
-  T-P2-1 V1 抽象層撤去 → T-P2-2 helpers 削除 → T-P2-3 研究スクリプト集約 → T-P2-4 ドキュメント整理
+Phase 38: 運用監査の strict 化
+  └─ T-P0-4: `preprocess_data` / `load_gap_matrices` の本番経路 strict 化
+  └─ T-P1-1: Experiment Registry 稼働 + DSR 自動記録
 
-Wave 5（P3）
-  T-P3-4 環境一本化 → T-P3-1 リポジトリ ASCII 化 → T-P3-2 archive 分離 → T-P3-3 mypy strict
+Phase 39: モデル・データ層整理
+  └─ T-P1-4 完遂: `_resolve_val` 削除、Pydantic 一本化
+  └─ T-P1-6 完遂: `.npy` フォールバック廃止、GapStore を第一正本に
+
+Phase 40: 研究コード・ドキュメント整理
+  └─ T-P2-3: 研究スクリプト集約（`scripts/experiments/` → `src/research/`）
+  └─ T-P2-4: ドキュメント整理（ARCHITECTURE.md 更新、experiment_graveyard.md 最新化）
+
+Phase 41: 構造的再設計
+  └─ T-P3-5: フォールバック集約 / PITDataLake 一本化 / キャッシュ集約
+  └─ T-P3-5 追加: ドメイン型層導入 / 巨大ファイル責務分割
+
+Phase 42: 環境最終整備
+  └─ T-P3-1: リポジトリ ASCII 化
+  └─ T-P3-2: archive 分離
+  └─ T-P3-3 / T-P3-4: mypy strict + import-linter + venv 一本化（完了済み）
 ```
-
-各 Wave 内のタスクは並行可能。Wave 間は依存関係で順序付け。
 
 ---
 
@@ -635,7 +766,7 @@ Wave 5（P3）
 
 ```bash
 # 1. 構文・lint・型
-python3 _check_syntax.py
+python3 -m compileall src/leadlag tests tools scripts src/research
 python3 -m ruff check src/leadlag/ --select E,F,W --ignore E501
 python3 -m mypy --config-file pyproject.toml src/leadlag   # 新規エラーが増えないこと
 
@@ -646,11 +777,13 @@ bash scripts/run_tests_unit_only.sh
 bash scripts/run_tests_parallel.sh
 
 # 4. 振る舞い一致（モデル/シグナルに触れる場合）
-#    src/research/scripts/experiments/ に一時検証スクリプトを作成し、
+#    scripts/experiments/ または src/research/scripts/experiments/ に一時検証スクリプトを作成し、
 #    before/after で predict_signals の signals / w_final を np.testing.assert_array_equal
 ```
 
-**完了の定義**: 検証全 pass + レポート（`reports/<日付>_<task>/` に簡易記録）+ 該当する場合は ARCHITECTURE.md Phase 履歴へ追記。
+> **注**: `python3 -c "..."` のインライン実行は禁止（AGENTS.md 執行規約）。必ずスクリプト経由で実行。
+
+**完了の定義**: 検証全 pass + レポート（`reports/<sprint名>/` または `reports/<YYYYMMDD>_<task>/` に簡易記録）+ 該当する場合は ARCHITECTURE.md Phase 履歴へ追記。
 
 ---
 
@@ -671,10 +804,28 @@ bash scripts/run_tests_parallel.sh
 
 ## 8. 次のアクション
 
-Wave 1 の 3 タスクから開始を推奨：
+2026-08-17 時点では、**Phase 35（T-P0-5）の意思決定が全ての前提**となる。
 
-1. **T-P0-1 var/ パス統一**: `paths.py` 新設 → ハードコード 12 箇所置換 → `market_data/` 移動。
-2. **T-P0-3 死にコード処置決定**: `sprint2c_lob_report` archive 移設は即実行可。`experiment_registry` / `health_score` は「稼働化 or archive」の意思決定が先。
-3. **T-P1-3 frozen config 採用**: 機械的置換のみでリスク最小。
+### 8.1 最優先: Phase 35 — パイプライン正本を決定する（T-P0-5）
+
+1. **シャドー運用期間の設定**: 最低 1 ヶ月、Next-Gen 非同期パスと V2 同期パスを並行実行
+2. **評価軸の明確化**:
+   - 日次 `w_final` の before/after 一致（1e-10 レベル）
+   - 執行速度・安定性（約定タイムアウト・API 過負荷）
+   - 市場中立制約（net ±0.05 / gross ≤ 2.0）の遵守率
+   - 本番リスク制限値（VaR/ES）の適合性
+3. **意思決定会議**: 投資委員会 / リスク管理責任者 / 開発責任者で Next-Gen 採用 or V2 継続を決定
+4. **ADR 作成**: 決定を `docs/decisions/2026-08-XX-pipeline-canon.md` として記録
+
+### 8.2 並行可能な漸進タスク（Phase 36-38）
+
+- **T-P1-1 Experiment Registry 稼働**: テンプレート既存。新規実験スクリプトへの記録義務化を進める
+- **T-P0-4 strict validation**: `preprocess_data` / `load_gap_matrices` の本番経路 strict 化を shadow 並走
+- **T-P1-3 frozen config**: 研究スクリプトの `cfg.copy()` 43 箇所を `safe_config_copy` へ機械置換
+
+### 8.3 意思決定後に着手（Phase 39-42）
+
+- **Next-Gen 採用時**: V2 同期パスを archive へ、`production.yaml` から V2 専用パラメータを削除、T-P3-5 構造的再設計タスク群実行
+- **V2 継続時**: Next-Gen コードを archive へ、T-P0-6 BLPX Pydantic 一本化 + `production_v2.py` フォールバック集約を優先
 
 どのタスクから着手するか指示をください。

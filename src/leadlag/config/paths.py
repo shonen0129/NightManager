@@ -113,3 +113,8 @@ def gap_distribution_latest() -> Path:
     ``live/pipeline_data/gap_adjusted_distribution/latest`` hard-coded string.
     """
     return live("pipeline_data", "gap_adjusted_distribution", "latest")
+
+
+def gap_store_path() -> Path:
+    """Return the canonical SQLite GapStore path."""
+    return live("pipeline_data", "gap_adjusted_distribution", "gap_store.sqlite")

@@ -33,6 +33,7 @@ import pandas as pd
 
 from leadlag.compliance.v2_auditor import run_leakage_audit, run_numerical_audit
 from leadlag.config import safe_config_copy
+from leadlag.data.validation import DataValidationError
 from leadlag.config.schemas import ProductionV2RunConfig, _map_flat_to_nested
 from leadlag.core.gap_adjustment import (
     build_raw_distribution,
@@ -503,7 +504,12 @@ def _load_gap_or_flat(
     mu_gap: np.ndarray | None = None
     Omega_gap: np.ndarray | None = None
     if gap_input_dir is not None:
-        mu_gap, Omega_gap, gap_alerts = load_gap_matrices(gap_input_dir, date_str)
+        try:
+            mu_gap, Omega_gap, gap_alerts = load_gap_matrices(
+                gap_input_dir, date_str, strict=True
+            )
+        except DataValidationError as exc:
+            gap_alerts = [str(exc)]
         alerts.extend(gap_alerts)
     else:
         alerts.append("--gap-input-dir not specified.")

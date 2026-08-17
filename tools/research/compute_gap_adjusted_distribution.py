@@ -50,6 +50,7 @@ from leadlag.data.preprocessor import (
 )
 from leadlag.data.tickers import JP_TICKERS, TOPIX_TICKER, US_TICKERS
 from leadlag.models.blpx import ProductionBLPXModel
+from leadlag.models.production_v2 import parse_run_config
 from leadlag.models.signal_enhancement import apply_multi_horizon_blend, apply_rank_reversal_overlay
 
 # Setup logging
@@ -1212,7 +1213,7 @@ def main():
 
     # Setup model
     logger.info("Instantiating Residual-BLPX model...")
-    model = ProductionBLPXModel(cfg)
+    model = ProductionBLPXModel(parse_run_config(cfg).blpx)
     inputs = model._prepare_common_inputs(df_exec)
 
     # Fetch weights
@@ -1249,7 +1250,7 @@ def main():
             y_jp_target_h = compute_jp_target_returns(
                 df_exec, JP_TICKERS, horizon=h, p_910_df=p_910_df
             )
-            model_h = ProductionBLPXModel(cfg)
+            model_h = ProductionBLPXModel(parse_run_config(cfg).blpx)
             inputs_h = model_h._prepare_common_inputs(
                 df_exec_h, y_jp_target=y_jp_target_h
             )

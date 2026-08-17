@@ -275,6 +275,34 @@ class BLPXConfig(BaseModel):
     minvar_enabled: bool = Field(default=False)
     minvar_alpha: float = Field(default=0.5, ge=0.0, le=1.0)
 
+    # US residualization (from ProductionV2RunConfig, needed by _BLPBase)
+    us_res_enabled: bool = Field(default=False)
+    us_res_gamma: float = Field(default=0.5, ge=0.0)
+    us_res_beta_window: int = Field(default=252, ge=1)
+
+    # Fractional differentiation (from ProductionV2RunConfig, needed by _BLPBase)
+    frac_diff_enabled: bool = Field(default=False)
+    frac_diff_d: float = Field(default=0.1, ge=0.0, le=1.0)
+    frac_diff_threshold: float = Field(default=1.0e-5, gt=0.0)
+    frac_diff_window: int = Field(default=100, ge=1)
+    frac_diff_normalize: str | None = Field(default=None)
+
+    # Legacy aliases for signal component weights (p5/p5p3 are old names)
+    p5_weight: float | None = Field(default=None, ge=0.0, le=1.0)
+    p5p3_weight: float | None = Field(default=None, ge=0.0, le=1.0)
+
+    # Legacy signal_components dict, from which weights can be derived
+    signal_components: dict[str, Any] | None = Field(default=None)
+
+    # Legacy alias for execution_target_cost_adjustment
+    exec_adjustment: str | None = Field(default=None)
+
+    # Slippage used by _BLPBase._resolve_slippage_bps (fallback if costs absent)
+    slippage_bps: float = Field(default=5.0, ge=0.0)
+
+    # Nested costs model, when provided separately
+    costs: Any = Field(default=None)
+
 
 class CostConfig(BaseModel):
     """Cost and financing parameters shared by production and backtest."""
@@ -475,6 +503,18 @@ def _map_flat_to_nested(raw: dict[str, Any]) -> dict[str, Any]:
     for k, v in list(costs.items()):
         if k in v2_keys and k not in out:
             out[k] = v
+
+    # Propagate fields needed by ProductionBLPXModel into the blpx sub-model.
+    # These are duplicated from the top-level V2 config so BLPX can be fully
+    # configured by a single BLPXConfig object.
+    blpx_propagation_keys = [
+        "frac_diff_enabled", "frac_diff_d", "frac_diff_threshold", "frac_diff_window", "frac_diff_normalize",
+        "us_res_enabled", "us_res_gamma", "us_res_beta_window",
+        "ewma_halflife", "slippage_bps", "signal_components", "p5_weight", "p5p3_weight",
+    ]
+    for key in blpx_propagation_keys:
+        if key in out and key not in blpx and key in blpx_keys:
+            blpx[key] = out[key]
 
     # Filter each layer to allowed keys.
     out = {k: v for k, v in out.items() if k in v2_keys}

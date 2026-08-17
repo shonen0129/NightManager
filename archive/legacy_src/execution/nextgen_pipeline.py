@@ -193,7 +193,13 @@ class NextGenPipeline:
         # Signal date is the previous TSE trading day (US close / signal input date).
         sig_dt = previous_trading_day(pd.to_datetime(trade_date).to_pydatetime())
         sig_date = sig_dt.strftime("%Y-%m-%d")
-        pit_dates = np.array([d.isoformat() for d, _ in self._pit_records])
+        trade_dt = pd.to_datetime(trade_date).tz_localize(None).normalize()
+        # PIT history used for binning must be strictly before the current trade date.
+        pit_dates = np.array([
+            d.isoformat()
+            for d, _ in self._pit_records
+            if pd.to_datetime(d).tz_localize(None).normalize() < trade_dt
+        ])
         leakage = run_leakage_audit(
             sig_date=sig_date,
             trade_date=trade_date,

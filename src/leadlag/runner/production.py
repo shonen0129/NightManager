@@ -88,7 +88,7 @@ class ProductionRunner:
         # package can still be imported before that file is in place.
         from leadlag.models.blpx import ProductionBLPXModel
 
-        blpx_model = ProductionBLPXModel(app_config.v2.model_dump())
+        blpx_model = ProductionBLPXModel(app_config.v2.blpx)
 
         from leadlag.models.production_v2 import ProductionV2Model
 

@@ -39,7 +39,7 @@ cs_overlay_weight: 0.05
 cs_rank_reversal_file_pattern: matrices/rank_reversal_{date}.npy
 residualization_enabled_for_p3: true
 residualization_beta_window: 60
-gap_input_dir: var/live/pipeline_data/gap_adjusted_distribution/latest
+gap_input_dir: var/live/pipeline_data/gap_adjusted_distribution/gap_store.sqlite
 mu_file_pattern: matrices/mu_gap_{date}.npy
 omega_file_pattern: matrices/omega_gap_{date}.npy
 sigma_floor: 1.0e-06
@@ -119,8 +119,8 @@ risk:
   daily_loss_stop: 0.025
   monthly_loss_stop: 0.05
 output:
-  base_dir: results/production_residual_blpx
-  live_dir: live/production_residual_blpx
+  base_dir: var/results/production_residual_blpx
+  live_dir: var/live/production_residual_blpx
   save_signals: true
   save_weights: true
   save_plots: true

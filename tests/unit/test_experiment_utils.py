@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from research.experiment_registry import Decision, ExperimentRegistry
+from leadlag.experiment_registry import Decision, ExperimentRegistry
 from research.experiment_utils import (
     record_backtest_experiment,
     record_simple_experiment,

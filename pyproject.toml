@@ -113,9 +113,6 @@ module = [
     "leadlag.config.*",
     "leadlag.data.cache_store",
     "leadlag.data.gap_store",
-    "leadlag.data.backtest_store",
-    "leadlag.data.decision_cache",
-    "leadlag.data.market_data_cache",
 ]
 strict = true
 

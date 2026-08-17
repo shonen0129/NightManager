@@ -277,7 +277,7 @@ def load_df_exec_from_local_cache(max_stale_bdays: int | None = None) -> pd.Data
             from leadlag.data.preprocessor import preprocess_data
 
             data = load_raw_cache()
-            df_exec = preprocess_data(data)
+            df_exec = preprocess_data(data, strict_validation=True)
             try:
                 save_df_exec_to_local_cache(df_exec)
             except Exception as cache_err:

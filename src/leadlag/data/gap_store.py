@@ -231,14 +231,13 @@ class GapStore:
         gap_input_dir: str | Path,
         mu_pattern: str = "matrices/mu_gap_{date}.npy",
         omega_pattern: str = "matrices/omega_gap_{date}.npy",
+        pattern_kwargs: dict | None = None,
         n_j: int = len(JP_TICKERS),
     ) -> dict[str, Any]:
         """Import all matching ``.npy`` files from a directory into the store.
 
         Returns a summary dict with ``imported`` and ``failed`` counts.
         """
-        from leadlag.utils.gap_matrix_io import load_gap_matrices
-
         gap_input_dir = Path(gap_input_dir)
         if not gap_input_dir.exists():
             raise GapStoreError(f"Gap input directory not found: {gap_input_dir}")
@@ -267,15 +266,14 @@ class GapStore:
         for mu_file in mu_files:
             date_numeric = mu_file.stem.split("_")[-1]
             trade_date = _date_from_numeric(date_numeric)
-            mu, omega, alerts = load_gap_matrices(
-                gap_input_dir,
-                trade_date,
-                mu_pattern=mu_pattern,
-                omega_pattern=omega_pattern,
-                n_j=n_j,
+            omega_file = gap_input_dir / omega_pattern.format(
+                date=date_numeric, **(pattern_kwargs or {})
             )
-            if mu is None or omega is None:
-                logger.warning("[%s] Skipped import: %s", trade_date, alerts)
+            try:
+                mu = np.load(mu_file)
+                omega = np.load(omega_file)
+            except Exception as e:
+                logger.warning("[%s] Skipped import: %s", trade_date, e)
                 failed += 1
                 continue
             self.save(trade_date, mu, omega)

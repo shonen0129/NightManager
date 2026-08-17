@@ -144,7 +144,7 @@ def load_gap_npy(
     """
     pattern_kwargs = pattern_kwargs or {}
 
-    # 1. Try SQLite gap store first (opt-in via .sqlite/.db path).
+    # 1. Try SQLite gap store first (canonical source).
     arr, alerts = _try_load_gap_from_store(
         gap_input_dir, date_str, file_pattern, pattern_kwargs, required=required
     )
@@ -153,7 +153,7 @@ def load_gap_npy(
     if alerts:
         return None, alerts
 
-    # 2. Fall back to per-date .npy files.
+    # 2. Fall back to per-date .npy files (test / legacy compatibility).
     date_numeric = _format_gap_date(date_str)
     file_path = gap_input_dir / file_pattern.format(date=date_numeric, **pattern_kwargs)
 
@@ -198,11 +198,11 @@ def save_gap_npy(
     """
     pattern_kwargs = pattern_kwargs or {}
 
-    # 1. Try SQLite gap store first (opt-in via .sqlite/.db path).
+    # 1. Try SQLite gap store first (canonical sink).
     if _try_save_gap_to_store(gap_output_dir, date_str, file_pattern, pattern_kwargs, data):
         return True
 
-    # 2. Fall back to per-date .npy file.
+    # 2. Fall back to per-date .npy file (test / legacy compatibility).
     date_numeric = _format_gap_date(date_str)
     file_path = gap_output_dir / file_pattern.format(date=date_numeric, **pattern_kwargs)
     try:
@@ -308,6 +308,7 @@ def save_gap_matrices(
     """
     pattern_kwargs = pattern_kwargs or {}
 
+    # 1. Try SQLite gap store first (canonical sink).
     if is_gap_store_path(gap_output_dir):
         try:
             store = GapStore(gap_output_dir)
@@ -348,7 +349,7 @@ def save_gap_matrices(
             return False
         return True
 
-    # Directory / .npy fallback.
+    # 2. Fall back to per-date .npy files (test / legacy compatibility).
     date_numeric = _format_gap_date(date_str)
     mu_path = gap_output_dir / mu_pattern.format(date=date_numeric, **pattern_kwargs)
     omega_path = gap_output_dir / omega_pattern.format(date=date_numeric, **pattern_kwargs)

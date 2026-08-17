@@ -17,7 +17,7 @@ import pandas as pd
 
 from leadlag.config import default_registry_path
 from leadlag.config.schemas import AppConfig
-from research.experiment_registry import (
+from leadlag.experiment_registry import (
     Decision,
     ExperimentRecord,
     ExperimentRegistry,
@@ -153,6 +153,7 @@ def record_backtest_experiment(
         report_path=str(report_path) if report_path is not None else None,
     )
     record.end_time = _utc_now()
+    record.metrics["deflated_sharpe"] = record.deflated_sharpe()
     registry.record(record)
     logger.info(
         "Recorded experiment %s (decision=%s, dsr=%s) to %s",
@@ -192,6 +193,7 @@ def record_simple_experiment(
         report_path=str(report_path) if report_path is not None else None,
     )
     record.end_time = _utc_now()
+    record.metrics["deflated_sharpe"] = record.deflated_sharpe()
     registry.record(record)
     logger.info(
         "Recorded experiment %s (decision=%s, dsr=%s) to %s",

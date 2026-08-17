@@ -116,7 +116,7 @@ def main() -> None:
 
     app_config = load_config_from_yaml("configs/production/production.yaml")
     cfg = app_config.v2
-    blpx_model = ProductionBLPXModel(cfg.model_dump())
+    blpx_model = ProductionBLPXModel(cfg.blpx)
     v2_model = ProductionV2Model(cfg, blpx_model=blpx_model)
 
     test_date = str(df_exec.index[-20])

@@ -95,7 +95,7 @@ def solve_vol_parity_baseline(
 def run_experiment(df_exec: pd.DataFrame) -> dict:
     app_config = load_config_from_yaml("configs/production/production.yaml")
     cfg = app_config.v2
-    blpx_model = ProductionBLPXModel(cfg.model_dump())
+    blpx_model = ProductionBLPXModel(cfg.blpx)
     v2_model = ProductionV2Model(cfg, blpx_model=blpx_model)
 
     sim_dates, start_idx, end_idx = BacktestEngine._resolve_sim_dates(

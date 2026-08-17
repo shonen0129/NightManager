@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 import numpy as np
 import pandas as pd
@@ -243,7 +243,6 @@ class BacktestEngine:
         n_jobs: int = 1,
         overlay_model: MLOrderOverlayModel | None = None,
         overlay_model_dir: Path | str | None = None,
-        gap_store_path: Path | str | None = None,
     ) -> dict:
         """Run a historical backtest using the V2 production model.
 
@@ -254,14 +253,9 @@ class BacktestEngine:
 
         Args:
             cfg: Validated ``AppConfig`` or raw V2 production YAML dict.
-            gap_input_dir: Directory containing ``matrices/`` with
-                ``mu_gap_{YYYYMMDD}.npy`` and ``omega_gap_{YYYYMMDD}.npy``,
-                or a ``.sqlite`` gap store file.  If None, every day will be a
-                flat-position fallback.
-            gap_store_path: Optional path to a ``.sqlite`` gap store that
-                overrides *gap_input_dir* for matrix loading.  This supports a
-                dedicated ``--gap-store`` CLI flag while keeping the legacy
-                ``.npy`` directory as the default fallback.
+            gap_input_dir: Path to a SQLite GapStore or a directory with
+                ``mu_gap_{YYYYMMDD}.npy`` / ``omega_gap_{YYYYMMDD}.npy`` files.
+                If None, every day will be a flat-position fallback.
             df_exec: Execution DataFrame.
             start_date: Backtest start date.
             end_date: Backtest end date ("latest" for last available).
@@ -309,11 +303,9 @@ class BacktestEngine:
         side_leverage = cost_params["side_leverage"]
 
         gap_dir: Path | None = Path(gap_input_dir) if gap_input_dir is not None else None
-        gap_store = Path(gap_store_path) if gap_store_path is not None else None
 
         logger.info(
             f"Starting V2 backtest: start={start_date}, gap_dir={gap_dir}, "
-            f"gap_store={gap_store}, "
             f"slippage={slip_bps} bps, alpha_long={alpha_long}, alpha_short={alpha_short}, "
             f"financing={fin_annual*100:.2f}% ann, "
             f"borrow={borrow_annual*100:.2f}% ann, reverse={rev_bps:.1f} bps/day, "
@@ -336,7 +328,6 @@ class BacktestEngine:
             n_j,
             overlay_model,
             n_jobs,
-            gap_store_path=gap_store_path,
         )
 
         sre_weights_df = pd.DataFrame(sre_weights, index=sim_dates_slice, columns=JP_TICKERS)
@@ -389,7 +380,7 @@ class BacktestEngine:
         v2_costs = v2_costs or app_config.strategy
         strategy = app_config.strategy
 
-        def _get(attr: str, prefer_v2: bool = True):
+        def _get(attr: str, prefer_v2: bool = True) -> Any:
             if prefer_v2 and v2_costs is not None and hasattr(v2_costs, attr):
                 v = getattr(v2_costs, attr)
                 if v is not None:
@@ -398,7 +389,7 @@ class BacktestEngine:
                 return getattr(strategy, attr)
             return None
 
-        def _resolve(override, attr):
+        def _resolve(override: Any, attr: str) -> Any:
             if override is not None:
                 return override
             v2_v = _get(attr)
@@ -437,7 +428,6 @@ class BacktestEngine:
         n_j: int,
         overlay_model: MLOrderOverlayModel | None,
         n_jobs: int,
-        gap_store_path: Path | str | None = None,
     ) -> tuple[np.ndarray, np.ndarray, list[dict]]:
         """Generate V2 weights for each simulation date using the unified V2 model."""
         n_sim_days = len(sim_dates_slice)
@@ -447,16 +437,10 @@ class BacktestEngine:
 
         run_cfg = app_config.v2
 
-        # Prefer an explicit gap store path, otherwise fall back to gap_dir
-        # (which may be a ``.sqlite`` store or a directory of ``.npy`` files).
-        effective_gap_dir: Path | None = None
-        if gap_store_path is not None:
-            effective_gap_dir = Path(gap_store_path)
-        elif gap_dir is not None:
-            effective_gap_dir = gap_dir
+        effective_gap_dir: Path | None = gap_dir
 
         # Build the BLPX model and the unified V2 decision model.
-        blpx_model = ProductionBLPXModel(run_cfg.model_dump())
+        blpx_model = ProductionBLPXModel(run_cfg.blpx)
         if n_jobs > 1:
             blpx_model.clear_caches()
 

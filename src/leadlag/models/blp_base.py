@@ -21,60 +21,36 @@ if TYPE_CHECKING:
 
 
 class BLPModelBase(ABC):
-    """Minimal base class for config-driven production models."""
+    """Minimal base class for config-driven production models.
 
-    _config_sections: list[str] = [
-        "model", "ensemble", "portfolio", "costs", "residualization", "blpx"
-    ]
-    _config_aliases: dict[str, list[str]] = {}
+    The config is a Pydantic ``BLPXConfig`` model. Attribute access falls
+    through to the config object so existing call sites can continue to
+    use ``self.<field>``.
+    """
 
-    def __init__(self, cfg: dict) -> None:
-        self.cfg = cfg
+    def __init__(self, cfg: Any) -> None:
+        # cfg may be a dict during migration, but new call sites pass BLPXConfig.
+        from leadlag.config.schemas import BLPXConfig
 
-    def _resolve_val(self, key: str, default: Any) -> Any:
-        """Resolve value from the nested config dict.
+        if isinstance(cfg, dict):
+            cfg = BLPXConfig.model_validate(cfg)
+        self.cfg: BLPXConfig = cfg
 
-        Searches the dict's top-level keys, then nested section keys
-        (as defined by ``_config_sections``), and finally applies any
-        alias translations (as defined by ``_config_aliases``).
-        """
-        aliases = self._config_aliases.get(key, [])
-        keys_to_try = [key] + aliases
-        for k in keys_to_try:
-            if k in self.cfg:
-                return self.cfg[k]
-            for section in self._config_sections:
-                if section in self.cfg and isinstance(self.cfg[section], dict) and k in self.cfg[section]:
-                    return self.cfg[section][k]
-            # Legacy translations
-            if k == "model_name" and "name" in self.cfg.get("model", {}):
-                return self.cfg["model"]["name"]
-            if k == "k" and "k" in self.cfg.get("model", {}):
-                return self.cfg["model"]["k"]
-            if k == "q" and "long_short_frac" in self.cfg.get("portfolio", {}):
-                return self.cfg["portfolio"]["long_short_frac"]
-        return default
-
-    def _resolve_nested(self, key: str, default: Any) -> Any:
-        """Resolve dotted nested keys or fall back to _resolve_val."""
-        parts = key.split(".")
-        val = self._resolve_val(parts[-1], None)
-        if val is not None:
-            return val
-        curr = self.cfg
-        for part in parts:
-            if isinstance(curr, dict) and part in curr:
-                curr = curr[part]
-            else:
-                return default
-        return curr
+    def __getattr__(self, name: str) -> Any:
+        # Proxy attribute access to the Pydantic config, then fall back
+        # to normal attribute resolution on the instance.
+        if name != "cfg" and hasattr(self, "cfg"):
+            if hasattr(self.cfg, name):
+                return getattr(self.cfg, name)
+        raise AttributeError(f"{type(self).__name__} has no attribute {name!r}")
 
     def _resolve_slippage_bps(self) -> float:
         """Resolve slippage bps from config, checking costs section."""
-        slippage = self._resolve_val("slippage_bps", 5.0)
-        if "costs" in self.cfg and "slippage_bps_per_side" in self.cfg["costs"]:
-            slippage = float(self.cfg["costs"]["slippage_bps_per_side"])
-        return float(slippage)
+        slippage: float = getattr(self.cfg, "slippage_bps", 5.0) or 5.0
+        costs = self.cfg.costs
+        if costs is not None and hasattr(costs, "slippage_bps_per_side"):
+            slippage = float(costs.slippage_bps_per_side)
+        return slippage
 
     def normalize_signals(self, sig: np.ndarray, method: str = "zscore") -> np.ndarray:
         """Cross-sectionally normalize the signal values."""
@@ -147,20 +123,21 @@ class BLPModelBase(ABC):
 class _BLPBase(BLPModelBase):
     """Intermediate base class for BLPX production models."""
 
-    def __init__(self, cfg: dict) -> None:
+    def __init__(self, cfg: Any) -> None:
         super().__init__(cfg)
-        # Core build_common_inputs parameters
-        self.ewma_halflife = int(self._resolve_val("ewma_halflife", 120))
-        self.beta_window = int(self._resolve_val("beta_window", 60))
-        self.include_v4_prior = bool(self._resolve_val("include_v4_prior", False))
-        self.us_res_enabled = bool(self._resolve_val("us_res_enabled", False))
-        self.us_res_gamma = float(self._resolve_val("us_res_gamma", 0.5))
-        self.us_res_beta_window = int(self._resolve_val("us_res_beta_window", 252))
-        self.frac_diff_enabled = bool(self._resolve_val("frac_diff_enabled", False))
-        self.frac_diff_d = float(self._resolve_val("frac_diff_d", 0.1))
-        self.frac_diff_threshold = float(self._resolve_val("frac_diff_threshold", 1e-5))
-        self.frac_diff_window = int(self._resolve_val("frac_diff_window", 100))
-        self.frac_diff_normalize = self._resolve_val("frac_diff_normalize", None)
+        # Core build_common_inputs parameters are now read from Pydantic BLPXConfig
+        # via __getattr__; explicit attributes kept for type narrowing.
+        self.ewma_halflife = int(self.cfg.ewma_halflife)
+        self.beta_window = int(self.cfg.beta_window)
+        self.include_v4_prior = bool(self.cfg.include_v4_prior)
+        self.us_res_enabled = bool(self.cfg.us_res_enabled)
+        self.us_res_gamma = float(self.cfg.us_res_gamma)
+        self.us_res_beta_window = int(self.cfg.us_res_beta_window)
+        self.frac_diff_enabled = bool(self.cfg.frac_diff_enabled)
+        self.frac_diff_d = float(self.cfg.frac_diff_d)
+        self.frac_diff_threshold = float(self.cfg.frac_diff_threshold)
+        self.frac_diff_window = int(self.cfg.frac_diff_window)
+        self.frac_diff_normalize = self.cfg.frac_diff_normalize
 
     def _prepare_common_inputs(
         self,
@@ -357,7 +334,8 @@ class _BLPBase(BLPModelBase):
                     use_topix = True
 
             if use_topix:
-                gap_syst = betas_vec * float(topix_night_t)
+                assert topix_night_t is not None
+                gap_syst = betas_vec * topix_night_t
                 gap_idio = gap_vec - gap_syst
                 gap_filt = (
                     gap_coef * gap_idio
