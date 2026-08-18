@@ -24,6 +24,7 @@ import numpy as np
 import pandas as pd
 
 from leadlag.data.tickers import JP_TICKERS
+from leadlag.domain.portfolio import PortfolioDecision
 from leadlag.models.production_v2 import VERSION
 
 logger = logging.getLogger(__name__)
@@ -32,7 +33,7 @@ logger = logging.getLogger(__name__)
 def write_production_files(
     trade_date: str,
     live_dir: Path,
-    result: dict,
+    result: PortfolioDecision | dict,
     dry_run: bool = False,
 ) -> None:
     """Write all production output files to *live_dir*.
@@ -148,7 +149,7 @@ def write_production_files(
     logger.info("Written: daily_production_report.md")
 
 
-def _print_dry_run_summary(trade_date: str, result: dict) -> None:
+def _print_dry_run_summary(trade_date: str, result: PortfolioDecision | dict) -> None:
     """Log a dry-run summary to stdout."""
     pit = result["pit_binning"]
     s = result["summary"]
@@ -171,7 +172,7 @@ def _print_dry_run_summary(trade_date: str, result: dict) -> None:
     logger.info("=========================")
 
 
-def _write_daily_report(trade_date: str, live_dir: Path, result: dict) -> None:
+def _write_daily_report(trade_date: str, live_dir: Path, result: PortfolioDecision | dict) -> None:
     """Write the human-readable daily production report in Markdown."""
     pit = result["pit_binning"]
     s = result["summary"]

@@ -1,752 +1,88 @@
 """Production v2 portfolio construction module.
 
-Implements the daily mu_over_sigma + baseline_style + RuleD pipeline.
-
-All runtime parameters are read from the YAML ``cfg`` dict at call time via
-``parse_run_config(cfg)`` → ``ProductionV2RunConfig``.  Default values are
-defined in the Pydantic schema (leadlag.config.schemas.ProductionV2RunConfig).
-
-Public API
-----------
-parse_run_config(cfg)
-    Convert a YAML cfg dict to a validated ``ProductionV2RunConfig``.
-
-generate_v2_production_portfolio(trade_date, gap_input_dir, cfg)
-    Core orchestrator.  Returns a result dict including ``run_config`` for the
-    writer layer.
-
-load_pit_ir_history(gap_input_dir, trade_date)
-    Load historical ex-ante IR series for PIT binning.
-
-NOTE: v1 fallback mechanism was DEPRECATED on 2026-07-09 due to circular dependency.
-Gap data missing now results in flat position (w_final=0).
+Public API: parse_run_config, generate_v2_production_portfolio,
+load_pit_ir_history, ProductionV2Model.
 """
 
 from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 import numpy as np
 import pandas as pd
 
-from leadlag.compliance.v2_auditor import run_leakage_audit, run_numerical_audit
 from leadlag.config import safe_config_copy
-from leadlag.data.validation import DataValidationError
 from leadlag.config.schemas import ProductionV2RunConfig, _map_flat_to_nested
-from leadlag.core.gap_adjustment import (
-    build_raw_distribution,
-    compute_gap_adjusted_distribution,
-)
-from leadlag.core.macro import (
-    MACRO_NAMES,
-    MACRO_SENS_MATRIX,
-    compute_macro_direction_adjustment,
-    compute_macro_surprise,
-    compute_sigma_yy_inflation,
-    download_macro_prices,
-)
-from leadlag.core.market_calendar import previous_trading_day
-from leadlag.core.portfolio import get_rolling_pit_bin, solve_baseline_style
-from leadlag.core.signal import build_weights_minvar
+from leadlag.core.macro import download_macro_prices
+from leadlag.data.pit_lake import MarketSnapshot, PITDataLake
 from leadlag.data.tickers import JP_TICKERS, US_TICKERS
-from leadlag.models.signal_enhancement import apply_rank_reversal_overlay
-from leadlag.utils.gap_matrix_io import load_gap_matrices
+from leadlag.domain.portfolio import PortfolioDecision
+from leadlag.models.v2 import (
+    VERSION,
+    _build_current_prices_from_df_exec,
+    generate_v2_production_portfolio_from_distribution,
+    load_pit_ir_history,
+)
+from leadlag.models.v2 import (
+    _compute_ondemand as _v2_compute_ondemand,
+)
+from leadlag.models.v2 import (
+    _decide as _v2_decide,
+)
+from leadlag.models.v2 import (
+    _file_cache_or_flat as _v2_file_cache_or_flat,
+)
+from leadlag.models.v2 import (
+    _multi_horizon_scores as _v2_multi_horizon_scores,
+)
+from leadlag.models.v2 import (
+    _resolve_current_index as _v2_resolve_current_index,
+)
+from leadlag.models.v2 import (
+    compute_distribution as _v2_compute_distribution,
+)
+from leadlag.models.v2.overlay_applier import _apply_overlay as _v2_apply_overlay
+from leadlag.utils.cache_manager import CacheManager
 
 logger = logging.getLogger(__name__)
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
+__all__ = [
+    "BASELINE_GROSS",
+    "COST_BPS_PER_GROSS",
+    "LONG_COUNT",
+    "SHORT_COUNT",
+    "ProductionV2Model",
+    "VERSION",
+    "download_macro_prices",
+    "generate_v2_production_portfolio",
+    "generate_v2_production_portfolio_from_distribution",
+    "load_pit_ir_history",
+    "parse_run_config",
+    "_build_current_prices_from_df_exec",
+]
 
-
-def _build_current_prices_from_df_exec(
-    df_exec: pd.DataFrame,
-    trade_date: str,
-) -> dict[str, float]:
-    """Extract 9:10 opens for JP tickers from ``jp_open_trade_*`` columns.
-
-    Returns a ``ticker -> open price`` dict.  Missing or non-positive prices
-    are omitted so callers can decide whether to use them.
-    """
-    if trade_date not in df_exec.index:
-        return {}
-    row = df_exec.loc[trade_date]
-    prices: dict[str, float] = {}
-    for tk in JP_TICKERS:
-        col = f"jp_open_trade_{tk}"
-        if col in row and pd.notna(row[col]) and float(row[col]) > 0:
-            prices[tk] = float(row[col])
-    return prices
-
-
-def _extract_gap_inputs(
-    df_exec: pd.DataFrame,
-    trade_date: str,
-    current_prices: dict[str, float],
-) -> tuple[np.ndarray, np.ndarray, float]:
-    """Extract the opening gap override, per-ticker betas, and TOPIX night return.
-
-    ``gap_override[j] = current_prices[ticker] / previous_close - 1``.
-    Missing prices or previous closes are replaced with 0.0.
-    """
-    if trade_date not in df_exec.index:
-        n_j = len(JP_TICKERS)
-        return np.zeros(n_j), np.zeros(n_j), 0.0
-    row = df_exec.loc[trade_date]
-    gap_override = np.zeros(len(JP_TICKERS))
-    betas_t = np.zeros(len(JP_TICKERS))
-    for j, tk in enumerate(JP_TICKERS):
-        prev_close = row.get(f"jp_close_sig_{tk}")
-        price = current_prices.get(tk)
-        if (
-            price is not None
-            and np.isfinite(price)
-            and float(price) > 0
-            and pd.notna(prev_close)
-            and float(prev_close) > 0
-        ):
-            gap_override[j] = float(price) / float(prev_close) - 1.0
-        else:
-            gap_override[j] = 0.0
-        beta_val = row.get(f"jp_beta_{tk}")
-        betas_t[j] = float(beta_val) if pd.notna(beta_val) else 0.0
-    topix_night_t = float(row.get("topix_night_return", 0.0))
-    if not np.isfinite(topix_night_t):
-        topix_night_t = 0.0
-    return gap_override, betas_t, topix_night_t
-
-
-# ---------------------------------------------------------------------------
-# Module identifier (used by production_v2_writer.py)
-# ---------------------------------------------------------------------------
-VERSION = "production_residual_blpx_v2"
-
-# ---------------------------------------------------------------------------
-# Default constants (mirror ProductionV2RunConfig Pydantic defaults)
-# Exported for tests and tools that need quick access without parsing cfg.
-# ---------------------------------------------------------------------------
+# Default constants (mirror ProductionV2RunConfig Pydantic defaults).
 BASELINE_GROSS = 2.0
 COST_BPS_PER_GROSS = 10.0
 LONG_COUNT = 5
 SHORT_COUNT = 5
 
 
-# ---------------------------------------------------------------------------
-# Config parsing
-# ---------------------------------------------------------------------------
-
-
 def parse_run_config(cfg: dict) -> ProductionV2RunConfig:
-    """Convert a raw (possibly flat) YAML cfg dict to a validated ``ProductionV2RunConfig``.
-
-    Reads both the legacy nested YAML sections and the new flat top-level
-    keys, normalizes them through ``_map_flat_to_nested``, and validates
-    against the Pydantic schema.  Missing keys fall back to field defaults.
-
-    Args:
-        cfg: Raw dict loaded from the production YAML file.
-
-    Returns:
-        Validated, frozen ``ProductionV2RunConfig`` instance.
-    """
+    """Convert a raw (possibly flat) YAML cfg dict to a validated ``ProductionV2RunConfig``."""
     cfg = safe_config_copy(cfg) or {}
     mapped = _map_flat_to_nested(cfg)
     return ProductionV2RunConfig(**mapped)
-
-
-# ---------------------------------------------------------------------------
-# Data loading helpers
-# ---------------------------------------------------------------------------
-
-
-def load_pit_ir_history(
-    gap_input_dir: Path,
-    trade_date: str,
-) -> tuple[np.ndarray, list[str], np.ndarray]:
-    """Load historical ex-ante IR series for PIT binning.
-
-    Reads ``portfolio_gap_distribution_diagnostics.csv`` and returns only
-    rows strictly before *trade_date* to preserve point-in-time integrity.
-
-    Args:
-        gap_input_dir: Root directory of the gap distribution output.
-        trade_date: Trade execution date (rows >= this date are excluded).
-
-    Returns:
-        Tuple of (history_ir array, alerts list, history_trade_dates array).
-    """
-    alerts: list[str] = []
-
-    # Prefer the canonical full-history diagnostics file (maintained across runs)
-    # over the per-run portfolio_gap_distribution_diagnostics.csv, which may
-    # contain only the recent days computed in that run.
-    canonical_file = gap_input_dir / "full_history_diagnostics.csv"
-    if not canonical_file.exists():
-        canonical_file = gap_input_dir.parent / "full_history_diagnostics.csv"
-    if canonical_file.exists():
-        diag_file = canonical_file
-    else:
-        diag_file = gap_input_dir / "portfolio_gap_distribution_diagnostics.csv"
-
-    if not diag_file.exists():
-        alerts.append(
-            f"Diagnostics file missing: {diag_file}. PIT binning falls back to Medium/1.0."
-        )
-        return np.array([]), alerts, np.array([])
-
-    df = pd.read_csv(diag_file)
-    df["trade_date"] = pd.to_datetime(df["trade_date"]).dt.strftime("%Y-%m-%d")
-    df_hist = df[df["trade_date"] < trade_date]
-
-    # Prefer pred_ir_gap_baseline_cost (computed with same weight construction
-    # and cost formula as current_ir) over pred_ir_gap_exante_cost (legacy,
-    # uses different weights and rolling realized cost).
-    ir_col = "pred_ir_gap_baseline_cost"
-    if ir_col not in df_hist.columns:
-        ir_col = "pred_ir_gap_exante_cost"
-        alerts.append(
-            "pred_ir_gap_baseline_cost not found in diagnostics CSV, falling back to "
-            "pred_ir_gap_exante_cost. Historical IR may be inconsistent with current_ir. "
-            "Regenerate diagnostics with updated compute_gap_adjusted_distribution.py."
-        )
-
-    if ir_col not in df_hist.columns:
-        alerts.append(
-            "No IR column found in diagnostics. PIT binning falls back to Medium/1.0."
-        )
-        return np.array([]), alerts, np.array([])
-
-    history_ir = df_hist[ir_col].values
-    history_dates = pd.to_datetime(df_hist["trade_date"]).values
-    return history_ir, alerts, history_dates
-
-
-def _derive_signal_date(gap_input_dir: Path | None, trade_date: str) -> str:
-    """Derive signal_date as the previous TSE trading day of trade_date.
-
-    Gap matrices for *trade_date* are computed from the US close on the prior
-    JP business day and the JP opening gap on *trade_date*.  The actual signal
-    inputs therefore stop at the previous business day, so the signal_date for
-    the leakage audit is that prior business day.  Japanese holidays are
-    taken into account so that a holiday does not become the signal date.
-    """
-    trade_dt = cast(pd.Timestamp, pd.to_datetime(trade_date).normalize())
-    prev_day = previous_trading_day(trade_dt.to_pydatetime())
-    return prev_day.strftime("%Y-%m-%d")
-
-
-def _build_summary(
-    w: np.ndarray,
-    date_str: str,
-    mult: float,
-    assigned_bin: str,
-    lo_thresh: float,
-    hi_thresh: float,
-    run_cfg: ProductionV2RunConfig,
-    *,
-    fallback: bool,
-    candidate: str,
-    scores: np.ndarray | None = None,
-    mu_gap: np.ndarray | None = None,
-    Omega_gap: np.ndarray | None = None,
-) -> dict:
-    """Build a one-row performance summary dict.
-
-    Uses ``run_cfg.cost_bps_per_gross`` for IR calculation so that the
-    cost assumption always comes from the YAML config.
-    """
-    n_j = len(JP_TICKERS)
-    if scores is None:
-        scores = np.zeros(n_j)
-    if mu_gap is None:
-        mu_gap = np.zeros(n_j)
-    if Omega_gap is None:
-        Omega_gap = np.eye(n_j) * 0.01
-
-    long_idx = np.where(w > 1e-8)[0]
-    short_idx = np.where(w < -1e-8)[0]
-    gross = float(np.sum(np.abs(w)))
-    net = float(np.sum(w))
-
-    p_mean = float(np.dot(w, mu_gap))
-    p_var = float(np.dot(w, np.dot(Omega_gap, w)))
-    p_vol = float(np.sqrt(max(0.0, p_var)))
-    # Cost in decimal: cost_bps_per_gross / 10000 × gross
-    ex_ante_cost = gross * (run_cfg.cost_bps_per_gross / 10000.0)
-    p_ir = float((p_mean - ex_ante_cost) / p_vol) if p_vol > 1e-6 else 0.0
-
-    w_l = w[w > 0]
-    hhi = float(np.sum((w_l / np.sum(w_l)) ** 2)) if len(w_l) > 0 else 0.0
-
-    return {
-        "trade_date": date_str,
-        "candidate": candidate,
-        "version": VERSION,
-        "long_count": int(len(long_idx)),
-        "short_count": int(len(short_idx)),
-        "target_gross": gross,
-        "target_net": net,
-        "gross_multiplier": float(mult),
-        "pit_bin": assigned_bin,
-        "pit_threshold_low": lo_thresh,
-        "pit_threshold_high": hi_thresh,
-        "predicted_portfolio_mean": p_mean,
-        "predicted_portfolio_vol": p_vol,
-        "predicted_portfolio_ir": p_ir,
-        "expected_cost_bps": gross * run_cfg.cost_bps_per_gross,
-        "herfindahl": hhi,
-        "fallback_triggered": int(fallback),
-    }
-
-
-
-# ---------------------------------------------------------------------------
-# Core orchestrator
-# ---------------------------------------------------------------------------
-
-
-def _run_safety_audits(
-    w_final: np.ndarray,
-    scores: np.ndarray,
-    mu_gap: np.ndarray,
-    Omega_gap: np.ndarray,
-    sigma_gap: np.ndarray,
-    gap_input_dir: Path | None,
-    date_str: str,
-    signal_date: str,
-    run_cfg: ProductionV2RunConfig,
-    fallback: dict,
-    pit_binning: dict,
-    alerts: list[str],
-    pit_history_trade_dates: np.ndarray | None,
-    candidate: str,
-) -> dict:
-    """Run leakage/numerical audits and assemble the final result dict."""
-    if fallback["gap_data_missing"]:
-        # Flat fallback means no signal was computed, so there is no leakage.
-        # Return a clearly distinguished status to avoid false FAILED alerts.
-        leakage = {
-            "status": "FLAT",
-            "signal_date_strictly_before_trade_date": True,
-            "post_open_timing_respected": True,
-            "realized_returns_not_used_in_signal": True,
-            "pit_binning_strictly_historical": True,
-            "gap_data_freshness_ok": True,
-        }
-    else:
-        leakage = run_leakage_audit(
-            signal_date,
-            date_str,
-            gap_data_loaded=not fallback["gap_data_missing"],
-            pit_history_trade_dates=pit_history_trade_dates,
-        )
-
-    numerical = run_numerical_audit(w_final, scores, Omega_gap)
-    if numerical["status"] == "FAILED" and run_cfg.fallback_on_audit_failure:
-        alerts.append(f"Numerical audit FAILED: {numerical}. Falling back to flat position.")
-        fallback["gap_data_missing"] = True
-        w_final = np.zeros_like(w_final)
-        numerical = run_numerical_audit(w_final, scores, Omega_gap)
-    elif numerical["status"] == "FAILED":
-        alerts.append(
-            f"Numerical audit FAILED: {numerical}. fallback_on_audit_failure=False; "
-            "keeping v2 weights."
-        )
-
-    summary = _build_summary(
-        w_final, date_str, pit_binning["multiplier"], pit_binning["assigned_bin"],
-        pit_binning["threshold_low"], pit_binning["threshold_high"], run_cfg,
-        fallback=fallback["gap_data_missing"], candidate=candidate,
-        scores=scores, mu_gap=mu_gap, Omega_gap=Omega_gap,
-    )
-
-    return {
-        "w_final": w_final,
-        "scores": scores,
-        "mu_gap": mu_gap,
-        "sigma_gap": sigma_gap,
-        "Omega_gap": Omega_gap,
-        "fallback": fallback,
-        "pit_binning": pit_binning,
-        "leakage": leakage,
-        "numerical": numerical,
-        "alerts": alerts,
-        "summary": summary,
-        "run_config": run_cfg,
-    }
-
-
-def generate_v2_production_portfolio_from_distribution(
-    mu_gap: np.ndarray,
-    omega_gap: np.ndarray,
-    trade_date: str,
-    run_config: ProductionV2RunConfig,
-    df_exec: pd.DataFrame | None,
-    gap_input_dir: Path | None,
-    scores: np.ndarray | None = None,
-    cache: dict | None = None,
-) -> dict:
-    """Build a V2 portfolio from a pre-computed (mu_gap, Omega_gap) distribution.
-
-    This is the rank/RuleD/weight stage of the pipeline.  It does **not** load
-    gap matrix files and it does **not** run the on-demand BLPX computation.
-    Multi-horizon blending (if any) must already be reflected in *mu_gap* / *Omega_gap*
-    or in the optional *scores* argument.
-
-    Returns the standard V2 result dict including ``w_final``, ``scores``,
-    ``pit_binning``, ``summary`` and audits.
-    """
-    n_j = len(JP_TICKERS)
-    date_str = pd.to_datetime(trade_date).strftime("%Y-%m-%d")
-    alerts: list[str] = []
-
-    # Ensure PSD and optionally apply macro adjustments.
-    mu_gap, omega_gap, alerts = _repair_and_adjust(
-        mu_gap, omega_gap, run_config, date_str, n_j, alerts, cache=cache
-    )
-
-    # Scores (mu_over_sigma).  If the caller already blended multiple horizons,
-    # use the supplied scores; otherwise derive from mu_gap / sigma_gap.
-    sigma_gap = np.sqrt(np.maximum(np.diag(omega_gap), run_config.sigma_floor))
-    if scores is None:
-        scores = mu_gap / sigma_gap
-
-    # Cross-sectional rank-reversal overlay (file-based pre-computed signal).
-    if run_config.cs_overlay_enabled:
-        scores, cs_alerts = apply_rank_reversal_overlay(
-            scores=scores,
-            gap_input_dir=gap_input_dir,
-            date_str=date_str,
-            weight=run_config.cs_overlay_weight,
-            file_pattern=run_config.cs_rank_reversal_file_pattern,
-        )
-        alerts.extend(cs_alerts)
-        if not any("not found" in a or "None" in a for a in cs_alerts):
-            logger.info("[%s] Rank reversal overlay applied: weight=%.2f", date_str, run_config.cs_overlay_weight)
-
-    # Long/short selection.
-    sorted_idx = np.argsort(scores)
-    short_idx = sorted_idx[:run_config.short_count]
-    long_idx = sorted_idx[-run_config.long_count:]
-
-    # Pre-gross weights.
-    if run_config.minvar_enabled:
-        w_minvar = build_weights_minvar(
-            signal=scores,
-            q=float(run_config.long_count) / n_j,
-            n_j=n_j,
-            Sigma_YY=omega_gap,
-            alpha=run_config.minvar_alpha,
-            enforce_sign=False,
-        )
-        w_pre = w_minvar * (run_config.baseline_gross / 2.0)
-        logger.info("[%s] MinVar weights applied: alpha=%.2f, gross=%.4f", date_str, run_config.minvar_alpha, float(np.sum(np.abs(w_pre))))
-    else:
-        w_pre = solve_baseline_style(scores, long_idx, short_idx, baseline_gross=run_config.baseline_gross)
-
-    # PIT binning and RuleD.
-    w_final, pit_binning, alerts, pit_history_trade_dates = _apply_pit_ruleD(
-        w_pre, mu_gap, omega_gap, gap_input_dir, date_str, run_config, alerts
-    )
-
-    # Safety audits and final assembly.
-    signal_date = _derive_signal_date(gap_input_dir, date_str)
-    return _run_safety_audits(
-        w_final=w_final,
-        scores=scores,
-        mu_gap=mu_gap,
-        Omega_gap=omega_gap,
-        sigma_gap=sigma_gap,
-        gap_input_dir=gap_input_dir,
-        date_str=date_str,
-        signal_date=signal_date,
-        run_cfg=run_config,
-        fallback={"gap_data_missing": False},
-        pit_binning=pit_binning,
-        alerts=alerts,
-        pit_history_trade_dates=pit_history_trade_dates,
-        candidate="primary_ruleD",
-    )
-
-
-def _gap_alerts_fatal(gap_alerts: list[str]) -> bool:
-    """Return True if loaded gap matrices must not be used.
-
-    Shape or non-finite alerts are fatal. Symmetry / PSD alerts are repairable
-    downstream and therefore not fatal.
-    """
-    for alert in gap_alerts:
-        if "shape" in alert or "non-finite" in alert:
-            return True
-    return False
-
-
-def _load_gap_or_flat(
-    gap_input_dir: Path | None,
-    run_cfg: ProductionV2RunConfig,
-    n_j: int,
-    date_str: str,
-) -> dict:
-    """Load gap matrices or return a flat-position result dict.
-
-    Returns a dict with keys:
-      - is_flat (bool): whether the flat fallback was triggered.
-      - result (dict | None): final result dict when is_flat is True.
-      - mu_gap / Omega_gap: loaded matrices when is_flat is False.
-      - alerts (list[str]): alerts from this stage.
-    """
-    alerts: list[str] = []
-    gap_alerts: list[str] = []
-    fallback = {"gap_data_missing": False}
-
-    mu_gap: np.ndarray | None = None
-    Omega_gap: np.ndarray | None = None
-    if gap_input_dir is not None:
-        try:
-            mu_gap, Omega_gap, gap_alerts = load_gap_matrices(
-                gap_input_dir, date_str, strict=True
-            )
-        except DataValidationError as exc:
-            gap_alerts = [str(exc)]
-        alerts.extend(gap_alerts)
-    else:
-        alerts.append("--gap-input-dir not specified.")
-
-    if mu_gap is None or Omega_gap is None or _gap_alerts_fatal(gap_alerts):
-        fallback["gap_data_missing"] = True
-        logger.error(
-            "[%s] Gap data missing or invalid. Returning flat position (w_final=0). No trading today.",
-            date_str,
-        )
-        alerts.append("Gap data missing or invalid. Flat position (w_final=0) returned.")
-
-        dummy_scores = np.zeros(n_j)
-        dummy_Omega = np.eye(n_j) * 0.01
-        pit_binning = {
-            "assigned_bin": "Medium",
-            "threshold_low": float("nan"),
-            "threshold_high": float("nan"),
-            "multiplier": run_cfg.fallback_multiplier,
-            "current_ir": 0.0,
-            "history_count": 0,
-            "fallback_flag": True,
-        }
-
-        result = _run_safety_audits(
-            w_final=np.zeros(n_j),
-            scores=dummy_scores,
-            mu_gap=np.zeros(n_j),
-            Omega_gap=dummy_Omega,
-            sigma_gap=np.ones(n_j) * 0.1,
-            gap_input_dir=gap_input_dir,
-            date_str=date_str,
-            signal_date=date_str,
-            run_cfg=run_cfg,
-            fallback=fallback,
-            pit_binning=pit_binning,
-            alerts=alerts,
-            pit_history_trade_dates=None,
-            candidate="flat_position",
-        )
-        return {
-            "is_flat": True,
-            "result": result,
-            "mu_gap": None,
-            "Omega_gap": None,
-            "alerts": alerts,
-        }
-
-    return {
-        "is_flat": False,
-        "result": None,
-        "mu_gap": mu_gap,
-        "Omega_gap": Omega_gap,
-        "alerts": alerts,
-    }
-
-
-def _repair_and_adjust(
-    mu_gap: np.ndarray,
-    Omega_gap: np.ndarray,
-    run_cfg: ProductionV2RunConfig,
-    date_str: str,
-    n_j: int,
-    alerts: list[str],
-    cache: dict | None = None,
-) -> tuple[np.ndarray, np.ndarray, list[str]]:
-    """Ensure Omega_gap is symmetric and PSD; optionally apply macro adjustments."""
-    # Symmetrize before any eigenvalue or quadratic-form operation.
-    sym_err = float(np.max(np.abs(Omega_gap - Omega_gap.T)))
-    if sym_err > 1e-8:
-        Omega_gap = 0.5 * (Omega_gap + Omega_gap.T)
-        alerts.append(f"Omega_gap was non-symmetric (err={sym_err:.3e}); symmetrized before PSD repair.")
-
-    # Ensure Omega_gap is PSD
-    min_eig = np.min(np.linalg.eigvalsh(Omega_gap))
-    if min_eig < 0.0:
-        Omega_gap = Omega_gap + (abs(min_eig) + 1e-8) * np.eye(n_j)
-        alerts.append("Omega_gap repaired to PSD.")
-
-    # Macro adjustments (Omega_gap inflation and/or directional mu_gap adjustment)
-    if run_cfg.macro_kappa_enabled or run_cfg.macro_direction_enabled:
-        try:
-            macro_start = (pd.to_datetime(date_str) - pd.Timedelta(days=365 * 2)).strftime("%Y-%m-%d")
-            macro_end = date_str
-            close_prices = download_macro_prices(start=macro_start, end=macro_end, cache=cache)
-            if close_prices is not None:
-                # yfinance end is normally exclusive, but guard against any
-                # trade-date (JST) macro close that is not yet known at 9:10.
-                close_prices = close_prices[close_prices.index < pd.to_datetime(date_str)]
-            if close_prices is not None and len(close_prices) >= 30:
-                macro_returns = close_prices.pct_change()
-                macro_returns = macro_returns.replace([np.inf, -np.inf], np.nan)
-                macro_returns = macro_returns.fillna(0.0)
-                macro_returns = macro_returns[MACRO_NAMES]
-
-                surprise = compute_macro_surprise(
-                    macro_returns,
-                    halflife_mean=run_cfg.macro_surprise_halflife_mean,
-                    halflife_vol=run_cfg.macro_surprise_halflife_vol,
-                )
-                surprise_t = surprise[-1:]  # (1, n_macro) — use only the latest day
-                kappas_arr = np.array(run_cfg.macro_kappas, dtype=float)
-
-                # Factor-Kappa: inflate Omega_gap (|surprise| × |sensitivity|)
-                if run_cfg.macro_kappa_enabled:
-                    scales_t = compute_sigma_yy_inflation(
-                        surprise_t, kappas_arr, MACRO_SENS_MATRIX,
-                    )  # (1, n_j)
-                    d = np.sqrt(scales_t[0])  # (n_j,)
-                    Omega_gap = Omega_gap * np.outer(d, d)
-                    alerts.append(
-                        f"Macro kappa Omega_gap inflation applied: "
-                        f"scales_mean={float(np.mean(scales_t[0])):.3f}, "
-                        f"scales_max={float(np.max(scales_t[0])):.3f}"
-                    )
-                    logger.info(
-                        "[%s] Macro kappa: Omega_gap inflated. "
-                        "surprise=%s, scales_mean=%.3f, scales_max=%.3f",
-                        date_str,
-                        np.round(surprise_t[0], 3),
-                        float(np.mean(scales_t[0])),
-                        float(np.max(scales_t[0])),
-                    )
-
-                # Directional adjustment: signed surprise × signed sensitivity on mu_gap
-                if run_cfg.macro_direction_enabled:
-                    dir_adj_t = compute_macro_direction_adjustment(
-                        surprise_t, kappas_arr, MACRO_SENS_MATRIX,
-                    )  # (1, n_j)
-                    mu_gap = mu_gap * dir_adj_t[0]
-                    alerts.append(
-                        f"Macro direction adjustment applied: "
-                        f"adj_mean={float(np.mean(dir_adj_t[0])):.3f}, "
-                        f"adj_std={float(np.std(dir_adj_t[0])):.3f}"
-                    )
-                    logger.info(
-                        "[%s] Macro direction: mu_gap adjusted. "
-                        "adj_mean=%.3f, adj_std=%.3f",
-                        date_str,
-                        float(np.mean(dir_adj_t[0])),
-                        float(np.std(dir_adj_t[0])),
-                    )
-            else:
-                alerts.append("Macro enabled but data insufficient; skipping.")
-                logger.warning("[%s] Macro: data insufficient (%d rows).", date_str, len(close_prices) if close_prices is not None else 0)
-        except Exception as e:
-            alerts.append(f"Macro adjustment failed: {e}")
-            logger.warning("[%s] Macro adjustment failed: %s", date_str, e)
-
-    return mu_gap, Omega_gap, alerts
-
-
-def _apply_pit_ruleD(
-    w_pre: np.ndarray,
-    mu_gap: np.ndarray,
-    Omega_gap: np.ndarray,
-    gap_input_dir: Path | None,
-    date_str: str,
-    run_cfg: ProductionV2RunConfig,
-    alerts: list[str],
-) -> tuple[np.ndarray, dict, list[str], np.ndarray]:
-    """PIT binning and RuleD gross multiplier."""
-    # PIT binning for RuleD — load history, compute current IR
-    history_ir = np.array([])
-    pit_history_dates = np.array([])
-    if gap_input_dir is not None:
-        history_ir, pit_alerts, pit_history_dates = load_pit_ir_history(gap_input_dir, date_str)
-        alerts.extend(pit_alerts)
-
-    # For PIT binning, use the baseline style weights as reference
-    p_mean_baseline = np.dot(w_pre, mu_gap)
-    p_var_baseline = np.dot(w_pre, np.dot(Omega_gap, w_pre))
-    p_vol_baseline = np.sqrt(max(0.0, p_var_baseline))
-    # Ex-ante cost in decimal units
-    ex_ante_cost = run_cfg.baseline_gross * (run_cfg.cost_bps_per_gross / 10000.0)
-    current_ir = (p_mean_baseline - ex_ante_cost) / p_vol_baseline if p_vol_baseline > 1e-6 else 0.0
-
-    # Use PIT parameters from run_cfg (not hardcoded)
-    assigned_bin, lo_thresh, hi_thresh, mult = get_rolling_pit_bin(
-        history_ir,
-        current_ir,
-        rolling_window=run_cfg.pit_rolling_window,
-        low_pct=run_cfg.tertile_low_pct,
-        high_pct=run_cfg.tertile_high_pct,
-        mult_low=run_cfg.mult_low,
-        mult_mid=run_cfg.mult_mid,
-        mult_high=run_cfg.mult_high,
-    )
-    history_count = int(np.sum(np.isfinite(history_ir)))
-    pit_fallback = history_count < run_cfg.pit_rolling_window
-
-    if pit_fallback:
-        alerts.append(
-            f"PIT history insufficient ({history_count} < {run_cfg.pit_rolling_window}). "
-            f"Using {assigned_bin}/{mult:.2f} multiplier."
-        )
-
-    pit_binning = {
-        "assigned_bin": assigned_bin,
-        "threshold_low": lo_thresh,
-        "threshold_high": hi_thresh,
-        "multiplier": float(mult),
-        "current_ir": float(current_ir),
-        "history_count": history_count,
-        "fallback_flag": pit_fallback,
-    }
-    logger.info(
-        "[%s] PIT bin=%s (IR=%.4f), mult=%.2f, history=%dd",
-        date_str, assigned_bin, current_ir, mult, history_count,
-    )
-
-    # Apply RuleD multiplier
-    w_final = w_pre * mult
-
-    return w_final, pit_binning, alerts, pit_history_dates
 
 
 def generate_v2_production_portfolio(
     trade_date: str,
     gap_input_dir: Path | None,
     cfg: ProductionV2RunConfig | dict,
-) -> dict:
-    """Backward-compatible wrapper around ``ProductionV2Model.decide``.
-
-    All runtime parameters come from a validated ``ProductionV2RunConfig``.
-    A raw dict is still accepted for backward compatibility with research
-    scripts; it is parsed into ``ProductionV2RunConfig`` at the boundary.
-    New production code should construct a ``ProductionV2Model`` directly.
-
-    Args:
-        trade_date: Execution date in 'YYYY-MM-DD' format.
-        gap_input_dir: Directory containing gap distribution outputs, or None.
-        cfg: Validated ``ProductionV2RunConfig`` or raw YAML-style dict.
-
-    Returns:
-        V2 result dict (same as ``ProductionV2Model.decide`` with overlay off).
-    """
+) -> PortfolioDecision:
+    """Backward-compatible wrapper around ``ProductionV2Model.decide`` (overlay off)."""
     cfg = safe_config_copy(cfg)
     run_cfg = cfg if isinstance(cfg, ProductionV2RunConfig) else parse_run_config(cfg)
 
@@ -761,24 +97,8 @@ def generate_v2_production_portfolio(
     )
 
 
-# ---------------------------------------------------------------------------
-# Class interface (introduced as the first step toward a unified pipeline)
-# ---------------------------------------------------------------------------
-
-
 class ProductionV2Model:
-    """Unified V2 production decision model.
-
-    ``ProductionV2Model`` ties together:
-      - ``ProductionBLPXModel`` for on-demand residual-BLPX signal computation,
-      - ``load_gap_matrices`` for the validated Step 2 file cache,
-      - ranking, RuleD, PIT, and weight construction,
-      - an optional ML order overlay.
-
-    Callers should provide ``blpx_model`` to enable on-demand computation.
-    If ``blpx_model`` is None, the model falls back to reading pre-computed
-    gap matrices from ``gap_input_dir`` (legacy / shadow mode).
-    """
+    """Unified V2 production decision model."""
 
     def __init__(
         self,
@@ -786,52 +106,24 @@ class ProductionV2Model:
         blpx_model: Any | None = None,
         overlay_model: Any | None = None,
     ) -> None:
-        """Initialize the model."""
         self.run_config = config
         self._raw_config: dict = self.run_config.model_dump()
         self._blpx_model = blpx_model
         self._overlay_model = overlay_model
-
         self.n_u = len(US_TICKERS)
         self.n_j = len(JP_TICKERS)
-
-        # Per-instance cache for macro price downloads (avoids module-level global).
-        self._macro_price_cache: dict = {}
-
-    # ------------------------------------------------------------------
-    # Internal helpers
-    # ------------------------------------------------------------------
+        self._cache_manager = CacheManager(
+            CacheManager.config_hash_from_pydantic(self.run_config),
+            maxsize=128,
+        )
+        self._macro_price_cache = self._cache_manager.namespace("macro_price")
 
     def _file_cache_or_flat(
         self,
         trade_date: str,
         gap_input_dir: Path | None,
-    ) -> dict:
-        """Load pre-computed gap matrices or return a flat-position result.
-
-        This is the file-cache decision path; it does not use the on-demand
-        BLPX model.
-        """
-        gap_stage = _load_gap_or_flat(
-            gap_input_dir, self.run_config, self.n_j, trade_date
-        )
-        if gap_stage["is_flat"]:
-            return cast(dict, gap_stage["result"])
-
-        return generate_v2_production_portfolio_from_distribution(
-            mu_gap=gap_stage["mu_gap"],
-            omega_gap=gap_stage["Omega_gap"],
-            trade_date=trade_date,
-            run_config=self.run_config,
-            df_exec=None,
-            gap_input_dir=gap_input_dir,
-            scores=None,
-            cache=self._macro_price_cache,
-        )
-
-    # ------------------------------------------------------------------
-    # Public API
-    # ------------------------------------------------------------------
+    ) -> PortfolioDecision:
+        return _v2_file_cache_or_flat(self, trade_date, gap_input_dir)
 
     def decide(
         self,
@@ -841,115 +133,23 @@ class ProductionV2Model:
         current_prices: dict[str, float] | None = None,
         overlay_enabled: bool = True,
         use_file_cache: bool = True,
-    ) -> dict:
-        """Generate the v2 portfolio decision for *trade_date*.
-
-        Two paths are supported:
-          1. On-demand: ``blpx_model`` is not None, ``df_exec`` and ``current_prices``
-             are supplied. This computes ``(mu_gap, Omega_gap)`` from 9:10 prices
-             and the BLPX structured covariance.
-          2. File cache: ``blpx_model`` is None. ``gap_input_dir`` must contain
-             the pre-computed matrices.
-
-        Args:
-            trade_date: Execution date in ``YYYY-MM-DD`` format.
-            gap_input_dir: Directory with pre-computed gap matrices, or None.
-            df_exec: Execution DataFrame (required for on-demand path).
-            current_prices: 9:10 JP open prices by ticker (required for on-demand).
-            overlay_enabled: Whether to apply the ML overlay if configured.
-            use_file_cache: Prefer the Step 2 file cache when available
-                (production). Set to False for pure on-demand shadow runs.
-
-        Returns:
-            V2 result dict.
-        """
+        lake: PITDataLake | None = None,
+        snapshot: MarketSnapshot | None = None,
+    ) -> PortfolioDecision:
         if gap_input_dir is not None:
             gap_input_dir = Path(gap_input_dir)
-
-        # Keep the directory available to compute_distribution / file loaders.
         self._current_gap_input_dir = gap_input_dir
-
-        # Path A: on-demand BLPX computation with optional file-cache shadow.
-        if self._blpx_model is not None and df_exec is not None:
-            if current_prices is None:
-                raise ValueError("current_prices is required for on-demand V2 decision.")
-
-            try:
-                # Multi-horizon blend or single-horizon.
-                if self.run_config.mh_blend_enabled and len(self.run_config.mh_horizons) > 1:
-                    mu_gap, omega_gap, scores = self._multi_horizon_scores(
-                        trade_date=trade_date,
-                        df_exec=df_exec,
-                        current_prices=current_prices,
-                        use_file_cache=use_file_cache,
-                    )
-                else:
-                    mu_gap, omega_gap = self.compute_distribution(
-                        trade_date=trade_date,
-                        df_exec=df_exec,
-                        current_prices=current_prices,
-                        horizon=1,
-                        use_file_cache=use_file_cache,
-                    )
-                    scores = None
-
-                result = generate_v2_production_portfolio_from_distribution(
-                    mu_gap=mu_gap,
-                    omega_gap=omega_gap,
-                    trade_date=trade_date,
-                    run_config=self.run_config,
-                    df_exec=df_exec,
-                    gap_input_dir=gap_input_dir,
-                    scores=scores,
-                    cache=self._macro_price_cache,
-                )
-            except Exception as e:
-                if self.run_config.fallback_on_gap_data_missing:
-                    logger.error(
-                        "[%s] On-demand V2 computation failed: %s. Falling back to file cache / flat.",
-                        trade_date, e,
-                    )
-                    result = self._file_cache_or_flat(trade_date, gap_input_dir)
-                else:
-                    raise
-
-        # Path B: pre-computed file cache.
-        else:
-            if df_exec is not None and current_prices is not None and self._blpx_model is None:
-                logger.warning(
-                    "[%s] blpx_model not available; falling back to file cache.",
-                    trade_date,
-                )
-            result = self._file_cache_or_flat(trade_date, gap_input_dir)
-
-        # Optional overlay.
-        return self._apply_overlay(result, trade_date, df_exec, overlay_enabled)
-
-    # ------------------------------------------------------------------
-    # Distribution computation
-    # ------------------------------------------------------------------
-
-    def _compare_distribution(self, label: str, mu_file: np.ndarray, omega_file: np.ndarray,
-                              mu_ondemand: np.ndarray, omega_ondemand: np.ndarray) -> None:
-        """Compare file cache to on-demand and log divergence warnings."""
-        max_abs_mu = float(np.max(np.abs(mu_file - mu_ondemand)))
-        mu_scale = float(np.max(np.abs(mu_file))) + 1e-8
-        rel_mu = max_abs_mu / mu_scale
-
-        frob_omega = float(np.linalg.norm(omega_file - omega_ondemand, "fro"))
-        omega_scale = float(np.linalg.norm(omega_file, "fro")) + 1e-8
-        rel_omega = frob_omega / omega_scale
-
-        logger.info(
-            "[%s] Shadow on-demand vs file cache: max|dmu|=%.6g (rel=%.4g), frob|dOmega|=%.6g (rel=%.4g)",
-            label, max_abs_mu, rel_mu, frob_omega, rel_omega,
+        return _v2_decide(
+            self,
+            trade_date=trade_date,
+            gap_input_dir=gap_input_dir,
+            df_exec=df_exec,
+            current_prices=current_prices,
+            overlay_enabled=overlay_enabled,
+            use_file_cache=use_file_cache,
+            lake=lake,
+            snapshot=snapshot,
         )
-        if rel_mu > 0.01 or rel_omega > 0.01:
-            logger.warning(
-                "[%s] On-demand distribution differs from file cache by >1%% (rel_mu=%.4g, rel_omega=%.4g). "
-                "File cache is used; investigate model/dataset drift.",
-                label, rel_mu, rel_omega,
-            )
 
     def compute_distribution(
         self,
@@ -961,75 +161,18 @@ class ProductionV2Model:
         mu_pattern: str | None = None,
         omega_pattern: str | None = None,
         use_file_cache: bool = True,
+        snapshot: Any | None = None,
     ) -> tuple[np.ndarray, np.ndarray]:
-        """Compute (mu_gap, Omega_gap) for trade_date and horizon.
-
-        1. The validated Step 2 file cache is the primary, trusted path.
-        2. If the cache is missing and ``ondemand_fallback_enabled`` is True,
-           fall back to on-demand BLPX computation.
-        3. If ``shadow_ondemand_validation`` is True, also compute on-demand
-           when the file cache exists and compare the two distributions.
-        """
-        if self._blpx_model is None:
-            raise RuntimeError("compute_distribution requires a blpx_model")
-
-        gap_input_dir = getattr(self, "_current_gap_input_dir", None) or getattr(
-            self.run_config, "gap_input_dir", None
-        )
-
-        ondemand_fallback = getattr(self.run_config, "ondemand_fallback_enabled", True)
-        shadow_validation = getattr(self.run_config, "shadow_ondemand_validation", False)
-
-        file_mu: np.ndarray | None = None
-        file_omega: np.ndarray | None = None
-        if use_file_cache and gap_input_dir is not None:
-            if horizon == 1:
-                _mu_pattern = mu_pattern or "matrices/mu_gap_{date}.npy"
-                _omega_pattern = omega_pattern or "matrices/omega_gap_{date}.npy"
-                _pattern_kwargs = None
-            else:
-                _mu_pattern = mu_pattern or self.run_config.mh_mu_file_pattern_h
-                _omega_pattern = omega_pattern or self.run_config.mh_omega_file_pattern_h
-                _pattern_kwargs = {"h": horizon}
-            file_mu, file_omega, file_alerts = load_gap_matrices(
-                gap_input_dir,
-                trade_date,
-                mu_pattern=_mu_pattern,
-                omega_pattern=_omega_pattern,
-                pattern_kwargs=_pattern_kwargs,
-                n_j=self.n_j,
-                strict=False,
-            )
-            if _gap_alerts_fatal(file_alerts):
-                logger.error(
-                    "[%s] File cache gap matrices are invalid (%s); falling back to on-demand.",
-                    trade_date, ", ".join(file_alerts),
-                )
-                file_mu, file_omega = None, None
-
-        if file_mu is not None and file_omega is not None:
-            if shadow_validation:
-                mu_ondemand, omega_ondemand = self._compute_ondemand(
-                    trade_date=trade_date,
-                    df_exec=df_exec,
-                    current_prices=current_prices,
-                    horizon=horizon,
-                )
-                label = f"{trade_date}:h{horizon}"
-                self._compare_distribution(label, file_mu, file_omega, mu_ondemand, omega_ondemand)
-            return file_mu, file_omega
-
-        if ondemand_fallback:
-            logger.warning("[%s] Gap file cache missing (h=%d); computing on-demand.", trade_date, horizon)
-            return self._compute_ondemand(
-                trade_date=trade_date,
-                df_exec=df_exec,
-                current_prices=current_prices,
-                horizon=horizon,
-            )
-
-        raise RuntimeError(
-            f"Gap matrices missing for {trade_date} (h={horizon}) and on-demand fallback is disabled."
+        return _v2_compute_distribution(
+            self,
+            trade_date=trade_date,
+            df_exec=df_exec,
+            current_prices=current_prices,
+            horizon=horizon,
+            mu_pattern=mu_pattern,
+            omega_pattern=omega_pattern,
+            use_file_cache=use_file_cache,
+            snapshot=snapshot,
         )
 
     def _compute_ondemand(
@@ -1039,53 +182,16 @@ class ProductionV2Model:
         current_prices: dict[str, float],
         *,
         horizon: int = 1,
+        snapshot: Any | None = None,
     ) -> tuple[np.ndarray, np.ndarray]:
-        """Compute on-demand gap-adjusted distribution."""
-        if self._blpx_model is None:
-            raise RuntimeError("_compute_ondemand requires a blpx_model")
-
-        inputs = self._blpx_model._prepare_common_inputs(df_exec, horizon=horizon)
-        current_index = self._resolve_current_index(df_exec, trade_date)
-
-        blpx_result = self._blpx_model.compute_blp_signal(
-            all_returns=inputs["jp_res_returns_p3"],
-            current_index=current_index,
-            v0_static=inputs["v0_static"],
-            c_full=inputs["c_full_p3"],
-            is_residual=True,
-            return_matrices=True,
+        return _v2_compute_ondemand(
+            self,
+            trade_date=trade_date,
+            df_exec=df_exec,
+            current_prices=current_prices,
+            horizon=horizon,
+            snapshot=snapshot,
         )
-
-        # Determine US market direction from the BLPX z-score of US returns.
-        us_negative = float(np.nanmean(blpx_result["z_U_t"])) < 0.0
-
-        # Select gap correction coefficients based on US direction.
-        gap_open_coef = self._blpx_model.gap_open_coef
-        if us_negative and getattr(self._blpx_model, "gap_open_coef_neg", None) is not None:
-            gap_open_coef = self._blpx_model.gap_open_coef_neg
-        topix_beta_coef = self._blpx_model.topix_beta_coef
-        if us_negative and getattr(self._blpx_model, "topix_beta_coef_neg", None) is not None:
-            topix_beta_coef = self._blpx_model.topix_beta_coef_neg
-
-        # Build gap-adjusted distribution.
-        gap_override, betas_t, topix_night_t = _extract_gap_inputs(
-            df_exec, trade_date, current_prices
-        )
-
-        mu_raw, omega_raw = build_raw_distribution(
-            blpx_result,
-            vol_adjusted_target=getattr(self._blpx_model, "vol_adjusted_target", False),
-        )
-        mu_gap, omega_gap = compute_gap_adjusted_distribution(
-            mu_raw,
-            omega_raw,
-            gap_override,
-            betas_t,
-            topix_night_t,
-            gap_open_coef=gap_open_coef,
-            topix_beta_coef=topix_beta_coef,
-        )
-        return mu_gap, omega_gap
 
     def _multi_horizon_scores(
         self,
@@ -1093,80 +199,26 @@ class ProductionV2Model:
         df_exec: pd.DataFrame,
         current_prices: dict[str, float],
         use_file_cache: bool = True,
+        snapshot: Any | None = None,
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """Blend per-horizon (mu_gap, Omega_gap) into a single score series."""
-        n_j = self.n_j
-        h1_scores = None
-        weighted_sum = np.zeros(n_j)
-        total_weight = 0.0
-        mu_h1 = None
-        omega_h1 = None
-
-        for h, w in zip(self.run_config.mh_horizons, self.run_config.mh_weights):
-            mu_h, omega_h = self.compute_distribution(
-                trade_date=trade_date,
-                df_exec=df_exec,
-                current_prices=current_prices,
-                horizon=h,
-                use_file_cache=use_file_cache,
-            )
-            sigma_h = np.sqrt(np.maximum(np.diag(omega_h), self.run_config.sigma_floor))
-            score_h = mu_h / sigma_h
-
-            if h == 1:
-                mu_h1, omega_h1, h1_scores = mu_h, omega_h, score_h
-
-            weighted_sum += w * score_h
-            total_weight += w
-
-        if total_weight < 1e-8:
-            if h1_scores is None:
-                raise RuntimeError("Multi-horizon blend produced no valid horizon.")
-            return mu_h1, omega_h1, h1_scores
-
-        blended = weighted_sum / total_weight
-        blended_std = np.std(blended)
-        h1_std = np.std(h1_scores) if h1_scores is not None else blended_std
-        if blended_std > 1e-8 and h1_std > 1e-8:
-            blended = blended * (h1_std / blended_std)
-
-        scores = (blended - np.median(blended))
-        score_std = np.std(scores)
-        if score_std > 1e-8:
-            scores = scores / score_std
-
-        return mu_h1, omega_h1, scores
-
-    # ------------------------------------------------------------------
-    # Overlay
-    # ------------------------------------------------------------------
+        return _v2_multi_horizon_scores(
+            self,
+            trade_date=trade_date,
+            df_exec=df_exec,
+            current_prices=current_prices,
+            use_file_cache=use_file_cache,
+            snapshot=snapshot,
+        )
 
     def _apply_overlay(
         self,
-        result: dict,
+        result: PortfolioDecision,
         trade_date: str,
         df_exec: pd.DataFrame | None,
         overlay_enabled: bool,
-    ) -> dict:
-        """Apply the ML order overlay if enabled and available."""
-        if not overlay_enabled:
-            return result
-        if self._overlay_model is None:
-            return result
-        if not getattr(self.run_config, "ml_overlay_enabled", False):
-            return result
-        if df_exec is None:
-            logger.warning("[%s] Overlay requested but df_exec is None; skipping.", trade_date)
-            return result
-
-        from leadlag.models.ml_order_overlay import apply_overlay
-        return apply_overlay(result, df_exec, self._overlay_model, trade_date)
-
-    # ------------------------------------------------------------------
-    # Helpers
-    # ------------------------------------------------------------------
+    ) -> PortfolioDecision:
+        return _v2_apply_overlay(self, result, trade_date, df_exec, overlay_enabled)
 
     @staticmethod
     def _resolve_current_index(df_exec: pd.DataFrame, trade_date: str) -> int:
-        """Return the integer position of *trade_date* in *df_exec*."""
-        return int(df_exec.index.get_loc(trade_date))
+        return _v2_resolve_current_index(df_exec, trade_date)

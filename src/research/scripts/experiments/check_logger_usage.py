@@ -1,7 +1,7 @@
 import ast
 from pathlib import Path
 
-project = Path('/Users/shonen/日米ラグ')
+project = Path('/Users/shonen/leadlag')
 errors = []
 
 for py_file in project.rglob('*.py'):

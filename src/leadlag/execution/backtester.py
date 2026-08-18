@@ -14,6 +14,7 @@ import numpy as np
 import pandas as pd
 
 from leadlag.config.schemas import AppConfig
+from leadlag.data.pit_lake import PITDataLake
 from leadlag.data.preprocessor import compute_jp_target_returns
 from leadlag.data.tickers import JP_TICKERS
 from leadlag.execution.config import build_app_config_from_dict
@@ -22,10 +23,7 @@ from leadlag.models.ml_order_overlay import (
     MLOrderOverlayModel,
     load_overlay_model,
 )
-from leadlag.models.production_v2 import (
-    ProductionV2Model,
-    _build_current_prices_from_df_exec,
-)
+from leadlag.models.production_v2 import ProductionV2Model
 
 logger = logging.getLogger(__name__)
 
@@ -450,16 +448,18 @@ class BacktestEngine:
             overlay_model=overlay_model,
         )
 
+        lake = PITDataLake(df_exec)
+
         def _process_date(i_dt: tuple[int, pd.Timestamp]) -> tuple[int, np.ndarray, bool, dict]:
             i, dt = i_dt
             date_str = dt.strftime("%Y-%m-%d")
             try:
-                current_prices = _build_current_prices_from_df_exec(df_exec, date_str)
+                snapshot = lake.get_snapshot(dt)
                 result = v2_model.decide(
                     trade_date=date_str,
                     gap_input_dir=effective_gap_dir,
-                    df_exec=df_exec,
-                    current_prices=current_prices,
+                    lake=lake,
+                    snapshot=snapshot,
                     overlay_enabled=run_cfg.ml_overlay_enabled,
                     use_file_cache=True,
                 )

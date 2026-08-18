@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import cast
+from collections.abc import MutableMapping
+from typing import Any, cast
 
 import numpy as np
 from scipy.optimize import minimize_scalar
@@ -159,7 +160,7 @@ def compute_correlation(
     copula_blend_weight: float = 0.0,
     copula_nu_init: float = 5.0,
     use_cache: bool = True,
-    cache: dict | None = None,
+    cache: MutableMapping[Any, Any] | None = None,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Compute rolling mean, std, and correlation (equal-weight or EWMA).
 

@@ -4,7 +4,7 @@ from pathlib import Path
 
 import numpy as np
 
-BASE = Path("/Users/shonen/日米ラグ/var/live/pipeline_data/gap_adjusted_distribution")
+BASE = Path("/Users/shonen/leadlag/var/live/pipeline_data/gap_adjusted_distribution")
 
 batch = BASE / "20260714_085119" / "matrices"
 live = BASE / "latest" / "matrices"

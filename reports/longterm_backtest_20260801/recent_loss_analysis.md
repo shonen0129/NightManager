@@ -1,7 +1,7 @@
 # 直近損失傾向診断レポート
 
 > 作成日: 2026-08-01
-> バックテスト出力: `/Users/shonen/日米ラグ/results/backtest_20260801_144758`
+> バックテスト出力: `/Users/shonen/leadlag/results/backtest_20260801_144758`
 > 最新取引日: 2026-07-31
 
 ## 概要

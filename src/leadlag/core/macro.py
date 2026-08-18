@@ -19,6 +19,7 @@ data from t-1 and earlier.
 from __future__ import annotations
 
 import logging
+from collections.abc import MutableMapping
 from typing import Any
 
 import numpy as np
@@ -150,7 +151,7 @@ def download_macro_prices(
     end: str | None = None,
     period: str = "10y",
     timeout: float = _MACRO_DOWNLOAD_TIMEOUT,
-    cache: dict | None = None,
+    cache: MutableMapping[Any, Any] | None = None,
 ) -> pd.DataFrame:
     """Download daily close prices for the three macro factors.
 

@@ -4,7 +4,7 @@
 > モデル: SectorRelativeEnsembleBLPEnhancedModel (Residual-BLPX / production_residual_blpx)
 > Config: `configs/production/production.yaml`
 > 期間: 2015-01-05 〜 2026-07-31
-> バックテスト出力: `/Users/shonen/日米ラグ/results/backtest_20260801_144758`
+> バックテスト出力: `/Users/shonen/leadlag/results/backtest_20260801_144758`
 
 ## 概要
 
@@ -65,7 +65,7 @@
 python3 src/research/scripts/backtest/run_production_backtest.py \
     --config configs/production/production.yaml \
     --start-date 2015-01-05 \
-    --output-dir /Users/shonen/日米ラグ/results/backtest_20260801_144758 \
+    --output-dir /Users/shonen/leadlag/results/backtest_20260801_144758 \
     --n-jobs -1
 ```
 

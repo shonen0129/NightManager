@@ -14,9 +14,8 @@ import yaml
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 
-from leadlag.data.fetcher import download_data
 from leadlag.data.preprocessor import preprocess_data
-from leadlag.data.tickers import TOPIX_TICKER
+from leadlag.data.tickers import JP_TICKERS, JP_TICKERS_WITH_TOPIX, US_TICKERS
 
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[Any]) -> None:
@@ -57,21 +56,35 @@ def sample_config_dict() -> dict:
     }
 
 
+def _make_synthetic_raw_data(
+    seed: int = 42,
+    start: str = "2009-01-05",
+    end: str = "2026-08-01",
+) -> dict:
+    """Build deterministic raw OHLC data for all tickers without network calls."""
+    rng = np.random.RandomState(seed)
+    dates = pd.bdate_range(start, end)
+    n = len(dates)
+
+    def _prices(tickers: list[str]) -> pd.DataFrame:
+        rets = rng.normal(0.0002, 0.015, (n, len(tickers)))
+        prices = 1000.0 * np.exp(np.cumsum(rets, axis=0))
+        return pd.DataFrame(prices, index=dates, columns=tickers)
+
+    us_close = _prices(US_TICKERS)
+    jp_close = _prices(JP_TICKERS_WITH_TOPIX)
+    # Open is prior close plus a tiny noise to avoid zero/negative opens.
+    jp_open = jp_close.shift(1).fillna(1000.0) * (
+        1.0 + rng.normal(0.0, 0.002, (n, len(JP_TICKERS_WITH_TOPIX)))
+    )
+    return {"us_close": us_close, "jp_close": jp_close, "jp_open": jp_open}
+
+
 @pytest.fixture(scope="session")
-def sample_df_exec() -> tuple[pd.DataFrame, pd.DataFrame]:
+def sample_df_exec() -> tuple[pd.DataFrame, dict]:
     """Load and preprocess market data for testing, returning (df_exec, raw_data)."""
-    raw_data = download_data(beta_window=60)
+    raw_data = _make_synthetic_raw_data()
     df_exec = preprocess_data(raw_data, beta_window=60)
-
-    # Compute TOPIX returns
-    topix_close = raw_data["jp_close"][TOPIX_TICKER].copy()
-    topix_open = raw_data["jp_open"][TOPIX_TICKER].copy()
-    topix_close.index = pd.to_datetime(topix_close.index).tz_localize(None).normalize()
-    topix_open.index = pd.to_datetime(topix_open.index).tz_localize(None).normalize()
-    r_topix_oc = topix_close / topix_open - 1.0
-    df_exec["topix_oc_return"] = r_topix_oc.reindex(df_exec.index).values
-    df_exec["topix_cc_trade"] = (1.0 + df_exec["topix_night_return"]) * (1.0 + df_exec["topix_oc_return"]) - 1.0
-
     return df_exec, raw_data
 
 
@@ -85,7 +98,7 @@ def synthetic_df_exec() -> pd.DataFrame:
     and code-path coverage only.
     """
     from leadlag.data.schema import all_expected_columns
-    from leadlag.data.tickers import JP_TICKERS, US_TICKERS
+    from leadlag.data.tickers import US_TICKERS
 
     rng = np.random.RandomState(42)
     n_rows = 252

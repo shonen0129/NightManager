@@ -1,6 +1,6 @@
 # Pure US Sector Component Signal — Backtest Report
 
-- Config: `/Users/shonen/日米ラグ/configs/production/production.yaml`
+- Config: `/Users/shonen/leadlag/configs/production/production.yaml`
 - Backtest period: 2015-01-05 → latest
 - US residualization: beta_window=60, gamma=1.0
 - Fractional differencing: d=0.1

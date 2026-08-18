@@ -3,7 +3,7 @@
 import shutil
 from pathlib import Path
 
-BASE = Path("/Users/shonen/日米ラグ/var/live/pipeline_data/gap_adjusted_distribution")
+BASE = Path("/Users/shonen/leadlag/var/live/pipeline_data/gap_adjusted_distribution")
 BATCH_DIR = BASE / "20260712_231014" / "matrices"
 LATEST_DIR = BASE / "latest" / "matrices"
 

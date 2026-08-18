@@ -14,17 +14,14 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import TypeAlias, cast
+from typing import cast
 
 import numpy as np
 from scipy.optimize import minimize
 
-from leadlag.config.schemas import NextGenConfig
+from leadlag.config.schemas import ConvexOptimizerConfig
 
 logger = logging.getLogger(__name__)
-
-# Backward-compatible alias for the Pydantic NextGenConfig.
-ConvexOptimizerConfig: TypeAlias = NextGenConfig
 
 
 @dataclass(frozen=True)
@@ -89,7 +86,7 @@ def _smooth_neg_grad(x: np.ndarray, eps: float = 1e-4) -> np.ndarray:
 def _compute_net_cost(
     w: np.ndarray,
     w_prev: np.ndarray,
-    config: NextGenConfig,
+    config: ConvexOptimizerConfig,
 ) -> float:
     """Estimate daily net cost (slippage + financing + borrow + reverse) in decimal.
 
@@ -124,7 +121,7 @@ def optimize_portfolio_convex(
     mu_gap: np.ndarray,
     omega_gap: np.ndarray,
     w_prev: np.ndarray | None = None,
-    config: NextGenConfig | None = None,
+    config: ConvexOptimizerConfig | None = None,
     gross_multiplier: float = 1.0,
 ) -> OptimizationResult:
     """Solve the convex portfolio optimization problem.

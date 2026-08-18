@@ -970,11 +970,13 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
     def predict_signals(self, df_exec: pd.DataFrame, n_jobs: int = 1) -> dict[str, Any]:
         """Generate component and ensemble signals for all rows in df_exec."""
         from leadlag.core.pipeline import (
-            BLPXCombiner,
-            BLPXOutputAdapter,
             CallableComponent,
             CommonInputs,
             SignalPipeline,
+        )
+        from leadlag.core.pipeline_blpx import (
+            BLPXCombiner,
+            BLPXOutputAdapter,
         )
 
         # Clear per-run signal caches to prevent cross-run contamination

@@ -7,7 +7,7 @@ name = "leadlag"
 version = "2.1.0"
 description = "日米ラグ市場中立戦略 — Lead-Lag Market-Neutral Strategy"
 readme = "docs/ARCHITECTURE.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12,<3.13"
 license = { text = "Proprietary" }
 
 dependencies = [
@@ -142,6 +142,28 @@ forbidden_modules = [
     "leadlag.data.fetcher",
     "leadlag.execution",
     "leadlag.cli",
+]
+
+[[tool.importlinter.contracts]]
+name = "domain is a pure layer without execution or CLI"
+type = "forbidden"
+source_modules = ["leadlag.domain"]
+forbidden_modules = [
+    "leadlag.execution",
+    "leadlag.cli",
+    "leadlag.reporting",
+    "leadlag.broker",
+]
+
+[[tool.importlinter.contracts]]
+name = "models do not depend on execution or CLI"
+type = "forbidden"
+source_modules = ["leadlag.models"]
+forbidden_modules = [
+    "leadlag.execution",
+    "leadlag.cli",
+    "leadlag.reporting",
+    "leadlag.broker",
 ]
 
 # ---------------------------------------------------------------------------

@@ -119,6 +119,79 @@ class StrategyConfig(BaseModel):
     max_net_exposure: float = Field(default=0.05, ge=0.0, le=1.0, description="最大ネット露出比率")
     max_gross_exposure: float = Field(default=2.0, ge=0.0, description="最大グロス露出比率")
 
+    @classmethod
+    def from_v2(
+        cls,
+        v2_cfg: ProductionV2RunConfig,
+        *,
+        model_data: dict[str, Any],
+        portfolio_data: dict[str, Any],
+        residualization_data: dict[str, Any],
+        costs_data: dict[str, Any],
+        risk_kwargs: dict[str, Any],
+        start_date: str = "2015-01-05",
+        side_leverage: float | None = None,
+        env_slippage_bps: float | None = None,
+    ) -> StrategyConfig:
+        """Build a ``StrategyConfig`` from a canonical ``ProductionV2RunConfig``.
+
+        Legacy nested YAML sections still take precedence where they exist,
+        but the canonical V2 sub-configs (``blpx``, ``costs``) provide the
+        default values. This keeps ``StrategyConfig`` in sync with the V2
+        single source of truth and eliminates the duplicated mapping that
+        previously lived in ``execution.config.build_app_config_from_dict``.
+        """
+        blpx = v2_cfg.blpx
+        costs = v2_cfg.costs
+
+        kwargs: dict[str, Any] = {
+            "model_name": model_data.get("name", "sector_relative_ensemble"),
+            "k": model_data.get("k") if "k" in model_data else blpx.k,
+            "lambda_reg": model_data.get("lambda_reg") if "lambda_reg" in model_data else blpx.lambda_reg,
+            "q": portfolio_data.get("long_short_frac") if "long_short_frac" in portfolio_data else blpx.q,
+            "weight_mode": portfolio_data.get("weight_mode") if "weight_mode" in portfolio_data else blpx.weight_mode,
+            "dispersion_filter": portfolio_data.get("dispersion_filter", False),
+            "dispersion_metric": portfolio_data.get("dispersion_metric", "long_short_mean_gap"),
+            "v3_mode": portfolio_data.get("v3_mode", "static"),
+            "ewma_half_life": model_data.get("ewma_half_life") if "ewma_half_life" in model_data else blpx.ewma_halflife,
+            "lambda_lw": model_data.get("lambda_lw") if "lambda_lw" in model_data else blpx.lambda_lw,
+            "lw_target": model_data.get("lw_target") if "lw_target" in model_data else blpx.lw_target,
+            "corr_window": model_data.get("corr_window") if "corr_window" in model_data else blpx.corr_window,
+            "include_v4_prior": model_data.get("include_v4_prior") if "include_v4_prior" in model_data else blpx.include_v4_prior,
+            "signal_mode": portfolio_data.get("signal_mode", "gap_residual"),
+            "gap_open_coef": portfolio_data.get("gap_open_coef") if "gap_open_coef" in portfolio_data else blpx.gap_open_coef,
+            "topix_beta_coef": residualization_data.get("topix_beta_coef") if "topix_beta_coef" in residualization_data else blpx.topix_beta_coef,
+            "beta_window": residualization_data.get("beta_window") if "beta_window" in residualization_data else blpx.beta_window,
+            "beta_ewma_halflife": residualization_data.get("beta_ewma_halflife"),
+            "beta_shrinkage": residualization_data.get("shrinkage") if "shrinkage" in residualization_data else v2_cfg.residualization_beta_shrinkage,
+            "beta_winsor_sigma": residualization_data.get("winsor_sigma") if "winsor_sigma" in residualization_data else v2_cfg.residualization_beta_winsor_sigma,
+            "gamma": portfolio_data.get("gamma", 0.5),
+            "slippage_bps": costs_data.get("slippage_bps_per_side") if "slippage_bps_per_side" in costs_data else costs.slippage_bps_per_side,
+            "vol_adjusted_target": portfolio_data.get("vol_adjusted_target") if "vol_adjusted_target" in portfolio_data else blpx.vol_adjusted_target,
+            "min_raw_weight": portfolio_data.get("min_raw_weight") if "min_raw_weight" in portfolio_data else blpx.min_raw_weight,
+            "overnight_alpha_long": costs_data.get("overnight_alpha_long") if "overnight_alpha_long" in costs_data else costs.overnight_alpha_long,
+            "overnight_alpha_short": costs_data.get("overnight_alpha_short") if "overnight_alpha_short" in costs_data else costs.overnight_alpha_short,
+            "buy_interest_annual": costs_data.get("buy_interest_annual") if "buy_interest_annual" in costs_data else costs.buy_interest_annual,
+            "borrow_fee_annual": costs_data.get("borrow_fee_annual") if "borrow_fee_annual" in costs_data else costs.borrow_fee_annual,
+            "reverse_fee_bps": costs_data.get("reverse_fee_bps") if "reverse_fee_bps" in costs_data else costs.reverse_fee_bps,
+            "side_leverage": side_leverage if side_leverage is not None else costs.side_leverage,
+            "start_date": start_date,
+            "copula_enabled": model_data.get("copula_enabled") if "copula_enabled" in model_data else blpx.copula_enabled,
+            "copula_blend_weight": model_data.get("copula_blend_weight") if "copula_blend_weight" in model_data else blpx.copula_blend_weight,
+            "copula_dynamic_blend": model_data.get("copula_dynamic_blend") if "copula_dynamic_blend" in model_data else blpx.copula_dynamic_blend,
+            "copula_stress_threshold": model_data.get("copula_stress_threshold") if "copula_stress_threshold" in model_data else blpx.copula_stress_threshold,
+            "copula_nu_init": model_data.get("copula_nu_init") if "copula_nu_init" in model_data else blpx.copula_nu_init,
+            "copula_marginal_method": model_data.get("copula_marginal_method", "empirical"),
+            "minvar_enabled": portfolio_data.get("minvar_enabled") if "minvar_enabled" in portfolio_data else blpx.minvar_enabled,
+            "minvar_alpha": portfolio_data.get("minvar_alpha") if "minvar_alpha" in portfolio_data else blpx.minvar_alpha,
+            **risk_kwargs,
+        }
+
+        if env_slippage_bps is not None:
+            kwargs["slippage_bps"] = env_slippage_bps
+
+        return cls(**kwargs)
+
 
 class RiskConfig(BaseModel):
     """Risk management parameters validation schema.
@@ -633,8 +706,14 @@ class ProductionV2RunConfig(BaseModel):
     # normalization; the model itself no longer needs a pre-validation hook.
 
 
-class NextGenConfig(BaseModel):
-    """Next-Gen convex portfolio optimizer configuration."""
+class ConvexOptimizerConfig(BaseModel):
+    """Convex portfolio optimizer configuration.
+
+    Originally introduced as part of the archived Next-Gen pipeline, this
+    config is now retained only as a standalone type for research scripts
+    and the `leadlag.core.convex_optimizer` utility. It is not part of the
+    V2 production `AppConfig`.
+    """
 
     model_config = {"frozen": True}
 
@@ -693,9 +772,7 @@ class AppConfig(BaseModel):
         default_factory=ProductionV2RunConfig,
         description="V2 本番ポートフォリオ生成パラメータ",
     )
-    nextgen: NextGenConfig = Field(
-        default_factory=NextGenConfig,
-        description="Next-Gen convex optimizer parameters",
-    )
+    # Convex optimizer config is intentionally omitted from the V2 production
+    # configuration. It remains available as a standalone type for research.
 
 

@@ -7,6 +7,8 @@ from file I/O so they can be used on-demand in production.
 
 from __future__ import annotations
 
+from typing import cast
+
 import numpy as np
 
 
@@ -103,7 +105,7 @@ def _omega_from_blp_res(blpx_result: dict) -> np.ndarray:
         + B_struct @ Sigma_XX @ B_struct.T
     )
     Omega_struct = 0.5 * (Omega_struct + Omega_struct.T)
-    return Omega_struct
+    return cast(np.ndarray, Omega_struct)
 
 
 def build_raw_distribution(
@@ -131,3 +133,64 @@ def build_raw_distribution(
     omega_raw = D @ corr @ D
     omega_raw = 0.5 * (omega_raw + omega_raw.T)
     return mu_raw, omega_raw
+
+def denormalize_signal(
+    z_hat_j_t1: np.ndarray,
+    mu: np.ndarray,
+    sigma: np.ndarray,
+    all_returns: np.ndarray,
+    current_index: int,
+    n_u: int,
+    vol_adjusted_target: bool,
+) -> np.ndarray:
+    """Denormalize standardized JP return predictions to raw return space."""
+    mu_jp = mu[n_u:]
+    sigma_jp = sigma[n_u:]
+    if vol_adjusted_target:
+        if current_index >= 20:
+            jp_returns_20 = all_returns[current_index - 20 : current_index, n_u:]
+            jp_returns_20 = np.nan_to_num(jp_returns_20, nan=0.0, posinf=0.0, neginf=0.0)
+            sigma_j_t = np.std(jp_returns_20, axis=0, ddof=1)
+            sigma_j_t = np.maximum(sigma_j_t, 1e-8)
+        else:
+            sigma_j_t = sigma_jp
+        r_hat_jp_cc = z_hat_j_t1 * sigma_j_t
+    else:
+        r_hat_jp_cc = mu_jp + sigma_jp * z_hat_j_t1
+    return cast(np.ndarray, np.nan_to_num(r_hat_jp_cc, nan=0.0, posinf=0.0, neginf=0.0))
+
+
+def apply_gap_adjustment(
+    r_hat_jp_cc: np.ndarray,
+    z_hat_j_t1: np.ndarray,
+    gap_override: np.ndarray | None,
+    betas_t: np.ndarray | None,
+    topix_night_t: float | None,
+    gap_open_coef: float = 0.7,
+    topix_beta_coef: float = 0.6,
+) -> np.ndarray:
+    """Apply gap override adjustment to the predicted signal."""
+    if gap_override is not None:
+        gap_vec = np.asarray(gap_override, dtype=float).reshape(-1)
+        use_topix = False
+        if betas_t is not None and topix_night_t is not None:
+            betas_vec = np.asarray(betas_t, dtype=float).reshape(-1)
+            if (
+                betas_vec.shape == gap_vec.shape
+                and np.all(np.isfinite(betas_vec))
+                and np.isfinite(float(topix_night_t))
+            ):
+                use_topix = True
+        if use_topix:
+            assert topix_night_t is not None
+            gap_syst = betas_vec * topix_night_t
+            gap_idio = gap_vec - gap_syst
+            gap_filt = gap_open_coef * gap_idio + (gap_open_coef - topix_beta_coef) * gap_syst
+            denom = np.maximum(1.0 + gap_filt, 0.1)
+            signal = (1.0 + r_hat_jp_cc) / denom - 1.0
+        else:
+            signal = r_hat_jp_cc - gap_open_coef * gap_vec
+    else:
+        signal = z_hat_j_t1
+    return signal
+

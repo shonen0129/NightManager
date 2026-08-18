@@ -17,7 +17,6 @@ from leadlag.config.schemas import (
     CostConfig,
     KabuApiConfig,
     MLOrderOverlayConfig,
-    NextGenConfig,
     ProductionV2RunConfig,
     RiskConfig,
     TachibanaApiConfig,
@@ -27,6 +26,51 @@ from leadlag.config.schemas import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+_BASE_KEY = "__base__"
+
+
+def _resolve_config_path(path: str, relative_to: Path) -> Path:
+    """Resolve an include path relative to the containing YAML file."""
+    p = Path(path)
+    if p.is_absolute():
+        return p
+    return (relative_to.parent / p).resolve()
+
+
+def _deep_merge(base: Any, override: Any) -> Any:
+    """Recursively merge override into base. Dicts are merged; other values override."""
+    if isinstance(base, dict) and isinstance(override, dict):
+        merged = dict(base)
+        for k, v in override.items():
+            merged[k] = _deep_merge(merged.get(k), v) if k in merged else v
+        return merged
+    return override
+
+
+def _load_yaml_with_base(
+    yaml_path: str | Path,
+    _seen: set[str] | None = None,
+) -> dict[str, Any]:
+    """Load a YAML file, recursively merging any ``__base__`` includes."""
+    _seen = _seen or set()
+    yaml_path = Path(yaml_path).resolve()
+    key = str(yaml_path)
+    if key in _seen:
+        raise ValueError(f"Circular __base__ reference detected: {yaml_path}")
+    _seen.add(key)
+
+    with open(yaml_path, encoding="utf-8") as f:
+        data = yaml.safe_load(f) or {}
+
+    base_path = data.pop(_BASE_KEY, None)
+    if base_path:
+        base_file = _resolve_config_path(str(base_path), yaml_path)
+        base_data = _load_yaml_with_base(base_file, _seen)
+        data = _deep_merge(base_data, data)
+
+    return data
 
 
 class UnknownConfigKeyError(ValueError):
@@ -59,7 +103,6 @@ _ALLOWED_TOP_LEVEL_KEYS = frozenset({
     "output",
     "broker",
     "start_date",
-    "nextgen",
 })
 
 
@@ -68,8 +111,7 @@ def _allowed_top_level_keys() -> frozenset[str]:
     v2_keys = set(ProductionV2RunConfig.model_fields)
     blpx_flat = {f"blpx_{k}" for k in BLPXConfig.model_fields}
     costs_flat = set(CostConfig.model_fields)
-    nextgen_flat = {f"nextgen_{k}" for k in NextGenConfig.model_fields}
-    return _ALLOWED_TOP_LEVEL_KEYS | frozenset(v2_keys | blpx_flat | costs_flat | nextgen_flat)
+    return _ALLOWED_TOP_LEVEL_KEYS | frozenset(v2_keys | blpx_flat | costs_flat)
 
 
 # Load .env files from typical locations
@@ -99,20 +141,8 @@ def _map_risk_section(risk_data: dict) -> dict:
     strategy_kwargs と risk_kwargs の両方に同じマッピングが必要なケースで
     このヘルパーを使うことで、変更箇所を 1 か所に集約する。
     """
-    return {
-        "var_confidence": risk_data.get("var_confidence", 0.99),
-        "var_window": risk_data.get("var_window", 250),
-        "var_method": risk_data.get("var_method", "historical"),
-        "var_warning": risk_data.get("var_warning", 0.02),
-        "var_stop": risk_data.get("var_stop", 0.03),
-        "es_warning": risk_data.get("es_warning", 0.025),
-        "es_stop": risk_data.get("es_stop", 0.04),
-        "daily_loss_warning": risk_data.get("daily_loss_warning", 0.015),
-        "daily_loss_stop": risk_data.get("daily_loss_stop", 0.025),
-        "monthly_loss_stop": risk_data.get("monthly_loss_stop", 0.05),
-        "max_net_exposure": risk_data.get("max_net_exposure", 0.05),
-        "max_gross_exposure": risk_data.get("max_gross_exposure", 2.0),
-    }
+    defaults = RiskConfig().model_dump()
+    return {k: risk_data.get(k, defaults[k]) for k in defaults}
 
 
 def build_app_config_from_dict(yaml_data: dict[str, Any], strict: bool = False) -> AppConfig:
@@ -153,61 +183,26 @@ def build_app_config_from_dict(yaml_data: dict[str, Any], strict: bool = False) 
     from leadlag.models.production_v2 import parse_run_config
 
     v2_cfg = parse_run_config(yaml_data)
-    blpx = v2_cfg.blpx
-    costs = v2_cfg.costs
 
-    # Map StrategyConfig fields (legacy nested values take precedence over V2)
-    strategy_kwargs = {
-        "model_name": model_data.get("name", "sector_relative_ensemble"),
-        "k": model_data.get("k") if "k" in model_data else blpx.k,
-        "lambda_reg": model_data.get("lambda_reg") if "lambda_reg" in model_data else blpx.lambda_reg,
-        "q": portfolio_data.get("long_short_frac") if "long_short_frac" in portfolio_data else blpx.q,
-        "weight_mode": portfolio_data.get("weight_mode") if "weight_mode" in portfolio_data else blpx.weight_mode,
-        "dispersion_filter": portfolio_data.get("dispersion_filter", False),
-        "dispersion_metric": portfolio_data.get("dispersion_metric", "long_short_mean_gap"),
-        "v3_mode": portfolio_data.get("v3_mode", "static"),
-        "ewma_half_life": model_data.get("ewma_half_life") if "ewma_half_life" in model_data else blpx.ewma_halflife,
-        "lambda_lw": model_data.get("lambda_lw") if "lambda_lw" in model_data else blpx.lambda_lw,
-        "lw_target": model_data.get("lw_target") if "lw_target" in model_data else blpx.lw_target,
-        "corr_window": model_data.get("corr_window") if "corr_window" in model_data else blpx.corr_window,
-        "include_v4_prior": model_data.get("include_v4_prior") if "include_v4_prior" in model_data else blpx.include_v4_prior,
-        "signal_mode": portfolio_data.get("signal_mode", "gap_residual"),
-        "gap_open_coef": portfolio_data.get("gap_open_coef") if "gap_open_coef" in portfolio_data else blpx.gap_open_coef,
-        "topix_beta_coef": res_data.get("topix_beta_coef") if "topix_beta_coef" in res_data else blpx.topix_beta_coef,
-        "beta_window": res_data.get("beta_window") if "beta_window" in res_data else blpx.beta_window,
-        "beta_ewma_halflife": res_data.get("beta_ewma_halflife"),
-        "beta_shrinkage": res_data.get("shrinkage") if "shrinkage" in res_data else v2_cfg.residualization_beta_shrinkage,
-        "beta_winsor_sigma": res_data.get("winsor_sigma") if "winsor_sigma" in res_data else v2_cfg.residualization_beta_winsor_sigma,
-        "gamma": portfolio_data.get("gamma", 0.5),
-        "slippage_bps": costs_data.get("slippage_bps_per_side") if "slippage_bps_per_side" in costs_data else costs.slippage_bps_per_side,
-        "vol_adjusted_target": portfolio_data.get("vol_adjusted_target") if "vol_adjusted_target" in portfolio_data else blpx.vol_adjusted_target,
-        "min_raw_weight": portfolio_data.get("min_raw_weight") if "min_raw_weight" in portfolio_data else blpx.min_raw_weight,
-        "overnight_alpha_long": costs_data.get("overnight_alpha_long") if "overnight_alpha_long" in costs_data else costs.overnight_alpha_long,
-        "overnight_alpha_short": costs_data.get("overnight_alpha_short") if "overnight_alpha_short" in costs_data else costs.overnight_alpha_short,
-        "buy_interest_annual": costs_data.get("buy_interest_annual") if "buy_interest_annual" in costs_data else costs.buy_interest_annual,
-        "borrow_fee_annual": costs_data.get("borrow_fee_annual") if "borrow_fee_annual" in costs_data else costs.borrow_fee_annual,
-        "reverse_fee_bps": costs_data.get("reverse_fee_bps") if "reverse_fee_bps" in costs_data else costs.reverse_fee_bps,
-        "side_leverage": float(
-            yaml_data.get("execution", {}).get("side_leverage") if "execution" in yaml_data and "side_leverage" in (yaml_data.get("execution") or {}) else costs.side_leverage
-        ),
-        "start_date": yaml_data.get("start_date", "2015-01-05"),
-        # Copula / min-variance (canonical values live in V2 BLPX sub-model)
-        "copula_enabled": model_data.get("copula_enabled") if "copula_enabled" in model_data else blpx.copula_enabled,
-        "copula_blend_weight": model_data.get("copula_blend_weight") if "copula_blend_weight" in model_data else blpx.copula_blend_weight,
-        "copula_dynamic_blend": model_data.get("copula_dynamic_blend") if "copula_dynamic_blend" in model_data else blpx.copula_dynamic_blend,
-        "copula_stress_threshold": model_data.get("copula_stress_threshold") if "copula_stress_threshold" in model_data else blpx.copula_stress_threshold,
-        "copula_nu_init": model_data.get("copula_nu_init") if "copula_nu_init" in model_data else blpx.copula_nu_init,
-        "copula_marginal_method": model_data.get("copula_marginal_method", "empirical"),
-        "minvar_enabled": portfolio_data.get("minvar_enabled") if "minvar_enabled" in portfolio_data else blpx.minvar_enabled,
-        "minvar_alpha": portfolio_data.get("minvar_alpha") if "minvar_alpha" in portfolio_data else blpx.minvar_alpha,
-        # Include risk thresholds for backward compat with production runners
-        # that pass a single StrategyConfig to both strategy and risk layers.
-        **risk_kwargs,
-    }
+    # Build StrategyConfig from the canonical V2 config. Legacy nested values
+    # still take precedence; this centralizes the duplicated mapping logic.
+    side_leverage_raw = (
+        yaml_data.get("execution", {}).get("side_leverage")
+        if "execution" in yaml_data and "side_leverage" in (yaml_data.get("execution") or {})
+        else None
+    )
 
-    # Override strategy from env if present
-    if "STRATEGY_SLIPPAGE_BPS" in os.environ:
-        strategy_kwargs["slippage_bps"] = float(os.environ["STRATEGY_SLIPPAGE_BPS"])
+    strategy_cfg = StrategyConfig.from_v2(
+        v2_cfg,
+        model_data=model_data,
+        portfolio_data=portfolio_data,
+        residualization_data=res_data,
+        costs_data=costs_data,
+        risk_kwargs=risk_kwargs,
+        start_date=yaml_data.get("start_date", "2015-01-05"),
+        side_leverage=float(side_leverage_raw) if side_leverage_raw is not None else None,
+        env_slippage_bps=float(os.environ["STRATEGY_SLIPPAGE_BPS"]) if "STRATEGY_SLIPPAGE_BPS" in os.environ else None,
+    )
 
 
     broker_provider = os.environ.get("BROKER_PROVIDER", "kabu").lower().strip()
@@ -274,7 +269,6 @@ def build_app_config_from_dict(yaml_data: dict[str, Any], strict: bool = False) 
         account_type=tachi_account,
     )
 
-    strategy_cfg = StrategyConfig(**strategy_kwargs)
     risk_cfg = RiskConfig(**risk_kwargs)
 
     ml_overlay_data = yaml_data.get("ml_order_overlay", {})
@@ -290,13 +284,6 @@ def build_app_config_from_dict(yaml_data: dict[str, Any], strict: bool = False) 
     if gap_dir is None:
         gap_dir = str(v2_cfg.gap_input_dir or "")
 
-    # Next-Gen convex optimizer config (nested ``nextgen:`` or flat ``nextgen_*``)
-    nextgen_data: dict[str, Any] = {
-        k[8:]: v for k, v in yaml_data.items() if k.startswith("nextgen_")
-    }
-    nextgen_data.update(yaml_data.get("nextgen", {}) or {})
-    nextgen_cfg = NextGenConfig(**nextgen_data)
-
     return AppConfig(
         strategy=strategy_cfg,
         risk=risk_cfg,
@@ -309,7 +296,6 @@ def build_app_config_from_dict(yaml_data: dict[str, Any], strict: bool = False) 
         output_live_dir=output_data.get("live_dir", str(live("sector_relative_ensemble"))),
         run_audit=output_data.get("run_audit", True),
         gap_distribution_dir=gap_dir,
-        nextgen=nextgen_cfg,
     )
 
 
@@ -332,8 +318,7 @@ def load_config_from_yaml(
     yaml_data: dict[str, Any] = {}
     if yaml_path and Path(yaml_path).exists():
         logger.info("Loading configuration from %s", yaml_path)
-        with open(yaml_path, encoding="utf-8") as f:
-            yaml_data = yaml.safe_load(f) or {}
+        yaml_data = _load_yaml_with_base(yaml_path)
     else:
         logger.info("No configuration YAML found, using default settings")
 

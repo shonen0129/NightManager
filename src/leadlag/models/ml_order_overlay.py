@@ -30,8 +30,10 @@ from leadlag.config import safe_config_copy
 from leadlag.config.schemas import ProductionV2RunConfig
 from leadlag.core.portfolio import solve_baseline_style
 from leadlag.core.signal import build_weights_minvar
+from leadlag.data.pit_lake import MarketSnapshot
 from leadlag.data.preprocessor import compute_jp_target_returns
 from leadlag.data.tickers import JP_TICKERS
+from leadlag.domain.portfolio import PortfolioDecision
 from leadlag.models.production_v2 import generate_v2_production_portfolio, parse_run_config
 
 logger = logging.getLogger(__name__)
@@ -153,27 +155,39 @@ def _precompute_market_vol(df_exec: pd.DataFrame) -> pd.DataFrame:
 
 def _build_ticker_features(
     df_exec: pd.DataFrame,
-    v2_result: dict,
+    v2_result: PortfolioDecision | dict,
     trade_date: pd.Timestamp,
     market_vol: pd.DataFrame | None,
     per_ticker_interactions: bool = False,
     adr_df: pd.DataFrame | None = None,
+    snapshot: MarketSnapshot | None = None,
 ) -> pd.DataFrame:
-    """Build a per-ticker feature DataFrame for one trade date."""
+    """Build a per-ticker feature DataFrame for one trade date.
+
+    If ``snapshot`` is supplied, the point-in-time gap, betas, and TOPIX night
+    return are taken from the snapshot instead of ``df_exec.loc[trade_date]``.
+    """
     scores = v2_result["scores"]
     mu_gap = v2_result["mu_gap"]
     sigma_gap = v2_result["sigma_gap"]
 
-    if trade_date not in df_exec.index:
-        raise KeyError(f"Trade date {trade_date} not in df_exec")
+    if snapshot is not None:
+        topix_night = float(snapshot.topix_night_return)
+    else:
+        if trade_date not in df_exec.index:
+            raise KeyError(f"Trade date {trade_date} not in df_exec")
 
-    row = df_exec.loc[trade_date]
-    topix_night = float(row["topix_night_return"])
+        row = df_exec.loc[trade_date]
+        topix_night = float(row["topix_night_return"])
 
     records = []
     for i, tk in enumerate(JP_TICKERS):
-        gap = float(row[f"jp_gap_{tk}"])
-        beta = float(row[f"jp_beta_{tk}"])
+        if snapshot is not None:
+            gap = float(snapshot.jp_gap_returns[i])
+            beta = float(snapshot.jp_betas[i])
+        else:
+            gap = float(row[f"jp_gap_{tk}"])
+            beta = float(row[f"jp_beta_{tk}"])
         gap_idio = gap - beta * topix_night
         market_vol_val = (
             float(market_vol.loc[trade_date, tk]) if market_vol is not None else 0.0
@@ -593,15 +607,19 @@ def train_overlay_model(
 
 
 def apply_overlay(
-    result: dict,
+    result: PortfolioDecision | dict,
     df_exec: pd.DataFrame,
     overlay_model: MLOrderOverlayModel,
     trade_date: str,
-) -> dict:
+    snapshot: MarketSnapshot | None = None,
+) -> PortfolioDecision | dict:
     """Apply the ML overlay to a V2 production result.
 
     Returns the original result unchanged if the overlay cannot be applied
     (missing market data, fallback triggered, etc.).
+
+    If ``snapshot`` is supplied, its point-in-time market data is used as the
+    single source of truth for per-ticker features.
     """
     if result["fallback"]["gap_data_missing"]:
         logger.info("[%s] V2 fallback active; skipping overlay.", trade_date)
@@ -628,6 +646,7 @@ def apply_overlay(
             market_vol,
             per_ticker_interactions=overlay_model.per_ticker_interactions,
             adr_df=adr_df,
+            snapshot=snapshot,
         )
     except Exception as e:
         logger.warning("[%s] Feature build failed: %s; skipping overlay.", trade_date, e)
@@ -711,7 +730,7 @@ def generate_v2_production_portfolio_with_overlay(
     cfg: ProductionV2RunConfig | dict,
     df_exec: pd.DataFrame | None,
     overlay_model: MLOrderOverlayModel | None,
-) -> dict:
+) -> PortfolioDecision:
     """Run V2 production and optionally apply the ML overlay.
 
     This is a convenience wrapper for callers that have the overlay model
@@ -729,4 +748,4 @@ def generate_v2_production_portfolio_with_overlay(
     if overlay_model is None or df_exec is None:
         return result
 
-    return apply_overlay(result, df_exec, overlay_model, trade_date)
+    return PortfolioDecision.from_dict(apply_overlay(result, df_exec, overlay_model, trade_date))

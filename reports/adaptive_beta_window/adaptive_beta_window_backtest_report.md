@@ -46,5 +46,5 @@ walk-forward validation is required before adoption.
 
 ## Artifacts
 
-- `/Users/shonen/日米ラグ/results/adaptive_beta_window/baseline`
-- `/Users/shonen/日米ラグ/results/adaptive_beta_window/adaptive`
+- `/Users/shonen/leadlag/results/adaptive_beta_window/baseline`
+- `/Users/shonen/leadlag/results/adaptive_beta_window/adaptive`

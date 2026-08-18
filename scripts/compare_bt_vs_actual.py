@@ -7,7 +7,7 @@ import os
 
 # --- Actual account equity (ukeire_hosyoukin) from wallet snapshots ---
 actual_equity = {}
-for d in sorted(glob.glob("/Users/shonen/日米ラグ/var/results/202607*_production_close_positions")):
+for d in sorted(glob.glob("/Users/shonen/leadlag/var/results/202607*_production_close_positions")):
     f = glob.glob(os.path.join(d, "wallet_close_*.json"))
     if f:
         with open(f[0]) as fh:
@@ -18,7 +18,7 @@ for d in sorted(glob.glob("/Users/shonen/日米ラグ/var/results/202607*_produc
             actual_equity[ts] = eq
 
 # Also add decision-time wallet snapshots
-for d in sorted(glob.glob("/Users/shonen/日米ラグ/var/results/202607*_production_decision_v2")):
+for d in sorted(glob.glob("/Users/shonen/leadlag/var/results/202607*_production_decision_v2")):
     f = glob.glob(os.path.join(d, "wallet_decision_*.json"))
     if f:
         with open(f[0]) as fh:
@@ -30,7 +30,7 @@ for d in sorted(glob.glob("/Users/shonen/日米ラグ/var/results/202607*_produc
 
 # --- Unrealized PnL from position snapshots ---
 unrealized = {}
-for d in sorted(glob.glob("/Users/shonen/日米ラグ/var/results/202607*_production_close_positions")):
+for d in sorted(glob.glob("/Users/shonen/leadlag/var/results/202607*_production_close_positions")):
     f = glob.glob(os.path.join(d, "positions_close_*.json"))
     if f:
         with open(f[0]) as fh:
@@ -40,7 +40,7 @@ for d in sorted(glob.glob("/Users/shonen/日米ラグ/var/results/202607*_produc
 
 # --- Backtest daily returns ---
 bt_returns = {}
-with open("/Users/shonen/日米ラグ/var/legacy_results_src/production_backtest/daily_net_returns.csv") as f:
+with open("/Users/shonen/leadlag/var/legacy_results_src/production_backtest/daily_net_returns.csv") as f:
     reader = csv.reader(f)
     header = next(reader)
     for row in reader:

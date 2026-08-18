@@ -1,5 +1,5 @@
 # V2 Exact Backtest vs 実口座 ズレ分析
-対象バックテスト: `/Users/shonen/日米ラグ/results/v2_backtest_exact_production_20260729`
+対象バックテスト: `/Users/shonen/leadlag/results/v2_backtest_exact_production_20260729`
 対象実口座期間: 2026-07-29 〜 2026-08-05（受入保証金）
 
 ## 1. バックテスト（本番同一設定）

@@ -759,7 +759,7 @@ def _compute_jp_target_returns_h(
     if horizon > 1:
         y[: horizon - 1] = np.nan
 
-    return cast(np.ndarray, y)
+    return y
 
 
 def compute_jp_target_returns(

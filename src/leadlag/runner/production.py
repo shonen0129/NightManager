@@ -15,7 +15,9 @@ from typing import Any
 
 import pandas as pd
 
+from leadlag.data.pit_lake import MarketSnapshot, PITDataLake
 from leadlag.data.tickers import JP_TICKERS
+from leadlag.domain.portfolio import PortfolioDecision
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +37,11 @@ class RunnerInputs:
         current_prices: Mapping from JP tickers to 09:10 JPY prices.
         use_file_cache: Prefer pre-computed ``.npy`` file cache when available.
         previous_positions: Optional mapping of currently held share counts.
+        lake: Optional PITDataLake wrapping ``df_exec``. If provided, the runner
+            uses ``lake.df_exec`` and ``lake.get_snapshot(trade_date)`` as the
+            single source of point-in-time data.
+        snapshot: Optional pre-computed MarketSnapshot for ``trade_date``. When
+            supplied, ``snapshot.current_prices`` becomes the source of truth.
     """
 
     trade_date: str
@@ -43,6 +50,8 @@ class RunnerInputs:
     current_prices: dict[str, float]
     use_file_cache: bool = True
     previous_positions: dict[str, int] | None = None
+    lake: PITDataLake | None = None
+    snapshot: MarketSnapshot | None = None
 
 
 class ProductionRunner:
@@ -98,47 +107,53 @@ class ProductionRunner:
             overlay_model=overlay_model,
         )
 
-    def run(self, inputs: RunnerInputs) -> dict:
+    def run(self, inputs: RunnerInputs) -> PortfolioDecision:
         """Generate the V2 portfolio decision for the supplied inputs.
 
         Args:
             inputs: A frozen ``RunnerInputs`` dataclass.
 
         Returns:
-            Result dict from ``ProductionV2Model.decide``.
+            ``PortfolioDecision`` from ``ProductionV2Model.decide``.
 
         Raises:
             ValueError: If ``df_exec`` is empty or ``trade_date`` is not in the
                 index.
         """
-        if inputs.df_exec is None or inputs.df_exec.empty:
-            raise ValueError("df_exec must be a non-empty DataFrame")
+        # Prefer the PIT data lake as the single source of execution data.
+        df_exec = inputs.lake.df_exec if inputs.lake is not None else inputs.df_exec
+        if df_exec is None or df_exec.empty:
+            raise ValueError("df_exec or lake must provide a non-empty DataFrame")
 
-        if inputs.trade_date not in inputs.df_exec.index:
+        if inputs.trade_date not in df_exec.index:
             raise ValueError(
                 f"trade_date {inputs.trade_date} not found in df_exec index"
             )
 
-        # Allow missing prices to fall back to 0 gap per ticker rather than
-        # aborting the whole decision.  _extract_gap_inputs treats missing
-        # prices as 0 gap, which is the safest partial fallback when a single
-        # broker price is unavailable.
-        missing_prices = [t for t in JP_TICKERS if t not in inputs.current_prices]
+        # Resolve 09:10 prices from the MarketSnapshot when available, falling
+        # back to the explicit current_prices mapping. Missing prices fall back
+        # to 0 gap per ticker inside _extract_gap_inputs.
+        if inputs.snapshot is not None:
+            price_source = inputs.snapshot.current_prices
+        elif inputs.current_prices is not None:
+            price_source = inputs.current_prices
+        else:
+            price_source = {}
+
+        missing_prices = [t for t in JP_TICKERS if t not in price_source]
         if missing_prices:
             logger.warning(
                 "current_prices missing tickers %s; treating them as 0 gap",
                 missing_prices,
             )
 
-        current_prices = dict(inputs.current_prices)
-        for t in missing_prices:
-            current_prices[t] = 0.0
-
         return self.model.decide(
             trade_date=inputs.trade_date,
             gap_input_dir=inputs.gap_input_dir,
-            df_exec=inputs.df_exec,
-            current_prices=current_prices,
+            df_exec=df_exec,
+            current_prices=inputs.current_prices if inputs.snapshot is None else None,
             overlay_enabled=self._overlay_enabled,
             use_file_cache=inputs.use_file_cache,
+            lake=inputs.lake,
+            snapshot=inputs.snapshot,
         )

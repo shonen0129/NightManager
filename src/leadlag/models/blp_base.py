@@ -1,51 +1,62 @@
-"""Shared base classes for production BLPX models.
+"""Shared base class for production BLPX models.
 
-This module consolidates the legacy ``src/research/models/base.py`` and
+Consolidates the legacy ``src/research/models/base.py`` and
 ``src/research/models/blp_base.py`` into ``leadlag``.
 """
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
 import pandas as pd
 
 from leadlag.compliance.auditor import AuditContext
 from leadlag.core import signal as signals
+from leadlag.core.gap_adjustment import apply_gap_adjustment, denormalize_signal
 from leadlag.data.tickers import JP_TICKERS
+from leadlag.domain.signal import SignalPackage
+from leadlag.utils.cache_manager import CacheManager
 
 if TYPE_CHECKING:
     from leadlag.core.pipeline import PCAComponent
 
 
-class BLPModelBase(ABC):
-    """Minimal base class for config-driven production models.
-
-    The config is a Pydantic ``BLPXConfig`` model. Attribute access falls
-    through to the config object so existing call sites can continue to
-    use ``self.<field>``.
-    """
+class _BLPBase:
+    """Base class for BLPX production models."""
 
     def __init__(self, cfg: Any) -> None:
-        # cfg may be a dict during migration, but new call sites pass BLPXConfig.
         from leadlag.config.schemas import BLPXConfig
-
         if isinstance(cfg, dict):
             cfg = BLPXConfig.model_validate(cfg)
         self.cfg: BLPXConfig = cfg
 
+        # Core build_common_inputs parameters are read from the Pydantic config
+        # via __getattr__; explicit attributes kept for type narrowing.
+        self.ewma_halflife = int(self.cfg.ewma_halflife)
+        self.beta_window = int(self.cfg.beta_window)
+        self.include_v4_prior = bool(self.cfg.include_v4_prior)
+        self.us_res_enabled = bool(self.cfg.us_res_enabled)
+        self.us_res_gamma = float(self.cfg.us_res_gamma)
+        self.us_res_beta_window = int(self.cfg.us_res_beta_window)
+        self.frac_diff_enabled = bool(self.cfg.frac_diff_enabled)
+        self.frac_diff_d = float(self.cfg.frac_diff_d)
+        self.frac_diff_threshold = float(self.cfg.frac_diff_threshold)
+        self.frac_diff_window = int(self.cfg.frac_diff_window)
+        self.frac_diff_normalize = self.cfg.frac_diff_normalize
+
+        self._cache_manager = CacheManager(
+            CacheManager.config_hash_from_pydantic(self.cfg),
+            maxsize=128,
+        )
+
     def __getattr__(self, name: str) -> Any:
-        # Proxy attribute access to the Pydantic config, then fall back
-        # to normal attribute resolution on the instance.
-        if name != "cfg" and hasattr(self, "cfg"):
-            if hasattr(self.cfg, name):
-                return getattr(self.cfg, name)
+        if name != "cfg" and hasattr(self, "cfg") and hasattr(self.cfg, name):
+            return getattr(self.cfg, name)
         raise AttributeError(f"{type(self).__name__} has no attribute {name!r}")
 
     def _resolve_slippage_bps(self) -> float:
-        """Resolve slippage bps from config, checking costs section."""
+        """Resolve slippage bps from config, checking the nested costs section."""
         slippage: float = getattr(self.cfg, "slippage_bps", 5.0) or 5.0
         costs = self.cfg.costs
         if costs is not None and hasattr(costs, "slippage_bps_per_side"):
@@ -60,12 +71,11 @@ class BLPModelBase(ABC):
         if method == "zscore":
             std = np.std(centered)
             std_safe = std if std > 1e-8 else 1.0
-            return centered / std_safe
+            return cast(np.ndarray, centered / std_safe)
         elif method == "rank_normalize":
             ranks = pd.Series(sig).rank(pct=True).values
-            return (ranks - 0.5) * 2.0
-        else:
-            raise ValueError(f"Unknown normalization method: {method}")
+            return cast(np.ndarray, (ranks - 0.5) * 2.0)
+        raise ValueError(f"Unknown normalization method: {method}")
 
     def build_weights(
         self,
@@ -73,35 +83,32 @@ class BLPModelBase(ABC):
         q: float | None = None,
         Sigma_YY: np.ndarray | None = None,
     ) -> np.ndarray:
-        """Construct portfolio weights from combined signal."""
+        """Construct portfolio weights from a combined signal."""
         q_val = q if q is not None else getattr(self, "q", 0.5)
-
+        n_j = getattr(self, "n_j", len(JP_TICKERS))
         if getattr(self, "minvar_enabled", False) and Sigma_YY is not None:
             from leadlag.core.signal import build_weights_minvar
             return build_weights_minvar(
                 signal=signal,
                 q=q_val,
-                n_j=getattr(self, "n_j", len(JP_TICKERS)),
+                n_j=n_j,
                 Sigma_YY=Sigma_YY,
                 alpha=getattr(self, "minvar_alpha", 0.5),
                 enforce_sign=False,
             )
-
         return signals.build_weights(
             signal=signal,
             q=q_val,
-            n_j=getattr(self, "n_j", len(JP_TICKERS)),
+            n_j=n_j,
             weight_mode=getattr(self, "weight_mode", "signal"),
             enforce_sign=False,
         )
 
     def get_audit_context(self) -> AuditContext:
         """Return metadata required by ComplianceAuditor."""
-        n_u = getattr(self, "n_u", 15)
-        n_j = getattr(self, "n_j", 17)
         return AuditContext(
-            n_u=n_u,
-            n_j=n_j,
+            n_u=getattr(self, "n_u", 15),
+            n_j=getattr(self, "n_j", 17),
             us_res_enabled=getattr(self, "us_res_enabled", False),
             us_res_beta_shift=getattr(self, "us_res_beta_shift", 1),
             us_res_beta_window=getattr(self, "us_res_beta_window", 60),
@@ -114,30 +121,9 @@ class BLPModelBase(ABC):
             residual_blpx_weight=getattr(self, "residual_blpx_weight", 0.0),
         )
 
-    @abstractmethod
-    def predict_signals(self, df_exec: pd.DataFrame, n_jobs: int = 1) -> dict[str, np.ndarray]:
-        """Generate raw signals from the execution dataset."""
-        pass
-
-
-class _BLPBase(BLPModelBase):
-    """Intermediate base class for BLPX production models."""
-
-    def __init__(self, cfg: Any) -> None:
-        super().__init__(cfg)
-        # Core build_common_inputs parameters are now read from Pydantic BLPXConfig
-        # via __getattr__; explicit attributes kept for type narrowing.
-        self.ewma_halflife = int(self.cfg.ewma_halflife)
-        self.beta_window = int(self.cfg.beta_window)
-        self.include_v4_prior = bool(self.cfg.include_v4_prior)
-        self.us_res_enabled = bool(self.cfg.us_res_enabled)
-        self.us_res_gamma = float(self.cfg.us_res_gamma)
-        self.us_res_beta_window = int(self.cfg.us_res_beta_window)
-        self.frac_diff_enabled = bool(self.cfg.frac_diff_enabled)
-        self.frac_diff_d = float(self.cfg.frac_diff_d)
-        self.frac_diff_threshold = float(self.cfg.frac_diff_threshold)
-        self.frac_diff_window = int(self.cfg.frac_diff_window)
-        self.frac_diff_normalize = self.cfg.frac_diff_normalize
+    def predict_signals(self, df_exec: pd.DataFrame, n_jobs: int = 1) -> SignalPackage:
+        """Generate raw signals from the execution dataset (subclasses override)."""
+        raise NotImplementedError
 
     def _prepare_common_inputs(
         self,
@@ -146,17 +132,26 @@ class _BLPBase(BLPModelBase):
         horizon: int = 1,
         p_910_df: pd.DataFrame | None = None,
         y_jp_target: np.ndarray | None = None,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Build and cache CommonInputs for the given df_exec and horizon."""
         from leadlag.core.pipeline import build_common_inputs
         from leadlag.data.preprocessor import compute_jp_target_returns
         from leadlag.data.tickers import US_TICKERS
 
-        cache_key = (id(df_exec), horizon)
-        if not hasattr(self, "_common_inputs_cache"):
-            self._common_inputs_cache: dict = {}
-        if cache_key in self._common_inputs_cache:
-            return self._common_inputs_cache[cache_key]
+        # Stable cache key based on the (immutable) df_exec shape and index
+        # range, not object identity.  This lets different PITDataLake objects
+        # holding identical history share the common-inputs cache while still
+        # invalidating when the history window changes.
+        cache_key = (
+            df_exec.index[0],
+            df_exec.index[-1],
+            df_exec.shape,
+            hash(tuple(df_exec.columns)),
+            horizon,
+        )
+        common_inputs_cache = self._cache_manager.namespace("common_inputs")
+        if cache_key in common_inputs_cache:
+            return cast(dict[str, Any], common_inputs_cache[cache_key])
 
         if y_jp_target is None:
             y_jp_target = compute_jp_target_returns(
@@ -182,22 +177,13 @@ class _BLPBase(BLPModelBase):
         )
         out = inputs.to_dict()
         out["y_jp_target"] = y_jp_target
-        self._common_inputs_cache[cache_key] = out
+        common_inputs_cache[cache_key] = out
         return out
 
     def clear_caches(self) -> None:
         """Clear per-instance caches before pickling."""
-        for attr in (
-            "_production_signal_cache",
-            "_residual_signal_cache",
-            "_raw_pca_cache",
-            "_residual_pca_cache",
-            "_blp_corr_cache",
-            "_common_inputs_cache",
-            "_macro_price_cache",
-        ):
-            if hasattr(self, attr):
-                getattr(self, attr).clear()
+        if hasattr(self, "_cache_manager"):
+            self._cache_manager.clear()
 
     def _get_pca_component(self) -> PCAComponent:
         """Lazily create and cache a PCAComponent for PCA signal computation."""
@@ -232,7 +218,7 @@ class _BLPBase(BLPModelBase):
         jp_beta: np.ndarray | None,
         topix_night: np.ndarray | None,
     ) -> np.ndarray:
-        """Compute a PCA-based signal (Raw-PCA or Residual-PCA) at index i."""
+        """Compute a PCA-based signal at index i."""
         comp = self._get_pca_component()
         result = comp.compute_standalone(
             i=i,
@@ -259,10 +245,8 @@ class _BLPBase(BLPModelBase):
         jp_beta: np.ndarray | None,
         topix_night: np.ndarray | None,
     ) -> np.ndarray:
-        """Compute the Raw-PCA (Production PCA) signal at index i."""
-        return self._compute_pca_signal(
-            all_returns, i, c_full, v0_static, v1, v2, jp_gap, jp_beta, topix_night
-        )
+        """Compute the Raw-PCA signal at index i."""
+        return self._compute_pca_signal(all_returns, i, c_full, v0_static, v1, v2, jp_gap, jp_beta, topix_night)
 
     def compute_residual_signal(
         self,
@@ -276,10 +260,8 @@ class _BLPBase(BLPModelBase):
         jp_beta: np.ndarray | None,
         topix_night: np.ndarray | None,
     ) -> np.ndarray:
-        """Compute the Residual-PCA (Residual target PCA) signal at index i."""
-        return self._compute_pca_signal(
-            jp_res_returns_p3, i, c_full_p3, v0_static, v1, v2, jp_gap, jp_beta, topix_night
-        )
+        """Compute the Residual-PCA signal at index i."""
+        return self._compute_pca_signal(jp_res_returns_p3, i, c_full_p3, v0_static, v1, v2, jp_gap, jp_beta, topix_night)
 
     @staticmethod
     def _denormalize_signal(
@@ -292,20 +274,7 @@ class _BLPBase(BLPModelBase):
         vol_adjusted_target: bool,
     ) -> np.ndarray:
         """Denormalize standardized JP return predictions to raw return space."""
-        mu_jp = mu[n_u:]
-        sigma_jp = sigma[n_u:]
-        if vol_adjusted_target:
-            if current_index >= 20:
-                jp_returns_20 = all_returns[current_index - 20 : current_index, n_u:]
-                jp_returns_20 = np.nan_to_num(jp_returns_20, nan=0.0, posinf=0.0, neginf=0.0)
-                sigma_j_t = np.std(jp_returns_20, axis=0, ddof=1)
-                sigma_j_t = np.maximum(sigma_j_t, 1e-8)
-            else:
-                sigma_j_t = sigma_jp
-            r_hat_jp_cc = z_hat_j_t1 * sigma_j_t
-        else:
-            r_hat_jp_cc = mu_jp + sigma_jp * z_hat_j_t1
-        return np.nan_to_num(r_hat_jp_cc, nan=0.0, posinf=0.0, neginf=0.0)
+        return denormalize_signal(z_hat_j_t1, mu, sigma, all_returns, current_index, n_u, vol_adjusted_target)
 
     def _apply_gap_adjustment(
         self,
@@ -320,31 +289,8 @@ class _BLPBase(BLPModelBase):
         """Apply gap override adjustment to the predicted signal."""
         gap_coef = gap_open_coef_override if gap_open_coef_override is not None else getattr(self, "gap_open_coef", 0.7)
         beta_coef = topix_beta_coef_override if topix_beta_coef_override is not None else getattr(self, "topix_beta_coef", 0.6)
+        return apply_gap_adjustment(r_hat_jp_cc, z_hat_j_t1, gap_override, betas_t, topix_night_t, gap_coef, beta_coef)
 
-        if gap_override is not None:
-            gap_vec = np.asarray(gap_override, dtype=float).reshape(-1)
-            use_topix = False
-            if betas_t is not None and topix_night_t is not None:
-                betas_vec = np.asarray(betas_t, dtype=float).reshape(-1)
-                if (
-                    betas_vec.shape == gap_vec.shape
-                    and np.all(np.isfinite(betas_vec))
-                    and np.isfinite(float(topix_night_t))
-                ):
-                    use_topix = True
 
-            if use_topix:
-                assert topix_night_t is not None
-                gap_syst = betas_vec * topix_night_t
-                gap_idio = gap_vec - gap_syst
-                gap_filt = (
-                    gap_coef * gap_idio
-                    + (gap_coef - beta_coef) * gap_syst
-                )
-                denom = np.maximum(1.0 + gap_filt, 0.1)
-                signal = (1.0 + r_hat_jp_cc) / denom - 1.0
-            else:
-                signal = r_hat_jp_cc - gap_coef * gap_vec
-        else:
-            signal = z_hat_j_t1
-        return signal
+# Backward-compatible alias for research models and historical references.
+BLPModelBase = _BLPBase

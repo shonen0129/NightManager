@@ -30,6 +30,7 @@ from leadlag.broker.tachibana.session_cache import load_open_prices_cache
 from leadlag.config.paths import live as live_path
 from leadlag.config.paths import results as results_path
 from leadlag.config.schemas import AppConfig
+from leadlag.data.pit_lake import MarketSnapshot, PITDataLake
 from leadlag.data.tickers import JP_TICKERS, TOPIX_TICKER
 from leadlag.execution.backtest import _load_df_exec
 from leadlag.execution.broker_ops import (
@@ -277,19 +278,78 @@ def run_v2_decision(
             api_client.close()
         raise
 
-    # --- Step 3: Generate V2 portfolio ---
-    logger.info("[3/5] Generating V2 production portfolio...")
+    # --- Step 3: Build PIT data lake and the as-of market snapshot ---
+    logger.info("[3/5] Building PIT data lake and as-of market snapshot...")
+    lake = PITDataLake(df_exec)
+    if t_trade in lake.df_exec.index:
+        lake_snapshot = lake.get_snapshot(t_trade)
+        effective_trade_date = trade_date
+        t_effective = t_trade
+        snapshot_prev_closes = lake_snapshot.prev_closes
+    else:
+        # Fall back to the latest available PIT row if today's row is not yet
+        # populated (should not happen for production, but keeps dry-runs safe).
+        latest_ts = lake.available_dates_up_to(t_trade)[-1]
+        lake_snapshot = lake.get_snapshot(latest_ts)
+        effective_trade_date = lake_snapshot.trade_date
+        t_effective = lake_snapshot.as_of
+        logger.warning(
+            "[PIT-FALLBACK] Requested trade_date %s not in df_exec; using latest available %s",
+            trade_date,
+            effective_trade_date,
+        )
+        # The close of the latest available row is the previous close for the
+        # requested (future) trade date.  lake_snapshot.prev_closes is the
+        # close *before* latest_ts, so use the latest row's own close here.
+        latest_row = lake.df_exec.loc[latest_ts]
+        snapshot_prev_closes = {
+            tk: float(latest_row[f"jp_close_sig_{tk}"])
+            for tk in JP_TICKERS
+            if f"jp_close_sig_{tk}" in latest_row
+            and np.isfinite(float(latest_row[f"jp_close_sig_{tk}"]))
+            and float(latest_row[f"jp_close_sig_{tk}"]) > 0.0
+        }
+
+    # Recompute the 9:10 gap returns using the live/cached current prices so
+    # the MarketSnapshot is the single source of truth for this trade date.
+    api_current_prices: dict[str, float] = {
+        tk: float(current_prices[tk])
+        for tk in JP_TICKERS
+        if tk in current_prices and np.isfinite(current_prices[tk]) and current_prices[tk] > 0.0
+    }
+    jp_gap_api = np.zeros(len(JP_TICKERS), dtype=float)
+    for j, tk in enumerate(JP_TICKERS):
+        p = api_current_prices.get(tk)
+        pc = snapshot_prev_closes.get(tk)
+        if p is not None and pc is not None and pc > 0.0:
+            jp_gap_api[j] = p / pc - 1.0
+
+    snapshot = MarketSnapshot(
+        as_of=lake_snapshot.as_of,
+        trade_date=lake_snapshot.trade_date,
+        us_returns=lake_snapshot.us_returns,
+        jp_gap_returns=jp_gap_api,
+        jp_betas=lake_snapshot.jp_betas,
+        topix_night_return=lake_snapshot.topix_night_return,
+        current_prices=api_current_prices,
+        prev_closes=snapshot_prev_closes,
+    )
+
+    # --- Step 4: Generate V2 portfolio ---
+    logger.info("[4/5] Generating V2 production portfolio...")
     runner = ProductionRunner(app_config)
     inputs = RunnerInputs(
-        trade_date=trade_date,
+        trade_date=effective_trade_date,
         df_exec=df_exec,
         gap_input_dir=gap_dir,
         current_prices=current_prices,
         use_file_cache=True,
+        lake=lake,
+        snapshot=snapshot,
     )
     result = runner.run(inputs)
 
-    write_production_files(trade_date, live_path, result, dry_run=dry_run)
+    write_production_files(effective_trade_date, live_path, result, dry_run=dry_run)
 
     fallback_used = result["fallback"]["gap_data_missing"]
     if fallback_used:
@@ -305,8 +365,8 @@ def run_v2_decision(
 
     out_path: str
     if not dry_run:
-        # --- Step 4: Build decision dict for execute_post_decision_flow ---
-        logger.info("[4/5] Building decision dict for execution...")
+        # --- Step 5: Build decision dict for execute_post_decision_flow ---
+        logger.info("[5/6] Building decision dict for execution...")
         w_final = result["w_final"]
         scores = result["scores"]
 
@@ -316,7 +376,7 @@ def run_v2_decision(
         )
 
         decision = {
-            "trade_date": t_trade,
+            "trade_date": t_effective,
             "tickers": JP_TICKERS,
             "signal": scores,
             "weight": w_final,
@@ -331,8 +391,8 @@ def run_v2_decision(
             "gross_adjustment_factor": 1.0,
         }
 
-        # --- Step 5: Execute post-decision flow ---
-        logger.info("[5/5] Executing post-decision flow (risk checks, order submission)...")
+        # --- Step 6: Execute post-decision flow ---
+        logger.info("[6/6] Executing post-decision flow (risk checks, order submission)...")
 
         output_dir = build_output_dir(
             output_root,
@@ -351,7 +411,7 @@ def run_v2_decision(
             strategy=None,
             config=app_config.strategy,
             output_root=output_root,
-            trade_date=t_trade,
+            trade_date=t_effective,
             config_path=config_path,
             gap_input_dir=gap_dir,
         )

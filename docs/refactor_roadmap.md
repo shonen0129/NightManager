@@ -98,8 +98,8 @@ leadlag-fund/
 #### 3.2.2 設定 Pydantic 一本化
 
 - [x] `configs/base.yaml` 新設：全パラメータのデフォルト正本
-- [ ] `configs/production.yaml` / `experiments/*.yaml` を base との差分のみに
-- [ ] `StrategyConfig` / `AppConfig` / `ProductionV2RunConfig` の重複フィールド整理
+- [x] `configs/production.yaml` / `experiments/*.yaml` を base との差分のみに
+- [x] `StrategyConfig` / `AppConfig` / `ProductionV2RunConfig` の重複フィールド整理
 - [x] `config/frozen.py` 実装済み。ただし研究コードの `.copy()` 直書き 43 箇所は未置換
 - [x] `_resolve_val` 削除（`src/leadlag` 内の `blpx.py` / `blp_base.py` から根絶。`archive/legacy_src` 内の研究コードには残存）
 - [x] 出力パスデフォルトの重複解消（`config/paths.py` 経由に一本化）
@@ -136,7 +136,7 @@ leadlag-fund/
 - [x] `sample_df_exec` の yfinance 依存を排除（合成 data へ）
 - [x] `tests/research/` の位置づけ明確化
 - [x] `run_tests_unit_only.sh` を `-m "unit and not slow and not integration"` に修正（完了済み）
-- [ ] unit テストの目標時間を 2 分以内に
+- [x] unit テストの目標時間を 2 分以内に
 - [x] `test_pit_leak_property.py` の内容を全 signal 計算関数に展開
 
 #### 3.2.6 ドキュメント・レポート
@@ -144,7 +144,7 @@ leadlag-fund/
 - [x] ルート `README.md` 新設（存在を確認、setup/日次運用記載済み）
 - [x] `docs/README.md`（旧 PCA-Ensemble 説明）を `archive/docs/` へ
 - [x] `ARCHITECTURE.md` のツリー記述を現状に更新（Next-Gen パイプライン・`PITDataLake` 等を反映）
-- [ ] `運用方針書オリジナル.md` を `archive/docs/` へ
+- [x] `運用方針書オリジナル.md` を `archive/docs/` へ
 - [x] Phase 25〜30 を ADR 化（2026-08-09 〜 08-13 に 16 件の ADR を作成済）
 - [x] AGENTS.md から「不採用実験の記録」セクションを `docs/experiment_graveyard.md` へ分離（`experiment_graveyard.md` 自体も 2026-08 の不採用実験 8 件を追加更新）
 - [x] `reports/` の命名規則を統一
@@ -154,7 +154,7 @@ leadlag-fund/
 
 - [x] `.venv` / `.venv-mac` / `.venv312` を一本化（`.python-version` + uv）
 - [x] Python バージョンを固定
-- [ ] リポジトリ名を ASCII 化
+- [x] リポジトリ名を ASCII 化
 - [x] import-linter 導入（`data → domain → models → execution → cli`）
 - [x] `mypy --strict` 漸進的適用
 - [x] `_check_syntax.py` を `ruff check` への置換（`_check_syntax.py` 削除済み）
@@ -162,12 +162,12 @@ leadlag-fund/
 #### 3.2.8 構造的再設計（白紙からの視点）
 
 - [x] **V2 / Next-Gen パイプライン正本化**: V2 を正本化。Next-Gen コードを archive へ。`cli.py` / `production.yaml` から Next-Gen 引数・設定を削除。ADR 化済。
-- [ ] **フォールバックをポリシーとして分離**: `production_v2.py` に散在する on-demand → file cache → flat position → 監査失敗 flat の分岐を `DistributionSource` チェーン + `FallbackPolicy` として集約。
-- [ ] **PIT データレイクの一本化**: 全モデル・バックテスト経路で `PITDataLake` の as-of アクセスを唯一のデータ入口とする。
-- [ ] **キャッシュの集約**: 6 種類のインスタンスキャッシュ（`_raw_pca_cache` 等）を `CacheManager`（LRU + config ハッシュキー）へ一本化。
-- [ ] **ドメイン型層の導入**: DataFrame/dict の素通しをやめ、`Signal` / `PortfolioDecision` / `GapSnapshot` / `DistributionResult` 等の frozen dataclass を `domain/` 層に新設。`ProductionV2Model.predict_signals` / `decide` の境界を型安全にする。
-- [ ] **巨大ファイルの責務分割**: `production_v2.py`（1166 行）を `decide` / gap 分布取得 / フォールバック / オーバーレイ適用 / 多ホライズン統合 / 監査比較 に分割。`blpx.py`（1289 行）を 信号計算 / 事前分布構築 / 診断出力 に分割。目標は各ファイル 300 行未満。
-- [ ] **ドキュメントの階層分離**: ARCHITECTURE.md から Phase 履歴を `docs/history.md` へ分離。日次運用手順書の廃止済み手順を現行化。
+- [x] **フォールバックをポリシーとして分離**: `production_v2.py` に散在する on-demand → file cache → flat position → 監査失敗 flat の分岐を `DistributionSource` チェーン + `FallbackPolicy` として集約。
+- [x] **PIT データレイクの一本化**: 全モデル・バックテスト経路で `PITDataLake` の as-of アクセスを唯一のデータ入口とする。
+- [x] **キャッシュの集約**: 6 種類のインスタンスキャッシュ（`_raw_pca_cache` 等）を `CacheManager`（LRU + config ハッシュキー）へ一本化。
+- [x] **ドメイン型層の導入**: DataFrame/dict の素通しをやめ、`Signal` / `PortfolioDecision` / `GapSnapshot` / `DistributionResult` 等の frozen dataclass を `domain/` 層に新設。`ProductionV2Model.predict_signals` / `decide` の境界を型安全にする。
+- [x] **巨大ファイルの責務分割**: `production_v2.py`（1166 行）を `decide` / gap 分布取得 / フォールバック / オーバーレイ適用 / 多ホライズン統合 / 監査比較 に分割。`blpx.py`（1289 行）を 信号計算 / 事前分布構築 / 診断出力 に分割。目標は各ファイル 300 行未満。
+- [x] **ドキュメントの階層分離**: ARCHITECTURE.md から Phase 履歴を `docs/history.md` へ分離。日次運用手順書の廃止済み手順を現行化。
 
 ---
 
@@ -178,17 +178,17 @@ Phase 24-34 および 35-42 の完了後も、構造的負債・環境・ドキ�
 ### 3.3.1 Phase 43: ドキュメント整理
 
 - [x] `docs/README.md`（旧 PCA-Ensemble 説明）を `archive/docs/` へ移設
-- [ ] `運用方針書オリジナル.md` を `archive/docs/` へ移設
+- [x] `運用方針書オリジナル.md` を `archive/docs/` へ移設
 - [x] `ARCHITECTURE.md` のツリー記述を現状に更新（Next-Gen 削除後の V2 パイプライン、`PITDataLake` 等を反映）
-- [ ] `AGENTS.md` から「不採用実験の記録」セクションを `docs/experiment_graveyard.md` へ分離（2026-08 の不採用実験 8 件も追加更新）
+- [x] `AGENTS.md` から「不採用実験の記録」セクションを `docs/experiment_graveyard.md` へ分離（2026-08 の不採用実験 8 件も追加更新）
 - [x] `reports/` の命名規則を統一
 - [x] `archive-2026-08` 実験資産を別 git repo or git tag へ移設
 
 ### 3.3.2 Phase 44: Config / Pydantic 整理
 
 - [x] `configs/base.yaml` 新設：全パラメータのデフォルト正本
-- [ ] `configs/production.yaml` / `experiments/*.yaml` を base との差分のみに整理
-- [ ] `StrategyConfig` / `AppConfig` / `ProductionV2RunConfig` の重複フィールド整理
+- [x] `configs/production.yaml` / `experiments/*.yaml` を base との差分のみに整理
+- [x] `StrategyConfig` / `AppConfig` / `ProductionV2RunConfig` の重複フィールド整理
 - [x] `mypy` エラー残存 13 件のうち、新たに導入された型注釈問題を解消
 
 ### 3.3.3 Phase 45: テスト整備
@@ -197,40 +197,40 @@ Phase 24-34 および 35-42 の完了後も、構造的負債・環境・ドキ�
 - [x] `tests/research/` の位置づけ明確化
 - [x] `scripts/test/test_tachibana_*.py` を `tools/validation/` へ移設し、pytest テストと区別
 - [x] `test_pit_leak_property.py` の内容を全 signal 計算関数に展開
-- [ ] unit テストの目標時間を 2 分以内に収める
+- [x] unit テストの目標時間を 2 分以内に収める
 
 ### 3.3.4 Phase 46: 中間層の縮小
 
 - [x] `core/pipeline.py` を PCA/BLPX 用に分割・縮小（`BLPXCombiner` 等を別モジュールへ）
-- [ ] `models/blp_base.py` を V2 専用に縮小（Pydantic 一本化後の不要な互換レイヤー整理）
-- [ ] `blpx.py` / `production_v2.py` の前段階的な可読性改善
+- [x] `models/blp_base.py` を V2 専用に縮小（Pydantic 一本化後の不要な互換レイヤー整理）
+- [x] `blpx.py` / `production_v2.py` の前段階的な可読性改善
 
 ### 3.3.5 Phase 47: 巨大ファイルの責務分割
 
-- [ ] `production_v2.py`（1166 行）を以下に分割：
+- [x] `production_v2.py`（1166 行）を以下に分割：
   - `decide`
   - gap 分布取得
   - フォールバック制御
   - オーバーレイ適用
   - 多ホライズン統合
   - 監査比較
-- [ ] `blpx.py`（1289 行）を以下に分割：
+- [x] `blpx.py`（1289 行）を以下に分割：
   - 信号計算
   - 事前分布構築
   - 診断出力
-- [ ] 目標：各ファイル 300 行未満
+- [x] 目標：各ファイル 300 行未満
 
 ### 3.3.6 Phase 48: ドメイン型層導入
 
 - [x] `Signal` / `PortfolioDecision` / `GapSnapshot` / `DistributionResult` 等の frozen dataclass を `src/leadlag/domain/` 層に新設
-- [ ] `ProductionV2Model.predict_signals` / `decide` の境界を型安全に
-- [ ] DataFrame/dict の素通しを段階的に置換
+- [x] `ProductionV2Model.predict_signals` / `decide` の境界を型安全に
+- [x] DataFrame/dict の素通しを段階的に置換
 
 ### 3.3.7 Phase 49: 環境最終整備
 
 - [x] `.venv` / `.venv-mac` / `.venv312` を一本化（`.python-version` + uv）
 - [x] Python バージョンを固定
-- [ ] リポジトリ名を ASCII 化
+- [x] リポジトリ名を ASCII 化
 - [x] Windows `.bat` / `.ps1` を非推奨化（macOS 運用一本化）
 - [x] `import-linter` 契約の強化（`data → domain → models → execution → cli`）
 
@@ -270,7 +270,7 @@ Phase 24-34 および 35-42 の完了後も、構造的負債・環境・ドキ�
 | `scripts/run_v2_backtest.py:24,28` | `live/pipeline_data/...`, **`src/results/v2_backtest`** | src 配下に出力（構造違反） |
 | `src/research/scripts/backtest/run_production_backtest.py:35` | `results/production_backtest` | デフォルト引数 |
 
-加えて物理実体: `market_data/`（ルート、約130MB の pkl/npz/csv）、`var/market_data/deprecated` のみ存在。ルートに symlink 5 本（`artifacts` `live` `logs` `results` `shadow_runs` → `var/…`、リンク先は NFD 表記 `/Users/shonen/日米ラグ/`）。
+加えて物理実体: `market_data/`（ルート、約130MB の pkl/npz/csv）、`var/market_data/deprecated` のみ存在。ルートに symlink 5 本（`artifacts` `live` `logs` `results` `shadow_runs` → `var/…`、リンク先は NFD 表記 `/Users/shonen/leadlag/`）。
 
 **設計**
 
@@ -723,7 +723,7 @@ with registry.record(
 
 #### [Phase 42] [TODO] T-P3-1. リポジトリ名 ASCII 化
 
-**現状**: ワークスペース `/Users/shonen/日米ラグ` と symlink 先 `/Users/shonen/日米ラグ` は **同一 inode**（NFC/NFD 違い）。git・シェル・Python のパス比較で事故る種。
+**現状**: ワークスペース `/Users/shonen/leadlag` と symlink 先 `/Users/shonen/leadlag` は **同一 inode**（NFC/NFD 違い）。git・シェル・Python のパス比較で事故る種。
 
 **手順**: (1) 新規 clone を `~/leadlag-fund` に作成 → (2) venv 再構築 → (3) var/ データの移動 or symlink → (4) cron/launchd のパス書換 → (5) 旧ディレクトリは移行確認後に削除。
 
