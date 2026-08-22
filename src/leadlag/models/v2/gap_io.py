@@ -92,11 +92,15 @@ def _extract_gap_inputs(
 
 def _gap_alerts_fatal(gap_alerts: list[str]) -> bool:
     """Return True if loaded gap matrices must not be used.
-    Shape or non-finite alerts are fatal. Symmetry / PSD alerts are repairable
-    downstream and therefore not fatal.
+
+    Alerts are now produced with explicit ``[FATAL]`` / ``[REPAIRABLE]``
+    severity prefixes by ``validate_gap_matrices``.  ``[REPAIRABLE]``
+    issues (symmetry / PSD) are fixed downstream, so only ``[FATAL]``
+    alerts, missing-matrix placeholders, or any explicit DataValidationError
+    are considered fatal here.
     """
     for alert in gap_alerts:
-        if "shape" in alert or "non-finite" in alert:
+        if alert.startswith("[FATAL]"):
             return True
     return False
 
@@ -132,7 +136,8 @@ def _load_gap_or_flat(
     if mu_gap is None or Omega_gap is None or _gap_alerts_fatal(gap_alerts):
         fallback["gap_data_missing"] = True
         logger.error(
-            "[%s] Gap data missing or invalid. Returning flat position (w_final=0). No trading today.",
+            "[%s] Gap data missing or invalid. "
+            "Returning flat position (w_final=0). No trading today.",
             date_str,
         )
         alerts.append("Gap data missing or invalid. Flat position (w_final=0) returned.")
@@ -313,7 +318,10 @@ def compute_distribution(
             _compare_distribution(label, file_mu, file_omega, mu_ondemand, omega_ondemand)
         return file_mu, file_omega
     if ondemand_fallback:
-        logger.warning("[%s] Gap file cache missing (h=%d); computing on-demand.", trade_date, horizon)
+        logger.warning(
+            "[%s] Gap file cache missing (h=%d); computing on-demand.",
+            trade_date, horizon,
+        )
         return _compute_ondemand(
             model,
             trade_date=trade_date,

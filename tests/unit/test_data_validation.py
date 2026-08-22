@@ -89,12 +89,12 @@ def test_validate_gap_matrices_clean():
     omega = cov @ cov.T + np.eye(n_j) * 1e-4
     mu = rng.standard_normal(n_j)
     assert validate_gap_matrices(mu, omega, n_j=n_j) == []
+    assert not any(a.startswith("[FATAL]") for a in validate_gap_matrices(mu, omega, n_j=n_j))
 
 
 def test_validate_gap_matrices_missing():
-    assert validate_gap_matrices(None, None, n_j=len(JP_TICKERS)) == [
-        "Both mu and Omega gap matrices are missing"
-    ]
+    alerts = validate_gap_matrices(None, None, n_j=len(JP_TICKERS))
+    assert any("[FATAL]" in a and "missing" in a for a in alerts)
 
 
 def test_validate_gap_matrices_bad_shape():
@@ -102,7 +102,7 @@ def test_validate_gap_matrices_bad_shape():
     mu = np.zeros(n_j - 1)
     omega = np.eye(n_j)
     alerts = validate_gap_matrices(mu, omega, n_j=n_j)
-    assert any("mu shape" in a for a in alerts)
+    assert any(a.startswith("[FATAL]") and "mu shape" in a for a in alerts)
 
 
 def test_validate_gap_matrices_non_psd():
@@ -110,7 +110,7 @@ def test_validate_gap_matrices_non_psd():
     omega = np.eye(n_j)
     omega[0, 0] = -1.0
     alerts = validate_gap_matrices(np.zeros(n_j), omega, n_j=n_j)
-    assert any("positive semi-definite" in a for a in alerts)
+    assert any(a.startswith("[REPAIRABLE]") and "positive semi-definite" in a for a in alerts)
 
 
 def test_validate_gap_matrices_non_finite():
@@ -118,4 +118,4 @@ def test_validate_gap_matrices_non_finite():
     mu = np.full(n_j, np.nan)
     omega = np.eye(n_j)
     alerts = validate_gap_matrices(mu, omega, n_j=n_j)
-    assert any("mu contains non-finite" in a for a in alerts)
+    assert any(a.startswith("[FATAL]") and "mu contains non-finite" in a for a in alerts)

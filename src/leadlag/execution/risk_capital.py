@@ -79,6 +79,13 @@ def run_risk_checks(
 def auto_adjust_gross_exposure(decision: dict, config: ProductionConfig) -> dict:
     """Scale weights down if gross exposure exceeds the configured limit.
 
+    ``config.max_gross_exposure`` is interpreted in raw-weight units (before
+    ``side_leverage`` is applied to notional). This matches the unit convention
+    used by the portfolio construction stage and the existing test suite. The
+    caller must ensure that the configured limit is expressed in the same units
+    as the weights; for example, with ``side_leverage=1.5`` and a desired
+    notional gross of 3.0, ``max_gross_exposure`` should be ``2.0`` (not 3.0).
+
     Returns a new decision dict with gross exposure metadata and, if needed,
     scaled weights/actions.
     """

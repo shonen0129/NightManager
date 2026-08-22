@@ -194,13 +194,40 @@ def download_macro_prices(
         # normalize to RuntimeError so callers can catch a concrete type.
         raise RuntimeError(f"yfinance macro download failed: {e}") from e
 
-    # Extract Close prices
+    # Extract Close prices.
+    # yfinance may return columns sorted alphabetically, not in request order,
+    # and can return a simple DataFrame if only one ticker is queried.
+    # We normalize to the canonical MACRO_NAMES order, mapping by ticker identity
+    # (MACRO_TICKERS) when needed so the economic meaning is position-independent.
     if isinstance(raw.columns, pd.MultiIndex):
         close = raw["Close"]
+    elif not isinstance(raw, pd.DataFrame):
+        close = raw.to_frame()
     else:
-        close = raw.to_frame() if not isinstance(raw, pd.DataFrame) else raw
+        close = raw
 
-    close.columns = MACRO_NAMES
+    existing_cols = set(close.columns)
+    if existing_cols == set(MACRO_NAMES):
+        # Legacy/ingest path already provides canonical names in some order.
+        close = close[MACRO_NAMES]
+    elif existing_cols.issubset(set(MACRO_TICKERS)):
+        # yfinance path: columns are ticker strings, possibly sorted.
+        close = close.reindex(columns=MACRO_TICKERS)
+        close.columns = MACRO_NAMES
+    else:
+        raise RuntimeError(
+            f"Unexpected macro close columns {close.columns.tolist()}. "
+            f"Expected one of {MACRO_TICKERS} or {MACRO_NAMES}."
+        )
+
+    # Validate that every requested ticker has at least some data.
+    if close.isna().all().any():
+        all_na = close.columns[close.isna().all()].tolist()
+        raise RuntimeError(
+            f"Macro download missing or all-NaN tickers in {all_na}. "
+            f"Requested {MACRO_TICKERS}; returned columns {raw.columns.tolist()}."
+        )
+
     close = close.dropna(how="all")
 
     active_cache[cache_key] = close.copy()

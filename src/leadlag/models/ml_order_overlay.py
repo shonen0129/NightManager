@@ -373,7 +373,8 @@ def _collect_training_data(
             logger.warning("[%s] Skipping V2 generation: %s", date_str, e)
             continue
 
-        if v2["fallback"]["gap_data_missing"]:
+        fb = v2["fallback"]
+        if fb.get("gap_data_missing", False) or fb.get("audit_failure", False):
             continue
 
         row = df_exec.loc[date]
@@ -400,7 +401,8 @@ def _collect_training_data(
                     adr_ret = float(adr_df.loc[date, f"adr_{tk}"])
                 except Exception:
                     logger.warning(
-                        "[%s] ADR feature missing for %s during training/collection; using 0.0 fallback.",
+                        "[%s] ADR feature missing for %s during training/collection; "
+                        "using 0.0 fallback.",
                         date, tk,
                     )
                     adr_ret = 0.0
@@ -621,7 +623,8 @@ def apply_overlay(
     If ``snapshot`` is supplied, its point-in-time market data is used as the
     single source of truth for per-ticker features.
     """
-    if result["fallback"]["gap_data_missing"]:
+    fb = result["fallback"]
+    if fb.get("gap_data_missing", False) or fb.get("audit_failure", False):
         logger.info("[%s] V2 fallback active; skipping overlay.", trade_date)
         return result
 
@@ -656,6 +659,13 @@ def apply_overlay(
     p_trade = _safe(p_trade)
 
     mult = result["pit_binning"]["multiplier"]
+    if mult < 1e-12:
+        logger.warning(
+            "[%s] RuleD multiplier is %.6g; overlay needs a non-zero scale. "
+            "Returning original V2 result.",
+            trade_date, float(mult),
+        )
+        return result
     w_pre = result["w_final"] / mult
     w_scaled = _safe(w_pre) * p_trade
     w_scaled[np.abs(w_scaled) < 1e-8] = 0.0

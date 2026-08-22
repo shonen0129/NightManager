@@ -244,6 +244,54 @@ def test_download_macro_prices_column_names():
     clear_macro_cache()
 
 
+def test_download_macro_prices_yfinance_column_reordering():
+    """Columns returned by yfinance in a different order must be mapped by ticker, not position.
+
+    yfinance 1.5.2 returns the Close panel with columns sorted alphabetically
+    (['CL=F', 'JPY=X', '^TNX']) rather than in request order.  The function must
+    still label JPY=X data as USDJPY, CL=F data as CLF, and ^TNX data as TNX.
+    """
+    clear_macro_cache()
+    dates = pd.date_range("2020-01-01", periods=30)
+    # Build a DataFrame whose columns are in yfinance's alphabetical order.
+    yf_order = ["CL=F", "JPY=X", "^TNX"]
+    requested_order = ["JPY=X", "CL=F", "^TNX"]
+    mock_data = {
+        "CL=F": np.arange(30, dtype=float) + 50.0,
+        "JPY=X": np.arange(30, dtype=float) + 100.0,
+        "^TNX": np.arange(30, dtype=float) + 1.0,
+    }
+    mock_close_yf_order = pd.DataFrame(mock_data, index=dates)
+
+    # Build a MultiIndex DataFrame in yfinance's sorted order.
+    mock_multi = pd.DataFrame(
+        mock_close_yf_order.values,
+        index=dates,
+        columns=pd.MultiIndex.from_product([["Close"], yf_order]),
+    )
+
+    # A second mock returns in request order to catch position-based assumptions.
+    mock_close_request_order = pd.DataFrame(
+        {t: mock_data[t] for t in requested_order}, index=dates
+    )
+    mock_multi_request = pd.DataFrame(
+        mock_close_request_order.values,
+        index=dates,
+        columns=pd.MultiIndex.from_product([["Close"], requested_order]),
+    )
+
+    for mock_raw in [mock_multi, mock_multi_request]:
+        with patch("yfinance.download", side_effect=_make_mock_yf_download(mock_raw)):
+            result = download_macro_prices(start="2020-01-01", end="2020-01-30")
+
+        assert list(result.columns) == MACRO_NAMES
+        np.testing.assert_allclose(result["USDJPY"].values, mock_data["JPY=X"])
+        np.testing.assert_allclose(result["CLF"].values, mock_data["CL=F"])
+        np.testing.assert_allclose(result["TNX"].values, mock_data["^TNX"])
+
+    clear_macro_cache()
+
+
 # ---------------------------------------------------------------------------
 # Integration: signal direction preservation
 # ---------------------------------------------------------------------------

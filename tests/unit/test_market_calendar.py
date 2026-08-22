@@ -42,20 +42,30 @@ class TestHolidayCheck:
 
     def test_golden_week_closed(self):
         assert is_market_closed(date(2025, 5, 3))
+        assert is_market_closed(date(2025, 5, 4))
         assert is_market_closed(date(2025, 5, 5))
+        assert is_market_closed(date(2025, 5, 6))
 
     def test_regular_weekday_is_open(self):
         # 2025-01-21 is a regular Tuesday
         assert is_trading_day(date(2025, 1, 21))
 
-    def test_2026_autumnal_equinox_only_sep23(self):
-        # 2026-09-22 is a regular Tuesday; only 2026-09-23 is 秋分の日
-        assert is_trading_day(date(2026, 9, 22))
+    def test_erroneously_flagged_trading_days_are_open(self):
+        # These dates were mistakenly in the old static holiday table.
+        assert is_trading_day(date(2025, 1, 6))
+        assert is_trading_day(date(2025, 3, 11))
+        assert is_trading_day(date(2025, 5, 2))
+        assert is_trading_day(date(2026, 1, 5))
+
+    def test_2026_autumnal_equinox_and_kokumin_no_kyujitsu(self):
+        # 2026-09-22 is 国民の休日 (JPX closed); 2026-09-23 is 秋分の日
+        assert is_market_closed(date(2026, 9, 22))
         assert is_market_closed(date(2026, 9, 23))
 
-    def test_dec31_is_open(self):
-        # TSE is typically open on Dec 31
-        assert is_trading_day(date(2025, 12, 31))
+    def test_dec31_is_closed(self):
+        # TSE is closed on Dec 31 (大納会翌日)
+        assert is_market_closed(date(2025, 12, 31))
+        assert is_market_closed(date(2026, 12, 31))
 
 
 class TestHolidayName:
@@ -88,8 +98,10 @@ class TestPreviousTradingDay:
         assert previous_trading_day(date(2025, 1, 14)) == date(2025, 1, 10)
 
     def test_skip_long_weekend(self):
-        # 2025-05-07 (Wednesday) → 2025-05-01 (Thursday), skipping 憲法記念日 etc.
-        assert previous_trading_day(date(2025, 5, 7)) == date(2025, 5, 1)
+        # 2025-05-07 (Wednesday) → 2025-05-02 (Friday), skipping Golden Week.
+        # 2025-05-01 (Thursday) is a regular trading day, but 2025-05-02 (Friday)
+        # is the last trading day before the holiday.
+        assert previous_trading_day(date(2025, 5, 7)) == date(2025, 5, 2)
 
 
 class TestDefaultDate:

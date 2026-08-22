@@ -226,6 +226,16 @@ def run_v2_decision(
         logger.warning("[DRY-RUN] Forcing api_dry_run=True to avoid live API calls.")
         api_dry_run = True
 
+    # Without a real price source the 1000 JPY dummy would create bogus gaps
+    # and corrupt output files / ML overlay features. Force dry-run and use
+    # previous closes as placeholders (gap = 0) for non-API execution.
+    if not api_enable and not dry_run:
+        logger.warning(
+            "[API] --api-enable not set. Forcing dry_run=True to avoid writing "
+            "files with dummy open prices."
+        )
+        dry_run = True
+
     # --- Step 1: Build df_exec (historical data + today's placeholders) ---
     logger.info("[1/5] Loading/building df_exec...")
     df_exec = _load_df_exec(app_config, data_source="cache")
@@ -256,7 +266,10 @@ def run_v2_decision(
                 if not missing:
                     logger.info("[2/5] Using cached JP opens from gap distribution step.")
                 else:
-                    logger.info("[2/5] Cached opens incomplete (%d missing); fetching from API...", len(missing))
+                    logger.info(
+                        "[2/5] Cached opens incomplete (%d missing); fetching from API...",
+                        len(missing),
+                    )
                     current_prices = _resolve_current_prices(
                         app_config, api_client, jp_opens_csv, google_opens
                     )
@@ -270,8 +283,7 @@ def run_v2_decision(
                 max_capital = resolve_wallet_capital(api_client)
                 logger.info("[CAPITAL] Using wallet balance: %s JPY", f"{max_capital:,.0f}")
         else:
-            logger.info("[2/5] API disabled. Using dummy opens (1000 JPY for all tickers).")
-            current_prices = {tk: 1000.0 for tk in JP_TICKERS}
+            logger.info("[2/5] API disabled. Will use previous closes as placeholder open prices.")
     except Exception as e:
         logger.error("[2/5] Failed to fetch opens: %s", e)
         if api_client is not None:
@@ -310,6 +322,18 @@ def run_v2_decision(
             and float(latest_row[f"jp_close_sig_{tk}"]) > 0.0
         }
 
+    # If the API was disabled, fall back to previous closes as placeholders.
+    # This produces zero gap and avoids the dangerous 1000 JPY dummy that would
+    # otherwise leak into the ML overlay and on-demand BLPX recomputation.
+    if not api_enable:
+        current_prices = {
+            tk: float(snapshot_prev_closes[tk])
+            for tk in JP_TICKERS
+            if tk in snapshot_prev_closes
+            and np.isfinite(snapshot_prev_closes[tk])
+            and snapshot_prev_closes[tk] > 0.0
+        }
+
     # Recompute the 9:10 gap returns using the live/cached current prices so
     # the MarketSnapshot is the single source of truth for this trade date.
     api_current_prices: dict[str, float] = {
@@ -335,6 +359,19 @@ def run_v2_decision(
         prev_closes=snapshot_prev_closes,
     )
 
+    is_valid, snapshot_errors = snapshot.validate()
+    if not is_valid:
+        logger.error("MarketSnapshot validation failed: %s", snapshot_errors)
+        if api_client is not None:
+            try:
+                api_client.close()
+            except Exception:
+                pass
+        raise RuntimeError(
+            f"MarketSnapshot validation failed: {snapshot_errors}. "
+            "Aborting to avoid trading on bogus data."
+        )
+
     # --- Step 4: Generate V2 portfolio ---
     logger.info("[4/5] Generating V2 production portfolio...")
     runner = ProductionRunner(app_config)
@@ -351,9 +388,16 @@ def run_v2_decision(
 
     write_production_files(effective_trade_date, live_path, result, dry_run=dry_run)
 
-    fallback_used = result["fallback"]["gap_data_missing"]
+    fallback_used = (
+        result["fallback"].get("gap_data_missing", False)
+        or result["fallback"].get("audit_failure", False)
+    )
     if fallback_used:
-        logger.warning("[V2] Gap data missing. Flat position (w_final=0) returned.")
+        reason = (
+            "gap data missing" if result["fallback"].get("gap_data_missing")
+            else "audit failure"
+        )
+        logger.warning("[V2] %s. Flat position (w_final=0) returned.", reason)
     else:
         logger.info(
             "[V2] Portfolio OK. Bin=%s, Mult=%.2f, Gross=%.4f, IR=%.4f",
@@ -405,7 +449,19 @@ def run_v2_decision(
             try:
                 current_positions = fetch_current_positions(api_client)
             except Exception as e:
-                logger.warning("Failed to fetch current positions: %s. Will submit full target.", e)
+                # Fail-closed: without current positions we cannot compute a safe
+                # delta, and submitting the full target may double the position
+                # if positions already exist or the same decision is re-run.
+                logger.error("Failed to fetch current positions: %s", e)
+                if api_client is not None:
+                    try:
+                        api_client.close()
+                    except Exception:
+                        pass
+                raise RuntimeError(
+                    f"Failed to fetch current positions: {e}. "
+                    "Aborting to avoid double-ordering."
+                ) from e
 
         hist_returns = _get_hist_returns_for_risk(
             strategy=None,

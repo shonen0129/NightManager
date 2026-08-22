@@ -98,8 +98,14 @@ def _run_safety_audits(
     version: str,
 ) -> PortfolioDecision:
     """Run leakage/numerical audits and assemble the final result."""
-    if fallback["gap_data_missing"]:
-        # Flat fallback means no signal was computed, so there is no leakage.
+    # Combine the two distinct fallback reasons into a single trigger flag.
+    fallback_triggered = (
+        fallback.get("gap_data_missing", False)
+        or fallback.get("audit_failure", False)
+    )
+
+    if fallback_triggered:
+        # Flat or audit-fallback means no signal was computed, so there is no leakage.
         # Return a clearly distinguished status to avoid false FAILED alerts.
         leakage = {
             "status": "FLAT",
@@ -113,14 +119,15 @@ def _run_safety_audits(
         leakage = run_leakage_audit(
             signal_date,
             date_str,
-            gap_data_loaded=not fallback["gap_data_missing"],
+            gap_data_loaded=not fallback.get("gap_data_missing", False),
             pit_history_trade_dates=pit_history_trade_dates,
         )
 
     numerical = run_numerical_audit(w_final, scores, Omega_gap)
     if numerical["status"] == "FAILED" and run_cfg.fallback_on_audit_failure:
         alerts.append(f"Numerical audit FAILED: {numerical}. Falling back to flat position.")
-        fallback["gap_data_missing"] = True
+        fallback["audit_failure"] = True
+        fallback_triggered = True
         w_final = np.zeros_like(w_final)
         numerical = run_numerical_audit(w_final, scores, Omega_gap)
     elif numerical["status"] == "FAILED":
@@ -132,7 +139,7 @@ def _run_safety_audits(
     summary = _build_summary(
         w_final, date_str, pit_binning["multiplier"], pit_binning["assigned_bin"],
         pit_binning["threshold_low"], pit_binning["threshold_high"], run_cfg,
-        fallback=fallback["gap_data_missing"], candidate=candidate,
+        fallback=fallback_triggered, candidate=candidate,
         version=version,
         scores=scores, mu_gap=mu_gap, Omega_gap=Omega_gap,
     )
@@ -170,12 +177,14 @@ def _compare_distribution(
     rel_omega = frob_omega / omega_scale
 
     logger.info(
-        "[%s] Shadow on-demand vs file cache: max|dmu|=%.6g (rel=%.4g), frob|dOmega|=%.6g (rel=%.4g)",
+        "[%s] Shadow on-demand vs file cache: "
+        "max|dmu|=%.6g (rel=%.4g), frob|dOmega|=%.6g (rel=%.4g)",
         label, max_abs_mu, rel_mu, frob_omega, rel_omega,
     )
     if rel_mu > 0.01 or rel_omega > 0.01:
         logger.warning(
-            "[%s] On-demand distribution differs from file cache by >1%% (rel_mu=%.4g, rel_omega=%.4g). "
+            "[%s] On-demand distribution differs from file cache by "
+            ">1%% (rel_mu=%.4g, rel_omega=%.4g). "
             "File cache is used; investigate model/dataset drift.",
             label, rel_mu, rel_omega,
         )

@@ -30,6 +30,11 @@ from leadlag.models.production_v2 import VERSION
 logger = logging.getLogger(__name__)
 
 
+def _is_fallback_triggered(fb: dict) -> bool:
+    """Return True if the decision was forced to a flat fallback for any reason."""
+    return fb.get("gap_data_missing", False) or fb.get("audit_failure", False)
+
+
 def write_production_files(
     trade_date: str,
     live_dir: Path,
@@ -57,6 +62,7 @@ def write_production_files(
     mu_gap = result["mu_gap"]
     sigma_gap = result["sigma_gap"]
     pit = result["pit_binning"]
+    fallback_triggered = _is_fallback_triggered(result["fallback"])
 
     # 1. latest_weights.csv
     rows = []
@@ -74,7 +80,7 @@ def write_production_files(
             "gross_multiplier": float(pit["multiplier"]),
             "pit_bin": pit["assigned_bin"],
             "version": VERSION,
-            "fallback_flag": int(result["fallback"]["gap_data_missing"]),
+            "fallback_flag": int(fallback_triggered),
         })
     pd.DataFrame(rows).to_csv(live_dir / "latest_weights.csv", index=False)
     logger.info("Written: latest_weights.csv  (gross=%.4f)", float(np.sum(np.abs(w_final))))
@@ -120,7 +126,7 @@ def write_production_files(
         "all_passed": all_passed,
         "leakage_status": result["leakage"]["status"],
         "numerical_status": result["numerical"]["status"],
-        "fallback_triggered": result["fallback"]["gap_data_missing"],
+        "fallback_triggered": fallback_triggered,
         "alerts": result["alerts"],
         "timestamp": datetime.now().isoformat(),
     }
@@ -159,7 +165,7 @@ def _print_dry_run_summary(trade_date: str, result: PortfolioDecision | dict) ->
     logger.info("  Target Gross  : %.4f", s["target_gross"])
     logger.info("  Target Net    : %.6f", s["target_net"])
     logger.info("  Ex-Ante IR    : %.4f", s["predicted_portfolio_ir"])
-    logger.info("  Fallback      : %s", result["fallback"]["gap_data_missing"])
+    logger.info("  Fallback      : %s", _is_fallback_triggered(result["fallback"]))
     logger.info("  Leakage Audit : %s", result["leakage"]["status"])
     logger.info("  Numerical Audit: %s", result["numerical"]["status"])
     logger.info("  Alerts        : %s", result["alerts"])
@@ -185,9 +191,13 @@ def _write_daily_report(trade_date: str, live_dir: Path, result: PortfolioDecisi
     short_weights.sort(key=lambda x: x[1])
 
     fallback_note = ""
-    if fb["gap_data_missing"]:
+    if _is_fallback_triggered(fb):
+        reason = (
+            "gap data 未利用" if fb.get("gap_data_missing")
+            else "audit failure"
+        )
         fallback_note = (
-            "\n\n> [!WARNING]\n> **フォールバック発動**: gap data 未利用。"
+            f"\n\n> [!WARNING]\n> **フォールバック発動**: {reason}。"
             "flat position (w_final=0) を返しています。\n"
         )
 
@@ -219,7 +229,7 @@ def _write_daily_report(trade_date: str, live_dir: Path, result: PortfolioDecisi
 | Expected Cost (bps) | {s['expected_cost_bps']:.1f} |
 | Longs | {s['long_count']} |
 | Shorts | {s['short_count']} |
-| Fallback Triggered | {"YES ⚠️" if fb['gap_data_missing'] else "No"} |
+| Fallback Triggered | {"YES ⚠️" if _is_fallback_triggered(fb) else "No"} |
 
 ## 2. RuleD Dynamic Gross Binning
 

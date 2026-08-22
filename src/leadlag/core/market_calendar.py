@@ -29,17 +29,16 @@ _STATIC_HOLIDAYS: dict[int, set[date]] = {
         date(2025, 1, 1),    # 元日
         date(2025, 1, 2),    # 年末年始休場
         date(2025, 1, 3),    # 年末年始休場
-        date(2025, 1, 6),    # 年末年始休場
         date(2025, 1, 13),   # 成人の日
         date(2025, 2, 11),   # 建国記念の日
         date(2025, 2, 23),   # 天皇誕生日
         date(2025, 2, 24),   # 振替休日
-        date(2025, 3, 11),   # 臨時休場（東日本大震災追悼日※通常はなし、必要に応じて）
+        date(2025, 3, 20),   # 春分の日
         date(2025, 4, 29),   # 昭和の日
-        date(2025, 5, 2),    # みどりの日（振替）
         date(2025, 5, 3),    # 憲法記念日
+        date(2025, 5, 4),    # みどりの日
         date(2025, 5, 5),    # こどもの日
-        date(2025, 5, 6),    # みどりの日（振替休日）
+        date(2025, 5, 6),    # 憲法記念日・みどりの日 振替休日
         date(2025, 7, 21),   # 海の日
         date(2025, 8, 11),   # 山の日
         date(2025, 9, 15),   # 敬老の日
@@ -48,25 +47,52 @@ _STATIC_HOLIDAYS: dict[int, set[date]] = {
         date(2025, 11, 3),   # 文化の日
         date(2025, 11, 23),  # 勤労感謝の日
         date(2025, 11, 24),  # 振替休日
+        date(2025, 12, 31),  # 年末休業日
     },
     2026: {
         date(2026, 1, 1),    # 元日
         date(2026, 1, 2),    # 年末年始休場
-        date(2026, 1, 5),    # 年末年始休場
+        date(2026, 1, 3),    # 年末年始休場
         date(2026, 1, 12),   # 成人の日
         date(2026, 2, 11),   # 建国記念の日
         date(2026, 2, 23),   # 天皇誕生日
+        date(2026, 3, 20),   # 春分の日
         date(2026, 4, 29),   # 昭和の日
+        date(2026, 5, 3),    # 憲法記念日
         date(2026, 5, 4),    # みどりの日
         date(2026, 5, 5),    # こどもの日
-        date(2026, 5, 6),    # 憲法記念日（振替休日）
+        date(2026, 5, 6),    # 憲法記念日 振替休日
         date(2026, 7, 20),   # 海の日
         date(2026, 8, 11),   # 山の日
         date(2026, 9, 21),   # 敬老の日
+        date(2026, 9, 22),   # 国民の休日（JPX休場）
         date(2026, 9, 23),   # 秋分の日
         date(2026, 10, 12),  # スポーツの日
         date(2026, 11, 3),   # 文化の日
         date(2026, 11, 23),  # 勤労感謝の日
+        date(2026, 12, 31),  # 年末休業日
+    },
+    2027: {
+        date(2027, 1, 1),    # 元日
+        date(2027, 1, 2),    # 年末年始休場
+        date(2027, 1, 3),    # 年末年始休場
+        date(2027, 1, 11),   # 成人の日
+        date(2027, 2, 11),   # 建国記念の日
+        date(2027, 2, 23),   # 天皇誕生日
+        date(2027, 3, 21),   # 春分の日
+        date(2027, 3, 22),   # 振替休日
+        date(2027, 4, 29),   # 昭和の日
+        date(2027, 5, 3),    # 憲法記念日
+        date(2027, 5, 4),    # みどりの日
+        date(2027, 5, 5),    # こどもの日
+        date(2027, 7, 19),   # 海の日
+        date(2027, 8, 11),   # 山の日
+        date(2027, 9, 20),   # 敬老の日
+        date(2027, 9, 23),   # 秋分の日
+        date(2027, 10, 11),  # スポーツの日
+        date(2027, 11, 3),   # 文化の日
+        date(2027, 11, 23),  # 勤労感謝の日
+        date(2027, 12, 31),  # 年末休業日
     },
 }
 
@@ -119,10 +145,12 @@ def is_trading_day(d: date | datetime | None = None) -> bool:
     if _is_weekend(d):
         return False
 
-    # Try jpholiday first, fall back to static table
+    # jpholiday covers public holidays; the static table covers JPX-specific
+    # market closures that are not public holidays (e.g. 12/31, 1/2, 1/3) and
+    # the exact JPX calendar for the years it includes. Use both sources.
     jp_hol = _is_holiday_jpholiday(d)
-    if jp_hol is not None:
-        return not jp_hol
+    if jp_hol:
+        return False
 
     return not _is_holiday_static(d)
 

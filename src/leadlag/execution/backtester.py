@@ -7,6 +7,7 @@ The legacy V1 generic ``BaseModel`` backtest has been moved to
 from __future__ import annotations
 
 import logging
+import os
 from pathlib import Path
 from typing import Any, cast
 
@@ -47,7 +48,12 @@ class BacktestEngine:
 
         if end_date != "latest":
             end_dt = pd.to_datetime(end_date)
-            end_idx = min(int(sim_dates.searchsorted(end_dt)), T - 1)
+            # searchsorted(..., side="right") gives the first index *after* end_dt;
+            # subtract 1 to get the last trading day on or before end_dt. This
+            # prevents a non-trading end_date from leaking the following business
+            # day into the simulation.
+            end_idx = int(sim_dates.searchsorted(end_dt, side="right")) - 1
+            end_idx = max(0, min(end_idx, T - 1))
         else:
             end_idx = T - 1
 
@@ -171,7 +177,7 @@ class BacktestEngine:
 
             slip_cost = side_leverage * slip * (
                 2.0 * np.sum((1.0 - alpha_mask) * np.abs(w_t))
-                + np.sum(alpha_mask * np.abs(w_t - w_prev) / 2.0)
+                + np.sum(alpha_mask * np.abs(w_t - w_prev))
             )
             held_long = float(np.sum(alpha_mask * np.maximum(w_t, 0.0)))
             held_short = float(np.sum(alpha_mask * np.maximum(-w_t, 0.0)))
@@ -373,6 +379,12 @@ class BacktestEngine:
         side_leverage: float | None,
     ) -> dict:
         """Resolve cost/financing and side-leverage parameters for run_v2_backtest."""
+        # STRATEGY_SLIPPAGE_BPS must take precedence over both function argument
+        # defaults and the config file, matching load_config_from_yaml behavior.
+        env_slip = os.environ.get("STRATEGY_SLIPPAGE_BPS")
+        if env_slip is not None and slippage_bps is None:
+            slippage_bps = float(env_slip)
+
         # Prefer the V2 cost sub-model; fall back to the legacy StrategyConfig fields.
         v2_costs = getattr(app_config.v2, "costs", None)
         v2_costs = v2_costs or app_config.strategy
@@ -464,7 +476,10 @@ class BacktestEngine:
                     use_file_cache=True,
                 )
                 w = result["w_final"]
-                fb = result["fallback"]["gap_data_missing"]
+                fb = (
+                    result["fallback"].get("gap_data_missing", False)
+                    or result["fallback"].get("audit_failure", False)
+                )
                 summary = result.get("summary", {})
                 return i, w, fb, summary
             except (ValueError, RuntimeError, FileNotFoundError) as e:
@@ -483,7 +498,8 @@ class BacktestEngine:
                 fallback_flags[i] = fb
                 v2_summaries[i] = summary
                 if fb:
-                    logger.debug("[%s] V2 fallback (gap data missing)", sim_dates_slice[i].strftime("%Y-%m-%d"))
+                    date_str = sim_dates_slice[i].strftime("%Y-%m-%d")
+                    logger.debug("[%s] V2 fallback (gap data missing)", date_str)
                 if (i + 1) % 200 == 0:
                     logger.info("V2 backtest: processed %d/%d dates", i + 1, n_sim_days)
         else:
@@ -497,8 +513,12 @@ class BacktestEngine:
                 fallback_flags[i] = fb
                 v2_summaries[i] = summary
                 if fb:
-                    logger.debug("[%s] V2 fallback (gap data missing)", sim_dates_slice[i].strftime("%Y-%m-%d"))
-            logger.info("V2 backtest: processed %d/%d dates (parallel, n_jobs=%d)", n_sim_days, n_sim_days, n_jobs)
+                    date_str = sim_dates_slice[i].strftime("%Y-%m-%d")
+                    logger.debug("[%s] V2 fallback (gap data missing)", date_str)
+            logger.info(
+                "V2 backtest: processed %d/%d dates (parallel, n_jobs=%d)",
+                n_sim_days, n_sim_days, n_jobs,
+            )
 
         return sre_weights, fallback_flags, v2_summaries
 

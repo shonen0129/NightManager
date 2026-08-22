@@ -145,7 +145,12 @@ class FileCacheDistributionSource(DistributionSource):
 
         # Optional shadow validation against on-demand.
         shadow = getattr(self.run_cfg, "shadow_ondemand_validation", False)
-        if shadow and self.model._blpx_model is not None and df_exec is not None and current_prices is not None:
+        if (
+            shadow
+            and self.model._blpx_model is not None
+            and df_exec is not None
+            and current_prices is not None
+        ):
             try:
                 mu_ondemand, omega_ondemand = _compute_ondemand(
                     self.model,
@@ -189,7 +194,7 @@ class OnDemandDistributionSource(DistributionSource):
         horizon: int = 1,
         snapshot: MarketSnapshot | None = None,
     ) -> DistributionResult:
-        if getattr(self.run_cfg, "ondemand_fallback_enabled", False) is False:
+        if getattr(self.run_cfg, "ondemand_fallback_enabled", True) is False:
             return DistributionResult(
                 source=self.name,
                 alerts=["ondemand_fallback_enabled is False."],
@@ -263,7 +268,8 @@ class FlatPositionSource(DistributionSource):
             "fallback_flag": True,
         }
         logger.error(
-            "[%s] All distribution sources failed. Returning flat position (w_final=0). No trading today.",
+            "[%s] All distribution sources failed. "
+            "Returning flat position (w_final=0). No trading today.",
             trade_date,
         )
         alerts.append("All distribution sources failed. Flat position (w_final=0) returned.")

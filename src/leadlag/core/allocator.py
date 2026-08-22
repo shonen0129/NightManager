@@ -216,6 +216,13 @@ def allocate_capital(
             buy_total, sell_total = _side_totals()
             net = buy_total - sell_total
 
+        if steps == max_steps and abs(net) > net_limit + 1e-9:
+            logger.warning(
+                "Capital allocation did not converge within %d steps; "
+                "net deviation=%.6f exceeds limit=%.6f",
+                max_steps, net, net_limit,
+            )
+
     return CapitalAllocation(
         quantities=quantities.astype(int),
         allocated_amounts=allocated,

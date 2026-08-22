@@ -219,18 +219,29 @@ def validate_exec_record(
     alerts: list[str] = []
     for tk in us_tickers:
         col = f"{US_CC_PREFIX}{tk}"
-        if record.get(col) is None or (isinstance(record[col], float) and (np.isnan(record[col]) or np.isinf(record[col]))):
-            alerts.append(f"us_cc missing or non-finite for {tk} on {record.get('trade_date')}")
+        is_nan_or_inf = (
+            isinstance(record.get(col), float)
+            and (np.isnan(record[col]) or np.isinf(record[col]))
+        )
+        if record.get(col) is None or is_nan_or_inf:
+            alerts.append(
+                f"us_cc missing or non-finite for {tk} on {record.get('trade_date')}"
+            )
 
     for tk in jp_tickers:
         for prefix in (JP_CC_PREFIX, JP_GAP_PREFIX, JP_OPEN_PREFIX, JP_CLOSE_PREFIX):
             col = f"{prefix}{tk}"
             val = record.get(col)
-            if val is None or (isinstance(val, float) and (np.isnan(val) or np.isinf(val))):
-                alerts.append(f"{prefix[:-1]} missing or non-finite for {tk} on {record.get('trade_date')}")
+            is_nan_or_inf = isinstance(val, float) and (np.isnan(val) or np.isinf(val))
+            if val is None or is_nan_or_inf:
+                alerts.append(
+                    f"{prefix[:-1]} missing or non-finite for {tk} on {record.get('trade_date')}"
+                )
                 continue
             if prefix == JP_OPEN_PREFIX and isinstance(val, (int, float)) and float(val) <= 0.0:
-                alerts.append(f"{prefix[:-1]} non-positive for {tk} on {record.get('trade_date')}")
+                alerts.append(
+                    f"{prefix[:-1]} non-positive for {tk} on {record.get('trade_date')}"
+                )
 
     return alerts
 
@@ -243,16 +254,19 @@ def validate_gap_matrices(
 ) -> list[str]:
     """Validate the shape and finite-ness of mu / Omega gap matrices.
 
-    Returns a list of alerts. Callers can decide whether to raise or fall back.
+    Returns a list of alerts. Each alert is prefixed with its severity:
+    ``[FATAL]`` for missing/wrong-shape/non-finite matrices and ``[REPAIRABLE]``
+    for symmetry / positive-semi-definite issues that can be fixed downstream.
+    Callers can decide whether to raise or fall back based on these prefixes.
     """
     alerts: list[str] = []
     if mu is None and omega is None:
-        alerts.append("Both mu and Omega gap matrices are missing")
+        alerts.append("[FATAL] Both mu and Omega gap matrices are missing")
         return alerts
     if mu is None:
-        alerts.append("mu gap matrix is missing")
+        alerts.append("[FATAL] mu gap matrix is missing")
     if omega is None:
-        alerts.append("Omega gap matrix is missing")
+        alerts.append("[FATAL] Omega gap matrix is missing")
     if mu is None or omega is None:
         return alerts
 
@@ -260,18 +274,21 @@ def validate_gap_matrices(
     omega_arr = np.asarray(omega, dtype=float)
 
     if mu_arr.shape != (n_j,):
-        alerts.append(f"mu shape {mu_arr.shape} != ({n_j},)")
+        alerts.append(f"[FATAL] mu shape {mu_arr.shape} != ({n_j},)")
     if omega_arr.shape != (n_j, n_j):
-        alerts.append(f"Omega shape {omega_arr.shape} != ({n_j}, {n_j})")
+        alerts.append(f"[FATAL] Omega shape {omega_arr.shape} != ({n_j}, {n_j})")
     if not np.all(np.isfinite(mu_arr)):
-        alerts.append("mu contains non-finite values")
+        alerts.append("[FATAL] mu contains non-finite values")
     if not np.all(np.isfinite(omega_arr)):
-        alerts.append("Omega contains non-finite values")
+        alerts.append("[FATAL] Omega contains non-finite values")
     if omega_arr.shape == (n_j, n_j):
         if not np.allclose(omega_arr, omega_arr.T):
-            alerts.append("Omega is not symmetric")
+            alerts.append("[REPAIRABLE] Omega is not symmetric")
         eigvals = np.linalg.eigvalsh(omega_arr + omega_arr.T) / 2.0
         if np.any(eigvals < -1e-8):
-            alerts.append(f"Omega is not positive semi-definite (min eigval {eigvals.min():.6f})")
+            alerts.append(
+                f"[REPAIRABLE] Omega is not positive semi-definite "
+                f"(min eigval {eigvals.min():.6f})"
+            )
 
     return alerts
