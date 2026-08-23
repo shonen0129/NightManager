@@ -1,0 +1,6470 @@
+meta:
+  jpx_master_file: var/research/subsector/jpx_master/jpx_master.csv
+  taxonomy_file: configs/taxonomy_subsectors.yaml
+  total_taxonomy_tickers: 498
+  mapped_tickers: 494
+  unmapped_tickers: 4
+  unmapped_reason: delisted or missing in JPX master as of 2026-07-31
+  valid_tickers:
+  - 1719.T
+  - 1801.T
+  - 1802.T
+  - 1803.T
+  - 1812.T
+  - 1820.T
+  - 1860.T
+  - 1893.T
+  - 5076.T
+  - 1808.T
+  - 1878.T
+  - 1911.T
+  - 1925.T
+  - 1928.T
+  - 3288.T
+  - 3291.T
+  - 1414.T
+  - 1417.T
+  - 1721.T
+  - 1942.T
+  - 1944.T
+  - 1951.T
+  - 1959.T
+  - 1963.T
+  - 1969.T
+  - 5332.T
+  - 5929.T
+  - 5938.T
+  - 5947.T
+  - 3003.T
+  - 3231.T
+  - 3289.T
+  - 8801.T
+  - 8802.T
+  - 8804.T
+  - 8830.T
+  - 3407.T
+  - 4005.T
+  - 4042.T
+  - 4043.T
+  - 4045.T
+  - 4061.T
+  - 4183.T
+  - 4188.T
+  - 4208.T
+  - 4004.T
+  - 4021.T
+  - 4063.T
+  - 4182.T
+  - 4186.T
+  - 4203.T
+  - 4626.T
+  - 4980.T
+  - 3401.T
+  - 3402.T
+  - 3405.T
+  - 4202.T
+  - 4204.T
+  - 4205.T
+  - 4901.T
+  - 6988.T
+  - 4206.T
+  - 4612.T
+  - 4613.T
+  - 4631.T
+  - 4114.T
+  - 4118.T
+  - 4272.T
+  - 4401.T
+  - 4403.T
+  - 5201.T
+  - 5214.T
+  - 5232.T
+  - 5233.T
+  - 5301.T
+  - 5333.T
+  - 5334.T
+  - 5344.T
+  - 5393.T
+  - 3861.T
+  - 3941.T
+  - 5901.T
+  - 7911.T
+  - 7912.T
+  - 5401.T
+  - 5406.T
+  - 5411.T
+  - 5444.T
+  - 5463.T
+  - 5471.T
+  - 5016.T
+  - 5706.T
+  - 5711.T
+  - 5713.T
+  - 5714.T
+  - 5801.T
+  - 5802.T
+  - 5803.T
+  - 6134.T
+  - 6268.T
+  - 6273.T
+  - 6383.T
+  - 6481.T
+  - 6506.T
+  - 6841.T
+  - 6845.T
+  - 6954.T
+  - 6113.T
+  - 6136.T
+  - 6141.T
+  - 6436.T
+  - 6457.T
+  - 5631.T
+  - 6301.T
+  - 6302.T
+  - 6305.T
+  - 6326.T
+  - 7003.T
+  - 7011.T
+  - 7012.T
+  - 7013.T
+  - 6005.T
+  - 6269.T
+  - 6361.T
+  - 6367.T
+  - 6368.T
+  - 6370.T
+  - 6465.T
+  - 6471.T
+  - 6472.T
+  - 6473.T
+  - 6586.T
+  - 6501.T
+  - 6503.T
+  - 6504.T
+  - 6592.T
+  - 6632.T
+  - 6674.T
+  - 6752.T
+  - 285A.T
+  - 3436.T
+  - 6146.T
+  - 6323.T
+  - 6525.T
+  - 6526.T
+  - 6707.T
+  - 6723.T
+  - 6728.T
+  - 6857.T
+  - 6920.T
+  - 6951.T
+  - 7729.T
+  - 7735.T
+  - 8035.T
+  - 4062.T
+  - 6645.T
+  - 6762.T
+  - 6770.T
+  - 6806.T
+  - 6861.T
+  - 6925.T
+  - 6963.T
+  - 6965.T
+  - 6971.T
+  - 6976.T
+  - 6981.T
+  - 6856.T
+  - 7701.T
+  - 7731.T
+  - 7733.T
+  - 7741.T
+  - 7751.T
+  - 4543.T
+  - 4544.T
+  - 6849.T
+  - 6869.T
+  - 7747.T
+  - 8086.T
+  - 4902.T
+  - 6448.T
+  - 6479.T
+  - 6724.T
+  - 6753.T
+  - 6754.T
+  - 6952.T
+  - 7752.T
+  - 7201.T
+  - 7202.T
+  - 7203.T
+  - 7211.T
+  - 7261.T
+  - 7267.T
+  - 7269.T
+  - 7270.T
+  - 7272.T
+  - 3105.T
+  - 3116.T
+  - 5991.T
+  - 6902.T
+  - 6923.T
+  - 7240.T
+  - 7259.T
+  - 7276.T
+  - 7282.T
+  - 7313.T
+  - 7988.T
+  - 5101.T
+  - 5105.T
+  - 5108.T
+  - 5110.T
+  - 4502.T
+  - 4503.T
+  - 4507.T
+  - 4519.T
+  - 4523.T
+  - 4528.T
+  - 4568.T
+  - 4578.T
+  - 4151.T
+  - 4516.T
+  - 4536.T
+  - 4587.T
+  - 4506.T
+  - 4527.T
+  - 4540.T
+  - 4887.T
+  - 2501.T
+  - 2502.T
+  - 2503.T
+  - 2531.T
+  - 2579.T
+  - 2587.T
+  - 2593.T
+  - 2914.T
+  - 2264.T
+  - 2267.T
+  - 2269.T
+  - 2282.T
+  - 2801.T
+  - 2802.T
+  - 2809.T
+  - 2810.T
+  - 2811.T
+  - 2871.T
+  - 2875.T
+  - 2897.T
+  - 2201.T
+  - 2206.T
+  - 2212.T
+  - 2222.T
+  - 2229.T
+  - 1332.T
+  - 1333.T
+  - 2002.T
+  - 2607.T
+  - 4452.T
+  - 4911.T
+  - 4912.T
+  - 4922.T
+  - 4927.T
+  - 4967.T
+  - 8113.T
+  - 7846.T
+  - 7951.T
+  - 7956.T
+  - 7984.T
+  - 3086.T
+  - 3099.T
+  - 8233.T
+  - 8242.T
+  - 3038.T
+  - 3382.T
+  - 417A.T
+  - 7532.T
+  - 8267.T
+  - 3088.T
+  - 3349.T
+  - 3391.T
+  - 3549.T
+  - 7649.T
+  - 9627.T
+  - 9989.T
+  - 3048.T
+  - 8282.T
+  - 9831.T
+  - 2670.T
+  - 3591.T
+  - 7309.T
+  - 7453.T
+  - 7936.T
+  - 8111.T
+  - 8227.T
+  - 9843.T
+  - 9983.T
+  - 3197.T
+  - 3397.T
+  - 3563.T
+  - 7550.T
+  - 7616.T
+  - 9861.T
+  - 2768.T
+  - 8001.T
+  - 8002.T
+  - 8015.T
+  - 8020.T
+  - 8031.T
+  - 8053.T
+  - 8058.T
+  - 3107.T
+  - 3132.T
+  - 8012.T
+  - 8060.T
+  - 8088.T
+  - 9934.T
+  - 9962.T
+  - 2784.T
+  - 3360.T
+  - 7459.T
+  - 7476.T
+  - 8129.T
+  - 8283.T
+  - 9987.T
+  - 7182.T
+  - 8306.T
+  - 8308.T
+  - 8309.T
+  - 8316.T
+  - 8411.T
+  - 5831.T
+  - 5844.T
+  - 7167.T
+  - 7186.T
+  - 8331.T
+  - 8354.T
+  - 5830.T
+  - 5832.T
+  - 7180.T
+  - 7189.T
+  - 7337.T
+  - 8334.T
+  - 8341.T
+  - 8359.T
+  - 8377.T
+  - 8418.T
+  - 5838.T
+  - 8303.T
+  - 8304.T
+  - 8410.T
+  - 8473.T
+  - 8601.T
+  - 8604.T
+  - 8697.T
+  - 7181.T
+  - 8630.T
+  - 8725.T
+  - 8729.T
+  - 8750.T
+  - 8766.T
+  - 8795.T
+  - 8424.T
+  - 8439.T
+  - 8591.T
+  - 8593.T
+  - 7164.T
+  - 8252.T
+  - 8253.T
+  - 8570.T
+  - 8572.T
+  - 9001.T
+  - 9003.T
+  - 9005.T
+  - 9006.T
+  - 9007.T
+  - 9008.T
+  - 9009.T
+  - 9023.T
+  - 9024.T
+  - 9031.T
+  - 9041.T
+  - 9042.T
+  - 9044.T
+  - 9045.T
+  - 9048.T
+  - 9020.T
+  - 9021.T
+  - 9022.T
+  - 9142.T
+  - 6178.T
+  - 9064.T
+  - 9065.T
+  - 9069.T
+  - 9072.T
+  - 9076.T
+  - 9143.T
+  - 9147.T
+  - 9101.T
+  - 9104.T
+  - 9107.T
+  - 9301.T
+  - 9302.T
+  - 9364.T
+  - 9201.T
+  - 9202.T
+  - 9706.T
+  - 9501.T
+  - 9502.T
+  - 9503.T
+  - 9504.T
+  - 9505.T
+  - 9506.T
+  - 9507.T
+  - 9508.T
+  - 9509.T
+  - 9513.T
+  - 4088.T
+  - 4091.T
+  - 8174.T
+  - 9531.T
+  - 9532.T
+  - 9533.T
+  - 1605.T
+  - 5019.T
+  - 5020.T
+  - 5021.T
+  - 9432.T
+  - 9433.T
+  - 9434.T
+  - 8595.T
+  - 9435.T
+  - 9984.T
+  - 3923.T
+  - 3994.T
+  - 4194.T
+  - 4684.T
+  - 4704.T
+  - 4716.T
+  - 4733.T
+  - 2371.T
+  - 2413.T
+  - 2432.T
+  - 3064.T
+  - 3092.T
+  - 4385.T
+  - 4689.T
+  - 4751.T
+  - 4755.T
+  - 3769.T
+  - 3774.T
+  - 9449.T
+  - 2327.T
+  - 3626.T
+  - 4307.T
+  - 4768.T
+  - 6701.T
+  - 6702.T
+  - 8056.T
+  - 9759.T
+  - 2127.T
+  - 3697.T
+  - 6532.T
+  - 2181.T
+  - 6098.T
+  - 8876.T
+  - 9744.T
+  - 2331.T
+  - 4665.T
+  - 4666.T
+  - 4732.T
+  - 6544.T
+  - 9735.T
+  - 3635.T
+  - 3659.T
+  - 6758.T
+  - 7974.T
+  - 9468.T
+  - 9684.T
+  - 9697.T
+  - 9766.T
+  - 7832.T
+  - 7867.T
+  - 8136.T
+  - 9602.T
+  - 6417.T
+  - 6460.T
+  - 7458.T
+  - 2433.T
+  - 4324.T
+  - 4676.T
+  - 9401.T
+  - 9404.T
+  - 4661.T
+  - 4680.T
+  - 4681.T
+  - 9616.T
+stock_mapping:
+- ticker: 1719.T
+  subsector: General Contractors (ゼネコン・総合建設)
+  topix17_code: '3'
+  topix17_name: 建設・資材
+  industry33_code: '2050'
+  industry33_name: 建設業
+  jpx_scale: TOPIX Mid400
+  name: 安藤・間
+  topix17_etf: 1619.T
+- ticker: 1801.T
+  subsector: General Contractors (ゼネコン・総合建設)
+  topix17_code: '3'
+  topix17_name: 建設・資材
+  industry33_code: '2050'
+  industry33_name: 建設業
+  jpx_scale: TOPIX Mid400
+  name: 大成建設
+  topix17_etf: 1619.T
+- ticker: 1802.T
+  subsector: General Contractors (ゼネコン・総合建設)
+  topix17_code: '3'
+  topix17_name: 建設・資材
+  industry33_code: '2050'
+  industry33_name: 建設業
+  jpx_scale: TOPIX Mid400
+  name: 大林組
+  topix17_etf: 1619.T
+- ticker: 1803.T
+  subsector: General Contractors (ゼネコン・総合建設)
+  topix17_code: '3'
+  topix17_name: 建設・資材
+  industry33_code: '2050'
+  industry33_name: 建設業
+  jpx_scale: TOPIX Mid400
+  name: 清水建設
+  topix17_etf: 1619.T
+- ticker: 1812.T
+  subsector: General Contractors (ゼネコン・総合建設)
+  topix17_code: '3'
+  topix17_name: 建設・資材
+  industry33_code: '2050'
+  industry33_name: 建設業
+  jpx_scale: TOPIX Mid400
+  name: 鹿島建設
+  topix17_etf: 1619.T
+- ticker: 1820.T
+  subsector: General Contractors (ゼネコン・総合建設)
+  topix17_code: '3'
+  topix17_name: 建設・資材
+  industry33_code: '2050'
+  industry33_name: 建設業
+  jpx_scale: TOPIX Mid400
+  name: 西松建設
+  topix17_etf: 1619.T
+- ticker: 1860.T
+  subsector: General Contractors (ゼネコン・総合建設)
+  topix17_code: '3'
+  topix17_name: 建設・資材
+  industry33_code: '2050'
+  industry33_name: 建設業
+  jpx_scale: TOPIX Mid400
+  name: 戸田建設
+  topix17_etf: 1619.T
+- ticker: 1893.T
+  subsector: General Contractors (ゼネコン・総合建設)
+  topix17_code: '3'
+  topix17_name: 建設・資材
+  industry33_code: '2050'
+  industry33_name: 建設業
+  jpx_scale: TOPIX Mid400
+  name: 五洋建設
+  topix17_etf: 1619.T
+- ticker: 5076.T
+  subsector: General Contractors (ゼネコン・総合建設)
+  topix17_code: '3'
+  topix17_name: 建設・資材
+  industry33_code: '2050'
+  industry33_name: 建設業
+  jpx_scale: TOPIX Mid400
+  name: インフロニア・ホールディングス
+  topix17_etf: 1619.T
+- ticker: 1808.T
+  subsector: Housing, Homebuilders & Wood Products (住宅・ハウスメーカー・木材)
+  topix17_code: '3'
+  topix17_name: 建設・資材
+  industry33_code: '2050'
+  industry33_name: 建設業
+  jpx_scale: TOPIX Mid400
+  name: 長谷工コーポレーション
+  topix17_etf: 1619.T
+- ticker: 1878.T
+  subsector: Housing, Homebuilders & Wood Products (住宅・ハウスメーカー・木材)
+  topix17_code: '17'
+  topix17_name: 不動産
+  industry33_code: '8050'
+  industry33_name: 不動産業
+  jpx_scale: TOPIX Mid400
+  name: 大東建託
+  topix17_etf: 1633.T
+- ticker: 1911.T
+  subsector: Housing, Homebuilders & Wood Products (住宅・ハウスメーカー・木材)
+  topix17_code: '3'
+  topix17_name: 建設・資材
+  industry33_code: '2050'
+  industry33_name: 建設業
+  jpx_scale: TOPIX Mid400
+  name: 住友林業
+  topix17_etf: 1619.T
+- ticker: 1925.T
+  subsector: Housing, Homebuilders & Wood Products (住宅・ハウスメーカー・木材)
+  topix17_code: '3'
+  topix17_name: 建設・資材
+  industry33_code: '2050'
+  industry33_name: 建設業
+  jpx_scale: TOPIX Large70
+  name: 大和ハウス工業
+  topix17_etf: 1619.T
+- ticker: 1928.T
+  subsector: Housing, Homebuilders & Wood Products (住宅・ハウスメーカー・木材)
+  topix17_code: '3'
+  topix17_name: 建設・資材
+  industry33_code: '2050'
+  industry33_name: 建設業
+  jpx_scale: TOPIX Large70
+  name: 積水ハウス
+  topix17_etf: 1619.T
+- ticker: 3288.T
+  subsector: Housing, Homebuilders & Wood Products (住宅・ハウスメーカー・木材)
+  topix17_code: '17'
+  topix17_name: 不動産
+  industry33_code: '8050'
+  industry33_name: 不動産業
+  jpx_scale: TOPIX Mid400
+  name: オープンハウスグループ
+  topix17_etf: 1633.T
+- ticker: 3291.T
+  subsector: Housing, Homebuilders & Wood Products (住宅・ハウスメーカー・木材)
+  topix17_code: '17'
+  topix17_name: 不動産
+  industry33_code: '8050'
+  industry33_name: 不動産業
+  jpx_scale: TOPIX Mid400
+  name: 飯田グループホールディングス
+  topix17_etf: 1633.T
+- ticker: 1414.T
+  subsector: Plant, Electrical & Telecom Engineering (設備工事・エンジニアリング・インフラ工事)
+  topix17_code: '3'
+  topix17_name: 建設・資材
+  industry33_code: '2050'
+  industry33_name: 建設業
+  jpx_scale: TOPIX Mid400
+  name: ショーボンドホールディングス
+  topix17_etf: 1619.T
+- ticker: 1417.T
+  subsector: Plant, Electrical & Telecom Engineering (設備工事・エンジニアリング・インフラ工事)
+  topix17_code: '3'
+  topix17_name: 建設・資材
+  industry33_code: '2050'
+  industry33_name: 建設業
+  jpx_scale: TOPIX Mid400
+  name: ミライト・ワン
+  topix17_etf: 1619.T
+- ticker: 1721.T
+  subsector: Plant, Electrical & Telecom Engineering (設備工事・エンジニアリング・インフラ工事)
+  topix17_code: '3'
+  topix17_name: 建設・資材
+  industry33_code: '2050'
+  industry33_name: 建設業
+  jpx_scale: TOPIX Mid400
+  name: コムシスホールディングス
+  topix17_etf: 1619.T
+- ticker: 1942.T
+  subsector: Plant, Electrical & Telecom Engineering (設備工事・エンジニアリング・インフラ工事)
+  topix17_code: '3'
+  topix17_name: 建設・資材
+  industry33_code: '2050'
+  industry33_name: 建設業
+  jpx_scale: TOPIX Mid400
+  name: 関電工
+  topix17_etf: 1619.T
+- ticker: 1944.T
+  subsector: Plant, Electrical & Telecom Engineering (設備工事・エンジニアリング・インフラ工事)
+  topix17_code: '3'
+  topix17_name: 建設・資材
+  industry33_code: '2050'
+  industry33_name: 建設業
+  jpx_scale: TOPIX Mid400
+  name: きんでん
+  topix17_etf: 1619.T
+- ticker: 1951.T
+  subsector: Plant, Electrical & Telecom Engineering (設備工事・エンジニアリング・インフラ工事)
+  topix17_code: '3'
+  topix17_name: 建設・資材
+  industry33_code: '2050'
+  industry33_name: 建設業
+  jpx_scale: TOPIX Mid400
+  name: エクシオグループ
+  topix17_etf: 1619.T
+- ticker: 1959.T
+  subsector: Plant, Electrical & Telecom Engineering (設備工事・エンジニアリング・インフラ工事)
+  topix17_code: '3'
+  topix17_name: 建設・資材
+  industry33_code: '2050'
+  industry33_name: 建設業
+  jpx_scale: TOPIX Mid400
+  name: クラフティア
+  topix17_etf: 1619.T
+- ticker: 1963.T
+  subsector: Plant, Electrical & Telecom Engineering (設備工事・エンジニアリング・インフラ工事)
+  topix17_code: '3'
+  topix17_name: 建設・資材
+  industry33_code: '2050'
+  industry33_name: 建設業
+  jpx_scale: TOPIX Mid400
+  name: 日揮ホールディングス
+  topix17_etf: 1619.T
+- ticker: 1969.T
+  subsector: Plant, Electrical & Telecom Engineering (設備工事・エンジニアリング・インフラ工事)
+  topix17_code: '3'
+  topix17_name: 建設・資材
+  industry33_code: '2050'
+  industry33_name: 建設業
+  jpx_scale: TOPIX Mid400
+  name: 高砂熱学工業
+  topix17_etf: 1619.T
+- ticker: 5332.T
+  subsector: Housing Fixtures, Sanitary Ware & Building Openings (住宅設備・衛生陶器・建材・サッシ)
+  topix17_code: '3'
+  topix17_name: 建設・資材
+  industry33_code: '3400'
+  industry33_name: ガラス・土石製品
+  jpx_scale: TOPIX Mid400
+  name: ＴＯＴＯ
+  topix17_etf: 1619.T
+- ticker: 5929.T
+  subsector: Housing Fixtures, Sanitary Ware & Building Openings (住宅設備・衛生陶器・建材・サッシ)
+  topix17_code: '3'
+  topix17_name: 建設・資材
+  industry33_code: '3550'
+  industry33_name: 金属製品
+  jpx_scale: TOPIX Mid400
+  name: 三和ホールディングス
+  topix17_etf: 1619.T
+- ticker: 5938.T
+  subsector: Housing Fixtures, Sanitary Ware & Building Openings (住宅設備・衛生陶器・建材・サッシ)
+  topix17_code: '3'
+  topix17_name: 建設・資材
+  industry33_code: '3550'
+  industry33_name: 金属製品
+  jpx_scale: TOPIX Mid400
+  name: ＬＩＸＩＬ
+  topix17_etf: 1619.T
+- ticker: 5947.T
+  subsector: Housing Fixtures, Sanitary Ware & Building Openings (住宅設備・衛生陶器・建材・サッシ)
+  topix17_code: '3'
+  topix17_name: 建設・資材
+  industry33_code: '3550'
+  industry33_name: 金属製品
+  jpx_scale: TOPIX Mid400
+  name: リンナイ
+  topix17_etf: 1619.T
+- ticker: 3003.T
+  subsector: Comprehensive Real Estate Developers (総合不動産・ビルデベロッパー)
+  topix17_code: '17'
+  topix17_name: 不動産
+  industry33_code: '8050'
+  industry33_name: 不動産業
+  jpx_scale: TOPIX Mid400
+  name: ヒューリック
+  topix17_etf: 1633.T
+- ticker: 3231.T
+  subsector: Comprehensive Real Estate Developers (総合不動産・ビルデベロッパー)
+  topix17_code: '17'
+  topix17_name: 不動産
+  industry33_code: '8050'
+  industry33_name: 不動産業
+  jpx_scale: TOPIX Mid400
+  name: 野村不動産ホールディングス
+  topix17_etf: 1633.T
+- ticker: 3289.T
+  subsector: Comprehensive Real Estate Developers (総合不動産・ビルデベロッパー)
+  topix17_code: '17'
+  topix17_name: 不動産
+  industry33_code: '8050'
+  industry33_name: 不動産業
+  jpx_scale: TOPIX Mid400
+  name: 東急不動産ホールディングス
+  topix17_etf: 1633.T
+- ticker: 8801.T
+  subsector: Comprehensive Real Estate Developers (総合不動産・ビルデベロッパー)
+  topix17_code: '17'
+  topix17_name: 不動産
+  industry33_code: '8050'
+  industry33_name: 不動産業
+  jpx_scale: TOPIX Large70
+  name: 三井不動産
+  topix17_etf: 1633.T
+- ticker: 8802.T
+  subsector: Comprehensive Real Estate Developers (総合不動産・ビルデベロッパー)
+  topix17_code: '17'
+  topix17_name: 不動産
+  industry33_code: '8050'
+  industry33_name: 不動産業
+  jpx_scale: TOPIX Large70
+  name: 三菱地所
+  topix17_etf: 1633.T
+- ticker: 8804.T
+  subsector: Comprehensive Real Estate Developers (総合不動産・ビルデベロッパー)
+  topix17_code: '17'
+  topix17_name: 不動産
+  industry33_code: '8050'
+  industry33_name: 不動産業
+  jpx_scale: TOPIX Mid400
+  name: 東京建物
+  topix17_etf: 1633.T
+- ticker: 8830.T
+  subsector: Comprehensive Real Estate Developers (総合不動産・ビルデベロッパー)
+  topix17_code: '17'
+  topix17_name: 不動産
+  industry33_code: '8050'
+  industry33_name: 不動産業
+  jpx_scale: TOPIX Large70
+  name: 住友不動産
+  topix17_etf: 1633.T
+- ticker: 3407.T
+  subsector: Basic & Diversified Chemicals (総合・基礎化学・エチレン・機能素材)
+  topix17_code: '4'
+  topix17_name: 素材・化学
+  industry33_code: '3200'
+  industry33_name: 化学
+  jpx_scale: TOPIX Large70
+  name: 旭化成
+  topix17_etf: 1620.T
+- ticker: 4005.T
+  subsector: Basic & Diversified Chemicals (総合・基礎化学・エチレン・機能素材)
+  topix17_code: '4'
+  topix17_name: 素材・化学
+  industry33_code: '3200'
+  industry33_name: 化学
+  jpx_scale: TOPIX Mid400
+  name: 住友化学
+  topix17_etf: 1620.T
+- ticker: 4042.T
+  subsector: Basic & Diversified Chemicals (総合・基礎化学・エチレン・機能素材)
+  topix17_code: '4'
+  topix17_name: 素材・化学
+  industry33_code: '3200'
+  industry33_name: 化学
+  jpx_scale: TOPIX Mid400
+  name: 東ソー
+  topix17_etf: 1620.T
+- ticker: 4043.T
+  subsector: Basic & Diversified Chemicals (総合・基礎化学・エチレン・機能素材)
+  topix17_code: '4'
+  topix17_name: 素材・化学
+  industry33_code: '3200'
+  industry33_name: 化学
+  jpx_scale: TOPIX Mid400
+  name: トクヤマ
+  topix17_etf: 1620.T
+- ticker: 4045.T
+  subsector: Basic & Diversified Chemicals (総合・基礎化学・エチレン・機能素材)
+  topix17_code: '4'
+  topix17_name: 素材・化学
+  industry33_code: '3200'
+  industry33_name: 化学
+  jpx_scale: TOPIX Mid400
+  name: 東亞合成
+  topix17_etf: 1620.T
+- ticker: 4061.T
+  subsector: Basic & Diversified Chemicals (総合・基礎化学・エチレン・機能素材)
+  topix17_code: '4'
+  topix17_name: 素材・化学
+  industry33_code: '3200'
+  industry33_name: 化学
+  jpx_scale: TOPIX Mid400
+  name: デンカ
+  topix17_etf: 1620.T
+- ticker: 4183.T
+  subsector: Basic & Diversified Chemicals (総合・基礎化学・エチレン・機能素材)
+  topix17_code: '4'
+  topix17_name: 素材・化学
+  industry33_code: '3200'
+  industry33_name: 化学
+  jpx_scale: TOPIX Mid400
+  name: 三井化学
+  topix17_etf: 1620.T
+- ticker: 4188.T
+  subsector: Basic & Diversified Chemicals (総合・基礎化学・エチレン・機能素材)
+  topix17_code: '4'
+  topix17_name: 素材・化学
+  industry33_code: '3200'
+  industry33_name: 化学
+  jpx_scale: TOPIX Large70
+  name: 三菱ケミカルグループ
+  topix17_etf: 1620.T
+- ticker: 4208.T
+  subsector: Basic & Diversified Chemicals (総合・基礎化学・エチレン・機能素材)
+  topix17_code: '4'
+  topix17_name: 素材・化学
+  industry33_code: '3200'
+  industry33_name: 化学
+  jpx_scale: TOPIX Mid400
+  name: ＵＢＥ
+  topix17_etf: 1620.T
+- ticker: 4004.T
+  subsector: Semiconductor & Advanced Electronics Materials (半導体プロセス材料・先端電子ケミカル)
+  topix17_code: '4'
+  topix17_name: 素材・化学
+  industry33_code: '3200'
+  industry33_name: 化学
+  jpx_scale: TOPIX Mid400
+  name: レゾナック・ホールディングス
+  topix17_etf: 1620.T
+- ticker: 4021.T
+  subsector: Semiconductor & Advanced Electronics Materials (半導体プロセス材料・先端電子ケミカル)
+  topix17_code: '4'
+  topix17_name: 素材・化学
+  industry33_code: '3200'
+  industry33_name: 化学
+  jpx_scale: TOPIX Mid400
+  name: 日産化学
+  topix17_etf: 1620.T
+- ticker: 4063.T
+  subsector: Semiconductor & Advanced Electronics Materials (半導体プロセス材料・先端電子ケミカル)
+  topix17_code: '4'
+  topix17_name: 素材・化学
+  industry33_code: '3200'
+  industry33_name: 化学
+  jpx_scale: TOPIX Core30
+  name: 信越化学工業
+  topix17_etf: 1620.T
+- ticker: 4182.T
+  subsector: Semiconductor & Advanced Electronics Materials (半導体プロセス材料・先端電子ケミカル)
+  topix17_code: '4'
+  topix17_name: 素材・化学
+  industry33_code: '3200'
+  industry33_name: 化学
+  jpx_scale: TOPIX Mid400
+  name: 三菱瓦斯化学
+  topix17_etf: 1620.T
+- ticker: 4186.T
+  subsector: Semiconductor & Advanced Electronics Materials (半導体プロセス材料・先端電子ケミカル)
+  topix17_code: '4'
+  topix17_name: 素材・化学
+  industry33_code: '3200'
+  industry33_name: 化学
+  jpx_scale: TOPIX Mid400
+  name: 東京応化工業
+  topix17_etf: 1620.T
+- ticker: 4203.T
+  subsector: Semiconductor & Advanced Electronics Materials (半導体プロセス材料・先端電子ケミカル)
+  topix17_code: '4'
+  topix17_name: 素材・化学
+  industry33_code: '3200'
+  industry33_name: 化学
+  jpx_scale: TOPIX Mid400
+  name: 住友ベークライト
+  topix17_etf: 1620.T
+- ticker: 4626.T
+  subsector: Semiconductor & Advanced Electronics Materials (半導体プロセス材料・先端電子ケミカル)
+  topix17_code: '4'
+  topix17_name: 素材・化学
+  industry33_code: '3200'
+  industry33_name: 化学
+  jpx_scale: TOPIX Mid400
+  name: 太陽ホールディングス
+  topix17_etf: 1620.T
+- ticker: 4980.T
+  subsector: Semiconductor & Advanced Electronics Materials (半導体プロセス材料・先端電子ケミカル)
+  topix17_code: '4'
+  topix17_name: 素材・化学
+  industry33_code: '3200'
+  industry33_name: 化学
+  jpx_scale: TOPIX Mid400
+  name: デクセリアルズ
+  topix17_etf: 1620.T
+- ticker: 3401.T
+  subsector: Advanced Films, Functional Polymers & Materials (高機能フィルム・機能性樹脂・先端素材)
+  topix17_code: '4'
+  topix17_name: 素材・化学
+  industry33_code: '3100'
+  industry33_name: 繊維製品
+  jpx_scale: TOPIX Mid400
+  name: 帝人
+  topix17_etf: 1620.T
+- ticker: 3402.T
+  subsector: Advanced Films, Functional Polymers & Materials (高機能フィルム・機能性樹脂・先端素材)
+  topix17_code: '4'
+  topix17_name: 素材・化学
+  industry33_code: '3100'
+  industry33_name: 繊維製品
+  jpx_scale: TOPIX Mid400
+  name: 東レ
+  topix17_etf: 1620.T
+- ticker: 3405.T
+  subsector: Advanced Films, Functional Polymers & Materials (高機能フィルム・機能性樹脂・先端素材)
+  topix17_code: '4'
+  topix17_name: 素材・化学
+  industry33_code: '3200'
+  industry33_name: 化学
+  jpx_scale: TOPIX Mid400
+  name: クラレ
+  topix17_etf: 1620.T
+- ticker: 4202.T
+  subsector: Advanced Films, Functional Polymers & Materials (高機能フィルム・機能性樹脂・先端素材)
+  topix17_code: '4'
+  topix17_name: 素材・化学
+  industry33_code: '3200'
+  industry33_name: 化学
+  jpx_scale: TOPIX Mid400
+  name: ダイセル
+  topix17_etf: 1620.T
+- ticker: 4204.T
+  subsector: Advanced Films, Functional Polymers & Materials (高機能フィルム・機能性樹脂・先端素材)
+  topix17_code: '4'
+  topix17_name: 素材・化学
+  industry33_code: '3200'
+  industry33_name: 化学
+  jpx_scale: TOPIX Mid400
+  name: 積水化学工業
+  topix17_etf: 1620.T
+- ticker: 4205.T
+  subsector: Advanced Films, Functional Polymers & Materials (高機能フィルム・機能性樹脂・先端素材)
+  topix17_code: '4'
+  topix17_name: 素材・化学
+  industry33_code: '3200'
+  industry33_name: 化学
+  jpx_scale: TOPIX Mid400
+  name: 日本ゼオン
+  topix17_etf: 1620.T
+- ticker: 4901.T
+  subsector: Advanced Films, Functional Polymers & Materials (高機能フィルム・機能性樹脂・先端素材)
+  topix17_code: '4'
+  topix17_name: 素材・化学
+  industry33_code: '3200'
+  industry33_name: 化学
+  jpx_scale: TOPIX Large70
+  name: 富士フイルムホールディングス
+  topix17_etf: 1620.T
+- ticker: 6988.T
+  subsector: Advanced Films, Functional Polymers & Materials (高機能フィルム・機能性樹脂・先端素材)
+  topix17_code: '4'
+  topix17_name: 素材・化学
+  industry33_code: '3200'
+  industry33_name: 化学
+  jpx_scale: TOPIX Mid400
+  name: 日東電工
+  topix17_etf: 1620.T
+- ticker: 4206.T
+  subsector: Paints, Inks & Functional Adhesives (塗料・インキ・接着剤・コーティング材料)
+  topix17_code: '4'
+  topix17_name: 素材・化学
+  industry33_code: '3200'
+  industry33_name: 化学
+  jpx_scale: TOPIX Mid400
+  name: アイカ工業
+  topix17_etf: 1620.T
+- ticker: 4612.T
+  subsector: Paints, Inks & Functional Adhesives (塗料・インキ・接着剤・コーティング材料)
+  topix17_code: '4'
+  topix17_name: 素材・化学
+  industry33_code: '3200'
+  industry33_name: 化学
+  jpx_scale: TOPIX Mid400
+  name: 日本ペイントホールディングス
+  topix17_etf: 1620.T
+- ticker: 4613.T
+  subsector: Paints, Inks & Functional Adhesives (塗料・インキ・接着剤・コーティング材料)
+  topix17_code: '4'
+  topix17_name: 素材・化学
+  industry33_code: '3200'
+  industry33_name: 化学
+  jpx_scale: TOPIX Mid400
+  name: 関西ペイント
+  topix17_etf: 1620.T
+- ticker: 4631.T
+  subsector: Paints, Inks & Functional Adhesives (塗料・インキ・接着剤・コーティング材料)
+  topix17_code: '4'
+  topix17_name: 素材・化学
+  industry33_code: '3200'
+  industry33_name: 化学
+  jpx_scale: TOPIX Mid400
+  name: ＤＩＣ
+  topix17_etf: 1620.T
+- ticker: 4114.T
+  subsector: Surfactants, Oleochemicals & Fine Chemicals (界面活性剤・油脂化学・高機能ファインケミカル)
+  topix17_code: '4'
+  topix17_name: 素材・化学
+  industry33_code: '3200'
+  industry33_name: 化学
+  jpx_scale: TOPIX Mid400
+  name: 日本触媒
+  topix17_etf: 1620.T
+- ticker: 4118.T
+  subsector: Surfactants, Oleochemicals & Fine Chemicals (界面活性剤・油脂化学・高機能ファインケミカル)
+  topix17_code: '4'
+  topix17_name: 素材・化学
+  industry33_code: '3200'
+  industry33_name: 化学
+  jpx_scale: TOPIX Mid400
+  name: カネカ
+  topix17_etf: 1620.T
+- ticker: 4272.T
+  subsector: Surfactants, Oleochemicals & Fine Chemicals (界面活性剤・油脂化学・高機能ファインケミカル)
+  topix17_code: '4'
+  topix17_name: 素材・化学
+  industry33_code: '3200'
+  industry33_name: 化学
+  jpx_scale: TOPIX Mid400
+  name: 日本化薬
+  topix17_etf: 1620.T
+- ticker: 4401.T
+  subsector: Surfactants, Oleochemicals & Fine Chemicals (界面活性剤・油脂化学・高機能ファインケミカル)
+  topix17_code: '4'
+  topix17_name: 素材・化学
+  industry33_code: '3200'
+  industry33_name: 化学
+  jpx_scale: TOPIX Mid400
+  name: ＡＤＥＫＡ
+  topix17_etf: 1620.T
+- ticker: 4403.T
+  subsector: Surfactants, Oleochemicals & Fine Chemicals (界面活性剤・油脂化学・高機能ファインケミカル)
+  topix17_code: '4'
+  topix17_name: 素材・化学
+  industry33_code: '3200'
+  industry33_name: 化学
+  jpx_scale: TOPIX Mid400
+  name: 日油
+  topix17_etf: 1620.T
+- ticker: 5201.T
+  subsector: Glass, Advanced Ceramics & Cement (ガラス・先端セラミックス・セメント・断熱材)
+  topix17_code: '3'
+  topix17_name: 建設・資材
+  industry33_code: '3400'
+  industry33_name: ガラス・土石製品
+  jpx_scale: TOPIX Mid400
+  name: ＡＧＣ
+  topix17_etf: 1619.T
+- ticker: 5214.T
+  subsector: Glass, Advanced Ceramics & Cement (ガラス・先端セラミックス・セメント・断熱材)
+  topix17_code: '3'
+  topix17_name: 建設・資材
+  industry33_code: '3400'
+  industry33_name: ガラス・土石製品
+  jpx_scale: TOPIX Mid400
+  name: 日本電気硝子
+  topix17_etf: 1619.T
+- ticker: 5232.T
+  subsector: Glass, Advanced Ceramics & Cement (ガラス・先端セラミックス・セメント・断熱材)
+  topix17_code: '3'
+  topix17_name: 建設・資材
+  industry33_code: '3400'
+  industry33_name: ガラス・土石製品
+  jpx_scale: TOPIX Mid400
+  name: 住友大阪セメント
+  topix17_etf: 1619.T
+- ticker: 5233.T
+  subsector: Glass, Advanced Ceramics & Cement (ガラス・先端セラミックス・セメント・断熱材)
+  topix17_code: '3'
+  topix17_name: 建設・資材
+  industry33_code: '3400'
+  industry33_name: ガラス・土石製品
+  jpx_scale: TOPIX Mid400
+  name: 太平洋セメント
+  topix17_etf: 1619.T
+- ticker: 5301.T
+  subsector: Glass, Advanced Ceramics & Cement (ガラス・先端セラミックス・セメント・断熱材)
+  topix17_code: '3'
+  topix17_name: 建設・資材
+  industry33_code: '3400'
+  industry33_name: ガラス・土石製品
+  jpx_scale: TOPIX Mid400
+  name: 東海カーボン
+  topix17_etf: 1619.T
+- ticker: 5333.T
+  subsector: Glass, Advanced Ceramics & Cement (ガラス・先端セラミックス・セメント・断熱材)
+  topix17_code: '3'
+  topix17_name: 建設・資材
+  industry33_code: '3400'
+  industry33_name: ガラス・土石製品
+  jpx_scale: TOPIX Mid400
+  name: ＮＧＫ
+  topix17_etf: 1619.T
+- ticker: 5334.T
+  subsector: Glass, Advanced Ceramics & Cement (ガラス・先端セラミックス・セメント・断熱材)
+  topix17_code: '3'
+  topix17_name: 建設・資材
+  industry33_code: '3400'
+  industry33_name: ガラス・土石製品
+  jpx_scale: TOPIX Mid400
+  name: 日本特殊陶業
+  topix17_etf: 1619.T
+- ticker: 5344.T
+  subsector: Glass, Advanced Ceramics & Cement (ガラス・先端セラミックス・セメント・断熱材)
+  topix17_code: '3'
+  topix17_name: 建設・資材
+  industry33_code: '3400'
+  industry33_name: ガラス・土石製品
+  jpx_scale: TOPIX Mid400
+  name: ＭＡＲＵＷＡ
+  topix17_etf: 1619.T
+- ticker: 5393.T
+  subsector: Glass, Advanced Ceramics & Cement (ガラス・先端セラミックス・セメント・断熱材)
+  topix17_code: '3'
+  topix17_name: 建設・資材
+  industry33_code: '3400'
+  industry33_name: ガラス・土石製品
+  jpx_scale: TOPIX Mid400
+  name: ニチアス
+  topix17_etf: 1619.T
+- ticker: 3861.T
+  subsector: Paper, Packaging, Containers & Printing (紙パルプ・包装容器・印刷)
+  topix17_code: '4'
+  topix17_name: 素材・化学
+  industry33_code: '3150'
+  industry33_name: パルプ・紙
+  jpx_scale: TOPIX Mid400
+  name: 王子ホールディングス
+  topix17_etf: 1620.T
+- ticker: 3941.T
+  subsector: Paper, Packaging, Containers & Printing (紙パルプ・包装容器・印刷)
+  topix17_code: '4'
+  topix17_name: 素材・化学
+  industry33_code: '3150'
+  industry33_name: パルプ・紙
+  jpx_scale: TOPIX Mid400
+  name: レンゴー
+  topix17_etf: 1620.T
+- ticker: 5901.T
+  subsector: Paper, Packaging, Containers & Printing (紙パルプ・包装容器・印刷)
+  topix17_code: '3'
+  topix17_name: 建設・資材
+  industry33_code: '3550'
+  industry33_name: 金属製品
+  jpx_scale: TOPIX Mid400
+  name: 東洋製罐グループホールディングス
+  topix17_etf: 1619.T
+- ticker: 7911.T
+  subsector: Paper, Packaging, Containers & Printing (紙パルプ・包装容器・印刷)
+  topix17_code: '10'
+  topix17_name: 情報通信・サービスその他
+  industry33_code: '3800'
+  industry33_name: その他製品
+  jpx_scale: TOPIX Mid400
+  name: ＴＯＰＰＡＮホールディングス
+  topix17_etf: 1626.T
+- ticker: 7912.T
+  subsector: Paper, Packaging, Containers & Printing (紙パルプ・包装容器・印刷)
+  topix17_code: '10'
+  topix17_name: 情報通信・サービスその他
+  industry33_code: '3800'
+  industry33_name: その他製品
+  jpx_scale: TOPIX Mid400
+  name: 大日本印刷
+  topix17_etf: 1626.T
+- ticker: 5401.T
+  subsector: Integrated Steel Mills & Specialty Steel (高炉・特殊鋼・電炉・鋼板)
+  topix17_code: '7'
+  topix17_name: 鉄鋼・非鉄
+  industry33_code: '3450'
+  industry33_name: 鉄鋼
+  jpx_scale: TOPIX Large70
+  name: 日本製鉄
+  topix17_etf: 1623.T
+- ticker: 5406.T
+  subsector: Integrated Steel Mills & Specialty Steel (高炉・特殊鋼・電炉・鋼板)
+  topix17_code: '7'
+  topix17_name: 鉄鋼・非鉄
+  industry33_code: '3450'
+  industry33_name: 鉄鋼
+  jpx_scale: TOPIX Mid400
+  name: 神戸製鋼所
+  topix17_etf: 1623.T
+- ticker: 5411.T
+  subsector: Integrated Steel Mills & Specialty Steel (高炉・特殊鋼・電炉・鋼板)
+  topix17_code: '7'
+  topix17_name: 鉄鋼・非鉄
+  industry33_code: '3450'
+  industry33_name: 鉄鋼
+  jpx_scale: TOPIX Mid400
+  name: ＪＦＥホールディングス
+  topix17_etf: 1623.T
+- ticker: 5444.T
+  subsector: Integrated Steel Mills & Specialty Steel (高炉・特殊鋼・電炉・鋼板)
+  topix17_code: '7'
+  topix17_name: 鉄鋼・非鉄
+  industry33_code: '3450'
+  industry33_name: 鉄鋼
+  jpx_scale: TOPIX Mid400
+  name: 大和工業
+  topix17_etf: 1623.T
+- ticker: 5463.T
+  subsector: Integrated Steel Mills & Specialty Steel (高炉・特殊鋼・電炉・鋼板)
+  topix17_code: '7'
+  topix17_name: 鉄鋼・非鉄
+  industry33_code: '3450'
+  industry33_name: 鉄鋼
+  jpx_scale: TOPIX Mid400
+  name: 丸一鋼管
+  topix17_etf: 1623.T
+- ticker: 5471.T
+  subsector: Integrated Steel Mills & Specialty Steel (高炉・特殊鋼・電炉・鋼板)
+  topix17_code: '7'
+  topix17_name: 鉄鋼・非鉄
+  industry33_code: '3450'
+  industry33_name: 鉄鋼
+  jpx_scale: TOPIX Mid400
+  name: 大同特殊鋼
+  topix17_etf: 1623.T
+- ticker: 5016.T
+  subsector: Non-Ferrous Smelting, Mining & Advanced Materials (非鉄製錬・資源鉱山・先端金属材料)
+  topix17_code: '7'
+  topix17_name: 鉄鋼・非鉄
+  industry33_code: '3500'
+  industry33_name: 非鉄金属
+  jpx_scale: TOPIX Mid400
+  name: ＪＸ金属
+  topix17_etf: 1623.T
+- ticker: 5706.T
+  subsector: Non-Ferrous Smelting, Mining & Advanced Materials (非鉄製錬・資源鉱山・先端金属材料)
+  topix17_code: '7'
+  topix17_name: 鉄鋼・非鉄
+  industry33_code: '3500'
+  industry33_name: 非鉄金属
+  jpx_scale: TOPIX Mid400
+  name: 三井金属
+  topix17_etf: 1623.T
+- ticker: 5711.T
+  subsector: Non-Ferrous Smelting, Mining & Advanced Materials (非鉄製錬・資源鉱山・先端金属材料)
+  topix17_code: '7'
+  topix17_name: 鉄鋼・非鉄
+  industry33_code: '3500'
+  industry33_name: 非鉄金属
+  jpx_scale: TOPIX Mid400
+  name: 三菱マテリアル
+  topix17_etf: 1623.T
+- ticker: 5713.T
+  subsector: Non-Ferrous Smelting, Mining & Advanced Materials (非鉄製錬・資源鉱山・先端金属材料)
+  topix17_code: '7'
+  topix17_name: 鉄鋼・非鉄
+  industry33_code: '3500'
+  industry33_name: 非鉄金属
+  jpx_scale: TOPIX Mid400
+  name: 住友金属鉱山
+  topix17_etf: 1623.T
+- ticker: 5714.T
+  subsector: Non-Ferrous Smelting, Mining & Advanced Materials (非鉄製錬・資源鉱山・先端金属材料)
+  topix17_code: '7'
+  topix17_name: 鉄鋼・非鉄
+  industry33_code: '3500'
+  industry33_name: 非鉄金属
+  jpx_scale: TOPIX Mid400
+  name: ＤＯＷＡホールディングス
+  topix17_etf: 1623.T
+- ticker: 5801.T
+  subsector: Optical Fiber, Power Cables & Communication Infrastructure (電線・光ファイバ・電力通信インフラ)
+  topix17_code: '7'
+  topix17_name: 鉄鋼・非鉄
+  industry33_code: '3500'
+  industry33_name: 非鉄金属
+  jpx_scale: TOPIX Mid400
+  name: 古河電気工業
+  topix17_etf: 1623.T
+- ticker: 5802.T
+  subsector: Optical Fiber, Power Cables & Communication Infrastructure (電線・光ファイバ・電力通信インフラ)
+  topix17_code: '7'
+  topix17_name: 鉄鋼・非鉄
+  industry33_code: '3500'
+  industry33_name: 非鉄金属
+  jpx_scale: TOPIX Large70
+  name: 住友電気工業
+  topix17_etf: 1623.T
+- ticker: 5803.T
+  subsector: Optical Fiber, Power Cables & Communication Infrastructure (電線・光ファイバ・電力通信インフラ)
+  topix17_code: '7'
+  topix17_name: 鉄鋼・非鉄
+  industry33_code: '3500'
+  industry33_name: 非鉄金属
+  jpx_scale: TOPIX Large70
+  name: フジクラ
+  topix17_etf: 1623.T
+- ticker: 6134.T
+  subsector: Industrial Automation, Robotics & Process Control (FA・産業ロボット・プロセス制御計装)
+  topix17_code: '8'
+  topix17_name: 機械
+  industry33_code: '3600'
+  industry33_name: 機械
+  jpx_scale: TOPIX Mid400
+  name: ＦＵＪＩ
+  topix17_etf: 1624.T
+- ticker: 6268.T
+  subsector: Industrial Automation, Robotics & Process Control (FA・産業ロボット・プロセス制御計装)
+  topix17_code: '8'
+  topix17_name: 機械
+  industry33_code: '3600'
+  industry33_name: 機械
+  jpx_scale: TOPIX Mid400
+  name: ナブテスコ
+  topix17_etf: 1624.T
+- ticker: 6273.T
+  subsector: Industrial Automation, Robotics & Process Control (FA・産業ロボット・プロセス制御計装)
+  topix17_code: '8'
+  topix17_name: 機械
+  industry33_code: '3600'
+  industry33_name: 機械
+  jpx_scale: TOPIX Large70
+  name: ＳＭＣ
+  topix17_etf: 1624.T
+- ticker: 6383.T
+  subsector: Industrial Automation, Robotics & Process Control (FA・産業ロボット・プロセス制御計装)
+  topix17_code: '8'
+  topix17_name: 機械
+  industry33_code: '3600'
+  industry33_name: 機械
+  jpx_scale: TOPIX Mid400
+  name: ダイフク
+  topix17_etf: 1624.T
+- ticker: 6481.T
+  subsector: Industrial Automation, Robotics & Process Control (FA・産業ロボット・プロセス制御計装)
+  topix17_code: '8'
+  topix17_name: 機械
+  industry33_code: '3600'
+  industry33_name: 機械
+  jpx_scale: TOPIX Mid400
+  name: ＴＨＫ
+  topix17_etf: 1624.T
+- ticker: 6506.T
+  subsector: Industrial Automation, Robotics & Process Control (FA・産業ロボット・プロセス制御計装)
+  topix17_code: '9'
+  topix17_name: 電機・精密
+  industry33_code: '3650'
+  industry33_name: 電気機器
+  jpx_scale: TOPIX Mid400
+  name: 安川電機
+  topix17_etf: 1625.T
+- ticker: 6841.T
+  subsector: Industrial Automation, Robotics & Process Control (FA・産業ロボット・プロセス制御計装)
+  topix17_code: '9'
+  topix17_name: 電機・精密
+  industry33_code: '3650'
+  industry33_name: 電気機器
+  jpx_scale: TOPIX Mid400
+  name: 横河電機
+  topix17_etf: 1625.T
+- ticker: 6845.T
+  subsector: Industrial Automation, Robotics & Process Control (FA・産業ロボット・プロセス制御計装)
+  topix17_code: '9'
+  topix17_name: 電機・精密
+  industry33_code: '3650'
+  industry33_name: 電気機器
+  jpx_scale: TOPIX Mid400
+  name: アズビル
+  topix17_etf: 1625.T
+- ticker: 6954.T
+  subsector: Industrial Automation, Robotics & Process Control (FA・産業ロボット・プロセス制御計装)
+  topix17_code: '9'
+  topix17_name: 電機・精密
+  industry33_code: '3650'
+  industry33_name: 電気機器
+  jpx_scale: TOPIX Large70
+  name: ファナック
+  topix17_etf: 1625.T
+- ticker: 6113.T
+  subsector: Machine Tools, Cutting & Commercial Automation (工作機械・切削工具・板金・自動化機器)
+  topix17_code: '8'
+  topix17_name: 機械
+  industry33_code: '3600'
+  industry33_name: 機械
+  jpx_scale: TOPIX Mid400
+  name: アマダ
+  topix17_etf: 1624.T
+- ticker: 6136.T
+  subsector: Machine Tools, Cutting & Commercial Automation (工作機械・切削工具・板金・自動化機器)
+  topix17_code: '8'
+  topix17_name: 機械
+  industry33_code: '3600'
+  industry33_name: 機械
+  jpx_scale: TOPIX Mid400
+  name: オーエスジー
+  topix17_etf: 1624.T
+- ticker: 6141.T
+  subsector: Machine Tools, Cutting & Commercial Automation (工作機械・切削工具・板金・自動化機器)
+  topix17_code: '8'
+  topix17_name: 機械
+  industry33_code: '3600'
+  industry33_name: 機械
+  jpx_scale: TOPIX Mid400
+  name: ＤＭＧ森精機
+  topix17_etf: 1624.T
+- ticker: 6436.T
+  subsector: Machine Tools, Cutting & Commercial Automation (工作機械・切削工具・板金・自動化機器)
+  topix17_code: '8'
+  topix17_name: 機械
+  industry33_code: '3600'
+  industry33_name: 機械
+  jpx_scale: TOPIX Mid400
+  name: アマノ
+  topix17_etf: 1624.T
+- ticker: 6457.T
+  subsector: Machine Tools, Cutting & Commercial Automation (工作機械・切削工具・板金・自動化機器)
+  topix17_code: '8'
+  topix17_name: 機械
+  industry33_code: '3600'
+  industry33_name: 機械
+  jpx_scale: TOPIX Mid400
+  name: グローリー
+  topix17_etf: 1624.T
+- ticker: 5631.T
+  subsector: Construction, Mining, Defense & Heavy Machinery (建設機械・鉱山機械・防衛重工・農業機械)
+  topix17_code: '8'
+  topix17_name: 機械
+  industry33_code: '3600'
+  industry33_name: 機械
+  jpx_scale: TOPIX Mid400
+  name: 日本製鋼所
+  topix17_etf: 1624.T
+- ticker: 6301.T
+  subsector: Construction, Mining, Defense & Heavy Machinery (建設機械・鉱山機械・防衛重工・農業機械)
+  topix17_code: '8'
+  topix17_name: 機械
+  industry33_code: '3600'
+  industry33_name: 機械
+  jpx_scale: TOPIX Large70
+  name: 小松製作所
+  topix17_etf: 1624.T
+- ticker: 6302.T
+  subsector: Construction, Mining, Defense & Heavy Machinery (建設機械・鉱山機械・防衛重工・農業機械)
+  topix17_code: '8'
+  topix17_name: 機械
+  industry33_code: '3600'
+  industry33_name: 機械
+  jpx_scale: TOPIX Mid400
+  name: 住友重機械工業
+  topix17_etf: 1624.T
+- ticker: 6305.T
+  subsector: Construction, Mining, Defense & Heavy Machinery (建設機械・鉱山機械・防衛重工・農業機械)
+  topix17_code: '8'
+  topix17_name: 機械
+  industry33_code: '3600'
+  industry33_name: 機械
+  jpx_scale: TOPIX Mid400
+  name: 日立建機
+  topix17_etf: 1624.T
+- ticker: 6326.T
+  subsector: Construction, Mining, Defense & Heavy Machinery (建設機械・鉱山機械・防衛重工・農業機械)
+  topix17_code: '8'
+  topix17_name: 機械
+  industry33_code: '3600'
+  industry33_name: 機械
+  jpx_scale: TOPIX Large70
+  name: クボタ
+  topix17_etf: 1624.T
+- ticker: 7003.T
+  subsector: Construction, Mining, Defense & Heavy Machinery (建設機械・鉱山機械・防衛重工・農業機械)
+  topix17_code: '8'
+  topix17_name: 機械
+  industry33_code: '3600'
+  industry33_name: 機械
+  jpx_scale: TOPIX Mid400
+  name: 三井Ｅ＆Ｓ
+  topix17_etf: 1624.T
+- ticker: 7011.T
+  subsector: Construction, Mining, Defense & Heavy Machinery (建設機械・鉱山機械・防衛重工・農業機械)
+  topix17_code: '8'
+  topix17_name: 機械
+  industry33_code: '3600'
+  industry33_name: 機械
+  jpx_scale: TOPIX Core30
+  name: 三菱重工業
+  topix17_etf: 1624.T
+- ticker: 7012.T
+  subsector: Construction, Mining, Defense & Heavy Machinery (建設機械・鉱山機械・防衛重工・農業機械)
+  topix17_code: '6'
+  topix17_name: 自動車・輸送機
+  industry33_code: '3700'
+  industry33_name: 輸送用機器
+  jpx_scale: TOPIX Mid400
+  name: 川崎重工業
+  topix17_etf: 1622.T
+- ticker: 7013.T
+  subsector: Construction, Mining, Defense & Heavy Machinery (建設機械・鉱山機械・防衛重工・農業機械)
+  topix17_code: '8'
+  topix17_name: 機械
+  industry33_code: '3600'
+  industry33_name: 機械
+  jpx_scale: TOPIX Mid400
+  name: ＩＨＩ
+  topix17_etf: 1624.T
+- ticker: 6005.T
+  subsector: Industrial Machinery, HVAC & Precision Bearings (産業機械・空調設備・油圧・精密ベアリング)
+  topix17_code: '8'
+  topix17_name: 機械
+  industry33_code: '3600'
+  industry33_name: 機械
+  jpx_scale: TOPIX Mid400
+  name: 三浦工業
+  topix17_etf: 1624.T
+- ticker: 6269.T
+  subsector: Industrial Machinery, HVAC & Precision Bearings (産業機械・空調設備・油圧・精密ベアリング)
+  topix17_code: '8'
+  topix17_name: 機械
+  industry33_code: '3600'
+  industry33_name: 機械
+  jpx_scale: TOPIX Mid400
+  name: 三井海洋開発
+  topix17_etf: 1624.T
+- ticker: 6361.T
+  subsector: Industrial Machinery, HVAC & Precision Bearings (産業機械・空調設備・油圧・精密ベアリング)
+  topix17_code: '8'
+  topix17_name: 機械
+  industry33_code: '3600'
+  industry33_name: 機械
+  jpx_scale: TOPIX Mid400
+  name: 荏原製作所
+  topix17_etf: 1624.T
+- ticker: 6367.T
+  subsector: Industrial Machinery, HVAC & Precision Bearings (産業機械・空調設備・油圧・精密ベアリング)
+  topix17_code: '8'
+  topix17_name: 機械
+  industry33_code: '3600'
+  industry33_name: 機械
+  jpx_scale: TOPIX Core30
+  name: ダイキン工業
+  topix17_etf: 1624.T
+- ticker: 6368.T
+  subsector: Industrial Machinery, HVAC & Precision Bearings (産業機械・空調設備・油圧・精密ベアリング)
+  topix17_code: '8'
+  topix17_name: 機械
+  industry33_code: '3600'
+  industry33_name: 機械
+  jpx_scale: TOPIX Mid400
+  name: オルガノ
+  topix17_etf: 1624.T
+- ticker: 6370.T
+  subsector: Industrial Machinery, HVAC & Precision Bearings (産業機械・空調設備・油圧・精密ベアリング)
+  topix17_code: '8'
+  topix17_name: 機械
+  industry33_code: '3600'
+  industry33_name: 機械
+  jpx_scale: TOPIX Mid400
+  name: 栗田工業
+  topix17_etf: 1624.T
+- ticker: 6465.T
+  subsector: Industrial Machinery, HVAC & Precision Bearings (産業機械・空調設備・油圧・精密ベアリング)
+  topix17_code: '8'
+  topix17_name: 機械
+  industry33_code: '3600'
+  industry33_name: 機械
+  jpx_scale: TOPIX Mid400
+  name: ホシザキ
+  topix17_etf: 1624.T
+- ticker: 6471.T
+  subsector: Industrial Machinery, HVAC & Precision Bearings (産業機械・空調設備・油圧・精密ベアリング)
+  topix17_code: '8'
+  topix17_name: 機械
+  industry33_code: '3600'
+  industry33_name: 機械
+  jpx_scale: TOPIX Mid400
+  name: 日本精工
+  topix17_etf: 1624.T
+- ticker: 6472.T
+  subsector: Industrial Machinery, HVAC & Precision Bearings (産業機械・空調設備・油圧・精密ベアリング)
+  topix17_code: '8'
+  topix17_name: 機械
+  industry33_code: '3600'
+  industry33_name: 機械
+  jpx_scale: TOPIX Mid400
+  name: ＮＴＮ
+  topix17_etf: 1624.T
+- ticker: 6473.T
+  subsector: Industrial Machinery, HVAC & Precision Bearings (産業機械・空調設備・油圧・精密ベアリング)
+  topix17_code: '8'
+  topix17_name: 機械
+  industry33_code: '3600'
+  industry33_name: 機械
+  jpx_scale: TOPIX Mid400
+  name: ジェイテクト
+  topix17_etf: 1624.T
+- ticker: 6586.T
+  subsector: Industrial Machinery, HVAC & Precision Bearings (産業機械・空調設備・油圧・精密ベアリング)
+  topix17_code: '8'
+  topix17_name: 機械
+  industry33_code: '3600'
+  industry33_name: 機械
+  jpx_scale: TOPIX Mid400
+  name: マキタ
+  topix17_etf: 1624.T
+- ticker: 6501.T
+  subsector: Heavy Electrical, Power Systems & Batteries (重電・電力グリッド・産業パワー・電池)
+  topix17_code: '9'
+  topix17_name: 電機・精密
+  industry33_code: '3650'
+  industry33_name: 電気機器
+  jpx_scale: TOPIX Core30
+  name: 日立製作所
+  topix17_etf: 1625.T
+- ticker: 6503.T
+  subsector: Heavy Electrical, Power Systems & Batteries (重電・電力グリッド・産業パワー・電池)
+  topix17_code: '9'
+  topix17_name: 電機・精密
+  industry33_code: '3650'
+  industry33_name: 電気機器
+  jpx_scale: TOPIX Core30
+  name: 三菱電機
+  topix17_etf: 1625.T
+- ticker: 6504.T
+  subsector: Heavy Electrical, Power Systems & Batteries (重電・電力グリッド・産業パワー・電池)
+  topix17_code: '9'
+  topix17_name: 電機・精密
+  industry33_code: '3650'
+  industry33_name: 電気機器
+  jpx_scale: TOPIX Mid400
+  name: 富士電機
+  topix17_etf: 1625.T
+- ticker: 6592.T
+  subsector: Heavy Electrical, Power Systems & Batteries (重電・電力グリッド・産業パワー・電池)
+  topix17_code: '9'
+  topix17_name: 電機・精密
+  industry33_code: '3650'
+  industry33_name: 電気機器
+  jpx_scale: TOPIX Mid400
+  name: マブチモーター
+  topix17_etf: 1625.T
+- ticker: 6632.T
+  subsector: Heavy Electrical, Power Systems & Batteries (重電・電力グリッド・産業パワー・電池)
+  topix17_code: '9'
+  topix17_name: 電機・精密
+  industry33_code: '3650'
+  industry33_name: 電気機器
+  jpx_scale: TOPIX Mid400
+  name: ＪＶＣケンウッド
+  topix17_etf: 1625.T
+- ticker: 6674.T
+  subsector: Heavy Electrical, Power Systems & Batteries (重電・電力グリッド・産業パワー・電池)
+  topix17_code: '9'
+  topix17_name: 電機・精密
+  industry33_code: '3650'
+  industry33_name: 電気機器
+  jpx_scale: TOPIX Mid400
+  name: ジーエス・ユアサ　コーポレーション
+  topix17_etf: 1625.T
+- ticker: 6752.T
+  subsector: Heavy Electrical, Power Systems & Batteries (重電・電力グリッド・産業パワー・電池)
+  topix17_code: '9'
+  topix17_name: 電機・精密
+  industry33_code: '3650'
+  industry33_name: 電気機器
+  jpx_scale: TOPIX Large70
+  name: パナソニック　ホールディングス
+  topix17_etf: 1625.T
+- ticker: 285A.T
+  subsector: Semiconductors & Semiconductor Manufacturing Equipment (半導体デバイス・半導体製造装置・SPE)
+  topix17_code: '9'
+  topix17_name: 電機・精密
+  industry33_code: '3650'
+  industry33_name: 電気機器
+  jpx_scale: TOPIX Mid400
+  name: キオクシアホールディングス
+  topix17_etf: 1625.T
+- ticker: 3436.T
+  subsector: Semiconductors & Semiconductor Manufacturing Equipment (半導体デバイス・半導体製造装置・SPE)
+  topix17_code: '3'
+  topix17_name: 建設・資材
+  industry33_code: '3550'
+  industry33_name: 金属製品
+  jpx_scale: TOPIX Mid400
+  name: ＳＵＭＣＯ
+  topix17_etf: 1619.T
+- ticker: 6146.T
+  subsector: Semiconductors & Semiconductor Manufacturing Equipment (半導体デバイス・半導体製造装置・SPE)
+  topix17_code: '8'
+  topix17_name: 機械
+  industry33_code: '3600'
+  industry33_name: 機械
+  jpx_scale: TOPIX Large70
+  name: ディスコ
+  topix17_etf: 1624.T
+- ticker: 6323.T
+  subsector: Semiconductors & Semiconductor Manufacturing Equipment (半導体デバイス・半導体製造装置・SPE)
+  topix17_code: '8'
+  topix17_name: 機械
+  industry33_code: '3600'
+  industry33_name: 機械
+  jpx_scale: TOPIX Mid400
+  name: ローツェ
+  topix17_etf: 1624.T
+- ticker: 6525.T
+  subsector: Semiconductors & Semiconductor Manufacturing Equipment (半導体デバイス・半導体製造装置・SPE)
+  topix17_code: '9'
+  topix17_name: 電機・精密
+  industry33_code: '3650'
+  industry33_name: 電気機器
+  jpx_scale: TOPIX Mid400
+  name: ＫＯＫＵＳＡＩ　ＥＬＥＣＴＲＩＣ
+  topix17_etf: 1625.T
+- ticker: 6526.T
+  subsector: Semiconductors & Semiconductor Manufacturing Equipment (半導体デバイス・半導体製造装置・SPE)
+  topix17_code: '9'
+  topix17_name: 電機・精密
+  industry33_code: '3650'
+  industry33_name: 電気機器
+  jpx_scale: TOPIX Mid400
+  name: ソシオネクスト
+  topix17_etf: 1625.T
+- ticker: 6707.T
+  subsector: Semiconductors & Semiconductor Manufacturing Equipment (半導体デバイス・半導体製造装置・SPE)
+  topix17_code: '9'
+  topix17_name: 電機・精密
+  industry33_code: '3650'
+  industry33_name: 電気機器
+  jpx_scale: TOPIX Mid400
+  name: サンケン電気
+  topix17_etf: 1625.T
+- ticker: 6723.T
+  subsector: Semiconductors & Semiconductor Manufacturing Equipment (半導体デバイス・半導体製造装置・SPE)
+  topix17_code: '9'
+  topix17_name: 電機・精密
+  industry33_code: '3650'
+  industry33_name: 電気機器
+  jpx_scale: TOPIX Large70
+  name: ルネサスエレクトロニクス
+  topix17_etf: 1625.T
+- ticker: 6728.T
+  subsector: Semiconductors & Semiconductor Manufacturing Equipment (半導体デバイス・半導体製造装置・SPE)
+  topix17_code: '9'
+  topix17_name: 電機・精密
+  industry33_code: '3650'
+  industry33_name: 電気機器
+  jpx_scale: TOPIX Mid400
+  name: アルバック
+  topix17_etf: 1625.T
+- ticker: 6857.T
+  subsector: Semiconductors & Semiconductor Manufacturing Equipment (半導体デバイス・半導体製造装置・SPE)
+  topix17_code: '9'
+  topix17_name: 電機・精密
+  industry33_code: '3650'
+  industry33_name: 電気機器
+  jpx_scale: TOPIX Core30
+  name: アドバンテスト
+  topix17_etf: 1625.T
+- ticker: 6920.T
+  subsector: Semiconductors & Semiconductor Manufacturing Equipment (半導体デバイス・半導体製造装置・SPE)
+  topix17_code: '9'
+  topix17_name: 電機・精密
+  industry33_code: '3650'
+  industry33_name: 電気機器
+  jpx_scale: TOPIX Large70
+  name: レーザーテック
+  topix17_etf: 1625.T
+- ticker: 6951.T
+  subsector: Semiconductors & Semiconductor Manufacturing Equipment (半導体デバイス・半導体製造装置・SPE)
+  topix17_code: '9'
+  topix17_name: 電機・精密
+  industry33_code: '3650'
+  industry33_name: 電気機器
+  jpx_scale: TOPIX Mid400
+  name: 日本電子
+  topix17_etf: 1625.T
+- ticker: 7729.T
+  subsector: Semiconductors & Semiconductor Manufacturing Equipment (半導体デバイス・半導体製造装置・SPE)
+  topix17_code: '9'
+  topix17_name: 電機・精密
+  industry33_code: '3750'
+  industry33_name: 精密機器
+  jpx_scale: TOPIX Mid400
+  name: 東京精密
+  topix17_etf: 1625.T
+- ticker: 7735.T
+  subsector: Semiconductors & Semiconductor Manufacturing Equipment (半導体デバイス・半導体製造装置・SPE)
+  topix17_code: '9'
+  topix17_name: 電機・精密
+  industry33_code: '3650'
+  industry33_name: 電気機器
+  jpx_scale: TOPIX Mid400
+  name: ＳＣＲＥＥＮホールディングス
+  topix17_etf: 1625.T
+- ticker: 8035.T
+  subsector: Semiconductors & Semiconductor Manufacturing Equipment (半導体デバイス・半導体製造装置・SPE)
+  topix17_code: '9'
+  topix17_name: 電機・精密
+  industry33_code: '3650'
+  industry33_name: 電気機器
+  jpx_scale: TOPIX Core30
+  name: 東京エレクトロン
+  topix17_etf: 1625.T
+- ticker: 4062.T
+  subsector: Electronic Components, Sensors & Passive Devices (電子部品・センサ・受動部品)
+  topix17_code: '9'
+  topix17_name: 電機・精密
+  industry33_code: '3650'
+  industry33_name: 電気機器
+  jpx_scale: TOPIX Mid400
+  name: イビデン
+  topix17_etf: 1625.T
+- ticker: 6645.T
+  subsector: Electronic Components, Sensors & Passive Devices (電子部品・センサ・受動部品)
+  topix17_code: '9'
+  topix17_name: 電機・精密
+  industry33_code: '3650'
+  industry33_name: 電気機器
+  jpx_scale: TOPIX Mid400
+  name: オムロン
+  topix17_etf: 1625.T
+- ticker: 6762.T
+  subsector: Electronic Components, Sensors & Passive Devices (電子部品・センサ・受動部品)
+  topix17_code: '9'
+  topix17_name: 電機・精密
+  industry33_code: '3650'
+  industry33_name: 電気機器
+  jpx_scale: TOPIX Large70
+  name: ＴＤＫ
+  topix17_etf: 1625.T
+- ticker: 6770.T
+  subsector: Electronic Components, Sensors & Passive Devices (電子部品・センサ・受動部品)
+  topix17_code: '9'
+  topix17_name: 電機・精密
+  industry33_code: '3650'
+  industry33_name: 電気機器
+  jpx_scale: TOPIX Mid400
+  name: アルプスアルパイン
+  topix17_etf: 1625.T
+- ticker: 6806.T
+  subsector: Electronic Components, Sensors & Passive Devices (電子部品・センサ・受動部品)
+  topix17_code: '9'
+  topix17_name: 電機・精密
+  industry33_code: '3650'
+  industry33_name: 電気機器
+  jpx_scale: TOPIX Mid400
+  name: ヒロセ電機
+  topix17_etf: 1625.T
+- ticker: 6861.T
+  subsector: Electronic Components, Sensors & Passive Devices (電子部品・センサ・受動部品)
+  topix17_code: '9'
+  topix17_name: 電機・精密
+  industry33_code: '3650'
+  industry33_name: 電気機器
+  jpx_scale: TOPIX Core30
+  name: キーエンス
+  topix17_etf: 1625.T
+- ticker: 6925.T
+  subsector: Electronic Components, Sensors & Passive Devices (電子部品・センサ・受動部品)
+  topix17_code: '9'
+  topix17_name: 電機・精密
+  industry33_code: '3650'
+  industry33_name: 電気機器
+  jpx_scale: TOPIX Mid400
+  name: ウシオ電機
+  topix17_etf: 1625.T
+- ticker: 6963.T
+  subsector: Electronic Components, Sensors & Passive Devices (電子部品・センサ・受動部品)
+  topix17_code: '9'
+  topix17_name: 電機・精密
+  industry33_code: '3650'
+  industry33_name: 電気機器
+  jpx_scale: TOPIX Mid400
+  name: ローム
+  topix17_etf: 1625.T
+- ticker: 6965.T
+  subsector: Electronic Components, Sensors & Passive Devices (電子部品・センサ・受動部品)
+  topix17_code: '9'
+  topix17_name: 電機・精密
+  industry33_code: '3650'
+  industry33_name: 電気機器
+  jpx_scale: TOPIX Mid400
+  name: 浜松ホトニクス
+  topix17_etf: 1625.T
+- ticker: 6971.T
+  subsector: Electronic Components, Sensors & Passive Devices (電子部品・センサ・受動部品)
+  topix17_code: '9'
+  topix17_name: 電機・精密
+  industry33_code: '3650'
+  industry33_name: 電気機器
+  jpx_scale: TOPIX Large70
+  name: 京セラ
+  topix17_etf: 1625.T
+- ticker: 6976.T
+  subsector: Electronic Components, Sensors & Passive Devices (電子部品・センサ・受動部品)
+  topix17_code: '9'
+  topix17_name: 電機・精密
+  industry33_code: '3650'
+  industry33_name: 電気機器
+  jpx_scale: TOPIX Mid400
+  name: 太陽誘電
+  topix17_etf: 1625.T
+- ticker: 6981.T
+  subsector: Electronic Components, Sensors & Passive Devices (電子部品・センサ・受動部品)
+  topix17_code: '9'
+  topix17_name: 電機・精密
+  industry33_code: '3650'
+  industry33_name: 電気機器
+  jpx_scale: TOPIX Large70
+  name: 村田製作所
+  topix17_etf: 1625.T
+- ticker: 6856.T
+  subsector: Optical Instruments, Analytical & Precision Measurement (精密光学機器・分析計測・カメラ)
+  topix17_code: '9'
+  topix17_name: 電機・精密
+  industry33_code: '3650'
+  industry33_name: 電気機器
+  jpx_scale: TOPIX Mid400
+  name: 堀場製作所
+  topix17_etf: 1625.T
+- ticker: 7701.T
+  subsector: Optical Instruments, Analytical & Precision Measurement (精密光学機器・分析計測・カメラ)
+  topix17_code: '9'
+  topix17_name: 電機・精密
+  industry33_code: '3750'
+  industry33_name: 精密機器
+  jpx_scale: TOPIX Mid400
+  name: 島津製作所
+  topix17_etf: 1625.T
+- ticker: 7731.T
+  subsector: Optical Instruments, Analytical & Precision Measurement (精密光学機器・分析計測・カメラ)
+  topix17_code: '9'
+  topix17_name: 電機・精密
+  industry33_code: '3750'
+  industry33_name: 精密機器
+  jpx_scale: TOPIX Mid400
+  name: ニコン
+  topix17_etf: 1625.T
+- ticker: 7733.T
+  subsector: Optical Instruments, Analytical & Precision Measurement (精密光学機器・分析計測・カメラ)
+  topix17_code: '9'
+  topix17_name: 電機・精密
+  industry33_code: '3750'
+  industry33_name: 精密機器
+  jpx_scale: TOPIX Large70
+  name: オリンパス
+  topix17_etf: 1625.T
+- ticker: 7741.T
+  subsector: Optical Instruments, Analytical & Precision Measurement (精密光学機器・分析計測・カメラ)
+  topix17_code: '9'
+  topix17_name: 電機・精密
+  industry33_code: '3750'
+  industry33_name: 精密機器
+  jpx_scale: TOPIX Core30
+  name: ＨＯＹＡ
+  topix17_etf: 1625.T
+- ticker: 7751.T
+  subsector: Optical Instruments, Analytical & Precision Measurement (精密光学機器・分析計測・カメラ)
+  topix17_code: '9'
+  topix17_name: 電機・精密
+  industry33_code: '3650'
+  industry33_name: 電気機器
+  jpx_scale: TOPIX Large70
+  name: キヤノン
+  topix17_etf: 1625.T
+- ticker: 4543.T
+  subsector: Medical Devices, Diagnostics & Clinical Testing (医療機器・臨床検査・生体医工学)
+  topix17_code: '9'
+  topix17_name: 電機・精密
+  industry33_code: '3750'
+  industry33_name: 精密機器
+  jpx_scale: TOPIX Large70
+  name: テルモ
+  topix17_etf: 1625.T
+- ticker: 4544.T
+  subsector: Medical Devices, Diagnostics & Clinical Testing (医療機器・臨床検査・生体医工学)
+  topix17_code: '10'
+  topix17_name: 情報通信・サービスその他
+  industry33_code: '9050'
+  industry33_name: サービス業
+  jpx_scale: TOPIX Mid400
+  name: Ｈ．Ｕ．グループホールディングス
+  topix17_etf: 1626.T
+- ticker: 6849.T
+  subsector: Medical Devices, Diagnostics & Clinical Testing (医療機器・臨床検査・生体医工学)
+  topix17_code: '9'
+  topix17_name: 電機・精密
+  industry33_code: '3650'
+  industry33_name: 電気機器
+  jpx_scale: TOPIX Mid400
+  name: 日本光電工業
+  topix17_etf: 1625.T
+- ticker: 6869.T
+  subsector: Medical Devices, Diagnostics & Clinical Testing (医療機器・臨床検査・生体医工学)
+  topix17_code: '9'
+  topix17_name: 電機・精密
+  industry33_code: '3650'
+  industry33_name: 電気機器
+  jpx_scale: TOPIX Mid400
+  name: シスメックス
+  topix17_etf: 1625.T
+- ticker: 7747.T
+  subsector: Medical Devices, Diagnostics & Clinical Testing (医療機器・臨床検査・生体医工学)
+  topix17_code: '9'
+  topix17_name: 電機・精密
+  industry33_code: '3750'
+  industry33_name: 精密機器
+  jpx_scale: TOPIX Mid400
+  name: 朝日インテック
+  topix17_etf: 1625.T
+- ticker: 8086.T
+  subsector: Medical Devices, Diagnostics & Clinical Testing (医療機器・臨床検査・生体医工学)
+  topix17_code: '9'
+  topix17_name: 電機・精密
+  industry33_code: '3750'
+  industry33_name: 精密機器
+  jpx_scale: TOPIX Mid400
+  name: ニプロ
+  topix17_etf: 1625.T
+- ticker: 4902.T
+  subsector: Office Printing, Consumer Electronics & Industrial Devices (オフィスOA・プリンティング・民生機器)
+  topix17_code: '9'
+  topix17_name: 電機・精密
+  industry33_code: '3650'
+  industry33_name: 電気機器
+  jpx_scale: TOPIX Mid400
+  name: コニカミノルタ
+  topix17_etf: 1625.T
+- ticker: 6448.T
+  subsector: Office Printing, Consumer Electronics & Industrial Devices (オフィスOA・プリンティング・民生機器)
+  topix17_code: '9'
+  topix17_name: 電機・精密
+  industry33_code: '3650'
+  industry33_name: 電気機器
+  jpx_scale: TOPIX Mid400
+  name: ブラザー工業
+  topix17_etf: 1625.T
+- ticker: 6479.T
+  subsector: Office Printing, Consumer Electronics & Industrial Devices (オフィスOA・プリンティング・民生機器)
+  topix17_code: '9'
+  topix17_name: 電機・精密
+  industry33_code: '3650'
+  industry33_name: 電気機器
+  jpx_scale: TOPIX Mid400
+  name: ミネベアミツミ
+  topix17_etf: 1625.T
+- ticker: 6724.T
+  subsector: Office Printing, Consumer Electronics & Industrial Devices (オフィスOA・プリンティング・民生機器)
+  topix17_code: '9'
+  topix17_name: 電機・精密
+  industry33_code: '3650'
+  industry33_name: 電気機器
+  jpx_scale: TOPIX Mid400
+  name: セイコーエプソン
+  topix17_etf: 1625.T
+- ticker: 6753.T
+  subsector: Office Printing, Consumer Electronics & Industrial Devices (オフィスOA・プリンティング・民生機器)
+  topix17_code: '9'
+  topix17_name: 電機・精密
+  industry33_code: '3650'
+  industry33_name: 電気機器
+  jpx_scale: TOPIX Mid400
+  name: シャープ
+  topix17_etf: 1625.T
+- ticker: 6754.T
+  subsector: Office Printing, Consumer Electronics & Industrial Devices (オフィスOA・プリンティング・民生機器)
+  topix17_code: '9'
+  topix17_name: 電機・精密
+  industry33_code: '3650'
+  industry33_name: 電気機器
+  jpx_scale: TOPIX Mid400
+  name: アンリツ
+  topix17_etf: 1625.T
+- ticker: 6952.T
+  subsector: Office Printing, Consumer Electronics & Industrial Devices (オフィスOA・プリンティング・民生機器)
+  topix17_code: '9'
+  topix17_name: 電機・精密
+  industry33_code: '3650'
+  industry33_name: 電気機器
+  jpx_scale: TOPIX Mid400
+  name: カシオ計算機
+  topix17_etf: 1625.T
+- ticker: 7752.T
+  subsector: Office Printing, Consumer Electronics & Industrial Devices (オフィスOA・プリンティング・民生機器)
+  topix17_code: '9'
+  topix17_name: 電機・精密
+  industry33_code: '3650'
+  industry33_name: 電気機器
+  jpx_scale: TOPIX Mid400
+  name: リコー
+  topix17_etf: 1625.T
+- ticker: 7201.T
+  subsector: Passenger Cars, Commercial Vehicles & Motorcycles (乗用車・完成車・商用トラック・二輪)
+  topix17_code: '6'
+  topix17_name: 自動車・輸送機
+  industry33_code: '3700'
+  industry33_name: 輸送用機器
+  jpx_scale: TOPIX Mid400
+  name: 日産自動車
+  topix17_etf: 1622.T
+- ticker: 7202.T
+  subsector: Passenger Cars, Commercial Vehicles & Motorcycles (乗用車・完成車・商用トラック・二輪)
+  topix17_code: '6'
+  topix17_name: 自動車・輸送機
+  industry33_code: '3700'
+  industry33_name: 輸送用機器
+  jpx_scale: TOPIX Mid400
+  name: いすゞ自動車
+  topix17_etf: 1622.T
+- ticker: 7203.T
+  subsector: Passenger Cars, Commercial Vehicles & Motorcycles (乗用車・完成車・商用トラック・二輪)
+  topix17_code: '6'
+  topix17_name: 自動車・輸送機
+  industry33_code: '3700'
+  industry33_name: 輸送用機器
+  jpx_scale: TOPIX Core30
+  name: トヨタ自動車
+  topix17_etf: 1622.T
+- ticker: 7211.T
+  subsector: Passenger Cars, Commercial Vehicles & Motorcycles (乗用車・完成車・商用トラック・二輪)
+  topix17_code: '6'
+  topix17_name: 自動車・輸送機
+  industry33_code: '3700'
+  industry33_name: 輸送用機器
+  jpx_scale: TOPIX Mid400
+  name: 三菱自動車工業
+  topix17_etf: 1622.T
+- ticker: 7261.T
+  subsector: Passenger Cars, Commercial Vehicles & Motorcycles (乗用車・完成車・商用トラック・二輪)
+  topix17_code: '6'
+  topix17_name: 自動車・輸送機
+  industry33_code: '3700'
+  industry33_name: 輸送用機器
+  jpx_scale: TOPIX Mid400
+  name: マツダ
+  topix17_etf: 1622.T
+- ticker: 7267.T
+  subsector: Passenger Cars, Commercial Vehicles & Motorcycles (乗用車・完成車・商用トラック・二輪)
+  topix17_code: '6'
+  topix17_name: 自動車・輸送機
+  industry33_code: '3700'
+  industry33_name: 輸送用機器
+  jpx_scale: TOPIX Core30
+  name: 本田技研工業
+  topix17_etf: 1622.T
+- ticker: 7269.T
+  subsector: Passenger Cars, Commercial Vehicles & Motorcycles (乗用車・完成車・商用トラック・二輪)
+  topix17_code: '6'
+  topix17_name: 自動車・輸送機
+  industry33_code: '3700'
+  industry33_name: 輸送用機器
+  jpx_scale: TOPIX Large70
+  name: スズキ
+  topix17_etf: 1622.T
+- ticker: 7270.T
+  subsector: Passenger Cars, Commercial Vehicles & Motorcycles (乗用車・完成車・商用トラック・二輪)
+  topix17_code: '6'
+  topix17_name: 自動車・輸送機
+  industry33_code: '3700'
+  industry33_name: 輸送用機器
+  jpx_scale: TOPIX Large70
+  name: ＳＵＢＡＲＵ
+  topix17_etf: 1622.T
+- ticker: 7272.T
+  subsector: Passenger Cars, Commercial Vehicles & Motorcycles (乗用車・完成車・商用トラック・二輪)
+  topix17_code: '6'
+  topix17_name: 自動車・輸送機
+  industry33_code: '3700'
+  industry33_name: 輸送用機器
+  jpx_scale: TOPIX Mid400
+  name: ヤマハ発動機
+  topix17_etf: 1622.T
+- ticker: 3105.T
+  subsector: Auto Parts & Systems (自動車部品・電装品・内装)
+  topix17_code: '9'
+  topix17_name: 電機・精密
+  industry33_code: '3650'
+  industry33_name: 電気機器
+  jpx_scale: TOPIX Mid400
+  name: 日清紡ホールディングス
+  topix17_etf: 1625.T
+- ticker: 3116.T
+  subsector: Auto Parts & Systems (自動車部品・電装品・内装)
+  topix17_code: '6'
+  topix17_name: 自動車・輸送機
+  industry33_code: '3700'
+  industry33_name: 輸送用機器
+  jpx_scale: TOPIX Mid400
+  name: トヨタ紡織
+  topix17_etf: 1622.T
+- ticker: 5991.T
+  subsector: Auto Parts & Systems (自動車部品・電装品・内装)
+  topix17_code: '3'
+  topix17_name: 建設・資材
+  industry33_code: '3550'
+  industry33_name: 金属製品
+  jpx_scale: TOPIX Mid400
+  name: 日本発條
+  topix17_etf: 1619.T
+- ticker: 6902.T
+  subsector: Auto Parts & Systems (自動車部品・電装品・内装)
+  topix17_code: '6'
+  topix17_name: 自動車・輸送機
+  industry33_code: '3700'
+  industry33_name: 輸送用機器
+  jpx_scale: TOPIX Large70
+  name: デンソー
+  topix17_etf: 1622.T
+- ticker: 6923.T
+  subsector: Auto Parts & Systems (自動車部品・電装品・内装)
+  topix17_code: '9'
+  topix17_name: 電機・精密
+  industry33_code: '3650'
+  industry33_name: 電気機器
+  jpx_scale: TOPIX Mid400
+  name: スタンレー電気
+  topix17_etf: 1625.T
+- ticker: 7240.T
+  subsector: Auto Parts & Systems (自動車部品・電装品・内装)
+  topix17_code: '6'
+  topix17_name: 自動車・輸送機
+  industry33_code: '3700'
+  industry33_name: 輸送用機器
+  jpx_scale: TOPIX Mid400
+  name: ＮＯＫ
+  topix17_etf: 1622.T
+- ticker: 7259.T
+  subsector: Auto Parts & Systems (自動車部品・電装品・内装)
+  topix17_code: '6'
+  topix17_name: 自動車・輸送機
+  industry33_code: '3700'
+  industry33_name: 輸送用機器
+  jpx_scale: TOPIX Mid400
+  name: アイシン
+  topix17_etf: 1622.T
+- ticker: 7276.T
+  subsector: Auto Parts & Systems (自動車部品・電装品・内装)
+  topix17_code: '9'
+  topix17_name: 電機・精密
+  industry33_code: '3650'
+  industry33_name: 電気機器
+  jpx_scale: TOPIX Mid400
+  name: 小糸製作所
+  topix17_etf: 1625.T
+- ticker: 7282.T
+  subsector: Auto Parts & Systems (自動車部品・電装品・内装)
+  topix17_code: '6'
+  topix17_name: 自動車・輸送機
+  industry33_code: '3700'
+  industry33_name: 輸送用機器
+  jpx_scale: TOPIX Mid400
+  name: 豊田合成
+  topix17_etf: 1622.T
+- ticker: 7313.T
+  subsector: Auto Parts & Systems (自動車部品・電装品・内装)
+  topix17_code: '6'
+  topix17_name: 自動車・輸送機
+  industry33_code: '3700'
+  industry33_name: 輸送用機器
+  jpx_scale: TOPIX Mid400
+  name: テイ・エス　テック
+  topix17_etf: 1622.T
+- ticker: 7988.T
+  subsector: Auto Parts & Systems (自動車部品・電装品・内装)
+  topix17_code: '4'
+  topix17_name: 素材・化学
+  industry33_code: '3200'
+  industry33_name: 化学
+  jpx_scale: TOPIX Mid400
+  name: ニフコ
+  topix17_etf: 1620.T
+- ticker: 5101.T
+  subsector: Tires & Rubber Products (タイヤ・ゴム製品)
+  topix17_code: '6'
+  topix17_name: 自動車・輸送機
+  industry33_code: '3350'
+  industry33_name: ゴム製品
+  jpx_scale: TOPIX Mid400
+  name: 横浜ゴム
+  topix17_etf: 1622.T
+- ticker: 5105.T
+  subsector: Tires & Rubber Products (タイヤ・ゴム製品)
+  topix17_code: '6'
+  topix17_name: 自動車・輸送機
+  industry33_code: '3350'
+  industry33_name: ゴム製品
+  jpx_scale: TOPIX Mid400
+  name: ＴＯＹＯ　ＴＩＲＥ
+  topix17_etf: 1622.T
+- ticker: 5108.T
+  subsector: Tires & Rubber Products (タイヤ・ゴム製品)
+  topix17_code: '6'
+  topix17_name: 自動車・輸送機
+  industry33_code: '3350'
+  industry33_name: ゴム製品
+  jpx_scale: TOPIX Large70
+  name: ブリヂストン
+  topix17_etf: 1622.T
+- ticker: 5110.T
+  subsector: Tires & Rubber Products (タイヤ・ゴム製品)
+  topix17_code: '6'
+  topix17_name: 自動車・輸送機
+  industry33_code: '3350'
+  industry33_name: ゴム製品
+  jpx_scale: TOPIX Mid400
+  name: 住友ゴム工業
+  topix17_etf: 1622.T
+- ticker: 4502.T
+  subsector: Global Major Innovative Pharma (グローバル新薬・大型創薬)
+  topix17_code: '5'
+  topix17_name: 医薬品
+  industry33_code: '3250'
+  industry33_name: 医薬品
+  jpx_scale: TOPIX Core30
+  name: 武田薬品工業
+  topix17_etf: 1621.T
+- ticker: 4503.T
+  subsector: Global Major Innovative Pharma (グローバル新薬・大型創薬)
+  topix17_code: '5'
+  topix17_name: 医薬品
+  industry33_code: '3250'
+  industry33_name: 医薬品
+  jpx_scale: TOPIX Large70
+  name: アステラス製薬
+  topix17_etf: 1621.T
+- ticker: 4507.T
+  subsector: Global Major Innovative Pharma (グローバル新薬・大型創薬)
+  topix17_code: '5'
+  topix17_name: 医薬品
+  industry33_code: '3250'
+  industry33_name: 医薬品
+  jpx_scale: TOPIX Large70
+  name: 塩野義製薬
+  topix17_etf: 1621.T
+- ticker: 4519.T
+  subsector: Global Major Innovative Pharma (グローバル新薬・大型創薬)
+  topix17_code: '5'
+  topix17_name: 医薬品
+  industry33_code: '3250'
+  industry33_name: 医薬品
+  jpx_scale: TOPIX Large70
+  name: 中外製薬
+  topix17_etf: 1621.T
+- ticker: 4523.T
+  subsector: Global Major Innovative Pharma (グローバル新薬・大型創薬)
+  topix17_code: '5'
+  topix17_name: 医薬品
+  industry33_code: '3250'
+  industry33_name: 医薬品
+  jpx_scale: TOPIX Mid400
+  name: エーザイ
+  topix17_etf: 1621.T
+- ticker: 4528.T
+  subsector: Global Major Innovative Pharma (グローバル新薬・大型創薬)
+  topix17_code: '5'
+  topix17_name: 医薬品
+  industry33_code: '3250'
+  industry33_name: 医薬品
+  jpx_scale: TOPIX Mid400
+  name: 小野薬品工業
+  topix17_etf: 1621.T
+- ticker: 4568.T
+  subsector: Global Major Innovative Pharma (グローバル新薬・大型創薬)
+  topix17_code: '5'
+  topix17_name: 医薬品
+  industry33_code: '3250'
+  industry33_name: 医薬品
+  jpx_scale: TOPIX Core30
+  name: 第一三共
+  topix17_etf: 1621.T
+- ticker: 4578.T
+  subsector: Global Major Innovative Pharma (グローバル新薬・大型創薬)
+  topix17_code: '5'
+  topix17_name: 医薬品
+  industry33_code: '3250'
+  industry33_name: 医薬品
+  jpx_scale: TOPIX Large70
+  name: 大塚ホールディングス
+  topix17_etf: 1621.T
+- ticker: 4151.T
+  subsector: Specialty Biopharma & Biotech Platforms (スペシャリティ創薬・眼科・バイオテック)
+  topix17_code: '5'
+  topix17_name: 医薬品
+  industry33_code: '3250'
+  industry33_name: 医薬品
+  jpx_scale: TOPIX Mid400
+  name: 協和キリン
+  topix17_etf: 1621.T
+- ticker: 4516.T
+  subsector: Specialty Biopharma & Biotech Platforms (スペシャリティ創薬・眼科・バイオテック)
+  topix17_code: '5'
+  topix17_name: 医薬品
+  industry33_code: '3250'
+  industry33_name: 医薬品
+  jpx_scale: TOPIX Mid400
+  name: 日本新薬
+  topix17_etf: 1621.T
+- ticker: 4536.T
+  subsector: Specialty Biopharma & Biotech Platforms (スペシャリティ創薬・眼科・バイオテック)
+  topix17_code: '5'
+  topix17_name: 医薬品
+  industry33_code: '3250'
+  industry33_name: 医薬品
+  jpx_scale: TOPIX Mid400
+  name: 参天製薬
+  topix17_etf: 1621.T
+- ticker: 4587.T
+  subsector: Specialty Biopharma & Biotech Platforms (スペシャリティ創薬・眼科・バイオテック)
+  topix17_code: '5'
+  topix17_name: 医薬品
+  industry33_code: '3250'
+  industry33_name: 医薬品
+  jpx_scale: TOPIX Mid400
+  name: ペプチドリーム
+  topix17_etf: 1621.T
+- ticker: 4506.T
+  subsector: Consumer Healthcare, OTC, Kampo & Generics (OTC医薬品・漢方・スキンケア・後発品)
+  topix17_code: '5'
+  topix17_name: 医薬品
+  industry33_code: '3250'
+  industry33_name: 医薬品
+  jpx_scale: TOPIX Mid400
+  name: 住友ファーマ
+  topix17_etf: 1621.T
+- ticker: 4527.T
+  subsector: Consumer Healthcare, OTC, Kampo & Generics (OTC医薬品・漢方・スキンケア・後発品)
+  topix17_code: '5'
+  topix17_name: 医薬品
+  industry33_code: '3250'
+  industry33_name: 医薬品
+  jpx_scale: TOPIX Mid400
+  name: ロート製薬
+  topix17_etf: 1621.T
+- ticker: 4540.T
+  subsector: Consumer Healthcare, OTC, Kampo & Generics (OTC医薬品・漢方・スキンケア・後発品)
+  topix17_code: '5'
+  topix17_name: 医薬品
+  industry33_code: '3250'
+  industry33_name: 医薬品
+  jpx_scale: TOPIX Mid400
+  name: ツムラ
+  topix17_etf: 1621.T
+- ticker: 4887.T
+  subsector: Consumer Healthcare, OTC, Kampo & Generics (OTC医薬品・漢方・スキンケア・後発品)
+  topix17_code: '5'
+  topix17_name: 医薬品
+  industry33_code: '3250'
+  industry33_name: 医薬品
+  jpx_scale: TOPIX Mid400
+  name: サワイグループホールディングス
+  topix17_etf: 1621.T
+- ticker: 2501.T
+  subsector: Beverages, Breweries & Distilling (飲料・ビール・酒類・たばこ)
+  topix17_code: '1'
+  topix17_name: 食品
+  industry33_code: '3050'
+  industry33_name: 食料品
+  jpx_scale: TOPIX Mid400
+  name: サッポロビール
+  topix17_etf: 1617.T
+- ticker: 2502.T
+  subsector: Beverages, Breweries & Distilling (飲料・ビール・酒類・たばこ)
+  topix17_code: '1'
+  topix17_name: 食品
+  industry33_code: '3050'
+  industry33_name: 食料品
+  jpx_scale: TOPIX Large70
+  name: アサヒグループホールディングス
+  topix17_etf: 1617.T
+- ticker: 2503.T
+  subsector: Beverages, Breweries & Distilling (飲料・ビール・酒類・たばこ)
+  topix17_code: '1'
+  topix17_name: 食品
+  industry33_code: '3050'
+  industry33_name: 食料品
+  jpx_scale: TOPIX Large70
+  name: キリンホールディングス
+  topix17_etf: 1617.T
+- ticker: 2531.T
+  subsector: Beverages, Breweries & Distilling (飲料・ビール・酒類・たばこ)
+  topix17_code: '1'
+  topix17_name: 食品
+  industry33_code: '3050'
+  industry33_name: 食料品
+  jpx_scale: TOPIX Mid400
+  name: 宝ホールディングス
+  topix17_etf: 1617.T
+- ticker: 2579.T
+  subsector: Beverages, Breweries & Distilling (飲料・ビール・酒類・たばこ)
+  topix17_code: '1'
+  topix17_name: 食品
+  industry33_code: '3050'
+  industry33_name: 食料品
+  jpx_scale: TOPIX Mid400
+  name: コカ・コーラ　ボトラーズジャパンホールディングス
+  topix17_etf: 1617.T
+- ticker: 2587.T
+  subsector: Beverages, Breweries & Distilling (飲料・ビール・酒類・たばこ)
+  topix17_code: '1'
+  topix17_name: 食品
+  industry33_code: '3050'
+  industry33_name: 食料品
+  jpx_scale: TOPIX Mid400
+  name: サントリービバレッジ＆フード
+  topix17_etf: 1617.T
+- ticker: 2593.T
+  subsector: Beverages, Breweries & Distilling (飲料・ビール・酒類・たばこ)
+  topix17_code: '1'
+  topix17_name: 食品
+  industry33_code: '3050'
+  industry33_name: 食料品
+  jpx_scale: TOPIX Mid400
+  name: 伊藤園
+  topix17_etf: 1617.T
+- ticker: 2914.T
+  subsector: Beverages, Breweries & Distilling (飲料・ビール・酒類・たばこ)
+  topix17_code: '1'
+  topix17_name: 食品
+  industry33_code: '3050'
+  industry33_name: 食料品
+  jpx_scale: TOPIX Core30
+  name: 日本たばこ産業
+  topix17_etf: 1617.T
+- ticker: 2264.T
+  subsector: Dairy, Probiotics & Nutritional Foods (乳業・プロバイオティクス・栄養食品)
+  topix17_code: '1'
+  topix17_name: 食品
+  industry33_code: '3050'
+  industry33_name: 食料品
+  jpx_scale: TOPIX Mid400
+  name: 森永乳業
+  topix17_etf: 1617.T
+- ticker: 2267.T
+  subsector: Dairy, Probiotics & Nutritional Foods (乳業・プロバイオティクス・栄養食品)
+  topix17_code: '1'
+  topix17_name: 食品
+  industry33_code: '3050'
+  industry33_name: 食料品
+  jpx_scale: TOPIX Mid400
+  name: ヤクルト本社
+  topix17_etf: 1617.T
+- ticker: 2269.T
+  subsector: Dairy, Probiotics & Nutritional Foods (乳業・プロバイオティクス・栄養食品)
+  topix17_code: '1'
+  topix17_name: 食品
+  industry33_code: '3050'
+  industry33_name: 食料品
+  jpx_scale: TOPIX Mid400
+  name: 明治ホールディングス
+  topix17_etf: 1617.T
+- ticker: 2282.T
+  subsector: Seasonings, Packaged Foods & Processed Meats (調味料・即席麺・食肉・調理加工食品)
+  topix17_code: '1'
+  topix17_name: 食品
+  industry33_code: '3050'
+  industry33_name: 食料品
+  jpx_scale: TOPIX Mid400
+  name: 日本ハム
+  topix17_etf: 1617.T
+- ticker: 2801.T
+  subsector: Seasonings, Packaged Foods & Processed Meats (調味料・即席麺・食肉・調理加工食品)
+  topix17_code: '1'
+  topix17_name: 食品
+  industry33_code: '3050'
+  industry33_name: 食料品
+  jpx_scale: TOPIX Mid400
+  name: キッコーマン
+  topix17_etf: 1617.T
+- ticker: 2802.T
+  subsector: Seasonings, Packaged Foods & Processed Meats (調味料・即席麺・食肉・調理加工食品)
+  topix17_code: '1'
+  topix17_name: 食品
+  industry33_code: '3050'
+  industry33_name: 食料品
+  jpx_scale: TOPIX Large70
+  name: 味の素
+  topix17_etf: 1617.T
+- ticker: 2809.T
+  subsector: Seasonings, Packaged Foods & Processed Meats (調味料・即席麺・食肉・調理加工食品)
+  topix17_code: '1'
+  topix17_name: 食品
+  industry33_code: '3050'
+  industry33_name: 食料品
+  jpx_scale: TOPIX Mid400
+  name: キユーピー
+  topix17_etf: 1617.T
+- ticker: 2810.T
+  subsector: Seasonings, Packaged Foods & Processed Meats (調味料・即席麺・食肉・調理加工食品)
+  topix17_code: '1'
+  topix17_name: 食品
+  industry33_code: '3050'
+  industry33_name: 食料品
+  jpx_scale: TOPIX Mid400
+  name: ハウス食品グループ本社
+  topix17_etf: 1617.T
+- ticker: 2811.T
+  subsector: Seasonings, Packaged Foods & Processed Meats (調味料・即席麺・食肉・調理加工食品)
+  topix17_code: '1'
+  topix17_name: 食品
+  industry33_code: '3050'
+  industry33_name: 食料品
+  jpx_scale: TOPIX Mid400
+  name: カゴメ
+  topix17_etf: 1617.T
+- ticker: 2871.T
+  subsector: Seasonings, Packaged Foods & Processed Meats (調味料・即席麺・食肉・調理加工食品)
+  topix17_code: '1'
+  topix17_name: 食品
+  industry33_code: '3050'
+  industry33_name: 食料品
+  jpx_scale: TOPIX Mid400
+  name: ニチレイ
+  topix17_etf: 1617.T
+- ticker: 2875.T
+  subsector: Seasonings, Packaged Foods & Processed Meats (調味料・即席麺・食肉・調理加工食品)
+  topix17_code: '1'
+  topix17_name: 食品
+  industry33_code: '3050'
+  industry33_name: 食料品
+  jpx_scale: TOPIX Mid400
+  name: 東洋水産
+  topix17_etf: 1617.T
+- ticker: 2897.T
+  subsector: Seasonings, Packaged Foods & Processed Meats (調味料・即席麺・食肉・調理加工食品)
+  topix17_code: '1'
+  topix17_name: 食品
+  industry33_code: '3050'
+  industry33_name: 食料品
+  jpx_scale: TOPIX Mid400
+  name: 日清食品ホールディングス
+  topix17_etf: 1617.T
+- ticker: 2201.T
+  subsector: Confectionery, Bakery & Snacks (製菓・スナック・製パン)
+  topix17_code: '1'
+  topix17_name: 食品
+  industry33_code: '3050'
+  industry33_name: 食料品
+  jpx_scale: TOPIX Mid400
+  name: 森永製菓
+  topix17_etf: 1617.T
+- ticker: 2206.T
+  subsector: Confectionery, Bakery & Snacks (製菓・スナック・製パン)
+  topix17_code: '1'
+  topix17_name: 食品
+  industry33_code: '3050'
+  industry33_name: 食料品
+  jpx_scale: TOPIX Mid400
+  name: 江崎グリコ
+  topix17_etf: 1617.T
+- ticker: 2212.T
+  subsector: Confectionery, Bakery & Snacks (製菓・スナック・製パン)
+  topix17_code: '1'
+  topix17_name: 食品
+  industry33_code: '3050'
+  industry33_name: 食料品
+  jpx_scale: TOPIX Mid400
+  name: 山崎製パン
+  topix17_etf: 1617.T
+- ticker: 2222.T
+  subsector: Confectionery, Bakery & Snacks (製菓・スナック・製パン)
+  topix17_code: '1'
+  topix17_name: 食品
+  industry33_code: '3050'
+  industry33_name: 食料品
+  jpx_scale: TOPIX Mid400
+  name: 寿スピリッツ
+  topix17_etf: 1617.T
+- ticker: 2229.T
+  subsector: Confectionery, Bakery & Snacks (製菓・スナック・製パン)
+  topix17_code: '1'
+  topix17_name: 食品
+  industry33_code: '3050'
+  industry33_name: 食料品
+  jpx_scale: TOPIX Mid400
+  name: カルビー
+  topix17_etf: 1617.T
+- ticker: 1332.T
+  subsector: Grain Milling, Edible Oils, Marine & Agribusiness (製粉・製油・水産・アグリ素材)
+  topix17_code: '1'
+  topix17_name: 食品
+  industry33_code: '50'
+  industry33_name: 水産・農林業
+  jpx_scale: TOPIX Mid400
+  name: ニッスイ
+  topix17_etf: 1617.T
+- ticker: 1333.T
+  subsector: Grain Milling, Edible Oils, Marine & Agribusiness (製粉・製油・水産・アグリ素材)
+  topix17_code: '1'
+  topix17_name: 食品
+  industry33_code: '50'
+  industry33_name: 水産・農林業
+  jpx_scale: TOPIX Mid400
+  name: Ｕｍｉｏｓ
+  topix17_etf: 1617.T
+- ticker: 2002.T
+  subsector: Grain Milling, Edible Oils, Marine & Agribusiness (製粉・製油・水産・アグリ素材)
+  topix17_code: '1'
+  topix17_name: 食品
+  industry33_code: '3050'
+  industry33_name: 食料品
+  jpx_scale: TOPIX Mid400
+  name: 日清製粉グループ本社
+  topix17_etf: 1617.T
+- ticker: 2607.T
+  subsector: Grain Milling, Edible Oils, Marine & Agribusiness (製粉・製油・水産・アグリ素材)
+  topix17_code: '1'
+  topix17_name: 食品
+  industry33_code: '3050'
+  industry33_name: 食料品
+  jpx_scale: TOPIX Mid400
+  name: 不二製油
+  topix17_etf: 1617.T
+- ticker: 4452.T
+  subsector: Cosmetics & Personal Care (化粧品・トイレタリー・日用品)
+  topix17_code: '4'
+  topix17_name: 素材・化学
+  industry33_code: '3200'
+  industry33_name: 化学
+  jpx_scale: TOPIX Large70
+  name: 花王
+  topix17_etf: 1620.T
+- ticker: 4911.T
+  subsector: Cosmetics & Personal Care (化粧品・トイレタリー・日用品)
+  topix17_code: '4'
+  topix17_name: 素材・化学
+  industry33_code: '3200'
+  industry33_name: 化学
+  jpx_scale: TOPIX Mid400
+  name: 資生堂
+  topix17_etf: 1620.T
+- ticker: 4912.T
+  subsector: Cosmetics & Personal Care (化粧品・トイレタリー・日用品)
+  topix17_code: '4'
+  topix17_name: 素材・化学
+  industry33_code: '3200'
+  industry33_name: 化学
+  jpx_scale: TOPIX Mid400
+  name: ライオン
+  topix17_etf: 1620.T
+- ticker: 4922.T
+  subsector: Cosmetics & Personal Care (化粧品・トイレタリー・日用品)
+  topix17_code: '4'
+  topix17_name: 素材・化学
+  industry33_code: '3200'
+  industry33_name: 化学
+  jpx_scale: TOPIX Mid400
+  name: コーセーホールディングス
+  topix17_etf: 1620.T
+- ticker: 4927.T
+  subsector: Cosmetics & Personal Care (化粧品・トイレタリー・日用品)
+  topix17_code: '4'
+  topix17_name: 素材・化学
+  industry33_code: '3200'
+  industry33_name: 化学
+  jpx_scale: TOPIX Mid400
+  name: ポーラ・オルビスホールディングス
+  topix17_etf: 1620.T
+- ticker: 4967.T
+  subsector: Cosmetics & Personal Care (化粧品・トイレタリー・日用品)
+  topix17_code: '4'
+  topix17_name: 素材・化学
+  industry33_code: '3200'
+  industry33_name: 化学
+  jpx_scale: TOPIX Mid400
+  name: 小林製薬
+  topix17_etf: 1620.T
+- ticker: 8113.T
+  subsector: Cosmetics & Personal Care (化粧品・トイレタリー・日用品)
+  topix17_code: '4'
+  topix17_name: 素材・化学
+  industry33_code: '3200'
+  industry33_name: 化学
+  jpx_scale: TOPIX Large70
+  name: ユニ・チャーム
+  topix17_etf: 1620.T
+- ticker: 7846.T
+  subsector: Stationery, Office & Household Brands (文具・オフィス家具・楽器・生活用品)
+  topix17_code: '10'
+  topix17_name: 情報通信・サービスその他
+  industry33_code: '3800'
+  industry33_name: その他製品
+  jpx_scale: TOPIX Mid400
+  name: パイロットコーポレーション
+  topix17_etf: 1626.T
+- ticker: 7951.T
+  subsector: Stationery, Office & Household Brands (文具・オフィス家具・楽器・生活用品)
+  topix17_code: '10'
+  topix17_name: 情報通信・サービスその他
+  industry33_code: '3800'
+  industry33_name: その他製品
+  jpx_scale: TOPIX Mid400
+  name: ヤマハ
+  topix17_etf: 1626.T
+- ticker: 7956.T
+  subsector: Stationery, Office & Household Brands (文具・オフィス家具・楽器・生活用品)
+  topix17_code: '10'
+  topix17_name: 情報通信・サービスその他
+  industry33_code: '3800'
+  industry33_name: その他製品
+  jpx_scale: TOPIX Mid400
+  name: ピジョン
+  topix17_etf: 1626.T
+- ticker: 7984.T
+  subsector: Stationery, Office & Household Brands (文具・オフィス家具・楽器・生活用品)
+  topix17_code: '10'
+  topix17_name: 情報通信・サービスその他
+  industry33_code: '3800'
+  industry33_name: その他製品
+  jpx_scale: TOPIX Mid400
+  name: コクヨ
+  topix17_etf: 1626.T
+- ticker: 3086.T
+  subsector: Department Stores & Luxury Commercial Real Estate (百貨店・高級ブランド・都市型商業施設)
+  topix17_code: '14'
+  topix17_name: 小売
+  industry33_code: '6100'
+  industry33_name: 小売業
+  jpx_scale: TOPIX Mid400
+  name: Ｊ．フロント　リテイリング
+  topix17_etf: 1630.T
+- ticker: 3099.T
+  subsector: Department Stores & Luxury Commercial Real Estate (百貨店・高級ブランド・都市型商業施設)
+  topix17_code: '14'
+  topix17_name: 小売
+  industry33_code: '6100'
+  industry33_name: 小売業
+  jpx_scale: TOPIX Mid400
+  name: 三越伊勢丹ホールディングス
+  topix17_etf: 1630.T
+- ticker: 8233.T
+  subsector: Department Stores & Luxury Commercial Real Estate (百貨店・高級ブランド・都市型商業施設)
+  topix17_code: '14'
+  topix17_name: 小売
+  industry33_code: '6100'
+  industry33_name: 小売業
+  jpx_scale: TOPIX Mid400
+  name: 高島屋
+  topix17_etf: 1630.T
+- ticker: 8242.T
+  subsector: Department Stores & Luxury Commercial Real Estate (百貨店・高級ブランド・都市型商業施設)
+  topix17_code: '14'
+  topix17_name: 小売
+  industry33_code: '6100'
+  industry33_name: 小売業
+  jpx_scale: TOPIX Mid400
+  name: エイチ・ツー・オー　リテイリング
+  topix17_etf: 1630.T
+- ticker: 3038.T
+  subsector: Supermarkets, GMS & Discount Stores (スーパー・総合小売・ディスカウントストア)
+  topix17_code: '13'
+  topix17_name: 商社・卸売
+  industry33_code: '6050'
+  industry33_name: 卸売業
+  jpx_scale: TOPIX Mid400
+  name: 神戸物産
+  topix17_etf: 1629.T
+- ticker: 3382.T
+  subsector: Supermarkets, GMS & Discount Stores (スーパー・総合小売・ディスカウントストア)
+  topix17_code: '14'
+  topix17_name: 小売
+  industry33_code: '6100'
+  industry33_name: 小売業
+  jpx_scale: TOPIX Core30
+  name: セブン＆アイ・ホールディングス
+  topix17_etf: 1630.T
+- ticker: 417A.T
+  subsector: Supermarkets, GMS & Discount Stores (スーパー・総合小売・ディスカウントストア)
+  topix17_code: '14'
+  topix17_name: 小売
+  industry33_code: '6100'
+  industry33_name: 小売業
+  jpx_scale: TOPIX Mid400
+  name: ブルーゾーンホールディングス
+  topix17_etf: 1630.T
+- ticker: 7532.T
+  subsector: Supermarkets, GMS & Discount Stores (スーパー・総合小売・ディスカウントストア)
+  topix17_code: '14'
+  topix17_name: 小売
+  industry33_code: '6100'
+  industry33_name: 小売業
+  jpx_scale: TOPIX Mid400
+  name: パン・パシフィック・インターナショナルホールディングス
+  topix17_etf: 1630.T
+- ticker: 8267.T
+  subsector: Supermarkets, GMS & Discount Stores (スーパー・総合小売・ディスカウントストア)
+  topix17_code: '14'
+  topix17_name: 小売
+  industry33_code: '6100'
+  industry33_name: 小売業
+  jpx_scale: TOPIX Large70
+  name: イオン
+  topix17_etf: 1630.T
+- ticker: 3088.T
+  subsector: Drugstores & Dispensing (ドラッグストア・調剤薬局)
+  topix17_code: '14'
+  topix17_name: 小売
+  industry33_code: '6100'
+  industry33_name: 小売業
+  jpx_scale: TOPIX Mid400
+  name: マツキヨココカラ＆カンパニー
+  topix17_etf: 1630.T
+- ticker: 3349.T
+  subsector: Drugstores & Dispensing (ドラッグストア・調剤薬局)
+  topix17_code: '14'
+  topix17_name: 小売
+  industry33_code: '6100'
+  industry33_name: 小売業
+  jpx_scale: TOPIX Mid400
+  name: コスモス薬品
+  topix17_etf: 1630.T
+- ticker: 3391.T
+  subsector: Drugstores & Dispensing (ドラッグストア・調剤薬局)
+  topix17_code: '14'
+  topix17_name: 小売
+  industry33_code: '6100'
+  industry33_name: 小売業
+  jpx_scale: TOPIX Mid400
+  name: ツルハホールディングス
+  topix17_etf: 1630.T
+- ticker: 3549.T
+  subsector: Drugstores & Dispensing (ドラッグストア・調剤薬局)
+  topix17_code: '14'
+  topix17_name: 小売
+  industry33_code: '6100'
+  industry33_name: 小売業
+  jpx_scale: TOPIX Mid400
+  name: クスリのアオキホールディングス
+  topix17_etf: 1630.T
+- ticker: 7649.T
+  subsector: Drugstores & Dispensing (ドラッグストア・調剤薬局)
+  topix17_code: '14'
+  topix17_name: 小売
+  industry33_code: '6100'
+  industry33_name: 小売業
+  jpx_scale: TOPIX Mid400
+  name: スギホールディングス
+  topix17_etf: 1630.T
+- ticker: 9627.T
+  subsector: Drugstores & Dispensing (ドラッグストア・調剤薬局)
+  topix17_code: '14'
+  topix17_name: 小売
+  industry33_code: '6100'
+  industry33_name: 小売業
+  jpx_scale: TOPIX Mid400
+  name: アインホールディングス
+  topix17_etf: 1630.T
+- ticker: 9989.T
+  subsector: Drugstores & Dispensing (ドラッグストア・調剤薬局)
+  topix17_code: '14'
+  topix17_name: 小売
+  industry33_code: '6100'
+  industry33_name: 小売業
+  jpx_scale: TOPIX Mid400
+  name: サンドラッグ
+  topix17_etf: 1630.T
+- ticker: 3048.T
+  subsector: Consumer Electronics Mass Retailers (家電量販店・生活家電・免税リテール)
+  topix17_code: '14'
+  topix17_name: 小売
+  industry33_code: '6100'
+  industry33_name: 小売業
+  jpx_scale: TOPIX Mid400
+  name: ビックカメラ
+  topix17_etf: 1630.T
+- ticker: 8282.T
+  subsector: Consumer Electronics Mass Retailers (家電量販店・生活家電・免税リテール)
+  topix17_code: '14'
+  topix17_name: 小売
+  industry33_code: '6100'
+  industry33_name: 小売業
+  jpx_scale: TOPIX Mid400
+  name: ケーズホールディングス
+  topix17_etf: 1630.T
+- ticker: 9831.T
+  subsector: Consumer Electronics Mass Retailers (家電量販店・生活家電・免税リテール)
+  topix17_code: '14'
+  topix17_name: 小売
+  industry33_code: '6100'
+  industry33_name: 小売業
+  jpx_scale: TOPIX Mid400
+  name: ヤマダホールディングス
+  topix17_etf: 1630.T
+- ticker: 2670.T
+  subsector: Apparel, Footwear, Sports Brands & Lifestyle SPA (アパレル・フットウェア・スポーツブランド・生活製造小売)
+  topix17_code: '14'
+  topix17_name: 小売
+  industry33_code: '6100'
+  industry33_name: 小売業
+  jpx_scale: TOPIX Mid400
+  name: エービーシー・マート
+  topix17_etf: 1630.T
+- ticker: 3591.T
+  subsector: Apparel, Footwear, Sports Brands & Lifestyle SPA (アパレル・フットウェア・スポーツブランド・生活製造小売)
+  topix17_code: '4'
+  topix17_name: 素材・化学
+  industry33_code: '3100'
+  industry33_name: 繊維製品
+  jpx_scale: TOPIX Mid400
+  name: ワコールホールディングス
+  topix17_etf: 1620.T
+- ticker: 7309.T
+  subsector: Apparel, Footwear, Sports Brands & Lifestyle SPA (アパレル・フットウェア・スポーツブランド・生活製造小売)
+  topix17_code: '6'
+  topix17_name: 自動車・輸送機
+  industry33_code: '3700'
+  industry33_name: 輸送用機器
+  jpx_scale: TOPIX Large70
+  name: シマノ
+  topix17_etf: 1622.T
+- ticker: 7453.T
+  subsector: Apparel, Footwear, Sports Brands & Lifestyle SPA (アパレル・フットウェア・スポーツブランド・生活製造小売)
+  topix17_code: '14'
+  topix17_name: 小売
+  industry33_code: '6100'
+  industry33_name: 小売業
+  jpx_scale: TOPIX Mid400
+  name: 良品計画
+  topix17_etf: 1630.T
+- ticker: 7936.T
+  subsector: Apparel, Footwear, Sports Brands & Lifestyle SPA (アパレル・フットウェア・スポーツブランド・生活製造小売)
+  topix17_code: '10'
+  topix17_name: 情報通信・サービスその他
+  industry33_code: '3800'
+  industry33_name: その他製品
+  jpx_scale: TOPIX Large70
+  name: アシックス
+  topix17_etf: 1626.T
+- ticker: 8111.T
+  subsector: Apparel, Footwear, Sports Brands & Lifestyle SPA (アパレル・フットウェア・スポーツブランド・生活製造小売)
+  topix17_code: '4'
+  topix17_name: 素材・化学
+  industry33_code: '3100'
+  industry33_name: 繊維製品
+  jpx_scale: TOPIX Mid400
+  name: ゴールドウイン
+  topix17_etf: 1620.T
+- ticker: 8227.T
+  subsector: Apparel, Footwear, Sports Brands & Lifestyle SPA (アパレル・フットウェア・スポーツブランド・生活製造小売)
+  topix17_code: '14'
+  topix17_name: 小売
+  industry33_code: '6100'
+  industry33_name: 小売業
+  jpx_scale: TOPIX Mid400
+  name: しまむら
+  topix17_etf: 1630.T
+- ticker: 9843.T
+  subsector: Apparel, Footwear, Sports Brands & Lifestyle SPA (アパレル・フットウェア・スポーツブランド・生活製造小売)
+  topix17_code: '14'
+  topix17_name: 小売
+  industry33_code: '6100'
+  industry33_name: 小売業
+  jpx_scale: TOPIX Mid400
+  name: ニトリホールディングス
+  topix17_etf: 1630.T
+- ticker: 9983.T
+  subsector: Apparel, Footwear, Sports Brands & Lifestyle SPA (アパレル・フットウェア・スポーツブランド・生活製造小売)
+  topix17_code: '14'
+  topix17_name: 小売
+  industry33_code: '6100'
+  industry33_name: 小売業
+  jpx_scale: TOPIX Core30
+  name: ファーストリテイリング
+  topix17_etf: 1630.T
+- ticker: 3197.T
+  subsector: Restaurants & Food Service (外食・フードサービス)
+  topix17_code: '14'
+  topix17_name: 小売
+  industry33_code: '6100'
+  industry33_name: 小売業
+  jpx_scale: TOPIX Mid400
+  name: すかいらーくホールディングス
+  topix17_etf: 1630.T
+- ticker: 3397.T
+  subsector: Restaurants & Food Service (外食・フードサービス)
+  topix17_code: '14'
+  topix17_name: 小売
+  industry33_code: '6100'
+  industry33_name: 小売業
+  jpx_scale: TOPIX Mid400
+  name: トリドールホールディングス
+  topix17_etf: 1630.T
+- ticker: 3563.T
+  subsector: Restaurants & Food Service (外食・フードサービス)
+  topix17_code: '14'
+  topix17_name: 小売
+  industry33_code: '6100'
+  industry33_name: 小売業
+  jpx_scale: TOPIX Mid400
+  name: ＦＯＯＤ　＆　ＬＩＦＥ　ＣＯＭＰＡＮＩＥＳ
+  topix17_etf: 1630.T
+- ticker: 7550.T
+  subsector: Restaurants & Food Service (外食・フードサービス)
+  topix17_code: '14'
+  topix17_name: 小売
+  industry33_code: '6100'
+  industry33_name: 小売業
+  jpx_scale: TOPIX Mid400
+  name: ゼンショーホールディングス
+  topix17_etf: 1630.T
+- ticker: 7616.T
+  subsector: Restaurants & Food Service (外食・フードサービス)
+  topix17_code: '14'
+  topix17_name: 小売
+  industry33_code: '6100'
+  industry33_name: 小売業
+  jpx_scale: TOPIX Mid400
+  name: コロワイド
+  topix17_etf: 1630.T
+- ticker: 9861.T
+  subsector: Restaurants & Food Service (外食・フードサービス)
+  topix17_code: '14'
+  topix17_name: 小売
+  industry33_code: '6100'
+  industry33_name: 小売業
+  jpx_scale: TOPIX Mid400
+  name: 吉野家ホールディングス
+  topix17_etf: 1630.T
+- ticker: 2768.T
+  subsector: General Trading Companies - Sogo Shosha (総合商社)
+  topix17_code: '13'
+  topix17_name: 商社・卸売
+  industry33_code: '6050'
+  industry33_name: 卸売業
+  jpx_scale: TOPIX Mid400
+  name: 双日
+  topix17_etf: 1629.T
+- ticker: 8001.T
+  subsector: General Trading Companies - Sogo Shosha (総合商社)
+  topix17_code: '13'
+  topix17_name: 商社・卸売
+  industry33_code: '6050'
+  industry33_name: 卸売業
+  jpx_scale: TOPIX Core30
+  name: 伊藤忠商事
+  topix17_etf: 1629.T
+- ticker: 8002.T
+  subsector: General Trading Companies - Sogo Shosha (総合商社)
+  topix17_code: '13'
+  topix17_name: 商社・卸売
+  industry33_code: '6050'
+  industry33_name: 卸売業
+  jpx_scale: TOPIX Large70
+  name: 丸紅
+  topix17_etf: 1629.T
+- ticker: 8015.T
+  subsector: General Trading Companies - Sogo Shosha (総合商社)
+  topix17_code: '13'
+  topix17_name: 商社・卸売
+  industry33_code: '6050'
+  industry33_name: 卸売業
+  jpx_scale: TOPIX Large70
+  name: 豊田通商
+  topix17_etf: 1629.T
+- ticker: 8020.T
+  subsector: General Trading Companies - Sogo Shosha (総合商社)
+  topix17_code: '13'
+  topix17_name: 商社・卸売
+  industry33_code: '6050'
+  industry33_name: 卸売業
+  jpx_scale: TOPIX Mid400
+  name: 兼松
+  topix17_etf: 1629.T
+- ticker: 8031.T
+  subsector: General Trading Companies - Sogo Shosha (総合商社)
+  topix17_code: '13'
+  topix17_name: 商社・卸売
+  industry33_code: '6050'
+  industry33_name: 卸売業
+  jpx_scale: TOPIX Core30
+  name: 三井物産
+  topix17_etf: 1629.T
+- ticker: 8053.T
+  subsector: General Trading Companies - Sogo Shosha (総合商社)
+  topix17_code: '13'
+  topix17_name: 商社・卸売
+  industry33_code: '6050'
+  industry33_name: 卸売業
+  jpx_scale: TOPIX Large70
+  name: 住友商事
+  topix17_etf: 1629.T
+- ticker: 8058.T
+  subsector: General Trading Companies - Sogo Shosha (総合商社)
+  topix17_code: '13'
+  topix17_name: 商社・卸売
+  industry33_code: '6050'
+  industry33_name: 卸売業
+  jpx_scale: TOPIX Core30
+  name: 三菱商事
+  topix17_etf: 1629.T
+- ticker: 3107.T
+  subsector: Specialized Trading - Tech, Electronics & Materials (専門商社-エレクトロニクス・機械・化学素材)
+  topix17_code: '13'
+  topix17_name: 商社・卸売
+  industry33_code: '6050'
+  industry33_name: 卸売業
+  jpx_scale: TOPIX Mid400
+  name: ダイワボウホールディングス
+  topix17_etf: 1629.T
+- ticker: 3132.T
+  subsector: Specialized Trading - Tech, Electronics & Materials (専門商社-エレクトロニクス・機械・化学素材)
+  topix17_code: '13'
+  topix17_name: 商社・卸売
+  industry33_code: '6050'
+  industry33_name: 卸売業
+  jpx_scale: TOPIX Mid400
+  name: マクニカホールディングス
+  topix17_etf: 1629.T
+- ticker: 8012.T
+  subsector: Specialized Trading - Tech, Electronics & Materials (専門商社-エレクトロニクス・機械・化学素材)
+  topix17_code: '13'
+  topix17_name: 商社・卸売
+  industry33_code: '6050'
+  industry33_name: 卸売業
+  jpx_scale: TOPIX Mid400
+  name: 長瀬産業
+  topix17_etf: 1629.T
+- ticker: 8060.T
+  subsector: Specialized Trading - Tech, Electronics & Materials (専門商社-エレクトロニクス・機械・化学素材)
+  topix17_code: '13'
+  topix17_name: 商社・卸売
+  industry33_code: '6050'
+  industry33_name: 卸売業
+  jpx_scale: TOPIX Mid400
+  name: キヤノンマーケティングジャパン
+  topix17_etf: 1629.T
+- ticker: 8088.T
+  subsector: Specialized Trading - Tech, Electronics & Materials (専門商社-エレクトロニクス・機械・化学素材)
+  topix17_code: '13'
+  topix17_name: 商社・卸売
+  industry33_code: '6050'
+  industry33_name: 卸売業
+  jpx_scale: TOPIX Mid400
+  name: 岩谷産業
+  topix17_etf: 1629.T
+- ticker: 9934.T
+  subsector: Specialized Trading - Tech, Electronics & Materials (専門商社-エレクトロニクス・機械・化学素材)
+  topix17_code: '13'
+  topix17_name: 商社・卸売
+  industry33_code: '6050'
+  industry33_name: 卸売業
+  jpx_scale: TOPIX Mid400
+  name: 因幡電機産業
+  topix17_etf: 1629.T
+- ticker: 9962.T
+  subsector: Specialized Trading - Tech, Electronics & Materials (専門商社-エレクトロニクス・機械・化学素材)
+  topix17_code: '13'
+  topix17_name: 商社・卸売
+  industry33_code: '6050'
+  industry33_name: 卸売業
+  jpx_scale: TOPIX Mid400
+  name: ミスミグループ本社
+  topix17_etf: 1629.T
+- ticker: 2784.T
+  subsector: Specialized Trading - Pharma, Medical & Daily Goods (専門商社-医薬品・医療機器・日用品卸)
+  topix17_code: '13'
+  topix17_name: 商社・卸売
+  industry33_code: '6050'
+  industry33_name: 卸売業
+  jpx_scale: TOPIX Mid400
+  name: アルフレッサ　ホールディングス
+  topix17_etf: 1629.T
+- ticker: 3360.T
+  subsector: Specialized Trading - Pharma, Medical & Daily Goods (専門商社-医薬品・医療機器・日用品卸)
+  topix17_code: '13'
+  topix17_name: 商社・卸売
+  industry33_code: '6050'
+  industry33_name: 卸売業
+  jpx_scale: TOPIX Mid400
+  name: シップヘルスケアホールディングス
+  topix17_etf: 1629.T
+- ticker: 7459.T
+  subsector: Specialized Trading - Pharma, Medical & Daily Goods (専門商社-医薬品・医療機器・日用品卸)
+  topix17_code: '13'
+  topix17_name: 商社・卸売
+  industry33_code: '6050'
+  industry33_name: 卸売業
+  jpx_scale: TOPIX Mid400
+  name: メディパルホールディングス
+  topix17_etf: 1629.T
+- ticker: 7476.T
+  subsector: Specialized Trading - Pharma, Medical & Daily Goods (専門商社-医薬品・医療機器・日用品卸)
+  topix17_code: '13'
+  topix17_name: 商社・卸売
+  industry33_code: '6050'
+  industry33_name: 卸売業
+  jpx_scale: TOPIX Mid400
+  name: アズワン
+  topix17_etf: 1629.T
+- ticker: 8129.T
+  subsector: Specialized Trading - Pharma, Medical & Daily Goods (専門商社-医薬品・医療機器・日用品卸)
+  topix17_code: '13'
+  topix17_name: 商社・卸売
+  industry33_code: '6050'
+  industry33_name: 卸売業
+  jpx_scale: TOPIX Mid400
+  name: 東邦ホールディングス
+  topix17_etf: 1629.T
+- ticker: 8283.T
+  subsector: Specialized Trading - Pharma, Medical & Daily Goods (専門商社-医薬品・医療機器・日用品卸)
+  topix17_code: '13'
+  topix17_name: 商社・卸売
+  industry33_code: '6050'
+  industry33_name: 卸売業
+  jpx_scale: '-'
+  name: ＰＡＬＴＡＣ
+  topix17_etf: 1629.T
+- ticker: 9987.T
+  subsector: Specialized Trading - Pharma, Medical & Daily Goods (専門商社-医薬品・医療機器・日用品卸)
+  topix17_code: '13'
+  topix17_name: 商社・卸売
+  industry33_code: '6050'
+  industry33_name: 卸売業
+  jpx_scale: TOPIX Mid400
+  name: スズケン
+  topix17_etf: 1629.T
+- ticker: 7182.T
+  subsector: Megabanks & Trust Banks (メガバンク・ゆうちょ・信託)
+  topix17_code: '15'
+  topix17_name: 銀行
+  industry33_code: '7050'
+  industry33_name: 銀行業
+  jpx_scale: TOPIX Large70
+  name: ゆうちょ銀行
+  topix17_etf: 1631.T
+- ticker: 8306.T
+  subsector: Megabanks & Trust Banks (メガバンク・ゆうちょ・信託)
+  topix17_code: '15'
+  topix17_name: 銀行
+  industry33_code: '7050'
+  industry33_name: 銀行業
+  jpx_scale: TOPIX Core30
+  name: 三菱ＵＦＪフィナンシャル・グループ
+  topix17_etf: 1631.T
+- ticker: 8308.T
+  subsector: Megabanks & Trust Banks (メガバンク・ゆうちょ・信託)
+  topix17_code: '15'
+  topix17_name: 銀行
+  industry33_code: '7050'
+  industry33_name: 銀行業
+  jpx_scale: TOPIX Large70
+  name: りそなホールディングス
+  topix17_etf: 1631.T
+- ticker: 8309.T
+  subsector: Megabanks & Trust Banks (メガバンク・ゆうちょ・信託)
+  topix17_code: '15'
+  topix17_name: 銀行
+  industry33_code: '7050'
+  industry33_name: 銀行業
+  jpx_scale: TOPIX Large70
+  name: 三井住友トラストグループ
+  topix17_etf: 1631.T
+- ticker: 8316.T
+  subsector: Megabanks & Trust Banks (メガバンク・ゆうちょ・信託)
+  topix17_code: '15'
+  topix17_name: 銀行
+  industry33_code: '7050'
+  industry33_name: 銀行業
+  jpx_scale: TOPIX Core30
+  name: 三井住友フィナンシャルグループ
+  topix17_etf: 1631.T
+- ticker: 8411.T
+  subsector: Megabanks & Trust Banks (メガバンク・ゆうちょ・信託)
+  topix17_code: '15'
+  topix17_name: 銀行
+  industry33_code: '7050'
+  industry33_name: 銀行業
+  jpx_scale: TOPIX Core30
+  name: みずほフィナンシャルグループ
+  topix17_etf: 1631.T
+- ticker: 5831.T
+  subsector: Major Metropolitan & Super-Regional Banks (大都市圏・広域メガ地銀)
+  topix17_code: '15'
+  topix17_name: 銀行
+  industry33_code: '7050'
+  industry33_name: 銀行業
+  jpx_scale: TOPIX Mid400
+  name: しずおかフィナンシャルグループ
+  topix17_etf: 1631.T
+- ticker: 5844.T
+  subsector: Major Metropolitan & Super-Regional Banks (大都市圏・広域メガ地銀)
+  topix17_code: '15'
+  topix17_name: 銀行
+  industry33_code: '7050'
+  industry33_name: 銀行業
+  jpx_scale: TOPIX Mid400
+  name: 京都フィナンシャルグループ
+  topix17_etf: 1631.T
+- ticker: 7167.T
+  subsector: Major Metropolitan & Super-Regional Banks (大都市圏・広域メガ地銀)
+  topix17_code: '15'
+  topix17_name: 銀行
+  industry33_code: '7050'
+  industry33_name: 銀行業
+  jpx_scale: TOPIX Mid400
+  name: めぶきフィナンシャルグループ
+  topix17_etf: 1631.T
+- ticker: 7186.T
+  subsector: Major Metropolitan & Super-Regional Banks (大都市圏・広域メガ地銀)
+  topix17_code: '15'
+  topix17_name: 銀行
+  industry33_code: '7050'
+  industry33_name: 銀行業
+  jpx_scale: TOPIX Mid400
+  name: 横浜フィナンシャルグループ
+  topix17_etf: 1631.T
+- ticker: 8331.T
+  subsector: Major Metropolitan & Super-Regional Banks (大都市圏・広域メガ地銀)
+  topix17_code: '15'
+  topix17_name: 銀行
+  industry33_code: '7050'
+  industry33_name: 銀行業
+  jpx_scale: TOPIX Mid400
+  name: 千葉銀行
+  topix17_etf: 1631.T
+- ticker: 8354.T
+  subsector: Major Metropolitan & Super-Regional Banks (大都市圏・広域メガ地銀)
+  topix17_code: '15'
+  topix17_name: 銀行
+  industry33_code: '7050'
+  industry33_name: 銀行業
+  jpx_scale: TOPIX Mid400
+  name: ふくおかフィナンシャルグループ
+  topix17_etf: 1631.T
+- ticker: 5830.T
+  subsector: Regional & Provincial Banking Groups (地域ブロック中核地銀)
+  topix17_code: '15'
+  topix17_name: 銀行
+  industry33_code: '7050'
+  industry33_name: 銀行業
+  jpx_scale: TOPIX Mid400
+  name: いよぎんホールディングス
+  topix17_etf: 1631.T
+- ticker: 5832.T
+  subsector: Regional & Provincial Banking Groups (地域ブロック中核地銀)
+  topix17_code: '15'
+  topix17_name: 銀行
+  industry33_code: '7050'
+  industry33_name: 銀行業
+  jpx_scale: TOPIX Mid400
+  name: ちゅうぎんフィナンシャルグループ
+  topix17_etf: 1631.T
+- ticker: 7180.T
+  subsector: Regional & Provincial Banking Groups (地域ブロック中核地銀)
+  topix17_code: '15'
+  topix17_name: 銀行
+  industry33_code: '7050'
+  industry33_name: 銀行業
+  jpx_scale: TOPIX Mid400
+  name: 九州フィナンシャルグループ
+  topix17_etf: 1631.T
+- ticker: 7189.T
+  subsector: Regional & Provincial Banking Groups (地域ブロック中核地銀)
+  topix17_code: '15'
+  topix17_name: 銀行
+  industry33_code: '7050'
+  industry33_name: 銀行業
+  jpx_scale: TOPIX Mid400
+  name: 西日本フィナンシャルホールディングス
+  topix17_etf: 1631.T
+- ticker: 7337.T
+  subsector: Regional & Provincial Banking Groups (地域ブロック中核地銀)
+  topix17_code: '15'
+  topix17_name: 銀行
+  industry33_code: '7050'
+  industry33_name: 銀行業
+  jpx_scale: TOPIX Mid400
+  name: ひろぎんホールディングス
+  topix17_etf: 1631.T
+- ticker: 8334.T
+  subsector: Regional & Provincial Banking Groups (地域ブロック中核地銀)
+  topix17_code: '15'
+  topix17_name: 銀行
+  industry33_code: '7050'
+  industry33_name: 銀行業
+  jpx_scale: TOPIX Mid400
+  name: 群馬銀行
+  topix17_etf: 1631.T
+- ticker: 8341.T
+  subsector: Regional & Provincial Banking Groups (地域ブロック中核地銀)
+  topix17_code: '15'
+  topix17_name: 銀行
+  industry33_code: '7050'
+  industry33_name: 銀行業
+  jpx_scale: TOPIX Mid400
+  name: 七十七銀行
+  topix17_etf: 1631.T
+- ticker: 8359.T
+  subsector: Regional & Provincial Banking Groups (地域ブロック中核地銀)
+  topix17_code: '15'
+  topix17_name: 銀行
+  industry33_code: '7050'
+  industry33_name: 銀行業
+  jpx_scale: TOPIX Mid400
+  name: 八十二長野銀行
+  topix17_etf: 1631.T
+- ticker: 8377.T
+  subsector: Regional & Provincial Banking Groups (地域ブロック中核地銀)
+  topix17_code: '15'
+  topix17_name: 銀行
+  industry33_code: '7050'
+  industry33_name: 銀行業
+  jpx_scale: TOPIX Mid400
+  name: ほくほくフィナンシャルグループ
+  topix17_etf: 1631.T
+- ticker: 8418.T
+  subsector: Regional & Provincial Banking Groups (地域ブロック中核地銀)
+  topix17_code: '15'
+  topix17_name: 銀行
+  industry33_code: '7050'
+  industry33_name: 銀行業
+  jpx_scale: TOPIX Mid400
+  name: 山口フィナンシャルグループ
+  topix17_etf: 1631.T
+- ticker: 5838.T
+  subsector: Digital, Retail & Specialized Banks (ネット・流通・専門銀行)
+  topix17_code: '15'
+  topix17_name: 銀行
+  industry33_code: '7050'
+  industry33_name: 銀行業
+  jpx_scale: TOPIX Mid400
+  name: 楽天銀行
+  topix17_etf: 1631.T
+- ticker: 8303.T
+  subsector: Digital, Retail & Specialized Banks (ネット・流通・専門銀行)
+  topix17_code: '15'
+  topix17_name: 銀行
+  industry33_code: '7050'
+  industry33_name: 銀行業
+  jpx_scale: TOPIX Mid400
+  name: ＳＢＩ新生銀行
+  topix17_etf: 1631.T
+- ticker: 8304.T
+  subsector: Digital, Retail & Specialized Banks (ネット・流通・専門銀行)
+  topix17_code: '15'
+  topix17_name: 銀行
+  industry33_code: '7050'
+  industry33_name: 銀行業
+  jpx_scale: TOPIX Mid400
+  name: あおぞら銀行
+  topix17_etf: 1631.T
+- ticker: 8410.T
+  subsector: Digital, Retail & Specialized Banks (ネット・流通・専門銀行)
+  topix17_code: '15'
+  topix17_name: 銀行
+  industry33_code: '7050'
+  industry33_name: 銀行業
+  jpx_scale: TOPIX Mid400
+  name: セブン銀行
+  topix17_etf: 1631.T
+- ticker: 8473.T
+  subsector: Securities, Exchanges & Investment (証券・取引所・投資育成)
+  topix17_code: '16'
+  topix17_name: 金融（除く銀行）
+  industry33_code: '7100'
+  industry33_name: 証券、商品先物取引業
+  jpx_scale: TOPIX Mid400
+  name: ＳＢＩホールディングス
+  topix17_etf: 1632.T
+- ticker: 8601.T
+  subsector: Securities, Exchanges & Investment (証券・取引所・投資育成)
+  topix17_code: '16'
+  topix17_name: 金融（除く銀行）
+  industry33_code: '7100'
+  industry33_name: 証券、商品先物取引業
+  jpx_scale: TOPIX Mid400
+  name: 大和証券グループ本社
+  topix17_etf: 1632.T
+- ticker: 8604.T
+  subsector: Securities, Exchanges & Investment (証券・取引所・投資育成)
+  topix17_code: '16'
+  topix17_name: 金融（除く銀行）
+  industry33_code: '7100'
+  industry33_name: 証券、商品先物取引業
+  jpx_scale: TOPIX Large70
+  name: 野村ホールディングス
+  topix17_etf: 1632.T
+- ticker: 8697.T
+  subsector: Securities, Exchanges & Investment (証券・取引所・投資育成)
+  topix17_code: '16'
+  topix17_name: 金融（除く銀行）
+  industry33_code: '7200'
+  industry33_name: その他金融業
+  jpx_scale: TOPIX Large70
+  name: 日本取引所グループ
+  topix17_etf: 1632.T
+- ticker: 7181.T
+  subsector: Life & Non-Life Insurance (生命保険・損害保険)
+  topix17_code: '16'
+  topix17_name: 金融（除く銀行）
+  industry33_code: '7150'
+  industry33_name: 保険業
+  jpx_scale: TOPIX Mid400
+  name: かんぽ生命保険
+  topix17_etf: 1632.T
+- ticker: 8630.T
+  subsector: Life & Non-Life Insurance (生命保険・損害保険)
+  topix17_code: '16'
+  topix17_name: 金融（除く銀行）
+  industry33_code: '7150'
+  industry33_name: 保険業
+  jpx_scale: TOPIX Large70
+  name: ＳＯＭＰＯホールディングス
+  topix17_etf: 1632.T
+- ticker: 8725.T
+  subsector: Life & Non-Life Insurance (生命保険・損害保険)
+  topix17_code: '16'
+  topix17_name: 金融（除く銀行）
+  industry33_code: '7150'
+  industry33_name: 保険業
+  jpx_scale: TOPIX Large70
+  name: ＭＳ＆ＡＤインシュアランスグループホールディングス
+  topix17_etf: 1632.T
+- ticker: 8729.T
+  subsector: Life & Non-Life Insurance (生命保険・損害保険)
+  topix17_code: '16'
+  topix17_name: 金融（除く銀行）
+  industry33_code: '7150'
+  industry33_name: 保険業
+  jpx_scale: TOPIX Core30
+  name: ソニーフィナンシャルグループ
+  topix17_etf: 1632.T
+- ticker: 8750.T
+  subsector: Life & Non-Life Insurance (生命保険・損害保険)
+  topix17_code: '16'
+  topix17_name: 金融（除く銀行）
+  industry33_code: '7150'
+  industry33_name: 保険業
+  jpx_scale: TOPIX Large70
+  name: 第一ライフグループ
+  topix17_etf: 1632.T
+- ticker: 8766.T
+  subsector: Life & Non-Life Insurance (生命保険・損害保険)
+  topix17_code: '16'
+  topix17_name: 金融（除く銀行）
+  industry33_code: '7150'
+  industry33_name: 保険業
+  jpx_scale: TOPIX Core30
+  name: 東京海上ホールディングス
+  topix17_etf: 1632.T
+- ticker: 8795.T
+  subsector: Life & Non-Life Insurance (生命保険・損害保険)
+  topix17_code: '16'
+  topix17_name: 金融（除く銀行）
+  industry33_code: '7150'
+  industry33_name: 保険業
+  jpx_scale: TOPIX Mid400
+  name: Ｔ＆Ｄホールディングス
+  topix17_etf: 1632.T
+- ticker: 8424.T
+  subsector: Corporate Leasing & Capital Asset Finance (総合リース・法人設備金融)
+  topix17_code: '16'
+  topix17_name: 金融（除く銀行）
+  industry33_code: '7200'
+  industry33_name: その他金融業
+  jpx_scale: TOPIX Mid400
+  name: 芙蓉総合リース
+  topix17_etf: 1632.T
+- ticker: 8439.T
+  subsector: Corporate Leasing & Capital Asset Finance (総合リース・法人設備金融)
+  topix17_code: '16'
+  topix17_name: 金融（除く銀行）
+  industry33_code: '7200'
+  industry33_name: その他金融業
+  jpx_scale: TOPIX Mid400
+  name: 東京センチュリー
+  topix17_etf: 1632.T
+- ticker: 8591.T
+  subsector: Corporate Leasing & Capital Asset Finance (総合リース・法人設備金融)
+  topix17_code: '16'
+  topix17_name: 金融（除く銀行）
+  industry33_code: '7200'
+  industry33_name: その他金融業
+  jpx_scale: TOPIX Large70
+  name: オリックス
+  topix17_etf: 1632.T
+- ticker: 8593.T
+  subsector: Corporate Leasing & Capital Asset Finance (総合リース・法人設備金融)
+  topix17_code: '16'
+  topix17_name: 金融（除く銀行）
+  industry33_code: '7200'
+  industry33_name: その他金融業
+  jpx_scale: TOPIX Mid400
+  name: 三菱ＨＣキャピタル
+  topix17_etf: 1632.T
+- ticker: 7164.T
+  subsector: Consumer Credit, Cards & Retail Finance (信販・クレジットカード・消費者金融)
+  topix17_code: '16'
+  topix17_name: 金融（除く銀行）
+  industry33_code: '7200'
+  industry33_name: その他金融業
+  jpx_scale: TOPIX Mid400
+  name: 全国保証
+  topix17_etf: 1632.T
+- ticker: 8252.T
+  subsector: Consumer Credit, Cards & Retail Finance (信販・クレジットカード・消費者金融)
+  topix17_code: '14'
+  topix17_name: 小売
+  industry33_code: '6100'
+  industry33_name: 小売業
+  jpx_scale: TOPIX Mid400
+  name: 丸井グループ
+  topix17_etf: 1630.T
+- ticker: 8253.T
+  subsector: Consumer Credit, Cards & Retail Finance (信販・クレジットカード・消費者金融)
+  topix17_code: '16'
+  topix17_name: 金融（除く銀行）
+  industry33_code: '7200'
+  industry33_name: その他金融業
+  jpx_scale: TOPIX Mid400
+  name: クレディセゾン
+  topix17_etf: 1632.T
+- ticker: 8570.T
+  subsector: Consumer Credit, Cards & Retail Finance (信販・クレジットカード・消費者金融)
+  topix17_code: '16'
+  topix17_name: 金融（除く銀行）
+  industry33_code: '7200'
+  industry33_name: その他金融業
+  jpx_scale: TOPIX Mid400
+  name: イオンフィナンシャルサービス
+  topix17_etf: 1632.T
+- ticker: 8572.T
+  subsector: Consumer Credit, Cards & Retail Finance (信販・クレジットカード・消費者金融)
+  topix17_code: '16'
+  topix17_name: 金融（除く銀行）
+  industry33_code: '7200'
+  industry33_name: その他金融業
+  jpx_scale: TOPIX Mid400
+  name: アコム
+  topix17_etf: 1632.T
+- ticker: 9001.T
+  subsector: Greater Tokyo Urban Transit & TOD (首都圏大手私鉄・都市交通・沿線再開発)
+  topix17_code: '12'
+  topix17_name: 運輸・物流
+  industry33_code: '5050'
+  industry33_name: 陸運業
+  jpx_scale: TOPIX Mid400
+  name: 東武鉄道
+  topix17_etf: 1628.T
+- ticker: 9003.T
+  subsector: Greater Tokyo Urban Transit & TOD (首都圏大手私鉄・都市交通・沿線再開発)
+  topix17_code: '12'
+  topix17_name: 運輸・物流
+  industry33_code: '5050'
+  industry33_name: 陸運業
+  jpx_scale: TOPIX Mid400
+  name: 相鉄ホールディングス
+  topix17_etf: 1628.T
+- ticker: 9005.T
+  subsector: Greater Tokyo Urban Transit & TOD (首都圏大手私鉄・都市交通・沿線再開発)
+  topix17_code: '12'
+  topix17_name: 運輸・物流
+  industry33_code: '5050'
+  industry33_name: 陸運業
+  jpx_scale: TOPIX Mid400
+  name: 東急
+  topix17_etf: 1628.T
+- ticker: 9006.T
+  subsector: Greater Tokyo Urban Transit & TOD (首都圏大手私鉄・都市交通・沿線再開発)
+  topix17_code: '12'
+  topix17_name: 運輸・物流
+  industry33_code: '5050'
+  industry33_name: 陸運業
+  jpx_scale: TOPIX Mid400
+  name: 京浜急行電鉄
+  topix17_etf: 1628.T
+- ticker: 9007.T
+  subsector: Greater Tokyo Urban Transit & TOD (首都圏大手私鉄・都市交通・沿線再開発)
+  topix17_code: '12'
+  topix17_name: 運輸・物流
+  industry33_code: '5050'
+  industry33_name: 陸運業
+  jpx_scale: TOPIX Mid400
+  name: 小田急電鉄
+  topix17_etf: 1628.T
+- ticker: 9008.T
+  subsector: Greater Tokyo Urban Transit & TOD (首都圏大手私鉄・都市交通・沿線再開発)
+  topix17_code: '12'
+  topix17_name: 運輸・物流
+  industry33_code: '5050'
+  industry33_name: 陸運業
+  jpx_scale: TOPIX Mid400
+  name: 京王電鉄
+  topix17_etf: 1628.T
+- ticker: 9009.T
+  subsector: Greater Tokyo Urban Transit & TOD (首都圏大手私鉄・都市交通・沿線再開発)
+  topix17_code: '12'
+  topix17_name: 運輸・物流
+  industry33_code: '5050'
+  industry33_name: 陸運業
+  jpx_scale: TOPIX Mid400
+  name: 京成電鉄
+  topix17_etf: 1628.T
+- ticker: 9023.T
+  subsector: Greater Tokyo Urban Transit & TOD (首都圏大手私鉄・都市交通・沿線再開発)
+  topix17_code: '12'
+  topix17_name: 運輸・物流
+  industry33_code: '5050'
+  industry33_name: 陸運業
+  jpx_scale: TOPIX Mid400
+  name: 東京地下鉄
+  topix17_etf: 1628.T
+- ticker: 9024.T
+  subsector: Greater Tokyo Urban Transit & TOD (首都圏大手私鉄・都市交通・沿線再開発)
+  topix17_code: '12'
+  topix17_name: 運輸・物流
+  industry33_code: '5050'
+  industry33_name: 陸運業
+  jpx_scale: TOPIX Mid400
+  name: 西武ホールディングス
+  topix17_etf: 1628.T
+- ticker: 9031.T
+  subsector: Kansai & Inter-Regional Private Railways (関西・広域大手私鉄・観光交通)
+  topix17_code: '12'
+  topix17_name: 運輸・物流
+  industry33_code: '5050'
+  industry33_name: 陸運業
+  jpx_scale: TOPIX Mid400
+  name: 西日本鉄道
+  topix17_etf: 1628.T
+- ticker: 9041.T
+  subsector: Kansai & Inter-Regional Private Railways (関西・広域大手私鉄・観光交通)
+  topix17_code: '12'
+  topix17_name: 運輸・物流
+  industry33_code: '5050'
+  industry33_name: 陸運業
+  jpx_scale: TOPIX Mid400
+  name: 近鉄グループホールディングス
+  topix17_etf: 1628.T
+- ticker: 9042.T
+  subsector: Kansai & Inter-Regional Private Railways (関西・広域大手私鉄・観光交通)
+  topix17_code: '12'
+  topix17_name: 運輸・物流
+  industry33_code: '5050'
+  industry33_name: 陸運業
+  jpx_scale: TOPIX Mid400
+  name: 阪急阪神ホールディングス
+  topix17_etf: 1628.T
+- ticker: 9044.T
+  subsector: Kansai & Inter-Regional Private Railways (関西・広域大手私鉄・観光交通)
+  topix17_code: '12'
+  topix17_name: 運輸・物流
+  industry33_code: '5050'
+  industry33_name: 陸運業
+  jpx_scale: TOPIX Mid400
+  name: ＮＡＮＫＡＩ
+  topix17_etf: 1628.T
+- ticker: 9045.T
+  subsector: Kansai & Inter-Regional Private Railways (関西・広域大手私鉄・観光交通)
+  topix17_code: '12'
+  topix17_name: 運輸・物流
+  industry33_code: '5050'
+  industry33_name: 陸運業
+  jpx_scale: TOPIX Mid400
+  name: 京阪ホールディングス
+  topix17_etf: 1628.T
+- ticker: 9048.T
+  subsector: Kansai & Inter-Regional Private Railways (関西・広域大手私鉄・観光交通)
+  topix17_code: '12'
+  topix17_name: 運輸・物流
+  industry33_code: '5050'
+  industry33_name: 陸運業
+  jpx_scale: TOPIX Mid400
+  name: 名古屋鉄道
+  topix17_etf: 1628.T
+- ticker: 9020.T
+  subsector: JR Group & Intercity High-Speed Rail (JR旅客鉄道グループ・新幹線幹線網)
+  topix17_code: '12'
+  topix17_name: 運輸・物流
+  industry33_code: '5050'
+  industry33_name: 陸運業
+  jpx_scale: TOPIX Large70
+  name: 東日本旅客鉄道
+  topix17_etf: 1628.T
+- ticker: 9021.T
+  subsector: JR Group & Intercity High-Speed Rail (JR旅客鉄道グループ・新幹線幹線網)
+  topix17_code: '12'
+  topix17_name: 運輸・物流
+  industry33_code: '5050'
+  industry33_name: 陸運業
+  jpx_scale: TOPIX Large70
+  name: 西日本旅客鉄道
+  topix17_etf: 1628.T
+- ticker: 9022.T
+  subsector: JR Group & Intercity High-Speed Rail (JR旅客鉄道グループ・新幹線幹線網)
+  topix17_code: '12'
+  topix17_name: 運輸・物流
+  industry33_code: '5050'
+  industry33_name: 陸運業
+  jpx_scale: TOPIX Large70
+  name: 東海旅客鉄道
+  topix17_etf: 1628.T
+- ticker: 9142.T
+  subsector: JR Group & Intercity High-Speed Rail (JR旅客鉄道グループ・新幹線幹線網)
+  topix17_code: '12'
+  topix17_name: 運輸・物流
+  industry33_code: '5050'
+  industry33_name: 陸運業
+  jpx_scale: TOPIX Mid400
+  name: 九州旅客鉄道
+  topix17_etf: 1628.T
+- ticker: 6178.T
+  subsector: Logistics, Trucking & Forwarding (トラック・総合物流・フォワーディング)
+  topix17_code: '10'
+  topix17_name: 情報通信・サービスその他
+  industry33_code: '9050'
+  industry33_name: サービス業
+  jpx_scale: TOPIX Large70
+  name: 日本郵政
+  topix17_etf: 1626.T
+- ticker: 9064.T
+  subsector: Logistics, Trucking & Forwarding (トラック・総合物流・フォワーディング)
+  topix17_code: '12'
+  topix17_name: 運輸・物流
+  industry33_code: '5050'
+  industry33_name: 陸運業
+  jpx_scale: TOPIX Mid400
+  name: ヤマトホールディングス
+  topix17_etf: 1628.T
+- ticker: 9065.T
+  subsector: Logistics, Trucking & Forwarding (トラック・総合物流・フォワーディング)
+  topix17_code: '12'
+  topix17_name: 運輸・物流
+  industry33_code: '5050'
+  industry33_name: 陸運業
+  jpx_scale: TOPIX Mid400
+  name: 山九
+  topix17_etf: 1628.T
+- ticker: 9069.T
+  subsector: Logistics, Trucking & Forwarding (トラック・総合物流・フォワーディング)
+  topix17_code: '12'
+  topix17_name: 運輸・物流
+  industry33_code: '5050'
+  industry33_name: 陸運業
+  jpx_scale: TOPIX Mid400
+  name: センコーグループホールディングス
+  topix17_etf: 1628.T
+- ticker: 9072.T
+  subsector: Logistics, Trucking & Forwarding (トラック・総合物流・フォワーディング)
+  topix17_code: '12'
+  topix17_name: 運輸・物流
+  industry33_code: '5050'
+  industry33_name: 陸運業
+  jpx_scale: TOPIX Mid400
+  name: ニッコンホールディングス
+  topix17_etf: 1628.T
+- ticker: 9076.T
+  subsector: Logistics, Trucking & Forwarding (トラック・総合物流・フォワーディング)
+  topix17_code: '12'
+  topix17_name: 運輸・物流
+  industry33_code: '5050'
+  industry33_name: 陸運業
+  jpx_scale: TOPIX Mid400
+  name: セイノーホールディングス
+  topix17_etf: 1628.T
+- ticker: 9143.T
+  subsector: Logistics, Trucking & Forwarding (トラック・総合物流・フォワーディング)
+  topix17_code: '12'
+  topix17_name: 運輸・物流
+  industry33_code: '5050'
+  industry33_name: 陸運業
+  jpx_scale: TOPIX Mid400
+  name: ＳＧホールディングス
+  topix17_etf: 1628.T
+- ticker: 9147.T
+  subsector: Logistics, Trucking & Forwarding (トラック・総合物流・フォワーディング)
+  topix17_code: '12'
+  topix17_name: 運輸・物流
+  industry33_code: '5050'
+  industry33_name: 陸運業
+  jpx_scale: TOPIX Mid400
+  name: ＮＩＰＰＯＮ　ＥＸＰＲＥＳＳホールディングス
+  topix17_etf: 1628.T
+- ticker: 9101.T
+  subsector: Marine Shipping (外航海運・海上輸送)
+  topix17_code: '12'
+  topix17_name: 運輸・物流
+  industry33_code: '5100'
+  industry33_name: 海運業
+  jpx_scale: TOPIX Large70
+  name: 日本郵船
+  topix17_etf: 1628.T
+- ticker: 9104.T
+  subsector: Marine Shipping (外航海運・海上輸送)
+  topix17_code: '12'
+  topix17_name: 運輸・物流
+  industry33_code: '5100'
+  industry33_name: 海運業
+  jpx_scale: TOPIX Large70
+  name: 商船三井
+  topix17_etf: 1628.T
+- ticker: 9107.T
+  subsector: Marine Shipping (外航海運・海上輸送)
+  topix17_code: '12'
+  topix17_name: 運輸・物流
+  industry33_code: '5100'
+  industry33_name: 海運業
+  jpx_scale: TOPIX Mid400
+  name: 川崎汽船
+  topix17_etf: 1628.T
+- ticker: 9301.T
+  subsector: Warehousing, Harbor & Logistics Terminal (倉庫・港湾運送・ターミナル物流)
+  topix17_code: '12'
+  topix17_name: 運輸・物流
+  industry33_code: '5200'
+  industry33_name: 倉庫・運輸関連業
+  jpx_scale: TOPIX Mid400
+  name: 三菱倉庫
+  topix17_etf: 1628.T
+- ticker: 9302.T
+  subsector: Warehousing, Harbor & Logistics Terminal (倉庫・港湾運送・ターミナル物流)
+  topix17_code: '12'
+  topix17_name: 運輸・物流
+  industry33_code: '5200'
+  industry33_name: 倉庫・運輸関連業
+  jpx_scale: TOPIX Mid400
+  name: 三井倉庫ホールディングス
+  topix17_etf: 1628.T
+- ticker: 9364.T
+  subsector: Warehousing, Harbor & Logistics Terminal (倉庫・港湾運送・ターミナル物流)
+  topix17_code: '12'
+  topix17_name: 運輸・物流
+  industry33_code: '5200'
+  industry33_name: 倉庫・運輸関連業
+  jpx_scale: TOPIX Mid400
+  name: 上組
+  topix17_etf: 1628.T
+- ticker: 9201.T
+  subsector: Airlines & Airport Infrastructure (航空・空港インフラ)
+  topix17_code: '12'
+  topix17_name: 運輸・物流
+  industry33_code: '5150'
+  industry33_name: 空運業
+  jpx_scale: TOPIX Mid400
+  name: 日本航空
+  topix17_etf: 1628.T
+- ticker: 9202.T
+  subsector: Airlines & Airport Infrastructure (航空・空港インフラ)
+  topix17_code: '12'
+  topix17_name: 運輸・物流
+  industry33_code: '5150'
+  industry33_name: 空運業
+  jpx_scale: TOPIX Large70
+  name: ＡＮＡホールディングス
+  topix17_etf: 1628.T
+- ticker: 9706.T
+  subsector: Airlines & Airport Infrastructure (航空・空港インフラ)
+  topix17_code: '17'
+  topix17_name: 不動産
+  industry33_code: '8050'
+  industry33_name: 不動産業
+  jpx_scale: TOPIX Mid400
+  name: 日本空港ビルデング
+  topix17_etf: 1633.T
+- ticker: 9501.T
+  subsector: Electric Power Utilities (電力・発電・送配電)
+  topix17_code: '11'
+  topix17_name: 電力・ガス
+  industry33_code: '4050'
+  industry33_name: 電気・ガス業
+  jpx_scale: TOPIX Mid400
+  name: 東京電力ホールディングス
+  topix17_etf: 1627.T
+- ticker: 9502.T
+  subsector: Electric Power Utilities (電力・発電・送配電)
+  topix17_code: '11'
+  topix17_name: 電力・ガス
+  industry33_code: '4050'
+  industry33_name: 電気・ガス業
+  jpx_scale: TOPIX Mid400
+  name: 中部電力
+  topix17_etf: 1627.T
+- ticker: 9503.T
+  subsector: Electric Power Utilities (電力・発電・送配電)
+  topix17_code: '11'
+  topix17_name: 電力・ガス
+  industry33_code: '4050'
+  industry33_name: 電気・ガス業
+  jpx_scale: TOPIX Mid400
+  name: 関西電力
+  topix17_etf: 1627.T
+- ticker: 9504.T
+  subsector: Electric Power Utilities (電力・発電・送配電)
+  topix17_code: '11'
+  topix17_name: 電力・ガス
+  industry33_code: '4050'
+  industry33_name: 電気・ガス業
+  jpx_scale: TOPIX Mid400
+  name: 中国電力
+  topix17_etf: 1627.T
+- ticker: 9505.T
+  subsector: Electric Power Utilities (電力・発電・送配電)
+  topix17_code: '11'
+  topix17_name: 電力・ガス
+  industry33_code: '4050'
+  industry33_name: 電気・ガス業
+  jpx_scale: TOPIX Mid400
+  name: 北陸電力
+  topix17_etf: 1627.T
+- ticker: 9506.T
+  subsector: Electric Power Utilities (電力・発電・送配電)
+  topix17_code: '11'
+  topix17_name: 電力・ガス
+  industry33_code: '4050'
+  industry33_name: 電気・ガス業
+  jpx_scale: TOPIX Mid400
+  name: 東北電力
+  topix17_etf: 1627.T
+- ticker: 9507.T
+  subsector: Electric Power Utilities (電力・発電・送配電)
+  topix17_code: '11'
+  topix17_name: 電力・ガス
+  industry33_code: '4050'
+  industry33_name: 電気・ガス業
+  jpx_scale: TOPIX Mid400
+  name: 四国電力
+  topix17_etf: 1627.T
+- ticker: 9508.T
+  subsector: Electric Power Utilities (電力・発電・送配電)
+  topix17_code: '11'
+  topix17_name: 電力・ガス
+  industry33_code: '4050'
+  industry33_name: 電気・ガス業
+  jpx_scale: TOPIX Mid400
+  name: 九州電力
+  topix17_etf: 1627.T
+- ticker: 9509.T
+  subsector: Electric Power Utilities (電力・発電・送配電)
+  topix17_code: '11'
+  topix17_name: 電力・ガス
+  industry33_code: '4050'
+  industry33_name: 電気・ガス業
+  jpx_scale: TOPIX Mid400
+  name: 北海道電力
+  topix17_etf: 1627.T
+- ticker: 9513.T
+  subsector: Electric Power Utilities (電力・発電・送配電)
+  topix17_code: '11'
+  topix17_name: 電力・ガス
+  industry33_code: '4050'
+  industry33_name: 電気・ガス業
+  jpx_scale: TOPIX Mid400
+  name: 電源開発
+  topix17_etf: 1627.T
+- ticker: 4088.T
+  subsector: City Gas, Industrial Gas & Energy Utilities (都市ガス・LPガス・産業ガス・エネルギー供給)
+  topix17_code: '4'
+  topix17_name: 素材・化学
+  industry33_code: '3200'
+  industry33_name: 化学
+  jpx_scale: '-'
+  name: エア・ウォーター
+  topix17_etf: 1620.T
+- ticker: 4091.T
+  subsector: City Gas, Industrial Gas & Energy Utilities (都市ガス・LPガス・産業ガス・エネルギー供給)
+  topix17_code: '4'
+  topix17_name: 素材・化学
+  industry33_code: '3200'
+  industry33_name: 化学
+  jpx_scale: TOPIX Mid400
+  name: 日本酸素ホールディングス
+  topix17_etf: 1620.T
+- ticker: 8174.T
+  subsector: City Gas, Industrial Gas & Energy Utilities (都市ガス・LPガス・産業ガス・エネルギー供給)
+  topix17_code: '14'
+  topix17_name: 小売
+  industry33_code: '6100'
+  industry33_name: 小売業
+  jpx_scale: TOPIX Mid400
+  name: 日本瓦斯
+  topix17_etf: 1630.T
+- ticker: 9531.T
+  subsector: City Gas, Industrial Gas & Energy Utilities (都市ガス・LPガス・産業ガス・エネルギー供給)
+  topix17_code: '11'
+  topix17_name: 電力・ガス
+  industry33_code: '4050'
+  industry33_name: 電気・ガス業
+  jpx_scale: TOPIX Mid400
+  name: 東京瓦斯
+  topix17_etf: 1627.T
+- ticker: 9532.T
+  subsector: City Gas, Industrial Gas & Energy Utilities (都市ガス・LPガス・産業ガス・エネルギー供給)
+  topix17_code: '11'
+  topix17_name: 電力・ガス
+  industry33_code: '4050'
+  industry33_name: 電気・ガス業
+  jpx_scale: TOPIX Mid400
+  name: 大阪瓦斯
+  topix17_etf: 1627.T
+- ticker: 9533.T
+  subsector: City Gas, Industrial Gas & Energy Utilities (都市ガス・LPガス・産業ガス・エネルギー供給)
+  topix17_code: '11'
+  topix17_name: 電力・ガス
+  industry33_code: '4050'
+  industry33_name: 電気・ガス業
+  jpx_scale: TOPIX Mid400
+  name: 東邦瓦斯
+  topix17_etf: 1627.T
+- ticker: 1605.T
+  subsector: Energy, Petroleum Refining & Resources (エネルギー・石油元売・資源開発)
+  topix17_code: '2'
+  topix17_name: エネルギー資源
+  industry33_code: '1050'
+  industry33_name: 鉱業
+  jpx_scale: TOPIX Mid400
+  name: ＩＮＰＥＸ
+  topix17_etf: 1618.T
+- ticker: 5019.T
+  subsector: Energy, Petroleum Refining & Resources (エネルギー・石油元売・資源開発)
+  topix17_code: '2'
+  topix17_name: エネルギー資源
+  industry33_code: '3300'
+  industry33_name: 石油・石炭製品
+  jpx_scale: TOPIX Mid400
+  name: 出光興産
+  topix17_etf: 1618.T
+- ticker: 5020.T
+  subsector: Energy, Petroleum Refining & Resources (エネルギー・石油元売・資源開発)
+  topix17_code: '2'
+  topix17_name: エネルギー資源
+  industry33_code: '3300'
+  industry33_name: 石油・石炭製品
+  jpx_scale: TOPIX Large70
+  name: ＥＮＥＯＳホールディングス
+  topix17_etf: 1618.T
+- ticker: 5021.T
+  subsector: Energy, Petroleum Refining & Resources (エネルギー・石油元売・資源開発)
+  topix17_code: '2'
+  topix17_name: エネルギー資源
+  industry33_code: '3300'
+  industry33_name: 石油・石炭製品
+  jpx_scale: TOPIX Mid400
+  name: コスモエネルギーホールディングス
+  topix17_etf: 1618.T
+- ticker: 9432.T
+  subsector: Telecom & Mobile Operators (通信キャリア・通信インフラ・情報流通)
+  topix17_code: '10'
+  topix17_name: 情報通信・サービスその他
+  industry33_code: '5250'
+  industry33_name: 情報・通信業
+  jpx_scale: TOPIX Core30
+  name: ＮＴＴ
+  topix17_etf: 1626.T
+- ticker: 9433.T
+  subsector: Telecom & Mobile Operators (通信キャリア・通信インフラ・情報流通)
+  topix17_code: '10'
+  topix17_name: 情報通信・サービスその他
+  industry33_code: '5250'
+  industry33_name: 情報・通信業
+  jpx_scale: TOPIX Core30
+  name: ＫＤＤＩ
+  topix17_etf: 1626.T
+- ticker: 9434.T
+  subsector: Telecom & Mobile Operators (通信キャリア・通信インフラ・情報流通)
+  topix17_code: '10'
+  topix17_name: 情報通信・サービスその他
+  industry33_code: '5250'
+  industry33_name: 情報・通信業
+  jpx_scale: TOPIX Core30
+  name: ソフトバンク
+  topix17_etf: 1626.T
+- ticker: 8595.T
+  subsector: Tech Investment, Strategic Holding & Capital Allocators (テック投資・戦略持株会社・資本アロケーター)
+  topix17_code: '16'
+  topix17_name: 金融（除く銀行）
+  industry33_code: '7100'
+  industry33_name: 証券、商品先物取引業
+  jpx_scale: TOPIX Mid400
+  name: ジャフコ　グループ
+  topix17_etf: 1632.T
+- ticker: 9435.T
+  subsector: Tech Investment, Strategic Holding & Capital Allocators (テック投資・戦略持株会社・資本アロケーター)
+  topix17_code: '10'
+  topix17_name: 情報通信・サービスその他
+  industry33_code: '5250'
+  industry33_name: 情報・通信業
+  jpx_scale: TOPIX Mid400
+  name: 光通信
+  topix17_etf: 1626.T
+- ticker: 9984.T
+  subsector: Tech Investment, Strategic Holding & Capital Allocators (テック投資・戦略持株会社・資本アロケーター)
+  topix17_code: '10'
+  topix17_name: 情報通信・サービスその他
+  industry33_code: '5250'
+  industry33_name: 情報・通信業
+  jpx_scale: TOPIX Core30
+  name: ソフトバンクグループ
+  topix17_etf: 1626.T
+- ticker: 3923.T
+  subsector: Enterprise Software, ERP & Cloud SaaS (業務ソフトウェア・ERP・クラウドSaaS)
+  topix17_code: '10'
+  topix17_name: 情報通信・サービスその他
+  industry33_code: '5250'
+  industry33_name: 情報・通信業
+  jpx_scale: TOPIX Mid400
+  name: ラクス
+  topix17_etf: 1626.T
+- ticker: 3994.T
+  subsector: Enterprise Software, ERP & Cloud SaaS (業務ソフトウェア・ERP・クラウドSaaS)
+  topix17_code: '10'
+  topix17_name: 情報通信・サービスその他
+  industry33_code: '5250'
+  industry33_name: 情報・通信業
+  jpx_scale: TOPIX Mid400
+  name: マネーフォワード
+  topix17_etf: 1626.T
+- ticker: 4194.T
+  subsector: Enterprise Software, ERP & Cloud SaaS (業務ソフトウェア・ERP・クラウドSaaS)
+  topix17_code: '10'
+  topix17_name: 情報通信・サービスその他
+  industry33_code: '5250'
+  industry33_name: 情報・通信業
+  jpx_scale: TOPIX Mid400
+  name: ビジョナル
+  topix17_etf: 1626.T
+- ticker: 4684.T
+  subsector: Enterprise Software, ERP & Cloud SaaS (業務ソフトウェア・ERP・クラウドSaaS)
+  topix17_code: '10'
+  topix17_name: 情報通信・サービスその他
+  industry33_code: '5250'
+  industry33_name: 情報・通信業
+  jpx_scale: TOPIX Mid400
+  name: オービック
+  topix17_etf: 1626.T
+- ticker: 4704.T
+  subsector: Enterprise Software, ERP & Cloud SaaS (業務ソフトウェア・ERP・クラウドSaaS)
+  topix17_code: '10'
+  topix17_name: 情報通信・サービスその他
+  industry33_code: '5250'
+  industry33_name: 情報・通信業
+  jpx_scale: TOPIX Mid400
+  name: トレンドマイクロ
+  topix17_etf: 1626.T
+- ticker: 4716.T
+  subsector: Enterprise Software, ERP & Cloud SaaS (業務ソフトウェア・ERP・クラウドSaaS)
+  topix17_code: '10'
+  topix17_name: 情報通信・サービスその他
+  industry33_code: '5250'
+  industry33_name: 情報・通信業
+  jpx_scale: TOPIX Mid400
+  name: 日本オラクル
+  topix17_etf: 1626.T
+- ticker: 4733.T
+  subsector: Enterprise Software, ERP & Cloud SaaS (業務ソフトウェア・ERP・クラウドSaaS)
+  topix17_code: '10'
+  topix17_name: 情報通信・サービスその他
+  industry33_code: '5250'
+  industry33_name: 情報・通信業
+  jpx_scale: TOPIX Mid400
+  name: オービックビジネスコンサルタント
+  topix17_etf: 1626.T
+- ticker: 2371.T
+  subsector: Consumer Internet, Portals & E-Commerce (ネットポータル・ECモール・Webメディア)
+  topix17_code: '10'
+  topix17_name: 情報通信・サービスその他
+  industry33_code: '9050'
+  industry33_name: サービス業
+  jpx_scale: TOPIX Mid400
+  name: カカクコム
+  topix17_etf: 1626.T
+- ticker: 2413.T
+  subsector: Consumer Internet, Portals & E-Commerce (ネットポータル・ECモール・Webメディア)
+  topix17_code: '10'
+  topix17_name: 情報通信・サービスその他
+  industry33_code: '9050'
+  industry33_name: サービス業
+  jpx_scale: TOPIX Mid400
+  name: エムスリー
+  topix17_etf: 1626.T
+- ticker: 2432.T
+  subsector: Consumer Internet, Portals & E-Commerce (ネットポータル・ECモール・Webメディア)
+  topix17_code: '10'
+  topix17_name: 情報通信・サービスその他
+  industry33_code: '5250'
+  industry33_name: 情報・通信業
+  jpx_scale: TOPIX Mid400
+  name: ディー・エヌ・エー
+  topix17_etf: 1626.T
+- ticker: 3064.T
+  subsector: Consumer Internet, Portals & E-Commerce (ネットポータル・ECモール・Webメディア)
+  topix17_code: '14'
+  topix17_name: 小売
+  industry33_code: '6100'
+  industry33_name: 小売業
+  jpx_scale: TOPIX Mid400
+  name: ＭｏｎｏｔａＲＯ
+  topix17_etf: 1630.T
+- ticker: 3092.T
+  subsector: Consumer Internet, Portals & E-Commerce (ネットポータル・ECモール・Webメディア)
+  topix17_code: '14'
+  topix17_name: 小売
+  industry33_code: '6100'
+  industry33_name: 小売業
+  jpx_scale: TOPIX Mid400
+  name: ＺＯＺＯ
+  topix17_etf: 1630.T
+- ticker: 4385.T
+  subsector: Consumer Internet, Portals & E-Commerce (ネットポータル・ECモール・Webメディア)
+  topix17_code: '10'
+  topix17_name: 情報通信・サービスその他
+  industry33_code: '5250'
+  industry33_name: 情報・通信業
+  jpx_scale: TOPIX Mid400
+  name: メルカリ
+  topix17_etf: 1626.T
+- ticker: 4689.T
+  subsector: Consumer Internet, Portals & E-Commerce (ネットポータル・ECモール・Webメディア)
+  topix17_code: '10'
+  topix17_name: 情報通信・サービスその他
+  industry33_code: '5250'
+  industry33_name: 情報・通信業
+  jpx_scale: TOPIX Large70
+  name: ＬＩＮＥヤフー
+  topix17_etf: 1626.T
+- ticker: 4751.T
+  subsector: Consumer Internet, Portals & E-Commerce (ネットポータル・ECモール・Webメディア)
+  topix17_code: '10'
+  topix17_name: 情報通信・サービスその他
+  industry33_code: '9050'
+  industry33_name: サービス業
+  jpx_scale: TOPIX Mid400
+  name: サイバーエージェント
+  topix17_etf: 1626.T
+- ticker: 4755.T
+  subsector: Consumer Internet, Portals & E-Commerce (ネットポータル・ECモール・Webメディア)
+  topix17_code: '10'
+  topix17_name: 情報通信・サービスその他
+  industry33_code: '9050'
+  industry33_name: サービス業
+  jpx_scale: TOPIX Mid400
+  name: 楽天グループ
+  topix17_etf: 1626.T
+- ticker: 3769.T
+  subsector: Internet Infrastructure & FinTech Payments (ネットインフラ・決済代行・通信網)
+  topix17_code: '10'
+  topix17_name: 情報通信・サービスその他
+  industry33_code: '5250'
+  industry33_name: 情報・通信業
+  jpx_scale: TOPIX Mid400
+  name: ＧＭＯペイメントゲートウェイ
+  topix17_etf: 1626.T
+- ticker: 3774.T
+  subsector: Internet Infrastructure & FinTech Payments (ネットインフラ・決済代行・通信網)
+  topix17_code: '10'
+  topix17_name: 情報通信・サービスその他
+  industry33_code: '5250'
+  industry33_name: 情報・通信業
+  jpx_scale: TOPIX Mid400
+  name: インターネットイニシアティブ
+  topix17_etf: 1626.T
+- ticker: 9449.T
+  subsector: Internet Infrastructure & FinTech Payments (ネットインフラ・決済代行・通信網)
+  topix17_code: '10'
+  topix17_name: 情報通信・サービスその他
+  industry33_code: '5250'
+  industry33_name: 情報・通信業
+  jpx_scale: TOPIX Mid400
+  name: ＧＭＯインターネットグループ
+  topix17_etf: 1626.T
+- ticker: 2327.T
+  subsector: IT Services & Enterprise SIers (大型SIer・システム受託開発・IT流通)
+  topix17_code: '10'
+  topix17_name: 情報通信・サービスその他
+  industry33_code: '5250'
+  industry33_name: 情報・通信業
+  jpx_scale: TOPIX Mid400
+  name: 日鉄ソリューションズ
+  topix17_etf: 1626.T
+- ticker: 3626.T
+  subsector: IT Services & Enterprise SIers (大型SIer・システム受託開発・IT流通)
+  topix17_code: '10'
+  topix17_name: 情報通信・サービスその他
+  industry33_code: '5250'
+  industry33_name: 情報・通信業
+  jpx_scale: TOPIX Mid400
+  name: ＴＩＳＩ
+  topix17_etf: 1626.T
+- ticker: 4307.T
+  subsector: IT Services & Enterprise SIers (大型SIer・システム受託開発・IT流通)
+  topix17_code: '10'
+  topix17_name: 情報通信・サービスその他
+  industry33_code: '5250'
+  industry33_name: 情報・通信業
+  jpx_scale: TOPIX Large70
+  name: 野村総合研究所
+  topix17_etf: 1626.T
+- ticker: 4768.T
+  subsector: IT Services & Enterprise SIers (大型SIer・システム受託開発・IT流通)
+  topix17_code: '10'
+  topix17_name: 情報通信・サービスその他
+  industry33_code: '5250'
+  industry33_name: 情報・通信業
+  jpx_scale: TOPIX Mid400
+  name: 大塚商会
+  topix17_etf: 1626.T
+- ticker: 6701.T
+  subsector: IT Services & Enterprise SIers (大型SIer・システム受託開発・IT流通)
+  topix17_code: '9'
+  topix17_name: 電機・精密
+  industry33_code: '3650'
+  industry33_name: 電気機器
+  jpx_scale: TOPIX Large70
+  name: 日本電気
+  topix17_etf: 1625.T
+- ticker: 6702.T
+  subsector: IT Services & Enterprise SIers (大型SIer・システム受託開発・IT流通)
+  topix17_code: '9'
+  topix17_name: 電機・精密
+  industry33_code: '3650'
+  industry33_name: 電気機器
+  jpx_scale: TOPIX Large70
+  name: 富士通
+  topix17_etf: 1625.T
+- ticker: 8056.T
+  subsector: IT Services & Enterprise SIers (大型SIer・システム受託開発・IT流通)
+  topix17_code: '10'
+  topix17_name: 情報通信・サービスその他
+  industry33_code: '5250'
+  industry33_name: 情報・通信業
+  jpx_scale: TOPIX Mid400
+  name: ＢＩＰＲＯＧＹ
+  topix17_etf: 1626.T
+- ticker: 9759.T
+  subsector: IT Services & Enterprise SIers (大型SIer・システム受託開発・IT流通)
+  topix17_code: '10'
+  topix17_name: 情報通信・サービスその他
+  industry33_code: '5250'
+  industry33_name: 情報・通信業
+  jpx_scale: TOPIX Mid400
+  name: ＮＳＤ
+  topix17_etf: 1626.T
+- ticker: 2127.T
+  subsector: Consulting, M&A & DX Quality Services (コンサルティング・M&A・DX品質支援)
+  topix17_code: '10'
+  topix17_name: 情報通信・サービスその他
+  industry33_code: '9050'
+  industry33_name: サービス業
+  jpx_scale: TOPIX Mid400
+  name: 日本Ｍ＆Ａセンターホールディングス
+  topix17_etf: 1626.T
+- ticker: 3697.T
+  subsector: Consulting, M&A & DX Quality Services (コンサルティング・M&A・DX品質支援)
+  topix17_code: '10'
+  topix17_name: 情報通信・サービスその他
+  industry33_code: '5250'
+  industry33_name: 情報・通信業
+  jpx_scale: TOPIX Mid400
+  name: ＳＨＩＦＴ
+  topix17_etf: 1626.T
+- ticker: 6532.T
+  subsector: Consulting, M&A & DX Quality Services (コンサルティング・M&A・DX品質支援)
+  topix17_code: '10'
+  topix17_name: 情報通信・サービスその他
+  industry33_code: '9050'
+  industry33_name: サービス業
+  jpx_scale: TOPIX Mid400
+  name: ベイカレント
+  topix17_etf: 1626.T
+- ticker: 2181.T
+  subsector: HR, Staffing & Relocation Services (人材・HR・総合派遣・社宅福利厚生)
+  topix17_code: '10'
+  topix17_name: 情報通信・サービスその他
+  industry33_code: '9050'
+  industry33_name: サービス業
+  jpx_scale: TOPIX Mid400
+  name: パーソルホールディングス
+  topix17_etf: 1626.T
+- ticker: 6098.T
+  subsector: HR, Staffing & Relocation Services (人材・HR・総合派遣・社宅福利厚生)
+  topix17_code: '10'
+  topix17_name: 情報通信・サービスその他
+  industry33_code: '9050'
+  industry33_name: サービス業
+  jpx_scale: TOPIX Core30
+  name: リクルートホールディングス
+  topix17_etf: 1626.T
+- ticker: 8876.T
+  subsector: HR, Staffing & Relocation Services (人材・HR・総合派遣・社宅福利厚生)
+  topix17_code: '10'
+  topix17_name: 情報通信・サービスその他
+  industry33_code: '9050'
+  industry33_name: サービス業
+  jpx_scale: TOPIX Mid400
+  name: リログループ
+  topix17_etf: 1626.T
+- ticker: 9744.T
+  subsector: HR, Staffing & Relocation Services (人材・HR・総合派遣・社宅福利厚生)
+  topix17_code: '10'
+  topix17_name: 情報通信・サービスその他
+  industry33_code: '9050'
+  industry33_name: サービス業
+  jpx_scale: TOPIX Mid400
+  name: メイテックグループホールディングス
+  topix17_etf: 1626.T
+- ticker: 2331.T
+  subsector: Security, Facility Management & SMB Recurring Services (警備・施設保守・中小企業ストック支援)
+  topix17_code: '10'
+  topix17_name: 情報通信・サービスその他
+  industry33_code: '9050'
+  industry33_name: サービス業
+  jpx_scale: TOPIX Mid400
+  name: ＡＬＳＯＫ
+  topix17_etf: 1626.T
+- ticker: 4665.T
+  subsector: Security, Facility Management & SMB Recurring Services (警備・施設保守・中小企業ストック支援)
+  topix17_code: '10'
+  topix17_name: 情報通信・サービスその他
+  industry33_code: '9050'
+  industry33_name: サービス業
+  jpx_scale: TOPIX Mid400
+  name: ダスキン
+  topix17_etf: 1626.T
+- ticker: 4666.T
+  subsector: Security, Facility Management & SMB Recurring Services (警備・施設保守・中小企業ストック支援)
+  topix17_code: '17'
+  topix17_name: 不動産
+  industry33_code: '8050'
+  industry33_name: 不動産業
+  jpx_scale: TOPIX Mid400
+  name: パーク２４
+  topix17_etf: 1633.T
+- ticker: 4732.T
+  subsector: Security, Facility Management & SMB Recurring Services (警備・施設保守・中小企業ストック支援)
+  topix17_code: '10'
+  topix17_name: 情報通信・サービスその他
+  industry33_code: '9050'
+  industry33_name: サービス業
+  jpx_scale: TOPIX Mid400
+  name: ユー・エス・エス
+  topix17_etf: 1626.T
+- ticker: 6544.T
+  subsector: Security, Facility Management & SMB Recurring Services (警備・施設保守・中小企業ストック支援)
+  topix17_code: '10'
+  topix17_name: 情報通信・サービスその他
+  industry33_code: '9050'
+  industry33_name: サービス業
+  jpx_scale: TOPIX Mid400
+  name: ジャパンエレベーターサービスホールディングス
+  topix17_etf: 1626.T
+- ticker: 9735.T
+  subsector: Security, Facility Management & SMB Recurring Services (警備・施設保守・中小企業ストック支援)
+  topix17_code: '10'
+  topix17_name: 情報通信・サービスその他
+  industry33_code: '9050'
+  industry33_name: サービス業
+  jpx_scale: TOPIX Large70
+  name: セコム
+  topix17_etf: 1626.T
+- ticker: 3635.T
+  subsector: Global Gaming Platforms & Digital Publishers (グローバルゲーム・デジタルパブリッシャー)
+  topix17_code: '10'
+  topix17_name: 情報通信・サービスその他
+  industry33_code: '5250'
+  industry33_name: 情報・通信業
+  jpx_scale: TOPIX Mid400
+  name: コーエーテクモホールディングス
+  topix17_etf: 1626.T
+- ticker: 3659.T
+  subsector: Global Gaming Platforms & Digital Publishers (グローバルゲーム・デジタルパブリッシャー)
+  topix17_code: '10'
+  topix17_name: 情報通信・サービスその他
+  industry33_code: '5250'
+  industry33_name: 情報・通信業
+  jpx_scale: TOPIX Mid400
+  name: ネクソン
+  topix17_etf: 1626.T
+- ticker: 6758.T
+  subsector: Global Gaming Platforms & Digital Publishers (グローバルゲーム・デジタルパブリッシャー)
+  topix17_code: '9'
+  topix17_name: 電機・精密
+  industry33_code: '3650'
+  industry33_name: 電気機器
+  jpx_scale: TOPIX Core30
+  name: ソニーグループ
+  topix17_etf: 1625.T
+- ticker: 7974.T
+  subsector: Global Gaming Platforms & Digital Publishers (グローバルゲーム・デジタルパブリッシャー)
+  topix17_code: '10'
+  topix17_name: 情報通信・サービスその他
+  industry33_code: '3800'
+  industry33_name: その他製品
+  jpx_scale: TOPIX Core30
+  name: 任天堂
+  topix17_etf: 1626.T
+- ticker: 9468.T
+  subsector: Global Gaming Platforms & Digital Publishers (グローバルゲーム・デジタルパブリッシャー)
+  topix17_code: '10'
+  topix17_name: 情報通信・サービスその他
+  industry33_code: '5250'
+  industry33_name: 情報・通信業
+  jpx_scale: TOPIX Mid400
+  name: ＫＡＤＯＫＡＷＡ
+  topix17_etf: 1626.T
+- ticker: 9684.T
+  subsector: Global Gaming Platforms & Digital Publishers (グローバルゲーム・デジタルパブリッシャー)
+  topix17_code: '10'
+  topix17_name: 情報通信・サービスその他
+  industry33_code: '5250'
+  industry33_name: 情報・通信業
+  jpx_scale: TOPIX Mid400
+  name: スクウェア・エニックス・ホールディングス
+  topix17_etf: 1626.T
+- ticker: 9697.T
+  subsector: Global Gaming Platforms & Digital Publishers (グローバルゲーム・デジタルパブリッシャー)
+  topix17_code: '10'
+  topix17_name: 情報通信・サービスその他
+  industry33_code: '5250'
+  industry33_name: 情報・通信業
+  jpx_scale: TOPIX Mid400
+  name: カプコン
+  topix17_etf: 1626.T
+- ticker: 9766.T
+  subsector: Global Gaming Platforms & Digital Publishers (グローバルゲーム・デジタルパブリッシャー)
+  topix17_code: '10'
+  topix17_name: 情報通信・サービスその他
+  industry33_code: '5250'
+  industry33_name: 情報・通信業
+  jpx_scale: TOPIX Mid400
+  name: コナミグループ
+  topix17_etf: 1626.T
+- ticker: 7832.T
+  subsector: Character Toys, Anime, Film & Creative IP (キャラクター玩具・アニメ・映画・IPライセンス)
+  topix17_code: '10'
+  topix17_name: 情報通信・サービスその他
+  industry33_code: '3800'
+  industry33_name: その他製品
+  jpx_scale: TOPIX Large70
+  name: バンダイナムコホールディングス
+  topix17_etf: 1626.T
+- ticker: 7867.T
+  subsector: Character Toys, Anime, Film & Creative IP (キャラクター玩具・アニメ・映画・IPライセンス)
+  topix17_code: '10'
+  topix17_name: 情報通信・サービスその他
+  industry33_code: '3800'
+  industry33_name: その他製品
+  jpx_scale: TOPIX Mid400
+  name: タカラトミー
+  topix17_etf: 1626.T
+- ticker: 8136.T
+  subsector: Character Toys, Anime, Film & Creative IP (キャラクター玩具・アニメ・映画・IPライセンス)
+  topix17_code: '13'
+  topix17_name: 商社・卸売
+  industry33_code: '6050'
+  industry33_name: 卸売業
+  jpx_scale: TOPIX Mid400
+  name: サンリオ
+  topix17_etf: 1629.T
+- ticker: 9602.T
+  subsector: Character Toys, Anime, Film & Creative IP (キャラクター玩具・アニメ・映画・IPライセンス)
+  topix17_code: '10'
+  topix17_name: 情報通信・サービスその他
+  industry33_code: '5250'
+  industry33_name: 情報・通信業
+  jpx_scale: TOPIX Mid400
+  name: 東宝
+  topix17_etf: 1626.T
+- ticker: 6417.T
+  subsector: Pachinko & Karaoke Amusement (パチンコ遊技機・カラオケ・大衆アミューズメント)
+  topix17_code: '8'
+  topix17_name: 機械
+  industry33_code: '3600'
+  industry33_name: 機械
+  jpx_scale: TOPIX Mid400
+  name: ＳＡＮＫＹＯ
+  topix17_etf: 1624.T
+- ticker: 6460.T
+  subsector: Pachinko & Karaoke Amusement (パチンコ遊技機・カラオケ・大衆アミューズメント)
+  topix17_code: '8'
+  topix17_name: 機械
+  industry33_code: '3600'
+  industry33_name: 機械
+  jpx_scale: TOPIX Mid400
+  name: セガサミーホールディングス
+  topix17_etf: 1624.T
+- ticker: 7458.T
+  subsector: Pachinko & Karaoke Amusement (パチンコ遊技機・カラオケ・大衆アミューズメント)
+  topix17_code: '13'
+  topix17_name: 商社・卸売
+  industry33_code: '6050'
+  industry33_name: 卸売業
+  jpx_scale: TOPIX Mid400
+  name: 第一興商
+  topix17_etf: 1629.T
+- ticker: 2433.T
+  subsector: Advertising Agencies & Commercial Broadcasting (広告代理店・民放テレビ放送)
+  topix17_code: '10'
+  topix17_name: 情報通信・サービスその他
+  industry33_code: '9050'
+  industry33_name: サービス業
+  jpx_scale: TOPIX Mid400
+  name: 博報堂ＤＹホールディングス
+  topix17_etf: 1626.T
+- ticker: 4324.T
+  subsector: Advertising Agencies & Commercial Broadcasting (広告代理店・民放テレビ放送)
+  topix17_code: '10'
+  topix17_name: 情報通信・サービスその他
+  industry33_code: '9050'
+  industry33_name: サービス業
+  jpx_scale: TOPIX Mid400
+  name: 電通グループ
+  topix17_etf: 1626.T
+- ticker: 4676.T
+  subsector: Advertising Agencies & Commercial Broadcasting (広告代理店・民放テレビ放送)
+  topix17_code: '10'
+  topix17_name: 情報通信・サービスその他
+  industry33_code: '5250'
+  industry33_name: 情報・通信業
+  jpx_scale: TOPIX Mid400
+  name: フジ・メディア・ホールディングス
+  topix17_etf: 1626.T
+- ticker: 9401.T
+  subsector: Advertising Agencies & Commercial Broadcasting (広告代理店・民放テレビ放送)
+  topix17_code: '10'
+  topix17_name: 情報通信・サービスその他
+  industry33_code: '5250'
+  industry33_name: 情報・通信業
+  jpx_scale: TOPIX Mid400
+  name: ＴＢＳホールディングス
+  topix17_etf: 1626.T
+- ticker: 9404.T
+  subsector: Advertising Agencies & Commercial Broadcasting (広告代理店・民放テレビ放送)
+  topix17_code: '10'
+  topix17_name: 情報通信・サービスその他
+  industry33_code: '5250'
+  industry33_name: 情報・通信業
+  jpx_scale: TOPIX Mid400
+  name: 日本テレビホールディングス
+  topix17_etf: 1626.T
+- ticker: 4661.T
+  subsector: Theme Parks, Resorts & Hotels (テーマパーク・リゾートホテル・複合レジャー)
+  topix17_code: '10'
+  topix17_name: 情報通信・サービスその他
+  industry33_code: '9050'
+  industry33_name: サービス業
+  jpx_scale: TOPIX Large70
+  name: オリエンタルランド
+  topix17_etf: 1626.T
+- ticker: 4680.T
+  subsector: Theme Parks, Resorts & Hotels (テーマパーク・リゾートホテル・複合レジャー)
+  topix17_code: '10'
+  topix17_name: 情報通信・サービスその他
+  industry33_code: '9050'
+  industry33_name: サービス業
+  jpx_scale: TOPIX Mid400
+  name: ラウンドワン
+  topix17_etf: 1626.T
+- ticker: 4681.T
+  subsector: Theme Parks, Resorts & Hotels (テーマパーク・リゾートホテル・複合レジャー)
+  topix17_code: '10'
+  topix17_name: 情報通信・サービスその他
+  industry33_code: '9050'
+  industry33_name: サービス業
+  jpx_scale: TOPIX Mid400
+  name: リゾートトラスト
+  topix17_etf: 1626.T
+- ticker: 9616.T
+  subsector: Theme Parks, Resorts & Hotels (テーマパーク・リゾートホテル・複合レジャー)
+  topix17_code: '10'
+  topix17_name: 情報通信・サービスその他
+  industry33_code: '9050'
+  industry33_name: サービス業
+  jpx_scale: TOPIX Mid400
+  name: 共立メンテナンス
+  topix17_etf: 1626.T
+excluded_unmapped:
+- ticker: 6406.T
+  subsector: Industrial Machinery, HVAC & Precision Bearings (産業機械・空調設備・油圧・精密ベアリング)
+- ticker: 6201.T
+  subsector: Auto Parts & Systems (自動車部品・電装品・内装)
+- ticker: 4530.T
+  subsector: Consumer Healthcare, OTC, Kampo & Generics (OTC医薬品・漢方・スキンケア・後発品)
+- ticker: 9719.T
+  subsector: IT Services & Enterprise SIers (大型SIer・システム受託開発・IT流通)
+aggregation_matrix_A:
+  rows:
+  - 1617.T
+  - 1618.T
+  - 1619.T
+  - 1620.T
+  - 1621.T
+  - 1622.T
+  - 1623.T
+  - 1624.T
+  - 1625.T
+  - 1626.T
+  - 1627.T
+  - 1628.T
+  - 1629.T
+  - 1630.T
+  - 1631.T
+  - 1632.T
+  - 1633.T
+  cols:
+  - General Contractors (ゼネコン・総合建設)
+  - Housing, Homebuilders & Wood Products (住宅・ハウスメーカー・木材)
+  - Plant, Electrical & Telecom Engineering (設備工事・エンジニアリング・インフラ工事)
+  - Housing Fixtures, Sanitary Ware & Building Openings (住宅設備・衛生陶器・建材・サッシ)
+  - Comprehensive Real Estate Developers (総合不動産・ビルデベロッパー)
+  - Basic & Diversified Chemicals (総合・基礎化学・エチレン・機能素材)
+  - Semiconductor & Advanced Electronics Materials (半導体プロセス材料・先端電子ケミカル)
+  - Advanced Films, Functional Polymers & Materials (高機能フィルム・機能性樹脂・先端素材)
+  - Paints, Inks & Functional Adhesives (塗料・インキ・接着剤・コーティング材料)
+  - Surfactants, Oleochemicals & Fine Chemicals (界面活性剤・油脂化学・高機能ファインケミカル)
+  - Glass, Advanced Ceramics & Cement (ガラス・先端セラミックス・セメント・断熱材)
+  - Paper, Packaging, Containers & Printing (紙パルプ・包装容器・印刷)
+  - Integrated Steel Mills & Specialty Steel (高炉・特殊鋼・電炉・鋼板)
+  - Non-Ferrous Smelting, Mining & Advanced Materials (非鉄製錬・資源鉱山・先端金属材料)
+  - Optical Fiber, Power Cables & Communication Infrastructure (電線・光ファイバ・電力通信インフラ)
+  - Industrial Automation, Robotics & Process Control (FA・産業ロボット・プロセス制御計装)
+  - Machine Tools, Cutting & Commercial Automation (工作機械・切削工具・板金・自動化機器)
+  - Construction, Mining, Defense & Heavy Machinery (建設機械・鉱山機械・防衛重工・農業機械)
+  - Industrial Machinery, HVAC & Precision Bearings (産業機械・空調設備・油圧・精密ベアリング)
+  - Heavy Electrical, Power Systems & Batteries (重電・電力グリッド・産業パワー・電池)
+  - Semiconductors & Semiconductor Manufacturing Equipment (半導体デバイス・半導体製造装置・SPE)
+  - Electronic Components, Sensors & Passive Devices (電子部品・センサ・受動部品)
+  - Optical Instruments, Analytical & Precision Measurement (精密光学機器・分析計測・カメラ)
+  - Medical Devices, Diagnostics & Clinical Testing (医療機器・臨床検査・生体医工学)
+  - Office Printing, Consumer Electronics & Industrial Devices (オフィスOA・プリンティング・民生機器)
+  - Passenger Cars, Commercial Vehicles & Motorcycles (乗用車・完成車・商用トラック・二輪)
+  - Auto Parts & Systems (自動車部品・電装品・内装)
+  - Tires & Rubber Products (タイヤ・ゴム製品)
+  - Global Major Innovative Pharma (グローバル新薬・大型創薬)
+  - Specialty Biopharma & Biotech Platforms (スペシャリティ創薬・眼科・バイオテック)
+  - Consumer Healthcare, OTC, Kampo & Generics (OTC医薬品・漢方・スキンケア・後発品)
+  - Beverages, Breweries & Distilling (飲料・ビール・酒類・たばこ)
+  - Dairy, Probiotics & Nutritional Foods (乳業・プロバイオティクス・栄養食品)
+  - Seasonings, Packaged Foods & Processed Meats (調味料・即席麺・食肉・調理加工食品)
+  - Confectionery, Bakery & Snacks (製菓・スナック・製パン)
+  - Grain Milling, Edible Oils, Marine & Agribusiness (製粉・製油・水産・アグリ素材)
+  - Cosmetics & Personal Care (化粧品・トイレタリー・日用品)
+  - Stationery, Office & Household Brands (文具・オフィス家具・楽器・生活用品)
+  - Department Stores & Luxury Commercial Real Estate (百貨店・高級ブランド・都市型商業施設)
+  - Supermarkets, GMS & Discount Stores (スーパー・総合小売・ディスカウントストア)
+  - Drugstores & Dispensing (ドラッグストア・調剤薬局)
+  - Consumer Electronics Mass Retailers (家電量販店・生活家電・免税リテール)
+  - Apparel, Footwear, Sports Brands & Lifestyle SPA (アパレル・フットウェア・スポーツブランド・生活製造小売)
+  - Restaurants & Food Service (外食・フードサービス)
+  - General Trading Companies - Sogo Shosha (総合商社)
+  - Specialized Trading - Tech, Electronics & Materials (専門商社-エレクトロニクス・機械・化学素材)
+  - Specialized Trading - Pharma, Medical & Daily Goods (専門商社-医薬品・医療機器・日用品卸)
+  - Megabanks & Trust Banks (メガバンク・ゆうちょ・信託)
+  - Major Metropolitan & Super-Regional Banks (大都市圏・広域メガ地銀)
+  - Regional & Provincial Banking Groups (地域ブロック中核地銀)
+  - Digital, Retail & Specialized Banks (ネット・流通・専門銀行)
+  - Securities, Exchanges & Investment (証券・取引所・投資育成)
+  - Life & Non-Life Insurance (生命保険・損害保険)
+  - Corporate Leasing & Capital Asset Finance (総合リース・法人設備金融)
+  - Consumer Credit, Cards & Retail Finance (信販・クレジットカード・消費者金融)
+  - Greater Tokyo Urban Transit & TOD (首都圏大手私鉄・都市交通・沿線再開発)
+  - Kansai & Inter-Regional Private Railways (関西・広域大手私鉄・観光交通)
+  - JR Group & Intercity High-Speed Rail (JR旅客鉄道グループ・新幹線幹線網)
+  - Logistics, Trucking & Forwarding (トラック・総合物流・フォワーディング)
+  - Marine Shipping (外航海運・海上輸送)
+  - Warehousing, Harbor & Logistics Terminal (倉庫・港湾運送・ターミナル物流)
+  - Airlines & Airport Infrastructure (航空・空港インフラ)
+  - Electric Power Utilities (電力・発電・送配電)
+  - City Gas, Industrial Gas & Energy Utilities (都市ガス・LPガス・産業ガス・エネルギー供給)
+  - Energy, Petroleum Refining & Resources (エネルギー・石油元売・資源開発)
+  - Telecom & Mobile Operators (通信キャリア・通信インフラ・情報流通)
+  - Tech Investment, Strategic Holding & Capital Allocators (テック投資・戦略持株会社・資本アロケーター)
+  - Enterprise Software, ERP & Cloud SaaS (業務ソフトウェア・ERP・クラウドSaaS)
+  - Consumer Internet, Portals & E-Commerce (ネットポータル・ECモール・Webメディア)
+  - Internet Infrastructure & FinTech Payments (ネットインフラ・決済代行・通信網)
+  - IT Services & Enterprise SIers (大型SIer・システム受託開発・IT流通)
+  - Consulting, M&A & DX Quality Services (コンサルティング・M&A・DX品質支援)
+  - HR, Staffing & Relocation Services (人材・HR・総合派遣・社宅福利厚生)
+  - Security, Facility Management & SMB Recurring Services (警備・施設保守・中小企業ストック支援)
+  - Global Gaming Platforms & Digital Publishers (グローバルゲーム・デジタルパブリッシャー)
+  - Character Toys, Anime, Film & Creative IP (キャラクター玩具・アニメ・映画・IPライセンス)
+  - Pachinko & Karaoke Amusement (パチンコ遊技機・カラオケ・大衆アミューズメント)
+  - Advertising Agencies & Commercial Broadcasting (広告代理店・民放テレビ放送)
+  - Theme Parks, Resorts & Hotels (テーマパーク・リゾートホテル・複合レジャー)
+  data:
+  - - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.27586206896551724
+    - 0.10344827586206896
+    - 0.3103448275862069
+    - 0.1724137931034483
+    - 0.13793103448275862
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+  - - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 1.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+  - - 0.23684210526315788
+    - 0.10526315789473684
+    - 0.23684210526315788
+    - 0.10526315789473684
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.23684210526315788
+    - 0.02631578947368421
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.02631578947368421
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.02631578947368421
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+  - - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.1875
+    - 0.16666666666666666
+    - 0.16666666666666666
+    - 0.08333333333333333
+    - 0.10416666666666667
+    - 0.0
+    - 0.041666666666666664
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.020833333333333332
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.14583333333333334
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.041666666666666664
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.041666666666666664
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+  - - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.5
+    - 0.25
+    - 0.25
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+  - - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.047619047619047616
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.42857142857142855
+    - 0.2857142857142857
+    - 0.19047619047619047
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.047619047619047616
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+  - - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.42857142857142855
+    - 0.35714285714285715
+    - 0.21428571428571427
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+  - - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.15151515151515152
+    - 0.15151515151515152
+    - 0.24242424242424243
+    - 0.3333333333333333
+    - 0.0
+    - 0.06060606060606061
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.06060606060606061
+    - 0.0
+    - 0.0
+  - - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.06666666666666667
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.11666666666666667
+    - 0.2
+    - 0.2
+    - 0.1
+    - 0.08333333333333333
+    - 0.13333333333333333
+    - 0.0
+    - 0.05
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.03333333333333333
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.016666666666666666
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+  - - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.029411764705882353
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.014705882352941176
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.058823529411764705
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.014705882352941176
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.014705882352941176
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.04411764705882353
+    - 0.029411764705882353
+    - 0.10294117647058823
+    - 0.10294117647058823
+    - 0.04411764705882353
+    - 0.08823529411764706
+    - 0.04411764705882353
+    - 0.058823529411764705
+    - 0.07352941176470588
+    - 0.10294117647058823
+    - 0.04411764705882353
+    - 0.0
+    - 0.07352941176470588
+    - 0.058823529411764705
+  - - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.7692307692307693
+    - 0.23076923076923078
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+  - - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.2647058823529412
+    - 0.17647058823529413
+    - 0.11764705882352941
+    - 0.20588235294117646
+    - 0.08823529411764706
+    - 0.08823529411764706
+    - 0.058823529411764705
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+  - - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.04
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.32
+    - 0.28
+    - 0.28
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.04
+    - 0.04
+    - 0.0
+    - 0.0
+  - - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.12121212121212122
+    - 0.12121212121212122
+    - 0.21212121212121213
+    - 0.09090909090909091
+    - 0.15151515151515152
+    - 0.18181818181818182
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.030303030303030304
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.030303030303030304
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.06060606060606061
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+  - - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.23076923076923078
+    - 0.23076923076923078
+    - 0.38461538461538464
+    - 0.15384615384615385
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+  - - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.2
+    - 0.35
+    - 0.2
+    - 0.2
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.05
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+  - - 0.0
+    - 0.25
+    - 0.0
+    - 0.0
+    - 0.5833333333333334
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.08333333333333333
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.08333333333333333
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+    - 0.0
+coverage:
+- sector_etf: 1617.T
+  covered: 29
+  total_jpx: 138
+  coverage_count: 0.21014492753623187
+- sector_etf: 1618.T
+  covered: 4
+  total_jpx: 14
+  coverage_count: 0.2857142857142857
+- sector_etf: 1619.T
+  covered: 38
+  total_jpx: 294
+  coverage_count: 0.1292517006802721
+- sector_etf: 1620.T
+  covered: 48
+  total_jpx: 275
+  coverage_count: 0.17454545454545456
+- sector_etf: 1621.T
+  covered: 16
+  total_jpx: 80
+  coverage_count: 0.2
+- sector_etf: 1622.T
+  covered: 21
+  total_jpx: 98
+  coverage_count: 0.21428571428571427
+- sector_etf: 1623.T
+  covered: 14
+  total_jpx: 70
+  coverage_count: 0.2
+- sector_etf: 1624.T
+  covered: 33
+  total_jpx: 211
+  coverage_count: 0.15639810426540285
+- sector_etf: 1625.T
+  covered: 60
+  total_jpx: 280
+  coverage_count: 0.21428571428571427
+- sector_etf: 1626.T
+  covered: 68
+  total_jpx: 1328
+  coverage_count: 0.05120481927710843
+- sector_etf: 1627.T
+  covered: 13
+  total_jpx: 29
+  coverage_count: 0.4482758620689655
+- sector_etf: 1628.T
+  covered: 34
+  total_jpx: 109
+  coverage_count: 0.3119266055045872
+- sector_etf: 1629.T
+  covered: 25
+  total_jpx: 301
+  coverage_count: 0.08305647840531562
+- sector_etf: 1630.T
+  covered: 33
+  total_jpx: 342
+  coverage_count: 0.09649122807017543
+- sector_etf: 1631.T
+  covered: 26
+  total_jpx: 79
+  coverage_count: 0.3291139240506329
+- sector_etf: 1632.T
+  covered: 20
+  total_jpx: 96
+  coverage_count: 0.20833333333333334
+- sector_etf: 1633.T
+  covered: 12
+  total_jpx: 159
+  coverage_count: 0.07547169811320754
