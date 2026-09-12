@@ -1,51 +1,29 @@
 ---
 name: leadlag-fund-improvement
-description: 日米セクター・リードラグ市場中立ファンド（Residual-BLPX-RA v2）の改善作業を行う際のガイド。モデル改善・バックテスト・検証・本番昇格のワークフロー、データ整合規約、リーク防止の不変条件、既知の落とし穴を記載。モデル変更・パラメータ調整・新シグナル追加・バックテスト実行時に必ず参照すること。
+description: 日米リードラグ戦略の改善・V2バックテスト・本番昇格で、設定と実行経路を特定する。
 ---
 
-# 日米リードラグ・ファンド改善スキル
+# 日米リードラグ・ファンド改善
 
-> **前提**: 戦略概要・データ整合規約・不変条件・改善ワークフロー・既知の落とし穴・評価指標の約束事は `AGENTS.md`（常にコンテキストにロード済み）を参照。本スキルはAGENTS.mdに記載のない追加情報のみを記載する。
+共通規約・不変条件はリポジトリルートの `AGENTS.md` を参照する。本スキル内のパスも同ルート基準。
 
-## 2026-07追加機能（AGENTS.md未記載）
+## 現行経路の確認
 
-- **Copula相関ブレンド**: t-copulaで尾部依存を捕捉しPearson相関と動的ブレンド。ストレス期のみcopula重みを増加。`src/leadlag/core/correlation.py::estimate_t_copula`
-- **MinVar weight最適化**: 予測共分散`Omega_gap`でロング/ショート各バスケット内の分散を最小化。シグナル比例weightとαブレンド（α=0.8が最適）。`src/leadlag/core/signal.py::build_weights_minvar`
-- **Macro Confidence (Factor-Specific Kappa)**: USDJPY・原油・10年債利回りのサプライズでシグナル強度をスケーリング。`src/leadlag/core/macro.py`
-- **実験用config**: `production_v2_primary_ruleD.yaml` にcopula・minvar・macro confidence設定を追加済み
+1. 対象の config と `__base__` 継承先を `load_config_from_yaml` で解決する。本番比較・昇格の基準は `configs/production/production.yaml`。旧 RuleD config や過去レポートの「最適値」で代用しない。
+2. `src/leadlag/models/production_v2.py` を入口に、対象処理を `src/leadlag/models/v2/` まで追う。分布取得は `fallback_policy.py` / `distribution_source.py`、監査と要約は `audit_comparator.py` に分かれる。
+3. データパスは `src/leadlag/config/paths.py` と有効設定から解決する。標準 gap store は `var/live/pipeline_data/gap_adjusted_distribution/gap_store.sqlite`。旧 `live/` リンクや Git 管理の有無をバックアップ保証とみなさない。
+4. cache / on-demand の整合検証時は `shadow_ondemand_validation` を確認する。`true` は cache 読込時に on-demand と比較する追加検証。必要なモデル・入力があることを確認する。現行比較は平均ベクトル/共分散の相対差が1%を超えると警告するが、警告だけで非リークや本番昇格の妥当性を保証しない。
 
-## V2データパイプライン構造
+## バックテストと日次経路の違い
 
-V2日次実行に必要な前提データチェーン:
+- バックテストは `BacktestEngine.run_v2_backtest()` または CLI `backtest` を使う。対象期間の gap store の日付・銘柄順・生成設定を検査する。
+- `ProductionV2Model` の on-demand 計算には BLPX モデルと必要な履歴・当日入力が必要。日次経路で利用可能でも、バックテストや単純ラッパーで同じ依存が注入されるとは限らない。cache 欠損のまま実行して全日フラットを戦略成績と誤認しない。
+- gap 事前計算の入口は `tools/research/compute_gap_adjusted_distribution.py` と `scripts/batch/run_gap_distribution.sh`。必要な上流成果物・鮮度は実際の引数と読込処理で確認する。アーカイブ内の V1 スクリプトを日次の必須工程として復活させない。
+- 日次バッチは `scripts/batch/run_decision_v2.sh` から CLI / V2 同期経路へ進む。開始時刻とデータの利用可能時刻を区別し、当日 gap の鮮度を検証する。
 
-```
-Step 1: distribution_diagnostics (omega_struct行列)
-  スクリプト: `git tag archive-2026-08` の `archive/tools/compute_structured_prediction_covariance.py`
-  入力: df_exec, V1バックテストウェイト (daily_positions_Residual-BLPX_only.csv)
-  出力: live/pipeline_data/distribution_diagnostics/<timestamp>/matrices/omega_struct_*.npy
-  ※Copula有効時: 相関行列推定にt-copulaブレンドを使用（correlation.py::estimate_t_copula）
-  ※Macro有効時: マクロサプライズスケールをシグナルに適用（macro.py::compute_factor_kappa_scale）
+## 作業の分岐
 
-Step 2: gap_adjusted_distribution (mu_gap, Omega_gap行列)
-  スクリプト: tools/research/compute_gap_adjusted_distribution.py
-  入力: Step1のomega_struct, distribution_validation, vol_state_panel, V1ウェイト
-  出力: live/pipeline_data/gap_adjusted_distribution/<timestamp>/matrices/mu_gap_*.npy
-  日次バッチ: scripts/batch/run_gap_distribution.sh (6:30 JST)
-
-V2決定: run_decision_v2.sh (9:05 JST)
-  gap行列 → mu_over_sigmaスコア → MinVar weight構築(Omega_gap使用) → RuleDグロス調整 → ウェイト生成
-  ※MinVar有効時: build_weights_minvarがOmega_gapで分散最小化（α=0.8でシグナル比例とブレンド）
-```
-
-### 運用データ保護（2026-07新設）
-
-- **`live/pipeline_data/`**: パイプライン前提データの正本（Step1出力・gap分布・V1バックテスト・キャッシュ）
-- **`results/`**: 実験・バックテスト結果（クリーンアップ対象、運用データではない）
-- `.gitignore` で `!live/pipeline_data/` 例外を設定し保護
-- **パス参照**: `compute_gap_adjusted_distribution.py`, `run_gap_distribution.sh`, `run_decision_v2.sh`, `production.yaml` のデフォルトパスは全て `live/pipeline_data/` 配下を参照済み
-
-## 採用実験の記録（本番統合済み）
-
-- **Copula相関ブレンド**（2026-07）: t-copulaで尾部依存を捕捉しPearson相関と動的ブレンド。単体ではSharpe +0.012（非有意）だが、MinVarと組み合わせで相乗効果あり。`correlation.py::estimate_t_copula`、`_t_copula_neg_loglik`（vector化済み）
-- **MinVar weight最適化**（2026-07）: 予測共分散`Omega_gap`でバスケット内分散最小化。α=0.8でsignal比例とブレンド。Sharpe +0.098（paired t-test p<0.0001）、copula+minvarで+0.115。計算コストほぼゼロ（4s）。`signal.py::build_weights_minvar`
-- **Macro Confidence**（2026-07）: USDJPY・原油・10年債利回りのサプライズでシグナルスケーリング。`macro.py::compute_factor_kappa_scale`。kappas=[3.0, 0.5, 0.5]
+- 性能を変える仮説・パラメータ比較は `experiment-design` を使う。単純な挙動維持の整理を新規実験扱いしない。
+- 時系列計算・監査・フォールバックの挙動を変更・検証するときは `leak-audit`、具体的な境界リスクの分析には `edge-case-finder` を使う。
+- バックテストを実行したら `backtest-report` で結果を保存する。未実施の OOS・監査・コスト内訳を PASS やゼロで埋めない。
+- 本番昇格では実験結果だけでなく、同一データ・設定の shadow 整合を確認する。`tools/validation/monitor_residual_blpx_shadow_performance.py` の入力仕様を読み、cache / on-demand、ウェイト、コスト、フラット化の差を追う。実験採用だけを根拠に本番設定・スケジューラ・注文を変更しない。

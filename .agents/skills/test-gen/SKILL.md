@@ -1,133 +1,30 @@
 ---
 name: test-gen
-description: 関数・クラスに対してユニットテストを自動生成する。日米リードラグ戦略の不変条件（ルックアヘッド禁止・ベースライン期間分離・市場中立制約・ティッカー定義）を踏まえたテストを生成する。新関数・新シグナル・モデル変更時に必ず参照すること。
+description: 新機能・不具合修正・契約変更に対し、既存テストで不足する回帰ケースを設計・追加する。
 ---
 
-# Test Gen スキル
+# 回帰テストの設計
 
-## 目的
+不変条件・全体回帰・期限はルートの `AGENTS.md` に従う。以下のパスはリポジトリルート基準。
 
-日米リードラグ戦略コードの関数・クラスに対し、不変条件を担保するユニットテストを自動生成する。
+## 設計と配置
 
-## 前提
+1. 対象の契約、失敗条件、既存テストと fixture を確認する。既存の有効な検証があれば重複追加しない。
+2. 最小の合成入力で、不具合修正では変更前の失敗と変更後の期待挙動を区別し、挙動維持の整理では既存契約を固定するケースを作る。期待値を対象実装そのものから作らない。
+3. 単体は `tests/unit/`、複数層の実経路は `tests/integration/`、既存の回帰系列は `tests/regression/` の構成に合わせる。marker は `pyproject.toml` / `tests/conftest.py` に従う。
+4. 外部データ取得・時刻・broker の境界を固定する。実注文やネットワーク依存を追加せず、リーク検査対象の計算自体はモックしない。
 
-- テストフレームワーク: **pytest**
-- テスト配置: `tests/unit/`（ユニット）、`tests/integration/`（統合）
-- 既存テスト: unit + integration（`test_leakage_audit.py`, `test_production_residual_blpx.py` 等）
-- **変更後必ず全テストを通すこと**。推奨は並列 `bash scripts/run_tests_parallel.sh`（約8分）、直列 `python3 -m pytest tests/ -v` は約32分
+## 重要な検証パターン
 
-## テスト生成の観点
+変更された契約と未検証のリスクに対応するケースを選ぶ。以下は全件追加するチェックリストではない。
 
-### 1. ルックアヘッド防止テスト
+- **非リーク**: 未知の当日ターゲット・未来行を変更しても当日出力が不変。既知の当日 US 入力・gap は変更対象と区別する。PIT 履歴の当日/未来混入を拒否する。基準期間が欠けた場合に評価期間を事前分布へ使わない。
+- **フォールバックの分岐**: 当日 cache 成功、前日 cache のみ、on-demand 成功、無効、必要入力不足、例外、終端フラット、数値監査失敗、リーク監査失敗時の下流処理を該当経路で分ける。cache 欠損だけで常にゼロを期待しない。
+- **状態遷移**: フラット化後の正常復帰、別日・別 config・別インスタンスのキャッシュ分離、タイムアウト後の遅延完了。PIT multiplier は終端フラットと別に検証する。
+- **数値・制約**: NaN/Inf、ゼロ分散、特異共分散、空バスケット、極端なスコア。モデル/実効 exposure を分け、既存監査の許容誤差を守る。PSD と正定値を混同しない。
+- **データ・設定**: 銘柄の値だけでなく順序と次元、独立した設定コピー、週末・連休の保有コスト、gross − costs = net。
+- **対象機能のみ**: Copula・MinVar の重み端点、macro/overlay の欠損や時系列など。関数契約と有効設定から期待値を決め、過去実験の成績を assertion にしない。
 
-- ローリング統計が当日行を含まないことの検証
-- PITビニングが未来情報を使用しないことの検証
-- ベータ計算が strictly historical であることの検証
-- 参考: `tests/integration/test_leakage_audit.py`
+## 実行と品質
 
-### 2. 境界値テスト
-
-- 窓サイズ不足（行数 < min_periods）時の挙動
-- 空DataFrame・単一行DataFrame
-- NaN/Inf を含むデータでの挙動
-- 全ゼロシグナルでのポートフォリオ構築
-
-### 3. 不変条件テスト
-
-- **ベースライン期間**: 事前分布・基準相関が2010-2014固定であること
-- **バックテスト開始日**: 2015-01-05以降であること
-- **市場中立制約**: net exposure ±0.05、gross ≤ 2.0（RuleD適用後）
-- **ティッカー定義**: N_U=15, N_J=17, 計32次元
-
-### 4. フォールバックテスト（現行: フラットポジションのみ。V1フォールバックは2026-07廃止）
-
-- gapデータ欠損時に w_final=0（全銘柄ゼロ）が返ること
-- numerical audit 失敗 + `fallback_on_audit_failure=True` でフラット化、`False` で v2 ウェイト保持されること
-- PIT履歴不足時に `fallback_multiplier` が適用されること
-- フォールバック発動率の監視（`fallback_triggered` フラグの集計）
-
-### 5. 数値精度テスト
-
-- 既知の入力に対する出力の再現性
-- config dictのshallow copy問題（`copy.deepcopy` 使用の確認）
-- グローバルキャッシュの汚染がないこと
-
-### 6. Copula相関ブレンドのテスト
-
-- **正定値性**: ブレンド後の相関行列が正定値であること
-- **尾部依存**: νが小さいほど尾部依存が強いことの検証
-- **特異行列フォールバック**: 特異行列入力でjitter・pseudo-inverseフォールバックが発動すること
-- **ブレンド重み**: `copula_blend_weight=0`でPearsonと完全一致、`1.0`でcopulaと完全一致
-- **動的ブレンド**: ストレス期（vol_ratio >= threshold）でcopula重みが増加すること
-- **copula窓の当日行除外**: copula推定に当日行が含まれないこと（`correlation.py`）
-
-### 7. MinVar weight最適化のテスト
-
-- **α=0.0等価性**: `build_weights_minvar(alpha=0.0)`が`build_weights(weight_mode="signal")`と一致
-- **α=1.0純最小分散**: α=1.0でシグナル情報が無視され、分散最小化weightになること
-- **Long/Short合計**: ロング側合計=+1.0、ショート側合計=-1.0（正規化後）
-- **特異Sigma_YY**: 特異行列入力でフォールバックが発動しNaNを出さないこと
-- **バスケット内1銘柄**: 1銘柄のみのバスケットでweight=1.0になること
-- **Omega_gap使用**: `production_v2.py`で`minvar_enabled=True`時に`Omega_gap`がweight構築に使用されること
-
-### 8. Macro Confidenceのテスト
-
-- **サプライズゼロ**: マクロサプライズが全てゼロの時、scale=1.0でシグナル無変化
-- **マクロデータ欠損**: yfinance取得失敗時に`macro_confidence_enabled=False`にフォールバック
-- **kappaスケーリング**: kappaが大きいほどシグナルが縮小されること
-- **方向保存**: スケーリング後にシグナルの符号（ロング/ショート判定）が変わらないこと
-
-## テストテンプレート
-
-```python
-import pytest
-import numpy as np
-import pandas as pd
-import copy
-
-# テスト対象のインポート
-# from src.leadlag.<module> import <function>
-
-
-class Test<FunctionName>:
-    """<関数名>のユニットテスト"""
-
-    def test_normal_case(self):
-        """正常系: 標準的な入力での出力検証"""
-        # 入力データの準備
-        # 期待値の計算
-        # assert で検証
-        pass
-
-    def test_boundary_min_periods(self):
-        """境界値: min_periods不足時の挙動"""
-        pass
-
-    def test_nan_input(self):
-        """異常系: NaNを含む入力"""
-        pass
-
-    def test_no_lookahead(self):
-        """不変条件: ルックアヘッドがないこと"""
-        # 当日行が統計計算に含まれないことを検証
-        pass
-
-    def test_baseline_period_isolation(self):
-        """不変条件: ベースライン期間が2010-2014固定"""
-        pass
-```
-
-## 実行手順
-
-1. 対象関数・クラスのコードを読み込み、入出力・副作用を把握
-2. 上記8観点に従いテストケースを設計
-3. `tests/unit/` または `tests/integration/` にテストファイルを作成
-4. `python3 -m pytest tests/<新規ファイル> -v` で個別実行し通過を確認
-5. `python3 -m pytest tests/ -v` で全体回帰を確認
-
-## 注意事項
-
-- **既存テストを弱めない**: 新規テスト追加時に既存テストの assertion を緩めない
-- **モックは最小限**: 実際のデータパスに近い形でテストする。モック多用はリーク検出漏れの原因
-- **フィクスチャの再利用**: `tests/conftest.py`, `tests/fixtures/` の既存フィクスチャを優先使用
-- **configのdeepcopy**: 比較実験のテストでは `copy.deepcopy` を使用しshallow copy問題を回避
+対象テストが通った後、AGENTS.md の全体回帰を実行する。既存 assertion・監査を緩めない。数値比較の許容誤差には根拠を置く。`pass` だけのテンプレート、実装の呼出確認だけのテスト、文言に一致するだけのテストを追加しない。文書・Skill のみの変更に戦略テストを新設しない。

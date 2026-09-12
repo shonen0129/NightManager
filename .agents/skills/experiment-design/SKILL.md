@@ -1,147 +1,33 @@
 ---
 name: experiment-design
-description: 戦略改善実験の設計・実行・判定を行う。仮説定義→過学習ガード設計→バックテスト→ウォークフォワード検証→採用/不採用判定までの全体フローを管理する。新シグナル追加・モデル変更・パラメータ調整時に必ず参照すること。
+description: シグナル・モデル・パラメータの性能比較実験を設計し、過学習補正とOOS検証で採否を判断する。
 ---
 
-# Experiment Design スキル
+# 戦略改善実験
 
-## 目的
+共通規約・配置・必須評価項目はルートの `AGENTS.md` に従う。以下のパスはリポジトリルート基準。
 
-日米リードラグ戦略の改善実験を、過学習リスクを管理しながら体系的に設計・実行・判定する。
+## 実験前に固定するもの
 
-## 前提
+- 仮説、解決する問題、変更箇所、baseline、比較対象の設定、期待効果、採用・不採用・保留の基準。
+- 同じデータ版・期間・対象銘柄・コスト・執行条件。対象期間終了日を固定し、将来の未到来データや未完了年を完全な OOS 区間として数えない。
+- 試行予算と候補群。既存 registry・`docs/experiment_graveyard.md`・関連 `reports/` を検索し、未登録の過去試行も数える。コード本数を独立試行数と同一視しない。不明分は推定根拠と範囲を記録する。
+- 新パラメータには有効範囲内の±摂動を計画する。0.8x / 1.0x / 1.2x は例であり、ゼロ・負値・離散パラメータには適した近傍を選ぶ。
 
-- `AGENTS.md` の不変条件（ルックアヘッド禁止・ベースライン分離・市場中立・ティッカー定義）を遵守
-- `AGENTS.md` の「改善ワークフロー」および「過学習ガード」を前提とする
-- 実験コードは本番パス（`src/leadlag/`）に入れず `src/research/scripts/experiments/`・`src/research/experiments/` に配置
-- 本スキルは AGENTS.md に記載のない実行手順の詳細を補完する
+## ウォークフォワードと統計評価
 
-## 実験ライフサイクル
+- 各評価日より前に利用可能なデータだけで学習・選択・前処理を行う。ラベル確定時刻と予測ホライズンから purge / embargo を設計する。過去例の「61日 / 5日」を一律に適用しない。
+- 利用可能な OOS 区間数、各区間の観測数、train / validation / test の境界を明記する。OOS を見て調整した結果は新たな未使用 OOS として扱わない。
+- 同じ日付の baseline / experiment を対にして比較する。日次系列の自己相関・保有期間の重複を考慮した推定方法を選ぶ（例: 対応を保った block bootstrap）。リサンプリング回数・block 長・seed・信頼区間を残す。
+- 平均リターン差の t 検定だけで Sharpe 改善を証明しない。`0.5 SE ≈ 0.01` や単一の p 値を普遍的な採用基準にしない。経済的改善幅、OOS の一貫性、DD・コスト・フォールバックの悪化も評価する。
+- 新パラメータ追加時は DSR を報告する。Sharpe の日次/年率、観測数、歪度・尖度、試行数・試行間分散の定義を揃え、既存 helper の前提も検証する。計算不能なら理由を記し、補正済みと主張しない。採用に必要な補正を確認できない場合は採用を保留する。明確な別の棄却理由があれば不採用と記録できる。
 
-```
-1. 仮説定義 → 2. 過学習ガード設計 → 3. 実験スクリプト作成 → 4. バックテスト → 5. ウォークフォワード検証 → 6. 判定 → 7. 記録
-```
+## 実行と記録
 
-### Step 1: 仮説定義
-
-以下を明文化する。曖昧な仮説は実験の無駄遣いの原因になる:
-
-- **解決する問題**: 現状の何が不足しているか（具体的数据・観測に基づく）
-- **提案する変更**: どの関数・パラメータ・構造を変更するか
-- **期待される効果**: どの指標がどれくらい改善するか（事前予測）
-- **新パラメータ有無**: パラメータを追加する場合は過学習リスクが増大する旨を明記
-
-### Step 2: 過学習ガード設計（必須）
-
-`AGENTS.md` の過学習ガード要件を具体化する:
-
-1. **試行回数カウント**: 過去の実験数（`git tag archive-2026-08` の `archive/experiments/` 約30本 + `reports/` 配下の実験）を確認し、累積試行数を n_trials に設定
-2. **パラメータ±摂動感度分析**: 新パラメータ追加時は ±20% 摂動（最低3水準: 0.8x / 1.0x / 1.2x）で Sharpe 変動を測定
-3. **Deflated Sharpe Ratio**: Bailey & López de Prado (2014) により試行回数補正後の有意性を確認。閾値 DSR ≥ 0.95
-4. **ウォークフォワード計画**: 年次ロール（2015-2026、12区間）で OOS 検証。purge=61日、embargo=5日
-
-### Step 3: 実験スクリプト作成
-
-- **配置**: `src/research/scripts/experiments/experiment_<name>.py`
-- **実験用モジュール**: `src/research/experiments/<name>.py`（本番パス汚染回避）
-- **config操作**: `copy.deepcopy(base_cfg)` を使用。`base_cfg.copy()` はネストdictの共有参照バグを引き起こす（AGENTS.md「config dictのshallow copy」参照）
-- **タイムアウト**: 長時間実行を避けるため `python3 -c "..."` のインライン実行は禁止。スクリプトファイル経由で実行
-
-### Step 4: バックテスト
-
-`BacktestEngine.run_v2_backtest()`（`src/leadlag/execution/backtester.py`）を使用。V2 バックテストの具体例は `src/research/scripts/experiments/_template.py` を参照。
-
-- **開始日**: 2015-01-05 以降（ベースライン期間 2010-2014 を分離）
-- **コスト**: 片道5bps + 金利・貸株・逆日歩を含む net で評価
-- **評価指標**: net Sharpe・最大DD・ターンオーバー・フォールバック発動率（`AGENTS.md` 評価指標約束事）
-
-### Step 5: ウォークフォワード検証
-
-先例: `src/research/scripts/experiments/experiment_a7_walkforward_dsr.py`
-
-- **区間**: 2015-2026の年次ロール（12区間）
-- **purge**: 61日（相関窓60 + 1日）、**embargo**: 5日
-- **判定基準**:
-  - 全区間で Sharpe > 0（負の区間が2個以内）
-  - ベースライン対比で勝率 ≥ 8/12
-  - 感度分析: ±20%摂動で Sharpe 変動 < 20%
-
-### Step 6: 採用/不採用判定
-
-#### 採用基準（すべて満たす必要あり）
-
-1. Pooled net Sharpe が ベースラインを有意に上回る（改善幅 > 0.5 SE ≈ 0.01）
-2. ウォークフォワード勝率 ≥ 8/12
-3. DSR ≥ 0.95（試行回数補正後）
-4. ±20% パラメータ摂動で Sharpe 変動 < 20%
-5. フォールバック発動率が悪化しない
-6. ターンオーバーが大幅に増加しない
-
-#### 不採用の理由（いずれか該当）
-
-- 改善幅が ノイズマージン内（+1% 未満等）
-- ウォークフォワードでベースラインに負ける区間が多い
-- 既存の正則化が十分に機能しており追加が冗長
-- 構造的欠陥がありチューニングで埋められない
-
-### Step 7: 記録
-
-#### レポート
-
-`reports/<experiment_name>/` に以下のフォーマットで保存（`/backtest-report` スキルと整合）:
-
-```markdown
-# <実験名>: Walk-Forward Validation Report
-
-**Date**: YYYY-MM-DD
-**Experiment**: <短い説明>
-**References**: <論文・文献>
-**Status**: **Adopted** / **Not adopted** — <理由>
-
----
-
-## 1. Hypothesis
-<解決する問題・提案する変更・期待される効果>
-
-## 2. Methods
-<実装内容・バリアント・検証フレームワーク>
-
-## 3. Results
-### 3.1 Pooled Performance
-### 3.2 Walk-Forward Yearly Results
-### 3.3 Deflated Sharpe Ratio
-### 3.4 Sensitivity Analysis
-
-## 4. Analysis
-<なぜ採用/不採用か。構造的理由・数値的根拠>
-
-## 5. Conclusion
-<最終判定と理由>
-
-## 6. Files
-<実験コード・データ・プロットのパス>
-```
-
-#### 不採用実験のクリーンアップ（必須）
-
-不採用の場合、**レポート以外のコード・データを破棄**する:
-
-1. **レポートは残す**: `reports/<experiment_name>/` の markdown・CSV はそのまま保持（再検証防止用）
-2. **実験コードを破棄**: `src/research/scripts/experiments/experiment_<name>.py`・`src/research/experiments/<name>.py` を削除
-3. **本番パスの実験フックを削除**: `src/leadlag/` に追加した config オプション・関数・フラグがあれば元に戻す
-4. **出力データを破棄**: `outputs/experiments/<name>/` 配下の中間データ・プロットは削除
-5. **AGENTS.md に追記**: 「不採用実験の記録」セクションに1行サマリーを追記:
-
-```markdown
-- **<実験名>**（YYYY-MMM）: <1行サマリー>。理由: <構造的理由>。コードは破棄済み
-```
-
-レポートのみが再検証防止の証跡として残る。採用実験は `leadlag-fund-improvement` スキルの「採用実験の記録」に追記する。
-
-## 注意事項
-
-- **「Sharpe改善なし」の結論も価値がある**: 不採用実験も必ずレポート化し、再検証を防ぐ。ただしコードは破棄しレポートのみ残す
-- **configのshallow copy禁止**: `base_cfg.copy()` はネストdictの共有参照バグを引き起こす。`copy.deepcopy` を使用
-- **実験コードは本番パスに置かない**: `src/leadlag/` に実験コードを直接入れない
-- **シャドー運用**: 採用判定後、`tools/validation/monitor_residual_blpx_shadow_performance.py` でライブ整合性を確認してから本番昇格
-- **既存実験の確認**: 新規実験前に `git tag archive-2026-08` の `archive/experiments/` と `reports/` で同一仮説の過去実験がないか確認する
+1. 研究用の独立した設定コピーと再現可能なスクリプトを作る。V2 の引数例は `src/research/scripts/experiments/_template.py` を参照できるが、gap パスと集計定義は有効設定・AGENTS.md に合わせる。
+2. 境界条件・非リークを検証してから、期限付きで V2 バックテストと OOS 検証を実行する。
+3. 試した設定ごとに `ExperimentRecord` / `ExperimentRegistry` を記録する。研究側の窓口は `src/research/experiment_registry.py`、補助関数は `src/research/experiment_utils.py::record_backtest_experiment`。自動集計がフラット日を除いていないか確認し、必要なら全評価日から算出した指標を `extra_metrics` に明示する。
+   同 helper は `trials` を同名レコード数で上書きする。累積試行数を正しく残す必要がある場合は `ExperimentRecord` / `ExperimentRegistry` へ直接記録し、helper の DSR を無条件に採用しない。
+4. `backtest-report` で仮説・設定差分・期間・データ版・実行コマンド・全試行・統計手法・結果・判定を残す。証拠不足は保留とする。
+5. 不採用索引を `docs/experiment_graveyard.md` に追記する。再現用コード・設定・成果物参照は保持し、不要な中間データの整理は別途その範囲が明確な場合に行う。本番への実験フックは依頼範囲の自分の変更を特定して戻し、他の作業を巻き戻さない。
+6. 研究上の採用後、本番昇格が依頼範囲なら `leadlag-fund-improvement` の shadow・昇格手順へ進む。

@@ -1,153 +1,30 @@
 ---
 name: hang-prevention
-description: CLI実行中のスタック（ハング）を防止・診断する。既知の5パターン（auto-close無限待機・yfinanceハング・fcntlロック競合・API再試行バックオフ・注文フィル確認待ち）のタイムアウトガード実装・ハング診断を行う。docs/スタック再発防止策.mdのP1-P9対策に対応。CLI実行・長時間プロセス実行時に必ず参照すること。
+description: 長時間CLIの停止期限を設けるときや、ハング・ロック・再試行待ちの診断と対策に使う。
 ---
 
-# Hang Prevention スキル
+# ハング防止と診断
 
-## 目的
+実行規約はルートの `AGENTS.md` に従う。既存のハングを診断・復旧するときは `docs/スタック再発防止策.md` の該当パターンを読む。停止期限を付けて実行するだけなら以下の「実行前」を使う。以下のパスはリポジトリルート基準。
 
-CLI実行中のプロセス停止（ハング）を防止し、発生時には迅速に診断・復旧する。
+## 実行前
 
-## 既知の5パターン
+- ジョブ全体の期限と終了猶予を決める。`timeout` / `gtimeout` の有無を確認し、利用可能なら `timeout -k 10s 30m <command>` のように使う（時間は作業に合わせる）。
+- コマンドがなければ、スクリプトで `subprocess.Popen(..., start_new_session=True)` → `wait(timeout=...)` → 期限超過時に対象プロセスグループへ TERM → 猶予後 KILL → 回収する。並列テストの子プロセスも対象にする。インライン Python は使わない。
+- ツールの yield / 出力待ち時間や pytest の1テストごとの `--timeout` は、ジョブ全体の停止期限を代替しない。
+- ネットワークや broker 起動確認は、その経路が実際に使用するものだけを確認する。オフラインテストや文書検証で broker を起動しない。
+- 日次実行を扱う場合は、decision の長時間待機と別ジョブの close が重複しないよう、実際のバッチ・スケジューラ設定を確認する。
 
-### パターンA: `wait_and_auto_close` の無限待機
+## コード変更時
 
-- **場所**: `src/leadlag/execution/close.py:298-306`
-- **原因**: `while True` + `time.sleep(300)` で14:50まで待機。launchd/cronから見ると停止しているように見える
-- **対策 P1**: `--auto-close` フラグを削除し、close を別プロセス（`com.leadlag.close.plist`）に分離
-- **対策 P5**: ハートビートログを追加（スリープ前後にログ出力）
+- 既定値は `src/leadlag/core/timeouts.py`、既存の待機ラッパーは `src/leadlag/utils/threading.py::run_with_timeout` を確認して再利用する。
+- このラッパーは呼び出し側の待機を打ち切るが、実行中の daemon thread はキャンセルしない。注文・書き込み・再試行には処理完了の照合が別途必要。
+- `ThreadPoolExecutor` の with ブロックは終了時に worker を待つため、`future.result(timeout=...)` だけではプロセス停止期限にならない。処理の強制停止が必要なら隔離した subprocess を使う。
+- ネットワーク1回の期限、再試行回数、各 backoff、総期限を分ける。各 sleep に上限を設けても総期限の保証にはならない。
+- ロック待ちは保持プロセス・対象ファイルを確認する。ファイルの存在だけでロック保持とは判断しない。経過時間の計測は monotonic clock を使い、SQLite の接続期限や busy timeout も確認する。
 
-### パターンB: yfinance ダウンロードのハング
+## 復旧と検証
 
-- **場所**: `src/leadlag/data/fetcher.py:237-248`, `src/leadlag/broker/tachibana/client.py:206-223`
-- **原因**: `yf.download()` にタイムアウトが未設定。Yahoo Finance側のレート制限・メンテナンス時に無限待機
-- **対策 P2**: `signal.alarm` または `ThreadPoolExecutor` + `future.result(timeout=60)` で60秒タイムアウト
-- **対策 P7**: Tachibana broker の yfinance 依存をローカルキャッシュに切り替え
+停止箇所の証拠取得、注文状態の照合、必要な復旧は参照文書に従う。原因調査だけの依頼で本番プロセスの停止や再送へ進まない。停止が必要な場合も、自分が起動した処理または依頼で停止対象とされた処理だけを扱う。一律の `kill -9`、lock 一括削除、API 有効での無条件再実行は行わない。
 
-### パターンC: ファイルロックの競合
-
-- **場所**: `src/leadlag/data/cache.py:136-147`
-- **原因**: `fcntl.flock(LOCK_EX)` がブロッキングモード。前回プロセスのクラッシュでロックファイルが残存すると次回がハング
-- **対策 P3**: `exclusive_lock` にタイムアウト引数を追加（デフォルト30秒）。タイムアウト時は `LockTimeoutError` を送出
-
-### パターンD: API再試行の指数バックオフ
-
-- **場所**: `src/leadlag/broker/kabu/api.py:268-311`
-- **原因**: `backoff_factor * (2**attempt)` でスリープ時間が無限増大。`max_retries` 回まで繰り返す
-- **対策 P4**: `min(backoff_factor * (2**attempt), max_sleep)` を適用（`max_sleep=10`）
-
-### パターンE: 注文後のフィル確認待ち
-
-- **場所**: `src/leadlag/execution/helpers.py:806`
-- **原因**: 注文送信後の `time.sleep(wait_seconds)` が長い場合、停止しているように見える
-- **対策 P5**: ハートビートログを追加
-
-## ハング診断のフィードバックループ
-
-ハングが発生した際は、以下の診断サイクルを回す（`debugging` スキルのデバッグ手順に対応）。
-
-1. **フィードバックループの構築**: ハングを再現する最小コマンドを特定。再現時間を短縮する（timeout 付き実行、テストケース化）
-2. **再現と最小化**: トリガーになるファイル・関数・入力を絞り込む。一度の実行で再現できる形にする
-3. **仮説**: 既知の5パターン（A-E）のうち該当するものを推定。該当しない場合は新パターンを仮定
-4. **計測**: ハートビートログ・strace・プロセス監視を追加し、どこで停止しているか特定
-5. **修正と回帰テスト**: タイムアウト・ロック・バックオフ等の対策を実装し、ハングが再現しないことを確認
-6. **事後分析**: `docs/スタック再発防止策.md` と本スキルに新パターン・対策を追記
-
-## 対策優先度マトリクス
-
-| 対策 | 影響度 | 難易度 | 優先度 | 対象 |
-|------|--------|--------|--------|------|
-| P1: auto-close分離 | 高 | 低 | **即座** | A |
-| P2: yfinanceタイムアウト | 高 | 中 | **即座** | B |
-| P3: ロックタイムアウト | 中 | 低 | **即座** | C |
-| P4: API再試行上限 | 中 | 低 | **即座** | D |
-| P5: ハートビートログ | 低 | 低 | 中期 | A, E |
-| P6: シグナルハンドラ | 中 | 中 | 中期 | 全般 |
-| P7: yfinance依存除去 | 中 | 高 | 中期 | B |
-| P8: プロセス監視 | 低 | 中 | 長期 | 全般 |
-| P9: 自動ダンプ | 低 | 中 | 長期 | 全般 |
-
-## 実行前チェックリスト
-
-CLI実行前に以下を確認:
-
-- [ ] **broker API起動確認**: kabuステーション または 立花証券アプリが起動しているか
-- [ ] **`--auto-close` 未使用確認**: decision実行に `--auto-close` が付いていないか
-- [ ] **前回プロセス残存確認**: `ps aux | grep leadlag` で前回プロセスが残っていないか
-- [ ] **ロックファイル確認**: `results/.cache/*.lock` に古いロックファイルが残っていないか
-- [ ] **ネットワーク確認**: Yahoo Finance / Google Finance に到達可能か
-- [ ] **V2 config 確認**: `configs/production/production.yaml` が存在し、`gap_distribution.dir` が有効なパスを指しているか
-
-## ハング発生時の復旧手順
-
-```bash
-# 1. プロセス確認・強制終了
-ps aux | grep leadlag
-kill -9 <PID>
-
-# 2. ロックファイル削除
-rm -f results/.cache/*.lock
-
-# 3. ログ確認
-tail -50 logs/decision_*.log
-
-# 4. 手動再実行（V2 decision）
-PYTHONPATH=src .venv-mac/bin/python -m leadlag.cli decision \
-    --api-enable --capital-from-wallet --text-output
-```
-
-## タイムアウト実装パターン
-
-### yfinanceタイムアウト（P2）
-
-```python
-import concurrent.futures
-
-def download_with_timeout(tickers, start, end, timeout=60):
-    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-        future = executor.submit(yf.download, tickers, start=start, end=end, auto_adjust=False)
-        try:
-            return future.result(timeout=timeout)
-        except concurrent.futures.TimeoutExpired:
-            logger.error("yfinance download timed out after %ds", timeout)
-            raise
-```
-
-### ファイルロックタイムアウト（P3）
-
-```python
-import fcntl
-import time
-
-@contextlib.contextmanager
-def exclusive_lock(lock_path: str, timeout: float = 30.0):
-    with open(lock_path, "a+b") as lock_file:
-        deadline = time.time() + timeout
-        while True:
-            try:
-                fcntl.flock(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                break
-            except BlockingIOError:
-                if time.time() >= deadline:
-                    raise TimeoutError(f"Lock acquisition timed out after {timeout}s: {lock_path}")
-                time.sleep(0.5)
-        try:
-            yield
-        finally:
-            fcntl.flock(lock_file, fcntl.LOCK_UN)
-```
-
-### API再試行上限（P4）
-
-```python
-max_sleep = 10  # seconds
-wait_time = min(backoff_factor * (2 ** attempt), max_sleep)
-time.sleep(wait_time)
-```
-
-## 注意事項
-
-- **長時間実行はタイムアウト付きで**: launchd/cron の `TimeoutSeconds` または外部 watchdog を設定
-- **詳細は `docs/スタック再発防止策.md` を参照**: 本スキルは同ドキュメントのサマリー+実装ガイド
-- **P1は運用対応**: コード変更不要。バッチスクリプトから `--auto-close` を削除するだけ
+タイムアウト変更では、実ネットワーク・実注文を使わずに、処理が返らないケース、期限前完了、例外伝播、子プロセス回収を検証する。参考テストは `tests/unit/test_run_with_timeout.py` / `tests/unit/test_timeouts.py`。実行したガード・期限・終了コード・残存プロセス確認を報告する。

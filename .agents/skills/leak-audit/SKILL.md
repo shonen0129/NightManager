@@ -1,106 +1,38 @@
 ---
 name: leak-audit
-description: ComplianceAuditorの監査項目を実行・解釈・修正する。ルックアヘッドリーク防止・残余化チェック・アンサンブル重み検証・暴露制限検証・コスト整合性検証を体系的に扱う。モデル変更・シグナル追加・フォールバック階層修正時に必ず参照すること。
+description: 時系列計算・PIT・監査・フォールバックの変更検証、リーク疑い、監査失敗の調査に使う。
 ---
 
-# Leak Audit スキル
+# リーク・制約監査
 
-## 目的
+不変条件と本番の失敗時方針はルートの `AGENTS.md` を参照する。以下のパスはリポジトリルート基準。
 
-`ComplianceAuditor`（`src/leadlag/compliance/auditor.py`）および v2 監査関数（`src/leadlag/compliance/v2_auditor.py`）の監査項目を実行・解釈・修正し、ルックアヘッドリークを未然に防ぐ。
+## 実装と監査の対応
 
-## 監査モジュール構成
+| 対象 | 入口・確認事項 |
+|---|---|
+| 汎用監査 | `src/leadlag/compliance/auditor.py::ComplianceAuditor.run_audit`。model の audit context と results の必須キーを確認する |
+| V2 日付/PIT | `src/leadlag/compliance/v2_auditor.py::run_leakage_audit`。実際に用いた signal date / trade date / PIT 履歴日付を渡す |
+| V2 数値 | 同ファイルの `run_numerical_audit`。有限性、net/gross、共分散の対称性・半正定値性（PSD）を確認する |
+| 分布取得 | `src/leadlag/models/v2/fallback_policy.py` / `distribution_source.py`。cache / on-demand / flat の条件を追う |
+| 結果処理 | `src/leadlag/models/v2/audit_comparator.py` と呼び出し元。監査失敗後のウェイトと発注可否を追う |
 
-### ComplianceAuditor（`auditor.py`）
+監査に存在しない関数名や検査項目を実施済みと書かない。日付の前後関係だけでは統計窓・残余化・データ公表時刻の非リークを証明できない。`pit_history_trade_dates=None` のようにチェックが実質省略される入力も確認する。
 
-`run_audit()` は以下5カテゴリの監査を実行:
+## 検証観点
 
-1. **リークチェック / 時系列検証**
-   - `no_lookahead_detected`: `sig_date < trade_date` の全行検証
-   - `signal_date_lt_trade_date`: 同上の別名
-   - `us_beta_uses_t_minus_1_window`: US残余化ベータ窓がt-1基準
-   - `jp_beta_uses_t_minus_1_window`: JP残余化ベータ窓がt-1基準
-   - **copula窓の当日行除外**: t-copula推定に使用するローリング窓が当日行を含んでいないか（`correlation.py::estimate_t_copula`）。copula相関とPearson相関のブレンドも同様
-   - **macro surpriseのlook-ahead**: `compute_macro_surprise`のローリング平均・ボラティリティ計算が当日行を含んでいないか（`macro.py`）
+対象の計算・失敗経路に当てはまる観点を選ぶ。参照だけの変更で全モデルの監査へ広げない。
 
-2. **残余化入力チェック**
-   - `p4_uses_us_residualized_input`: P4シグナルがUS残余化リターンを使用
-   - `p4_uses_jp_topix_residual_target`: P4のJPターゲットがP3残余化と一致
-   - `gamma_zero_matches_raw_us`: gamma=0時にraw USリターンと一致
-   - `gamma_one_matches_full_residual_us`: gamma=1時に完全残余化と一致
+1. 変更対象の入力がいつ確定するか、`df_exec` の当日ターゲットとどう分離されるかを整理する。
+2. 相関・beta・PIT 閾値・macro surprise・copula・学習済み overlay の実際のデータ窓を追跡する。2010–2014 の事前分布と評価期間の混入を調べる。
+3. 予測時点で未知の当日ターゲット・未来行を摂動しても当日出力が変わらないことを確認する。当日既知の US リターンや gap はこの摂動対象から区別する。
+4. cache と on-demand の日付・モデル設定・銘柄順・入力期間を照合する。前日 cache の流用を検出し、on-demand の成功・無効・入力不足・例外を別々に検証する。
+5. 数値監査失敗時のフラット化と、リーク監査失敗時の下流処理を別々に追う。現行 `_run_safety_audits` は数値 FAILED + `fallback_on_audit_failure=true` でフラット化する。リーク FAILED も同じ条件で自動フラット化すると仮定しない。
+6. フラットになっても scores / 共分散の不正は残り得るため、再監査結果・alerts・実際の発注停止を確認する。`FLAT` は非稼働の状態であり、通常計算の全監査 PASS として数えない。
+7. モデルウェイトと実効レバレッジの制約、gross − costs = net を照合する。汎用監査の許容誤差や既定値を本番リスク上限に置き換えない。
 
-3. **アンサンブル重みチェック**
-   - `ensemble_weights_sum_to_one`: 全シグナル重みの和が1.0
+## 実行・報告
 
-4. **シグナル品質 / 暴露チェック**
-   - `no_nan_inf_in_signals`: シグナルにNaN/Infがない
-   - `no_nan_inf_in_weights`: ウェイトにNaN/Infがない
-   - `net_exposure_within_limit`: net exposure ≤ 0.051
-   - `gross_exposure_within_limit`: gross exposure ≤ 2.01
+関連テストは `tests/integration/test_leakage_audit.py`、`tests/integration/test_production_residual_blpx.py` と変更箇所の unit test。期限と全体回帰は AGENTS.md に従う。
 
-5. **コスト整合性**
-   - `cost_consistency_passed`: gross - costs = net が全行で一致
-
-### v2 監査関数（`v2_auditor.py`）
-
-- **`run_leakage_audit(sig_date, trade_date)`**: シグナル日が取引日より厳密に過去であることを検証
-- **`run_numerical_audit(w, scores, Omega)`**: ウェイト・スコアの有限性、net exposure ≒ 0、共分散行列の正定値性・対称性を検証
-- **MinVar weight検証**（minvar_enabled時）: `build_weights_minvar`の出力が有限、Long/Short合計が±baseline_gross/2にスケール後一致、全ゼロweightでないことを確認
-
-## 監査の実行方法
-
-### バックテスト時
-
-```python
-from leadlag.compliance.auditor import ComplianceAuditor
-
-audit_res = ComplianceAuditor.run_audit(
-    model=model,
-    df_exec=df_exec,
-    results=results,  # BacktestEngine.run_backtest() の戻り値
-    output_dir="results/backtest_output",
-)
-```
-
-### v2日次実行時
-
-```python
-from leadlag.compliance.v2_auditor import run_leakage_audit, run_numerical_audit
-
-leakage = run_leakage_audit(signal_date_str, trade_date_str)
-numerical = run_numerical_audit(w_final, scores, Omega_gap)
-```
-
-### テスト経由
-
-```bash
-python3 -m pytest tests/integration/test_leakage_audit.py -v
-python3 -m pytest tests/integration/test_production_residual_blpx.py -v
-```
-
-## 監査失敗時の対応
-
-### FAIL が検出された場合
-
-1. **`no_lookahead_detected = False`**: Critical。シグナル日 ≥ 取引日の行が存在。相関窓・PITビニングの当日行混入を疑う。`signal.py` の `all_returns[window_start:current_index]` を確認
-2. **`net_exposure_within_limit = False`**: Critical。ポートフォリオ制約違反。`portfolio.py::adjust_gross_exposure()` と `risk.py` のロジックを確認
-3. **`no_nan_inf_in_signals = False`**: Critical。シグナル計算の数値崩壊。入力データの欠損・ゼロ除算を疑う
-4. **`cost_consistency_passed = False`**: Warning。コスト計算の不整合。`backtester.py` のコスト計算ロジックを確認
-5. **`ensemble_weights_sum_to_one = False`**: Warning。config の重み設定ミス
-
-### v2監査失敗時
-
-- `run_numerical_audit` が FAILED の場合、`fallback_on_audit_failure=True` ならフラットポジション（w_final=0）にフォールバック（`production_v2.py` の numerical audit 判定部）
-- `fallback_on_audit_failure=False` の場合は v2 ウェイトを保持し alerts に記録
-
-## 出力ファイル
-
-- `audit.json`: 全監査項目の PASS/FAIL
-- `audit/<check_name>.csv`: 各項目の個別CSV
-- `audit_summary.csv`: 監査サマリー（check_name, status, explanation, recommended_fix）
-
-## 注意事項
-
-- **監査項目を無効化しない**: `ComplianceAuditor` の監査ロジックをスキップ・緩める変更は禁止
-- **監査項目の追加は可能**: 新しい不変条件が生まれた場合は `run_audit()` に項目を追加する（ただし既存項目は維持）
-- **`AuditContext` の正確性**: `model.get_audit_context()` が返す `AuditContext`（`src/leadlag/models/base.py`）の値が実際のモデル設定と一致していることを確認
+出力は実際の監査 artifacts と、対象経路・入力日付・失敗条件・再現方法を示す。汎用監査と V2 監査の対応、未確認範囲を明記する。レビューのみの依頼では修正案を提示し、修正も依頼されていれば必要な回帰を伴って直す。監査スキップや期待値の緩和で PASS にしない。

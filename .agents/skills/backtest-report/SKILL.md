@@ -1,152 +1,37 @@
 ---
 name: backtest-report
-description: バックテスト結果をAGENTS.mdの約束事に沿った標準markdownレポートとして生成する。net Sharpe・最大DD・ターンオーバー・フォールバック発動率・コスト内訳を含む。reports/<sprint名>/ 配下に既存形式で保存する。バックテスト実行後に必ず参照すること。
+description: V2バックテストの実行結果・既存成果物から、コストと検証範囲を追跡できるレポートを作る。
 ---
 
-# Backtest Report スキル
+# バックテストレポート
 
-## 目的
+共通の評価規約と保存先はルートの `AGENTS.md` に従う。以下のパスはリポジトリルート基準。既存結果の報告依頼だけなら、再実行は必要な場合に限る。
 
-バックテスト結果を `AGENTS.md` の評価指標約束事に沿った標準フォーマットでレポート化し、`reports/<sprint名>/` に保存する。
+## 入力と集計
 
-## 評価指標の約束事（AGENTS.mdより）
+`BacktestEngine.run_v2_backtest()` の結果と有効設定を読み、実際のキー・日付インデックスを確認する。
 
-- **主指標**: net Sharpe（コスト後）、最大DD、ターンオーバー、フォールバック発動率
-- **gross/net 両方を報告**: コスト内訳（slippage / financing / borrow / reverse）を分解
-- **「Sharpe改善なし」の結論も価値**: 不採用の実験も必ずレポート化して二重検証を防ぐ
+| 内容 | 結果キー |
+|---|---|
+| net / gross リターン | `daily_returns` / `daily_returns_gross` |
+| 総コスト | `daily_costs` |
+| コスト4内訳 | `daily_slip_costs` / `daily_financing_costs` / `daily_borrow_costs` / `daily_reverse_costs` |
+| ターンオーバー / グロス | `daily_turnover` / `daily_gross_exps` |
+| フォールバック・日次要約 | `daily_fallback` / `v2_summaries` |
 
-## レポートフォーマット
+- 主評価の Sharpe・DD・turnover はフラット日を含む同一評価営業日で算出する。空系列、NaN/Inf、ゼロ分散は明記し、都合のよい日だけを除かない。
+- 年率化係数、DD の資産曲線定義、turnover の片道/往復、コストの単位と日次平均/期間合計を明記する。`gross - costs = net` と内訳合計を日次で照合する。
+- `daily_fallback` は実装が集計するフラット化理由を確認して使う。on-demand 成功率、終端フラット率（gap不足 / 監査失敗）、PIT multiplier 適用率は別物。利用経路のログがなければ「未取得」とする。
+- 既存テンプレートや `src/research/experiment_utils.py` の自動値を無検証で転記しない。稼働日限定の成績は補助指標と明示する。
 
-```markdown
-# <Sprint名> レポート
+## レポートに含める内容
 
-> 作成日: YYYY-MM-DD
-> モデル: <モデル名>
-> Config: <configパス>
-> 期間: <start_date> 〜 <end_date>
+1. **再現情報**: 作成日、仮説、モデル/コード版、有効 config と差分、データ版・gap 生成条件、評価期間、実行コマンド、seed、成果物パス。
+2. **結果表**: net/gross Sharpe、最大DD、turnover、フォールバック率。比較実験は baseline / experiment / 差分を同じ定義で並べる。
+3. **コスト表**: slippage / financing / borrow / reverse と合計。overnight 保有・暦日課金・実効レバレッジも明記する。
+4. **運用・シグナル診断**: モデル/実効 exposure、フラット理由、PIT 履歴不足、必要に応じ IC と実約定との差。
+5. **監査結果**: 実際の出力に従い PASSED / FAILED / FLAT / 未実施を区別し、対象と失敗項目を残す。汎用 `ComplianceAuditor` の未実施を V2 監査の PASS で代替しない。
+6. **過学習評価**: 比較実験では OOS 区間別成績、試行数、推定手法と不確実性。新パラメータ追加時の感度分析と DSR は必須。詳細手順は `experiment-design`。報告のためだけに新しいパラメータスイープを追加しない。
+7. **判定・限界**: 採用 / 不採用 / 保留と根拠、未取得の情報、未実施の検証、本番反映の有無。
 
-## 概要
-
-<実験の目的・仮説を1-2文で>
-
-## 結果サマリー
-
-| 指標 | Baseline | Experiment | 差分 |
-|------|----------|------------|------|
-| Net Sharpe (annualized) | x.xxx | x.xxx | ±x.xxx |
-| Gross Sharpe | x.xxx | x.xxx | ±x.xxx |
-| Max Drawdown | x.x% | x.x% | ±x.x% |
-| Turnover (daily avg) | x.xx | x.xx | ±x.xx |
-| Fallback rate | x.x% | x.x% | ±x.x% |
-
-## コスト内訳
-
-| 項目 | Baseline | Experiment |
-|------|----------|------------|
-| Slippage (bps) | x.xx | x.xx |
-| Financing | x.xx | x.xx |
-| Borrow | x.xx | x.xx |
-| Reverse | x.xx | x.xx |
-| **Total cost** | **x.xx** | **x.xx** |
-
-## 詳細分析
-
-### シグナル品質
-- IC (rank): x.xxx
-- IC decay: <あれば>
-
-### ポートフォリオ統計
-- Average gross exposure: x.xx
-- Average net exposure: x.xxx
-- Long/Short balance: <特徴>
-
-### フォールバック分析
-（V1フォールバックは2026-07に廃止。現行はフラットポジション w_final=0 のみ）
-- フラットポジション発動率: x.x%（gapデータ欠損 / 監査失敗の内訳）
-- PIT履歴不足による fallback_multiplier 適用率: x.x%
-- フォールバック要因: <理由>
-
-## 監査結果
-
-- ComplianceAuditor: PASS / FAIL (<失敗項目があれば列挙>)
-- Leakage audit: PASS / FAIL
-- Numerical audit: PASS / FAIL
-
-## 過学習ガード
-
-- パラメータ数: <追加した場合は感度分析結果>
-- Walk-forward OOS Sharpe: <実施した場合>
-- Deflated Sharpe: <試行回数補正>
-
-## 統計的有意性検定（比較実験時必須）
-
-baseline と experiment の日次リターンを比較し、改善が統計的に有意か検証する。
-
-### 検定項目
-
-1. **Paired t-test**: 日次リターンの差の有意性
-   - `scipy.stats.ttest_rel(exp_returns, base_returns)`
-   - p < 0.05 で有意差あり
-   - 勝率（experiment > baseline の日数割合）も報告
-
-2. **Bootstrap Sharpe差の信頼区間**: Sharpe比の差の分布をブートストラップで推定
-   - 5000回リサンプリング、2.5%–97.5%パーセンタイルでCI
-   - CIが0を含まなければ有意
-   - `P(delta > 0)` も報告
-
-3. **パラメータスイープ**: 複数configで一括比較
-   - `src/research/scripts/blpx/experiment_copula.py --sweep` を参考
-   - 比較表: Label, Sharpe, ΔSharpe, AR%, ΔAR%, MDD%, ΔMDD%, Time
-
-### 検定結果の記載形式
-
-```markdown
-### 統計検定
-
-| 検定 | 結果 | 判定 |
-|------|------|------|
-| Paired t-test | t=x.xx, p=x.xxx | 有意/非有意 |
-| Win days | xxxx/xxxx (xx.x%) | — |
-| Bootstrap Sharpe差 | x.xxx, CI=[x.xxx, x.xxx] | 有意/非有意 |
-| P(delta>0) | xx.x% | — |
-```
-
-### 解釈の注意
-
-- **日次リターンのt-testが有意でもSharpe差のCIが0を含む場合がある**: リターン向上と同時にボラティリティも増加している可能性
-- **copula単体で非有意でもMinVarと組み合わせで相乗効果が出る場合がある**: 単独効果と組み合わせ効果を別々に評価する
-
-## 結論
-
-- **採用 / 不採用**: <理由>
-- **次ステップ**: <あれば>
-
-## 付録
-
-- バックテスト実行コマンド
-- Config diff (baseline vs experiment)
-```
-
-## 実行手順
-
-1. **バックテスト実行**: `BacktestEngine.run_backtest()` または CLI で結果を取得
-2. **指標抽出**: 結果 dict から net/gross Sharpe、最大DD、ターンオーバー、フォールバック率を計算
-3. **コスト分解**: `daily_costs` を slippage / financing / borrow / reverse に分解
-4. **監査結果確認**: `ComplianceAuditor.run_audit()` の結果を記載
-5. **レポート生成**: 上記フォーマットで markdown を生成
-6. **保存**: `reports/<sprint名>/` 配下に保存（既存 sprint0–3b の形式に倣う）
-
-## 比較実験時の注意
-
-- **config deepcopy**: `copy.deepcopy(base_cfg)` を使用し、shallow copyによる設定汚染を防ぐ
-- **同一期間**: baseline と experiment で同一の `start_date` / `end_date` を使用
-- **同一データ**: `df_exec` が同一であることを確認
-
-## 不採用実験の記録
-
-不採用の場合も以下を記録し、二重検証を防ぐ:
-
-- 仮説・実験内容
-- 結果（Sharpe変化・IC変化等）
-- 不採用理由
-- 再検証防止用のタグ（例: **Robust PCA伝播行列** のように AGENTS.md / SKILL.md に追記）
+未計測値をゼロで埋めない。統計的非有意を「効果なしの証明」、bootstrap で差が正となる割合をそのまま「真の改善確率」と呼ばない。不採用もレポートと `docs/experiment_graveyard.md` に残す。
