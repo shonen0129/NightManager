@@ -1,0 +1,427 @@
+# Heuristic sensitivity labels for 79 subsectors
+# Based on domain knowledge of each subsector's economic characteristics
+# Format: {w3: growth_sensitivity, w4: tech_sensitivity, w5: commodity_sensitivity, w6: rate_sensitivity}
+
+sensitivity_labels:
+  # Materials & Chemicals
+  "Advanced Films, Functional Polymers & Materials (高機能フィルム・機能性樹脂・先端素材)":
+    w3: 0.8
+    w4: 0.6
+    w5: 0.3
+    w6: 0.5
+  "Basic & Diversified Chemicals (総合・基礎化学・エチレン・機能素材)":
+    w3: 0.6
+    w4: 0.4
+    w5: 0.7
+    w6: 0.5
+  "Semiconductor & Advanced Electronics Materials (半導体プロセス材料・先端電子ケミカル)":
+    w3: 1.0
+    w4: 1.0
+    w5: 0.3
+    w6: 0.4
+  "Paints, Inks & Functional Adhesives (塗料・インキ・接着剤・コーティング材料)":
+    w3: 0.4
+    w4: 0.3
+    w5: 0.4
+    w6: 0.5
+  "Surfactants, Oleochemicals & Fine Chemicals (界面活性剤・油脂化学・高機能ファインケミカル)":
+    w3: 0.5
+    w4: 0.4
+    w5: 0.4
+    w6: 0.5
+  "Glass, Advanced Ceramics & Cement (ガラス・先端セラミックス・セメント・断熱材)":
+    w3: 0.3
+    w4: 0.2
+    w5: 0.5
+    w6: 0.6
+  "Paper, Packaging, Containers & Printing (紙パルプ・包装容器・印刷)":
+    w3: 0.2
+    w4: 0.1
+    w5: 0.3
+    w6: 0.4
+  "Integrated Steel Mills & Specialty Steel (高炉・特殊鋼・電炉・鋼板)":
+    w3: 0.4
+    w4: 0.3
+    w5: 0.8
+    w6: 0.5
+  "Non-Ferrous Smelting, Mining & Advanced Materials (非鉄製錬・資源鉱山・先端金属材料)":
+    w3: 0.5
+    w4: 0.4
+    w5: 0.9
+    w6: 0.4
+
+  # Industrial & Machinery
+  "Optical Fiber, Power Cables & Communication Infrastructure (電線・光ファイバ・電力通信インフラ)":
+    w3: 0.6
+    w4: 0.8
+    w5: 0.4
+    w6: 0.5
+  "Industrial Automation, Robotics & Process Control (FA・産業ロボット・プロセス制御計装)":
+    w3: 0.9
+    w4: 1.0
+    w5: 0.3
+    w6: 0.4
+  "Machine Tools, Cutting & Commercial Automation (工作機械・切削工具・板金・自動化機器)":
+    w3: 0.7
+    w4: 0.8
+    w5: 0.4
+    w6: 0.5
+  "Construction, Mining, Defense & Heavy Machinery (建設機械・鉱山機械・防衛重工・農業機械)":
+    w3: 0.5
+    w4: 0.4
+    w5: 0.6
+    w6: 0.5
+  "Industrial Machinery, HVAC & Precision Bearings (産業機械・空調設備・油圧・精密ベアリング)":
+    w3: 0.6
+    w4: 0.7
+    w5: 0.4
+    w6: 0.5
+  "Heavy Electrical, Power Systems & Batteries (重電・電力グリッド・産業パワー・電池)":
+    w3: 0.7
+    w4: 0.9
+    w5: 0.4
+    w6: 0.5
+
+  # Technology & Electronics
+  "Semiconductors & Semiconductor Manufacturing Equipment (半導体デバイス・半導体製造装置・SPE)":
+    w3: 1.0
+    w4: 1.0
+    w5: 0.2
+    w6: 0.3
+  "Electronic Components, Sensors & Passive Devices (電子部品・センサ・受動部品)":
+    w3: 0.9
+    w4: 1.0
+    w5: 0.3
+    w6: 0.4
+  "Optical Instruments, Analytical & Precision Measurement (精密光学機器・分析計測・カメラ)":
+    w3: 0.8
+    w4: 0.9
+    w5: 0.3
+    w6: 0.4
+  "Medical Devices, Diagnostics & Clinical Testing (医療機器・臨床検査・生体医工学)":
+    w3: 0.7
+    w4: 0.8
+    w5: 0.2
+    w6: 0.4
+  "Office Printing, Consumer Electronics & Industrial Devices (オフィスOA・プリンティング・民生機器)":
+    w3: 0.6
+    w4: 0.7
+    w5: 0.3
+    w6: 0.4
+
+  # Automotive & Transportation
+  "Passenger Cars, Commercial Vehicles & Motorcycles (乗用車・完成車・商用トラック・二輪)":
+    w3: 0.6
+    w4: 0.7
+    w5: 0.4
+    w6: 0.5
+  "Auto Parts & Systems (自動車部品・電装品・内装)":
+    w3: 0.7
+    w4: 0.8
+    w5: 0.4
+    w6: 0.5
+  "Tires & Rubber Products (タイヤ・ゴム製品)":
+    w3: 0.4
+    w4: 0.3
+    w5: 0.6
+    w6: 0.5
+
+  # Healthcare & Pharma
+  "Global Major Innovative Pharma (グローバル新薬・大型創薬)":
+    w3: 0.6
+    w4: 0.5
+    w5: 0.2
+    w6: 0.3
+  "Specialty Biopharma & Biotech Platforms (スペシャリティ創薬・眼科・バイオテック)":
+    w3: 0.8
+    w4: 0.7
+    w5: 0.2
+    w6: 0.3
+  "Consumer Healthcare, OTC, Kampo & Generics (OTC医薬品・漢方・スキンケア・後発品)":
+    w3: 0.3
+    w4: 0.2
+    w5: 0.2
+    w6: 0.3
+
+  # Food & Beverage
+  "Beverages, Breweries & Distilling (飲料・ビール・酒類・たばこ)":
+    w3: 0.2
+    w4: 0.1
+    w5: 0.2
+    w6: 0.3
+  "Dairy, Probiotics & Nutritional Foods (乳業・プロバイオティクス・栄養食品)":
+    w3: 0.2
+    w4: 0.1
+    w5: 0.2
+    w6: 0.3
+  "Seasonings, Packaged Foods & Processed Meats (調味料・即席麺・食肉・調理加工食品)":
+    w3: 0.2
+    w4: 0.1
+    w5: 0.3
+    w6: 0.3
+  "Confectionery, Bakery & Snacks (製菓・スナック・製パン)":
+    w3: 0.2
+    w4: 0.1
+    w5: 0.2
+    w6: 0.3
+  "Grain Milling, Edible Oils, Marine & Agribusiness (製粉・製油・水産・アグリ素材)":
+    w3: 0.3
+    w4: 0.2
+    w5: 0.6
+    w6: 0.4
+
+  # Consumer & Retail
+  "Cosmetics & Personal Care (化粧品・トイレタリー・日用品)":
+    w3: 0.4
+    w4: 0.3
+    w5: 0.2
+    w6: 0.3
+  "Stationery, Office & Household Brands (文具・オフィス家具・楽器・生活用品)":
+    w3: 0.2
+    w4: 0.1
+    w5: 0.2
+    w6: 0.3
+  "Department Stores & Luxury Commercial Real Estate (百貨店・高級ブランド・都市型商業施設)":
+    w3: 0.4
+    w4: 0.3
+    w5: 0.2
+    w6: 0.4
+  "Supermarkets, GMS & Discount Stores (スーパー・総合小売・ディスカウントストア)":
+    w3: 0.1
+    w4: 0.0
+    w5: 0.2
+    w6: 0.3
+  "Drugstores & Dispensing (ドラッグストア・調剤薬局)":
+    w3: 0.3
+    w4: 0.2
+    w5: 0.2
+    w6: 0.3
+  "Consumer Electronics Mass Retailers (家電量販店・生活家電・免税リテール)":
+    w3: 0.5
+    w4: 0.6
+    w5: 0.2
+    w6: 0.4
+  "Apparel, Footwear, Sports Brands & Lifestyle SPA (アパレル・フットウェア・スポーツブランド・生活製造小売)":
+    w3: 0.4
+    w4: 0.3
+    w5: 0.2
+    w6: 0.3
+  "Restaurants & Food Service (外食・フードサービス)":
+    w3: 0.3
+    w4: 0.2
+    w5: 0.2
+    w6: 0.3
+
+  # Trading & Distribution
+  "General Trading Companies - Sogo Shosha (総合商社)":
+    w3: 0.5
+    w4: 0.4
+    w5: 0.7
+    w6: 0.5
+  "Specialized Trading - Tech, Electronics & Materials (専門商社-エレクトロニクス・機械・化学素材)":
+    w3: 0.6
+    w4: 0.7
+    w5: 0.5
+    w6: 0.4
+  "Specialized Trading - Pharma, Medical & Daily Goods (専門商社-医薬品・医療機器・日用品卸)":
+    w3: 0.4
+    w4: 0.3
+    w5: 0.3
+    w6: 0.3
+
+  # Financial Services
+  "Megabanks & Trust Banks (メガバンク・ゆうちょ・信託)":
+    w3: 0.4
+    w4: 0.3
+    w5: 0.2
+    w6: 0.9
+  "Major Metropolitan & Super-Regional Banks (大都市圏・広域メガ地銀)":
+    w3: 0.3
+    w4: 0.2
+    w5: 0.2
+    w6: 0.8
+  "Regional & Provincial Banking Groups (地域ブロック中核地銀)":
+    w3: 0.2
+    w4: 0.1
+    w5: 0.2
+    w6: 0.7
+  "Digital, Retail & Specialized Banks (ネット・流通・専門銀行)":
+    w3: 0.5
+    w4: 0.6
+    w5: 0.2
+    w6: 0.7
+  "Securities, Exchanges & Investment (証券・取引所・投資育成)":
+    w3: 0.7
+    w4: 0.6
+    w5: 0.3
+    w6: 0.8
+  "Life & Non-Life Insurance (生命保険・損害保険)":
+    w3: 0.5
+    w4: 0.4
+    w5: 0.2
+    w6: 0.9
+  "Corporate Leasing & Capital Asset Finance (総合リース・法人設備金融)":
+    w3: 0.4
+    w4: 0.3
+    w5: 0.3
+    w6: 0.7
+  "Consumer Credit, Cards & Retail Finance (信販・クレジットカード・消費者金融)":
+    w3: 0.5
+    w4: 0.4
+    w5: 0.2
+    w6: 0.8
+
+  # Transportation & Logistics
+  "Greater Tokyo Urban Transit & TOD (首都圏大手私鉄・都市交通・沿線再開発)":
+    w3: 0.3
+    w4: 0.2
+    w5: 0.2
+    w6: 0.6
+  "Kansai & Inter-Regional Private Railways (関西・広域大手私鉄・観光交通)":
+    w3: 0.3
+    w4: 0.2
+    w5: 0.2
+    w6: 0.6
+  "JR Group & Intercity High-Speed Rail (JR旅客鉄道グループ・新幹線幹線網)":
+    w3: 0.3
+    w4: 0.2
+    w5: 0.2
+    w6: 0.6
+  "Logistics, Trucking & Forwarding (トラック・総合物流・フォワーディング)":
+    w3: 0.4
+    w4: 0.3
+    w5: 0.3
+    w6: 0.5
+  "Marine Shipping (外航海運・海上輸送)":
+    w3: 0.4
+    w4: 0.3
+    w5: 0.5
+    w6: 0.5
+  "Warehousing, Harbor & Logistics Terminal (倉庫・港湾運送・ターミナル物流)":
+    w3: 0.3
+    w4: 0.2
+    w5: 0.3
+    w6: 0.5
+  "Airlines & Airport Infrastructure (航空・空港インフラ)":
+    w3: 0.5
+    w4: 0.4
+    w5: 0.4
+    w6: 0.6
+
+  # Utilities & Energy
+  "Electric Power Utilities (電力・発電・送配電)":
+    w3: 0.2
+    w4: 0.1
+    w5: 0.6
+    w6: 0.8
+  "City Gas, Industrial Gas & Energy Utilities (都市ガス・LPガス・産業ガス・エネルギー供給)":
+    w3: 0.2
+    w4: 0.1
+    w5: 0.6
+    w6: 0.7
+  "Energy, Petroleum Refining & Resources (エネルギー・石油元売・資源開発)":
+    w3: 0.4
+    w4: 0.3
+    w5: 0.9
+    w6: 0.6
+
+  # Technology & Internet
+  "Telecom & Mobile Operators (通信キャリア・通信インフラ・情報流通)":
+    w3: 0.6
+    w4: 0.8
+    w5: 0.2
+    w6: 0.5
+  "Tech Investment, Strategic Holding & Capital Allocators (テック投資・戦略持株会社・資本アロケーター)":
+    w3: 0.8
+    w4: 0.9
+    w5: 0.2
+    w6: 0.4
+  "Enterprise Software, ERP & Cloud SaaS (業務ソフトウェア・ERP・クラウドSaaS)":
+    w3: 0.9
+    w4: 1.0
+    w5: 0.1
+    w6: 0.3
+  "Consumer Internet, Portals & E-Commerce (ネットポータル・ECモール・Webメディア)":
+    w3: 0.8
+    w4: 0.9
+    w5: 0.1
+    w6: 0.3
+  "Internet Infrastructure & FinTech Payments (ネットインフラ・決済代行・通信網)":
+    w3: 0.8
+    w4: 0.9
+    w5: 0.2
+    w6: 0.4
+  "IT Services & Enterprise SIers (大型SIer・システム受託開発・IT流通)":
+    w3: 0.7
+    w4: 0.8
+    w5: 0.2
+    w6: 0.4
+  "Consulting, M&A & DX Quality Services (コンサルティング・M&A・DX品質支援)":
+    w3: 0.6
+    w4: 0.7
+    w5: 0.1
+    w6: 0.3
+  "HR, Staffing & Relocation Services (人材・HR・総合派遣・社宅福利厚生)":
+    w3: 0.4
+    w4: 0.3
+    w5: 0.1
+    w6: 0.4
+  "Security, Facility Management & SMB Recurring Services (警備・施設保守・中小企業ストック支援)":
+    w3: 0.3
+    w4: 0.2
+    w5: 0.1
+    w6: 0.4
+
+  # Entertainment & Media
+  "Global Gaming Platforms & Digital Publishers (グローバルゲーム・デジタルパブリッシャー)":
+    w3: 0.9
+    w4: 1.0
+    w5: 0.1
+    w6: 0.3
+  "Character Toys, Anime, Film & Creative IP (キャラクター玩具・アニメ・映画・IPライセンス)":
+    w3: 0.7
+    w4: 0.8
+    w5: 0.1
+    w6: 0.3
+  "Pachinko & Karaoke Amusement (パチンコ遊技機・カラオケ・大衆アミューズメント)":
+    w3: 0.3
+    w4: 0.2
+    w5: 0.1
+    w6: 0.3
+  "Advertising Agencies & Commercial Broadcasting (広告代理店・民放テレビ放送)":
+    w3: 0.5
+    w4: 0.6
+    w5: 0.1
+    w6: 0.3
+  "Theme Parks, Resorts & Hotels (テーマパーク・リゾートホテル・複合レジャー)":
+    w3: 0.4
+    w4: 0.3
+    w5: 0.1
+    w6: 0.4
+
+  # Construction & Real Estate
+  "General Contractors (ゼネコン・総合建設)":
+    w3: 0.4
+    w4: 0.3
+    w5: 0.5
+    w6: 0.6
+  "Housing, Homebuilders & Wood Products (住宅・ハウスメーカー・木材)":
+    w3: 0.3
+    w4: 0.2
+    w5: 0.4
+    w6: 0.7
+  "Plant, Electrical & Telecom Engineering (設備工事・エンジニアリング・インフラ工事)":
+    w3: 0.5
+    w4: 0.4
+    w5: 0.4
+    w6: 0.5
+  "Housing Fixtures, Sanitary Ware & Building Openings (住宅設備・衛生陶器・建材・サッシ)":
+    w3: 0.3
+    w4: 0.2
+    w5: 0.4
+    w6: 0.6
+  "Comprehensive Real Estate Developers (総合不動産・ビルデベロッパー)":
+    w3: 0.4
+    w4: 0.3
+    w5: 0.3
+    w6: 0.7

@@ -1,0 +1,278 @@
+# 98 Subsector Mapping (Final Reviewed Version)
+# Based on TOPIX_subsector_details_98_final_reviewed.md
+# Total tickers: 1,638
+# Total subsectors: 98
+
+meta:
+  source_file: docs/analysis/TOPIX_subsector_details_98_final_reviewed.md
+  total_tickers: 1638
+  total_subsectors: 98
+  creation_date: "2026-09-05"
+
+# 98 subsectors with sensitivity labels
+subsectors:
+  # 1. Advanced Films, Functional Polymers & Materials
+  - name: "Advanced Films, Functional Polymers & Materials (高機能フィルム・機能性樹脂・先端素材)"
+    sensitivity_labels:
+      w3: 0.6
+      w4: 0.2
+      w5: -0.4
+      w6: -0.5
+    tickers:
+      - ticker: 3001.T
+        name: 片倉工業
+        jpx33: 繊維製品
+      - ticker: 3002.T
+        name: グンゼ
+        jpx33: 繊維製品
+      - ticker: 3101.T
+        name: 東洋紡
+        jpx33: 化学
+      - ticker: 3103.T
+        name: ユニチカ
+        jpx33: 繊維製品
+      - ticker: 3104.T
+        name: 富士紡ホールディングス
+        jpx33: 繊維製品
+      - ticker: 3106.T
+        name: 倉敷紡績
+        jpx33: 繊維製品
+      - ticker: 3109.T
+        name: シキボウ
+        jpx33: 繊維製品
+      - ticker: 3201.T
+        name: 日本毛織
+        jpx33: 繊維製品
+      - ticker: 3302.T
+        name: 帝国繊維
+        jpx33: 繊維製品
+      - ticker: 3401.T
+        name: 帝人
+        jpx33: 繊維製品
+      - ticker: 3402.T
+        name: 東レ
+        jpx33: 繊維製品
+      - ticker: 3405.T
+        name: クラレ
+        jpx33: 化学
+      - ticker: 3569.T
+        name: セーレン
+        jpx33: 繊維製品
+      - ticker: 3580.T
+        name: 小松マテーレ
+        jpx33: 繊維製品
+      - ticker: 4202.T
+        name: ダイセル
+        jpx33: 化学
+      - ticker: 4204.T
+        name: 積水化学工業
+        jpx33: 化学
+      - ticker: 4205.T
+        name: 日本ゼオン
+        jpx33: 化学
+      - ticker: 4212.T
+        name: 積水樹脂
+        jpx33: 化学
+      - ticker: 4220.T
+        name: リケンテクノス
+        jpx33: 化学
+      - ticker: 4221.T
+        name: 大倉工業
+        jpx33: 化学
+      - ticker: 4228.T
+        name: 積水化成品工業
+        jpx33: 化学
+      - ticker: 4251.T
+        name: 恵和
+        jpx33: 化学
+      - ticker: 4901.T
+        name: 富士フイルムホールディングス
+        jpx33: 化学
+      - ticker: 5208.T
+        name: 有沢製作所
+        jpx33: 化学
+      - ticker: 6988.T
+        name: 日東電工
+        jpx33: 化学
+      - ticker: 7821.T
+        name: 前田工繊
+        jpx33: その他製品
+      - ticker: 7856.T
+        name: 萩原工業
+        jpx33: その他製品
+      - ticker: 7942.T
+        name: ＪＳＰ
+        jpx33: 化学
+      - ticker: 7966.T
+        name: リンテック
+        jpx33: その他製品
+      - ticker: 7970.T
+        name: 信越ポリマー
+        jpx33: 化学
+      - ticker: 7995.T
+        name: バルカー
+        jpx33: 化学
+
+  # 2. Advertising Agencies & Commercial Broadcasting
+  - name: "Advertising Agencies & Commercial Broadcasting (広告代理店・民放テレビ放送)"
+    sensitivity_labels:
+      w3: 0.0
+      w4: 0.2
+      w5: -0.8
+      w6: -0.3
+    tickers:
+      - ticker: 2433.T
+        name: 博報堂ＤＹホールディングス
+        jpx33: サービス業
+      - ticker: 4324.T
+        name: 電通グループ
+        jpx33: サービス業
+      - ticker: 4676.T
+        name: フジ・メディア・ホールディングス
+        jpx33: 情報・通信業
+      - ticker: 9401.T
+        name: ＴＢＳホールディングス
+        jpx33: 情報・通信業
+      - ticker: 9404.T
+        name: 日本テレビホールディングス
+        jpx33: 情報・通信業
+      - ticker: 9405.T
+        name: 朝日放送グループホールディングス
+        jpx33: 情報・通信業
+      - ticker: 9409.T
+        name: テレビ朝日ホールディングス
+        jpx33: 情報・通信業
+      - ticker: 9413.T
+        name: テレビ東京ホールディングス
+        jpx33: 情報・通信業
+
+  # 3. Airlines & Airport Infrastructure
+  - name: "Airlines & Airport Infrastructure (航空・空港インフラ)"
+    sensitivity_labels:
+      w3: 0.6
+      w4: -0.1
+      w5: -0.7
+      w6: -0.4
+    tickers:
+      - ticker: 9201.T
+        name: 日本航空
+        jpx33: 空運業
+      - ticker: 9202.T
+        name: ＡＮＡホールディングス
+        jpx33: 空運業
+      - ticker: 9706.T
+        name: 日本空港ビルデング
+        jpx33: 不動産業
+
+  # 4. Apparel, Footwear, Sports Brands & Lifestyle SPA
+  - name: "Apparel, Footwear, Sports Brands & Lifestyle SPA (アパレル・フットウェア・スポーツブランド・生活製造小売)"
+    sensitivity_labels:
+      w3: 0.5
+      w4: 0.1
+      w5: -0.5
+      w6: -0.4
+    tickers:
+      - ticker: 2670.T
+        name: エービーシー・マート
+        jpx33: 小売業
+      - ticker: 2685.T
+        name: アンドエスティＨＤ
+        jpx33: 小売業
+      - ticker: 2726.T
+        name: パルグループホールディングス
+        jpx33: 小売業
+      - ticker: 2792.T
+        name: ハニーズホールディングス
+        jpx33: 小売業
+      - ticker: 3028.T
+        name: アルペン
+        jpx33: 小売業
+      - ticker: 3046.T
+        name: ジンズホールディングス
+        jpx33: 小売業
+      - ticker: 3415.T
+        name: ＴＯｫﾝー　Ｂ｡ﾝｵ
+        jpx33: 小売業
+      - ticker: 3548.T
+        name: バロックジャパンリミテッド
+        jpx33: 小売業
+      - ticker: 3591.T
+        name: ワコールホールディングス
+        jpx33: 繊維製品
+      - ticker: 3608.T
+        name: Ｔｳｩホールディングス
+        jpx33: 繊維製品
+      - ticker: 3612.T
+        name: ワールド
+        jpx33: 繊維製品
+      - ticker: 7309.T
+        name: シマノ
+        jpx33: 輸送用機器
+      - ticker: 7447.T
+        name: ナガイレーベン
+        jpx33: 卸売業
+      - ticker: 7453.T
+        name: 良品計画
+        jpx33: 小売業
+      - ticker: 7545.T
+        name: 西松屋チェーン
+        jpx33: 小売業
+      - ticker: 7606.T
+        name: ユナイテッドアローズ
+        jpx33: 小売業
+      - ticker: 7683.T
+        name: ダブルエー
+        jpx33: 小売業
+      - ticker: 7839.T
+        name: ＳＨＯＥイ
+        jpx33: その他製品
+      - ticker: 7936.T
+        name: アシックス
+        jpx33: その他製品
+      - ticker: 7990.T
+        name: グローブライド
+        jpx33: その他製品
+      - ticker: 8008.T
+        name: ヨンドシーホールディングス
+        jpx33: 小売業
+      - ticker: 8011.T
+        name: 三陽商会
+        jpx33: 繊維製品
+      - ticker: 8016.T
+        name: オンワードホールディングス
+        jpx33: 繊維製品
+      - ticker: 8022.T
+        name: 美津濃
+        jpx33: その他製品
+      - ticker: 8029.T
+        name: ルックホールディングス
+        jpx33: 繊維製品
+      - ticker: 8111.T
+        name: ゴールドウイン
+        jpx33: 繊維製品
+      - ticker: 8185.T
+        name: チヨダ
+        jpx33: 小売業
+      - ticker: 8214.T
+        name: Ａｯｫｩホールディングス
+        jpx33: 小売業
+      - ticker: 8219.T
+        name: 青山商事
+        jpx33: 小売業
+      - ticker: 8227.T
+        name: しまむら
+        jpx33: 小売業
+      - ticker: 8281.T
+        name: ゼビオホールディングス
+        jpx33: 小売業
+      - ticker: 9843.T
+        name: ニトリホールディングス
+        jpx33: 小売業
+      - ticker: 9983.T
+        name: ファーストリテイリング
+        jpx33: 小売業
+      - ticker: 9990.T
+        name: サックスバー　ホールディングス
+        jpx33: 小売業
+
+  # Note: This is a partial excerpt - full 98 subsectors would follow this pattern

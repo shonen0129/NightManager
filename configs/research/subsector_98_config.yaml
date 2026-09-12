@@ -1,0 +1,5605 @@
+meta:
+  source_file: docs/analysis/TOPIX_subsector_details_98_final_reviewed.md
+  total_subsectors: 98
+  total_tickers: 1638
+subsectors:
+- name: Advanced Films, Functional Polymers & Materials（高機能フィルム・機能性樹脂・先端素材）
+  tickers:
+  - ticker: 3001.T
+    name: 片倉工業
+    jpx33: 繊維製品
+  - ticker: 3002.T
+    name: グンゼ
+    jpx33: 繊維製品
+  - ticker: 3101.T
+    name: 東洋紡
+    jpx33: 化学
+  - ticker: 3103.T
+    name: ユニチカ
+    jpx33: 繊維製品
+  - ticker: 3104.T
+    name: 富士紡ホールディングス
+    jpx33: 繊維製品
+  - ticker: 3106.T
+    name: 倉敷紡績
+    jpx33: 繊維製品
+  - ticker: 3109.T
+    name: シキボウ
+    jpx33: 繊維製品
+  - ticker: 3201.T
+    name: 日本毛織
+    jpx33: 繊維製品
+  - ticker: 3302.T
+    name: 帝国繊維
+    jpx33: 繊維製品
+  - ticker: 3401.T
+    name: 帝人
+    jpx33: 繊維製品
+  - ticker: 3402.T
+    name: 東レ
+    jpx33: 繊維製品
+  - ticker: 3405.T
+    name: クラレ
+    jpx33: 化学
+  - ticker: 3569.T
+    name: セーレン
+    jpx33: 繊維製品
+  - ticker: 3580.T
+    name: 小松マテーレ
+    jpx33: 繊維製品
+  - ticker: 4202.T
+    name: ダイセル
+    jpx33: 化学
+  - ticker: 4204.T
+    name: 積水化学工業
+    jpx33: 化学
+  - ticker: 4205.T
+    name: 日本ゼオン
+    jpx33: 化学
+  - ticker: 4212.T
+    name: 積水樹脂
+    jpx33: 化学
+  - ticker: 4220.T
+    name: リケンテクノス
+    jpx33: 化学
+  - ticker: 4221.T
+    name: 大倉工業
+    jpx33: 化学
+  - ticker: 4228.T
+    name: 積水化成品工業
+    jpx33: 化学
+  - ticker: 4251.T
+    name: 恵和
+    jpx33: 化学
+  - ticker: 4901.T
+    name: 富士フイルムホールディングス
+    jpx33: 化学
+  - ticker: 5208.T
+    name: 有沢製作所
+    jpx33: 化学
+  - ticker: 6988.T
+    name: 日東電工
+    jpx33: 化学
+  - ticker: 7821.T
+    name: 前田工繊
+    jpx33: その他製品
+  - ticker: 7856.T
+    name: 萩原工業
+    jpx33: その他製品
+  - ticker: 7942.T
+    name: ＪＳＰ
+    jpx33: 化学
+  - ticker: 7966.T
+    name: リンテック
+    jpx33: その他製品
+  - ticker: 7970.T
+    name: 信越ポリマー
+    jpx33: 化学
+  - ticker: 7995.T
+    name: バルカー
+    jpx33: 化学
+  sensitivity_labels:
+    w3: 0.6
+    w4: 0.2
+    w5: -0.4
+    w6: -0.5
+- name: Advertising Agencies & Commercial Broadcasting（広告代理店・民放テレビ放送）
+  tickers:
+  - ticker: 2433.T
+    name: 博報堂ＤＹホールディングス
+    jpx33: サービス業
+  - ticker: 4324.T
+    name: 電通グループ
+    jpx33: サービス業
+  - ticker: 4676.T
+    name: フジ・メディア・ホールディングス
+    jpx33: 情報・通信業
+  - ticker: 9401.T
+    name: ＴＢＳホールディングス
+    jpx33: 情報・通信業
+  - ticker: 9404.T
+    name: 日本テレビホールディングス
+    jpx33: 情報・通信業
+  - ticker: 9405.T
+    name: 朝日放送グループホールディングス
+    jpx33: 情報・通信業
+  - ticker: 9409.T
+    name: テレビ朝日ホールディングス
+    jpx33: 情報・通信業
+  - ticker: 9413.T
+    name: テレビ東京ホールディングス
+    jpx33: 情報・通信業
+  sensitivity_labels:
+    w3: 0.0
+    w4: 0.2
+    w5: -0.8
+    w6: -0.3
+- name: Airlines & Airport Infrastructure（航空・空港インフラ）
+  tickers:
+  - ticker: 9201.T
+    name: 日本航空
+    jpx33: 空運業
+  - ticker: 9202.T
+    name: ＡＮＡホールディングス
+    jpx33: 空運業
+  - ticker: 9706.T
+    name: 日本空港ビルデング
+    jpx33: 不動産業
+  sensitivity_labels:
+    w3: 0.6
+    w4: -0.1
+    w5: -0.7
+    w6: -0.4
+- name: Apparel, Footwear, Sports Brands & Lifestyle SPA（アパレル・フットウェア・スポーツブランド・生活製造小売）
+  tickers:
+  - ticker: 2670.T
+    name: エービーシー・マート
+    jpx33: 小売業
+  - ticker: 2685.T
+    name: アンドエスティＨＤ
+    jpx33: 小売業
+  - ticker: 2726.T
+    name: パルグループホールディングス
+    jpx33: 小売業
+  - ticker: 2792.T
+    name: ハニーズホールディングス
+    jpx33: 小売業
+  - ticker: 3028.T
+    name: アルペン
+    jpx33: 小売業
+  - ticker: 3046.T
+    name: ジンズホールディングス
+    jpx33: 小売業
+  - ticker: 3415.T
+    name: ＴＯＫＹＯ　ＢＡＳＥ
+    jpx33: 小売業
+  - ticker: 3548.T
+    name: バロックジャパンリミテッド
+    jpx33: 小売業
+  - ticker: 3591.T
+    name: ワコールホールディングス
+    jpx33: 繊維製品
+  - ticker: 3608.T
+    name: ＴＳＩホールディングス
+    jpx33: 繊維製品
+  - ticker: 3612.T
+    name: ワールド
+    jpx33: 繊維製品
+  - ticker: 7309.T
+    name: シマノ
+    jpx33: 輸送用機器
+  - ticker: 7447.T
+    name: ナガイレーベン
+    jpx33: 卸売業
+  - ticker: 7453.T
+    name: 良品計画
+    jpx33: 小売業
+  - ticker: 7545.T
+    name: 西松屋チェーン
+    jpx33: 小売業
+  - ticker: 7606.T
+    name: ユナイテッドアローズ
+    jpx33: 小売業
+  - ticker: 7683.T
+    name: ダブルエー
+    jpx33: 小売業
+  - ticker: 7839.T
+    name: ＳＨＯＥＩ
+    jpx33: その他製品
+  - ticker: 7936.T
+    name: アシックス
+    jpx33: その他製品
+  - ticker: 7990.T
+    name: グローブライド
+    jpx33: その他製品
+  - ticker: 8008.T
+    name: ヨンドシーホールディングス
+    jpx33: 小売業
+  - ticker: 8011.T
+    name: 三陽商会
+    jpx33: 繊維製品
+  - ticker: 8016.T
+    name: オンワードホールディングス
+    jpx33: 繊維製品
+  - ticker: 8022.T
+    name: 美津濃
+    jpx33: その他製品
+  - ticker: 8029.T
+    name: ルックホールディングス
+    jpx33: 繊維製品
+  - ticker: 8111.T
+    name: ゴールドウイン
+    jpx33: 繊維製品
+  - ticker: 8185.T
+    name: チヨダ
+    jpx33: 小売業
+  - ticker: 8214.T
+    name: ＡＯＫＩホールディングス
+    jpx33: 小売業
+  - ticker: 8219.T
+    name: 青山商事
+    jpx33: 小売業
+  - ticker: 8227.T
+    name: しまむら
+    jpx33: 小売業
+  - ticker: 8281.T
+    name: ゼビオホールディングス
+    jpx33: 小売業
+  - ticker: 9843.T
+    name: ニトリホールディングス
+    jpx33: 小売業
+  - ticker: 9983.T
+    name: ファーストリテイリング
+    jpx33: 小売業
+  - ticker: 9990.T
+    name: サックスバー　ホールディングス
+    jpx33: 小売業
+  sensitivity_labels:
+    w3: 0.5
+    w4: 0.1
+    w5: -0.5
+    w6: -0.4
+- name: Auto Parts & Systems（自動車部品・電装品・内装）
+  tickers:
+  - ticker: 543A.T
+    name: ＡＲＣＨＩＯＮ
+    jpx33: 輸送用機器
+  - ticker: 3105.T
+    name: 日清紡ホールディングス
+    jpx33: 電気機器
+  - ticker: 3116.T
+    name: トヨタ紡織
+    jpx33: 輸送用機器
+  - ticker: 4246.T
+    name: ダイキョーニシカワ
+    jpx33: 化学
+  - ticker: 4249.T
+    name: 森六
+    jpx33: 化学
+  - ticker: 5949.T
+    name: ユニプレス
+    jpx33: 輸送用機器
+  - ticker: 5970.T
+    name: ジーテクト
+    jpx33: 金属製品
+  - ticker: 5975.T
+    name: 東プレ
+    jpx33: 金属製品
+  - ticker: 5985.T
+    name: サンコール
+    jpx33: 金属製品
+  - ticker: 5988.T
+    name: パイオラックス
+    jpx33: 金属製品
+  - ticker: 5989.T
+    name: エイチワン
+    jpx33: 金属製品
+  - ticker: 5991.T
+    name: 日本発條
+    jpx33: 金属製品
+  - ticker: 5992.T
+    name: 中央発條
+    jpx33: 金属製品
+  - ticker: 6209.T
+    name: リケンＮＰＲ
+    jpx33: 機械
+  - ticker: 6455.T
+    name: モリタホールディングス
+    jpx33: 輸送用機器
+  - ticker: 6463.T
+    name: ＴＰＲ
+    jpx33: 機械
+  - ticker: 6470.T
+    name: 大豊工業
+    jpx33: 機械
+  - ticker: 6584.T
+    name: 三櫻工業
+    jpx33: 輸送用機器
+  - ticker: 6794.T
+    name: フォスター電機
+    jpx33: 電気機器
+  - ticker: 6800.T
+    name: ヨコオ
+    jpx33: 電気機器
+  - ticker: 6807.T
+    name: 日本航空電子工業
+    jpx33: 電気機器
+  - ticker: 6844.T
+    name: 新電元工業
+    jpx33: 電気機器
+  - ticker: 6902.T
+    name: デンソー
+    jpx33: 輸送用機器
+  - ticker: 6923.T
+    name: スタンレー電気
+    jpx33: 電気機器
+  - ticker: 6966.T
+    name: 三井ハイテック
+    jpx33: 電気機器
+  - ticker: 6995.T
+    name: 東海理化電機製作所
+    jpx33: 輸送用機器
+  - ticker: 7102.T
+    name: 日本車輌製造
+    jpx33: 輸送用機器
+  - ticker: 7220.T
+    name: 武蔵精密工業
+    jpx33: 輸送用機器
+  - ticker: 7222.T
+    name: 日産車体
+    jpx33: 輸送用機器
+  - ticker: 7224.T
+    name: 新明和工業
+    jpx33: 輸送用機器
+  - ticker: 7226.T
+    name: 極東開発工業
+    jpx33: 輸送用機器
+  - ticker: 7231.T
+    name: トピー工業
+    jpx33: 輸送用機器
+  - ticker: 7236.T
+    name: ティラド
+    jpx33: 輸送用機器
+  - ticker: 7238.T
+    name: 曙ブレーキ工業
+    jpx33: 輸送用機器
+  - ticker: 7239.T
+    name: タチエス
+    jpx33: 輸送用機器
+  - ticker: 7240.T
+    name: ＮＯＫ
+    jpx33: 輸送用機器
+  - ticker: 7241.T
+    name: フタバ産業
+    jpx33: 輸送用機器
+  - ticker: 7242.T
+    name: カヤバ
+    jpx33: 輸送用機器
+  - ticker: 7244.T
+    name: 市光工業
+    jpx33: 電気機器
+  - ticker: 7245.T
+    name: 大同メタル工業
+    jpx33: 輸送用機器
+  - ticker: 7246.T
+    name: プレス工業
+    jpx33: 輸送用機器
+  - ticker: 7259.T
+    name: アイシン
+    jpx33: 輸送用機器
+  - ticker: 7276.T
+    name: 小糸製作所
+    jpx33: 電気機器
+  - ticker: 7280.T
+    name: ミツバ
+    jpx33: 電気機器
+  - ticker: 7282.T
+    name: 豊田合成
+    jpx33: 輸送用機器
+  - ticker: 7283.T
+    name: 愛三工業
+    jpx33: 輸送用機器
+  - ticker: 7294.T
+    name: ヨロズ
+    jpx33: 輸送用機器
+  - ticker: 7296.T
+    name: エフ・シー・シー
+    jpx33: 輸送用機器
+  - ticker: 7313.T
+    name: テイ・エス　テック
+    jpx33: 輸送用機器
+  - ticker: 7628.T
+    name: オーハシテクニカ
+    jpx33: 卸売業
+  - ticker: 7888.T
+    name: 三光合成
+    jpx33: 化学
+  - ticker: 7988.T
+    name: ニフコ
+    jpx33: 化学
+  sensitivity_labels:
+    w3: 0.4
+    w4: 0.6
+    w5: -0.2
+    w6: -0.5
+- name: Basic & Diversified Chemicals（総合・基礎化学・エチレン・機能素材）
+  tickers:
+  - ticker: 3407.T
+    name: 旭化成
+    jpx33: 化学
+  - ticker: 4005.T
+    name: 住友化学
+    jpx33: 化学
+  - ticker: 4008.T
+    name: 住友精化
+    jpx33: 化学
+  - ticker: 4022.T
+    name: ラサ工業
+    jpx33: 化学
+  - ticker: 4023.T
+    name: クレハ
+    jpx33: 化学
+  - ticker: 4027.T
+    name: テイカ
+    jpx33: 化学
+  - ticker: 4028.T
+    name: 石原産業
+    jpx33: 化学
+  - ticker: 4041.T
+    name: 日本曹達
+    jpx33: 化学
+  - ticker: 4042.T
+    name: 東ソー
+    jpx33: 化学
+  - ticker: 4043.T
+    name: トクヤマ
+    jpx33: 化学
+  - ticker: 4044.T
+    name: セントラル硝子
+    jpx33: 化学
+  - ticker: 4045.T
+    name: 東亞合成
+    jpx33: 化学
+  - ticker: 4046.T
+    name: 大阪ソーダ
+    jpx33: 化学
+  - ticker: 4061.T
+    name: デンカ
+    jpx33: 化学
+  - ticker: 4064.T
+    name: 日本カーバイド工業
+    jpx33: 化学
+  - ticker: 4078.T
+    name: 堺化学工業
+    jpx33: 化学
+  - ticker: 4082.T
+    name: 第一稀元素化学工業
+    jpx33: 化学
+  - ticker: 4092.T
+    name: 日本化学工業
+    jpx33: 化学
+  - ticker: 4095.T
+    name: 日本パーカライジング
+    jpx33: 化学
+  - ticker: 4099.T
+    name: 四国化成ホールディングス
+    jpx33: 化学
+  - ticker: 4116.T
+    name: 大日精化工業
+    jpx33: 化学
+  - ticker: 4183.T
+    name: 三井化学
+    jpx33: 化学
+  - ticker: 4188.T
+    name: 三菱ケミカルグループ
+    jpx33: 化学
+  - ticker: 4208.T
+    name: ＵＢＥ
+    jpx33: 化学
+  - ticker: 4216.T
+    name: 旭有機材
+    jpx33: 化学
+  - ticker: 4218.T
+    name: ニチバン
+    jpx33: 化学
+  - ticker: 4229.T
+    name: 群栄化学工業
+    jpx33: 化学
+  - ticker: 4462.T
+    name: 石原ケミカル
+    jpx33: 化学
+  - ticker: 5142.T
+    name: アキレス
+    jpx33: 化学
+  sensitivity_labels:
+    w3: 0.2
+    w4: -0.2
+    w5: 0.4
+    w6: -0.5
+- name: Beverages, Breweries & Distilling（飲料・ビール・酒類・たばこ）
+  tickers:
+  - ticker: 409A.T
+    name: オリオンビール
+    jpx33: 食料品
+  - ticker: 2501.T
+    name: サッポロホールディングス
+    jpx33: 食料品
+  - ticker: 2502.T
+    name: アサヒグループホールディングス
+    jpx33: 食料品
+  - ticker: 2503.T
+    name: キリンホールディングス
+    jpx33: 食料品
+  - ticker: 2531.T
+    name: 宝ホールディングス
+    jpx33: 食料品
+  - ticker: 2533.T
+    name: オエノンホールディングス
+    jpx33: 食料品
+  - ticker: 2579.T
+    name: コカ・コーラ　ボトラーズジャパンホールディングス
+    jpx33: 食料品
+  - ticker: 2585.T
+    name: ライフドリンク　カンパニー
+    jpx33: 食料品
+  - ticker: 2587.T
+    name: サントリービバレッジ＆フード
+    jpx33: 食料品
+  - ticker: 2590.T
+    name: ダイドーグループホールディングス
+    jpx33: 食料品
+  - ticker: 2593.T
+    name: 伊藤園
+    jpx33: 食料品
+  - ticker: 2594.T
+    name: キーコーヒー
+    jpx33: 食料品
+  - ticker: 2914.T
+    name: 日本たばこ産業
+    jpx33: 食料品
+  sensitivity_labels:
+    w3: -0.3
+    w4: -0.7
+    w5: -0.4
+    w6: -0.2
+- name: Character Toys, Anime, Film & Creative IP（キャラクター玩具・アニメ・映画・IPライセンス）
+  tickers:
+  - ticker: 2767.T
+    name: 円谷フィールズホールディングス
+    jpx33: 卸売業
+  - ticker: 4301.T
+    name: アミューズ
+    jpx33: サービス業
+  - ticker: 4839.T
+    name: ＷＯＷＯＷ
+    jpx33: 情報・通信業
+  - ticker: 7552.T
+    name: ハピネット
+    jpx33: 卸売業
+  - ticker: 7860.T
+    name: エイベックス
+    jpx33: 情報・通信業
+  - ticker: 7867.T
+    name: タカラトミー
+    jpx33: その他製品
+  - ticker: 8136.T
+    name: サンリオ
+    jpx33: 卸売業
+  - ticker: 9418.T
+    name: Ｕ－ＮＥＸＴ　ＨＯＬＤＩＮＧＳ
+    jpx33: 情報・通信業
+  - ticker: 9601.T
+    name: 松竹
+    jpx33: 情報・通信業
+  - ticker: 9602.T
+    name: 東宝
+    jpx33: 情報・通信業
+  - ticker: 9605.T
+    name: 東映
+    jpx33: 情報・通信業
+  sensitivity_labels:
+    w3: 0.4
+    w4: 0.6
+    w5: -0.8
+    w6: -0.3
+- name: City Gas, Industrial Gas & Energy Utilities（都市ガス・LPガス・産業ガス・エネルギー供給）
+  tickers:
+  - ticker: 4091.T
+    name: 日本酸素ホールディングス
+    jpx33: 化学
+  - ticker: 4097.T
+    name: 高圧ガス工業
+    jpx33: 化学
+  - ticker: 8088.T
+    name: 岩谷産業
+    jpx33: 卸売業
+  - ticker: 8097.T
+    name: 三愛オブリ
+    jpx33: 卸売業
+  - ticker: 8131.T
+    name: ミツウロコグループホールディングス
+    jpx33: 卸売業
+  - ticker: 8132.T
+    name: シナネンホールディングス
+    jpx33: 卸売業
+  - ticker: 8133.T
+    name: 伊藤忠エネクス
+    jpx33: 卸売業
+  - ticker: 8174.T
+    name: 日本瓦斯
+    jpx33: 小売業
+  - ticker: 9531.T
+    name: 東京瓦斯
+    jpx33: 電気・ガス業
+  - ticker: 9532.T
+    name: 大阪瓦斯
+    jpx33: 電気・ガス業
+  - ticker: 9533.T
+    name: 東邦瓦斯
+    jpx33: 電気・ガス業
+  - ticker: 9534.T
+    name: 北海道瓦斯
+    jpx33: 電気・ガス業
+  - ticker: 9535.T
+    name: 広島ガス
+    jpx33: 電気・ガス業
+  - ticker: 9536.T
+    name: 西部ガスホールディングス
+    jpx33: 電気・ガス業
+  - ticker: 9543.T
+    name: 静岡ガス
+    jpx33: 電気・ガス業
+  sensitivity_labels:
+    w3: -0.5
+    w4: -0.6
+    w5: 0.5
+    w6: -0.4
+- name: Comprehensive Real Estate Developers（総合不動産・ビルデベロッパー）
+  tickers:
+  - ticker: 3003.T
+    name: ヒューリック
+    jpx33: 不動産
+  - ticker: 3231.T
+    name: 野村不動産ホールディングス
+    jpx33: 不動産業
+  - ticker: 3289.T
+    name: 東急不動産ホールディングス
+    jpx33: 不動産業
+  - ticker: 8801.T
+    name: 三井不動産
+    jpx33: 不動産業
+  - ticker: 8802.T
+    name: 三菱地所
+    jpx33: 不動産業
+  - ticker: 8803.T
+    name: 平和不動産
+    jpx33: 不動産業
+  - ticker: 8804.T
+    name: 東京建物
+    jpx33: 不動産業
+  - ticker: 8818.T
+    name: 京阪神ビルディング
+    jpx33: 不動産業
+  - ticker: 8830.T
+    name: 住友不動産
+    jpx33: 不動産業
+  - ticker: 8841.T
+    name: テーオーシー
+    jpx33: 不動産業
+  sensitivity_labels:
+    w3: 0.4
+    w4: 0.0
+    w5: -0.3
+    w6: -0.9
+- name: Confectionery, Bakery & Snacks（製菓・スナック・製パン）
+  tickers:
+  - ticker: 2201.T
+    name: 森永製菓
+    jpx33: 食料品
+  - ticker: 2204.T
+    name: 中村屋
+    jpx33: 食料品
+  - ticker: 2206.T
+    name: 江崎グリコ
+    jpx33: 食料品
+  - ticker: 2207.T
+    name: ｍｅｉｔｏ
+    jpx33: 食料品
+  - ticker: 2209.T
+    name: 井村屋グループ
+    jpx33: 食料品
+  - ticker: 2211.T
+    name: 不二家
+    jpx33: 食料品
+  - ticker: 2212.T
+    name: 山崎製パン
+    jpx33: 食料品
+  - ticker: 2217.T
+    name: モロゾフ
+    jpx33: 食料品
+  - ticker: 2220.T
+    name: 亀田製菓
+    jpx33: 食料品
+  - ticker: 2222.T
+    name: 寿スピリッツ
+    jpx33: 食料品
+  - ticker: 2229.T
+    name: カルビー
+    jpx33: 食料品
+  sensitivity_labels:
+    w3: -0.3
+    w4: -0.7
+    w5: -0.5
+    w6: -0.2
+- name: Construction, Mining & Agricultural Machinery（建設機械・鉱山機械・農業機械）
+  tickers:
+  - ticker: 5631.T
+    name: 日本製鋼所
+    jpx33: 機械
+  - ticker: 6250.T
+    name: やまびこ
+    jpx33: 機械
+  - ticker: 6289.T
+    name: 技研製作所
+    jpx33: 機械
+  - ticker: 6301.T
+    name: 小松製作所
+    jpx33: 機械
+  - ticker: 6302.T
+    name: 住友重機械工業
+    jpx33: 機械
+  - ticker: 6305.T
+    name: 日立建機
+    jpx33: 機械
+  - ticker: 6306.T
+    name: 日工
+    jpx33: 機械
+  - ticker: 6310.T
+    name: 井関農機
+    jpx33: 機械
+  - ticker: 6326.T
+    name: クボタ
+    jpx33: 機械
+  - ticker: 6345.T
+    name: アイチ　コーポレーション
+    jpx33: 機械
+  - ticker: 6358.T
+    name: 酒井重工業
+    jpx33: 機械
+  - ticker: 6395.T
+    name: タダノ
+    jpx33: 機械
+  - ticker: 6432.T
+    name: 竹内製作所
+    jpx33: 機械
+  - ticker: 7003.T
+    name: 三井Ｅ＆Ｓ
+    jpx33: 機械
+  sensitivity_labels:
+    w3: 0.0
+    w4: -0.2
+    w5: 0.2
+    w6: -0.5
+- name: Consulting, M&A & DX Quality Services（コンサルティング・M&A・DX品質支援）
+  tickers:
+  - ticker: 277A.T
+    name: グロービング
+    jpx33: サービス業
+  - ticker: 2127.T
+    name: 日本Ｍ＆Ａセンターホールディングス
+    jpx33: サービス業
+  - ticker: 3636.T
+    name: 三菱総合研究所
+    jpx33: 情報・通信業
+  - ticker: 3657.T
+    name: ポールトゥウィンホールディングス
+    jpx33: 情報・通信業
+  - ticker: 3676.T
+    name: デジタルハーツホールディングス
+    jpx33: 情報・通信業
+  - ticker: 3697.T
+    name: ＳＨＩＦＴ
+    jpx33: 情報・通信業
+  - ticker: 3962.T
+    name: チェンジホールディングス
+    jpx33: 情報・通信業
+  - ticker: 4053.T
+    name: Ｓｕｎ　Ａｓｔｅｒｉｓｋ
+    jpx33: 情報・通信業
+  - ticker: 4310.T
+    name: ドリームインキュベータ
+    jpx33: サービス業
+  - ticker: 4722.T
+    name: フューチャー
+    jpx33: 情報・通信業
+  - ticker: 4792.T
+    name: 山田コンサルティンググループ
+    jpx33: サービス業
+  - ticker: 6035.T
+    name: アイ・アールジャパンホールディングス
+    jpx33: サービス業
+  - ticker: 6080.T
+    name: Ｍ＆Ａキャピタルパートナーズ
+    jpx33: サービス業
+  - ticker: 6088.T
+    name: シグマクシス・ホールディングス
+    jpx33: サービス業
+  - ticker: 6196.T
+    name: ストライクグループ
+    jpx33: サービス業
+  - ticker: 6532.T
+    name: ベイカレント
+    jpx33: サービス業
+  - ticker: 6560.T
+    name: エル・ティー・エス
+    jpx33: サービス業
+  - ticker: 7033.T
+    name: マネジメントソリューションズ
+    jpx33: サービス業
+  - ticker: 7034.T
+    name: プロレド・パートナーズ
+    jpx33: サービス業
+  - ticker: 7038.T
+    name: フロンティア・マネジメント
+    jpx33: サービス業
+  - ticker: 9552.T
+    name: クオンツ総研ホールディングス
+    jpx33: サービス業
+  - ticker: 9644.T
+    name: タナベコンサルティンググループ
+    jpx33: サービス業
+  - ticker: 9658.T
+    name: ビジネスブレイン太田昭和
+    jpx33: 情報・通信業
+  - ticker: 9757.T
+    name: 船井総研ホールディングス
+    jpx33: サービス業
+  sensitivity_labels:
+    w3: 0.2
+    w4: 0.4
+    w5: -0.8
+    w6: -0.3
+- name: Consumer Credit, Cards & Retail Finance（信販・クレジットカード・消費者金融）
+  tickers:
+  - ticker: 471A.T
+    name: ＮＳグループ
+    jpx33: その他金融業
+  - ticker: 547A.T
+    name: ムニノバホールディングス
+    jpx33: その他金融業
+  - ticker: 7164.T
+    name: 全国保証
+    jpx33: その他金融業
+  - ticker: 7198.T
+    name: ＳＢＩアルヒ
+    jpx33: その他金融業
+  - ticker: 7199.T
+    name: プレミアグループ
+    jpx33: その他金融業
+  - ticker: 7383.T
+    name: ネットプロテクションズホールディングス
+    jpx33: その他金融業
+  - ticker: 8252.T
+    name: 丸井グループ
+    jpx33: 小売業
+  - ticker: 8253.T
+    name: クレディセゾン
+    jpx33: その他金融業
+  - ticker: 8570.T
+    name: イオンフィナンシャルサービス
+    jpx33: その他金融業
+  - ticker: 8572.T
+    name: アコム
+    jpx33: その他金融業
+  - ticker: 8584.T
+    name: ジャックス
+    jpx33: その他金融業
+  - ticker: 8585.T
+    name: オリエントコーポレーション
+    jpx33: その他金融業
+  - ticker: 8771.T
+    name: イー・ギャランティ
+    jpx33: その他金融業
+  sensitivity_labels:
+    w3: 0.4
+    w4: 0.3
+    w5: -0.5
+    w6: 0.4
+- name: Consumer Electronics Mass Retailers（家電量販店・生活家電・免税リテール）
+  tickers:
+  - ticker: 2730.T
+    name: エディオン
+    jpx33: 小売業
+  - ticker: 3048.T
+    name: ビックカメラ
+    jpx33: 小売業
+  - ticker: 7419.T
+    name: ノジマ
+    jpx33: 小売業
+  - ticker: 7513.T
+    name: コジマ
+    jpx33: 小売業
+  - ticker: 8173.T
+    name: Ｊｏｓｈｉｎ
+    jpx33: 小売業
+  - ticker: 8282.T
+    name: ケーズホールディングス
+    jpx33: 小売業
+  - ticker: 9831.T
+    name: ヤマダホールディングス
+    jpx33: 小売業
+  sensitivity_labels:
+    w3: 0.5
+    w4: 0.5
+    w5: -0.6
+    w6: -0.5
+- name: Consumer Healthcare, OTC, Kampo & Generics（OTC医薬品・漢方・スキンケア・後発品）
+  tickers:
+  - ticker: 4506.T
+    name: 住友ファーマ
+    jpx33: 医薬品
+  - ticker: 4527.T
+    name: ロート製薬
+    jpx33: 医薬品
+  - ticker: 4540.T
+    name: ツムラ
+    jpx33: 医薬品
+  - ticker: 4553.T
+    name: 東和薬品
+    jpx33: 医薬品
+  - ticker: 4559.T
+    name: ゼリア新薬工業
+    jpx33: 医薬品
+  - ticker: 4569.T
+    name: 杏林製薬
+    jpx33: 医薬品
+  - ticker: 4574.T
+    name: 大幸薬品
+    jpx33: 医薬品
+  - ticker: 4577.T
+    name: ダイト
+    jpx33: 医薬品
+  - ticker: 4887.T
+    name: サワイグループホールディングス
+    jpx33: 医薬品
+  sensitivity_labels:
+    w3: -0.2
+    w4: 0.0
+    w5: -0.5
+    w6: -0.2
+- name: Consumer Internet, Portals & E-Commerce（ネットポータル・ECモール・Webメディア）
+  tickers:
+  - ticker: 590A.T
+    name: ギフティグループ
+    jpx33: 情報・通信業
+  - ticker: 2120.T
+    name: ＬＩＦＵＬＬ
+    jpx33: サービス業
+  - ticker: 2193.T
+    name: クックパッド
+    jpx33: サービス業
+  - ticker: 2371.T
+    name: カカクコム
+    jpx33: サービス業
+  - ticker: 2432.T
+    name: ディー・エヌ・エー
+    jpx33: 情報・通信業
+  - ticker: 2440.T
+    name: ぐるなび
+    jpx33: サービス業
+  - ticker: 2678.T
+    name: アスクル
+    jpx33: 小売業
+  - ticker: 3031.T
+    name: ラクーンホールディングス
+    jpx33: 情報・通信業
+  - ticker: 3064.T
+    name: ＭｏｎｏｔａＲＯ
+    jpx33: 小売業
+  - ticker: 3092.T
+    name: ＺＯＺＯ
+    jpx33: 小売業
+  - ticker: 3134.T
+    name: Ｈａｍｅｅ
+    jpx33: 小売業
+  - ticker: 3182.T
+    name: オイシックス・ラ・大地
+    jpx33: 小売業
+  - ticker: 3633.T
+    name: ＧＭＯペパボ
+    jpx33: 情報・通信業
+  - ticker: 3660.T
+    name: アイスタイル
+    jpx33: 情報・通信業
+  - ticker: 3662.T
+    name: エイチームホールディングス
+    jpx33: 情報・通信業
+  - ticker: 3665.T
+    name: エニグモ
+    jpx33: 情報・通信業
+  - ticker: 3678.T
+    name: メディアドゥ
+    jpx33: 情報・通信業
+  - ticker: 3679.T
+    name: じげん
+    jpx33: 情報・通信業
+  - ticker: 3696.T
+    name: セレス
+    jpx33: 情報・通信業
+  - ticker: 3901.T
+    name: マークラインズ
+    jpx33: 情報・通信業
+  - ticker: 3926.T
+    name: オープンドア
+    jpx33: 情報・通信業
+  - ticker: 3964.T
+    name: オークネット
+    jpx33: 情報・通信業
+  - ticker: 4385.T
+    name: メルカリ
+    jpx33: 情報・通信業
+  - ticker: 4689.T
+    name: ＬＩＮＥヤフー
+    jpx33: 情報・通信業
+  - ticker: 4755.T
+    name: 楽天グループ
+    jpx33: サービス業
+  - ticker: 4825.T
+    name: ウェザーニューズ
+    jpx33: 情報・通信業
+  - ticker: 8005.T
+    name: スクロール
+    jpx33: 小売業
+  - ticker: 8165.T
+    name: 千趣会
+    jpx33: 小売業
+  - ticker: 9474.T
+    name: ゼンリン
+    jpx33: 情報・通信業
+  - ticker: 9997.T
+    name: ベルーナ
+    jpx33: 小売業
+  sensitivity_labels:
+    w3: 0.6
+    w4: 0.8
+    w5: -0.8
+    w6: -0.3
+- name: Corporate Leasing & Capital Asset Finance（総合リース・法人設備金融）
+  tickers:
+  - ticker: 7187.T
+    name: ジェイリース
+    jpx33: その他金融業
+  - ticker: 8424.T
+    name: 芙蓉総合リース
+    jpx33: その他金融業
+  - ticker: 8425.T
+    name: みずほリース
+    jpx33: その他金融業
+  - ticker: 8439.T
+    name: 東京センチュリー
+    jpx33: その他金融業
+  - ticker: 8566.T
+    name: リコーリース
+    jpx33: その他金融業
+  - ticker: 8591.T
+    name: オリックス
+    jpx33: その他金融業
+  - ticker: 8593.T
+    name: 三菱ＨＣキャピタル
+    jpx33: その他金融業
+  - ticker: 8793.T
+    name: ＮＥＣキャピタルソリューション
+    jpx33: その他金融業
+  sensitivity_labels:
+    w3: 0.5
+    w4: 0.2
+    w5: -0.1
+    w6: 0.5
+- name: Cosmetics & Personal Care（化粧品・トイレタリー・日用品）
+  tickers:
+  - ticker: 2930.T
+    name: 北の達人コーポレーション
+    jpx33: 化学
+  - ticker: 4452.T
+    name: 花王
+    jpx33: 化学
+  - ticker: 4911.T
+    name: 資生堂
+    jpx33: 化学
+  - ticker: 4912.T
+    name: ライオン
+    jpx33: 化学
+  - ticker: 4919.T
+    name: ミルボン
+    jpx33: 化学
+  - ticker: 4922.T
+    name: コーセーホールディングス
+    jpx33: 化学
+  - ticker: 4923.T
+    name: コタ
+    jpx33: 化学
+  - ticker: 4927.T
+    name: ポーラ・オルビスホールディングス
+    jpx33: 化学
+  - ticker: 4928.T
+    name: ノエビアホールディングス
+    jpx33: 化学
+  - ticker: 4931.T
+    name: 新日本製薬
+    jpx33: 化学
+  - ticker: 4933.T
+    name: Ｉ－ｎｅ
+    jpx33: 化学
+  - ticker: 4936.T
+    name: アクシージア
+    jpx33: 化学
+  - ticker: 4951.T
+    name: エステー
+    jpx33: 化学
+  - ticker: 4967.T
+    name: 小林製薬
+    jpx33: 化学
+  - ticker: 4985.T
+    name: アース製薬
+    jpx33: 化学
+  - ticker: 6630.T
+    name: ヤーマン
+    jpx33: 電気機器
+  - ticker: 7823.T
+    name: アートネイチャー
+    jpx33: その他製品
+  - ticker: 7874.T
+    name: レック
+    jpx33: 化学
+  - ticker: 8113.T
+    name: ユニ・チャーム
+    jpx33: 化学
+  sensitivity_labels:
+    w3: -0.2
+    w4: -0.3
+    w5: -0.5
+    w6: -0.3
+- name: Dairy, Probiotics & Nutritional Foods（乳業・プロバイオティクス・栄養食品）
+  tickers:
+  - ticker: 2264.T
+    name: 森永乳業
+    jpx33: 食料品
+  - ticker: 2266.T
+    name: 六甲バター
+    jpx33: 食料品
+  - ticker: 2267.T
+    name: ヤクルト本社
+    jpx33: 食料品
+  - ticker: 2269.T
+    name: 明治ホールディングス
+    jpx33: 食料品
+  - ticker: 2270.T
+    name: 雪印メグミルク
+    jpx33: 食料品
+  - ticker: 2929.T
+    name: ファーマフーズ
+    jpx33: 食料品
+  - ticker: 2931.T
+    name: ユーグレナ
+    jpx33: 食料品
+  sensitivity_labels:
+    w3: -0.4
+    w4: -0.7
+    w5: -0.4
+    w6: -0.2
+- name: Department Stores & Luxury Commercial Real Estate（百貨店・高級ブランド・都市型商業施設）
+  tickers:
+  - ticker: 3086.T
+    name: Ｊ．フロント　リテイリング
+    jpx33: 小売業
+  - ticker: 3099.T
+    name: 三越伊勢丹ホールディングス
+    jpx33: 小売業
+  - ticker: 8233.T
+    name: 高島屋
+    jpx33: 小売業
+  - ticker: 8237.T
+    name: 松屋
+    jpx33: 小売業
+  - ticker: 8242.T
+    name: エイチ・ツー・オー　リテイリング
+    jpx33: 小売業
+  - ticker: 8244.T
+    name: 近鉄百貨店
+    jpx33: 小売業
+  sensitivity_labels:
+    w3: 0.5
+    w4: -0.2
+    w5: -0.5
+    w6: -0.5
+- name: Digital, Retail & Specialized Banks（ネット・流通・専門銀行）
+  tickers:
+  - ticker: 5838.T
+    name: 楽天銀行
+    jpx33: 銀行業
+  - ticker: 8303.T
+    name: ＳＢＩ新生銀行
+    jpx33: 銀行業
+  - ticker: 8304.T
+    name: あおぞら銀行
+    jpx33: 銀行業
+  - ticker: 8410.T
+    name: セブン銀行
+    jpx33: 銀行業
+  sensitivity_labels:
+    w3: 0.5
+    w4: 0.6
+    w5: -0.4
+    w6: 0.7
+- name: Drugstores & Dispensing（ドラッグストア・調剤薬局）
+  tickers:
+  - ticker: 2664.T
+    name: カワチ薬品
+    jpx33: 小売業
+  - ticker: 3034.T
+    name: クオールホールディングス
+    jpx33: 小売業
+  - ticker: 3088.T
+    name: マツキヨココカラ＆カンパニー
+    jpx33: 小売業
+  - ticker: 3148.T
+    name: クリエイトＳＤホールディングス
+    jpx33: 小売業
+  - ticker: 3349.T
+    name: コスモス薬品
+    jpx33: 小売業
+  - ticker: 3391.T
+    name: ツルハホールディングス
+    jpx33: 小売業
+  - ticker: 3549.T
+    name: クスリのアオキホールディングス
+    jpx33: 小売業
+  - ticker: 4350.T
+    name: メディカルシステムネットワーク
+    jpx33: 小売業
+  - ticker: 7649.T
+    name: スギホールディングス
+    jpx33: 小売業
+  - ticker: 7679.T
+    name: 薬王堂ホールディングス
+    jpx33: 小売業
+  - ticker: 9267.T
+    name: Ｇｅｎｋｙ　ＤｒｕｇＳｔｏｒｅｓ
+    jpx33: 小売業
+  - ticker: 9627.T
+    name: アインホールディングス
+    jpx33: 小売業
+  - ticker: 9989.T
+    name: サンドラッグ
+    jpx33: 小売業
+  sensitivity_labels:
+    w3: -0.2
+    w4: -0.2
+    w5: -0.5
+    w6: -0.2
+- name: Electric Power Utilities（電力・発電・送配電）
+  tickers:
+  - ticker: 9501.T
+    name: 東京電力ホールディングス
+    jpx33: 電気・ガス業
+  - ticker: 9502.T
+    name: 中部電力
+    jpx33: 電気・ガス業
+  - ticker: 9503.T
+    name: 関西電力
+    jpx33: 電気・ガス業
+  - ticker: 9504.T
+    name: 中国電力
+    jpx33: 電気・ガス業
+  - ticker: 9505.T
+    name: 北陸電力
+    jpx33: 電気・ガス業
+  - ticker: 9506.T
+    name: 東北電力
+    jpx33: 電気・ガス業
+  - ticker: 9507.T
+    name: 四国電力
+    jpx33: 電気・ガス業
+  - ticker: 9508.T
+    name: 九州電力
+    jpx33: 電気・ガス業
+  - ticker: 9509.T
+    name: 北海道電力
+    jpx33: 電気・ガス業
+  - ticker: 9511.T
+    name: 沖縄電力
+    jpx33: 電気・ガス業
+  - ticker: 9513.T
+    name: 電源開発
+    jpx33: 電気・ガス業
+  sensitivity_labels:
+    w3: -0.7
+    w4: -0.2
+    w5: -0.3
+    w6: -0.6
+- name: Electronic Components, Sensors & Passive Devices（電子部品・センサ・受動部品）
+  tickers:
+  - ticker: 4062.T
+    name: イビデン
+    jpx33: 電気機器
+  - ticker: 6615.T
+    name: ユー・エム・シー・エレクトロニクス
+    jpx33: 電気機器
+  - ticker: 6619.T
+    name: ダブル・スコープ
+    jpx33: 電気機器
+  - ticker: 6699.T
+    name: ダイヤモンドエレクトリックホールディングス
+    jpx33: 電気機器
+  - ticker: 6740.T
+    name: ジャパンディスプレイ
+    jpx33: 電気機器
+  - ticker: 6762.T
+    name: ＴＤＫ
+    jpx33: 電気機器
+  - ticker: 6763.T
+    name: 帝国通信工業
+    jpx33: 電気機器
+  - ticker: 6768.T
+    name: タムラ製作所
+    jpx33: 電気機器
+  - ticker: 6770.T
+    name: アルプスアルパイン
+    jpx33: 電気機器
+  - ticker: 6779.T
+    name: 日本電波工業
+    jpx33: 電気機器
+  - ticker: 6785.T
+    name: 鈴木
+    jpx33: 電気機器
+  - ticker: 6787.T
+    name: メイコー
+    jpx33: 電気機器
+  - ticker: 6798.T
+    name: ＳＭＫ
+    jpx33: 電気機器
+  - ticker: 6804.T
+    name: ホシデン
+    jpx33: 電気機器
+  - ticker: 6806.T
+    name: ヒロセ電機
+    jpx33: 電気機器
+  - ticker: 6817.T
+    name: スミダコーポレーション
+    jpx33: 電気機器
+  - ticker: 6820.T
+    name: アイコム
+    jpx33: 電気機器
+  - ticker: 6877.T
+    name: ＯＢＡＲＡ　ＧＲＯＵＰ
+    jpx33: 電気機器
+  - ticker: 6908.T
+    name: イリソ電子工業
+    jpx33: 電気機器
+  - ticker: 6914.T
+    name: オプテックスグループ
+    jpx33: 電気機器
+  - ticker: 6915.T
+    name: 千代田インテグレ
+    jpx33: 電気機器
+  - ticker: 6929.T
+    name: 日本セラミック
+    jpx33: 電気機器
+  - ticker: 6941.T
+    name: 山一電機
+    jpx33: 電気機器
+  - ticker: 6958.T
+    name: 日本シイエムケイ
+    jpx33: 電気機器
+  - ticker: 6961.T
+    name: エンプラス
+    jpx33: 電気機器
+  - ticker: 6962.T
+    name: 大真空
+    jpx33: 電気機器
+  - ticker: 6965.T
+    name: 浜松ホトニクス
+    jpx33: 電気機器
+  - ticker: 6971.T
+    name: 京セラ
+    jpx33: 電気機器
+  - ticker: 6976.T
+    name: 太陽誘電
+    jpx33: 電気機器
+  - ticker: 6981.T
+    name: 村田製作所
+    jpx33: 電気機器
+  - ticker: 6986.T
+    name: 双葉電子工業
+    jpx33: 電気機器
+  - ticker: 6996.T
+    name: ニチコン
+    jpx33: 電気機器
+  - ticker: 6997.T
+    name: 日本ケミコン
+    jpx33: 電気機器
+  - ticker: 6999.T
+    name: ＫＯＡ
+    jpx33: 電気機器
+  - ticker: 7915.T
+    name: ＮＩＳＳＨＡ
+    jpx33: その他製品
+  - ticker: 9880.T
+    name: イノテック
+    jpx33: 電気機器
+  sensitivity_labels:
+    w3: 0.8
+    w4: 0.9
+    w5: -0.2
+    w6: -0.4
+- name: Energy, Petroleum Refining & Resources（エネルギー・石油元売・資源開発）
+  tickers:
+  - ticker: 1514.T
+    name: 住石ホールディングス
+    jpx33: 鉱業
+  - ticker: 1605.T
+    name: ＩＮＰＥＸ
+    jpx33: 鉱業
+  - ticker: 1662.T
+    name: 石油資源開発
+    jpx33: 鉱業
+  - ticker: 1663.T
+    name: Ｋ＆Ｏエナジーグループ
+    jpx33: 鉱業
+  - ticker: 3315.T
+    name: 日本コークス工業
+    jpx33: 石油・石炭製品
+  - ticker: 5019.T
+    name: 出光興産
+    jpx33: 石油・石炭製品
+  - ticker: 5020.T
+    name: ＥＮＥＯＳホールディングス
+    jpx33: 石油・石炭製品
+  - ticker: 5021.T
+    name: コスモエネルギーホールディングス
+    jpx33: 石油・石炭製品
+  sensitivity_labels:
+    w3: 0.7
+    w4: 0.0
+    w5: 1.0
+    w6: 0.2
+- name: Enterprise Software, ERP & Cloud SaaS（業務ソフトウェア・ERP・クラウドSaaS）
+  tickers:
+  - ticker: 2477.T
+    name: 手間いらず
+    jpx33: 情報・通信業
+  - ticker: 2492.T
+    name: インフォマート
+    jpx33: サービス業
+  - ticker: 3663.T
+    name: セルシス
+    jpx33: 情報・通信業
+  - ticker: 3673.T
+    name: ブロードリーフ
+    jpx33: 情報・通信業
+  - ticker: 3687.T
+    name: フィックスターズ
+    jpx33: 情報・通信業
+  - ticker: 3694.T
+    name: オプティム
+    jpx33: 情報・通信業
+  - ticker: 3763.T
+    name: プロシップ
+    jpx33: 情報・通信業
+  - ticker: 3835.T
+    name: ｅＢＡＳＥ
+    jpx33: 情報・通信業
+  - ticker: 3836.T
+    name: アバントグループ
+    jpx33: 情報・通信業
+  - ticker: 3853.T
+    name: アステリア
+    jpx33: 情報・通信業
+  - ticker: 3854.T
+    name: アイル
+    jpx33: 情報・通信業
+  - ticker: 3915.T
+    name: テラスカイ
+    jpx33: 情報・通信業
+  - ticker: 3921.T
+    name: ネオジャパン
+    jpx33: 情報・通信業
+  - ticker: 3923.T
+    name: ラクス
+    jpx33: 情報・通信業
+  - ticker: 3983.T
+    name: オロ
+    jpx33: 情報・通信業
+  - ticker: 3984.T
+    name: ユーザーローカル
+    jpx33: 情報・通信業
+  - ticker: 3993.T
+    name: ＰＫＳＨＡ　Ｔｅｃｈｎｏｌｏｇｙ
+    jpx33: 情報・通信業
+  - ticker: 3994.T
+    name: マネーフォワード
+    jpx33: 情報・通信業
+  - ticker: 4071.T
+    name: プラスアルファ・コンサルティング
+    jpx33: 情報・通信業
+  - ticker: 4194.T
+    name: ビジョナル
+    jpx33: 情報・通信業
+  - ticker: 4344.T
+    name: ソースネクスト
+    jpx33: 情報・通信業
+  - ticker: 4382.T
+    name: ＨＥＲＯＺ
+    jpx33: 情報・通信業
+  - ticker: 4432.T
+    name: ウイングアーク１ｓｔ
+    jpx33: 情報・通信業
+  - ticker: 4443.T
+    name: Ｓａｎｓａｎ
+    jpx33: 情報・通信業
+  - ticker: 4684.T
+    name: オービック
+    jpx33: 情報・通信業
+  - ticker: 4686.T
+    name: ジャストシステム
+    jpx33: 情報・通信業
+  - ticker: 4704.T
+    name: トレンドマイクロ
+    jpx33: 情報・通信業
+  - ticker: 4716.T
+    name: 日本オラクル
+    jpx33: 情報・通信業
+  - ticker: 4733.T
+    name: オービックビジネスコンサルタント
+    jpx33: 情報・通信業
+  - ticker: 4776.T
+    name: サイボウズ
+    jpx33: 情報・通信業
+  - ticker: 4828.T
+    name: ビジネスエンジニアリング
+    jpx33: 情報・通信業
+  - ticker: 6027.T
+    name: 弁護士ドットコム
+    jpx33: サービス業
+  - ticker: 6947.T
+    name: 図研
+    jpx33: 電気機器
+  - ticker: 9629.T
+    name: ピー・シー・エー
+    jpx33: 情報・通信業
+  - ticker: 9746.T
+    name: ＴＫＣ
+    jpx33: 情報・通信業
+  - ticker: 9790.T
+    name: 福井コンピュータホールディングス
+    jpx33: 情報・通信業
+  - ticker: 9928.T
+    name: ミロク情報サービス
+    jpx33: 情報・通信業
+  sensitivity_labels:
+    w3: 0.8
+    w4: 1.0
+    w5: -0.7
+    w6: -0.6
+- name: General Contractors（ゼネコン・総合建設）
+  tickers:
+  - ticker: 256A.T
+    name: 飛島ホールディングス
+    jpx33: 建設業
+  - ticker: 1719.T
+    name: 安藤・間
+    jpx33: 建設業
+  - ticker: 1720.T
+    name: 東急建設
+    jpx33: 建設業
+  - ticker: 1762.T
+    name: 高松コンストラクショングループ
+    jpx33: 建設業
+  - ticker: 1780.T
+    name: ヤマウラ
+    jpx33: 建設業
+  - ticker: 1786.T
+    name: オリエンタル白石
+    jpx33: 建設業
+  - ticker: 1801.T
+    name: 大成建設
+    jpx33: 建設業
+  - ticker: 1802.T
+    name: 大林組
+    jpx33: 建設業
+  - ticker: 1803.T
+    name: 清水建設
+    jpx33: 建設業
+  - ticker: 1810.T
+    name: 松井建設
+    jpx33: 建設業
+  - ticker: 1812.T
+    name: 鹿島建設
+    jpx33: 建設業
+  - ticker: 1813.T
+    name: 不動テトラ
+    jpx33: 建設業
+  - ticker: 1815.T
+    name: 鉄建建設
+    jpx33: 建設業
+  - ticker: 1820.T
+    name: 西松建設
+    jpx33: 建設業
+  - ticker: 1822.T
+    name: 大豊建設
+    jpx33: 建設業
+  - ticker: 1833.T
+    name: 奥村組
+    jpx33: 建設業
+  - ticker: 1835.T
+    name: 東鉄工業
+    jpx33: 建設業
+  - ticker: 1852.T
+    name: 淺沼組
+    jpx33: 建設業
+  - ticker: 1860.T
+    name: 戸田建設
+    jpx33: 建設業
+  - ticker: 1861.T
+    name: 熊谷組
+    jpx33: 建設業
+  - ticker: 1870.T
+    name: 矢作建設工業
+    jpx33: 建設業
+  - ticker: 1871.T
+    name: ピーエス・コンストラクション
+    jpx33: 建設業
+  - ticker: 1879.T
+    name: 新日本建設
+    jpx33: 建設業
+  - ticker: 1882.T
+    name: 東亜道路工業
+    jpx33: 建設業
+  - ticker: 1885.T
+    name: 東亜建設工業
+    jpx33: 建設業
+  - ticker: 1887.T
+    name: 日本国土開発
+    jpx33: 建設業
+  - ticker: 1888.T
+    name: 若築建設
+    jpx33: 建設業
+  - ticker: 1893.T
+    name: 五洋建設
+    jpx33: 建設業
+  - ticker: 1898.T
+    name: 世紀東急工業
+    jpx33: 建設業
+  - ticker: 1899.T
+    name: 福田組
+    jpx33: 建設業
+  - ticker: 1926.T
+    name: ライト工業
+    jpx33: 建設業
+  - ticker: 1929.T
+    name: 日特建設
+    jpx33: 建設業
+  - ticker: 3267.T
+    name: フィル・カンパニー
+    jpx33: 建設業
+  - ticker: 5076.T
+    name: インフロニア・ホールディングス
+    jpx33: 建設業
+  sensitivity_labels:
+    w3: 0.7
+    w4: -0.1
+    w5: 0.3
+    w6: -0.4
+- name: General Trading Companies - Sogo Shosha（総合商社）
+  tickers:
+  - ticker: 2768.T
+    name: 双日
+    jpx33: 卸売業
+  - ticker: 8001.T
+    name: 伊藤忠商事
+    jpx33: 卸売業
+  - ticker: 8002.T
+    name: 丸紅
+    jpx33: 卸売業
+  - ticker: 8015.T
+    name: 豊田通商
+    jpx33: 卸売業
+  - ticker: 8020.T
+    name: 兼松
+    jpx33: 卸売業
+  - ticker: 8031.T
+    name: 三井物産
+    jpx33: 卸売業
+  - ticker: 8053.T
+    name: 住友商事
+    jpx33: 卸売業
+  - ticker: 8058.T
+    name: 三菱商事
+    jpx33: 卸売業
+  sensitivity_labels:
+    w3: 0.8
+    w4: 0.1
+    w5: 0.8
+    w6: 0.1
+- name: Glass, Advanced Ceramics & Cement（ガラス・先端セラミックス・セメント・断熱材）
+  tickers:
+  - ticker: 3110.T
+    name: 日東紡績
+    jpx33: ガラス・土石製品
+  - ticker: 5201.T
+    name: ＡＧＣ
+    jpx33: ガラス・土石製品
+  - ticker: 5202.T
+    name: 日本板硝子
+    jpx33: ガラス・土石製品
+  - ticker: 5214.T
+    name: 日本電気硝子
+    jpx33: ガラス・土石製品
+  - ticker: 5218.T
+    name: オハラ
+    jpx33: ガラス・土石製品
+  - ticker: 5232.T
+    name: 住友大阪セメント
+    jpx33: ガラス・土石製品
+  - ticker: 5233.T
+    name: 太平洋セメント
+    jpx33: ガラス・土石製品
+  - ticker: 5262.T
+    name: 日本ヒューム
+    jpx33: ガラス・土石製品
+  - ticker: 5269.T
+    name: 日本コンクリート工業
+    jpx33: ガラス・土石製品
+  - ticker: 5273.T
+    name: 三谷セキサン
+    jpx33: ガラス・土石製品
+  - ticker: 5288.T
+    name: アジアパイルホールディングス
+    jpx33: ガラス・土石製品
+  - ticker: 5301.T
+    name: 東海カーボン
+    jpx33: ガラス・土石製品
+  - ticker: 5302.T
+    name: 日本カーボン
+    jpx33: ガラス・土石製品
+  - ticker: 5310.T
+    name: 東洋炭素
+    jpx33: ガラス・土石製品
+  - ticker: 5331.T
+    name: ノリタケ
+    jpx33: ガラス・土石製品
+  - ticker: 5333.T
+    name: ＮＧＫ
+    jpx33: ガラス・土石製品
+  - ticker: 5334.T
+    name: 日本特殊陶業
+    jpx33: ガラス・土石製品
+  - ticker: 5344.T
+    name: ＭＡＲＵＷＡ
+    jpx33: ガラス・土石製品
+  - ticker: 5351.T
+    name: 品川リフラ
+    jpx33: ガラス・土石製品
+  - ticker: 5357.T
+    name: ヨータイ
+    jpx33: ガラス・土石製品
+  - ticker: 5393.T
+    name: ニチアス
+    jpx33: ガラス・土石製品
+  sensitivity_labels:
+    w3: 0.5
+    w4: 0.0
+    w5: 0.6
+    w6: -0.3
+- name: Global Gaming Platforms & Digital Publishers（グローバルゲーム・デジタルパブリッシャー）
+  tickers:
+  - ticker: 2121.T
+    name: ＭＩＸＩ
+    jpx33: 情報・通信業
+  - ticker: 3632.T
+    name: グリーホールディングス
+    jpx33: 情報・通信業
+  - ticker: 3635.T
+    name: コーエーテクモホールディングス
+    jpx33: 情報・通信業
+  - ticker: 3656.T
+    name: ＫＬａｂ
+    jpx33: 情報・通信業
+  - ticker: 3659.T
+    name: ネクソン
+    jpx33: 情報・通信業
+  - ticker: 3668.T
+    name: コロプラ
+    jpx33: 情報・通信業
+  - ticker: 3765.T
+    name: ガンホー・オンライン・エンターテイメント
+    jpx33: 情報・通信業
+  - ticker: 3903.T
+    name: ｇｕｍｉ
+    jpx33: 情報・通信業
+  - ticker: 3932.T
+    name: アカツキ
+    jpx33: 情報・通信業
+  - ticker: 7844.T
+    name: マーベラス
+    jpx33: 情報・通信業
+  - ticker: 7974.T
+    name: 任天堂
+    jpx33: その他製品
+  - ticker: 9684.T
+    name: スクウェア・エニックス・ホールディングス
+    jpx33: 情報・通信業
+  - ticker: 9697.T
+    name: カプコン
+    jpx33: 情報・通信業
+  - ticker: 9766.T
+    name: コナミグループ
+    jpx33: 情報・通信業
+  sensitivity_labels:
+    w3: 0.8
+    w4: 1.0
+    w5: -0.5
+    w6: -0.5
+- name: Global Major Innovative Pharma（グローバル新薬・大型創薬）
+  tickers:
+  - ticker: 4502.T
+    name: 武田薬品工業
+    jpx33: 医薬品
+  - ticker: 4503.T
+    name: アステラス製薬
+    jpx33: 医薬品
+  - ticker: 4507.T
+    name: 塩野義製薬
+    jpx33: 医薬品
+  - ticker: 4519.T
+    name: 中外製薬
+    jpx33: 医薬品
+  - ticker: 4523.T
+    name: エーザイ
+    jpx33: 医薬品
+  - ticker: 4528.T
+    name: 小野薬品工業
+    jpx33: 医薬品
+  - ticker: 4568.T
+    name: 第一三共
+    jpx33: 医薬品
+  - ticker: 4578.T
+    name: 大塚ホールディングス
+    jpx33: 医薬品
+  sensitivity_labels:
+    w3: 0.2
+    w4: 0.5
+    w5: -0.5
+    w6: -0.3
+- name: Grain Milling, Edible Oils, Marine & Agribusiness（製粉・製油・水産・アグリ素材）
+  tickers:
+  - ticker: 1301.T
+    name: 極洋
+    jpx33: 水産・農林業
+  - ticker: 1332.T
+    name: ニッスイ
+    jpx33: 水産・農林業
+  - ticker: 1333.T
+    name: Ｕｍｉｏｓ
+    jpx33: 水産・農林業
+  - ticker: 1375.T
+    name: ユキグニファクトリー
+    jpx33: 水産・農林業
+  - ticker: 1376.T
+    name: カネコ種苗
+    jpx33: 水産・農林業
+  - ticker: 1377.T
+    name: サカタのタネ
+    jpx33: 水産・農林業
+  - ticker: 1379.T
+    name: ホクト
+    jpx33: 水産・農林業
+  - ticker: 2001.T
+    name: ニップン
+    jpx33: 食料品
+  - ticker: 2002.T
+    name: 日清製粉グループ本社
+    jpx33: 食料品
+  - ticker: 2003.T
+    name: 日東富士製粉
+    jpx33: 食料品
+  - ticker: 2004.T
+    name: 昭和産業
+    jpx33: 食料品
+  - ticker: 2053.T
+    name: 中部飼料
+    jpx33: 食料品
+  - ticker: 2060.T
+    name: フィード・ワン
+    jpx33: 食料品
+  - ticker: 2108.T
+    name: 日本甜菜製糖
+    jpx33: 食料品
+  - ticker: 2109.T
+    name: ＤＭ三井製糖
+    jpx33: 食料品
+  - ticker: 2117.T
+    name: ウェルネオシュガー
+    jpx33: 食料品
+  - ticker: 2602.T
+    name: 日清オイリオグループ
+    jpx33: 食料品
+  - ticker: 2607.T
+    name: 不二製油
+    jpx33: 食料品
+  - ticker: 2613.T
+    name: Ｊ－オイルミルズ
+    jpx33: 食料品
+  - ticker: 4025.T
+    name: 多木化学
+    jpx33: 化学
+  - ticker: 4979.T
+    name: ＯＡＴアグリオ
+    jpx33: 化学
+  - ticker: 4992.T
+    name: 北興化学工業
+    jpx33: 化学
+  - ticker: 4996.T
+    name: クミアイ化学工業
+    jpx33: 化学
+  - ticker: 4997.T
+    name: 日本農薬
+    jpx33: 化学
+  sensitivity_labels:
+    w3: 0.2
+    w4: -0.3
+    w5: 0.5
+    w6: -0.2
+- name: Greater Tokyo Urban Transit & TOD（首都圏大手私鉄・都市交通・沿線再開発）
+  tickers:
+  - ticker: 9001.T
+    name: 東武鉄道
+    jpx33: 陸運業
+  - ticker: 9003.T
+    name: 相鉄ホールディングス
+    jpx33: 陸運業
+  - ticker: 9005.T
+    name: 東急
+    jpx33: 陸運業
+  - ticker: 9006.T
+    name: 京浜急行電鉄
+    jpx33: 陸運業
+  - ticker: 9007.T
+    name: 小田急電鉄
+    jpx33: 陸運業
+  - ticker: 9008.T
+    name: 京王電鉄
+    jpx33: 陸運業
+  - ticker: 9009.T
+    name: 京成電鉄
+    jpx33: 陸運業
+  - ticker: 9023.T
+    name: 東京地下鉄
+    jpx33: 陸運業
+  - ticker: 9024.T
+    name: 西武ホールディングス
+    jpx33: 陸運業
+  - ticker: 9081.T
+    name: 神奈川中央交通
+    jpx33: 陸運業
+  sensitivity_labels:
+    w3: 0.3
+    w4: -0.2
+    w5: -0.4
+    w6: -0.6
+- name: HR, Staffing & Relocation Services（人材・HR・総合派遣・社宅福利厚生）
+  tickers:
+  - ticker: 2124.T
+    name: ジェイエイシーリクルートメント
+    jpx33: サービス業
+  - ticker: 2146.T
+    name: ＵＴグループ
+    jpx33: サービス業
+  - ticker: 2154.T
+    name: オープンアップグループ
+    jpx33: サービス業
+  - ticker: 2168.T
+    name: パソナグループ
+    jpx33: サービス業
+  - ticker: 2170.T
+    name: リンクアンドモチベーション
+    jpx33: サービス業
+  - ticker: 2181.T
+    name: パーソルホールディングス
+    jpx33: サービス業
+  - ticker: 2301.T
+    name: 学情
+    jpx33: サービス業
+  - ticker: 2379.T
+    name: ディップ
+    jpx33: サービス業
+  - ticker: 2429.T
+    name: ワールドホールディングス
+    jpx33: サービス業
+  - ticker: 2462.T
+    name: ライク
+    jpx33: サービス業
+  - ticker: 2475.T
+    name: ＷＤＢホールディングス
+    jpx33: サービス業
+  - ticker: 4318.T
+    name: クイック
+    jpx33: サービス業
+  - ticker: 4641.T
+    name: アルプス技研
+    jpx33: サービス業
+  - ticker: 4763.T
+    name: クリーク・アンド・リバー社
+    jpx33: サービス業
+  - ticker: 4848.T
+    name: フルキャストホールディングス
+    jpx33: サービス業
+  - ticker: 4849.T
+    name: エン
+    jpx33: サービス業
+  - ticker: 6089.T
+    name: ウィルグループ
+    jpx33: サービス業
+  - ticker: 6098.T
+    name: リクルートホールディングス
+    jpx33: サービス業
+  - ticker: 6194.T
+    name: アトラエ
+    jpx33: サービス業
+  - ticker: 6539.T
+    name: ＭＳ－Ｊａｐａｎ
+    jpx33: サービス業
+  - ticker: 8876.T
+    name: リログループ
+    jpx33: サービス業
+  - ticker: 9332.T
+    name: ＮＩＳＳＯホールディングス
+    jpx33: サービス業
+  - ticker: 9744.T
+    name: メイテックグループホールディングス
+    jpx33: サービス業
+  sensitivity_labels:
+    w3: 0.7
+    w4: 0.2
+    w5: -0.7
+    w6: -0.4
+- name: Heavy Electrical, Power Systems & Batteries（重電・電力グリッド・産業パワー・電池）
+  tickers:
+  - ticker: 6501.T
+    name: 日立製作所
+    jpx33: 電気機器
+  - ticker: 6503.T
+    name: 三菱電機
+    jpx33: 電気機器
+  - ticker: 6504.T
+    name: 富士電機
+    jpx33: 電気機器
+  - ticker: 6507.T
+    name: シンフォニアテクノロジー
+    jpx33: 電気機器
+  - ticker: 6508.T
+    name: 明電舎
+    jpx33: 電気機器
+  - ticker: 6517.T
+    name: デンヨー
+    jpx33: 電気機器
+  - ticker: 6592.T
+    name: マブチモーター
+    jpx33: 電気機器
+  - ticker: 6617.T
+    name: 東光高岳
+    jpx33: 電気機器
+  - ticker: 6622.T
+    name: ダイヘン
+    jpx33: 電気機器
+  - ticker: 6632.T
+    name: ＪＶＣケンウッド
+    jpx33: 電気機器
+  - ticker: 6644.T
+    name: 大崎電気工業
+    jpx33: 電気機器
+  - ticker: 6651.T
+    name: 日東工業
+    jpx33: 電気機器
+  - ticker: 6674.T
+    name: ジーエス・ユアサ　コーポレーション
+    jpx33: 電気機器
+  - ticker: 6752.T
+    name: パナソニック　ホールディングス
+    jpx33: 電気機器
+  - ticker: 6905.T
+    name: コーセル
+    jpx33: 電気機器
+  sensitivity_labels:
+    w3: 0.7
+    w4: 0.8
+    w5: 0.1
+    w6: -0.4
+- name: Housing Fixtures, Sanitary Ware & Building Openings（住宅設備・衛生陶器・建材・サッシ）
+  tickers:
+  - ticker: 3421.T
+    name: 稲葉製作所
+    jpx33: 金属製品
+  - ticker: 5332.T
+    name: ＴＯＴＯ
+    jpx33: ガラス・土石製品
+  - ticker: 5929.T
+    name: 三和ホールディングス
+    jpx33: 金属製品
+  - ticker: 5930.T
+    name: 文化シヤッター
+    jpx33: 金属製品
+  - ticker: 5932.T
+    name: 三協立山
+    jpx33: 金属製品
+  - ticker: 5938.T
+    name: ＬＩＸＩＬ
+    jpx33: 金属製品
+  - ticker: 5943.T
+    name: ノーリツ
+    jpx33: 金属製品
+  - ticker: 5946.T
+    name: 長府製作所
+    jpx33: 金属製品
+  - ticker: 5947.T
+    name: リンナイ
+    jpx33: 金属製品
+  - ticker: 7570.T
+    name: 橋本総業ホールディングス
+    jpx33: 卸売業
+  - ticker: 7820.T
+    name: ニホンフラッシュ
+    jpx33: その他製品
+  - ticker: 7931.T
+    name: 未来工業
+    jpx33: 化学
+  - ticker: 7943.T
+    name: ニチハ
+    jpx33: ガラス・土石製品
+  - ticker: 7949.T
+    name: 小松ウオール工業
+    jpx33: その他製品
+  - ticker: 7955.T
+    name: クリナップ
+    jpx33: その他製品
+  - ticker: 7981.T
+    name: タカラスタンダード
+    jpx33: その他製品
+  - ticker: 7989.T
+    name: 立川ブラインド工業
+    jpx33: 金属製品
+  - ticker: 8130.T
+    name: サンゲツ
+    jpx33: 卸売業
+  - ticker: 9896.T
+    name: ＪＫホールディングス
+    jpx33: 卸売業
+  sensitivity_labels:
+    w3: 0.3
+    w4: -0.1
+    w5: 0.2
+    w6: -0.6
+- name: Housing, Homebuilders & Wood Products（住宅・ハウスメーカー・木材）
+  tickers:
+  - ticker: 1419.T
+    name: タマホーム
+    jpx33: 建設業
+  - ticker: 1766.T
+    name: 東建コーポレーション
+    jpx33: 建設業
+  - ticker: 1808.T
+    name: 長谷工コーポレーション
+    jpx33: 建設業
+  - ticker: 1873.T
+    name: 日本ハウスホールディングス
+    jpx33: 建設業
+  - ticker: 1878.T
+    name: 大東建託
+    jpx33: 不動産業
+  - ticker: 1911.T
+    name: 住友林業
+    jpx33: 建設業
+  - ticker: 1925.T
+    name: 大和ハウス工業
+    jpx33: 建設業
+  - ticker: 1928.T
+    name: 積水ハウス
+    jpx33: 建設業
+  - ticker: 3288.T
+    name: オープンハウスグループ
+    jpx33: 不動産業
+  - ticker: 3291.T
+    name: 飯田グループホールディングス
+    jpx33: 不動産業
+  sensitivity_labels:
+    w3: 0.4
+    w4: 0.0
+    w5: -0.4
+    w6: -0.9
+- name: IT Services & Enterprise SIers（大型SIer・システム受託開発・IT流通）
+  tickers:
+  - ticker: 441A.T
+    name: ＮＥ
+    jpx33: 情報・通信業
+  - ticker: 545A.T
+    name: トランヴィア
+    jpx33: 情報・通信業
+  - ticker: 2307.T
+    name: クロスキャット
+    jpx33: 情報・通信業
+  - ticker: 2317.T
+    name: システナ
+    jpx33: 情報・通信業
+  - ticker: 2327.T
+    name: 日鉄ソリューションズ
+    jpx33: 情報・通信業
+  - ticker: 2335.T
+    name: キューブシステム
+    jpx33: 情報・通信業
+  - ticker: 2359.T
+    name: コア
+    jpx33: 情報・通信業
+  - ticker: 3371.T
+    name: ソフトクリエイトホールディングス
+    jpx33: 情報・通信業
+  - ticker: 3565.T
+    name: アセンテック
+    jpx33: 卸売業
+  - ticker: 3626.T
+    name: ＴＩＳ
+    jpx33: 情報・通信業
+  - ticker: 3741.T
+    name: セック
+    jpx33: 情報・通信業
+  - ticker: 3762.T
+    name: テクマトリックス
+    jpx33: 情報・通信業
+  - ticker: 3771.T
+    name: システムリサーチ
+    jpx33: 情報・通信業
+  - ticker: 3817.T
+    name: ＳＲＡホールディングス
+    jpx33: 情報・通信業
+  - ticker: 3837.T
+    name: アドソル日進
+    jpx33: 情報・通信業
+  - ticker: 3844.T
+    name: コムチュア
+    jpx33: 情報・通信業
+  - ticker: 3916.T
+    name: デジタル・インフォメーション・テクノロジー
+    jpx33: 情報・通信業
+  - ticker: 3925.T
+    name: ダブルスタンダード
+    jpx33: 情報・通信業
+  - ticker: 4072.T
+    name: 電算システムホールディングス
+    jpx33: 情報・通信業
+  - ticker: 4299.T
+    name: ハイマックス
+    jpx33: 情報・通信業
+  - ticker: 4307.T
+    name: 野村総合研究所
+    jpx33: 情報・通信業
+  - ticker: 4323.T
+    name: 日本システム技術
+    jpx33: 情報・通信業
+  - ticker: 4373.T
+    name: シンプレクス・ホールディングス
+    jpx33: 情報・通信業
+  - ticker: 4396.T
+    name: システムサポートホールディングス
+    jpx33: 情報・通信業
+  - ticker: 4413.T
+    name: ボードルア
+    jpx33: 情報・通信業
+  - ticker: 4420.T
+    name: イーソル
+    jpx33: 情報・通信業
+  - ticker: 4434.T
+    name: サーバーワークス
+    jpx33: 情報・通信業
+  - ticker: 4481.T
+    name: ベース
+    jpx33: 情報・通信業
+  - ticker: 4662.T
+    name: フォーカスシステムズ
+    jpx33: 情報・通信業
+  - ticker: 4674.T
+    name: クレスコ
+    jpx33: 情報・通信業
+  - ticker: 4687.T
+    name: ＴＤＣソフト
+    jpx33: 情報・通信業
+  - ticker: 4709.T
+    name: ＩＤホールディングス
+    jpx33: 情報・通信業
+  - ticker: 4719.T
+    name: アルファシステムズ
+    jpx33: 情報・通信業
+  - ticker: 4725.T
+    name: ＣＡＣ　Ｈｏｌｄｉｎｇｓ
+    jpx33: 情報・通信業
+  - ticker: 4743.T
+    name: アイティフォー
+    jpx33: 情報・通信業
+  - ticker: 4746.T
+    name: 東計電算
+    jpx33: 情報・通信業
+  - ticker: 4768.T
+    name: 大塚商会
+    jpx33: 情報・通信業
+  - ticker: 4812.T
+    name: 電通総研
+    jpx33: 情報・通信業
+  - ticker: 4826.T
+    name: ＣＩＪ
+    jpx33: 情報・通信業
+  - ticker: 4845.T
+    name: スカラ
+    jpx33: 情報・通信業
+  - ticker: 5036.T
+    name: 日本ビジネスシステムズ
+    jpx33: 情報・通信業
+  - ticker: 6199.T
+    name: セラク
+    jpx33: サービス業
+  - ticker: 6701.T
+    name: 日本電気
+    jpx33: 電気機器
+  - ticker: 6702.T
+    name: 富士通
+    jpx33: 電気機器
+  - ticker: 7527.T
+    name: システムソフト
+    jpx33: 情報・通信業
+  - ticker: 7595.T
+    name: アルゴグラフィックス
+    jpx33: 情報・通信業
+  - ticker: 8056.T
+    name: ＢＩＰＲＯＧＹ
+    jpx33: 情報・通信業
+  - ticker: 8157.T
+    name: 都築電気
+    jpx33: 情報・通信業
+  - ticker: 9682.T
+    name: ＤＴＳ
+    jpx33: 情報・通信業
+  - ticker: 9692.T
+    name: シーイーシー
+    jpx33: 情報・通信業
+  - ticker: 9702.T
+    name: アイ・エス・ビー
+    jpx33: 情報・通信業
+  - ticker: 9739.T
+    name: ＮＳＷ
+    jpx33: 情報・通信業
+  - ticker: 9742.T
+    name: アイネス
+    jpx33: 情報・通信業
+  - ticker: 9759.T
+    name: ＮＳＤ
+    jpx33: 情報・通信業
+  - ticker: 9889.T
+    name: ＪＢＣＣホールディングス
+    jpx33: 情報・通信業
+  sensitivity_labels:
+    w3: 0.7
+    w4: 0.8
+    w5: -0.5
+    w6: -0.4
+- name: Industrial Automation, Robotics & Process Control（FA・産業ロボット・プロセス制御計装）
+  tickers:
+  - ticker: 6134.T
+    name: ＦＵＪＩ
+    jpx33: 機械
+  - ticker: 6258.T
+    name: 平田機工
+    jpx33: 機械
+  - ticker: 6268.T
+    name: ナブテスコ
+    jpx33: 機械
+  - ticker: 6273.T
+    name: ＳＭＣ
+    jpx33: 機械
+  - ticker: 6324.T
+    name: ハーモニック・ドライブ・システムズ
+    jpx33: 機械
+  - ticker: 6383.T
+    name: ダイフク
+    jpx33: 機械
+  - ticker: 6481.T
+    name: ＴＨＫ
+    jpx33: 機械
+  - ticker: 6482.T
+    name: ＹＵＳＨＩＮ
+    jpx33: 機械
+  - ticker: 6506.T
+    name: 安川電機
+    jpx33: 電気機器
+  - ticker: 6516.T
+    name: 山洋電気
+    jpx33: 電気機器
+  - ticker: 6645.T
+    name: オムロン
+    jpx33: 電気機器
+  - ticker: 6652.T
+    name: ＩＤＥＣ
+    jpx33: 電気機器
+  - ticker: 6841.T
+    name: 横河電機
+    jpx33: 電気機器
+  - ticker: 6845.T
+    name: アズビル
+    jpx33: 電気機器
+  - ticker: 6861.T
+    name: キーエンス
+    jpx33: 電気機器
+  - ticker: 6954.T
+    name: ファナック
+    jpx33: 電気機器
+  sensitivity_labels:
+    w3: 0.9
+    w4: 1.0
+    w5: -0.1
+    w6: -0.4
+- name: Industrial Machinery, HVAC & Precision Bearings（産業機械・空調設備・油圧・精密ベアリング）
+  tickers:
+  - ticker: 544A.T
+    name: ＧＭＳグループ
+    jpx33: 機械
+  - ticker: 6005.T
+    name: 三浦工業
+    jpx33: 機械
+  - ticker: 6151.T
+    name: 日東工器
+    jpx33: 機械
+  - ticker: 6222.T
+    name: 島精機製作所
+    jpx33: 機械
+  - ticker: 6237.T
+    name: イワキ
+    jpx33: 機械
+  - ticker: 6240.T
+    name: ヤマシンフィルタ
+    jpx33: 機械
+  - ticker: 6247.T
+    name: 日阪製作所
+    jpx33: 機械
+  - ticker: 6262.T
+    name: ＰＥＧＡＳＵＳ
+    jpx33: 機械
+  - ticker: 6272.T
+    name: レオン自動機
+    jpx33: 機械
+  - ticker: 6277.T
+    name: ホソカワミクロン
+    jpx33: 機械
+  - ticker: 6279.T
+    name: 瑞光
+    jpx33: 機械
+  - ticker: 6282.T
+    name: オイレス工業
+    jpx33: 機械
+  - ticker: 6284.T
+    name: 日精エー・エス・ビー機械
+    jpx33: 機械
+  - ticker: 6291.T
+    name: 日本エアーテック
+    jpx33: 機械
+  - ticker: 6309.T
+    name: 巴工業
+    jpx33: 機械
+  - ticker: 6317.T
+    name: 北川鉄工所
+    jpx33: 機械
+  - ticker: 6333.T
+    name: ＴＥＩＫＯＫＵ
+    jpx33: 機械
+  - ticker: 6339.T
+    name: 新東工業
+    jpx33: 機械
+  - ticker: 6340.T
+    name: 澁谷工業
+    jpx33: 機械
+  - ticker: 6351.T
+    name: 鶴見製作所
+    jpx33: 機械
+  - ticker: 6361.T
+    name: 荏原製作所
+    jpx33: 機械
+  - ticker: 6363.T
+    name: 酉島製作所
+    jpx33: 機械
+  - ticker: 6364.T
+    name: ＡＩＲＭＡＮ
+    jpx33: 機械
+  - ticker: 6367.T
+    name: ダイキン工業
+    jpx33: 機械
+  - ticker: 6368.T
+    name: オルガノ
+    jpx33: 機械
+  - ticker: 6369.T
+    name: トーヨーカネツ
+    jpx33: 機械
+  - ticker: 6370.T
+    name: 栗田工業
+    jpx33: 機械
+  - ticker: 6371.T
+    name: 椿本チエイン
+    jpx33: 機械
+  - ticker: 6378.T
+    name: 木村化工機
+    jpx33: 機械
+  - ticker: 6381.T
+    name: アネスト岩田
+    jpx33: 機械
+  - ticker: 6407.T
+    name: ＣＫＤ
+    jpx33: 機械
+  - ticker: 6420.T
+    name: ガリレイ
+    jpx33: 機械
+  - ticker: 6440.T
+    name: ＪＵＫＩ
+    jpx33: 機械
+  - ticker: 6454.T
+    name: マックス
+    jpx33: 機械
+  - ticker: 6458.T
+    name: 新晃工業
+    jpx33: 機械
+  - ticker: 6459.T
+    name: 大和冷機工業
+    jpx33: 機械
+  - ticker: 6464.T
+    name: ツバキ・ナカシマ
+    jpx33: 機械
+  - ticker: 6465.T
+    name: ホシザキ
+    jpx33: 機械
+  - ticker: 6471.T
+    name: 日本精工
+    jpx33: 機械
+  - ticker: 6472.T
+    name: ＮＴＮ
+    jpx33: 機械
+  - ticker: 6473.T
+    name: ジェイテクト
+    jpx33: 機械
+  - ticker: 6474.T
+    name: 不二越
+    jpx33: 機械
+  - ticker: 6480.T
+    name: 日本トムソン
+    jpx33: 機械
+  - ticker: 6485.T
+    name: 前澤給装工業
+    jpx33: 機械
+  - ticker: 6486.T
+    name: イーグル工業
+    jpx33: 機械
+  - ticker: 6490.T
+    name: ＰＩＬＬＡＲ
+    jpx33: 機械
+  - ticker: 6498.T
+    name: キッツ
+    jpx33: 機械
+  - ticker: 6586.T
+    name: マキタ
+    jpx33: 機械
+  - ticker: 6859.T
+    name: エスペック
+    jpx33: 電気機器
+  sensitivity_labels:
+    w3: 0.8
+    w4: 0.6
+    w5: 0.2
+    w6: -0.3
+- name: Integrated Steel Mills & Specialty Steel（高炉・特殊鋼・電炉・鋼板）
+  tickers:
+  - ticker: 5401.T
+    name: 日本製鉄
+    jpx33: 鉄鋼
+  - ticker: 5406.T
+    name: 神戸製鋼所
+    jpx33: 鉄鋼
+  - ticker: 5408.T
+    name: 中山製鋼所
+    jpx33: 鉄鋼
+  - ticker: 5410.T
+    name: 合同製鐵
+    jpx33: 鉄鋼
+  - ticker: 5411.T
+    name: ＪＦＥホールディングス
+    jpx33: 鉄鋼
+  - ticker: 5423.T
+    name: 東京製鐵
+    jpx33: 鉄鋼
+  - ticker: 5440.T
+    name: 共英製鋼
+    jpx33: 鉄鋼
+  - ticker: 5444.T
+    name: 大和工業
+    jpx33: 鉄鋼
+  - ticker: 5445.T
+    name: 東京鐵鋼
+    jpx33: 鉄鋼
+  - ticker: 5449.T
+    name: 大阪製鐵
+    jpx33: 鉄鋼
+  - ticker: 5451.T
+    name: ヨドコウ
+    jpx33: 鉄鋼
+  - ticker: 5461.T
+    name: 中部鋼鈑
+    jpx33: 鉄鋼
+  - ticker: 5463.T
+    name: 丸一鋼管
+    jpx33: 鉄鋼
+  - ticker: 5464.T
+    name: モリ工業
+    jpx33: 鉄鋼
+  - ticker: 5471.T
+    name: 大同特殊鋼
+    jpx33: 鉄鋼
+  - ticker: 5480.T
+    name: 日本冶金工業
+    jpx33: 鉄鋼
+  - ticker: 5482.T
+    name: 愛知製鋼
+    jpx33: 鉄鋼
+  - ticker: 5541.T
+    name: 大平洋金属
+    jpx33: 鉄鋼
+  - ticker: 5563.T
+    name: 新日本電工
+    jpx33: 鉄鋼
+  - ticker: 5602.T
+    name: 栗本鐵工所
+    jpx33: 鉄鋼
+  - ticker: 5632.T
+    name: 三菱製鋼
+    jpx33: 鉄鋼
+  - ticker: 5659.T
+    name: 日本精線
+    jpx33: 鉄鋼
+  sensitivity_labels:
+    w3: 0.8
+    w4: -0.1
+    w5: 0.9
+    w6: 0.0
+- name: Internet Infrastructure & FinTech Payments（ネットインフラ・決済代行・通信網）
+  tickers:
+  - ticker: 2326.T
+    name: デジタルアーツ
+    jpx33: 情報・通信業
+  - ticker: 3040.T
+    name: ソリトンシステムズ
+    jpx33: 情報・通信業
+  - ticker: 3769.T
+    name: ＧＭＯペイメントゲートウェイ
+    jpx33: 情報・通信業
+  - ticker: 3774.T
+    name: インターネットイニシアティブ
+    jpx33: 情報・通信業
+  - ticker: 3778.T
+    name: さくらインターネット
+    jpx33: 情報・通信業
+  - ticker: 3788.T
+    name: ＧＭＯグローバルサイン・ホールディングス
+    jpx33: 情報・通信業
+  - ticker: 3834.T
+    name: 朝日ネット
+    jpx33: 情報・通信業
+  - ticker: 3843.T
+    name: フリービット
+    jpx33: 情報・通信業
+  - ticker: 4051.T
+    name: ＧＭＯフィナンシャルゲート
+    jpx33: 情報・通信業
+  - ticker: 4784.T
+    name: ＧＭＯインターネット
+    jpx33: サービス業
+  - ticker: 4819.T
+    name: デジタルガレージ
+    jpx33: 情報・通信業
+  - ticker: 9449.T
+    name: ＧＭＯインターネットグループ
+    jpx33: 情報・通信業
+  - ticker: 9450.T
+    name: ファイバーゲート
+    jpx33: 情報・通信業
+  sensitivity_labels:
+    w3: 0.8
+    w4: 0.9
+    w5: -0.6
+    w6: -0.5
+- name: JR Group & Intercity High-Speed Rail（JR旅客鉄道グループ・新幹線幹線網）
+  tickers:
+  - ticker: 9020.T
+    name: 東日本旅客鉄道
+    jpx33: 陸運業
+  - ticker: 9021.T
+    name: 西日本旅客鉄道
+    jpx33: 陸運業
+  - ticker: 9022.T
+    name: 東海旅客鉄道
+    jpx33: 陸運業
+  - ticker: 9142.T
+    name: 九州旅客鉄道
+    jpx33: 陸運業
+  sensitivity_labels:
+    w3: 0.2
+    w4: -0.2
+    w5: -0.5
+    w6: -0.5
+- name: Kansai & Inter-Regional Private Railways（関西・広域大手私鉄・観光交通）
+  tickers:
+  - ticker: 9010.T
+    name: 富士急行
+    jpx33: 陸運業
+  - ticker: 9031.T
+    name: 西日本鉄道
+    jpx33: 陸運業
+  - ticker: 9041.T
+    name: 近鉄グループホールディングス
+    jpx33: 陸運業
+  - ticker: 9042.T
+    name: 阪急阪神ホールディングス
+    jpx33: 陸運業
+  - ticker: 9044.T
+    name: ＮＡＮＫＡＩ
+    jpx33: 陸運業
+  - ticker: 9045.T
+    name: 京阪ホールディングス
+    jpx33: 陸運業
+  - ticker: 9046.T
+    name: 神戸電鉄
+    jpx33: 陸運業
+  - ticker: 9048.T
+    name: 名古屋鉄道
+    jpx33: 陸運業
+  - ticker: 9052.T
+    name: 山陽電気鉄道
+    jpx33: 陸運業
+  sensitivity_labels:
+    w3: 0.3
+    w4: -0.2
+    w5: -0.5
+    w6: -0.5
+- name: Life, Non-Life Insurance & Insurance Brokerage（生命・損害保険・保険仲介）
+  tickers:
+  - ticker: 7157.T
+    name: ライフネット生命保険
+    jpx33: 保険業
+  - ticker: 7181.T
+    name: かんぽ生命保険
+    jpx33: 保険業
+  - ticker: 7388.T
+    name: ＦＰパートナー
+    jpx33: 保険業
+  - ticker: 8630.T
+    name: ＳＯＭＰＯホールディングス
+    jpx33: 保険業
+  - ticker: 8715.T
+    name: アニコム　ホールディングス
+    jpx33: 保険業
+  - ticker: 8725.T
+    name: ＭＳ＆ＡＤインシュアランスグループホールディングス
+    jpx33: 保険業
+  - ticker: 8729.T
+    name: ソニーフィナンシャルグループ
+    jpx33: 保険業
+  - ticker: 8750.T
+    name: 第一ライフグループ
+    jpx33: 保険業
+  - ticker: 8766.T
+    name: 東京海上ホールディングス
+    jpx33: 保険業
+  - ticker: 8795.T
+    name: Ｔ＆Ｄホールディングス
+    jpx33: 保険業
+  - ticker: 8798.T
+    name: アドバンスクリエイト
+    jpx33: 保険業
+  sensitivity_labels:
+    w3: 0.3
+    w4: 0.1
+    w5: -0.4
+    w6: 0.8
+- name: Logistics, Trucking & Forwarding（トラック・総合物流・フォワーディング）
+  tickers:
+  - ticker: 2384.T
+    name: ＳＢＳホールディングス
+    jpx33: 陸運業
+  - ticker: 6178.T
+    name: 日本郵政
+    jpx33: サービス業
+  - ticker: 9025.T
+    name: 鴻池運輸
+    jpx33: 陸運業
+  - ticker: 9037.T
+    name: ハマキョウレックス
+    jpx33: 陸運業
+  - ticker: 9039.T
+    name: サカイ引越センター
+    jpx33: 陸運業
+  - ticker: 9064.T
+    name: ヤマトホールディングス
+    jpx33: 陸運業
+  - ticker: 9065.T
+    name: 山九
+    jpx33: 陸運業
+  - ticker: 9068.T
+    name: 丸全昭和運輸
+    jpx33: 陸運業
+  - ticker: 9069.T
+    name: センコーグループホールディングス
+    jpx33: 陸運業
+  - ticker: 9072.T
+    name: ニッコンホールディングス
+    jpx33: 陸運業
+  - ticker: 9075.T
+    name: 福山通運
+    jpx33: 陸運業
+  - ticker: 9076.T
+    name: セイノーホールディングス
+    jpx33: 陸運業
+  - ticker: 9090.T
+    name: ＡＺ－ＣＯＭ丸和ホールディングス
+    jpx33: 陸運業
+  - ticker: 9143.T
+    name: ＳＧホールディングス
+    jpx33: 陸運業
+  - ticker: 9147.T
+    name: ＮＩＰＰＯＮ　ＥＸＰＲＥＳＳホールディングス
+    jpx33: 陸運業
+  - ticker: 9369.T
+    name: キユーソー流通システム
+    jpx33: 倉庫・運輸関連業
+  - ticker: 9381.T
+    name: エーアイテイー
+    jpx33: 倉庫・運輸関連業
+  sensitivity_labels:
+    w3: 0.7
+    w4: 0.1
+    w5: -0.4
+    w6: -0.3
+- name: Machine Tools, Cutting & Commercial Automation（工作機械・切削工具・板金・自動化機器）
+  tickers:
+  - ticker: 6101.T
+    name: ツガミ
+    jpx33: 機械
+  - ticker: 6103.T
+    name: オークマ
+    jpx33: 機械
+  - ticker: 6104.T
+    name: 芝浦機械
+    jpx33: 機械
+  - ticker: 6113.T
+    name: アマダ
+    jpx33: 機械
+  - ticker: 6118.T
+    name: アイダエンジニアリング
+    jpx33: 機械
+  - ticker: 6135.T
+    name: 牧野フライス製作所
+    jpx33: 機械
+  - ticker: 6136.T
+    name: オーエスジー
+    jpx33: 機械
+  - ticker: 6140.T
+    name: 旭ダイヤモンド工業
+    jpx33: 機械
+  - ticker: 6141.T
+    name: ＤＭＧ森精機
+    jpx33: 機械
+  - ticker: 6143.T
+    name: ソディック
+    jpx33: 機械
+  - ticker: 6157.T
+    name: 日進工具
+    jpx33: 機械
+  - ticker: 6167.T
+    name: 冨士ダイス
+    jpx33: 機械
+  - ticker: 6278.T
+    name: ユニオンツール
+    jpx33: 機械
+  - ticker: 6349.T
+    name: 小森コーポレーション
+    jpx33: 機械
+  - ticker: 6436.T
+    name: アマノ
+    jpx33: 機械
+  - ticker: 6457.T
+    name: グローリー
+    jpx33: 機械
+  sensitivity_labels:
+    w3: 0.9
+    w4: 0.8
+    w5: 0.2
+    w6: -0.4
+- name: Major Metropolitan & Super-Regional Banks（大都市圏・広域メガ地銀）
+  tickers:
+  - ticker: 5831.T
+    name: しずおかフィナンシャルグループ
+    jpx33: 銀行業
+  - ticker: 5844.T
+    name: 京都フィナンシャルグループ
+    jpx33: 銀行業
+  - ticker: 7167.T
+    name: めぶきフィナンシャルグループ
+    jpx33: 銀行業
+  - ticker: 7186.T
+    name: 横浜フィナンシャルグループ
+    jpx33: 銀行業
+  - ticker: 7327.T
+    name: 第四北越フィナンシャルグループ
+    jpx33: 銀行業
+  - ticker: 7380.T
+    name: 十六フィナンシャルグループ
+    jpx33: 銀行業
+  - ticker: 7389.T
+    name: あいちフィナンシャルグループ
+    jpx33: 銀行業
+  - ticker: 8331.T
+    name: 千葉銀行
+    jpx33: 銀行業
+  - ticker: 8354.T
+    name: ふくおかフィナンシャルグループ
+    jpx33: 銀行業
+  sensitivity_labels:
+    w3: 0.6
+    w4: 0.1
+    w5: -0.2
+    w6: 0.9
+- name: Marine Shipping（外航海運・海上輸送）
+  tickers:
+  - ticker: 9101.T
+    name: 日本郵船
+    jpx33: 海運業
+  - ticker: 9104.T
+    name: 商船三井
+    jpx33: 海運業
+  - ticker: 9107.T
+    name: 川崎汽船
+    jpx33: 海運業
+  - ticker: 9110.T
+    name: ＮＳユナイテッド海運
+    jpx33: 海運業
+  - ticker: 9119.T
+    name: 飯野海運
+    jpx33: 海運業
+  - ticker: 9308.T
+    name: 乾汽船
+    jpx33: 海運業
+  sensitivity_labels:
+    w3: 0.9
+    w4: -0.1
+    w5: 0.5
+    w6: 0.1
+- name: Medical Devices, Diagnostics & Clinical Testing（医療機器・臨床検査・生体医工学）
+  tickers:
+  - ticker: 368A.T
+    name: 北里コーポレーション
+    jpx33: 精密機器
+  - ticker: 4543.T
+    name: テルモ
+    jpx33: 精密機器
+  - ticker: 4544.T
+    name: Ｈ．Ｕ．グループホールディングス
+    jpx33: サービス業
+  - ticker: 4549.T
+    name: 栄研化学
+    jpx33: 医薬品
+  - ticker: 4671.T
+    name: ファルコホールディングス
+    jpx33: サービス業
+  - ticker: 4694.T
+    name: ビー・エム・エル
+    jpx33: サービス業
+  - ticker: 6523.T
+    name: ＰＨＣホールディングス
+    jpx33: 電気機器
+  - ticker: 6678.T
+    name: テクノメディカ
+    jpx33: 電気機器
+  - ticker: 6823.T
+    name: リオン
+    jpx33: 電気機器
+  - ticker: 6849.T
+    name: 日本光電工業
+    jpx33: 電気機器
+  - ticker: 6869.T
+    name: シスメックス
+    jpx33: 電気機器
+  - ticker: 7600.T
+    name: 日本エム・ディ・エム
+    jpx33: 精密機器
+  - ticker: 7702.T
+    name: ＪＭＳ
+    jpx33: 精密機器
+  - ticker: 7730.T
+    name: マニー
+    jpx33: 精密機器
+  - ticker: 7747.T
+    name: 朝日インテック
+    jpx33: 精密機器
+  - ticker: 7780.T
+    name: メニコン
+    jpx33: 精密機器
+  - ticker: 8086.T
+    name: ニプロ
+    jpx33: 精密機器
+  sensitivity_labels:
+    w3: 0.3
+    w4: 0.8
+    w5: -0.4
+    w6: -0.3
+- name: Megabanks & Trust Banks（メガバンク・ゆうちょ・信託）
+  tickers:
+  - ticker: 7182.T
+    name: ゆうちょ銀行
+    jpx33: 銀行業
+  - ticker: 8306.T
+    name: 三菱ＵＦＪフィナンシャル・グループ
+    jpx33: 銀行業
+  - ticker: 8308.T
+    name: りそなホールディングス
+    jpx33: 銀行業
+  - ticker: 8309.T
+    name: 三井住友トラストグループ
+    jpx33: 銀行業
+  - ticker: 8316.T
+    name: 三井住友フィナンシャルグループ
+    jpx33: 銀行業
+  - ticker: 8411.T
+    name: みずほフィナンシャルグループ
+    jpx33: 銀行業
+  sensitivity_labels:
+    w3: 0.5
+    w4: 0.3
+    w5: -0.2
+    w6: 1.0
+- name: Non-Ferrous Smelting, Mining & Advanced Materials（非鉄製錬・資源鉱山・先端金属材料）
+  tickers:
+  - ticker: 1515.T
+    name: 日鉄鉱業
+    jpx33: 鉱業
+  - ticker: 5016.T
+    name: ＪＸ金属
+    jpx33: 非鉄金属
+  - ticker: 5702.T
+    name: 大紀アルミニウム工業所
+    jpx33: 非鉄金属
+  - ticker: 5703.T
+    name: 日本軽金属ホールディングス
+    jpx33: 非鉄金属
+  - ticker: 5706.T
+    name: 三井金属
+    jpx33: 非鉄金属
+  - ticker: 5707.T
+    name: 東邦亜鉛
+    jpx33: 非鉄金属
+  - ticker: 5711.T
+    name: 三菱マテリアル
+    jpx33: 非鉄金属
+  - ticker: 5713.T
+    name: 住友金属鉱山
+    jpx33: 非鉄金属
+  - ticker: 5714.T
+    name: ＤＯＷＡホールディングス
+    jpx33: 非鉄金属
+  - ticker: 5715.T
+    name: 古河機械金属
+    jpx33: 非鉄金属
+  - ticker: 5726.T
+    name: 大阪チタニウムテクノロジーズ
+    jpx33: 非鉄金属
+  - ticker: 5741.T
+    name: ＵＡＣＪ
+    jpx33: 非鉄金属
+  - ticker: 5757.T
+    name: ＣＫサンエツ
+    jpx33: 非鉄金属
+  - ticker: 5857.T
+    name: ＡＲＥホールディングス
+    jpx33: 非鉄金属
+  - ticker: 7826.T
+    name: フルヤ金属
+    jpx33: その他製品
+  sensitivity_labels:
+    w3: 0.8
+    w4: 0.2
+    w5: 1.0
+    w6: 0.0
+- name: Office Printing, Consumer Electronics & Industrial Devices（オフィスOA・プリンティング・民生機器）
+  tickers:
+  - ticker: 4902.T
+    name: コニカミノルタ
+    jpx33: 電気機器
+  - ticker: 6287.T
+    name: サトー
+    jpx33: 機械
+  - ticker: 6413.T
+    name: 理想科学工業
+    jpx33: 機械
+  - ticker: 6445.T
+    name: ジャノメ
+    jpx33: 機械
+  - ticker: 6448.T
+    name: ブラザー工業
+    jpx33: 電気機器
+  - ticker: 6479.T
+    name: ミネベアミツミ
+    jpx33: 電気機器
+  - ticker: 6588.T
+    name: 東芝テック
+    jpx33: 電気機器
+  - ticker: 6638.T
+    name: ミマキエンジニアリング
+    jpx33: 電気機器
+  - ticker: 6676.T
+    name: バッファロー
+    jpx33: 電気機器
+  - ticker: 6703.T
+    name: 沖電気工業
+    jpx33: 電気機器
+  - ticker: 6718.T
+    name: アイホン
+    jpx33: 電気機器
+  - ticker: 6724.T
+    name: セイコーエプソン
+    jpx33: 電気機器
+  - ticker: 6727.T
+    name: ワコム
+    jpx33: 電気機器
+  - ticker: 6737.T
+    name: ＥＩＺＯ
+    jpx33: 電気機器
+  - ticker: 6750.T
+    name: エレコム
+    jpx33: 電気機器
+  - ticker: 6753.T
+    name: シャープ
+    jpx33: 電気機器
+  - ticker: 6754.T
+    name: アンリツ
+    jpx33: 電気機器
+  - ticker: 6788.T
+    name: 日本トリム
+    jpx33: 電気機器
+  - ticker: 6809.T
+    name: ＴＯＡ
+    jpx33: 電気機器
+  - ticker: 6810.T
+    name: マクセル
+    jpx33: 電気機器
+  - ticker: 6952.T
+    name: カシオ計算機
+    jpx33: 電気機器
+  - ticker: 7752.T
+    name: リコー
+    jpx33: 電気機器
+  - ticker: 7965.T
+    name: 象印マホービン
+    jpx33: 電気機器
+  sensitivity_labels:
+    w3: 0.4
+    w4: 0.6
+    w5: -0.4
+    w6: -0.4
+- name: Optical Fiber, Power Cables & Communication Infrastructure（電線・光ファイバ・電力通信インフラ）
+  tickers:
+  - ticker: 5801.T
+    name: 古河電気工業
+    jpx33: 非鉄金属
+  - ticker: 5802.T
+    name: 住友電気工業
+    jpx33: 非鉄金属
+  - ticker: 5803.T
+    name: フジクラ
+    jpx33: 非鉄金属
+  - ticker: 5805.T
+    name: ＳＷＣＣ
+    jpx33: 非鉄金属
+  - ticker: 5821.T
+    name: 平河ヒューテック
+    jpx33: 非鉄金属
+  - ticker: 6706.T
+    name: 電気興業
+    jpx33: 電気機器
+  - ticker: 9824.T
+    name: 泉州電業
+    jpx33: 卸売業
+  sensitivity_labels:
+    w3: 0.8
+    w4: 0.8
+    w5: 0.5
+    w6: -0.3
+- name: Optical Instruments, Analytical & Precision Measurement（精密光学機器・分析計測・カメラ）
+  tickers:
+  - ticker: 268A.T
+    name: リガク・ホールディングス
+    jpx33: 精密機器
+  - ticker: 6376.T
+    name: 日機装
+    jpx33: 精密機器
+  - ticker: 6850.T
+    name: チノー
+    jpx33: 電気機器
+  - ticker: 6856.T
+    name: 堀場製作所
+    jpx33: 電気機器
+  - ticker: 6866.T
+    name: 日置電機
+    jpx33: 電気機器
+  - ticker: 6925.T
+    name: ウシオ電機
+    jpx33: 電気機器
+  - ticker: 7701.T
+    name: 島津製作所
+    jpx33: 精密機器
+  - ticker: 7715.T
+    name: 長野計器
+    jpx33: 精密機器
+  - ticker: 7721.T
+    name: 東京計器
+    jpx33: 精密機器
+  - ticker: 7723.T
+    name: 愛知時計電機
+    jpx33: 精密機器
+  - ticker: 7731.T
+    name: ニコン
+    jpx33: 精密機器
+  - ticker: 7733.T
+    name: オリンパス
+    jpx33: 精密機器
+  - ticker: 7734.T
+    name: 理研計器
+    jpx33: 精密機器
+  - ticker: 7740.T
+    name: タムロン
+    jpx33: 精密機器
+  - ticker: 7741.T
+    name: ＨＯＹＡ
+    jpx33: 精密機器
+  - ticker: 7744.T
+    name: ノーリツ鋼機
+    jpx33: 精密機器
+  - ticker: 7745.T
+    name: Ａ＆Ｄホロンホールディングス
+    jpx33: 精密機器
+  - ticker: 7751.T
+    name: キヤノン
+    jpx33: 電気機器
+  - ticker: 7762.T
+    name: シチズン時計
+    jpx33: 精密機器
+  - ticker: 7979.T
+    name: 松風
+    jpx33: 精密機器
+  - ticker: 8050.T
+    name: セイコーグループ
+    jpx33: 精密機器
+  sensitivity_labels:
+    w3: 0.6
+    w4: 0.9
+    w5: -0.3
+    w6: -0.4
+- name: Pachinko & Karaoke Amusement（パチンコ遊技機・カラオケ・大衆アミューズメント）
+  tickers:
+  - ticker: 6238.T
+    name: フリュー
+    jpx33: 機械
+  - ticker: 6412.T
+    name: 平和
+    jpx33: 機械
+  - ticker: 6417.T
+    name: ＳＡＮＫＹＯ
+    jpx33: 機械
+  - ticker: 6418.T
+    name: 日本金銭機械
+    jpx33: 機械
+  - ticker: 6419.T
+    name: マースグループホールディングス
+    jpx33: 機械
+  - ticker: 6430.T
+    name: ダイコク電機
+    jpx33: 機械
+  - ticker: 6460.T
+    name: セガサミーホールディングス
+    jpx33: 機械
+  - ticker: 7458.T
+    name: 第一興商
+    jpx33: 卸売業
+  sensitivity_labels:
+    w3: 0.3
+    w4: 0.0
+    w5: -0.5
+    w6: -0.3
+- name: Paints, Inks & Functional Adhesives（塗料・インキ・接着剤・コーティング材料）
+  tickers:
+  - ticker: 4206.T
+    name: アイカ工業
+    jpx33: 化学
+  - ticker: 4611.T
+    name: 大日本塗料
+    jpx33: 化学
+  - ticker: 4612.T
+    name: 日本ペイントホールディングス
+    jpx33: 化学
+  - ticker: 4613.T
+    name: 関西ペイント
+    jpx33: 化学
+  - ticker: 4617.T
+    name: 中国塗料
+    jpx33: 化学
+  - ticker: 4620.T
+    name: 藤倉化成
+    jpx33: 化学
+  - ticker: 4631.T
+    name: ＤＩＣ
+    jpx33: 化学
+  - ticker: 4633.T
+    name: サカタインクス
+    jpx33: 化学
+  - ticker: 4634.T
+    name: ａｒｔｉｅｎｃｅ
+    jpx33: 化学
+  - ticker: 4956.T
+    name: コニシ
+    jpx33: 化学
+  - ticker: 5011.T
+    name: ニチレキグループ
+    jpx33: 石油・石炭製品
+  - ticker: 5013.T
+    name: ユシロ
+    jpx33: 石油・石炭製品
+  sensitivity_labels:
+    w3: 0.5
+    w4: 0.1
+    w5: 0.3
+    w6: -0.3
+- name: Paper, Packaging, Containers & Printing（紙パルプ・包装容器・印刷）
+  tickers:
+  - ticker: 3708.T
+    name: 特種東海製紙
+    jpx33: パルプ・紙
+  - ticker: 3861.T
+    name: 王子ホールディングス
+    jpx33: パルプ・紙
+  - ticker: 3863.T
+    name: 日本製紙
+    jpx33: パルプ・紙
+  - ticker: 3865.T
+    name: 北越コーポレーション
+    jpx33: パルプ・紙
+  - ticker: 3880.T
+    name: 大王製紙
+    jpx33: パルプ・紙
+  - ticker: 3941.T
+    name: レンゴー
+    jpx33: パルプ・紙
+  - ticker: 3946.T
+    name: トーモク
+    jpx33: パルプ・紙
+  - ticker: 3950.T
+    name: ザ・パック
+    jpx33: パルプ・紙
+  - ticker: 4994.T
+    name: 大成ラミックグループ
+    jpx33: 化学
+  - ticker: 5901.T
+    name: 東洋製罐グループホールディングス
+    jpx33: 金属製品
+  - ticker: 5902.T
+    name: ホッカンホールディングス
+    jpx33: 金属製品
+  - ticker: 7482.T
+    name: シモジマ
+    jpx33: 卸売業
+  - ticker: 7864.T
+    name: フジシールインターナショナル
+    jpx33: その他製品
+  - ticker: 7893.T
+    name: プロネクサス
+    jpx33: その他製品
+  - ticker: 7911.T
+    name: ＴＯＰＰＡＮホールディングス
+    jpx33: その他製品
+  - ticker: 7912.T
+    name: 大日本印刷
+    jpx33: その他製品
+  - ticker: 7914.T
+    name: 共同印刷
+    jpx33: その他製品
+  - ticker: 7917.T
+    name: ＺＡＣＲＯＳ
+    jpx33: 化学
+  - ticker: 7921.T
+    name: ＴＡＫＡＲＡ　＆　ＣＯＭＰＡＮＹ
+    jpx33: その他製品
+  - ticker: 7947.T
+    name: エフピコ
+    jpx33: 化学
+  - ticker: 8032.T
+    name: 日本紙パルプ商事
+    jpx33: 卸売業
+  - ticker: 9274.T
+    name: ＫＰＰグループホールディングス
+    jpx33: 卸売業
+  sensitivity_labels:
+    w3: 0.2
+    w4: -0.4
+    w5: 0.3
+    w6: -0.3
+- name: Passenger Cars, Commercial Vehicles & Motorcycles（乗用車・完成車・商用トラック・二輪）
+  tickers:
+  - ticker: 7201.T
+    name: 日産自動車
+    jpx33: 輸送用機器
+  - ticker: 7202.T
+    name: いすゞ自動車
+    jpx33: 輸送用機器
+  - ticker: 7203.T
+    name: トヨタ自動車
+    jpx33: 輸送用機器
+  - ticker: 7211.T
+    name: 三菱自動車工業
+    jpx33: 輸送用機器
+  - ticker: 7261.T
+    name: マツダ
+    jpx33: 輸送用機器
+  - ticker: 7267.T
+    name: 本田技研工業
+    jpx33: 輸送用機器
+  - ticker: 7269.T
+    name: スズキ
+    jpx33: 輸送用機器
+  - ticker: 7270.T
+    name: ＳＵＢＡＲＵ
+    jpx33: 輸送用機器
+  - ticker: 7272.T
+    name: ヤマハ発動機
+    jpx33: 輸送用機器
+  - ticker: 7278.T
+    name: エクセディ
+    jpx33: 輸送用機器
+  sensitivity_labels:
+    w3: 0.9
+    w4: 0.6
+    w5: -0.5
+    w6: -0.5
+- name: Plant, Electrical & Telecom Engineering（設備工事・エンジニアリング・インフラ工事）
+  tickers:
+  - ticker: 1414.T
+    name: ショーボンドホールディングス
+    jpx33: 建設業
+  - ticker: 1417.T
+    name: ミライト・ワン
+    jpx33: 建設業
+  - ticker: 1716.T
+    name: 第一カッター興業
+    jpx33: 建設業
+  - ticker: 1721.T
+    name: コムシスホールディングス
+    jpx33: 建設業
+  - ticker: 1930.T
+    name: 北陸電気工事
+    jpx33: 建設業
+  - ticker: 1934.T
+    name: ユアテック
+    jpx33: 建設業
+  - ticker: 1938.T
+    name: 日本リーテック
+    jpx33: 建設業
+  - ticker: 1939.T
+    name: 四電工
+    jpx33: 建設業
+  - ticker: 1941.T
+    name: 中電工
+    jpx33: 建設業
+  - ticker: 1942.T
+    name: 関電工
+    jpx33: 建設業
+  - ticker: 1944.T
+    name: きんでん
+    jpx33: 建設業
+  - ticker: 1945.T
+    name: 東京エネシス
+    jpx33: 建設業
+  - ticker: 1946.T
+    name: トーエネック
+    jpx33: 建設業
+  - ticker: 1950.T
+    name: 日本電設工業
+    jpx33: 建設業
+  - ticker: 1951.T
+    name: エクシオグループ
+    jpx33: 建設業
+  - ticker: 1952.T
+    name: 新日本空調
+    jpx33: 建設業
+  - ticker: 1959.T
+    name: クラフティア
+    jpx33: 建設業
+  - ticker: 1961.T
+    name: 三機工業
+    jpx33: 建設業
+  - ticker: 1963.T
+    name: 日揮ホールディングス
+    jpx33: 建設業
+  - ticker: 1964.T
+    name: 中外炉工業
+    jpx33: 建設業
+  - ticker: 1968.T
+    name: 太平電業
+    jpx33: 建設業
+  - ticker: 1969.T
+    name: 高砂熱学工業
+    jpx33: 建設業
+  - ticker: 1975.T
+    name: 朝日工業社
+    jpx33: 建設業
+  - ticker: 1976.T
+    name: 明星工業
+    jpx33: 建設業
+  - ticker: 1979.T
+    name: 大氣社
+    jpx33: 建設業
+  - ticker: 1980.T
+    name: ダイダン
+    jpx33: 建設業
+  - ticker: 1982.T
+    name: 日比谷総合設備
+    jpx33: 建設業
+  - ticker: 6330.T
+    name: 東洋エンジニアリング
+    jpx33: 建設業
+  - ticker: 6379.T
+    name: レイズネクスト
+    jpx33: 建設業
+  - ticker: 6741.T
+    name: 日本信号
+    jpx33: 電気機器
+  - ticker: 6742.T
+    name: 京三製作所
+    jpx33: 電気機器
+  - ticker: 9960.T
+    name: 東テク
+    jpx33: 卸売業
+  sensitivity_labels:
+    w3: 0.7
+    w4: 0.4
+    w5: 0.2
+    w6: -0.4
+- name: Regional & Provincial Banking Groups（地域ブロック中核地銀）
+  tickers:
+  - ticker: 5830.T
+    name: いよぎんホールディングス
+    jpx33: 銀行業
+  - ticker: 5832.T
+    name: ちゅうぎんフィナンシャルグループ
+    jpx33: 銀行業
+  - ticker: 7173.T
+    name: 東京きらぼしフィナンシャルグループ
+    jpx33: 銀行業
+  - ticker: 7180.T
+    name: 九州フィナンシャルグループ
+    jpx33: 銀行業
+  - ticker: 7184.T
+    name: 富山第一銀行
+    jpx33: 銀行業
+  - ticker: 7189.T
+    name: 西日本フィナンシャルホールディングス
+    jpx33: 銀行業
+  - ticker: 7322.T
+    name: 三十三フィナンシャルグループ
+    jpx33: 銀行業
+  - ticker: 7337.T
+    name: ひろぎんホールディングス
+    jpx33: 銀行業
+  - ticker: 7350.T
+    name: おきなわフィナンシャルグループ
+    jpx33: 銀行業
+  - ticker: 7381.T
+    name: ＣＣＩグループ
+    jpx33: 銀行業
+  - ticker: 7384.T
+    name: プロクレアホールディングス
+    jpx33: 銀行業
+  - ticker: 8334.T
+    name: 群馬銀行
+    jpx33: 銀行業
+  - ticker: 8336.T
+    name: 武蔵野銀行
+    jpx33: 銀行業
+  - ticker: 8337.T
+    name: 千葉興業銀行
+    jpx33: 銀行業
+  - ticker: 8338.T
+    name: 筑波銀行
+    jpx33: 銀行業
+  - ticker: 8341.T
+    name: 七十七銀行
+    jpx33: 銀行業
+  - ticker: 8343.T
+    name: 秋田銀行
+    jpx33: 銀行業
+  - ticker: 8344.T
+    name: 山形銀行
+    jpx33: 銀行業
+  - ticker: 8345.T
+    name: 岩手銀行
+    jpx33: 銀行業
+  - ticker: 8346.T
+    name: 東邦銀行
+    jpx33: 銀行業
+  - ticker: 8358.T
+    name: スルガ銀行
+    jpx33: 銀行業
+  - ticker: 8359.T
+    name: 八十二長野銀行
+    jpx33: 銀行業
+  - ticker: 8360.T
+    name: 山梨中央銀行
+    jpx33: 銀行業
+  - ticker: 8361.T
+    name: 大垣共立銀行
+    jpx33: 銀行業
+  - ticker: 8362.T
+    name: 福井銀行
+    jpx33: 銀行業
+  - ticker: 8364.T
+    name: 清水銀行
+    jpx33: 銀行業
+  - ticker: 8366.T
+    name: 滋賀銀行
+    jpx33: 銀行業
+  - ticker: 8367.T
+    name: 南都銀行
+    jpx33: 銀行業
+  - ticker: 8368.T
+    name: 百五銀行
+    jpx33: 銀行業
+  - ticker: 8370.T
+    name: 紀陽銀行
+    jpx33: 銀行業
+  - ticker: 8377.T
+    name: ほくほくフィナンシャルグループ
+    jpx33: 銀行業
+  - ticker: 8381.T
+    name: 山陰合同銀行
+    jpx33: 銀行業
+  - ticker: 8386.T
+    name: 百十四銀行
+    jpx33: 銀行業
+  - ticker: 8387.T
+    name: 四国銀行
+    jpx33: 銀行業
+  - ticker: 8388.T
+    name: 阿波銀行
+    jpx33: 銀行業
+  - ticker: 8392.T
+    name: 大分銀行
+    jpx33: 銀行業
+  - ticker: 8393.T
+    name: 宮崎銀行
+    jpx33: 銀行業
+  - ticker: 8395.T
+    name: 佐賀銀行
+    jpx33: 銀行業
+  - ticker: 8399.T
+    name: 琉球銀行
+    jpx33: 銀行業
+  - ticker: 8418.T
+    name: 山口フィナンシャルグループ
+    jpx33: 銀行業
+  - ticker: 8522.T
+    name: 名古屋銀行
+    jpx33: 銀行業
+  - ticker: 8524.T
+    name: 北洋銀行
+    jpx33: 銀行業
+  - ticker: 8541.T
+    name: 愛媛銀行
+    jpx33: 銀行業
+  - ticker: 8544.T
+    name: 京葉銀行
+    jpx33: 銀行業
+  - ticker: 8550.T
+    name: 栃木銀行
+    jpx33: 銀行業
+  - ticker: 8551.T
+    name: 北日本銀行
+    jpx33: 銀行業
+  - ticker: 8558.T
+    name: 東和銀行
+    jpx33: 銀行業
+  - ticker: 8600.T
+    name: トモニホールディングス
+    jpx33: 銀行業
+  - ticker: 8713.T
+    name: フィデアホールディングス
+    jpx33: 銀行業
+  - ticker: 8714.T
+    name: 池田泉州ホールディングス
+    jpx33: 銀行業
+  sensitivity_labels:
+    w3: 0.4
+    w4: -0.1
+    w5: -0.2
+    w6: 0.8
+- name: Restaurants & Food Service（外食・フードサービス）
+  tickers:
+  - ticker: 2695.T
+    name: くら寿司
+    jpx33: 小売業
+  - ticker: 2752.T
+    name: フジオフードグループ本社
+    jpx33: 小売業
+  - ticker: 2753.T
+    name: あみやき亭
+    jpx33: 小売業
+  - ticker: 3053.T
+    name: ペッパーフードサービス
+    jpx33: 小売業
+  - ticker: 3087.T
+    name: ドトール・日レスホールディングス
+    jpx33: 小売業
+  - ticker: 3091.T
+    name: ブロンコビリー
+    jpx33: 小売業
+  - ticker: 3097.T
+    name: 物語コーポレーション
+    jpx33: 小売業
+  - ticker: 3193.T
+    name: エターナルホスピタリティグループ
+    jpx33: 小売業
+  - ticker: 3196.T
+    name: ホットランドホールディングス
+    jpx33: 小売業
+  - ticker: 3197.T
+    name: すかいらーくホールディングス
+    jpx33: 小売業
+  - ticker: 3221.T
+    name: ヨシックスホールディングス
+    jpx33: 小売業
+  - ticker: 3387.T
+    name: クリエイト・レストランツ・ホールディングス
+    jpx33: 小売業
+  - ticker: 3395.T
+    name: サンマルクホールディングス
+    jpx33: 小売業
+  - ticker: 3397.T
+    name: トリドールホールディングス
+    jpx33: 小売業
+  - ticker: 3543.T
+    name: コメダホールディングス
+    jpx33: 卸売業
+  - ticker: 3561.T
+    name: 力の源ホールディングス
+    jpx33: 小売業
+  - ticker: 3563.T
+    name: ＦＯＯＤ　＆　ＬＩＦＥ　ＣＯＭＰＡＮＩＥＳ
+    jpx33: 小売業
+  - ticker: 6082.T
+    name: ライドオンエクスプレスホールディングス
+    jpx33: サービス業
+  - ticker: 7421.T
+    name: カッパ・クリエイト
+    jpx33: 小売業
+  - ticker: 7522.T
+    name: ワタミ
+    jpx33: 小売業
+  - ticker: 7550.T
+    name: ゼンショーホールディングス
+    jpx33: 小売業
+  - ticker: 7554.T
+    name: 幸楽苑
+    jpx33: 小売業
+  - ticker: 7581.T
+    name: サイゼリヤ
+    jpx33: 小売業
+  - ticker: 7611.T
+    name: ハイデイ日高
+    jpx33: 小売業
+  - ticker: 7616.T
+    name: コロワイド
+    jpx33: 小売業
+  - ticker: 7630.T
+    name: 壱番屋
+    jpx33: 小売業
+  - ticker: 8153.T
+    name: モスフードサービス
+    jpx33: 卸売業
+  - ticker: 8160.T
+    name: 木曽路
+    jpx33: 小売業
+  - ticker: 8163.T
+    name: ＳＲＳホールディングス
+    jpx33: 小売業
+  - ticker: 8179.T
+    name: ロイヤルホールディングス
+    jpx33: 小売業
+  - ticker: 8200.T
+    name: リンガーハット
+    jpx33: 小売業
+  - ticker: 9262.T
+    name: シルバーライフ
+    jpx33: 小売業
+  - ticker: 9279.T
+    name: ギフトホールディングス
+    jpx33: 小売業
+  - ticker: 9828.T
+    name: Ｇｅｎｋｉ　Ｇｌｏｂａｌ　Ｄｉｎｉｎｇ　Ｃｏｎｃｅｐｔｓ
+    jpx33: 小売業
+  - ticker: 9850.T
+    name: グルメ杵屋
+    jpx33: 小売業
+  - ticker: 9861.T
+    name: 吉野家ホールディングス
+    jpx33: 小売業
+  - ticker: 9887.T
+    name: 松屋フーズホールディングス
+    jpx33: 小売業
+  - ticker: 9900.T
+    name: サガミホールディングス
+    jpx33: 小売業
+  - ticker: 9936.T
+    name: 王将フードサービス
+    jpx33: 小売業
+  - ticker: 9979.T
+    name: 大庄
+    jpx33: 小売業
+  sensitivity_labels:
+    w3: 0.6
+    w4: -0.3
+    w5: -0.7
+    w6: -0.3
+- name: Seasonings, Packaged Foods & Processed Meats（調味料・即席麺・食肉・調理加工食品）
+  tickers:
+  - ticker: 250A.T
+    name: シマダヤ
+    jpx33: 食料品
+  - ticker: 2281.T
+    name: プリマハム
+    jpx33: 食料品
+  - ticker: 2282.T
+    name: 日本ハム
+    jpx33: 食料品
+  - ticker: 2288.T
+    name: 丸大食品
+    jpx33: 食料品
+  - ticker: 2292.T
+    name: Ｓ　Ｆｏｏｄｓ
+    jpx33: 食料品
+  - ticker: 2294.T
+    name: 柿安本店
+    jpx33: 食料品
+  - ticker: 2296.T
+    name: 伊藤ハム米久ホールディングス
+    jpx33: 食料品
+  - ticker: 2801.T
+    name: キッコーマン
+    jpx33: 食料品
+  - ticker: 2802.T
+    name: 味の素
+    jpx33: 食料品
+  - ticker: 2804.T
+    name: ブルドックソース
+    jpx33: 食料品
+  - ticker: 2809.T
+    name: キユーピー
+    jpx33: 食料品
+  - ticker: 2810.T
+    name: ハウス食品グループ本社
+    jpx33: 食料品
+  - ticker: 2811.T
+    name: カゴメ
+    jpx33: 食料品
+  - ticker: 2815.T
+    name: アリアケジャパン
+    jpx33: 食料品
+  - ticker: 2819.T
+    name: エバラ食品工業
+    jpx33: 食料品
+  - ticker: 2871.T
+    name: ニチレイ
+    jpx33: 食料品
+  - ticker: 2875.T
+    name: 東洋水産
+    jpx33: 食料品
+  - ticker: 2882.T
+    name: イートアンドホールディングス
+    jpx33: 食料品
+  - ticker: 2884.T
+    name: ヨシムラ・フード・ホールディングス
+    jpx33: 食料品
+  - ticker: 2897.T
+    name: 日清食品ホールディングス
+    jpx33: 食料品
+  - ticker: 2908.T
+    name: フジッコ
+    jpx33: 食料品
+  - ticker: 2910.T
+    name: ロック・フィールド
+    jpx33: 食料品
+  - ticker: 2915.T
+    name: ケンコーマヨネーズ
+    jpx33: 食料品
+  - ticker: 2918.T
+    name: わらべや日洋ホールディングス
+    jpx33: 食料品
+  - ticker: 2922.T
+    name: なとり
+    jpx33: 食料品
+  - ticker: 2933.T
+    name: 紀文食品
+    jpx33: 食料品
+  - ticker: 2935.T
+    name: ピックルスホールディングス
+    jpx33: 食料品
+  - ticker: 4526.T
+    name: 理研ビタミン
+    jpx33: 食料品
+  sensitivity_labels:
+    w3: -0.2
+    w4: -0.5
+    w5: -0.5
+    w6: -0.2
+- name: Securities, Exchanges & Investment（証券・取引所・投資育成）
+  tickers:
+  - ticker: 4765.T
+    name: ＳＢＩグローバルアセットマネジメント
+    jpx33: サービス業
+  - ticker: 7148.T
+    name: ＦＰＧ
+    jpx33: 証券、商品先物取引業
+  - ticker: 7172.T
+    name: ジャパンインベストメントアドバイザー
+    jpx33: 証券、商品先物取引業
+  - ticker: 8473.T
+    name: ＳＢＩホールディングス
+    jpx33: 証券、商品先物取引業
+  - ticker: 8511.T
+    name: 日本証券金融
+    jpx33: その他金融業
+  - ticker: 8601.T
+    name: 大和証券グループ本社
+    jpx33: 証券、商品先物取引業
+  - ticker: 8604.T
+    name: 野村ホールディングス
+    jpx33: 証券、商品先物取引業
+  - ticker: 8609.T
+    name: 岡三証券グループ
+    jpx33: 証券、商品先物取引業
+  - ticker: 8613.T
+    name: 丸三証券
+    jpx33: 証券、商品先物取引業
+  - ticker: 8614.T
+    name: 東洋証券
+    jpx33: 証券、商品先物取引業
+  - ticker: 8616.T
+    name: 東海東京フィナンシャル・ホールディングス
+    jpx33: 証券、商品先物取引業
+  - ticker: 8622.T
+    name: 水戸証券
+    jpx33: 証券、商品先物取引業
+  - ticker: 8624.T
+    name: いちよし証券
+    jpx33: 証券、商品先物取引業
+  - ticker: 8628.T
+    name: 松井証券
+    jpx33: 証券、商品先物取引業
+  - ticker: 8697.T
+    name: 日本取引所グループ
+    jpx33: その他金融業
+  - ticker: 8698.T
+    name: マネックスグループ
+    jpx33: 証券、商品先物取引業
+  - ticker: 8706.T
+    name: 極東証券
+    jpx33: 証券、商品先物取引業
+  - ticker: 8707.T
+    name: 岩井コスモホールディングス
+    jpx33: 証券、商品先物取引業
+  - ticker: 8708.T
+    name: アイザワ証券グループ
+    jpx33: 証券、商品先物取引業
+  - ticker: 8739.T
+    name: スパークス・グループ
+    jpx33: 証券、商品先物取引業
+  sensitivity_labels:
+    w3: 0.8
+    w4: 0.5
+    w5: -0.4
+    w6: 0.6
+- name: Security, Fire Safety, Facility Management & SMB Recurring Services（警備・防災・施設保守・中小企業ストック支援）
+  tickers:
+  - ticker: 2331.T
+    name: ＡＬＳＯＫ
+    jpx33: サービス業
+  - ticker: 4658.T
+    name: 日本空調サービス
+    jpx33: サービス業
+  - ticker: 4665.T
+    name: ダスキン
+    jpx33: サービス業
+  - ticker: 4666.T
+    name: パーク２４
+    jpx33: 不動産業
+  - ticker: 4732.T
+    name: ユー・エス・エス
+    jpx33: サービス業
+  - ticker: 6073.T
+    name: アサンテ
+    jpx33: サービス業
+  - ticker: 6544.T
+    name: ジャパンエレベーターサービスホールディングス
+    jpx33: サービス業
+  - ticker: 6744.T
+    name: 能美防災
+    jpx33: 電気機器
+  - ticker: 6745.T
+    name: ホーチキ
+    jpx33: 電気機器
+  - ticker: 8275.T
+    name: フォーバル
+    jpx33: 卸売業
+  - ticker: 9347.T
+    name: 日本管財ホールディングス
+    jpx33: サービス業
+  - ticker: 9632.T
+    name: スバル興業
+    jpx33: サービス業
+  - ticker: 9735.T
+    name: セコム
+    jpx33: サービス業
+  - ticker: 9740.T
+    name: セントラル警備保障
+    jpx33: サービス業
+  - ticker: 9788.T
+    name: ナック
+    jpx33: サービス業
+  sensitivity_labels:
+    w3: -0.1
+    w4: 0.2
+    w5: -0.6
+    w6: -0.2
+- name: Semiconductor & Advanced Electronics Materials（半導体プロセス材料・先端電子ケミカル）
+  tickers:
+  - ticker: 429A.T
+    name: テクセンドフォトマスク
+    jpx33: その他製品
+  - ticker: 3445.T
+    name: ＲＳ　Ｔｅｃｈｎｏｌｏｇｉｅｓ
+    jpx33: 金属製品
+  - ticker: 4004.T
+    name: レゾナック・ホールディングス
+    jpx33: 化学
+  - ticker: 4021.T
+    name: 日産化学
+    jpx33: 化学
+  - ticker: 4047.T
+    name: 関東電化工業
+    jpx33: 化学
+  - ticker: 4063.T
+    name: 信越化学工業
+    jpx33: 化学
+  - ticker: 4100.T
+    name: 戸田工業
+    jpx33: 化学
+  - ticker: 4109.T
+    name: ステラ　ケミファ
+    jpx33: 化学
+  - ticker: 4112.T
+    name: 保土谷化学工業
+    jpx33: 化学
+  - ticker: 4182.T
+    name: 三菱瓦斯化学
+    jpx33: 化学
+  - ticker: 4186.T
+    name: 東京応化工業
+    jpx33: 化学
+  - ticker: 4187.T
+    name: 大阪有機化学工業
+    jpx33: 化学
+  - ticker: 4203.T
+    name: 住友ベークライト
+    jpx33: 化学
+  - ticker: 4368.T
+    name: 扶桑化学工業
+    jpx33: 化学
+  - ticker: 4369.T
+    name: トリケミカル研究所
+    jpx33: 化学
+  - ticker: 4626.T
+    name: 太陽ホールディングス
+    jpx33: 化学
+  - ticker: 4971.T
+    name: メック
+    jpx33: 化学
+  - ticker: 4973.T
+    name: 日本高純度化学
+    jpx33: 化学
+  - ticker: 4975.T
+    name: ＪＣＵ
+    jpx33: 化学
+  - ticker: 4980.T
+    name: デクセリアルズ
+    jpx33: 化学
+  - ticker: 5384.T
+    name: フジミインコーポレーテッド
+    jpx33: ガラス・土石製品
+  - ticker: 6055.T
+    name: ジャパンマテリアル
+    jpx33: サービス業
+  sensitivity_labels:
+    w3: 0.9
+    w4: 1.0
+    w5: 0.2
+    w6: -0.4
+- name: Semiconductors & Semiconductor Manufacturing Equipment（半導体デバイス・半導体製造装置・SPE）
+  tickers:
+  - ticker: 285A.T
+    name: キオクシアホールディングス
+    jpx33: 電気機器
+  - ticker: 3436.T
+    name: ＳＵＭＣＯ
+    jpx33: 金属製品
+  - ticker: 6146.T
+    name: ディスコ
+    jpx33: 機械
+  - ticker: 6235.T
+    name: オプトラン
+    jpx33: 機械
+  - ticker: 6254.T
+    name: 野村マイクロ・サイエンス
+    jpx33: 機械
+  - ticker: 6264.T
+    name: マルマエ
+    jpx33: 機械
+  - ticker: 6266.T
+    name: タツモ
+    jpx33: 機械
+  - ticker: 6298.T
+    name: ワイエイシイホールディングス
+    jpx33: 機械
+  - ticker: 6315.T
+    name: ＴＯＷＡ
+    jpx33: 機械
+  - ticker: 6323.T
+    name: ローツェ
+    jpx33: 機械
+  - ticker: 6387.T
+    name: サムコ
+    jpx33: 機械
+  - ticker: 6525.T
+    name: ＫＯＫＵＳＡＩ　ＥＬＥＣＴＲＩＣ
+    jpx33: 電気機器
+  - ticker: 6526.T
+    name: ソシオネクスト
+    jpx33: 電気機器
+  - ticker: 6590.T
+    name: 芝浦メカトロニクス
+    jpx33: 電気機器
+  - ticker: 6616.T
+    name: トレックス・セミコンダクター
+    jpx33: 電気機器
+  - ticker: 6707.T
+    name: サンケン電気
+    jpx33: 電気機器
+  - ticker: 6723.T
+    name: ルネサスエレクトロニクス
+    jpx33: 電気機器
+  - ticker: 6728.T
+    name: アルバック
+    jpx33: 電気機器
+  - ticker: 6730.T
+    name: アクセル
+    jpx33: 電気機器
+  - ticker: 6855.T
+    name: 日本電子材料
+    jpx33: 電気機器
+  - ticker: 6857.T
+    name: アドバンテスト
+    jpx33: 電気機器
+  - ticker: 6871.T
+    name: 日本マイクロニクス
+    jpx33: 電気機器
+  - ticker: 6875.T
+    name: メガチップス
+    jpx33: 電気機器
+  - ticker: 6920.T
+    name: レーザーテック
+    jpx33: 電気機器
+  - ticker: 6951.T
+    name: 日本電子
+    jpx33: 電気機器
+  - ticker: 6963.T
+    name: ローム
+    jpx33: 電気機器
+  - ticker: 7717.T
+    name: ブイ・テクノロジー
+    jpx33: 精密機器
+  - ticker: 7725.T
+    name: インターアクション
+    jpx33: 精密機器
+  - ticker: 7729.T
+    name: 東京精密
+    jpx33: 精密機器
+  - ticker: 7735.T
+    name: ＳＣＲＥＥＮホールディングス
+    jpx33: 電気機器
+  - ticker: 8035.T
+    name: 東京エレクトロン
+    jpx33: 電気機器
+  sensitivity_labels:
+    w3: 1.0
+    w4: 1.0
+    w5: -0.2
+    w6: -0.4
+- name: Specialized Trading - Pharma, Medical & Daily Goods（専門商社-医薬品・医療機器・日用品卸）
+  tickers:
+  - ticker: 2784.T
+    name: アルフレッサ　ホールディングス
+    jpx33: 卸売業
+  - ticker: 3151.T
+    name: バイタルケーエスケー・ホールディングス
+    jpx33: 卸売業
+  - ticker: 3154.T
+    name: メディアスホールディングス
+    jpx33: 卸売業
+  - ticker: 3183.T
+    name: ウイン・パートナーズ
+    jpx33: 卸売業
+  - ticker: 3360.T
+    name: シップヘルスケアホールディングス
+    jpx33: 卸売業
+  - ticker: 7459.T
+    name: メディパルホールディングス
+    jpx33: 卸売業
+  - ticker: 7476.T
+    name: アズワン
+    jpx33: 卸売業
+  - ticker: 7575.T
+    name: 日本ライフライン
+    jpx33: 卸売業
+  - ticker: 8129.T
+    name: 東邦ホールディングス
+    jpx33: 卸売業
+  - ticker: 8283.T
+    name: ＰＡＬＴＡＣ
+    jpx33: 卸売業
+  - ticker: 9273.T
+    name: コーア商事ホールディングス
+    jpx33: 卸売業
+  - ticker: 9987.T
+    name: スズケン
+    jpx33: 卸売業
+  sensitivity_labels:
+    w3: 0.2
+    w4: -0.1
+    w5: -0.5
+    w6: -0.2
+- name: Specialized Trading - Tech, Electronics & Materials（専門商社-エレクトロニクス・機械・化学素材）
+  tickers:
+  - ticker: 167A.T
+    name: リョーサン菱洋ホールディングス
+    jpx33: 卸売業
+  - ticker: 546A.T
+    name: ＭＩＲＡＩＮＩホールディングス
+    jpx33: 卸売業
+  - ticker: 2676.T
+    name: 高千穂交易
+    jpx33: 卸売業
+  - ticker: 2737.T
+    name: トーメンデバイス
+    jpx33: 卸売業
+  - ticker: 2760.T
+    name: 東京エレクトロン　デバイス
+    jpx33: 卸売業
+  - ticker: 3023.T
+    name: ラサ商事
+    jpx33: 卸売業
+  - ticker: 3036.T
+    name: アルコニックス
+    jpx33: 卸売業
+  - ticker: 3076.T
+    name: あい　ホールディングス
+    jpx33: 卸売業
+  - ticker: 3107.T
+    name: ダイワボウホールディングス
+    jpx33: 卸売業
+  - ticker: 3132.T
+    name: マクニカホールディングス
+    jpx33: 卸売業
+  - ticker: 3153.T
+    name: 八洲電機
+    jpx33: 卸売業
+  - ticker: 3156.T
+    name: レスター
+    jpx33: 卸売業
+  - ticker: 3167.T
+    name: ＴＯＫＡＩホールディングス
+    jpx33: 卸売業
+  - ticker: 3176.T
+    name: 三洋貿易
+    jpx33: 卸売業
+  - ticker: 3180.T
+    name: ビューティガレージ
+    jpx33: 卸売業
+  - ticker: 3388.T
+    name: 明治電機工業
+    jpx33: 卸売業
+  - ticker: 7128.T
+    name: ユニソルホールディングス
+    jpx33: 卸売業
+  - ticker: 7414.T
+    name: 小野建
+    jpx33: 卸売業
+  - ticker: 7433.T
+    name: 伯東
+    jpx33: 卸売業
+  - ticker: 7438.T
+    name: コンドーテック
+    jpx33: 卸売業
+  - ticker: 7456.T
+    name: 松田産業
+    jpx33: 卸売業
+  - ticker: 7480.T
+    name: スズデン
+    jpx33: 卸売業
+  - ticker: 7510.T
+    name: たけびし
+    jpx33: 卸売業
+  - ticker: 7525.T
+    name: リックス
+    jpx33: 卸売業
+  - ticker: 7537.T
+    name: 丸文
+    jpx33: 卸売業
+  - ticker: 7590.T
+    name: タカショー
+    jpx33: 卸売業
+  - ticker: 7607.T
+    name: 進和
+    jpx33: 卸売業
+  - ticker: 7609.T
+    name: ダイトロン
+    jpx33: 卸売業
+  - ticker: 7613.T
+    name: シークス
+    jpx33: 卸売業
+  - ticker: 7637.T
+    name: 白銅
+    jpx33: 卸売業
+  - ticker: 8012.T
+    name: 長瀬産業
+    jpx33: 卸売業
+  - ticker: 8014.T
+    name: 蝶理
+    jpx33: 卸売業
+  - ticker: 8018.T
+    name: 三共生興
+    jpx33: 卸売業
+  - ticker: 8037.T
+    name: カメイ
+    jpx33: 卸売業
+  - ticker: 8051.T
+    name: 山善
+    jpx33: 卸売業
+  - ticker: 8052.T
+    name: 椿本興業
+    jpx33: 卸売業
+  - ticker: 8059.T
+    name: 第一実業
+    jpx33: 卸売業
+  - ticker: 8060.T
+    name: キヤノンマーケティングジャパン
+    jpx33: 卸売業
+  - ticker: 8061.T
+    name: 西華産業
+    jpx33: 卸売業
+  - ticker: 8065.T
+    name: 佐藤商事
+    jpx33: 卸売業
+  - ticker: 8070.T
+    name: 東京産業
+    jpx33: 卸売業
+  - ticker: 8074.T
+    name: ＹＵＡＳＡ
+    jpx33: 卸売業
+  - ticker: 8075.T
+    name: 神鋼商事
+    jpx33: 卸売業
+  - ticker: 8078.T
+    name: 阪和興業
+    jpx33: 卸売業
+  - ticker: 8081.T
+    name: カナデン
+    jpx33: 卸売業
+  - ticker: 8084.T
+    name: ＲＹＯＤＥＮ
+    jpx33: 卸売業
+  - ticker: 8093.T
+    name: 極東貿易
+    jpx33: 卸売業
+  - ticker: 8095.T
+    name: アステナホールディングス
+    jpx33: 卸売業
+  - ticker: 8098.T
+    name: 稲畑産業
+    jpx33: 卸売業
+  - ticker: 8101.T
+    name: ＧＳＩクレオス
+    jpx33: 卸売業
+  - ticker: 8103.T
+    name: 明和産業
+    jpx33: 卸売業
+  - ticker: 8137.T
+    name: サンワテクノス
+    jpx33: 卸売業
+  - ticker: 8141.T
+    name: 新光商事
+    jpx33: 卸売業
+  - ticker: 8150.T
+    name: 三信電気
+    jpx33: 卸売業
+  - ticker: 8151.T
+    name: 東陽テクニカ
+    jpx33: 卸売業
+  - ticker: 8154.T
+    name: 加賀電子
+    jpx33: 卸売業
+  - ticker: 8158.T
+    name: ソーダニッカ
+    jpx33: 卸売業
+  - ticker: 8159.T
+    name: 立花エレテック
+    jpx33: 卸売業
+  - ticker: 8285.T
+    name: 三谷産業
+    jpx33: 卸売業
+  - ticker: 9830.T
+    name: トラスコ中山
+    jpx33: 卸売業
+  - ticker: 9837.T
+    name: モリト
+    jpx33: 卸売業
+  - ticker: 9902.T
+    name: 日伝
+    jpx33: 卸売業
+  - ticker: 9932.T
+    name: 杉本商事
+    jpx33: 卸売業
+  - ticker: 9934.T
+    name: 因幡電機産業
+    jpx33: 卸売業
+  - ticker: 9962.T
+    name: ミスミグループ本社
+    jpx33: 卸売業
+  sensitivity_labels:
+    w3: 0.8
+    w4: 0.7
+    w5: 0.1
+    w6: -0.3
+- name: Specialty Biopharma & Biotech Platforms（スペシャリティ創薬・眼科・バイオテック）
+  tickers:
+  - ticker: 4151.T
+    name: 協和キリン
+    jpx33: 医薬品
+  - ticker: 4516.T
+    name: 日本新薬
+    jpx33: 医薬品
+  - ticker: 4521.T
+    name: 科研製薬
+    jpx33: 医薬品
+  - ticker: 4534.T
+    name: 持田製薬
+    jpx33: 医薬品
+  - ticker: 4536.T
+    name: 参天製薬
+    jpx33: 医薬品
+  - ticker: 4538.T
+    name: 扶桑薬品工業
+    jpx33: 医薬品
+  - ticker: 4547.T
+    name: キッセイ薬品工業
+    jpx33: 医薬品
+  - ticker: 4548.T
+    name: 生化学工業
+    jpx33: 医薬品
+  - ticker: 4552.T
+    name: ＪＣＲファーマ
+    jpx33: 医薬品
+  - ticker: 4554.T
+    name: 富士製薬工業
+    jpx33: 医薬品
+  - ticker: 4565.T
+    name: ネクセラファーマ
+    jpx33: 医薬品
+  - ticker: 4587.T
+    name: ペプチドリーム
+    jpx33: 医薬品
+  - ticker: 4880.T
+    name: セルソース
+    jpx33: 医薬品
+  - ticker: 4886.T
+    name: あすか製薬ホールディングス
+    jpx33: 医薬品
+  sensitivity_labels:
+    w3: 0.5
+    w4: 0.8
+    w5: -0.5
+    w6: -0.5
+- name: Stationery, Office & Household Brands（文具・オフィス家具・楽器・生活用品）
+  tickers:
+  - ticker: 7818.T
+    name: トランザクション
+    jpx33: その他製品
+  - ticker: 7840.T
+    name: フランスベッドホールディングス
+    jpx33: その他製品
+  - ticker: 7846.T
+    name: パイロットコーポレーション
+    jpx33: その他製品
+  - ticker: 7944.T
+    name: ローランド
+    jpx33: その他製品
+  - ticker: 7951.T
+    name: ヤマハ
+    jpx33: その他製品
+  - ticker: 7952.T
+    name: 河合楽器製作所
+    jpx33: その他製品
+  - ticker: 7956.T
+    name: ピジョン
+    jpx33: その他製品
+  - ticker: 7962.T
+    name: キングジム
+    jpx33: その他製品
+  - ticker: 7972.T
+    name: イトーキ
+    jpx33: その他製品
+  - ticker: 7976.T
+    name: 三菱鉛筆
+    jpx33: その他製品
+  - ticker: 7984.T
+    name: コクヨ
+    jpx33: その他製品
+  - ticker: 7987.T
+    name: ナカバヤシ
+    jpx33: その他製品
+  - ticker: 7994.T
+    name: オカムラ
+    jpx33: その他製品
+  - ticker: 8057.T
+    name: 内田洋行
+    jpx33: 卸売業
+  sensitivity_labels:
+    w3: 0.1
+    w4: 0.1
+    w5: -0.5
+    w6: -0.3
+- name: Supermarkets, GMS & Discount Stores（スーパー・総合小売・ディスカウントストア）
+  tickers:
+  - ticker: 417A.T
+    name: ブルーゾーンホールディングス
+    jpx33: 小売業
+  - ticker: 2659.T
+    name: サンエー
+    jpx33: 小売業
+  - ticker: 2742.T
+    name: ハローズ
+    jpx33: 小売業
+  - ticker: 2791.T
+    name: 大黒天物産
+    jpx33: 小売業
+  - ticker: 3038.T
+    name: 神戸物産
+    jpx33: 卸売業
+  - ticker: 3222.T
+    name: ユナイテッド・スーパーマーケット・ホールディングス
+    jpx33: 小売業
+  - ticker: 3382.T
+    name: セブン＆アイ・ホールディングス
+    jpx33: 小売業
+  - ticker: 3539.T
+    name: ＪＭホールディングス
+    jpx33: 小売業
+  - ticker: 7475.T
+    name: アルビス
+    jpx33: 小売業
+  - ticker: 7508.T
+    name: Ｇ‐７ホールディングス
+    jpx33: 小売業
+  - ticker: 7512.T
+    name: イオン北海道
+    jpx33: 小売業
+  - ticker: 7520.T
+    name: エコス
+    jpx33: 小売業
+  - ticker: 7532.T
+    name: パン・パシフィック・インターナショナルホールディングス
+    jpx33: 小売業
+  - ticker: 7596.T
+    name: 魚力
+    jpx33: 小売業
+  - ticker: 8167.T
+    name: リテールパートナーズ
+    jpx33: 小売業
+  - ticker: 8194.T
+    name: ライフコーポレーション
+    jpx33: 小売業
+  - ticker: 8203.T
+    name: ＭｒＭａｘＨＤ
+    jpx33: 小売業
+  - ticker: 8217.T
+    name: オークワ
+    jpx33: 小売業
+  - ticker: 8255.T
+    name: アクシアル　リテイリング
+    jpx33: 小売業
+  - ticker: 8267.T
+    name: イオン
+    jpx33: 小売業
+  - ticker: 8273.T
+    name: イズミ
+    jpx33: 小売業
+  - ticker: 8276.T
+    name: 平和堂
+    jpx33: 小売業
+  - ticker: 8278.T
+    name: フジ
+    jpx33: 小売業
+  - ticker: 9946.T
+    name: ミニストップ
+    jpx33: 小売業
+  - ticker: 9948.T
+    name: アークス
+    jpx33: 小売業
+  - ticker: 9956.T
+    name: バローホールディングス
+    jpx33: 小売業
+  - ticker: 9974.T
+    name: ベルク
+    jpx33: 小売業
+  sensitivity_labels:
+    w3: -0.1
+    w4: -0.4
+    w5: -0.6
+    w6: -0.3
+- name: Surfactants, Oleochemicals & Fine Chemicals（界面活性剤・油脂化学・高機能ファインケミカル）
+  tickers:
+  - ticker: 4114.T
+    name: 日本触媒
+    jpx33: 化学
+  - ticker: 4118.T
+    name: カネカ
+    jpx33: 化学
+  - ticker: 4189.T
+    name: ＫＨネオケム
+    jpx33: 化学
+  - ticker: 4272.T
+    name: 日本化薬
+    jpx33: 化学
+  - ticker: 4275.T
+    name: カーリット
+    jpx33: 化学
+  - ticker: 4362.T
+    name: 日本精化
+    jpx33: 化学
+  - ticker: 4401.T
+    name: ＡＤＥＫＡ
+    jpx33: 化学
+  - ticker: 4403.T
+    name: 日油
+    jpx33: 化学
+  - ticker: 4410.T
+    name: ハリマ化成グループ
+    jpx33: 化学
+  - ticker: 4461.T
+    name: 第一工業製薬
+    jpx33: 化学
+  - ticker: 4471.T
+    name: 三洋化成工業
+    jpx33: 化学
+  - ticker: 4914.T
+    name: 高砂香料工業
+    jpx33: 化学
+  - ticker: 4958.T
+    name: 長谷川香料
+    jpx33: 化学
+  - ticker: 4968.T
+    name: 荒川化学工業
+    jpx33: 化学
+  sensitivity_labels:
+    w3: 0.5
+    w4: 0.3
+    w5: 0.2
+    w6: -0.3
+- name: Tech Investment, Strategic Holding & Capital Allocators（テック投資・戦略持株会社・資本アロケーター）
+  tickers:
+  - ticker: 1518.T
+    name: 三井松島ホールディングス
+    jpx33: その他製品
+  - ticker: 8595.T
+    name: ジャフコ　グループ
+    jpx33: 証券、商品先物取引業
+  - ticker: 9435.T
+    name: 光通信
+    jpx33: 情報・通信業
+  - ticker: 9984.T
+    name: ソフトバンクグループ
+    jpx33: 情報・通信業
+  sensitivity_labels:
+    w3: 0.9
+    w4: 1.0
+    w5: -0.5
+    w6: -0.6
+- name: Telecom & Mobile Operators（通信キャリア・通信インフラ・情報流通）
+  tickers:
+  - ticker: 4390.T
+    name: アイ・ピー・エス
+    jpx33: 情報・通信業
+  - ticker: 9412.T
+    name: スカパーＪＳＡＴ
+    jpx33: 情報・通信業
+  - ticker: 9416.T
+    name: ビジョン
+    jpx33: 情報・通信業
+  - ticker: 9424.T
+    name: 日本通信
+    jpx33: 情報・通信業
+  - ticker: 9432.T
+    name: ＮＴＴ
+    jpx33: 情報・通信業
+  - ticker: 9433.T
+    name: ＫＤＤＩ
+    jpx33: 情報・通信業
+  - ticker: 9434.T
+    name: ソフトバンク
+    jpx33: 情報・通信業
+  sensitivity_labels:
+    w3: 0.1
+    w4: 0.7
+    w5: -0.5
+    w6: -0.3
+- name: Theme Parks, Resorts & Hotels（テーマパーク・リゾートホテル・複合レジャー）
+  tickers:
+  - ticker: 4661.T
+    name: オリエンタルランド
+    jpx33: サービス業
+  - ticker: 4680.T
+    name: ラウンドワン
+    jpx33: サービス業
+  - ticker: 4681.T
+    name: リゾートトラスト
+    jpx33: サービス業
+  - ticker: 9616.T
+    name: 共立メンテナンス
+    jpx33: サービス業
+  - ticker: 9722.T
+    name: 藤田観光
+    jpx33: サービス業
+  sensitivity_labels:
+    w3: 0.7
+    w4: -0.1
+    w5: -0.6
+    w6: -0.5
+- name: Tires & Rubber Products（タイヤ・ゴム製品）
+  tickers:
+  - ticker: 5101.T
+    name: 横浜ゴム
+    jpx33: ゴム製品
+  - ticker: 5105.T
+    name: ＴＯＹＯ　ＴＩＲＥ
+    jpx33: ゴム製品
+  - ticker: 5108.T
+    name: ブリヂストン
+    jpx33: ゴム製品
+  - ticker: 5110.T
+    name: 住友ゴム工業
+    jpx33: ゴム製品
+  - ticker: 5121.T
+    name: 藤倉コンポジット
+    jpx33: ゴム製品
+  - ticker: 5122.T
+    name: オカモト
+    jpx33: ゴム製品
+  - ticker: 5185.T
+    name: フコク
+    jpx33: ゴム製品
+  - ticker: 5186.T
+    name: ニッタ
+    jpx33: ゴム製品
+  - ticker: 5192.T
+    name: 三ツ星ベルト
+    jpx33: ゴム製品
+  - ticker: 5195.T
+    name: バンドー化学
+    jpx33: ゴム製品
+  sensitivity_labels:
+    w3: 0.7
+    w4: 0.2
+    w5: 0.6
+    w6: -0.3
+- name: Warehousing, Harbor & Logistics Terminal（倉庫・港湾運送・ターミナル物流）
+  tickers:
+  - ticker: 9301.T
+    name: 三菱倉庫
+    jpx33: 倉庫・運輸関連業
+  - ticker: 9302.T
+    name: 三井倉庫ホールディングス
+    jpx33: 倉庫・運輸関連業
+  - ticker: 9303.T
+    name: 住友倉庫
+    jpx33: 倉庫・運輸関連業
+  - ticker: 9304.T
+    name: 澁澤倉庫
+    jpx33: 倉庫・運輸関連業
+  - ticker: 9310.T
+    name: 日本トランスシティ
+    jpx33: 倉庫・運輸関連業
+  - ticker: 9319.T
+    name: 中央倉庫
+    jpx33: 倉庫・運輸関連業
+  - ticker: 9324.T
+    name: 安田倉庫
+    jpx33: 倉庫・運輸関連業
+  - ticker: 9364.T
+    name: 上組
+    jpx33: 倉庫・運輸関連業
+  sensitivity_labels:
+    w3: 0.5
+    w4: -0.1
+    w5: -0.2
+    w6: -0.3
+- name: Education, Childcare & Learning Services（教育・保育・学習支援）
+  tickers:
+  - ticker: 2749.T
+    name: ＪＰホールディングス
+    jpx33: サービス業
+  - ticker: 4668.T
+    name: 明光ネットワークジャパン
+    jpx33: サービス業
+  - ticker: 4714.T
+    name: リソー教育グループ
+    jpx33: サービス業
+  - ticker: 4718.T
+    name: 早稲田アカデミー
+    jpx33: サービス業
+  - ticker: 6200.T
+    name: インソース
+    jpx33: サービス業
+  - ticker: 7358.T
+    name: ポピンズ
+    jpx33: サービス業
+  - ticker: 7366.T
+    name: ＬＩＴＡＬＩＣＯ
+    jpx33: サービス業
+  - ticker: 9470.T
+    name: 学研ホールディングス
+    jpx33: 情報・通信業
+  - ticker: 9769.T
+    name: 学究社
+    jpx33: サービス業
+  - ticker: 9795.T
+    name: ステップ
+    jpx33: サービス業
+  sensitivity_labels:
+    w3: 0.2
+    w4: 0.1
+    w5: -0.5
+    w6: -0.4
+- name: Healthcare Services, Nursing Care & CRO（医療サービス・介護・CRO・高齢者ケア）
+  tickers:
+  - ticker: 2175.T
+    name: エス・エム・エス
+    jpx33: サービス業
+  - ticker: 2395.T
+    name: 新日本科学
+    jpx33: サービス業
+  - ticker: 6062.T
+    name: チャーム・ケア・コーポレーション
+    jpx33: サービス業
+  - ticker: 6078.T
+    name: バリューＨＲ
+    jpx33: サービス業
+  - ticker: 6099.T
+    name: エラン
+    jpx33: サービス業
+  - ticker: 6197.T
+    name: ソラスト
+    jpx33: サービス業
+  - ticker: 7071.T
+    name: アンビスホールディングス
+    jpx33: サービス業
+  - ticker: 9229.T
+    name: サンウェルズ
+    jpx33: サービス業
+  - ticker: 9729.T
+    name: トーカイ
+    jpx33: サービス業
+  sensitivity_labels:
+    w3: 0.2
+    w4: 0.2
+    w5: -0.5
+    w6: -0.4
+- name: BPO, Contact Centers & Business Outsourcing（BPO・コンタクトセンター・業務アウトソーシング）
+  tickers:
+  - ticker: 2471.T
+    name: エスプール
+    jpx33: サービス業
+  - ticker: 4290.T
+    name: プレステージ・インターナショナル
+    jpx33: サービス業
+  - ticker: 4433.T
+    name: ヒト・コミュニケーションズ・ホールディングス
+    jpx33: 情報・通信業
+  - ticker: 6050.T
+    name: イー・ガーディアン
+    jpx33: サービス業
+  - ticker: 6070.T
+    name: キャリアリンク
+    jpx33: サービス業
+  - ticker: 6183.T
+    name: ベルシステム２４ホールディングス
+    jpx33: サービス業
+  - ticker: 6572.T
+    name: オープングループ
+    jpx33: サービス業
+  - ticker: 7354.T
+    name: ダイレクトマーケティングミックス
+    jpx33: サービス業
+  - ticker: 9216.T
+    name: ビーウィズ
+    jpx33: サービス業
+  - ticker: 9715.T
+    name: トランス・コスモス
+    jpx33: サービス業
+  sensitivity_labels:
+    w3: 0.4
+    w4: 0.4
+    w5: -0.6
+    w6: -0.3
+- name: Waste Management, Recycling & Environmental Services（廃棄物処理・リサイクル・環境サービス）
+  tickers:
+  - ticker: 4651.T
+    name: サニックスホールディングス
+    jpx33: サービス業
+  - ticker: 5698.T
+    name: エンビプロ・ホールディングス
+    jpx33: 鉄鋼
+  - ticker: 6564.T
+    name: ミダックホールディングス
+    jpx33: サービス業
+  - ticker: 9247.T
+    name: ＴＲＥホールディングス
+    jpx33: サービス業
+  - ticker: 9336.T
+    name: 大栄環境
+    jpx33: サービス業
+  - ticker: 9793.T
+    name: ダイセキ
+    jpx33: サービス業
+  sensitivity_labels:
+    w3: 0.2
+    w4: 0.1
+    w5: 0.3
+    w6: -0.3
+- name: Travel, Leisure, Fitness & Lifestyle Services（旅行・レジャー・フィットネス・生活サービス）
+  tickers:
+  - ticker: 212A.T
+    name: フィットイージー
+    jpx33: サービス業
+  - ticker: 2157.T
+    name: コシダカホールディングス
+    jpx33: サービス業
+  - ticker: 2305.T
+    name: スタジオアリス
+    jpx33: サービス業
+  - ticker: 2378.T
+    name: ルネサンス
+    jpx33: サービス業
+  - ticker: 4331.T
+    name: テイクアンドギヴ・ニーズ
+    jpx33: サービス業
+  - ticker: 4337.T
+    name: ぴあ
+    jpx33: サービス業
+  - ticker: 4343.T
+    name: イオンファンタジー
+    jpx33: サービス業
+  - ticker: 4801.T
+    name: セントラルスポーツ
+    jpx33: サービス業
+  - ticker: 6071.T
+    name: ＩＢＪ
+    jpx33: サービス業
+  - ticker: 6184.T
+    name: 鎌倉新書
+    jpx33: サービス業
+  - ticker: 6191.T
+    name: エアトリ
+    jpx33: サービス業
+  - ticker: 6571.T
+    name: キュービーネットホールディングス
+    jpx33: サービス業
+  - ticker: 7085.T
+    name: カーブスホールディングス
+    jpx33: サービス業
+  - ticker: 7868.T
+    name: 広済堂ホールディングス
+    jpx33: その他製品
+  - ticker: 8920.T
+    name: 東祥
+    jpx33: サービス業
+  - ticker: 9603.T
+    name: エイチ・アイ・エス
+    jpx33: サービス業
+  - ticker: 9628.T
+    name: 燦ホールディングス
+    jpx33: サービス業
+  - ticker: 9672.T
+    name: 東京都競馬
+    jpx33: サービス業
+  - ticker: 9726.T
+    name: ＫＮＴ－ＣＴホールディングス
+    jpx33: サービス業
+  sensitivity_labels:
+    w3: 0.7
+    w4: 0.0
+    w5: -0.4
+    w6: -0.3
+- name: Residential Development, Property Management & Brokerage（住宅分譲・不動産管理・仲介・不動産サービス）
+  tickers:
+  - ticker: 1435.T
+    name: ｒｏｂｏｔ　ｈｏｍｅ
+    jpx33: 不動産業
+  - ticker: 2337.T
+    name: いちご
+    jpx33: 不動産業
+  - ticker: 2353.T
+    name: 日本駐車場開発
+    jpx33: 不動産業
+  - ticker: 2975.T
+    name: スター・マイカ・ホールディングス
+    jpx33: 不動産業
+  - ticker: 2980.T
+    name: ＳＲＥホールディングス
+    jpx33: 不動産業
+  - ticker: 3232.T
+    name: 三重交通グループホールディングス
+    jpx33: 不動産業
+  - ticker: 3245.T
+    name: ディア・ライフ
+    jpx33: 不動産業
+  - ticker: 3252.T
+    name: 地主
+    jpx33: 不動産業
+  - ticker: 3276.T
+    name: ＪＰＭＣ
+    jpx33: 不動産業
+  - ticker: 3284.T
+    name: フージャースホールディングス
+    jpx33: 不動産業
+  - ticker: 3457.T
+    name: Ａｎｄ　Ｄｏホールディングス
+    jpx33: 不動産業
+  - ticker: 3465.T
+    name: ケイアイスター不動産
+    jpx33: 不動産業
+  - ticker: 3475.T
+    name: グッドコムアセット
+    jpx33: 不動産業
+  - ticker: 3480.T
+    name: ジェイ・エス・ビー
+    jpx33: 不動産業
+  - ticker: 3482.T
+    name: ロードスターキャピタル
+    jpx33: 不動産業
+  - ticker: 3496.T
+    name: アズーム
+    jpx33: 不動産業
+  - ticker: 3498.T
+    name: 霞ヶ関キャピタル
+    jpx33: 不動産業
+  - ticker: 4809.T
+    name: パラカ
+    jpx33: 不動産業
+  - ticker: 6620.T
+    name: 宮越ホールディングス
+    jpx33: 不動産業
+  - ticker: 8848.T
+    name: レオパレス２１
+    jpx33: 不動産業
+  - ticker: 8850.T
+    name: スターツコーポレーション
+    jpx33: 不動産業
+  - ticker: 8860.T
+    name: フジ住宅
+    jpx33: 不動産業
+  - ticker: 8864.T
+    name: 空港施設
+    jpx33: 不動産業
+  - ticker: 8869.T
+    name: 明和地所
+    jpx33: 不動産業
+  - ticker: 8871.T
+    name: ゴールドクレスト
+    jpx33: 不動産業
+  - ticker: 8877.T
+    name: エスリード
+    jpx33: 不動産業
+  - ticker: 8881.T
+    name: 日神グループホールディングス
+    jpx33: 不動産業
+  - ticker: 8892.T
+    name: エスコン
+    jpx33: 不動産業
+  - ticker: 8897.T
+    name: ＭＩＲＡＲＴＨホールディングス
+    jpx33: 不動産業
+  - ticker: 8918.T
+    name: ランド
+    jpx33: 不動産業
+  - ticker: 8919.T
+    name: カチタス
+    jpx33: 不動産業
+  - ticker: 8923.T
+    name: トーセイ
+    jpx33: 不動産業
+  - ticker: 8934.T
+    name: サンフロンティア不動産
+    jpx33: 不動産業
+  - ticker: 8935.T
+    name: ＦＪネクストホールディングス
+    jpx33: 不動産業
+  - ticker: 8999.T
+    name: グランディハウス
+    jpx33: 不動産業
+  sensitivity_labels:
+    w3: 0.5
+    w4: 0.1
+    w5: -0.4
+    w6: -0.9
+- name: Home Centers, Specialty Retail & Recommerce（ホームセンター・専門小売・リユース）
+  tickers:
+  - ticker: 262A.T
+    name: インターメスティック
+    jpx33: 小売業
+  - ticker: 2674.T
+    name: ハードオフコーポレーション
+    jpx33: 小売業
+  - ticker: 2681.T
+    name: ゲオホールディングス
+    jpx33: 小売業
+  - ticker: 2698.T
+    name: キャンドゥ
+    jpx33: 小売業
+  - ticker: 2734.T
+    name: サーラコーポレーション
+    jpx33: 小売業
+  - ticker: 3050.T
+    name: ＤＣＭホールディングス
+    jpx33: 小売業
+  - ticker: 3093.T
+    name: トレジャー・ファクトリー
+    jpx33: 小売業
+  - ticker: 3179.T
+    name: シュッピン
+    jpx33: 小売業
+  - ticker: 3191.T
+    name: ジョイフル本田
+    jpx33: 小売業
+  - ticker: 3199.T
+    name: 綿半ホールディングス
+    jpx33: 小売業
+  - ticker: 3333.T
+    name: あさひ
+    jpx33: 小売業
+  - ticker: 3547.T
+    name: ユニシアホールディングス
+    jpx33: 小売業
+  - ticker: 5889.T
+    name: Ｊａｐａｎ　Ｅｙｅｗｅａｒ　Ｈｏｌｄｉｎｇｓ
+    jpx33: 小売業
+  - ticker: 7463.T
+    name: アドヴァングループ
+    jpx33: 小売業
+  - ticker: 7516.T
+    name: コーナン商事
+    jpx33: 小売業
+  - ticker: 7937.T
+    name: ツツミ
+    jpx33: その他製品
+  - ticker: 8218.T
+    name: コメリ
+    jpx33: 小売業
+  - ticker: 9278.T
+    name: ブックオフグループホールディングス
+    jpx33: 小売業
+  - ticker: 9842.T
+    name: アークランズ
+    jpx33: 小売業
+  sensitivity_labels:
+    w3: 0.5
+    w4: 0.2
+    w5: -0.5
+    w6: -0.4
+- name: Auto Dealerships, Auctions & Aftermarket（自動車販売・ディーラー・オークション・アフターマーケット）
+  tickers:
+  - ticker: 3186.T
+    name: ネクステージ
+    jpx33: 小売業
+  - ticker: 6036.T
+    name: ＫｅｅＰｅｒ技研
+    jpx33: サービス業
+  - ticker: 7466.T
+    name: ＳＰＫ
+    jpx33: 卸売業
+  - ticker: 7593.T
+    name: ＶＴホールディングス
+    jpx33: 小売業
+  - ticker: 7599.T
+    name: ＩＤＯＭ
+    jpx33: 卸売業
+  - ticker: 9832.T
+    name: オートバックスセブン
+    jpx33: 卸売業
+  - ticker: 9856.T
+    name: ケーユーホールディングス
+    jpx33: 小売業
+  - ticker: 9882.T
+    name: イエローハット
+    jpx33: 卸売業
+  sensitivity_labels:
+    w3: 0.5
+    w4: 0.2
+    w5: -0.2
+    w6: -0.5
+- name: Construction Consulting, Testing & Technical Services（建設コンサル・検査・認証・技術サービス）
+  tickers:
+  - ticker: 2153.T
+    name: Ｅ・Ｊホールディングス
+    jpx33: サービス業
+  - ticker: 2325.T
+    name: ＮＪＳ
+    jpx33: サービス業
+  - ticker: 9248.T
+    name: 人・夢・技術グループ
+    jpx33: サービス業
+  - ticker: 9621.T
+    name: 建設技術研究所
+    jpx33: サービス業
+  - ticker: 9755.T
+    name: 応用地質
+    jpx33: サービス業
+  sensitivity_labels:
+    w3: 0.5
+    w4: 0.5
+    w5: -0.2
+    w6: -0.3
+- name: Equipment Rental & Industrial Services（建機レンタル・産業レンタル・機器サービス）
+  tickers:
+  - ticker: 2445.T
+    name: タカミヤ
+    jpx33: サービス業
+  - ticker: 4345.T
+    name: シーティーエス
+    jpx33: サービス業
+  - ticker: 8125.T
+    name: ワキタ
+    jpx33: 卸売業
+  - ticker: 9619.T
+    name: イチネンホールディングス
+    jpx33: サービス業
+  - ticker: 9663.T
+    name: ナガワ
+    jpx33: サービス業
+  - ticker: 9678.T
+    name: カナモト
+    jpx33: サービス業
+  - ticker: 9699.T
+    name: ニシオホールディングス
+    jpx33: サービス業
+  - ticker: 9991.T
+    name: ジェコス
+    jpx33: 卸売業
+  sensitivity_labels:
+    w3: 0.6
+    w4: 0.2
+    w5: 0.1
+    w6: -0.4
+- name: Defense, Aerospace & Heavy Industries（防衛・航空宇宙・重工）
+  tickers:
+  - ticker: 7011.T
+    name: 三菱重工業
+    jpx33: 機械
+  - ticker: 7012.T
+    name: 川崎重工業
+    jpx33: 輸送用機器
+  - ticker: 7013.T
+    name: ＩＨＩ
+    jpx33: 機械
+  sensitivity_labels:
+    w3: 0.6
+    w4: 0.8
+    w5: 0.3
+    w6: -0.2
+- name: Shipbuilding, Marine Equipment & Offshore Engineering（造船・舶用・海洋エンジニアリング）
+  tickers:
+  - ticker: 6269.T
+    name: 三井海洋開発
+    jpx33: 機械
+  - ticker: 6814.T
+    name: 古野電気
+    jpx33: 電気機器
+  - ticker: 7004.T
+    name: カナデビア
+    jpx33: 機械
+  - ticker: 7014.T
+    name: 名村造船所
+    jpx33: 輸送用機器
+  sensitivity_labels:
+    w3: 0.8
+    w4: 0.4
+    w5: 0.5
+    w6: -0.2
+- name: Renewable Energy & Environmental Infrastructure（再生可能エネルギー・環境インフラ）
+  tickers:
+  - ticker: 575A.T
+    name: 前澤ホールディングス
+    jpx33: 機械
+  - ticker: 3150.T
+    name: グリムス
+    jpx33: 電気・ガス業
+  - ticker: 5074.T
+    name: テスホールディングス
+    jpx33: 建設業
+  - ticker: 6013.T
+    name: タクマ
+    jpx33: 機械
+  - ticker: 6328.T
+    name: 荏原実業
+    jpx33: 機械
+  - ticker: 6331.T
+    name: 三菱化工機
+    jpx33: 機械
+  - ticker: 6332.T
+    name: 月島ホールディングス
+    jpx33: 機械
+  - ticker: 9514.T
+    name: エフオン
+    jpx33: 電気・ガス業
+  - ticker: 9517.T
+    name: イーレックス
+    jpx33: 電気・ガス業
+  - ticker: 9519.T
+    name: レノバ
+    jpx33: 電気・ガス業
+  - ticker: 9551.T
+    name: メタウォーター
+    jpx33: 電気・ガス業
+  sensitivity_labels:
+    w3: 0.5
+    w4: 0.6
+    w5: 0.2
+    w6: -0.7
+- name: Digital Marketing, AdTech & Creator Platforms（デジタルマーケティング・AdTech・クリエイタープラットフォーム）
+  tickers:
+  - ticker: 2130.T
+    name: メンバーズ
+    jpx33: サービス業
+  - ticker: 2148.T
+    name: アイティメディア
+    jpx33: サービス業
+  - ticker: 2461.T
+    name: ファンコミュニケーションズ
+    jpx33: サービス業
+  - ticker: 2489.T
+    name: アドウェイズ
+    jpx33: サービス業
+  - ticker: 2491.T
+    name: バリューコマース
+    jpx33: サービス業
+  - ticker: 3661.T
+    name: エムアップホールディングス
+    jpx33: 情報・通信業
+  - ticker: 3922.T
+    name: ＰＲ　ＴＩＭＥＳ
+    jpx33: 情報・通信業
+  - ticker: 4180.T
+    name: Ａｐｐｉｅｒ　Ｇｒｏｕｐ
+    jpx33: 情報・通信業
+  - ticker: 4286.T
+    name: ＣＬホールディングス
+    jpx33: サービス業
+  - ticker: 4326.T
+    name: インテージホールディングス
+    jpx33: 情報・通信業
+  - ticker: 4751.T
+    name: サイバーエージェント
+    jpx33: サービス業
+  - ticker: 5032.T
+    name: ＡＮＹＣＯＬＯＲ
+    jpx33: 情報・通信業
+  - ticker: 6047.T
+    name: Ｇｕｎｏｓｙ
+    jpx33: サービス業
+  - ticker: 6058.T
+    name: ベクトル
+    jpx33: サービス業
+  - ticker: 6533.T
+    name: Ｏｒｃｈｅｓｔｒａ　Ｈｏｌｄｉｎｇｓ
+    jpx33: サービス業
+  - ticker: 6535.T
+    name: アイモバイル
+    jpx33: サービス業
+  - ticker: 7095.T
+    name: Ｍａｃｂｅｅ　Ｐｌａｎｅｔ
+    jpx33: サービス業
+  sensitivity_labels:
+    w3: 0.8
+    w4: 0.9
+    w5: -0.6
+    w6: -0.5
+- name: Digital Health, Healthcare IT & Platforms（デジタルヘルス・医療IT・ヘルスケアプラットフォーム）
+  tickers:
+  - ticker: 2413.T
+    name: エムスリー
+    jpx33: サービス業
+  - ticker: 3649.T
+    name: ファインデックス
+    jpx33: 情報・通信業
+  - ticker: 3937.T
+    name: Ｕｂｉｃｏｍホールディングス
+    jpx33: 情報・通信業
+  - ticker: 3939.T
+    name: カナミックネットワーク
+    jpx33: 情報・通信業
+  - ticker: 4480.T
+    name: メドレー
+    jpx33: 情報・通信業
+  - ticker: 4483.T
+    name: ＪＭＤＣ
+    jpx33: 情報・通信業
+  - ticker: 4820.T
+    name: イーエムシステムズ
+    jpx33: 情報・通信業
+  - ticker: 9341.T
+    name: ＧＥＮＯＶＡ
+    jpx33: サービス業
+  - ticker: 9438.T
+    name: エムティーアイ
+    jpx33: 情報・通信業
+  sensitivity_labels:
+    w3: 0.6
+    w4: 0.8
+    w5: -0.5
+    w6: -0.5
+- name: Food & Consumer Goods Wholesale / Distribution（食品・消費財卸・フードディストリビューション）
+  tickers:
+  - ticker: 2733.T
+    name: あらた
+    jpx33: 卸売業
+  - ticker: 2874.T
+    name: 横浜冷凍
+    jpx33: 卸売業
+  - ticker: 3139.T
+    name: ラクト・ジャパン
+    jpx33: 卸売業
+  - ticker: 7130.T
+    name: ヤマエグループホールディングス
+    jpx33: 卸売業
+  - ticker: 7483.T
+    name: ドウシシャ
+    jpx33: 卸売業
+  - ticker: 7504.T
+    name: 高速
+    jpx33: 卸売業
+  - ticker: 8043.T
+    name: スターゼン
+    jpx33: 卸売業
+  - ticker: 8079.T
+    name: 正栄食品工業
+    jpx33: 卸売業
+  - ticker: 8142.T
+    name: トーホー
+    jpx33: 卸売業
+  - ticker: 9305.T
+    name: ヤマタネ
+    jpx33: 卸売業
+  - ticker: 9869.T
+    name: 加藤産業
+    jpx33: 卸売業
+  sensitivity_labels:
+    w3: 0.2
+    w4: -0.2
+    w5: -0.3
+    w6: -0.2
+- name: Integrated Entertainment, IP & Technology（総合エンタテインメント・IP・テクノロジー）
+  tickers:
+  - ticker: 6758.T
+    name: ソニーグループ
+    jpx33: 電気機器
+  - ticker: 7832.T
+    name: バンダイナムコホールディングス
+    jpx33: その他製品
+  - ticker: 9468.T
+    name: ＫＡＤＯＫＡＷＡ
+    jpx33: 情報・通信業
+  sensitivity_labels:
+    w3: 0.5
+    w4: 0.7
+    w5: -0.6
+    w6: -0.3
+- name: Metal Processing, Fasteners & Structural Components（金属加工・ファスナー・構造部材）
+  tickers:
+  - ticker: 3431.T
+    name: 宮地エンジニアリンググループ
+    jpx33: 金属製品
+  - ticker: 3433.T
+    name: トーカロ
+    jpx33: 金属製品
+  - ticker: 3443.T
+    name: 川田テクノロジーズ
+    jpx33: 金属製品
+  - ticker: 5851.T
+    name: リョービ
+    jpx33: 非鉄金属
+  - ticker: 5909.T
+    name: コロナ
+    jpx33: 金属製品
+  - ticker: 5911.T
+    name: 横河ブリッジホールディングス
+    jpx33: 金属製品
+  - ticker: 5933.T
+    name: アルインコ
+    jpx33: 金属製品
+  - ticker: 5957.T
+    name: 日東精工
+    jpx33: 金属製品
+  - ticker: 5959.T
+    name: 岡部
+    jpx33: 金属製品
+  - ticker: 5976.T
+    name: 高周波熱錬
+    jpx33: 金属製品
+  - ticker: 5981.T
+    name: 東京製綱
+    jpx33: 金属製品
+  sensitivity_labels:
+    w3: 0.6
+    w4: 0.2
+    w5: 0.5
+    w6: -0.2
+- name: Commercial Interiors, Spatial Design & Event Build-out（商業施設内装・空間デザイン・イベント施工）
+  tickers:
+  - ticker: 4767.T
+    name: テー・オー・ダブリュー
+    jpx33: サービス業
+  - ticker: 9612.T
+    name: ラックランド
+    jpx33: サービス業
+  - ticker: 9622.T
+    name: スペース
+    jpx33: サービス業
+  - ticker: 9716.T
+    name: 乃村工藝社
+    jpx33: サービス業
+  - ticker: 9743.T
+    name: 丹青社
+    jpx33: サービス業
+  sensitivity_labels:
+    w3: 0.6
+    w4: 0.2
+    w5: -0.2
+    w6: -0.4
