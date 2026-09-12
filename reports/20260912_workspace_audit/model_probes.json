@@ -1,0 +1,24 @@
+{
+  "h3_reused_vs_fresh": {
+    "max_abs_mu_difference": 0.007576158003328559,
+    "relative_covariance_difference": 0.7067173634223105
+  },
+  "future_target_perturbation_h1": {
+    "max_abs_mu_difference": 0.0,
+    "max_abs_covariance_difference": 0.0,
+    "dates": 2107,
+    "as_of": "2016-08-15"
+  },
+  "future_target_perturbation_h3": {
+    "max_abs_mu_difference": 0.0,
+    "max_abs_covariance_difference": 0.0,
+    "dates": 2107,
+    "as_of": "2016-08-15"
+  },
+  "future_target_perturbation_h5": {
+    "max_abs_mu_difference": 0.0,
+    "max_abs_covariance_difference": 0.0,
+    "dates": 2107,
+    "as_of": "2016-08-15"
+  }
+}

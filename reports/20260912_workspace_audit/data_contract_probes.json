@@ -1,0 +1,27 @@
+{
+  "strict_clean_data_rejected": {
+    "raised": true,
+    "error": "All required values are NaN for trade_date=2026-06-02 00:00:00; strict_validation is enabled, so this record is rejected",
+    "all_raw_prices_finite_positive": true
+  },
+  "decision_price": {
+    "methods_called": [
+      "open"
+    ],
+    "resolved_price": 1000.0,
+    "current_price": 1050.0,
+    "open_price": 1000.0
+  },
+  "upstream_config_differences": {
+    "frac_diff_enabled": {
+      "production": true,
+      "step2": false
+    }
+  },
+  "step2_baseline_ir": {
+    "minvar_enabled": false,
+    "minvar_alpha": 0.5,
+    "mh_enabled": false,
+    "cs_enabled": false
+  }
+}

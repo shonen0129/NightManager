@@ -1,0 +1,589 @@
+{
+  "python": "3.12.0 (main, Oct  2 2023, 20:56:14) [Clang 16.0.3 ]",
+  "v2": {
+    "long_count": 5,
+    "short_count": 5,
+    "baseline_gross": 2.0,
+    "cost_bps_per_gross": 10.0,
+    "pit_rolling_window": 252,
+    "tertile_low_pct": 33.3333,
+    "tertile_high_pct": 66.6667,
+    "mult_low": 0.75,
+    "mult_mid": 1.0,
+    "mult_high": 1.0,
+    "fallback_multiplier": 1.0,
+    "fallback_on_gap_data_missing": true,
+    "fallback_on_audit_failure": true,
+    "ondemand_fallback_enabled": true,
+    "shadow_ondemand_validation": false,
+    "mh_blend_enabled": true,
+    "mh_horizons": [
+      1,
+      3,
+      5
+    ],
+    "mh_weights": [
+      0.8,
+      0.1,
+      0.1
+    ],
+    "mh_mu_file_pattern_h": "matrices/mu_gap_h{h}_{date}.npy",
+    "mh_omega_file_pattern_h": "matrices/omega_gap_h{h}_{date}.npy",
+    "cs_overlay_enabled": true,
+    "cs_overlay_weight": 0.05,
+    "cs_rank_reversal_file_pattern": "matrices/rank_reversal_{date}.npy",
+    "minvar_enabled": true,
+    "minvar_alpha": 0.8,
+    "macro_kappa_enabled": true,
+    "macro_kappas": [
+      3.0,
+      0.5,
+      0.5
+    ],
+    "macro_surprise_halflife_mean": 20.0,
+    "macro_surprise_halflife_vol": 60.0,
+    "macro_direction_enabled": true,
+    "gap_input_dir": "var/live/pipeline_data/gap_adjusted_distribution/gap_store.sqlite",
+    "mu_file_pattern": "matrices/mu_gap_{date}.npy",
+    "omega_file_pattern": "matrices/omega_gap_{date}.npy",
+    "sigma_floor": 1e-06,
+    "residualization_enabled_for_p3": true,
+    "residualization_beta_window": 60,
+    "residualization_beta_winsor_sigma": 3.0,
+    "residualization_beta_shrinkage": 0.05,
+    "frac_diff_enabled": true,
+    "frac_diff_d": 0.1,
+    "frac_diff_threshold": 1e-05,
+    "frac_diff_window": 100,
+    "frac_diff_normalize": null,
+    "ml_overlay_enabled": true,
+    "ml_overlay_model_dir": "models/ml_order_overlay/phase2_8",
+    "ml_overlay_use_ticker": true,
+    "ml_overlay_use_classification": false,
+    "ml_overlay_per_ticker_interactions": true,
+    "blpx": {
+      "param_set": "phase1d_optimized_residual_blpx_production",
+      "model_name": "ProductionBLPXModel",
+      "n_u": 15,
+      "n_j": 17,
+      "k": 6,
+      "q": 0.3,
+      "weight_mode": "signal",
+      "normalization": "zscore",
+      "rank": "full",
+      "ewma_halflife": 120,
+      "blp_ewma_halflife": 120.0,
+      "blp_window": 504,
+      "corr_window": 60,
+      "corr_min_periods": 60,
+      "beta_window": 60,
+      "beta_floor": 0.0,
+      "prior_variant": null,
+      "lambda_reg": 0.75,
+      "lambda_lw": 0.5,
+      "lw_target": "equicorrelation",
+      "include_v4_prior": true,
+      "min_raw_weight": 0.0,
+      "raw_pca_weight": 0.0,
+      "residual_pca_weight": 0.0,
+      "raw_blpx_weight": 0.0,
+      "residual_blpx_weight": 1.0,
+      "p4_weight": 0.0,
+      "rho": 0.01,
+      "alpha_xx": 0.2,
+      "alpha_yx": 0.15,
+      "alpha_yy": 0.5,
+      "lambda_pca": 0.1,
+      "lambda_sector": 0.6,
+      "beta_conf": 0.25,
+      "frobenius_scale_priors": false,
+      "winsor_sigma": 3.0,
+      "sector_eta": 0.5,
+      "sector_gamma": 4.0,
+      "target": "topix_residual",
+      "use_raw_target": false,
+      "gap_open_coef": 0.7,
+      "gap_open_coef_neg": 0.6,
+      "topix_beta_coef": 0.6,
+      "topix_beta_coef_neg": 0.6,
+      "vol_adjusted_target": false,
+      "execution_target_cost_adjustment": "none",
+      "asymmetry_mode": "scalar",
+      "asymmetry_delta": 0.3,
+      "asymmetry_post_gap_delta": 0.0,
+      "asymmetry_post_gap_mode": "signal_split",
+      "macro_confidence_enabled": true,
+      "macro_kappa_enabled": true,
+      "macro_direction_enabled": true,
+      "macro_kappas": [
+        3.0,
+        0.5,
+        0.5
+      ],
+      "macro_surprise_halflife_mean": 20.0,
+      "macro_surprise_halflife_vol": 60.0,
+      "macro_sigma_yy_inflation_enabled": false,
+      "copula_enabled": true,
+      "copula_blend_weight": 1.0,
+      "copula_dynamic_blend": true,
+      "copula_stress_threshold": 1.5,
+      "copula_nu_init": 5.0,
+      "copula_marginal_method": "empirical",
+      "minvar_enabled": false,
+      "minvar_alpha": 0.5,
+      "us_res_enabled": false,
+      "us_res_gamma": 0.5,
+      "us_res_beta_window": 252,
+      "frac_diff_enabled": true,
+      "frac_diff_d": 0.1,
+      "frac_diff_threshold": 1e-05,
+      "frac_diff_window": 100,
+      "frac_diff_normalize": null,
+      "p5_weight": null,
+      "p5p3_weight": null,
+      "signal_components": null,
+      "exec_adjustment": null,
+      "slippage_bps": 5.0,
+      "costs": null
+    },
+    "costs": {
+      "cost_bps_per_gross": 10.0,
+      "slippage_bps_per_side": 5.0,
+      "overnight_alpha_long": 0.75,
+      "overnight_alpha_short": 0.5,
+      "buy_interest_annual": 0.025,
+      "borrow_fee_annual": 0.0115,
+      "reverse_fee_bps": 2.0,
+      "side_leverage": 1.5
+    }
+  },
+  "risk": {
+    "var_confidence": 0.99,
+    "var_window": 250,
+    "var_method": "historical",
+    "var_warning": 0.02,
+    "var_stop": 0.03,
+    "es_warning": 0.025,
+    "es_stop": 0.04,
+    "daily_loss_warning": 0.015,
+    "daily_loss_stop": 0.025,
+    "monthly_loss_stop": 0.05,
+    "max_net_exposure": 0.05,
+    "max_gross_exposure": 3.0
+  },
+  "strategy_costs": {
+    "side_leverage": 1.5,
+    "max_gross_exposure": 3.0,
+    "max_net_exposure": 0.05,
+    "slippage_bps": 5.0,
+    "overnight_alpha_long": 0.75,
+    "overnight_alpha_short": 0.5
+  },
+  "packages": {
+    "pytest": "9.1.1",
+    "pytest-xdist": "3.8.0",
+    "pytest-timeout": null,
+    "ruff": "0.16.2",
+    "mypy": "2.3.0",
+    "pandas": "3.0.5",
+    "numpy": "2.5.1",
+    "scipy": "1.18.0",
+    "lightgbm": "4.7.0",
+    "cvxpy": null,
+    "import-linter": "2.13"
+  },
+  "inventory": {
+    "src/leadlag": {
+      "files": 121,
+      "python_files": 121,
+      "python_lines": 27309,
+      "largest_python": [
+        [
+          1042,
+          "src/leadlag/broker/kabu/api.py"
+        ],
+        [
+          798,
+          "src/leadlag/core/pipeline.py"
+        ],
+        [
+          790,
+          "src/leadlag/data/preprocessor.py"
+        ],
+        [
+          778,
+          "src/leadlag/config/schemas.py"
+        ],
+        [
+          761,
+          "src/leadlag/models/ml_order_overlay.py"
+        ],
+        [
+          645,
+          "src/leadlag/core/correlation.py"
+        ],
+        [
+          639,
+          "src/leadlag/execution/broker_ops.py"
+        ],
+        [
+          579,
+          "src/leadlag/execution/backtester.py"
+        ],
+        [
+          570,
+          "src/leadlag/execution/close.py"
+        ],
+        [
+          560,
+          "src/leadlag/broker/tachibana/client.py"
+        ],
+        [
+          555,
+          "src/leadlag/reporting/daily_pnl_report.py"
+        ],
+        [
+          498,
+          "src/leadlag/core/signal.py"
+        ]
+      ]
+    },
+    "src/research": {
+      "files": 164,
+      "python_files": 162,
+      "python_lines": 40520,
+      "largest_python": [
+        [
+          1985,
+          "src/research/scripts/sprint/run_sprint3b_hinge_interactions.py"
+        ],
+        [
+          1549,
+          "src/research/scripts/sprint/run_sprint3a_hinge_features.py"
+        ],
+        [
+          1246,
+          "src/research/models/sector_relative_ensemble_blp_enhanced.py"
+        ],
+        [
+          1201,
+          "src/research/scripts/experiments/run_v2_backtest.py"
+        ],
+        [
+          1031,
+          "src/research/scripts/sprint/run_sprint1_aum1m_tachibana.py"
+        ],
+        [
+          1030,
+          "src/research/scripts/sprint/run_sprint2_cost_aware_aum1m.py"
+        ],
+        [
+          799,
+          "src/research/scripts/sprint/run_sprint2b_qa.py"
+        ],
+        [
+          769,
+          "src/research/diagnostics/sprint1_experiments.py"
+        ],
+        [
+          698,
+          "src/research/diagnostics/sprint0.py"
+        ],
+        [
+          677,
+          "src/research/reports/sprint3a_hinge_report.py"
+        ],
+        [
+          664,
+          "src/research/diagnostics/sprint0_qa.py"
+        ],
+        [
+          623,
+          "src/research/features/hinge_interactions.py"
+        ]
+      ]
+    },
+    "tests": {
+      "files": 85,
+      "python_files": 73,
+      "python_lines": 10180,
+      "largest_python": [
+        [
+          694,
+          "tests/integration/test_production_v2.py"
+        ],
+        [
+          561,
+          "tests/unit/test_gap_distribution.py"
+        ],
+        [
+          336,
+          "tests/unit/test_macro.py"
+        ],
+        [
+          329,
+          "tests/unit/test_close_positions.py"
+        ],
+        [
+          326,
+          "tests/unit/test_daily_pnl_report.py"
+        ],
+        [
+          319,
+          "tests/features/test_fractional_diff.py"
+        ],
+        [
+          305,
+          "tests/unit/test_ml_order_overlay.py"
+        ],
+        [
+          298,
+          "tests/integration/test_leakage_audit.py"
+        ],
+        [
+          288,
+          "tests/unit/test_jp_target_returns.py"
+        ],
+        [
+          287,
+          "tests/unit/test_split_large_orders.py"
+        ],
+        [
+          270,
+          "tests/unit/test_tachibana_broker.py"
+        ],
+        [
+          253,
+          "tests/unit/test_copula.py"
+        ]
+      ]
+    },
+    "tools": {
+      "files": 19,
+      "python_files": 18,
+      "python_lines": 9757,
+      "largest_python": [
+        [
+          2185,
+          "tools/research/compute_gap_adjusted_distribution.py"
+        ],
+        [
+          1428,
+          "tools/validation/validate_distribution_prediction_step1.py"
+        ],
+        [
+          1148,
+          "tools/validation/diagnose_us_vol_states.py"
+        ],
+        [
+          1087,
+          "tools/research/compute_structured_prediction_covariance.py"
+        ],
+        [
+          949,
+          "tools/validation/run_daily_residual_blpx_shadow.py"
+        ],
+        [
+          915,
+          "tools/validation/build_residual_blpx_shadow_run_package.py"
+        ],
+        [
+          399,
+          "tools/validation/monitor_residual_blpx_shadow_performance.py"
+        ],
+        [
+          293,
+          "tools/validation/verify_gap_bias.py"
+        ],
+        [
+          220,
+          "tools/production/send_daily_close_pnl_report.py"
+        ],
+        [
+          203,
+          "tools/validation/validate_etf_data.py"
+        ],
+        [
+          177,
+          "tools/validation/test_tachibana_demo_order.py"
+        ],
+        [
+          159,
+          "tools/research/generate_diagnostics_weights.py"
+        ]
+      ]
+    },
+    "scripts": {
+      "files": 24,
+      "python_files": 7,
+      "python_lines": 546,
+      "largest_python": [
+        [
+          167,
+          "scripts/compare_bt_vs_actual.py"
+        ],
+        [
+          110,
+          "scripts/capture_v2_baseline.py"
+        ],
+        [
+          80,
+          "scripts/calculate_live_sharpe.py"
+        ],
+        [
+          61,
+          "scripts/migrate_production_config.py"
+        ],
+        [
+          58,
+          "scripts/batch/_update_market_data.py"
+        ],
+        [
+          57,
+          "scripts/batch/merge_gap_distribution_diagnostics.py"
+        ],
+        [
+          13,
+          "scripts/check_df_exec_range.py"
+        ]
+      ]
+    },
+    "configs": {
+      "files": 45,
+      "python_files": 1,
+      "python_lines": 194,
+      "largest_python": [
+        [
+          194,
+          "configs/archive/config_before_sre.py"
+        ]
+      ]
+    },
+    "reports": {
+      "files": 306,
+      "python_files": 1,
+      "python_lines": 38,
+      "largest_python": [
+        [
+          38,
+          "reports/20260912_workspace_audit/inspect_workspace.py"
+        ]
+      ]
+    },
+    "docs": {
+      "files": 45,
+      "python_files": 0,
+      "python_lines": 0,
+      "largest_python": []
+    },
+    "archive": {
+      "files": 30,
+      "python_files": 21,
+      "python_lines": 5333,
+      "largest_python": [
+        [
+          802,
+          "archive/legacy_src/execution/async_fsm.py"
+        ],
+        [
+          778,
+          "archive/legacy_src/execution/nextgen_pipeline.py"
+        ],
+        [
+          631,
+          "archive/legacy_src/execution/fast.py"
+        ],
+        [
+          488,
+          "archive/legacy_scripts/experiments/run_v2_backtest_realistic.py"
+        ],
+        [
+          422,
+          "archive/legacy_scripts/experiments/run_v2_backtest_lot_rounding.py"
+        ],
+        [
+          395,
+          "archive/legacy_scripts/experiments/run_v2_backtest_pessimistic.py"
+        ],
+        [
+          309,
+          "archive/legacy_src/broker/async_base.py"
+        ],
+        [
+          222,
+          "archive/legacy_src/tools/validation/run_nextgen_shadow_pipeline.py"
+        ],
+        [
+          200,
+          "archive/legacy_src/tests/unit/test_async_fsm_guardrails.py"
+        ],
+        [
+          145,
+          "archive/legacy_scripts/experiments/run_v2_backtest_exact_production.py"
+        ],
+        [
+          140,
+          "archive/tools/analyze_gap_bias.py"
+        ],
+        [
+          139,
+          "archive/legacy_src/tests/unit/test_async_fsm.py"
+        ]
+      ]
+    }
+  },
+  "artifact_files": {
+    "models/ml_order_overlay/phase2_8": [
+      "models/ml_order_overlay/phase2_8/metadata.json",
+      "models/ml_order_overlay/phase2_8/model.pkl"
+    ],
+    "var/experiments": [],
+    "var/live/production_residual_blpx": [
+      "var/live/production_residual_blpx/production_summary.csv",
+      "var/live/production_residual_blpx/production_audit.json",
+      "var/live/production_residual_blpx/numerical_audit.json",
+      "var/live/production_residual_blpx/run_config.json",
+      "var/live/production_residual_blpx/latest_weights.csv",
+      "var/live/production_residual_blpx/pit_binning.json",
+      "var/live/production_residual_blpx/production_scores.csv",
+      "var/live/production_residual_blpx/daily_production_report.md",
+      "var/live/production_residual_blpx/leakage_audit.json"
+    ]
+  },
+  "sqlite": {
+    "var/market_data/df_exec.sqlite": {
+      "exists": true,
+      "size_bytes": 5001216,
+      "tables": [
+        [
+          "cache_store",
+          "CREATE TABLE cache_store (\n                    key TEXT PRIMARY KEY,\n                    value BLOB,\n                    updated_at TEXT DEFAULT (datetime('now'))\n                )"
+        ]
+      ]
+    },
+    "var/market_data/decision_cache.sqlite": {
+      "exists": true,
+      "size_bytes": 5001216,
+      "tables": [
+        [
+          "cache_store",
+          "CREATE TABLE cache_store (\n                    key TEXT PRIMARY KEY,\n                    value BLOB,\n                    updated_at TEXT DEFAULT (datetime('now'))\n                )"
+        ]
+      ]
+    },
+    "var/live/pipeline_data/gap_adjusted_distribution/gap_store.sqlite": {
+      "exists": true,
+      "size_bytes": 204800,
+      "tables": [
+        [
+          "cache_store",
+          "CREATE TABLE cache_store (\n                    key TEXT PRIMARY KEY,\n                    value BLOB,\n                    updated_at TEXT DEFAULT (datetime('now'))\n                )"
+        ],
+        [
+          "gap_matrices",
+          "CREATE TABLE gap_matrices (\n                    trade_date TEXT NOT NULL,\n                    matrix_type TEXT NOT NULL,\n                    horizon INTEGER NOT NULL DEFAULT -1,\n                    cache_key TEXT NOT NULL,\n                    created_at TEXT DEFAULT (datetime('now')),\n                    PRIMARY KEY (trade_date, matrix_type, horizon)\n                )"
+        ]
+      ]
+    }
+  }
+}

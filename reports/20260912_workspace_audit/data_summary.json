@@ -1,0 +1,169 @@
+{
+  "df_exec": {
+    "rows": 4135,
+    "columns": 122,
+    "start": "2009-01-07 00:00:00",
+    "end": "2026-08-17 00:00:00",
+    "duplicate_dates": 0,
+    "provisional_rows": 1,
+    "baseline_rows": 1183,
+    "last_sig_date": "2026-08-14 00:00:00"
+  },
+  "raw_keys": [
+    "intraday_1m",
+    "intraday_5m",
+    "raw_ohlc",
+    "raw_ohlc_meta"
+  ],
+  "intraday_5m": {
+    "rows": 6962,
+    "columns": 102,
+    "start": "2026-03-03 09:00:00",
+    "end": "2026-08-06 12:30:00",
+    "duplicate_dates": 0,
+    "timezone": "None",
+    "dates_with_910_bar": 106,
+    "overlap_df_exec_days": 102,
+    "all_17_valid_910_days": 8
+  },
+  "gap_store": {
+    "matrix_coverage": [
+      [
+        "meta",
+        -1,
+        7,
+        "2026-08-07",
+        "2026-08-17"
+      ],
+      [
+        "meta",
+        3,
+        7,
+        "2026-08-07",
+        "2026-08-17"
+      ],
+      [
+        "meta",
+        5,
+        7,
+        "2026-08-07",
+        "2026-08-17"
+      ],
+      [
+        "mu",
+        -1,
+        7,
+        "2026-08-07",
+        "2026-08-17"
+      ],
+      [
+        "mu",
+        3,
+        7,
+        "2026-08-07",
+        "2026-08-17"
+      ],
+      [
+        "mu",
+        5,
+        7,
+        "2026-08-07",
+        "2026-08-17"
+      ],
+      [
+        "omega",
+        -1,
+        7,
+        "2026-08-07",
+        "2026-08-17"
+      ],
+      [
+        "omega",
+        3,
+        7,
+        "2026-08-07",
+        "2026-08-17"
+      ],
+      [
+        "omega",
+        5,
+        7,
+        "2026-08-07",
+        "2026-08-17"
+      ],
+      [
+        "rank_reversal",
+        -1,
+        7,
+        "2026-08-07",
+        "2026-08-17"
+      ]
+    ]
+  },
+  "legacy_latest": {
+    "exists": true,
+    "symlink_target": "var/live/pipeline_data/gap_adjusted_distribution/20260814_091011",
+    "mu_count": 1
+  },
+  "full_history_diagnostics.csv": {
+    "rows": 1555,
+    "start": "2020-01-06",
+    "end": "2026-08-14",
+    "ir_columns": [
+      "pred_ir_raw",
+      "pred_ir_gap",
+      "pred_ir_gap_realized_cost_diagnostic",
+      "pred_ir_gap_baseline_cost",
+      "pred_ir_gap_exante_cost"
+    ],
+    "duplicates": 0,
+    "sorted_dates": true
+  },
+  "latest/portfolio_gap_distribution_diagnostics.csv": {
+    "rows": 1,
+    "start": "2026-08-14",
+    "end": "2026-08-14",
+    "ir_columns": [
+      "pred_ir_raw",
+      "pred_ir_gap",
+      "pred_ir_gap_realized_cost_diagnostic",
+      "pred_ir_gap_baseline_cost",
+      "pred_ir_gap_exante_cost"
+    ],
+    "duplicates": 0,
+    "sorted_dates": true
+  },
+  "pit_binning.json": {
+    "assigned_bin": "Low",
+    "threshold_low": 1.4887747897490877,
+    "threshold_high": 2.037724225210623,
+    "multiplier": 0.75,
+    "current_ir": 0.7792235441103436,
+    "history_count": 1555,
+    "fallback_flag": false
+  },
+  "production_summary.csv": [
+    {
+      "trade_date": "2026-08-17",
+      "candidate": "primary_ruleD",
+      "version": "production_residual_blpx_v2",
+      "long_count": 5,
+      "short_count": 5,
+      "target_gross": 1.5,
+      "target_net": 0.0,
+      "gross_multiplier": 0.75,
+      "pit_bin": "Low",
+      "pit_threshold_low": 1.4887747897490875,
+      "pit_threshold_high": 2.037724225210623,
+      "predicted_portfolio_mean": 0.0072912111143991,
+      "predicted_portfolio_vol": 0.0074201761453129,
+      "predicted_portfolio_ir": 0.7804681453630008,
+      "expected_cost_bps": 15.0,
+      "herfindahl": 0.247642024325509,
+      "fallback_triggered": 0,
+      "overlay_applied": 1,
+      "p_trade_mean": 0.5239224506871474,
+      "p_trade_std": 0.0334216714063249
+    }
+  ]
+}

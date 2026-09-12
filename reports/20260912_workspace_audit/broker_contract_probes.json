@@ -1,0 +1,40 @@
+{
+  "filled": {
+    "fixture": {
+      "sOrderOrderSuryou": "100",
+      "sYakuzyouSuryou": "100",
+      "sOrderStatusCode": "10",
+      "sOrderStatus": "全部約定"
+    },
+    "mapped_status": "SUBMITTED"
+  },
+  "cancelled": {
+    "fixture": {
+      "sOrderOrderSuryou": "100",
+      "sYakuzyouSuryou": "0",
+      "sOrderStatusCode": "7",
+      "sOrderStatus": "取消完了"
+    },
+    "mapped_status": "SUBMITTED"
+  },
+  "rejected": {
+    "fixture": {
+      "sOrderOrderSuryou": "100",
+      "sYakuzyouSuryou": "0",
+      "sOrderStatusCode": "2",
+      "sOrderStatus": "受付エラー"
+    },
+    "mapped_status": "SUBMITTED"
+  },
+  "filled_enrichment": {
+    "result": {
+      "order_id": "fake",
+      "ticker": "1617.T",
+      "status": "FILLED",
+      "fill_price": null,
+      "fill_quantity": null,
+      "fill_status": "NOT_SUBMITTED"
+    },
+    "detail_called": false
+  }
+}

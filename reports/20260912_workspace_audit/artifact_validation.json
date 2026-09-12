@@ -1,0 +1,8 @@
+{
+  "status": "PASS",
+  "local_references_checked": 62,
+  "evidence_json_checked": 8,
+  "source_files_hashed": 38,
+  "errors": [],
+  "note": "Checks artifact structure, not whether production findings are fixed."
+}

@@ -1,0 +1,229 @@
+{
+  "inventory": {
+    "src/leadlag": {
+      "files": 121,
+      "python_files": 121,
+      "python_lines": 27309
+    },
+    "src/research": {
+      "files": 164,
+      "python_files": 162,
+      "python_lines": 40520
+    },
+    "tests": {
+      "files": 85,
+      "python_files": 73,
+      "python_lines": 10180
+    },
+    "tools": {
+      "files": 19,
+      "python_files": 18,
+      "python_lines": 9757
+    },
+    "scripts": {
+      "files": 24,
+      "python_files": 7,
+      "python_lines": 546
+    },
+    "configs": {
+      "files": 45,
+      "python_files": 1,
+      "python_lines": 194
+    },
+    "reports": {
+      "files": 306,
+      "python_files": 1,
+      "python_lines": 38
+    },
+    "docs": {
+      "files": 45,
+      "python_files": 0,
+      "python_lines": 0
+    },
+    "archive": {
+      "files": 30,
+      "python_files": 21,
+      "python_lines": 5333
+    }
+  },
+  "largest_production": [
+    [
+      1042,
+      "src/leadlag/broker/kabu/api.py"
+    ],
+    [
+      798,
+      "src/leadlag/core/pipeline.py"
+    ],
+    [
+      790,
+      "src/leadlag/data/preprocessor.py"
+    ],
+    [
+      778,
+      "src/leadlag/config/schemas.py"
+    ],
+    [
+      761,
+      "src/leadlag/models/ml_order_overlay.py"
+    ],
+    [
+      645,
+      "src/leadlag/core/correlation.py"
+    ],
+    [
+      639,
+      "src/leadlag/execution/broker_ops.py"
+    ],
+    [
+      579,
+      "src/leadlag/execution/backtester.py"
+    ],
+    [
+      570,
+      "src/leadlag/execution/close.py"
+    ],
+    [
+      560,
+      "src/leadlag/broker/tachibana/client.py"
+    ],
+    [
+      555,
+      "src/leadlag/reporting/daily_pnl_report.py"
+    ],
+    [
+      498,
+      "src/leadlag/core/signal.py"
+    ]
+  ],
+  "lint": {
+    "total": 82,
+    "by_code": {
+      "I001": 23,
+      "UP015": 25,
+      "F401": 17,
+      "W293": 16,
+      "F841": 1
+    },
+    "by_root": {
+      "src": 82
+    },
+    "production": {}
+  },
+  "fatal_lint": [],
+  "module_name_collisions": [
+    "src/leadlag/models/blpx.py"
+  ],
+  "experiments": {
+    "scripts": 110,
+    "registry_text_mentions": 14,
+    "default_registry_exists": false
+  },
+  "branch_heavy_functions": [
+    {
+      "file": "src/leadlag/data/preprocessor.py",
+      "line": 136,
+      "name": "preprocess_data",
+      "lines": 377,
+      "branches": 53
+    },
+    {
+      "file": "src/leadlag/core/allocator.py",
+      "line": 19,
+      "name": "allocate_capital",
+      "lines": 214,
+      "branches": 40
+    },
+    {
+      "file": "src/leadlag/config/schemas.py",
+      "line": 415,
+      "name": "_map_flat_to_nested",
+      "lines": 189,
+      "branches": 35
+    },
+    {
+      "file": "src/leadlag/config/schemas.py",
+      "line": 123,
+      "name": "from_v2",
+      "lines": 71,
+      "branches": 31
+    },
+    {
+      "file": "src/leadlag/execution/v2_bridge.py",
+      "line": 152,
+      "name": "run_v2_decision",
+      "lines": 344,
+      "branches": 29
+    },
+    {
+      "file": "src/leadlag/compliance/auditor.py",
+      "line": 70,
+      "name": "run_audit",
+      "lines": 251,
+      "branches": 26
+    },
+    {
+      "file": "src/leadlag/models/blpx/model_predict.py",
+      "line": 29,
+      "name": "predict_signals",
+      "lines": 261,
+      "branches": 24
+    },
+    {
+      "file": "src/leadlag/execution/config.py",
+      "line": 148,
+      "name": "build_app_config_from_dict",
+      "lines": 152,
+      "branches": 23
+    },
+    {
+      "file": "src/leadlag/execution/close.py",
+      "line": 111,
+      "name": "close_all_positions",
+      "lines": 304,
+      "branches": 20
+    },
+    {
+      "file": "src/leadlag/models/blpx/model.py",
+      "line": 82,
+      "name": "__init__",
+      "lines": 204,
+      "branches": 20
+    },
+    {
+      "file": "src/leadlag/core/risk.py",
+      "line": 89,
+      "name": "evaluate_risk_checks",
+      "lines": 129,
+      "branches": 19
+    },
+    {
+      "file": "src/leadlag/broker/kabu/api.py",
+      "line": 896,
+      "name": "place_orders_batch",
+      "lines": 147,
+      "branches": 19
+    },
+    {
+      "file": "src/leadlag/data/backtest_store.py",
+      "line": 156,
+      "name": "save_run",
+      "lines": 97,
+      "branches": 18
+    },
+    {
+      "file": "src/leadlag/broker/kabu/api.py",
+      "line": 168,
+      "name": "_request",
+      "lines": 154,
+      "branches": 18
+    },
+    {
+      "file": "src/leadlag/broker/kabu/api.py",
+      "line": 712,
+      "name": "send_order",
+      "lines": 114,
+      "branches": 17
+    }
+  ]
+}

@@ -1,0 +1,67 @@
+{
+  "var_history_unresolved_base": {
+    "mh_blend_enabled": {
+      "production": true,
+      "risk_rebuild": false
+    },
+    "ml_overlay_enabled": {
+      "production": true,
+      "risk_rebuild": false
+    },
+    "macro_kappa_enabled": {
+      "production": true,
+      "risk_rebuild": false
+    },
+    "frac_diff_enabled": {
+      "production": true,
+      "risk_rebuild": false
+    },
+    "gap_input_dir": {
+      "production": "var/live/pipeline_data/gap_adjusted_distribution/gap_store.sqlite",
+      "risk_rebuild": null
+    }
+  },
+  "all_orders_rejected_reported_success": {
+    "function_returned_normally": true,
+    "expected_orders_count": 2,
+    "submitted_orders_count": 2,
+    "failed_orders_count": 0,
+    "first_batch_failed": true,
+    "statuses": [
+      "FAILED",
+      "FAILED"
+    ]
+  },
+  "risk_stop_blocks_position_reduction": {
+    "blocked": true,
+    "submit_called": false,
+    "error": "Risk stop threshold breached; order submission blocked. See [RISK-STOP] logs above."
+  },
+  "stale_date_selected": {
+    "requested": "2026-08-17",
+    "runner_trade_date": "2026-08-14",
+    "snapshot_date": "2026-08-14",
+    "gap_dir": "/Users/shonen/leadlag/var/live/pipeline_data/gap_adjusted_distribution/gap_store.sqlite"
+  },
+  "stale_date_replay": {
+    "requested": "2026-08-17",
+    "runner_trade_date": "2026-08-14",
+    "snapshot_date": "2026-08-14",
+    "gap_dir": "/Users/shonen/leadlag/var/live/pipeline_data/gap_adjusted_distribution/gap_store.sqlite"
+  },
+  "japan_holiday_lags_us_signal": {
+    "2026-08-12": {
+      "sig_date": "2026-08-10",
+      "us_return": 0.0
+    },
+    "2026-08-13": {
+      "sig_date": "2026-08-12",
+      "us_return": 0.10000000000000009
+    }
+  },
+  "default_backtest_omits_overlay": {
+    "ml_overlay_enabled": true,
+    "model_dir": "models/ml_order_overlay/phase2_8",
+    "overlay_model_forwarded": "None"
+  }
+}

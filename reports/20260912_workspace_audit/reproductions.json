@@ -1,0 +1,102 @@
+{
+  "leakage_failure_keeps_weights": {
+    "leakage": {
+      "status": "FAILED",
+      "signal_date_strictly_before_trade_date": false,
+      "post_open_timing_respected": true,
+      "realized_returns_not_used_in_signal": false,
+      "pit_binning_strictly_historical": true,
+      "gap_data_freshness_ok": false
+    },
+    "numerical": "PASSED",
+    "gross": 2.0,
+    "fallback": {
+      "gap_data_missing": false
+    },
+    "alerts": []
+  },
+  "slippage_inventory_flow": {
+    "flat": {
+      "reported_slip_bps": [
+        20.625,
+        0.0
+      ],
+      "inventory_flow_slip_bps": [
+        20.625,
+        9.375
+      ]
+    },
+    "sign_flip": {
+      "reported_slip_bps": [
+        20.625,
+        30.0
+      ],
+      "inventory_flow_slip_bps": [
+        20.625,
+        30.0
+      ]
+    },
+    "unchanged": {
+      "reported_slip_bps": [
+        20.625,
+        11.250000000000002
+      ],
+      "inventory_flow_slip_bps": [
+        20.625,
+        11.250000000000002
+      ]
+    }
+  },
+  "initial_loss_mdd": {
+    "reported": 0.0,
+    "expected": -0.1
+  },
+  "dsr_annualization": {
+    "inputs": {
+      "net_sharpe": 1.0,
+      "trials": 1,
+      "n_observations": 252
+    },
+    "reported": 1.0,
+    "same_frequency_reference": 0.84062387995459
+  },
+  "registry_metrics": {
+    "net_sharpe": -7.483314773547883,
+    "n_observations": 2,
+    "max_dd": 0.0,
+    "total_return": -0.08,
+    "fallback_rate": 0.5,
+    "returns": [
+      -0.1,
+      0.0,
+      0.02,
+      0.0
+    ]
+  },
+  "correlation_cache_wrong_input": {
+    "cached_object_reused": false,
+    "reported_jp_sigma": 0.010249460426082047,
+    "expected_jp_sigma": 0.03074838127824614,
+    "ratio": 0.3333333333333333
+  },
+  "common_inputs_cache_wrong_input": {
+    "build_calls": 1,
+    "same_object": true,
+    "expected_last": 100.0,
+    "observed_last": 2.0,
+    "target_remains_zero": true
+  },
+  "gap_pair_partial_commit": {
+    "mu": 2.0,
+    "omega": 1.0,
+    "metadata": {
+      "version": "old"
+    },
+    "mixed_version": true
+  },
+  "pit_fallback_multiplier_ignored": {
+    "configured_fallback_multiplier": 0.25,
+    "actual_multiplier": 1.0,
+    "fallback_flag": true
+  }
+}

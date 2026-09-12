@@ -1,0 +1,4 @@
+Matplotlib is building the font cache; this may take a moment.
+ERROR:leadlag.reporting.formatter:[RISK-STOP] DailyLoss=10.0000% >= stop 2.50%
+ERROR:leadlag.reporting.formatter:[RISK-STOP] MonthlyLoss=10.0000% >= stop 5.00%
+WATCHDOG: exit=0 elapsed=12.3s
