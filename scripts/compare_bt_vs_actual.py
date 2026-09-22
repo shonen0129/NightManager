@@ -104,7 +104,7 @@ if dates:
     # 1. Model mismatch
     print("\n[1] MODEL MISMATCH")
     print("  Backtest uses: SectorRelativeEnsembleBLPEnhancedModel (V1-style)")
-    print("  Live uses:     generate_v2_production_portfolio (ProductionV2Model)")
+    print("  Live uses:     ProductionV2Model.decide (ProductionV2Model)")
     print("  -> These are DIFFERENT models with different signal generation logic")
 
     # 2. Check 07-15 flat position

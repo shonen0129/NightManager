@@ -1,6 +1,6 @@
 """leadlag/execution/close.py — position closing logic.
 
-Provides ``close_all_positions()`` and ``wait_and_auto_close()`` which
+Provides ``close_all_positions()`` and ``run_close_positions_mode()`` which
 orchestrate the end-of-day 引け時反対売買 flow via the BrokerClient ABC.
 
 These functions are broker-neutral: they work with any BrokerClient
@@ -14,12 +14,15 @@ import logging
 import math
 import os
 import time as time_module
+from collections.abc import Sequence
+from contextlib import ExitStack
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 from leadlag.broker.base import BrokerClient
-from leadlag.core.types import OrderRequest, OrderSide, OrderStatus, OrderType
+from leadlag.config.paths import execution_state_path
+from leadlag.core.types import OrderRequest, OrderResult, OrderSide, OrderStatus, OrderType
 from leadlag.data.tickers import lot_size_for
 from leadlag.execution.broker_ops import (
     SPLIT_DELAY_SECONDS,
@@ -27,6 +30,9 @@ from leadlag.execution.broker_ops import (
     split_large_orders,
 )
 from leadlag.execution.config import load_config_from_yaml
+from leadlag.execution.contracts import ExecutionPlan, build_decision_id, report_from_records
+from leadlag.execution.job_guard import execution_lease
+from leadlag.execution.order_lifecycle import poll_order_statuses
 from leadlag.execution.output_ops import (
     build_output_dir,
     save_daily_journal,
@@ -34,8 +40,21 @@ from leadlag.execution.output_ops import (
     save_wallet_snapshot,
 )
 from leadlag.execution.pricing import fetch_fill_prices
+from leadlag.execution.state_store import ExecutionRun, ExecutionStateStore
 
 logger = logging.getLogger(__name__)
+
+
+def _close_result_record(result: OrderResult) -> dict[str, Any]:
+    """Convert a broker close response to the durable observation shape."""
+    return {
+        "order_id": result.order_id,
+        "status": result.status.value,
+        "ticker": result.ticker,
+        "side": result.side.value,
+        "quantity": result.quantity,
+        "message": result.message,
+    }
 
 
 def _wait_for_close_fills_sync(
@@ -49,63 +68,17 @@ def _wait_for_close_fills_sync(
     Updates ``close_results`` entries with the latest status.  This prevents
     moving on before a close order has been confirmed at the exchange.
     """
-    if not callable(getattr(api_client, "get_order_status", None)):
-        logger.debug("Broker client does not support get_order_status; skip fill polling")
-        return
-
-    pending = [r for r in close_results if r.get("status") == OrderStatus.SUBMITTED.value]
-    if not pending:
-        return
-
-    # Probe whether the broker actually implements status polling.
-    test_order_id = pending[0].get("order_id", "")
-    try:
-        api_client.get_order_status(test_order_id)
-    except NotImplementedError:
-        logger.debug("Broker client get_order_status is not implemented; skip fill polling")
-        return
-    except Exception:
-        # Non-fatal probe error; continue with polling.
-        pass
-
-    deadline = time_module.time() + timeout_seconds
-    logger.info(
-        "[CLOSE FILL POLL] Waiting for %d close order(s) to fill (timeout=%.1fs)...",
-        len(pending),
-        timeout_seconds,
+    poll_order_statuses(
+        api_client,
+        close_results,
+        order_id_getter=lambda result: str(result.get("order_id", "")),
+        status_getter=lambda result: result.get("status", ""),
+        status_setter=lambda result, status: result.__setitem__("status", status.value),
+        message_setter=lambda result, message: result.__setitem__("message", message),
+        timeout_seconds=timeout_seconds,
+        poll_interval=poll_interval,
+        label="CLOSE FILL",
     )
-
-    while pending and time_module.time() < deadline:
-        for result in pending:
-            order_id = result.get("order_id", "")
-            if not order_id:
-                continue
-            try:
-                status = api_client.get_order_status(order_id)
-                if status != OrderStatus.SUBMITTED:
-                    result["status"] = status.value
-                    logger.info(
-                        "  [CLOSE FILL] %s: %s",
-                        result.get("ticker"),
-                        status.value,
-                    )
-            except Exception as e:
-                logger.warning(
-                    "Failed to poll close order %s: %s",
-                    order_id,
-                    e,
-                )
-
-        pending = [r for r in close_results if r.get("status") == OrderStatus.SUBMITTED.value]
-        if pending:
-            time_module.sleep(poll_interval)
-
-    if pending:
-        logger.warning(
-            "%d close order(s) still SUBMITTED after %.1fs",
-            len(pending),
-            timeout_seconds,
-        )
 
 
 def close_all_positions(
@@ -117,6 +90,9 @@ def close_all_positions(
     close_position_order: int = 0,
     overnight_alpha_long: float = 0.0,
     overnight_alpha_short: float = 0.0,
+    state_store: ExecutionStateStore | None = None,
+    account_key: str = "default",
+    strategy_key: str = "production_v2",
 ) -> dict:
     """Close open margin positions at 引け, respecting overnight holding ratios.
 
@@ -147,6 +123,24 @@ def close_all_positions(
     try:
         positions = api_client.get_positions()
     except Exception as e:
+        error_summary = {
+            "timestamp": datetime.now().isoformat(timespec="seconds"),
+            "dry_run": dry_run,
+            "positions_found": None,
+            "close_orders": [],
+            "close_results": [],
+            "filled_orders_count": 0,
+            "partial_orders_count": 0,
+            "pending_orders_count": 0,
+            "failed_orders_count": 0,
+            "close_incomplete": True,
+            "execution_error": str(e),
+        }
+        try:
+            with open(Path(output_dir) / "close_execution_log.json", "w", encoding="utf-8") as handle:
+                json.dump(error_summary, handle, ensure_ascii=False, indent=2)
+        except Exception:
+            logger.exception("Failed to persist close query error summary")
         raise RuntimeError("Failed to fetch open positions before auto-close") from e
 
     logger.info("Found %d open position(s)", len(positions))
@@ -160,12 +154,21 @@ def close_all_positions(
 
     if not positions:
         logger.info("No open positions to close")
-        return {
+        empty_summary: dict[str, Any] = {
             "timestamp": datetime.now().isoformat(timespec="seconds"),
             "dry_run": dry_run,
             "positions_found": 0,
             "close_orders": [],
+            "close_results": [],
+            "filled_orders_count": 0,
+            "partial_orders_count": 0,
+            "pending_orders_count": 0,
+            "failed_orders_count": 0,
+            "close_incomplete": False,
         }
+        with open(Path(output_dir) / "close_execution_log.json", "w", encoding="utf-8") as handle:
+            json.dump(empty_summary, handle, ensure_ascii=False, indent=2)
+        return empty_summary
 
     # Build close-order metadata and OrderRequest list
     # Apply overnight holding ratios: only close (1 - alpha) fraction at 引け
@@ -253,6 +256,33 @@ def close_all_positions(
 
     close_meta_by_ticker = {m["ticker"]: m for m in close_order_meta}
 
+    starting_positions: dict[str, int] = {}
+    for position in positions:
+        signed_quantity = int(position.quantity) * (1 if position.side == "BUY" else -1)
+        starting_positions[position.ticker] = starting_positions.get(position.ticker, 0) + signed_quantity
+    close_plan = ExecutionPlan(
+        decision_id=build_decision_id(
+            datetime.now().date().isoformat(), close_order_requests, ()
+        ),
+        trade_date=datetime.now().date().isoformat(),
+        close_orders=tuple(close_order_requests),
+        new_orders=(),
+        current_positions=tuple(sorted(starting_positions.items())),
+    )
+    execution_run: ExecutionRun | None = None
+    if state_store is not None and close_plan.expected_order_count:
+        execution_run = state_store.prepare_run(
+            account_key=account_key,
+            strategy_key=strategy_key,
+            trade_date=close_plan.trade_date,
+            job_type="close",
+            decision_id=close_plan.decision_id,
+            metadata={"expected_orders": close_plan.expected_order_count},
+        )
+        # This commit is intentionally before the first close submission.
+        state_store.record_plan(execution_run.run_id, close_plan)
+        state_store.mark_submission_started(execution_run.run_id)
+
     summary: dict[str, Any] = {
         "timestamp": datetime.now().isoformat(timespec="seconds"),
         "dry_run": dry_run,
@@ -263,6 +293,19 @@ def close_all_positions(
         "held_overnight": held_overnight_meta,
         "close_results": [],
     }
+    if execution_run is not None:
+        summary["run_id"] = execution_run.run_id
+
+    observed_records: list[dict[str, Any]] = []
+
+    def persist_submitted_observations(results: Sequence[OrderResult]) -> None:
+        """Commit close responses before waiting or submitting a delayed batch."""
+        if state_store is None or execution_run is None:
+            return
+        observed_records.extend(_close_result_record(result) for result in results)
+        # Propagate a durable-store failure so no subsequent close batch is
+        # submitted. The executing run remains a recovery candidate.
+        state_store.record_result_set(execution_run.run_id, close_plan, observed_records)
 
     if dry_run:
         logger.info("[DRY RUN MODE] Simulating position close (no actual orders sent)...")
@@ -299,6 +342,7 @@ def close_all_positions(
             is_close=True,
             close_position_order=close_position_order,
         )
+        persist_submitted_observations(close_results)
         first_batch_failed = False
         for result in close_results:
             logger.info(
@@ -326,7 +370,10 @@ def close_all_positions(
         # Wait for close fills before deciding whether to proceed.
         _wait_for_close_fills_sync(api_client, summary["close_results"])
         first_batch_failed = any(
-            r.get("status") == OrderStatus.FAILED.value
+            r.get("status") in {
+                OrderStatus.FAILED.value,
+                OrderStatus.PARTIALLY_FILLED.value,
+            }
             for r in summary["close_results"]
             if not r.get("delayed")
         )
@@ -365,6 +412,7 @@ def close_all_positions(
                     is_close=True,
                     close_position_order=close_position_order,
                 )
+                persist_submitted_observations(delayed_results)
                 for result in delayed_results:
                     logger.info(
                         "  [DELAYED CLOSE SUBMITTED] %s: %d shares (Order ID: %s)",
@@ -394,124 +442,101 @@ def close_all_positions(
     if not dry_run and summary["close_results"]:
         from leadlag.broker.dry_run import DryRunBrokerClient
         if not isinstance(api_client, DryRunBrokerClient):
-            fetch_fill_prices(api_client, summary["close_results"], wait_seconds=5.0)
+            try:
+                fetch_fill_prices(api_client, summary["close_results"], wait_seconds=5.0)
+            except Exception as exc:  # noqa: BLE001
+                summary.setdefault("reconciliation_errors", []).append(f"fill_prices: {exc}")
+                logger.exception("Failed to fetch close fill prices")
+
+    terminal_successes = {OrderStatus.FILLED.value, OrderStatus.SIMULATED.value}
+    success_count = sum(
+        1 for r in summary["close_results"]
+        if r.get("status") in terminal_successes
+    )
+    partial_count = sum(
+        1 for r in summary["close_results"]
+        if r.get("status") == OrderStatus.PARTIALLY_FILLED.value
+    )
+    pending_count = sum(
+        1 for r in summary["close_results"]
+        if r.get("status") in {
+            OrderStatus.SUBMITTED.value,
+            OrderStatus.PARTIALLY_FILLED.value,
+        }
+    )
+    failed_count = sum(
+        1 for r in summary["close_results"]
+        if r.get("status") in {
+            OrderStatus.FAILED.value,
+            OrderStatus.CANCELLED.value,
+            "SKIPPED",
+        }
+    )
+    summary["filled_orders_count"] = success_count
+    summary["partial_orders_count"] = partial_count
+    summary["pending_orders_count"] = pending_count
+    summary["failed_orders_count"] = failed_count
+    summary["close_incomplete"] = any(
+        r.get("status") not in terminal_successes
+        for r in summary["close_results"]
+    ) or bool(summary.get("reconciliation_errors"))
+    summary["execution_report"] = report_from_records(
+        summary["close_results"],
+        expected_orders=len(summary["close_results"]),
+        reconciliation_errors=summary.get("reconciliation_errors", []),
+    ).to_dict()
+
+    if state_store is not None and execution_run is not None:
+        try:
+            state_store.record_result_set(
+                execution_run.run_id, close_plan, summary["close_results"]
+            )
+            state_store.record_reconciliation(
+                execution_run.run_id,
+                outcome="incomplete" if summary["close_incomplete"] else "pending",
+                errors=summary.get("reconciliation_errors", []),
+                references={"close_execution_log": str(Path(output_dir) / "close_execution_log.json")},
+            )
+            if summary["close_incomplete"]:
+                state_store.mark_reconciliation_required(
+                    execution_run.run_id,
+                    error=(
+                        f"filled={success_count}/{len(summary['close_results'])}; "
+                        f"pending={pending_count}; failed={failed_count}"
+                    ),
+                )
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("[CLOSE] Durable state update failed")
+            summary.setdefault("reconciliation_errors", []).append(f"state_store: {exc}")
+            try:
+                state_store.mark_reconciliation_required(execution_run.run_id, error=str(exc))
+            except Exception:
+                logger.exception("[CLOSE] Could not mark run reconciliation_required")
+
+    if summary.get("reconciliation_errors"):
+        summary["close_incomplete"] = True
+        summary["execution_report"] = report_from_records(
+            summary["close_results"], expected_orders=close_plan.expected_order_count,
+            reconciliation_errors=summary["reconciliation_errors"],
+        ).to_dict()
 
     log_path = os.path.join(output_dir, "close_execution_log.json")
     with open(log_path, "w", encoding="utf-8") as f:
         json.dump(summary, f, ensure_ascii=False, indent=2)
     logger.info("Close execution log saved: %s", log_path)
 
-    success_count = sum(
-        1 for r in summary["close_results"]
-        if r.get("status") != "FAILED"
-    )
     total_close_orders = len(summary["close_results"])
-    logger.info(
-        "Position close completed: %d/%d orders submitted",
-        success_count,
-        total_close_orders,
-    )
-    return summary
-
-
-def wait_and_auto_close(
-    api_client: BrokerClient,
-    output_dir: str | Path,
-    auto_close_time: str,
-    dry_run: bool = False,
-    close_position_order: int = 0,
-    max_wait_hours: float = 6.0,
-) -> None:
-    """Wait until ``auto_close_time`` and automatically close all positions.
-
-    Args:
-        api_client: BrokerClient instance
-        output_dir: Directory to save close execution log
-        auto_close_time: Time to close positions (HH:MM format)
-        dry_run: If True, simulate without actual submission
-        close_position_order: Close priority (0-7) for credit repayment
-        max_wait_hours: Maximum wall-clock hours to wait before aborting.
-            Prevents a decision process launched far before the close time
-            from running indefinitely.
-    """
-    config = load_config_from_yaml()
-    alpha_long = config.strategy.overnight_alpha_long
-    alpha_short = config.strategy.overnight_alpha_short
-    if config.broker_provider == "tachibana":
-        margin_trade_type = config.tachibana.margin_trade_type
-        account_type = config.tachibana.account_type
-    else:
-        margin_trade_type = config.kabu.margin_trade_type
-        account_type = config.kabu.account_type
-
-    hour, minute = map(int, auto_close_time.split(":"))
-    now = datetime.now()
-    target = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
-
-    if target <= now:
-        logger.warning(
-            "Auto-close time %s has already passed. Closing positions immediately.",
-            auto_close_time,
-        )
-        close_all_positions(
-            api_client=api_client,
-            output_dir=output_dir,
-            dry_run=dry_run,
-            margin_trade_type=margin_trade_type,
-            account_type=account_type,
-            close_position_order=close_position_order,
-            overnight_alpha_long=alpha_long,
-            overnight_alpha_short=alpha_short,
-        )
-        return
-
-    wait_seconds = (target - now).total_seconds()
-    max_wait_seconds = max_wait_hours * 3600.0
-    if wait_seconds > max_wait_seconds:
+    if summary["close_incomplete"]:
         logger.error(
-            "Auto-close time %s is %.1f hours in the future ( exceeds max_wait_hours=%.1f ). "
-            "Aborting in-process wait. Run the 'close' subcommand separately instead.",
-            auto_close_time,
-            wait_seconds / 3600.0,
-            max_wait_hours,
+            "Position close incomplete: filled=%d/%d, pending=%d, failed=%d",
+            success_count,
+            total_close_orders,
+            pending_count,
+            failed_count,
         )
-        return
-
-    logger.info(
-        "=== AUTO-CLOSE SCHEDULED ===\n"
-        "  Positions will be automatically closed at %s\n"
-        "  Waiting %.0f seconds (%.1f hours)\n"
-        "  Use --auto-close-time to change the close time",
-        auto_close_time,
-        wait_seconds,
-        wait_seconds / 3600,
-    )
-
-    check_interval = 300  # 5 minutes
-    while True:
-        remaining = (target - datetime.now()).total_seconds()
-        if remaining <= 0:
-            break
-        if remaining <= check_interval:
-            logger.info("[HEARTBEAT] Auto-close: sleeping final %.0f seconds", remaining)
-            time_module.sleep(remaining)
-            break
-        logger.info("[HEARTBEAT] Auto-close: sleeping %d seconds (%.0f minutes remaining)",
-                    check_interval, remaining / 60)
-        time_module.sleep(check_interval)
-
-    logger.info("=== AUTO-CLOSE EXECUTION ===")
-    close_all_positions(
-        api_client=api_client,
-        output_dir=output_dir,
-        dry_run=dry_run,
-        margin_trade_type=margin_trade_type,
-        account_type=account_type,
-        close_position_order=close_position_order,
-        overnight_alpha_long=alpha_long,
-        overnight_alpha_short=alpha_short,
-    )
-    logger.info("=== AUTO-CLOSE COMPLETED ===")
+    else:
+        logger.info("Position close completed: %d/%d orders filled", success_count, total_close_orders)
+    return summary
 
 
 def run_close_positions_mode(
@@ -521,7 +546,7 @@ def run_close_positions_mode(
     api_token: str | None,
     api_dry_run: bool,
     close_position_order: int,
-) -> None:
+) -> dict[str, Any]:
     """Entry point for ``--mode close-positions``.
 
     Builds the broker client, executes position close, and cleans up.
@@ -530,15 +555,22 @@ def run_close_positions_mode(
     output_dir = build_output_dir(output_root, run_tag, run_name="production_close_positions")
 
     api_client: BrokerClient | None = None
+    lease_stack = ExitStack()
     try:
         api_client = build_api_client(api_url, api_token, api_dry_run)
         config = load_config_from_yaml()
+        state_store = ExecutionStateStore(execution_state_path())
+        account_key = f"{config.broker_provider}:default" if not api_dry_run else f"simulation:{output_dir}"
         if config.broker_provider == "tachibana":
             margin_trade_type = config.tachibana.margin_trade_type
             account_type = config.tachibana.account_type
         else:
             margin_trade_type = config.kabu.margin_trade_type
             account_type = config.kabu.account_type
+        lease_context = execution_lease(
+            state_store, metadata={"trade_date": datetime.now().date().isoformat(), "job_type": "close"},
+        )
+        lease_stack.enter_context(lease_context)
         close_summary = close_all_positions(
             api_client=api_client,
             output_dir=output_dir,
@@ -548,23 +580,106 @@ def run_close_positions_mode(
             close_position_order=close_position_order,
             overnight_alpha_long=config.strategy.overnight_alpha_long,
             overnight_alpha_short=config.strategy.overnight_alpha_short,
+            state_store=state_store,
+            account_key=account_key,
+            strategy_key="production_v2",
         )
-        logger.info(
-            "Close-positions completed. Positions closed: %d",
-            close_summary.get("close_orders_count", 0),
-        )
+        if close_summary.get("close_incomplete"):
+            logger.error(
+                "Close-positions incomplete: filled=%d/%d, pending=%d, failed=%d",
+                close_summary.get("filled_orders_count", 0),
+                len(close_summary.get("close_results", [])),
+                close_summary.get("pending_orders_count", 0),
+                close_summary.get("failed_orders_count", 0),
+            )
+        else:
+            logger.info(
+                "Close-positions completed. Orders filled: %d",
+                close_summary.get("filled_orders_count", 0),
+            )
 
         # --- Trade journal: collect post-close data ---
+        # Reconciliation failures must not erase the close summary or turn an
+        # incomplete close into a false success.  Try each artifact
+        # independently, persist the errors beside the execution log, and then
+        # propagate a processing error after the broker is closed in ``finally``.
         close_log_path = os.path.join(output_dir, "close_execution_log.json")
-        pos_snapshot_path = save_position_snapshot(api_client, output_dir, label="close")
-        wallet_snapshot_path = save_wallet_snapshot(api_client, output_dir, label="close")
-        save_daily_journal(
-            output_dir=output_dir,
-            close_execution_log_path=close_log_path,
-            position_snapshot_path=pos_snapshot_path,
-            wallet_snapshot_path=wallet_snapshot_path,
-        )
+        reconciliation_errors: list[str] = list(close_summary.get("reconciliation_errors", []))
+        try:
+            pos_snapshot_path = save_position_snapshot(
+                api_client, output_dir, label="close", raise_on_error=True
+            )
+        except Exception as exc:  # noqa: BLE001
+            pos_snapshot_path = None
+            reconciliation_errors.append(f"positions: {exc}")
+            logger.exception("[JOURNAL] Close position reconciliation failed")
+        try:
+            wallet_snapshot_path = save_wallet_snapshot(
+                api_client, output_dir, label="close", raise_on_error=True
+            )
+        except Exception as exc:  # noqa: BLE001
+            wallet_snapshot_path = None
+            reconciliation_errors.append(f"wallet: {exc}")
+            logger.exception("[JOURNAL] Close wallet reconciliation failed")
+        try:
+            save_daily_journal(
+                output_dir=output_dir,
+                close_execution_log_path=close_log_path,
+                position_snapshot_path=pos_snapshot_path,
+                wallet_snapshot_path=wallet_snapshot_path,
+            )
+        except Exception as exc:  # noqa: BLE001
+            reconciliation_errors.append(f"daily_journal: {exc}")
+            logger.exception("[JOURNAL] Close daily journal save failed")
+
+        if close_summary.get("run_id"):
+            try:
+                from leadlag.execution.reconcile import verify_position_checkpoint
+
+                if not api_dry_run:
+                    run = state_store.get_run(str(close_summary["run_id"]))
+                    if run is None or not (run.metadata or {}).get("execution_plan"):
+                        raise ValueError("Missing saved execution plan")
+                    reconciliation_errors.extend(verify_position_checkpoint(
+                        (run.metadata or {})["execution_plan"], close_summary.get("close_results", []), pos_snapshot_path,
+                    ))
+                incomplete = bool(reconciliation_errors) or bool(close_summary.get("close_incomplete"))
+                state_store.record_reconciliation(
+                    str(close_summary["run_id"]),
+                    outcome="incomplete" if incomplete else "complete",
+                    errors=reconciliation_errors,
+                    references={"close_execution_log": close_log_path,
+                                "position_snapshot": str(pos_snapshot_path) if pos_snapshot_path else None,
+                                "wallet_snapshot": str(wallet_snapshot_path) if wallet_snapshot_path else None},
+                )
+                if incomplete:
+                    state_store.mark_reconciliation_required(str(close_summary["run_id"]), error="; ".join(reconciliation_errors))
+                else:
+                    state_store.mark_completed(str(close_summary["run_id"]))
+            except Exception as exc:
+                reconciliation_errors.append(f"state_store: {exc}")
+                logger.exception("[JOURNAL] Durable close checkpoint failed")
+
+        if reconciliation_errors:
+            close_summary["close_incomplete"] = True
+            close_summary["reconciliation_errors"] = reconciliation_errors
+            close_summary["execution_report"] = report_from_records(
+                close_summary.get("close_results", []),
+                expected_orders=len(close_summary.get("close_results", [])),
+                reconciliation_errors=reconciliation_errors,
+            ).to_dict()
+            with open(close_log_path, "w", encoding="utf-8") as handle:
+                json.dump(close_summary, handle, ensure_ascii=False, indent=2)
+            raise RuntimeError(
+                "Close execution completed with reconciliation errors: "
+                + "; ".join(reconciliation_errors)
+            )
+
+        return close_summary
 
     finally:
-        if api_client is not None:
-            api_client.close()
+        try:
+            if api_client is not None:
+                api_client.close()
+        finally:
+            lease_stack.close()

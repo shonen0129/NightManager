@@ -61,10 +61,10 @@ def _capture_v2_snapshot(
         current_prices=current_prices,
     )
     return {
-        "w_final": result["w_final"].tolist(),
-        "scores": result["scores"].tolist(),
-        "pit_binning": result["pit_binning"],
-        "summary": {k: v for k, v in result["summary"].items() if k not in (
+        "w_final": result.w_final.tolist(),
+        "scores": result.scores.tolist(),
+        "pit_binning": result.pit_binning,
+        "summary": {k: v for k, v in result.summary.items() if k not in (
             "trade_date", "version", "candidate"
         )},
     }
@@ -73,8 +73,18 @@ def _capture_v2_snapshot(
 def test_v2_snapshot_matches_baseline(
     regression_baseline_dir: Path,
     regression_df_exec: pd.DataFrame,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Compare current model output against the captured baseline."""
+    # Regression tests are offline and must not depend on a mutable macro data
+    # download.  The production path still enables the feature; this bundle
+    # records the explicit no-data fallback used at capture time.
+    from leadlag.data import macro as macro_data
+    monkeypatch.setattr(
+        macro_data,
+        "load_macro_prices",
+        lambda *args, **kwargs: None,
+    )
     baseline_file = regression_baseline_dir / f"v2_snapshot_{BASELINE_VERSION}.json"
 
     if not baseline_file.exists():
@@ -83,8 +93,12 @@ def test_v2_snapshot_matches_baseline(
     with open(baseline_file) as f:
         baseline = json.load(f)
 
-    # Use the last available trade date from the fixture for the test.
-    trade_date = str(regression_df_exec.index[-1].date())
+    # The baseline bundle is captured for this exact trade date.  Selecting
+    # the local cache's latest row makes the test depend on mutable data and
+    # silently mismatches the bundled matrices.
+    trade_date = "2026-08-14"
+    if pd.Timestamp(trade_date) not in regression_df_exec.index:
+        pytest.skip(f"Regression fixture does not contain fixed date {trade_date}")
     current_prices = _build_current_prices_from_df_exec(
         regression_df_exec, trade_date
     )

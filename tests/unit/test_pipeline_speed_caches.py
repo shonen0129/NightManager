@@ -7,7 +7,7 @@ import pandas as pd
 
 from leadlag.broker.tachibana import session_cache
 from leadlag.broker.tachibana.api import TachibanaClient
-from leadlag.data import cache as data_cache
+from leadlag.data import decision_cache as data_cache
 from leadlag.execution import broker_ops
 
 
@@ -56,6 +56,22 @@ def test_open_cache_rejects_non_positive_price(tmp_path, monkeypatch):
     ).to_csv(opens_dir / "20260728.csv", index=False)
 
     assert session_cache.load_open_prices_cache("20260728") is None
+
+
+def test_current_price_cache_is_separate_from_open_cache(tmp_path, monkeypatch):
+    current_path = tmp_path / "current"
+    current_path.mkdir()
+    monkeypatch.setattr(
+        session_cache,
+        "_current_prices_cache_path",
+        lambda trade_date: current_path / f"{trade_date}.csv",
+    )
+    session_cache.save_current_prices_cache({"1617.T": 1050.0}, 2805.0, "20260728")
+    assert session_cache.load_current_prices_cache("20260728") == (
+        {"1617.T": 1050.0},
+        2805.0,
+    )
+    assert session_cache.load_current_prices_cache("20260729") is None
 
 
 def test_session_cache_is_private_and_stale_cache_is_rejected(tmp_path, monkeypatch):

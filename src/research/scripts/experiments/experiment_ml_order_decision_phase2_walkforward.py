@@ -30,7 +30,7 @@ while not (ROOT / "pyproject.toml").exists():
     ROOT = ROOT.parent
 sys.path.insert(0, str(ROOT / "src"))
 
-from leadlag.data.cache import load_df_exec_from_local_cache
+from leadlag.data.market_data_cache import load_df_exec_from_local_cache
 from research.experiments.ml_order_decision.phase2 import run_phase2_experiment
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")

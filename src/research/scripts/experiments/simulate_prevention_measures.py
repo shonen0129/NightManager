@@ -27,7 +27,7 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from leadlag.data.preprocessor import compute_jp_target_returns
+from leadlag.data.intraday_inputs import compute_jp_target_returns
 from leadlag.data.tickers import JP_TICKERS
 from research.backtest_common import load_execution_data
 

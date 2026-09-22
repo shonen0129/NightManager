@@ -12,8 +12,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from leadlag.config.schemas import StrategyConfig as ProductionConfig
 from leadlag.core.types import RiskConfig
-from leadlag.execution.config import StrategyConfig as ProductionConfig
 from leadlag.execution.output_ops import save_decision_output
 from leadlag.execution.risk_capital import auto_adjust_gross_exposure, build_risk_config
 

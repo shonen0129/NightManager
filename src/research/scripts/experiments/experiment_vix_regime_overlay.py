@@ -30,7 +30,7 @@ sys.path.insert(0, str(ROOT / "src"))
 
 import yfinance as yf
 
-from leadlag.data.cache import load_df_exec_from_local_cache
+from leadlag.data.market_data_cache import load_df_exec_from_local_cache
 from leadlag.reporting.metrics import calculate_metrics
 from leadlag.utils.threading import run_with_timeout
 from research.backtest_v1 import run_v1_backtest

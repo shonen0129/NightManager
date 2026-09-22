@@ -50,15 +50,16 @@ def _load_macro_returns(self: ProductionBLPXModel, df_exec: pd.DataFrame) -> pd.
 
     If download fails or the resulting data is too short, returns None.
     """
-    from leadlag.core.macro import MACRO_NAMES, download_macro_prices
+    from leadlag.core.macro import MACRO_NAMES
+    from leadlag.data import macro as macro_data
 
     sim_dates = df_exec.index
     start = sim_dates[0].strftime("%Y-%m-%d")
     end = sim_dates[-1].strftime("%Y-%m-%d")
 
-    # download_macro_prices normalizes yfinance/network errors to RuntimeError.
+    # The data adapter normalizes yfinance/network errors to RuntimeError.
     try:
-        close_prices = download_macro_prices(
+        close_prices = macro_data.load_macro_prices(
             start=start,
             end=end,
             cache=self._macro_price_cache,
@@ -153,5 +154,4 @@ def _get_sector_prior(
     if M_blended.shape == B_blp.shape:
         return M_blended
     return np.zeros(B_blp.shape)
-
 

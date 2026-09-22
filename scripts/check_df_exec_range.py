@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """Print the date range of the local df_exec cache."""
 
-from leadlag.data.cache import load_df_exec_from_local_cache
+from leadlag.data.market_data_cache import load_df_exec_from_local_cache
 
 
 def main() -> None:

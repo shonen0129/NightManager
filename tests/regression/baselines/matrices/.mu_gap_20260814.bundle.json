@@ -1,0 +1,32 @@
+{
+  "config_version": "c357f7441620b4106eca0dd0e6b503b5fff613571107aaef8d19ae21e204a0df",
+  "format_version": 1,
+  "horizon": null,
+  "input_version": "d9e387d7ae68302a048cb1854c3026c4671483727acced742ca51ce4c4a3f6f6",
+  "metadata_sha256": "0b8dc4b7abc96cd7997df94cfd50d2d74a85cd87e161efe8e536b1d448f6560e",
+  "model_version": "production_residual_blpx_v2",
+  "mu_sha256": "eb041a4e32242dbf801427ca99bbf57972dd09895bc4baeff630f04c7343f15f",
+  "omega_sha256": "12ba44cc8144104158fb0b86bf56546528f635ecd06729bc4dc246b32e4800b1",
+  "schema_version": "gap-bundle-v1",
+  "storage_format": "npy",
+  "ticker_order": [
+    "1617.T",
+    "1618.T",
+    "1619.T",
+    "1620.T",
+    "1621.T",
+    "1622.T",
+    "1623.T",
+    "1624.T",
+    "1625.T",
+    "1626.T",
+    "1627.T",
+    "1628.T",
+    "1629.T",
+    "1630.T",
+    "1631.T",
+    "1632.T",
+    "1633.T"
+  ],
+  "trade_date": "20260814"
+}

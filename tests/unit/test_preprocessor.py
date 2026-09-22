@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
+import pytest
 
 from leadlag.data.preprocessor import preprocess_data
 from leadlag.data.tickers import JP_TICKERS, TOPIX_TICKER, US_TICKERS
@@ -92,10 +93,59 @@ def test_provisional_zero_open_is_kept():
 
     df_exec = preprocess_data(raw)
 
-    # The last (provisional) day should still be in df_exec with is_provisional=True
-    assert dates[-1] in df_exec.index
-    assert df_exec.loc[dates[-1], "is_provisional"]
+    # The provisional row must target the next JP session.  The same-calendar
+    # US close is not known at the current day's 09:10 decision.
+    provisional_dates = df_exec.index[df_exec["is_provisional"]]
+    assert len(provisional_dates) == 1
+    provisional_date = pd.Timestamp(provisional_dates[0])
+    assert provisional_date > dates[-1]
+    assert pd.Timestamp(df_exec.loc[provisional_date, "sig_date"]) == dates[-1]
     # It must be finite for downstream consumption
     assert np.isfinite(
-        df_exec.loc[dates[-1], [f"jp_open_trade_{tk}" for tk in JP_TICKERS]].values
+        df_exec.loc[provisional_date, [f"jp_open_trade_{tk}" for tk in JP_TICKERS]].values
     ).all()
+
+
+def test_provisional_row_does_not_use_same_day_us_close():
+    """Appending a same-day US close must not change the provisional JP input."""
+    dates = pd.DatetimeIndex(["2026-08-12", "2026-08-13", "2026-08-14"])
+
+    def build(last_us_close: float) -> dict:
+        raw = _make_raw(dates, jp_open_values=100.0, jp_close_values=100.0)
+        raw["us_close"].loc[dates[-1], US_TICKERS] = last_us_close
+        raw["jp_close"].loc[dates[-1], JP_TICKERS] = np.nan
+        raw["jp_close"].loc[dates[-1], TOPIX_TICKER] = np.nan
+        raw["jp_open"].loc[dates[-1], JP_TICKERS] = 100.0
+        raw["jp_open"].loc[dates[-1], TOPIX_TICKER] = 100.0
+        return raw
+
+    out = preprocess_data(build(100.0), strict_validation=True)
+    provisional_dates = out.index[out["is_provisional"]]
+    assert len(provisional_dates) == 1
+    row = out.loc[provisional_dates[0]]
+    assert pd.Timestamp(row["sig_date"]) == dates[-1]
+    assert pd.Timestamp(row.name) > dates[-1]
+    assert not (out.index == dates[-1]).any()
+
+
+def test_us_signal_survives_jp_holiday():
+    """A US session on a JP holiday must feed the next JP decision."""
+    us_dates = pd.DatetimeIndex(["2024-08-07", "2024-08-08", "2024-08-09", "2024-08-12"])
+    jp_dates = pd.DatetimeIndex(["2024-08-07", "2024-08-08", "2024-08-12", "2024-08-13"])
+    us_values = {
+        tk: [100.0, 100.0, 100.0, 110.0] for tk in US_TICKERS
+    }
+    jp_values = {tk: [100.0] * len(jp_dates) for tk in JP_TICKERS + [TOPIX_TICKER]}
+    raw = {
+        "us_close": pd.DataFrame(us_values, index=us_dates),
+        "jp_close": pd.DataFrame(jp_values, index=jp_dates),
+        "jp_open": pd.DataFrame(jp_values, index=jp_dates),
+    }
+    out = preprocess_data(raw)
+
+    row = out.loc[pd.Timestamp("2024-08-12")]
+    assert pd.Timestamp(row["sig_date"]) == pd.Timestamp("2024-08-09")
+    assert row[f"us_cc_{US_TICKERS[0]}"] == pytest.approx(0.0)
+    row_holiday = out.loc[pd.Timestamp("2024-08-13")]
+    assert pd.Timestamp(row_holiday["sig_date"]) == pd.Timestamp("2024-08-12")
+    assert row_holiday[f"us_cc_{US_TICKERS[0]}"] == pytest.approx(0.10)

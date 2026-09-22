@@ -102,7 +102,7 @@ def main():
 
     import yaml
 
-    from leadlag.data.cache import load_df_exec_from_local_cache
+    from leadlag.data.market_data_cache import load_df_exec_from_local_cache
     from research.backtest_v1 import run_v1_backtest
     from research.models.sector_relative_ensemble_blp_enhanced import (
         SectorRelativeEnsembleBLPEnhancedModel,

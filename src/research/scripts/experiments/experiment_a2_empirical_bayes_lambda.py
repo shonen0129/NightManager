@@ -34,8 +34,8 @@ while not (ROOT / "pyproject.toml").exists():
     ROOT = ROOT.parent
 sys.path.insert(0, str(ROOT / "src"))
 
-from leadlag.data.cache import load_df_exec_from_local_cache
-from leadlag.data.preprocessor import compute_jp_target_returns
+from leadlag.data.market_data_cache import load_df_exec_from_local_cache
+from leadlag.data.intraday_inputs import compute_jp_target_returns
 from leadlag.data.tickers import JP_TICKERS
 from research.backtest_v1 import run_v1_backtest
 from research.models.sector_relative_ensemble_blp_enhanced import (

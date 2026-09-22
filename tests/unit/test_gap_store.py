@@ -44,6 +44,29 @@ def test_gap_store_horizon():
         assert np.allclose(loaded, arr)
 
 
+def test_gap_store_horizon_bundle_is_atomic_and_preserves_metadata():
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "gap.sqlite"
+        store = GapStore(path)
+        mu = np.array([0.1, 0.2])
+        omega = np.eye(2)
+        store.save_horizon(
+            "2026-08-10",
+            mu,
+            omega,
+            metadata={"sig_date": "2026-08-07", "horizon": 3},
+            horizon=3,
+        )
+
+        loaded_mu, loaded_omega, metadata = store.load_horizon(
+            "2026-08-10", horizon=3
+        )
+        assert loaded_mu is not None and loaded_omega is not None
+        assert np.allclose(loaded_mu, mu)
+        assert np.allclose(loaded_omega, omega)
+        assert metadata == {"sig_date": "2026-08-07", "horizon": 3}
+
+
 def test_gap_store_replace_default_horizon():
     with tempfile.TemporaryDirectory() as tmp:
         path = Path(tmp) / "gap.sqlite"

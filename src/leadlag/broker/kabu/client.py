@@ -261,6 +261,8 @@ class KabuBrokerClient(BrokerClient):
         if state >= 4:
             # 4/5/6 are typically cancelled, error, or expired states.
             return OrderStatus.CANCELLED
+        if cum_qty > 0 and order_qty > cum_qty:
+            return OrderStatus.PARTIALLY_FILLED
         return OrderStatus.SUBMITTED
 
     def submit_orders_batch(

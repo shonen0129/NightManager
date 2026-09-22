@@ -118,3 +118,8 @@ def gap_distribution_latest() -> Path:
 def gap_store_path() -> Path:
     """Return the canonical SQLite GapStore path."""
     return live("pipeline_data", "gap_adjusted_distribution", "gap_store.sqlite")
+
+
+def execution_state_path() -> Path:
+    """Return the canonical SQLite state store for live execution jobs."""
+    return live("pipeline_data", "execution", "execution_state.sqlite")

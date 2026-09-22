@@ -40,6 +40,7 @@ if str(ROOT / "src") not in sys.path:
 from leadlag.core.gap_adjustment import _omega_from_blp_res  # noqa: E402
 from leadlag.data.fetcher import download_data  # noqa: E402
 from leadlag.data.preprocessor import preprocess_data  # noqa: E402
+from leadlag.runner.model_factory import build_blpx_model  # noqa: E402
 
 logging.basicConfig(
     level=logging.INFO,
@@ -194,13 +195,6 @@ def _resolve_df_exec(args: argparse.Namespace, app_config: Any) -> pd.DataFrame:
     return _build_df_exec(app_config, args)
 
 
-def _build_blpx_model(app_config: Any) -> Any:
-    """Build the residual-BLPX model from the validated V2 config."""
-    from leadlag.models.blpx import ProductionBLPXModel
-
-    return ProductionBLPXModel(app_config.v2.blpx)
-
-
 def _select_trade_dates(
     df_exec: pd.DataFrame, start: str | None, end: str | None
 ) -> pd.DatetimeIndex:
@@ -281,7 +275,7 @@ def main() -> int:
     app_config = _load_config(config_path)
 
     logger.info("Building BLPX model...")
-    blpx_model = _build_blpx_model(app_config)
+    blpx_model = build_blpx_model(app_config)
 
     logger.info("Resolving df_exec...")
     df_exec = _resolve_df_exec(args, app_config)

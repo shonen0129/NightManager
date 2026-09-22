@@ -39,7 +39,8 @@ class BacktestResultStore:
 
     Tables:
       - ``run_info``: run_id, start_date, end_date, config_json, created_at.
-      - ``daily_pnl``: per-run, per-date P&L record.
+      - ``daily_pnl``: per-run, per-date P&L record, including overnight
+        return and decimal-return cost components.
       - ``daily_weights``: per-run, per-date, per-ticker weight.
 
     Full ``results`` dicts are also cached under ``bt:{run_id}`` so they can be
@@ -93,10 +94,17 @@ class BacktestResultStore:
                     financing_cost REAL,
                     borrow_cost REAL,
                     reverse_cost REAL,
+                    overnight_return REAL,
                     total_cost REAL,
                     PRIMARY KEY (run_id, trade_date)
                 )
             """)
+            columns = {
+                str(row[1])
+                for row in conn.execute("PRAGMA table_info(daily_pnl)").fetchall()
+            }
+            if "overnight_return" not in columns:
+                conn.execute("ALTER TABLE daily_pnl ADD COLUMN overnight_return REAL")
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS daily_weights (
                     run_id INTEGER NOT NULL,
@@ -193,6 +201,9 @@ class BacktestResultStore:
                 financing = results.get("daily_financing_costs", pd.Series(index=index, dtype=float))
                 borrow = results.get("daily_borrow_costs", pd.Series(index=index, dtype=float))
                 reverse = results.get("daily_reverse_costs", pd.Series(index=index, dtype=float))
+                overnight = results.get(
+                    "daily_overnight_returns", pd.Series(index=index, dtype=float)
+                )
                 costs = results.get("daily_costs", pd.Series(index=index, dtype=float))
                 gross_returns = results.get("daily_returns_gross", pd.Series(index=index, dtype=float))
 
@@ -213,6 +224,7 @@ class BacktestResultStore:
                         float(financing.loc[dt]) if dt in financing.index and not pd.isna(financing.loc[dt]) else None,
                         float(borrow.loc[dt]) if dt in borrow.index and not pd.isna(borrow.loc[dt]) else None,
                         float(reverse.loc[dt]) if dt in reverse.index and not pd.isna(reverse.loc[dt]) else None,
+                        float(overnight.loc[dt]) if dt in overnight.index and not pd.isna(overnight.loc[dt]) else None,
                         float(costs.loc[dt]) if dt in costs.index and not pd.isna(costs.loc[dt]) else None,
                     ))
 
@@ -221,8 +233,8 @@ class BacktestResultStore:
                     INSERT OR REPLACE INTO daily_pnl
                     (run_id, trade_date, daily_return, daily_return_gross, equity, drawdown,
                      turnover, gross_exposure, fallback, slippage_cost, financing_cost,
-                     borrow_cost, reverse_cost, total_cost)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     borrow_cost, reverse_cost, overnight_return, total_cost)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     rows,
                 )
@@ -287,7 +299,7 @@ class BacktestResultStore:
                 """
                 SELECT trade_date, daily_return, daily_return_gross, equity, drawdown,
                        turnover, gross_exposure, fallback, slippage_cost, financing_cost,
-                       borrow_cost, reverse_cost, total_cost
+                       borrow_cost, reverse_cost, overnight_return, total_cost
                 FROM daily_pnl
                 WHERE run_id = ?
                 ORDER BY trade_date

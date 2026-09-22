@@ -1,5 +1,20 @@
 # リファクタリング・クリーンアップ ロードマップ
 
+## 現行の構造改善（2026-09-22）
+
+現行の実行計画は[S0–S8計画](../reports/20260915_structural_improvement/plan.md)、
+設計判断は[構造改善ADR](decisions/2026-09-15-structural-improvement-boundaries.md)、
+最新の実装・検証と残件は[本番artifact・実運用受入](../reports/20260922_production_acceptance/report.md)を参照する。
+
+S0–S8全体は**部分完了**。明示9:10価格のBT・学習・gap生成への反映と、欠損時の寄付代替を共通化した。
+通常設定でのbroker読み取りとscheduler 5件の登録・workspace一致を確認した。
+artifact再生成・OOS・入口比較・CIの実施結果は上記受入報告で追跡する。
+providerの実取得時刻、実口座の部分約定復旧・全費用突合、scheduler本番一巡は独立した受入条件であり、
+ローカル検証のPASSを全段階の完了へ拡張しない。
+
+以下は過去Phaseの調査・設計履歴である。過去の未完了表やaccepted ADRは、現行実装を
+直接表すものではない。V2同期経路が正本であり、Next-Genへの再統一は今回の対象ではない。
+
 > **最終更新**: 2026-08-17（Phase 43-50 追加区分を含む）  
 > **Note**: 本ファイルは 2026-08-10 の調査（プロジェクト全体の再設計案と、決定済み方針の未実行状況）を踏まえた **実行候補タスクのマスターリスト** です。  
 > 2026-08-10 以降の Phase 24-34 で、表中の大部分が実装・ADR 化されました。本更新はその完了状況を反映し、新たに浮上した **V2 同期パス vs Next-Gen 非同期パスの正本決定** およびそれに伴う再設計論点を追加したものです。  
@@ -457,10 +472,10 @@ def get_paths() -> ProjectPaths  # モジュールレベルシングルトン（
 
 **現状の実測**
 
-- `src/leadlag/models/blpx.py::ProductionBLPXModel.__init__(self, cfg: dict)` が dict を受け取る
-- `_resolve_val` が `blpx.py` / `blp_base.py` に 84 箇所残存
-- `ProductionV2Model` は `ProductionV2RunConfig`（Pydantic）を受け付けるが、内部で `self._raw_config = self.run_config.model_dump()` して dict 化し `ProductionBLPXModel` に渡している
-- 結果、Pydantic 化は `V2 境界` で止まっており、BLPX 計算内部は dict 解決ロジックが残る
+- `src/leadlag/models/blpx/` の `ProductionBLPXModel` が BLPX 設定を受け取る（旧root module `models/blpx.py` は重複経路確認後に撤去済み）
+- `BLPXConfig` は `config/schemas.py` に定義済みで、正規factoryは `app_config.v2.blpx` を直接 `ProductionBLPXModel` へ渡す
+- `_resolve_val` は本番ソースから撤去済み。`_BLPBase` と `ProductionBLPXModel` は旧dict利用者を境界で `BLPXConfig.model_validate` する互換処理を残す
+- `ProductionV2Model` の`_raw_config`は診断・互換出力用のsnapshotで、BLPX構築経路の設定再解釈には使用しない。dict互換入口の完全撤去は、残存研究利用者の切替後に行う
 
 **設計**
 
@@ -741,7 +756,7 @@ with registry.record(
 
 #### [DONE] T-P3-4. 環境一本化・import-linter
 
-**手順**: (1) `.python-version`（3.12 固定）+ `uv sync` に統一、`.venv-mac` / `.venv312` 削除 → (2) `import-linter` の contracts: `data → core → models → execution → cli` 一方向、`core` は I/O 禁止 → (3) CI/pre-commit に組込み。`_check_syntax.py` は `ruff check` で代替し削除。
+**手順**: (1) `.python-version`（3.12 固定）+ `uv sync` に統一、`.venv-mac` / `.venv312` 削除 → (2) `import-linter` の contracts: `data → core → models → execution → cli` 一方向、`core` は I/O 禁止 → (3) CIに組込み。`_check_syntax.py` は `ruff check` で代替し削除。現行CIは`.github/workflows/ci.yml`でlock、compileall、Ruff、mypy、import-linter、wheel分離、全体テストを実行する。
 
 ---
 

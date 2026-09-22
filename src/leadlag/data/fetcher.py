@@ -4,7 +4,7 @@ Responsible for:
 - Downloading US and JP ETF OHLC data via yfinance
 - Incremental (missing-only) updates to preserve manual patches
 - Applying NAV patch for 1629.T (Yahoo Finance split anomaly workaround)
-- Orchestrating cache reads/writes via leadlag.data.cache
+- Orchestrating cache reads/writes via leadlag.data.market_data_cache
 
 Public API::
 
@@ -24,7 +24,7 @@ import pandas as pd
 import yfinance as yf
 
 from leadlag.config.paths import market_data
-from leadlag.data.cache import (
+from leadlag.data.market_data_cache import (
     etf_pkl_path,
     is_pkl_cache_valid,
     load_raw_cache,
@@ -420,7 +420,7 @@ def update_intraday_cache(tickers: list[str] = JP_TICKERS) -> None:
     - 5m data is only available for the last 60 days.
     This function downloads the maximum available period and merges it with existing cache.
     """
-    from leadlag.data.cache import load_intraday_cache, save_intraday_cache
+    from leadlag.data.market_data_cache import load_intraday_cache, save_intraday_cache
 
     for interval, period in [("1m", "7d"), ("5m", "60d")]:
         logger.info("Downloading %s data for period %s...", interval, period)

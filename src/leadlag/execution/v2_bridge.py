@@ -9,7 +9,7 @@ submission flow.
 Flow:
   1. Load V2 config YAML
   2. Build ``df_exec`` (historical data + today's placeholders)
-  3. Fetch JP open prices via broker API / CSV
+  3. Fetch JP 09:10 current prices via broker API / date-scoped cache
   4. Run ``ProductionRunner`` to obtain w_final, scores, etc.
   5. Write V2 production files
   6. Convert V2 weights into a decision dict
@@ -26,12 +26,18 @@ import numpy as np
 import pandas as pd
 
 from leadlag.broker.base import BrokerClient
-from leadlag.broker.tachibana.session_cache import load_open_prices_cache
+from leadlag.broker.tachibana.session_cache import load_current_prices_cache
+from leadlag.config.paths import execution_state_path
 from leadlag.config.paths import live as live_path
 from leadlag.config.paths import results as results_path
 from leadlag.config.schemas import AppConfig
+from leadlag.data import adr_features as adr_data
+from leadlag.data import macro as macro_data
+from leadlag.data.intraday_inputs import build_open_910_returns
 from leadlag.data.pit_lake import MarketSnapshot, PITDataLake
+from leadlag.data.rank_reversal import load_rank_reversal_frame
 from leadlag.data.tickers import JP_TICKERS, TOPIX_TICKER
+from leadlag.domain.inputs import HistoricalInputs
 from leadlag.execution.backtest import _load_df_exec
 from leadlag.execution.broker_ops import (
     build_api_client,
@@ -39,14 +45,22 @@ from leadlag.execution.broker_ops import (
     resolve_wallet_capital,
 )
 from leadlag.execution.config import load_config_from_yaml
+from leadlag.execution.job_guard import execution_lease
 from leadlag.execution.output_ops import build_output_dir
 from leadlag.execution.post_decision import execute_post_decision_flow
-from leadlag.execution.pricing import resolve_daily_open_prices
+from leadlag.execution.state_store import ExecutionStateStore
 from leadlag.execution.var_history import get_hist_returns_for_risk as _get_hist_returns_for_risk
+from leadlag.models.v2.pit import load_pit_ir_history
 from leadlag.reporting.production_v2_writer import write_production_files
-from leadlag.runner.production import ProductionRunner, RunnerInputs
+from leadlag.runner.production import ProductionRunner
+from leadlag.utils.timestamps import normalize_jst_date
 
 logger = logging.getLogger(__name__)
+
+
+def _decision_as_of(trade_date: pd.Timestamp | str) -> pd.Timestamp:
+    """Return the live bridge's 09:10 JST decision cutoff for a trade date."""
+    return normalize_jst_date(trade_date) + pd.Timedelta(hours=9, minutes=10)
 
 
 def _resolve_gap_dir(
@@ -86,13 +100,15 @@ def _resolve_trade_date(
     - Future dates are rejected to prevent accidentally running for a date
       that has not yet occurred.
     """
-    today = cast(pd.Timestamp, pd.Timestamp.now().tz_localize(None).normalize())
+    today = normalize_jst_date(pd.Timestamp.now(tz="Asia/Tokyo"))
 
-    def _assert_not_future(date_str: str) -> str:
-        parsed = pd.to_datetime(date_str).normalize()
+    def _assert_not_future(date_value: object) -> str:
+        parsed = normalize_jst_date(date_value)
         if parsed > today:
-            raise ValueError(f"trade_date {date_str} is in the future (today: {today.date()})")
-        return date_str
+            raise ValueError(
+                f"trade_date {date_value} is in the future (today: {today.date()})"
+            )
+        return cast(str, parsed.strftime("%Y-%m-%d"))
 
     if trade_date == "latest":
         latest_file = live_dir / "latest_weights.csv"
@@ -102,9 +118,9 @@ def _resolve_trade_date(
                 raw_date = df_tmp.iloc[0]["trade_date"]
                 if pd.isna(raw_date):
                     raise ValueError("trade_date is NaN")
-                resolved = str(pd.to_datetime(str(raw_date)).strftime("%Y-%m-%d"))
+                resolved = _assert_not_future(raw_date)
                 logger.info("Resolved latest trade date from %s: %s", latest_file, resolved)
-                return _assert_not_future(resolved)
+                return resolved
             except Exception as e:
                 logger.error("Failed to parse latest trade_date from %s: %s", latest_file, e)
                 raise
@@ -123,9 +139,18 @@ def _resolve_trade_date(
             return _assert_not_future(resolved)
 
     if trade_date is None:
-        resolved = str(today.strftime("%Y-%m-%d"))
-        logger.info("No trade date provided; using today: %s", resolved)
-        return resolved
+        from leadlag.core.market_calendar import is_market_closed, previous_trading_day
+
+        if is_market_closed(today):
+            resolved = str(previous_trading_day(today).strftime("%Y-%m-%d"))
+            logger.info(
+                "No trade date provided and today is a non-trading day; using %s",
+                resolved,
+            )
+        else:
+            resolved = str(today.strftime("%Y-%m-%d"))
+            logger.info("No trade date provided; using today: %s", resolved)
+        return _assert_not_future(resolved)
 
     return _assert_not_future(trade_date)
 
@@ -136,17 +161,37 @@ def _resolve_current_prices(
     jp_opens_csv: str | None,
     google_opens: bool,
 ) -> dict[str, float]:
-    """Return a mapping of all JP tickers to current open prices."""
-    manual_opens, topix_open = resolve_daily_open_prices(
-        api_client=api_client,
-        config=app_config.strategy,
-        opens_csv=jp_opens_csv,
-        use_google_opens=google_opens,
-    )
-    current_prices = dict(manual_opens)
-    if topix_open is not None:
-        current_prices[TOPIX_TICKER] = float(topix_open)
+    """Return prices observed at the decision time (not daily opens)."""
+    if api_client is None:
+        raise ValueError("A broker API client is required for 09:10 current prices")
+    tickers = JP_TICKERS + [TOPIX_TICKER]
+    prices = api_client.fetch_current_prices(tickers, allow_missing=True)
+    current_prices: dict[str, float] = {}
+    for tk, value in prices.items():
+        try:
+            value_float = float(value)
+        except (TypeError, ValueError):
+            continue
+        if np.isfinite(value_float) and value_float > 0.0:
+            current_prices[tk] = value_float
+    missing = [tk for tk in JP_TICKERS if tk not in current_prices]
+    if missing:
+        raise ValueError("Missing 09:10 current prices: " + ", ".join(missing))
     return current_prices
+
+
+def _has_complete_current_prices(prices: dict[str, float]) -> bool:
+    """Return whether all JP decision prices are finite and strictly positive."""
+    for tk in JP_TICKERS:
+        if tk not in prices:
+            return False
+        try:
+            value = float(prices[tk])
+        except (TypeError, ValueError):
+            return False
+        if not np.isfinite(value) or value <= 0.0:
+            return False
+    return True
 
 
 def run_v2_decision(
@@ -208,7 +253,11 @@ def run_v2_decision(
 
     # Resolve trade date
     trade_date = _resolve_trade_date(trade_date, live_path)
-    t_trade = pd.to_datetime(trade_date).normalize()
+    t_trade = normalize_jst_date(trade_date)
+    # Keep the trade-date key at midnight for date/index lookups, but build the
+    # market snapshot at the actual decision cutoff.  KnownMarketInputs checks
+    # every observed_at timestamp against this value.
+    decision_as_of = _decision_as_of(t_trade)
     logger.info("Trade date: %s", trade_date)
 
     # Resolve gap input dir
@@ -252,29 +301,27 @@ def run_v2_decision(
             )
 
             trade_date_str = t_trade.strftime("%Y%m%d")
-            cached_opens = (
-                load_open_prices_cache(trade_date_str)
+            cached_prices = (
+                load_current_prices_cache(trade_date_str)
                 if app_config.broker_provider == "tachibana"
                 else None
             )
-            if cached_opens is not None:
-                cached_prices, topix_open = cached_opens
-                current_prices = dict(cached_prices)
-                if topix_open is not None:
-                    current_prices[TOPIX_TICKER] = float(topix_open)
-                missing = [tk for tk in JP_TICKERS if tk not in current_prices]
-                if not missing:
-                    logger.info("[2/5] Using cached JP opens from gap distribution step.")
+            if cached_prices is not None:
+                cached_jp, topix_current = cached_prices
+                current_prices = dict(cached_jp)
+                if topix_current is not None:
+                    current_prices[TOPIX_TICKER] = float(topix_current)
+                if _has_complete_current_prices(current_prices):
+                    logger.info("[2/5] Using cached 09:10 current prices.")
                 else:
                     logger.info(
-                        "[2/5] Cached opens incomplete (%d missing); fetching from API...",
-                        len(missing),
+                        "[2/5] Current-price cache incomplete or invalid; fetching from API..."
                     )
                     current_prices = _resolve_current_prices(
                         app_config, api_client, jp_opens_csv, google_opens
                     )
             else:
-                logger.info("[2/5] Fetching JP opens...")
+                logger.info("[2/5] Fetching 09:10 current prices...")
                 current_prices = _resolve_current_prices(
                     app_config, api_client, jp_opens_csv, google_opens
                 )
@@ -293,34 +340,20 @@ def run_v2_decision(
     # --- Step 3: Build PIT data lake and the as-of market snapshot ---
     logger.info("[3/5] Building PIT data lake and as-of market snapshot...")
     lake = PITDataLake(df_exec)
-    if t_trade in lake.df_exec.index:
-        lake_snapshot = lake.get_snapshot(t_trade)
-        effective_trade_date = trade_date
-        t_effective = t_trade
-        snapshot_prev_closes = lake_snapshot.prev_closes
-    else:
-        # Fall back to the latest available PIT row if today's row is not yet
-        # populated (should not happen for production, but keeps dry-runs safe).
-        latest_ts = lake.available_dates_up_to(t_trade)[-1]
-        lake_snapshot = lake.get_snapshot(latest_ts)
-        effective_trade_date = lake_snapshot.trade_date
-        t_effective = lake_snapshot.as_of
-        logger.warning(
-            "[PIT-FALLBACK] Requested trade_date %s not in df_exec; using latest available %s",
-            trade_date,
-            effective_trade_date,
+    if t_trade not in lake.df_exec.index:
+        # A previous row is never a valid substitute for today's trade.  It
+        # would combine yesterday's signal/gap with today's prices and could
+        # replay an old order plan.  Fail closed for both dry-run and live
+        # paths; callers can explicitly request a historical date instead.
+        raise RuntimeError(
+            f"Requested trade_date {trade_date} is not available in df_exec; "
+            "refusing stale PIT fallback."
         )
-        # The close of the latest available row is the previous close for the
-        # requested (future) trade date.  lake_snapshot.prev_closes is the
-        # close *before* latest_ts, so use the latest row's own close here.
-        latest_row = lake.df_exec.loc[latest_ts]
-        snapshot_prev_closes = {
-            tk: float(latest_row[f"jp_close_sig_{tk}"])
-            for tk in JP_TICKERS
-            if f"jp_close_sig_{tk}" in latest_row
-            and np.isfinite(float(latest_row[f"jp_close_sig_{tk}"]))
-            and float(latest_row[f"jp_close_sig_{tk}"]) > 0.0
-        }
+
+    lake_snapshot = lake.get_snapshot(decision_as_of)
+    effective_trade_date = trade_date
+    t_effective = t_trade
+    snapshot_prev_closes = lake_snapshot.prev_closes
 
     # If the API was disabled, fall back to previous closes as placeholders.
     # This produces zero gap and avoids the dangerous 1000 JPY dummy that would
@@ -357,6 +390,10 @@ def run_v2_decision(
         topix_night_return=lake_snapshot.topix_night_return,
         current_prices=api_current_prices,
         prev_closes=snapshot_prev_closes,
+        price_sources={
+            ticker: "broker_current" if api_enable else "previous_close_placeholder"
+            for ticker in api_current_prices
+        },
     )
 
     is_valid, snapshot_errors = snapshot.validate()
@@ -374,45 +411,120 @@ def run_v2_decision(
 
     # --- Step 4: Generate V2 portfolio ---
     logger.info("[4/5] Generating V2 production portfolio...")
-    runner = ProductionRunner(app_config)
-    inputs = RunnerInputs(
-        trade_date=effective_trade_date,
-        df_exec=df_exec,
-        gap_input_dir=gap_dir,
-        current_prices=current_prices,
-        use_file_cache=True,
-        lake=lake,
-        snapshot=snapshot,
+    open_910_returns = build_open_910_returns(df_exec, JP_TICKERS)
+    macro_prices = None
+    if app_config.v2.macro_kappa_enabled or app_config.v2.macro_direction_enabled:
+        try:
+            macro_prices = macro_data.load_macro_prices(
+                start=df_exec.index.min().strftime("%Y-%m-%d"),
+                end=(df_exec.index.max() + pd.Timedelta(days=1)).strftime("%Y-%m-%d"),
+                period="max",
+            )
+            # The live snapshot is bounded by the decision date.  Keeping a
+            # later provider row in the owned frame would make provenance
+            # impossible to audit after a cache refresh.
+            macro_prices = macro_prices.loc[macro_prices.index <= effective_trade_date].copy()
+        except Exception as exc:
+            logger.warning("Failed to load run-owned macro prices: %s", exc)
+
+    adr_features = None
+    if app_config.v2.ml_overlay_enabled:
+        try:
+            # Keep the complete run-owned artifact.  The overlay applies the
+            # adapter's date/staleness validation symmetrically with backtests.
+            adr_features = adr_data.load_adr_features()
+            if adr_features is not None:
+                adr_features = adr_features.loc[adr_features.index <= effective_trade_date].copy()
+        except Exception as exc:
+            logger.warning("Failed to load run-owned ADR features: %s", exc)
+
+    pit_ir_history = None
+    pit_history_trade_dates = None
+    if gap_dir is not None:
+        pit_ir_history, _pit_alerts, pit_history_trade_dates = load_pit_ir_history(
+            gap_dir, trade_date
+        )
+    rank_reversal_signals = None
+    if app_config.v2.cs_overlay_enabled:
+        rank_reversal_signals = load_rank_reversal_frame(
+            gap_dir,
+            [t_trade],
+            file_pattern=app_config.v2.cs_rank_reversal_file_pattern,
+        )
+    historical_observed_at_by_date = {
+        normalize_jst_date(dt).strftime("%Y-%m-%d"): {
+            "open_910_returns": f"{normalize_jst_date(dt).date()} 09:10",
+            "macro_prices": f"{normalize_jst_date(dt).date()} 09:00",
+            "adr_features": f"{normalize_jst_date(dt).date()} 09:00",
+            "rank_reversal_signals": f"{normalize_jst_date(dt).date()} 09:00",
+            "pit_ir_history": f"{normalize_jst_date(dt).date()} 09:10",
+        }
+        for dt in df_exec.index
+    }
+    historical_inputs = HistoricalInputs(
+        df_exec,
+        source="v2_bridge_live",
+        open_910_returns=open_910_returns,
+        macro_prices=macro_prices,
+        adr_features_frame=adr_features,
+        pit_ir_history=pit_ir_history,
+        pit_history_trade_dates=pit_history_trade_dates,
+        rank_reversal_signals=rank_reversal_signals,
+        observed_at={
+            "open_910_returns": f"{effective_trade_date} 09:10",
+            "macro_prices": f"{effective_trade_date} 09:00",
+            "adr_features": f"{effective_trade_date} 09:00",
+            "rank_reversal_signals": f"{effective_trade_date} 09:00",
+            "pit_ir_history": f"{effective_trade_date} 09:10",
+        },
+        observed_at_by_date=historical_observed_at_by_date,
     )
-    result = runner.run(inputs)
+    decision_inputs = lake.build_decision_inputs(
+        decision_as_of,
+        snapshot=snapshot,
+        gap_input_dir=gap_dir,
+        use_file_cache=True,
+        source="v2_bridge_live",
+        historical=historical_inputs,
+        observed_at={
+            "us_returns": f"{effective_trade_date} 09:00",
+            "jp_gap_returns": f"{effective_trade_date} 09:10",
+            "jp_betas": f"{effective_trade_date} 09:10",
+            "topix_night_return": f"{effective_trade_date} 09:10",
+            "current_prices": f"{effective_trade_date} 09:10",
+            "prev_closes": f"{effective_trade_date} 09:10",
+        },
+    )
+    runner = ProductionRunner(app_config)
+    result = runner.run(decision_inputs)
 
     write_production_files(effective_trade_date, live_path, result, dry_run=dry_run)
 
     fallback_used = (
-        result["fallback"].get("gap_data_missing", False)
-        or result["fallback"].get("audit_failure", False)
+        result.fallback.get("gap_data_missing", False)
+        or result.fallback.get("audit_failure", False)
     )
     if fallback_used:
         reason = (
-            "gap data missing" if result["fallback"].get("gap_data_missing")
+            "gap data missing" if result.fallback.get("gap_data_missing")
             else "audit failure"
         )
         logger.warning("[V2] %s. Flat position (w_final=0) returned.", reason)
     else:
         logger.info(
             "[V2] Portfolio OK. Bin=%s, Mult=%.2f, Gross=%.4f, IR=%.4f",
-            result["pit_binning"]["assigned_bin"],
-            result["pit_binning"]["multiplier"],
-            float(np.sum(np.abs(result["w_final"]))),
-            result["summary"]["predicted_portfolio_ir"],
+            result.pit_binning["assigned_bin"],
+            result.pit_binning["multiplier"],
+            float(np.sum(np.abs(result.w_final))),
+            result.summary["predicted_portfolio_ir"],
         )
 
     out_path: str
     if not dry_run:
         # --- Step 5: Build decision dict for execute_post_decision_flow ---
         logger.info("[5/6] Building decision dict for execution...")
-        w_final = result["w_final"]
-        scores = result["scores"]
+        w_final = result.w_final
+        scores = result.scores
 
         action = np.where(
             w_final > 1e-8, "LONG",
@@ -463,26 +575,43 @@ def run_v2_decision(
                     "Aborting to avoid double-ordering."
                 ) from e
 
-        hist_returns = _get_hist_returns_for_risk(
-            strategy=None,
-            config=app_config.strategy,
-            output_root=output_root,
-            trade_date=t_effective,
-            config_path=config_path,
-            gap_input_dir=gap_dir,
+        # Keep decision and close jobs mutually exclusive for the account and
+        # strategy even when callers bypass the batch guard.  The lease is
+        # released after reconciliation (or an exception) and never authorizes
+        # a retry of an unresolved broker outcome.
+        state_store = ExecutionStateStore(execution_state_path())
+        account_key = f"{app_config.broker_provider}:default" if not api_dry_run else f"simulation:{output_dir}"
+        # Batch wrappers hold the same scope for the complete process group.
+        # Avoid a nested self-conflict while retaining the in-process lease for
+        # direct CLI invocations.
+        lease_context = execution_lease(
+            state_store, metadata={"trade_date": str(t_effective), "job_type": "decision"},
         )
+        with lease_context:
+            hist_returns = _get_hist_returns_for_risk(
+                strategy=None,
+                config=app_config.strategy,
+                output_root=output_root,
+                trade_date=t_effective,
+                config_path=config_path,
+                gap_input_dir=gap_dir,
+                overlay_model=getattr(runner.model, "_overlay_model", None),
+            )
 
-        out_path = execute_post_decision_flow(
-            decision=decision,
-            config=app_config.strategy,
-            manual_opens=current_prices,
-            max_capital=max_capital,
-            hist_returns=hist_returns,
-            output_dir=output_dir,
-            api_client=api_client,
-            text_output=text_output,
-            current_positions=current_positions,
-        )
+            out_path = execute_post_decision_flow(
+                decision=decision,
+                config=app_config.strategy,
+                manual_opens=current_prices,
+                max_capital=max_capital,
+                hist_returns=hist_returns,
+                output_dir=output_dir,
+                api_client=api_client,
+                text_output=text_output,
+                current_positions=current_positions,
+                state_store=state_store,
+                account_key=account_key,
+                strategy_key="production_v2",
+            )
 
         logger.info("V2 decision completed. Output: %s", out_path)
     else:

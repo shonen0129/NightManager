@@ -103,6 +103,7 @@ def get_rolling_pit_bin(
     mult_low: float = 0.75,
     mult_mid: float = 1.00,
     mult_high: float = 1.00,
+    fallback_multiplier: float | None = None,
 ) -> tuple[str, float, float, float]:
     """Assign *current_ir* to a PIT tertile bin using strictly historical data.
 
@@ -120,6 +121,9 @@ def get_rolling_pit_bin(
         mult_low: Gross multiplier for Low bin.
         mult_mid: Gross multiplier for Mid bin.
         mult_high: Gross multiplier for High bin.
+        fallback_multiplier: Multiplier used when historical PIT observations
+            are insufficient.  ``None`` keeps the historical ``mult_mid``
+            behaviour for callers that do not configure a separate fallback.
 
     Returns:
         Tuple of (bin_label, low_threshold, high_threshold, multiplier).
@@ -128,7 +132,9 @@ def get_rolling_pit_bin(
     history_valid = history_ir[np.isfinite(history_ir)]
 
     if len(history_valid) < rolling_window:
-        return "Medium", float("nan"), float("nan"), mult_mid
+        return "Medium", float("nan"), float("nan"), (
+            mult_mid if fallback_multiplier is None else float(fallback_multiplier)
+        )
 
     history_slice = history_valid[-rolling_window:]
     low_thresh = float(np.percentile(history_slice, low_pct))

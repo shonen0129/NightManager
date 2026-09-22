@@ -9,6 +9,26 @@ set -euo pipefail
 PROJECT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
 LOG_DIR="${PROJECT_DIR}/var/logs"
 
+# The guard owns the whole gap-generation + decision process.  It uses a
+# process-group deadline and a durable single-flight lease. The child receives
+# a lease owner token which the execution entry verifies against SQLite.
+if [ -z "${LEADLAG_LEASE_OWNER:-}" ]; then
+    if [ -f "${PROJECT_DIR}/.venv/bin/python" ]; then
+        GUARD_PYTHON="${PROJECT_DIR}/.venv/bin/python"
+    else
+        GUARD_PYTHON="$(command -v python3)"
+    fi
+    DATESTR=$(date +%Y%m%d)
+    exec env PYTHONPATH="${PROJECT_DIR}/src" \
+        "${GUARD_PYTHON}" -m leadlag.execution.job_guard \
+        --scope "live:production_v2" \
+        --timeout "${LEADLAG_DECISION_TIMEOUT_SECONDS:-1800}" \
+        --grace "${LEADLAG_JOB_GRACE_SECONDS:-10}" \
+        --state-db "${PROJECT_DIR}/var/live/pipeline_data/execution/execution_state.sqlite" \
+        --guard-log "${PROJECT_DIR}/var/logs/job_guard/decision_${DATESTR}.json" \
+        -- bash "$0" "$@"
+fi
+
 mkdir -p "${LOG_DIR}"
 DATESTR=$(date +%Y%m%d)
 LOG_FILE="${LOG_DIR}/decision_${DATESTR}.log"
@@ -33,7 +53,7 @@ bash scripts/batch/run_gap_distribution.sh >> "${LOG_FILE}" 2>&1
 GAP_EXIT=$?
 set -e
 if [ ${GAP_EXIT} -ne 0 ]; then
-    echo "[ERROR] gap distribution failed (exit=${GAP_EXIT}). Proceeding to decision (will be flat)." >> "${LOG_FILE}"
+    echo "[ERROR] gap distribution failed (exit=${GAP_EXIT}). Decision will check today's cache, then permitted on-demand fallback, then flat." >> "${LOG_FILE}"
 else
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] [1/2] gap distribution 完了" >> "${LOG_FILE}"
 fi
@@ -43,7 +63,6 @@ echo "[$(date '+%Y-%m-%d %H:%M:%S')] [2/2] decision v2 開始" >> "${LOG_FILE}"
 set +e
 PYTHONPATH=src "${PYTHON_BIN}" -m leadlag.cli decision \
     --config configs/production/production.yaml \
-    --gap-dir var/live/pipeline_data/gap_adjusted_distribution/latest \
     --live-dir var/live/production_residual_blpx \
     --api-enable \
     --capital-from-wallet \

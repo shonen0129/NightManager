@@ -351,7 +351,7 @@ def _handle_close(args: argparse.Namespace) -> int:
     """Run end-of-day position closing logic."""
     from leadlag.execution.close import run_close_positions_mode
 
-    run_close_positions_mode(
+    close_summary = run_close_positions_mode(
         output_root=args.output_root,
         run_tag=args.run_tag,
         api_url=args.api_url,
@@ -359,7 +359,7 @@ def _handle_close(args: argparse.Namespace) -> int:
         api_dry_run=args.api_dry_run,
         close_position_order=args.close_position_order,
     )
-    return 0
+    return 2 if close_summary.get("close_incomplete", False) else 0
 
 
 def _handle_self_test(args: argparse.Namespace) -> int:

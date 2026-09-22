@@ -11,7 +11,7 @@ while not (ROOT / "pyproject.toml").exists():
 if str(ROOT / "src") not in sys.path:
     sys.path.insert(0, str(ROOT / "src"))
 
-from leadlag.data.cache import load_decision_cache
+from leadlag.data.decision_cache import load_decision_cache
 
 df = load_decision_cache()
 print("rows:", len(df))

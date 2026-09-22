@@ -787,7 +787,7 @@ def main():
 
     # Long/Short contributions
     backtest_res["normalized_signals"]  # target returns used in backtest matching
-    from leadlag.data.preprocessor import compute_jp_target_returns
+    from leadlag.data.intraday_inputs import compute_jp_target_returns
     y_jp_actual_raw = compute_jp_target_returns(df_exec, JP_TICKERS)
     y_jp_actual = pd.DataFrame(y_jp_actual_raw, index=df_exec.index, columns=JP_TICKERS).reindex(sim_dates)
 

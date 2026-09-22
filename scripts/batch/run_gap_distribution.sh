@@ -9,6 +9,23 @@ set -euo pipefail
 PROJECT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
 LOG_DIR="${PROJECT_DIR}/var/logs"
 
+if [ -z "${LEADLAG_LEASE_OWNER:-}" ]; then
+    if [ -f "${PROJECT_DIR}/.venv/bin/python" ]; then
+        GUARD_PYTHON="${PROJECT_DIR}/.venv/bin/python"
+    else
+        GUARD_PYTHON="$(command -v python3)"
+    fi
+    DATESTR=$(date +%Y%m%d)
+    exec env PYTHONPATH="${PROJECT_DIR}/src" \
+        "${GUARD_PYTHON}" -m leadlag.execution.job_guard \
+        --scope "live:production_v2" \
+        --timeout "${LEADLAG_GAP_TIMEOUT_SECONDS:-1800}" \
+        --grace "${LEADLAG_JOB_GRACE_SECONDS:-10}" \
+        --state-db "${PROJECT_DIR}/var/live/pipeline_data/execution/execution_state.sqlite" \
+        --guard-log "${PROJECT_DIR}/var/logs/job_guard/gap_${DATESTR}.json" \
+        -- bash "$0" "$@"
+fi
+
 mkdir -p "${LOG_DIR}"
 DATESTR=$(date +%Y%m%d)
 LOG_FILE="${LOG_DIR}/gap_distribution_${DATESTR}.log"
@@ -164,13 +181,16 @@ if [ -f "${NEW_DIAG}" ]; then
     fi
 fi
 
-# 当日の行列ファイルが生成されたか確認
+# 当日の行列bundle（μ・Ω・来歴sidecar）が生成されたか確認
 # 前日行列のコピーは行わない — 前日のgap行列で発注すると誤ったポジションとなるリスクがあるため
-# 当日の行列がない場合は decision_v2 が flat position (w_final=0) を返すのが正しい挙動
+# 来歴がない場合も decision_v2 が flat position (w_final=0) を返すのが正しい挙動
 MU_FILE="${PIPELINE_DIR}/gap_adjusted_distribution/latest/matrices/mu_gap_${TODAY_NUMERIC}.npy"
-if [ ! -f "${MU_FILE}" ]; then
-    echo "[WARNING] Today's mu_gap_${TODAY_NUMERIC}.npy not found. Decision will return flat position (no trading)." >> "${LOG_FILE}"
-    echo "[WARNING] This indicates the gap distribution computation did not produce today's matrices." >> "${LOG_FILE}"
+OMEGA_FILE="${PIPELINE_DIR}/gap_adjusted_distribution/latest/matrices/omega_gap_${TODAY_NUMERIC}.npy"
+METADATA_FILE="${PIPELINE_DIR}/gap_adjusted_distribution/latest/matrices/gap_metadata_${TODAY_NUMERIC}.json"
+MANIFEST_FILE="${PIPELINE_DIR}/gap_adjusted_distribution/latest/matrices/.mu_gap_${TODAY_NUMERIC}.bundle.json"
+if [ ! -f "${MU_FILE}" ] || [ ! -f "${OMEGA_FILE}" ] || [ ! -f "${METADATA_FILE}" ] || [ ! -f "${MANIFEST_FILE}" ]; then
+    echo "[WARNING] Today's gap bundle is incomplete (mu/omega/metadata/manifest required). Decision will return flat position (no trading)." >> "${LOG_FILE}"
+    echo "[WARNING] This indicates the gap distribution computation did not publish a provenanced bundle." >> "${LOG_FILE}"
     echo "[WARNING] Possible causes: (1) etf_data.pkl cache stale (2) Step 1 omega_struct missing (3) non-trading day" >> "${LOG_FILE}"
 fi
 

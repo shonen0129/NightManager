@@ -69,7 +69,7 @@ def test_backtester_910_adjustment():
 
     # Run backtest with patch
     model = DummyModel()
-    with patch("leadlag.data.cache.load_intraday_cache", return_value=df_5m):
+    with patch("leadlag.data.intraday_inputs.load_intraday_cache", return_value=df_5m):
         results = run_v1_backtest(model, df_exec, start_date="2026-03-03")
 
     # Verify results

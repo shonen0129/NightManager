@@ -41,6 +41,12 @@ def _opens_cache_path(trade_date: str) -> Path:
     return path / f"{trade_date}.csv"
 
 
+def _current_prices_cache_path(trade_date: str) -> Path:
+    path = _cache_root() / "live" / "pipeline_data" / "cache" / "tachibana" / "current"
+    path.mkdir(parents=True, exist_ok=True)
+    return path / f"{trade_date}.csv"
+
+
 def _atomic_json_write(path: Path, payload: dict[str, Any]) -> None:
     with tempfile.NamedTemporaryFile(
         mode="w",
@@ -160,6 +166,49 @@ def load_open_prices_cache(
         return manual_opens, topix_open
     except Exception as e:
         logger.warning("[TACHIBANA-CACHE] Failed to load open prices cache: %s", e)
+        return None
+
+
+def save_current_prices_cache(
+    prices: dict[str, float],
+    topix_price: float | None,
+    trade_date: str,
+) -> None:
+    """Persist prices observed at the decision time (normally 09:10)."""
+    path = _current_prices_cache_path(trade_date)
+    records = [{"ticker": tk, "current_price": price} for tk, price in prices.items()]
+    if topix_price is not None:
+        records.append({"ticker": "TOPIX", "current_price": topix_price})
+    try:
+        _atomic_csv_write(path, pd.DataFrame(records))
+    except Exception as e:
+        logger.warning("[TACHIBANA-CACHE] Failed to save current prices cache: %s", e)
+
+
+def load_current_prices_cache(
+    trade_date: str,
+) -> tuple[dict[str, float], float | None] | None:
+    """Load current/09:10 prices for exactly the requested trade date."""
+    path = _current_prices_cache_path(trade_date)
+    if not path.exists():
+        return None
+    try:
+        df = pd.read_csv(path)
+        if set(df.columns) != {"ticker", "current_price"} or df.empty:
+            return None
+        prices = pd.to_numeric(df["current_price"], errors="coerce")
+        if df["ticker"].duplicated().any() or not np.isfinite(prices).all() or (prices <= 0).any():
+            return None
+        out: dict[str, float] = {}
+        topix = None
+        for ticker, price in zip(df["ticker"].astype(str), prices):
+            if ticker == "TOPIX":
+                topix = float(price)
+            else:
+                out[ticker] = float(price)
+        return out, topix
+    except Exception as e:
+        logger.warning("[TACHIBANA-CACHE] Failed to load current prices cache: %s", e)
         return None
 
 

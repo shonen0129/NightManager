@@ -11,7 +11,7 @@ sys.path.insert(0, str(ROOT / "src"))
 from research.diagnostics.sprint0_qa import run_sprint0_qa
 
 
-def test_sprint0_qa_subset():
+def test_sprint0_qa_subset(sprint_market_inputs):
     """Verify that run_sprint0_qa runs successfully on a subset of data."""
     # Use a small range of dates at the end of the dataset (e.g., May 2026) to make the test fast
     start_date = "2026-05-01"
@@ -39,6 +39,7 @@ def test_sprint0_qa_subset():
     assert "ticker_capacity_audit" in results["qa6"]
     assert "cost_capacity_reconciliation" in results["qa7"]
     assert "calibration_leak_comparison" in results["qa8"]
+    assert not results["qa8"]["calibration_leak_comparison"].empty
 
     # Verify some dataframe shapes
     comp_df = results["qa1"]["comparison_table"]

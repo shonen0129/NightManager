@@ -18,7 +18,7 @@ from typing import Any
 import pandas as pd
 
 from leadlag.broker.base import BrokerClient
-from leadlag.execution.config import StrategyConfig as ProductionConfig
+from leadlag.config.schemas import StrategyConfig as ProductionConfig
 from leadlag.reporting.results_format import create_results_output_dir
 
 logger = logging.getLogger(__name__)
@@ -93,6 +93,7 @@ def save_position_snapshot(
     *,
     label: str = "decision",
     date_str: str | None = None,
+    raise_on_error: bool = False,
 ) -> str | None:
     """Save current position snapshot with entry/evaluation prices.
 
@@ -108,17 +109,19 @@ def save_position_snapshot(
         date_str: Optional date string (YYYYMMDD). Defaults to today.
 
     Returns:
-        Path to the saved file, or None if no positions or error.
+        Path to the saved file.  Returns None only when a non-raising caller
+        encounters a position-query error.
     """
     try:
         positions = api_client.get_positions()
     except Exception as e:
         logger.warning("Failed to fetch positions for snapshot: %s", e)
+        if raise_on_error:
+            raise
         return None
 
     if not positions:
-        logger.info("[JOURNAL] No open positions for snapshot.")
-        return None
+        logger.info("[JOURNAL] No open positions for snapshot; saving an empty snapshot.")
 
     snapshot: dict[str, Any] = {
         "timestamp": datetime.now().isoformat(timespec="seconds"),
@@ -174,6 +177,7 @@ def save_wallet_snapshot(
     *,
     label: str = "decision",
     date_str: str | None = None,
+    raise_on_error: bool = False,
 ) -> str | None:
     """Save wallet/balance snapshot with margin details.
 
@@ -192,6 +196,8 @@ def save_wallet_snapshot(
         wallet = api_client.get_wallet()
     except Exception as e:
         logger.warning("Failed to fetch wallet for snapshot: %s", e)
+        if raise_on_error:
+            raise
         return None
 
     snapshot = {
@@ -269,4 +275,3 @@ def save_daily_journal(
         json.dump(journal, f, ensure_ascii=False, indent=2)
     logger.info("[JOURNAL] Daily journal saved: %s", journal_path)
     return journal_path
-

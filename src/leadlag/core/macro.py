@@ -1,12 +1,10 @@
 """Macro signal utilities — factor-specific volatility-adjusted surprise.
 
 Provides:
-- MACRO_TICKERS / MACRO_NAMES: yfinance tickers and short names for the three
+- MACRO_TICKERS / MACRO_NAMES: ticker identities and short names for the three
   macro factors (USDJPY, crude oil futures, 10-year Treasury yield).
 - MACRO_SENS_MATRIX: (n_j, n_macro) domain-knowledge sensitivity weights mapping
   each JP sector ETF to each macro factor.
-- download_macro_prices: fetch daily close prices for the three macro factors.
-- download_macro_data: fetch daily returns for the three macro factors (wrapper).
 - compute_macro_surprise: EWMA-based volatility-adjusted surprise (z-score)
   with per-factor independent mean and variance tracking.
 - compute_factor_kappa_scale: per-stock risk-scaling vector from factor-specific
@@ -19,22 +17,13 @@ data from t-1 and earlier.
 from __future__ import annotations
 
 import logging
-from collections.abc import MutableMapping
-from typing import Any
 
 import numpy as np
 import pandas as pd
 
 from leadlag.data.tickers import JP_TICKERS
-from leadlag.utils.threading import run_with_timeout
 
 logger = logging.getLogger(__name__)
-
-# Default timeout for yfinance downloads (seconds)
-_MACRO_DOWNLOAD_TIMEOUT: float = 30.0
-
-# Module-level cache: (start, end, period) -> DataFrame of close prices
-_MACRO_PRICE_CACHE: dict[tuple[str | None, str | None, str], pd.DataFrame] = {}
 
 # ---------------------------------------------------------------------------
 # Macro factor definitions
@@ -135,124 +124,6 @@ MACRO_SENS_MATRIX_DERIVED: np.ndarray = np.zeros((len(JP_TICKERS), N_MACRO))
 for _j_idx, _jp_tk in enumerate(JP_TICKERS):
     for _m_idx, _m_name in enumerate(MACRO_NAMES):
         MACRO_SENS_MATRIX_DERIVED[_j_idx, _m_idx] = MACRO_SECTOR_MAPPING_DERIVED.get(_jp_tk, {}).get(_m_name, 0.0)
-
-
-# ---------------------------------------------------------------------------
-# Macro data download
-# ---------------------------------------------------------------------------
-
-def clear_macro_cache() -> None:
-    """Clear the module-level macro price cache."""
-    _MACRO_PRICE_CACHE.clear()
-
-
-def download_macro_prices(
-    start: str | None = None,
-    end: str | None = None,
-    period: str = "10y",
-    timeout: float = _MACRO_DOWNLOAD_TIMEOUT,
-    cache: MutableMapping[Any, Any] | None = None,
-) -> pd.DataFrame:
-    """Download daily close prices for the three macro factors.
-
-    Uses an optional per-instance *cache* to avoid redundant downloads; if no
-    cache is supplied the module-level fallback is used for backward
-    compatibility.  If the download does not complete within *timeout* seconds,
-    a TimeoutError is raised.
-
-    Returns a DataFrame with columns MACRO_NAMES and a DatetimeIndex.
-    Values are daily close prices.
-    """
-    active_cache = _MACRO_PRICE_CACHE if cache is None else cache
-    cache_key = (start, end, period)
-    if cache_key in active_cache:
-        return active_cache[cache_key].copy()
-
-    import yfinance as yf
-
-    def _do_download() -> Any:
-        return yf.download(
-            MACRO_TICKERS,
-            start=start,
-            end=end,
-            period=period if start is None else None,
-            progress=False,
-            auto_adjust=False,
-        )
-
-    try:
-        raw = run_with_timeout(
-            _do_download,
-            timeout,
-            label=f"yf.download(tickers={MACRO_TICKERS}, start={start}, end={end})",
-        )
-    except TimeoutError:
-        # Preserve the explicit timeout contract for callers and tests.
-        raise
-    except Exception as e:
-        # yfinance may raise generic exceptions for network/ticker errors;
-        # normalize to RuntimeError so callers can catch a concrete type.
-        raise RuntimeError(f"yfinance macro download failed: {e}") from e
-
-    # Extract Close prices.
-    # yfinance may return columns sorted alphabetically, not in request order,
-    # and can return a simple DataFrame if only one ticker is queried.
-    # We normalize to the canonical MACRO_NAMES order, mapping by ticker identity
-    # (MACRO_TICKERS) when needed so the economic meaning is position-independent.
-    if isinstance(raw.columns, pd.MultiIndex):
-        close = raw["Close"]
-    elif not isinstance(raw, pd.DataFrame):
-        close = raw.to_frame()
-    else:
-        close = raw
-
-    existing_cols = set(close.columns)
-    if existing_cols == set(MACRO_NAMES):
-        # Legacy/ingest path already provides canonical names in some order.
-        close = close[MACRO_NAMES]
-    elif existing_cols.issubset(set(MACRO_TICKERS)):
-        # yfinance path: columns are ticker strings, possibly sorted.
-        close = close.reindex(columns=MACRO_TICKERS)
-        close.columns = MACRO_NAMES
-    else:
-        raise RuntimeError(
-            f"Unexpected macro close columns {close.columns.tolist()}. "
-            f"Expected one of {MACRO_TICKERS} or {MACRO_NAMES}."
-        )
-
-    # Validate that every requested ticker has at least some data.
-    if close.isna().all().any():
-        all_na = close.columns[close.isna().all()].tolist()
-        raise RuntimeError(
-            f"Macro download missing or all-NaN tickers in {all_na}. "
-            f"Requested {MACRO_TICKERS}; returned columns {raw.columns.tolist()}."
-        )
-
-    close = close.dropna(how="all")
-
-    active_cache[cache_key] = close.copy()
-    return close
-
-
-def download_macro_data(
-    start: str | None = None,
-    end: str | None = None,
-    period: str = "10y",
-    timeout: float = _MACRO_DOWNLOAD_TIMEOUT,
-    cache: dict | None = None,
-) -> pd.DataFrame:
-    """Download daily macro factor returns aligned to trading days.
-
-    Returns a DataFrame with columns MACRO_NAMES and a DatetimeIndex.
-    Values are daily percentage returns.
-    """
-    close = download_macro_prices(start=start, end=end, period=period, timeout=timeout, cache=cache)
-
-    macro_returns = close.pct_change()
-    macro_returns = macro_returns.replace([np.inf, -np.inf], np.nan)
-    macro_returns = macro_returns.fillna(0.0)
-
-    return macro_returns
 
 
 # ---------------------------------------------------------------------------

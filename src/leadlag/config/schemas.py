@@ -6,6 +6,7 @@ All modules should import StrategyConfig / RiskConfig from here.
 
 from __future__ import annotations
 
+import copy
 from pathlib import Path
 from typing import Any
 
@@ -775,4 +776,19 @@ class AppConfig(BaseModel):
     # Convex optimizer config is intentionally omitted from the V2 production
     # configuration. It remains available as a standalone type for research.
 
+
+def parse_run_config(
+    cfg: ProductionV2RunConfig | dict[str, Any],
+) -> ProductionV2RunConfig:
+    """Normalize a raw V2 mapping at the configuration boundary.
+
+    This is the canonical parser for callers that receive flat or nested YAML
+    data.  Model modules consume the validated Pydantic object and do not
+    reinterpret legacy aliases themselves.
+    """
+    if isinstance(cfg, ProductionV2RunConfig):
+        return cfg
+    if not isinstance(cfg, dict):
+        raise TypeError("V2 run config must be a mapping or ProductionV2RunConfig")
+    return ProductionV2RunConfig(**_map_flat_to_nested(copy.deepcopy(cfg)))
 

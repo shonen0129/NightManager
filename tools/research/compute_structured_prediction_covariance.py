@@ -19,7 +19,6 @@ from pathlib import Path
 import matplotlib
 import numpy as np
 import pandas as pd
-import yaml
 
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -31,7 +30,8 @@ from scipy.stats import kurtosis, norm, skew, spearmanr
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
-from leadlag.data.cache import save_decision_cache
+from leadlag.config.loader import load_yaml_with_base
+from leadlag.data.decision_cache import save_decision_cache
 from leadlag.data.fetcher import download_data
 from leadlag.data.preprocessor import preprocess_data
 from leadlag.data.tickers import JP_TICKERS, TOPIX_TICKER
@@ -203,8 +203,9 @@ def main():
         logger.error(f"ROOT: {ROOT}")
         logger.error(f"Script location: {Path(__file__).resolve()}")
         sys.exit(1)
-    with open(cfg_path) as f:
-        cfg = yaml.safe_load(f)
+    # Use the same recursive __base__ resolution as the production loader.
+    # The legacy research model still consumes the resolved dict interface.
+    cfg = load_yaml_with_base(cfg_path)
 
     results_dir = Path(args.results_dir) if args.results_dir.startswith("results") else ROOT / args.results_dir
 

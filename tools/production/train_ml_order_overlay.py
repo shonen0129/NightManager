@@ -21,14 +21,12 @@ import logging
 import sys
 from pathlib import Path
 
-import yaml
-
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
-from leadlag.data.cache import load_df_exec_from_local_cache
-from leadlag.models.ml_order_overlay import train_overlay_model
-from leadlag.models.production_v2 import parse_run_config
+from leadlag.data.market_data_cache import load_df_exec_from_local_cache
+from leadlag.execution.config import load_config_from_yaml
+from research.experiments.ml_overlay_training import train_overlay_model
 
 logging.basicConfig(
     level=logging.INFO,
@@ -43,7 +41,7 @@ def parse_arguments() -> argparse.Namespace:
         description="Train the ML order-decision overlay model"
     )
     p.add_argument("--config", default="configs/production/production.yaml")
-    p.add_argument("--train-start", default="2020-01-06")
+    p.add_argument("--train-start", default="2015-01-05")
     p.add_argument("--train-end", default="2024-12-31")
     p.add_argument(
         "--gap-input-dir",
@@ -53,7 +51,7 @@ def parse_arguments() -> argparse.Namespace:
     p.add_argument(
         "--output-dir",
         default="models/ml_order_overlay/phase2_8",
-        help="Directory where model.pkl and metadata.json are saved",
+        help="Artifact root where a versioned model/metadata pair and CURRENT pointer are saved",
     )
     p.add_argument("--no-per-ticker-interactions", action="store_true",
                    help="Disable per-ticker interaction features")
@@ -87,8 +85,7 @@ def main() -> int:
     args = parse_arguments()
 
     config_path = ROOT / args.config
-    with open(config_path) as f:
-        cfg = yaml.safe_load(f)
+    app_config = load_config_from_yaml(config_path, strict=True)
 
     per_ticker = not args.no_per_ticker_interactions
 
@@ -115,8 +112,9 @@ def main() -> int:
             else Path(args.gap_input_dir)
         )
     else:
-        default_gap = cfg.get("gap_distribution", {}).get("dir", "")
+        default_gap = app_config.gap_distribution_dir or app_config.v2.gap_input_dir
         if default_gap:
+            default_gap = str(default_gap)
             gap_input_dir = (
                 ROOT / default_gap if not default_gap.startswith("/") else Path(default_gap)
             )
@@ -134,7 +132,7 @@ def main() -> int:
     train_overlay_model(
         df_exec=df_exec,
         gap_input_dir=gap_input_dir,
-        run_cfg=parse_run_config(cfg),
+        run_cfg=app_config.v2,
         train_start=args.train_start,
         train_end=args.train_end,
         output_dir=output_dir,

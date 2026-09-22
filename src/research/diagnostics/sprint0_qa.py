@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 import scipy.stats as stats
 
-from leadlag.data.cache import load_df_exec_from_local_cache, load_intraday_cache
+from leadlag.data.market_data_cache import load_df_exec_from_local_cache, load_intraday_cache
 from leadlag.data.fetcher import _yf_download_with_timeout
 from leadlag.data.tickers import JP_TICKERS
 from research.diagnostics.sprint0 import (

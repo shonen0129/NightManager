@@ -25,6 +25,8 @@ while not (ROOT / "pyproject.toml").exists():
 sys.path.insert(0, str(ROOT / "src"))
 
 from leadlag.config.paths import live, results
+
+
 def parse_args():
     p = argparse.ArgumentParser()
     p.add_argument("--config", default="configs/production/production.yaml")
@@ -88,8 +90,8 @@ def main():
     import sys
     sys.path.insert(0, str(ROOT / "src"))
 
-    from leadlag.data.cache import load_df_exec_from_local_cache
-    from leadlag.data.preprocessor import compute_jp_target_returns
+    from leadlag.data.market_data_cache import load_df_exec_from_local_cache
+    from leadlag.data.intraday_inputs import compute_jp_target_returns
     from leadlag.data.tickers import JP_TICKERS
     from leadlag.execution.config import load_config_from_yaml
     from leadlag.models.ml_order_overlay import (
@@ -165,8 +167,8 @@ def main():
                 df_exec=df_exec,
                 overlay_model=overlay_model,
             )
-            w_t = result["w_final"]
-            fb = bool(result["fallback"]["gap_data_missing"])
+            w_t = result.w_final
+            fb = bool(result.fallback["gap_data_missing"])
         except Exception as e:
             print(f"[{trade_date}] V2 generation failed: {e}, using flat position")
             w_t = np.zeros(len(JP_TICKERS))

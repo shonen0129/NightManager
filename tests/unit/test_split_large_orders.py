@@ -8,6 +8,7 @@ from __future__ import annotations
 import tempfile
 
 import pandas as pd
+import pytest
 
 from leadlag.broker.base import BrokerClient, Position
 from leadlag.core.types import OrderRequest, OrderResult, OrderSide, OrderStatus, OrderType
@@ -53,7 +54,7 @@ class _MockBroker(BrokerClient):
     def submit_order(self, order: OrderRequest, *, is_close=False, close_position_order=0) -> OrderResult:
         return OrderResult(
             order_id="MOCK-001",
-            status=OrderStatus.SUBMITTED,
+            status=OrderStatus.FILLED,
             ticker=order.ticker,
             side=order.side,
             quantity=order.quantity,
@@ -65,7 +66,7 @@ class _MockBroker(BrokerClient):
         return [
             OrderResult(
                 order_id="MOCK-001",
-                status=OrderStatus.SUBMITTED,
+                status=OrderStatus.FILLED,
                 ticker=o.ticker,
                 side=o.side,
                 quantity=o.quantity,
@@ -172,14 +173,12 @@ class TestSubmitOrdersViaApiSplit:
         broker_ops.time.sleep = lambda *a, **kw: None
         try:
             with tempfile.TemporaryDirectory() as tmpdir:
-                summary = submit_orders_via_api(decision_df, client, tmpdir)
+                with pytest.raises(RuntimeError, match="Order submission incomplete"):
+                    submit_orders_via_api(decision_df, client, tmpdir)
         finally:
             broker_ops.time.sleep = _orig_sleep
         # Only first batch attempted; delayed skipped
         assert len(client.batches) == 1
-        assert len(summary["buy_results"]) == 2  # FAILED + SKIPPED
-        assert summary["buy_results"][0]["status"] == "FAILED"
-        assert summary["buy_results"][1]["status"] == "SKIPPED"
 
 
 class _FailingMockBroker(BrokerClient):

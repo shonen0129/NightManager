@@ -16,11 +16,14 @@ from pathlib import Path
 import pandas as pd
 
 from leadlag.broker.base import BrokerClient
+from leadlag.config.schemas import StrategyConfig as ProductionConfig
 from leadlag.core import allocator as domain_allocator
 from leadlag.execution.broker_ops import (
+    OrderExecutionIncomplete,
+    build_execution_plan,
     submit_orders_via_api,
 )
-from leadlag.execution.config import StrategyConfig as ProductionConfig
+from leadlag.execution.contracts import report_from_records
 from leadlag.execution.output_ops import (
     save_daily_journal,
     save_decision_output,
@@ -33,6 +36,7 @@ from leadlag.execution.risk_capital import (
     auto_adjust_gross_exposure,
     run_risk_checks,
 )
+from leadlag.execution.state_store import ExecutionStateStore
 from leadlag.reporting.formatter import (
     log_decision_summary as _log_decision_summary,
 )
@@ -90,6 +94,9 @@ def _prepare_decision_df(
             "quantity": capital_alloc["qty"],
         }
     )
+    # Keep the trade date at the typed execution boundary without adding a
+    # transient column to the public CSV schema.
+    decision_df.attrs["trade_date"] = str(decision.get("trade_date", ""))
 
     return decision_df, capital_alloc
 
@@ -142,6 +149,7 @@ def _run_risk_check_and_print(
     max_capital: float,
     hist_returns: pd.Series,
     config: ProductionConfig,
+    current_positions: dict[str, int] | None = None,
 ) -> dict:
     """Compute allocated totals, run risk checks, print the report, and return it."""
     buy_mask = decision_df["action"] == "BUY"
@@ -159,10 +167,42 @@ def _run_risk_check_and_print(
     )
     _print_risk_report(risk_report)
     if risk_report["is_blocked"]:
+        # A risk stop must prevent new risk, but it must not prevent reducing
+        # already confirmed exposure.  A reversal is not reduction-only: it
+        # closes one side and opens the other, so it remains blocked.
+        reduction_only = (
+            current_positions is not None
+            and bool(current_positions)
+            and _is_reduction_only(decision_df, current_positions)
+        )
+        if reduction_only:
+            logger.warning(
+                "[RISK-STOP] New exposure blocked; allowing reduction-only orders "
+                "for confirmed existing positions."
+            )
+            return risk_report
         raise RuntimeError(
             "Risk stop threshold breached; order submission blocked. See [RISK-STOP] logs above."
         )
     return risk_report
+
+
+def _is_reduction_only(
+    decision_df: pd.DataFrame,
+    current_positions: dict[str, int],
+) -> bool:
+    """Return whether a target can only reduce confirmed signed inventory."""
+    for _, row in decision_df.iterrows():
+        ticker = str(row["ticker"])
+        target_qty = int(row.get("quantity", 0) or 0)
+        action = str(row.get("action", "HOLD"))
+        target = target_qty if action == "BUY" else -target_qty if action == "SELL" else 0
+        current = int(current_positions.get(ticker, 0) or 0)
+        if current == 0 and target != 0:
+            return False
+        if target != 0 and (target * current <= 0 or abs(target) > abs(current)):
+            return False
+    return True
 
 
 def _write_decision_output_and_submit(
@@ -172,6 +212,9 @@ def _write_decision_output_and_submit(
     text_output: bool,
     api_client: BrokerClient | None,
     current_positions: dict[str, int] | None,
+    state_store: ExecutionStateStore | None = None,
+    account_key: str = "default",
+    strategy_key: str = "production_v2",
 ) -> str:
     """Write decision CSV, optionally print text, submit orders, and save journal.
 
@@ -187,42 +230,155 @@ def _write_decision_output_and_submit(
         _print_text_orders(decision_df)
 
     if api_client is not None:
-        order_summary = submit_orders_via_api(
-            decision_df=decision_df,
-            api_client=api_client,
-            output_dir=output_dir,
-            current_positions=current_positions,
-        )
+        order_error: OrderExecutionIncomplete | None = None
+        execution_plan = build_execution_plan(decision_df, current_positions)
+        try:
+            order_summary = submit_orders_via_api(
+                decision_df=decision_df,
+                api_client=api_client,
+                output_dir=output_dir,
+                current_positions=current_positions,
+                execution_plan=execution_plan,
+                state_store=state_store,
+                account_key=account_key,
+                strategy_key=strategy_key,
+            )
+        except OrderExecutionIncomplete as exc:
+            # Reconcile the in-memory summary before propagating the failure.
+            # This also recovers the audit trail when the submitter's first
+            # attempt to write it failed.
+            order_summary = exc.summary
+            order_error = exc
+            order_summary["execution_error"] = str(exc)
+            order_summary["execution_error_type"] = type(exc).__name__
 
         # --- Trade journal: collect post-execution data for model improvement ---
         api_log_path = os.path.join(output_dir, "api_execution_log.json")
+        reconciliation_errors: list[str] = list(
+            order_error.recording_errors if order_error is not None else []
+        )
+
+        def persist_order_summary() -> None:
+            with open(api_log_path, "w", encoding="utf-8") as handle:
+                json.dump(order_summary, handle, ensure_ascii=False, indent=2)
 
         # Fetch fill prices (約定価格) for slippage analysis
         from leadlag.broker.dry_run import DryRunBrokerClient
 
         if not isinstance(api_client, DryRunBrokerClient) and order_summary:
-            all_results = order_summary.get("buy_results", []) + order_summary.get("sell_results", [])
+            all_results = (
+                order_summary.get("buy_results", [])
+                + order_summary.get("sell_results", [])
+                + order_summary.get("close_results", [])
+            )
             if all_results:
-                fetch_fill_prices(api_client, all_results)
-                # Re-save the enriched api_execution_log with fill data
-                with open(api_log_path, "w", encoding="utf-8") as f:
-                    json.dump(order_summary, f, ensure_ascii=False, indent=2)
-                logger.info("[JOURNAL] Fill prices enriched in api_execution_log.json")
+                try:
+                    fetch_fill_prices(api_client, all_results)
+                except Exception as exc:  # noqa: BLE001
+                    reconciliation_errors.append(f"fill_prices: {exc}")
+                    logger.exception("[JOURNAL] Fill-price reconciliation failed")
+                # Re-save the enriched api_execution_log with fill data.
+                try:
+                    persist_order_summary()
+                    logger.info("[JOURNAL] Fill prices enriched in api_execution_log.json")
+                except Exception as exc:  # noqa: BLE001
+                    reconciliation_errors.append(f"api_log: {exc}")
+                    logger.exception("[JOURNAL] API execution log update failed")
 
         # Save position snapshot (建単価・評価単価・評価損益)
-        pos_snapshot_path = save_position_snapshot(api_client, output_dir, label="decision")
+        try:
+            pos_snapshot_path = save_position_snapshot(
+                api_client, output_dir, label="decision", raise_on_error=True
+            )
+        except Exception as exc:  # noqa: BLE001
+            pos_snapshot_path = None
+            reconciliation_errors.append(f"positions: {exc}")
+            logger.exception("[JOURNAL] Position reconciliation failed")
 
         # Save wallet snapshot (維持率・受入保証金)
-        wallet_snapshot_path = save_wallet_snapshot(api_client, output_dir, label="decision")
+        try:
+            wallet_snapshot_path = save_wallet_snapshot(
+                api_client, output_dir, label="decision", raise_on_error=True
+            )
+        except Exception as exc:  # noqa: BLE001
+            wallet_snapshot_path = None
+            reconciliation_errors.append(f"wallet: {exc}")
+            logger.exception("[JOURNAL] Wallet reconciliation failed")
 
         # Save daily journal index
-        save_daily_journal(
-            output_dir=output_dir,
-            decision_csv_path=out_path,
-            api_execution_log_path=api_log_path,
-            position_snapshot_path=pos_snapshot_path,
-            wallet_snapshot_path=wallet_snapshot_path,
-        )
+        try:
+            save_daily_journal(
+                output_dir=output_dir,
+                decision_csv_path=out_path,
+                api_execution_log_path=api_log_path,
+                position_snapshot_path=pos_snapshot_path,
+                wallet_snapshot_path=wallet_snapshot_path,
+            )
+        except Exception as exc:  # noqa: BLE001
+            reconciliation_errors.append(f"daily_journal: {exc}")
+            logger.exception("[JOURNAL] Daily journal save failed")
+
+        # Completion is published only after every post-submission checkpoint.
+        # A crash before this point leaves the run discoverable by recovery.
+        if state_store is not None and order_summary.get("run_id"):
+            try:
+                from leadlag.execution.reconcile import verify_position_checkpoint
+
+                if not isinstance(api_client, DryRunBrokerClient):
+                    reconciliation_errors.extend(verify_position_checkpoint(
+                        execution_plan.to_dict(),
+                        order_summary.get("buy_results", []) + order_summary.get("sell_results", [])
+                        + order_summary.get("close_results", []), pos_snapshot_path,
+                    ))
+                state_store.record_result_set(
+                    str(order_summary["run_id"]), execution_plan,
+                    order_summary.get("buy_results", []) + order_summary.get("sell_results", [])
+                    + order_summary.get("close_results", []),
+                )
+                checkpoint_errors = reconciliation_errors + ([str(order_error)] if order_error is not None else [])
+                state_store.record_reconciliation(
+                    str(order_summary["run_id"]),
+                    outcome="incomplete" if checkpoint_errors else "complete",
+                    errors=checkpoint_errors,
+                    references={
+                        "api_execution_log": api_log_path,
+                        "position_snapshot": str(pos_snapshot_path) if pos_snapshot_path else None,
+                        "wallet_snapshot": str(wallet_snapshot_path) if wallet_snapshot_path else None,
+                        "decision_csv": str(out_path),
+                    },
+                )
+                if checkpoint_errors:
+                    state_store.mark_reconciliation_required(
+                        str(order_summary["run_id"]),
+                        error="; ".join(checkpoint_errors),
+                    )
+                else:
+                    state_store.mark_completed(str(order_summary["run_id"]))
+            except Exception as exc:
+                reconciliation_errors.append(f"state_store: {exc}")
+                logger.exception("[JOURNAL] Failed to persist durable reconciliation state")
+
+        if reconciliation_errors:
+            order_summary["reconciliation_errors"] = reconciliation_errors
+            all_results = order_summary.get("buy_results", []) + order_summary.get("sell_results", []) + order_summary.get("close_results", [])
+            order_summary["execution_report"] = report_from_records(
+                all_results, expected_orders=int(order_summary.get("expected_orders_count", len(all_results))),
+                close_failed=bool(order_summary.get("close_failed", False)),
+                recording_errors=order_summary.get("execution_log_errors", []),
+                reconciliation_errors=reconciliation_errors,
+            ).to_dict()
+            try:
+                persist_order_summary()
+            except Exception as exc:
+                reconciliation_errors.append(f"api_log: {exc}")
+
+        if order_error is not None:
+            raise order_error
+        if reconciliation_errors:
+            raise RuntimeError(
+                "Post-decision reconciliation incomplete: "
+                + "; ".join(reconciliation_errors)
+            )
 
     return out_path
 
@@ -237,6 +393,9 @@ def execute_post_decision_flow(
     api_client: BrokerClient | None = None,
     text_output: bool = False,
     current_positions: dict[str, int] | None = None,
+    state_store: ExecutionStateStore | None = None,
+    account_key: str = "default",
+    strategy_key: str = "production_v2",
 ) -> str:
     """Execute post-decision flow (gross adjustment, risk check, capital allocation, order submission, and output writing).
 
@@ -253,7 +412,14 @@ def execute_post_decision_flow(
 
     _log_decision_allocations(decision_df, capital_alloc, max_capital, decision)
 
-    _run_risk_check_and_print(decision, decision_df, max_capital, hist_returns, config)
+    _run_risk_check_and_print(
+        decision,
+        decision_df,
+        max_capital,
+        hist_returns,
+        config,
+        current_positions=current_positions,
+    )
 
     out_path = _write_decision_output_and_submit(
         decision_df=decision_df,
@@ -262,6 +428,9 @@ def execute_post_decision_flow(
         text_output=text_output,
         api_client=api_client,
         current_positions=current_positions,
+        state_store=state_store,
+        account_key=account_key,
+        strategy_key=strategy_key,
     )
 
     return out_path

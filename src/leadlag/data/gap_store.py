@@ -33,6 +33,7 @@ import pandas as pd
 
 from leadlag.data.cache_store import SqliteCacheStore
 from leadlag.data.tickers import JP_TICKERS
+from leadlag.domain.gap_bundle import GapBundleRef
 
 logger = logging.getLogger(__name__)
 
@@ -186,32 +187,189 @@ class GapStore:
         mu: np.ndarray,
         omega: np.ndarray,
         metadata: dict[str, Any] | None = None,
+        *,
+        manifest: GapBundleRef | dict[str, Any] | None = None,
     ) -> None:
         """Store the ``mu_gap`` / ``omega_gap`` pair for a trade date.
 
         The optional *metadata* dict (e.g. ``sig_date``) is stored together
         with the matrices and returned by :meth:`load`.
         """
+        self.save_horizon(
+            date,
+            mu,
+            omega,
+            metadata=metadata,
+            horizon=None,
+            manifest=manifest,
+        )
+
+    def save_horizon(
+        self,
+        date: str,
+        mu: np.ndarray,
+        omega: np.ndarray,
+        metadata: dict[str, Any] | None = None,
+        *,
+        horizon: int | None = None,
+        manifest: GapBundleRef | dict[str, Any] | None = None,
+    ) -> None:
+        """Atomically store one ``mu``/``omega``/metadata horizon bundle."""
         date_key = _normalise_date(date)
+        horizon_key = self._horizon_key(horizon)
         meta = metadata if metadata is not None else {}
-        self.put(date_key, "mu", mu)
-        self.put(date_key, "omega", omega)
-        self.put(date_key, "meta", meta)
+        # A distribution is a versioned tuple.  Write the index rows and all
+        # three cache values in one SQLite transaction so readers can never
+        # observe a new μ paired with an old Ω/metadata value.
+        with self._connect() as conn:
+            conn.execute("BEGIN")
+            try:
+                if manifest is None:
+                    # A legacy/unprovenanced rewrite must invalidate the
+                    # previous commit marker.  Keeping it would make readers
+                    # compare new μ/Ω bytes with an old manifest and report a
+                    # misleading mixed-generation bundle.
+                    old_manifest = conn.execute(
+                        """
+                        SELECT cache_key FROM gap_matrices
+                        WHERE trade_date = ? AND matrix_type = 'manifest' AND horizon = ?
+                        """,
+                        (date_key, horizon_key),
+                    ).fetchone()
+                    conn.execute(
+                        """
+                        DELETE FROM gap_matrices
+                        WHERE trade_date = ? AND matrix_type = 'manifest' AND horizon = ?
+                        """,
+                        (date_key, horizon_key),
+                    )
+                    if old_manifest is not None:
+                        conn.execute(
+                            "DELETE FROM cache_store WHERE key = ?", (old_manifest[0],)
+                        )
+                records: list[tuple[str, Any]] = [("mu", mu), ("omega", omega), ("meta", meta)]
+                if manifest is not None:
+                    manifest_value = (
+                        manifest.to_dict()
+                        if isinstance(manifest, GapBundleRef)
+                        else dict(manifest)
+                    )
+                    records.append(("manifest", manifest_value))
+                for matrix_type, value in records:
+                    cache_key = self._cache_key(date_key, matrix_type, horizon_key)
+                    conn.execute(
+                        """
+                        INSERT OR REPLACE INTO gap_matrices
+                        (trade_date, matrix_type, horizon, cache_key)
+                        VALUES (?, ?, ?, ?)
+                        """,
+                        (date_key, matrix_type, horizon_key, cache_key),
+                    )
+                    self._cache._set_with_conn(conn, cache_key, value)
+                conn.execute("COMMIT")
+            except Exception as e:
+                conn.execute("ROLLBACK")
+                raise GapStoreError(
+                    f"Failed to atomically store distribution for {date_key}: {e}"
+                ) from e
 
     def load(self, date: str) -> tuple[np.ndarray | None, np.ndarray | None, dict[str, Any] | None]:
         """Load the ``mu_gap`` / ``omega_gap`` pair and metadata for *date*.
 
         Returns ``(mu, omega, metadata)``.  Missing components are ``None``.
         """
+        return self.load_horizon(date, horizon=None)
+
+    def load_horizon(
+        self,
+        date: str,
+        *,
+        horizon: int | None = None,
+    ) -> tuple[np.ndarray | None, np.ndarray | None, dict[str, Any] | None]:
+        """Load a complete μ/Ω/metadata bundle in one SQLite snapshot."""
         date_key = _normalise_date(date)
-        mu = self.get(date_key, "mu")
-        omega = self.get(date_key, "omega")
-        meta = self.get(date_key, "meta")
+        horizon_key = self._horizon_key(horizon)
+        with self._connect() as conn:
+            conn.execute("BEGIN")
+            try:
+                rows = conn.execute(
+                    """
+                    SELECT matrix_type, cache_key FROM gap_matrices
+                    WHERE trade_date = ? AND horizon = ?
+                    AND matrix_type IN ('mu', 'omega', 'meta')
+                    """,
+                    (date_key, horizon_key),
+                ).fetchall()
+                keys = {str(kind): str(key) for kind, key in rows}
+                mu = self._cache._get_with_conn(conn, keys["mu"]) if "mu" in keys else None
+                omega = self._cache._get_with_conn(conn, keys["omega"]) if "omega" in keys else None
+                meta = self._cache._get_with_conn(conn, keys["meta"]) if "meta" in keys else None
+                conn.execute("COMMIT")
+            except Exception:
+                conn.execute("ROLLBACK")
+                raise
         if meta is None:
             meta = {}
         if mu is None or omega is None:
             return None, None, None
         return cast(np.ndarray, mu), cast(np.ndarray, omega), cast(dict[str, Any], meta)
+
+    def load_horizon_bundle(
+        self,
+        date: str,
+        *,
+        horizon: int | None = None,
+    ) -> tuple[
+        np.ndarray | None,
+        np.ndarray | None,
+        dict[str, Any] | None,
+        GapBundleRef | None,
+    ]:
+        """Load μ/Ω/metadata and an optional manifest in one SQLite snapshot.
+
+        ``load_horizon`` remains the three-value compatibility API.  New cache
+        consumers can use this method to validate the publication identity
+        without opening separate SQLite transactions.
+        """
+        date_key = _normalise_date(date)
+        horizon_key = self._horizon_key(horizon)
+        with self._connect() as conn:
+            conn.execute("BEGIN")
+            try:
+                rows = conn.execute(
+                    """
+                    SELECT matrix_type, cache_key FROM gap_matrices
+                    WHERE trade_date = ? AND horizon = ?
+                    AND matrix_type IN ('mu', 'omega', 'meta', 'manifest')
+                    """,
+                    (date_key, horizon_key),
+                ).fetchall()
+                keys = {str(kind): str(key) for kind, key in rows}
+                mu = self._cache._get_with_conn(conn, keys["mu"]) if "mu" in keys else None
+                omega = self._cache._get_with_conn(conn, keys["omega"]) if "omega" in keys else None
+                meta = self._cache._get_with_conn(conn, keys["meta"]) if "meta" in keys else None
+                raw_manifest = (
+                    self._cache._get_with_conn(conn, keys["manifest"])
+                    if "manifest" in keys
+                    else None
+                )
+                conn.execute("COMMIT")
+            except Exception:
+                conn.execute("ROLLBACK")
+                raise
+        if meta is None:
+            meta = {}
+        if mu is None or omega is None:
+            return None, None, None, None
+        manifest: GapBundleRef | None = None
+        if raw_manifest is not None:
+            manifest = GapBundleRef.from_dict(cast(dict[str, Any], raw_manifest))
+        return (
+            cast(np.ndarray, mu),
+            cast(np.ndarray, omega),
+            cast(dict[str, Any], meta),
+            manifest,
+        )
 
     def latest_date(self) -> str | None:
         """Return the most recent trade date with both ``mu`` and ``omega``."""
@@ -220,6 +378,8 @@ class GapStore:
                 """
                 SELECT trade_date FROM gap_matrices
                 WHERE matrix_type IN ('mu', 'omega') AND horizon = -1
+                GROUP BY trade_date
+                HAVING COUNT(DISTINCT matrix_type) = 2
                 ORDER BY trade_date DESC
                 LIMIT 1
                 """

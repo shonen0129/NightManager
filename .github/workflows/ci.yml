@@ -1,0 +1,97 @@
+name: leadlag-ci
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: leadlag-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality-and-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install locked production and development dependencies
+        # Research/nonlinear extras are intentionally excluded here.  The
+        # locked SHAP dependency currently resolves an old llvmlite sdist
+        # that cannot build on the production Python 3.12 runner.  Research
+        # environments are validated separately by docs/RESEARCH_ENV.md.
+        run: uv sync --locked --extra dev
+
+      - name: Verify lockfile
+        run: uv lock --check
+
+      - name: Compile all source and test trees
+        run: uv run --locked python -m compileall -q src/leadlag tests tools scripts src/research
+
+      - name: Ruff production and maintained tool paths
+        run: uv run --locked ruff check src/leadlag tests tools/production tools/validation
+
+      # The historical research tree has a tracked lint backlog.  Keep the
+      # newly maintained training entry strict without making that backlog an
+      # unbounded exemption for new production code.
+      - name: Ruff current research training entry
+        run: uv run --locked ruff check src/research/experiments/ml_overlay_training.py
+
+      - name: Mypy production package
+        run: uv run --locked mypy --config-file pyproject.toml src/leadlag
+
+      - name: Import architecture contracts
+        run: uv run --locked lint-imports
+
+      - name: Validate architecture document links
+        run: >-
+          uv run --locked python scripts/ci/validate_docs.py
+          docs/ARCHITECTURE.md docs/CI.md docs/SCHEDULER_SETUP.md
+          docs/decisions/2026-09-15-structural-improvement-boundaries.md
+          reports/20260915_structural_improvement/plan.md
+
+      - name: Build production wheel
+        run: uv run --locked --with "build>=1.2,<2" python scripts/ci/build_wheel_clean.py --outdir dist
+
+      - name: Verify wheel excludes research package
+        run: uv run --locked python scripts/ci/verify_wheel.py dist/*.whl
+
+      - name: Smoke installed wheel and ML artifact inference
+        run: |
+          uv pip install --no-deps --target /tmp/leadlag-wheel-smoke dist/*.whl
+          timeout --signal=TERM --kill-after=10s 120s uv run --locked python -I scripts/ci/smoke_installed_wheel.py /tmp/leadlag-wheel-smoke
+
+      - name: Run complete test suite
+        run: timeout --signal=TERM --kill-after=30s 1800s uv run --locked python -m pytest tests -n auto --junitxml=var/ci/tests.xml
+
+      - name: Upload wheel artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: leadlag-wheel-${{ github.sha }}
+          path: dist/*.whl
+          if-no-files-found: ignore
+
+      - name: Upload structural comparison manifest
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: leadlag-structural-baseline-${{ github.sha }}
+          path: |
+            var/ci/tests.xml
+            reports/20260915_structural_improvement/s0_baseline_manifest.json
+            reports/20260915_structural_improvement/s0_execution.json
+            reports/20260915_structural_improvement/s0_feature_matrix.md
+          if-no-files-found: error

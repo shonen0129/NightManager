@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import logging
 from datetime import date, datetime, timedelta
-from typing import cast
 
 import pandas as pd
 
@@ -107,7 +106,7 @@ def _is_holiday_jpholiday(d: date) -> bool | None:
     try:
         import jpholiday
 
-        return cast(bool, jpholiday.is_holiday(d))
+        return jpholiday.is_holiday(d)
     except ImportError:
         return None
     except Exception as e:
@@ -176,7 +175,7 @@ def get_holiday_name(d: date | datetime | None = None) -> str | None:
     try:
         import jpholiday
 
-        result = cast(str | None, jpholiday.is_holiday_name(d))
+        result = jpholiday.is_holiday_name(d)
         if result:
             return result
     except ImportError:

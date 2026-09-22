@@ -16,6 +16,7 @@ from unittest.mock import MagicMock
 
 import numpy as np
 import pandas as pd
+import pytest
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(ROOT / "src"))
@@ -119,13 +120,49 @@ def _make_mock_model(n_j: int = 17, corr_window: int = 60, vol_adjusted_target: 
     return model
 
 
+@pytest.mark.parametrize("missing_observation", [False, True])
+def test_step2_uses_execution_price_for_each_horizon(tmp_path, missing_observation):
+    """The real Step 2 worker must match the current snapshot used on-demand."""
+    frame = _make_df_exec()
+    date = frame.index[70]
+    extra = {"topix_night_return": np.zeros(len(frame))}
+    for ticker in JP_TICKERS:
+        extra[f"jp_open_trade_{ticker}"] = np.full(len(frame), 100.0)
+        extra[f"jp_close_sig_{ticker}"] = np.full(len(frame), 98.0)
+        extra[f"jp_gap_{ticker}"] = np.full(len(frame), .01)
+        extra[f"jp_beta_{ticker}"] = np.ones(len(frame))
+    frame = pd.concat([frame, pd.DataFrame(extra, index=frame.index)], axis=1)
+    intraday = pd.DataFrame(np.nan, index=frame.index, columns=JP_TICKERS)
+    intraday.loc[date] = np.nan if missing_observation else .02
+    models = {h: _make_mock_model(return_matrices=True) for h in (1, 3, 5)}
+    model_inputs = {h: {"jp_gap": np.zeros((len(frame), 17)), "jp_beta": np.ones((len(frame), 17)),
+                       "topix_night": np.zeros(len(frame)), "jp_res_returns_p3": np.zeros((len(frame), 32)),
+                       "v0_static": np.zeros(17), "c_full_p3": np.eye(32)} for h in (3, 5)}
+    matrix_dir = tmp_path / "dist_in" / "matrices"
+    matrix_dir.mkdir(parents=True)
+    np.save(matrix_dir / f"omega_struct_{date:%Y%m%d}.npy", np.eye(17))
+    context = _make_minimal_ctx(tmp_path, frame, models[1], open_910_returns=intraday,
+                               save_daily_m=True, save_mh=True, mh_horizons=[3, 5],
+                               mh_models=models, mh_inputs=model_inputs)
+    accumulator = GapDistAccumulators(omega_gap_ticker_records={tk: [] for tk in JP_TICKERS})
+    _process_date_impl(date, context, accumulator)
+    price = 100.0 if missing_observation else 102.0
+    for horizon, model in models.items():
+        model.compute_blp_signal.assert_called_once()
+        expected = 1.01 ** (horizon - 1) * price / 98.0 - 1.0
+        np.testing.assert_allclose(model.compute_blp_signal.call_args.kwargs["gap_override"], expected)
+        name = "mu_gap" if horizon == 1 else f"mu_gap_h{horizon}"
+        assert (context.out_dir / "matrices" / f"{name}_{date:%Y%m%d}.npy").is_file()
+
+
 class TestProcessDateDropped:
     """Test early date dropping via corr_window guard."""
 
     def test_date_before_corr_window_dropped(self, tmp_path):
         """Date at index < corr_window should increment dropped_count and return early."""
         df_exec = _make_df_exec(n_rows=100, corr_window=60)
-        model = _make_mock_model(corr_window=60)
+        model = _make_mock_model(corr_window=60, return_matrices=True)
+        model.compute_blp_signal.return_value["B_struct"] = np.zeros((17, 17))
         ctx = _make_minimal_ctx(tmp_path, df_exec, model)
         acc = GapDistAccumulators(omega_gap_ticker_records={tk: [] for tk in JP_TICKERS})
 
@@ -198,6 +235,28 @@ class TestProcessDateMissingData:
         assert acc.missing_data_count == 0
         # Should produce records (fallback was used)
         assert len(acc.portfolio_diagnostics_records) == 1
+
+    def test_stale_signal_date_fallback_uses_blpx_covariance(self, tmp_path):
+        """A prior signal-date matrix must not break h=1 cache/on-demand parity."""
+        df_exec = _make_df_exec(n_rows=100, corr_window=60)
+        model = _make_mock_model(corr_window=60, return_matrices=True)
+        model.compute_blp_signal.return_value["B_struct"] = np.zeros((17, 17))
+        dist_in = tmp_path / "dist_in" / "matrices"
+        dist_in.mkdir(parents=True)
+
+        dt = df_exec.index[60]
+        previous = df_exec.index[58].strftime("%Y%m%d")
+        # The stale fallback is intentionally different from the BLPX result
+        # (the mock's Sigma_YY and sigma_Y_denorm produce an identity matrix).
+        np.save(dist_in / f"omega_struct_{previous}.npy", np.eye(17) * 2.0)
+
+        ctx = _make_minimal_ctx(tmp_path, df_exec, model, save_daily_m=True)
+        acc = GapDistAccumulators(omega_gap_ticker_records={tk: [] for tk in JP_TICKERS})
+
+        _process_date_impl(dt, ctx, acc)
+
+        output = np.load(ctx.out_dir / "matrices" / f"omega_gap_{dt:%Y%m%d}.npy")
+        assert np.allclose(output, np.eye(17), atol=1e-12)
 
     def test_date_not_in_df_exec_index_increments_missing_count(self, tmp_path):
         """P3a regression: get_indexer returning -1 must be treated as missing data, not dropped."""

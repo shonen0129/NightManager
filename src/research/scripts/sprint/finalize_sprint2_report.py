@@ -74,7 +74,7 @@ df_trade.to_csv(ARTIFACT_DIR / "trade_count_summary.csv", index=False)
 logger.info("Generating topix_comparison_by_model.csv ...")
 # TOPIX 日次リターンはキャッシュから読む
 sys.path.insert(0, str(ROOT / "src"))
-from leadlag.data.cache import load_df_exec_from_local_cache
+from leadlag.data.market_data_cache import load_df_exec_from_local_cache
 
 df_exec = load_df_exec_from_local_cache()
 r_topix_cc = df_exec["topix_cc_trade"].dropna()

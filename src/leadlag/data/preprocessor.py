@@ -19,7 +19,7 @@ from typing import cast
 import numpy as np
 import pandas as pd
 
-from leadlag.core.market_calendar import next_trading_day
+from leadlag.core.market_calendar import is_trading_day, next_trading_day
 from leadlag.data.tickers import JP_TICKERS, TOPIX_TICKER, US_TICKERS
 from leadlag.data.validation import (
     DataValidationError,
@@ -190,6 +190,28 @@ def preprocess_data(
     jp_c.index = pd.to_datetime(jp_c.index).tz_localize(None).normalize()
     jp_o.index = pd.to_datetime(jp_o.index).tz_localize(None).normalize()
 
+    # Some providers align both markets to a common business-day index and
+    # represent a TSE holiday as an all-NaN JP row.  Remove only rows that are
+    # confirmed JP closures before calculating pct_change/shift(1); otherwise
+    # the next real session loses its return or gap.  An all-NaN row on a JP
+    # trading day is retained so strict validation still reports a data outage.
+    jp_columns = [column for column in JP_TICKERS + [TOPIX_TICKER] if column in jp_c.columns]
+    padding_dates: list[pd.Timestamp] = []
+    for day in jp_c.index.union(jp_o.index).unique().sort_values():
+        day_date = pd.Timestamp(day).date()
+        if is_trading_day(day_date):
+            continue
+        if not jp_columns:
+            continue
+        close_row = jp_c.reindex(index=[day], columns=jp_columns)
+        open_row = jp_o.reindex(index=[day], columns=jp_columns)
+        if close_row.isna().all(axis=None) and open_row.isna().all(axis=None):
+            padding_dates.append(pd.Timestamp(day))
+    if padding_dates:
+        jp_c = jp_c.drop(index=padding_dates, errors="ignore")
+        jp_o = jp_o.drop(index=padding_dates, errors="ignore")
+        logger.info("Removed %d all-NaN JP holiday padding row(s)", len(padding_dates))
+
     # Separate TOPIX proxy from sector ETFs
     topix_close = jp_c[TOPIX_TICKER].copy() if TOPIX_TICKER in jp_c.columns else None
     topix_open = jp_o[TOPIX_TICKER].copy() if TOPIX_TICKER in jp_o.columns else None
@@ -198,24 +220,22 @@ def preprocess_data(
     if TOPIX_TICKER in jp_o.columns:
         jp_o = jp_o[JP_TICKERS].copy()
 
-    # Joint dates: days where both US and JP have enough valid tickers.
-    # Require at least 50% of tickers to be non-NaN on each side so that a
-    # single delisted/missing ticker does not drop the whole day.
+    # Validate each market on its own calendar.  Intersecting US and JP dates
+    # before calculating US close-to-close returns drops a US signal whenever
+    # Japan is closed (and delays it until the next common date).
     us_min_valid = int(np.ceil(0.5 * len(US_TICKERS)))
     jp_min_valid = int(np.ceil(0.5 * len(JP_TICKERS)))
     us_valid_dates = us_c.dropna(thresh=us_min_valid).index
     jp_valid_dates = jp_c.dropna(thresh=jp_min_valid).index
-    joint_dates = us_valid_dates.intersection(jp_valid_dates).sort_values()
-
-    us_c_joint = us_c.loc[joint_dates]
-    jp_c_joint = jp_c.loc[joint_dates]
+    jp_all_dates = jp_c.index.sort_values()
+    signal_dates = us_valid_dates.sort_values()
 
     # Close-to-close returns. pct_change can produce inf when the previous
     # close is zero; treat those as missing so the record-level validator can
     # reject the affected days.
     with np.errstate(divide="ignore", invalid="ignore"):
-        ret_us_cc = us_c_joint.pct_change()
-        ret_jp_cc = jp_c_joint.pct_change()
+        ret_us_cc = us_c.pct_change(fill_method=None)
+        ret_jp_cc = jp_c.pct_change(fill_method=None)
     ret_us_cc = ret_us_cc.replace([np.inf, -np.inf], np.nan)
     ret_jp_cc = ret_jp_cc.replace([np.inf, -np.inf], np.nan)
 
@@ -242,22 +262,45 @@ def preprocess_data(
 
     # Map each joint date T to the next JP trading day (trade_date)
     trade_targets: dict = {}
-    for t in joint_dates:
+    target_to_signal: dict = {}
+    for t in signal_dates:
         future_jp_dates = jp_valid_dates[jp_valid_dates > t]
         if len(future_jp_dates) > 0:
-            trade_targets[t] = future_jp_dates[0]
+            target = future_jp_dates[0]
+            # Multiple US sessions can precede one JP session after a JP
+            # holiday.  Keep the latest US session, which is the information
+            # actually available at that JP 09:10 decision.
+            previous = target_to_signal.get(target)
+            if previous is None or t > previous:
+                if previous is not None:
+                    trade_targets.pop(previous, None)
+                trade_targets[t] = target
+                target_to_signal[target] = t
 
     # If the most recent joint date has no following JP trading day in the cache
     # (e.g., yfinance has not yet published the next day's bar at 08:15 JST),
     # project the next business day as a provisional trade_date. This keeps the
     # Step 1 panel fresh and lets compute_gap_adjusted_distribution overwrite the
     # placeholder gap values with Tachibana 9:10 prices.
-    if len(joint_dates) > 0:
-        last_joint = joint_dates[-1]
+    if len(signal_dates) > 0:
+        last_joint = signal_dates[-1]
         if last_joint not in trade_targets:
-            next_trade_date = pd.Timestamp(
-                next_trading_day(last_joint.to_pydatetime())
-            ).normalize()
+            # If the raw JP row exists but its close is not published yet,
+            # retain that row as the provisional execution date (the common
+            # yfinance ``today`` placeholder case).  Otherwise project the
+            # next exchange trading day.
+            # A US close dated ``last_joint`` is published after the US session
+            # and is therefore not available at the JP 09:10 decision on the
+            # same calendar date.  A provisional row must always target a
+            # strictly later JP session, even when an incomplete JP placeholder
+            # already exists for ``last_joint``.
+            same_or_next_raw = jp_all_dates[jp_all_dates > last_joint]
+            if len(same_or_next_raw) > 0:
+                next_trade_date = pd.Timestamp(same_or_next_raw[0]).normalize()
+            else:
+                next_trade_date = pd.Timestamp(
+                    next_trading_day(last_joint.to_pydatetime())
+                ).normalize()
             if next_trade_date > last_joint:
                 trade_targets[last_joint] = next_trade_date
 
@@ -305,14 +348,22 @@ def preprocess_data(
 
     # Build execution records
     records = []
-    for sig_date in joint_dates:
+    for sig_date in signal_dates:
         if sig_date not in trade_targets:
             continue
         trade_date = trade_targets[sig_date]
 
         r_us = ret_us_cc.loc[sig_date]
-        r_jp = ret_jp_cc.loc[sig_date]
-        jp_close_sig = jp_c_joint.loc[sig_date]
+        jp_dates_on_or_before = jp_valid_dates[jp_valid_dates <= sig_date]
+        if len(jp_dates_on_or_before) == 0:
+            # No JP close is available for the first US observation; this is a
+            # normal warm-up row rather than malformed input.
+            if strict_validation:
+                logger.info("Skipping first warm-up signal date %s", sig_date)
+            continue
+        jp_sig_date = jp_dates_on_or_before[-1]
+        r_jp = ret_jp_cc.loc[jp_sig_date]
+        jp_close_sig = jp_c.loc[jp_sig_date]
 
         # ret_jp_oc / ret_jp_gap / jp_open may not have the trade_date yet
         # (Japanese market has not opened or yfinance has not published the
@@ -342,6 +393,9 @@ def preprocess_data(
         # rejected because zero-filling all tickers would be a look-free signal.
         if r_us.isna().all() or r_jp.isna().all() or jp_close_sig.isna().all():
             if strict_validation:
+                if sig_date == signal_dates[0]:
+                    logger.info("Skipping natural first return warm-up row %s", sig_date)
+                    continue
                 raise DataValidationError(
                     f"All required values are NaN for trade_date={trade_date}; "
                     f"strict_validation is enabled, so this record is rejected"
@@ -397,7 +451,10 @@ def preprocess_data(
         # Only allow a zero/non-positive open for the placeholder today row,
         # which is appended beyond the raw data and will be overwritten by
         # Tachibana real-time prices.  Historical zero opens are data errors.
-        is_today_placeholder = last_joint is not None and trade_date > last_joint
+        is_today_placeholder = last_joint is not None and (
+            trade_date > last_joint
+            or (trade_date == last_joint and trade_date not in jp_valid_dates)
+        )
 
         is_provisional = bool(
             r_oc.isna().any()
@@ -570,221 +627,3 @@ def compute_us_residualized_returns(
         r_us_adj[bad_mask] = us_returns[bad_mask]
 
     return cast(np.ndarray, r_us_adj)
-
-def build_5m_910_prices(
-    df_exec: pd.DataFrame,
-    tickers: list[str] | None = None,
-) -> pd.DataFrame:
-    """Build a trade-date × ticker DataFrame of 09:10 midpoint prices from 5m cache.
-
-    The 5-minute intraday cache is keyed by bar timestamps. For each date present
-    in the cache, the 09:10 bar's (High+Low)/2 is used as the 9:10 execution price
-    ``p_910``.  If the 09:10 bar is not present for a date or a ticker, the cell
-    remains NaN.
-
-    Args:
-        df_exec: Execution DataFrame whose index provides the trade-date grid.
-        tickers: List of tickers to extract. Defaults to ``JP_TICKERS``.
-
-    Returns:
-        DataFrame indexed by ``df_exec.index``, columns = ``tickers``.
-    """
-    if tickers is None:
-        tickers = list(JP_TICKERS)
-
-    from leadlag.data.cache import load_intraday_cache
-
-    p_910 = pd.DataFrame(np.nan, index=df_exec.index, columns=tickers, dtype=float)
-    df_5m = load_intraday_cache("5m")
-    if df_5m is None or df_5m.empty:
-        return p_910
-
-    for dt in pd.Series(df_5m.index.date).unique():
-        dt_ts = pd.Timestamp(dt).normalize()
-        if dt_ts not in p_910.index:
-            continue
-        day_data = df_5m[df_5m.index.date == dt]
-
-        idx_910 = pd.Timestamp(f"{dt} 09:10:00")
-        if idx_910 not in day_data.index:
-            continue
-        row_910 = day_data.loc[idx_910]
-
-        for ticker in tickers:
-            high = row_910.get(("High", ticker))
-            low = row_910.get(("Low", ticker))
-            close = row_910.get(("Close", ticker))
-            val = (high + low) / 2 if (pd.notna(high) and pd.notna(low)) else close
-            if pd.notna(val) and np.isfinite(val):
-                p_910.loc[dt_ts, ticker] = float(val)
-
-    return p_910
-
-
-def _compute_jp_target_returns_h1_legacy(
-    df_exec: pd.DataFrame, jp_tickers: list[str]
-) -> np.ndarray:
-    """Legacy h=1 9:10-to-close target computation preserved for exact backward compat.
-
-    This path is kept for callers (``backtester.py``, ``ml_order_overlay.py``,
-    and the baseline h=1 setup in ``compute_gap_adjusted_distribution``) that rely
-    on the exact historical definition.
-    """
-    jp_oc = df_exec[[f"jp_oc_{tk}" for tk in jp_tickers]].values
-    y_jp_target = jp_oc.copy()
-
-    from leadlag.data.cache import load_intraday_cache
-    df_5m = load_intraday_cache("5m")
-    if df_5m is not None and not df_5m.empty:
-        dates_5m = pd.Series(df_5m.index.date).unique()
-        r_open_910_dict = {}
-        for dt in dates_5m:
-            dt_ts = pd.Timestamp(dt).normalize()
-            day_data = df_5m[df_5m.index.date == dt]
-
-            idx_910 = pd.Timestamp(f"{dt} 09:10:00")
-            row_910 = day_data.loc[idx_910] if idx_910 in day_data.index else None
-
-            ticker_returns = {}
-            for ticker in jp_tickers:
-                p_910 = np.nan
-                if row_910 is not None:
-                    high = row_910.get(("High", ticker))
-                    low = row_910.get(("Low", ticker))
-                    close = row_910.get(("Close", ticker))
-                    if pd.notna(high) and pd.notna(low) and np.isfinite(high) and np.isfinite(low):
-                        p_910 = (high + low) / 2
-                    elif pd.notna(close) and np.isfinite(close):
-                        p_910 = close
-
-                p_open_5m = np.nan
-                for time_str in ["09:00:00", "09:05:00", "09:10:00"]:
-                    idx_time = pd.Timestamp(f"{dt} {time_str}")
-                    if idx_time in day_data.index:
-                        row_time = day_data.loc[idx_time]
-                        op = row_time.get(("Open", ticker))
-                        cl = row_time.get(("Close", ticker))
-                        val = op if pd.notna(op) else cl
-                        if pd.notna(val) and np.isfinite(val):
-                            p_open_5m = val
-                            break
-
-                ret_open_910 = 0.0
-                if (
-                    pd.notna(p_910)
-                    and pd.notna(p_open_5m)
-                    and np.isfinite(p_910)
-                    and np.isfinite(p_open_5m)
-                    and p_910 > 0
-                    and p_open_5m > 0
-                ):
-                    ret_open_910 = float(p_910 / p_open_5m - 1.0)
-                ticker_returns[ticker] = ret_open_910
-            r_open_910_dict[dt_ts] = ticker_returns
-
-        for idx, date in enumerate(df_exec.index):
-            date_ts = pd.Timestamp(date).normalize()
-            if date_ts in r_open_910_dict:
-                ticker_returns = r_open_910_dict[date_ts]
-                for t_idx, ticker in enumerate(jp_tickers):
-                    ret_oc = jp_oc[idx, t_idx]
-                    ret_open_910 = ticker_returns.get(ticker, 0.0)
-                    y_jp_target[idx, t_idx] = (1.0 + ret_oc) / (1.0 + ret_open_910) - 1.0
-    return cast(np.ndarray, y_jp_target)
-
-
-def _compute_jp_target_returns_h(
-    df_exec: pd.DataFrame,
-    jp_tickers: list[str],
-    horizon: int,
-    p_910_df: pd.DataFrame | None,
-) -> np.ndarray:
-    """Compute the h-day 9:10-to-close target return.
-
-    For each row ``i`` (trade date) and ticker, the target is defined as:
-
-        y_h[i, tk] = close_i / p_910_{i-h+1} - 1
-
-    where ``close_i`` is derived from the h=1 open-to-close return and open price,
-    and ``p_910_{i-h+1}`` is the 9:10 midpoint price on the starting day of the
-    h-day window.  If ``p_910`` is unavailable for the start day, the open price
-    on the start day is used, producing the h-day open-to-close return.
-
-    The first ``horizon - 1`` rows are NaN because the window is not yet complete.
-    """
-    n = len(df_exec)
-    m = len(jp_tickers)
-    open_cols = [f"jp_open_trade_{tk}" for tk in jp_tickers]
-    oc_cols = [f"jp_oc_{tk}" for tk in jp_tickers]
-
-    open_arr = df_exec[open_cols].values.astype(float)
-    oc_arr = df_exec[oc_cols].values.astype(float)
-    close_arr = (1.0 + oc_arr) * open_arr
-
-    p_910_arr = np.full((n, m), np.nan)
-    if p_910_df is not None and not p_910_df.empty:
-        aligned = p_910_df.reindex(df_exec.index)
-        p_910_arr = aligned.values.astype(float)
-
-    # start-day arrays, shifted by (horizon - 1) rows
-    p_start = np.full((n, m), np.nan)
-    open_start = np.full((n, m), np.nan)
-    if n >= horizon:
-        p_start[horizon - 1 :] = p_910_arr[: n - horizon + 1]
-        open_start[horizon - 1 :] = open_arr[: n - horizon + 1]
-
-    # Use p_910 when available and valid; otherwise fall back to open.
-    p_use = np.where(
-        np.isfinite(p_start) & (p_start > 0),
-        p_start,
-        open_start,
-    )
-
-    with np.errstate(divide="ignore", invalid="ignore"):
-        y = close_arr / p_use - 1.0
-
-    # Guard against invalid / zero denominators, NaN/Inf close values, and
-    # non-positive open prices (which make both close and the target undefined).
-    valid = (
-        np.isfinite(p_use)
-        & (p_use > 0)
-        & np.isfinite(close_arr)
-        & np.isfinite(open_arr)
-        & (open_arr > 0)
-        & np.isfinite(y)
-    )
-    y = np.where(valid, y, 0.0)
-
-    # First (horizon - 1) rows have incomplete windows.
-    if horizon > 1:
-        y[: horizon - 1] = np.nan
-
-    return y
-
-
-def compute_jp_target_returns(
-    df_exec: pd.DataFrame,
-    jp_tickers: list[str],
-    horizon: int = 1,
-    p_910_df: pd.DataFrame | None = None,
-) -> np.ndarray:
-    """Compute 9:10-to-close returns for JP assets, with Open-to-Close as fallback.
-
-    Args:
-        df_exec: Execution DataFrame with ``jp_oc_*`` and ``jp_open_trade_*``.
-        jp_tickers: JP tickers to compute targets for.
-        horizon: Number of trading days in the target window.  Defaults to 1,
-            which preserves the legacy h=1 definition for callers that do not
-            pass ``p_910_df``.
-        p_910_df: Optional pre-built 9:10 midpoint prices (date × ticker).  When
-            ``horizon > 1`` this is used to compute the start-day 9:10 price.  When
-            both ``horizon == 1`` and ``p_910_df is None``, the legacy h=1 path is
-            used to guarantee backward compatibility.
-
-    Returns:
-        Array of target returns, shape (n_rows, n_tickers).  Leading ``horizon - 1``
-        rows are NaN for ``horizon > 1``.
-    """
-    if horizon == 1 and p_910_df is None:
-        return _compute_jp_target_returns_h1_legacy(df_exec, jp_tickers)
-    return _compute_jp_target_returns_h(df_exec, jp_tickers, horizon, p_910_df)

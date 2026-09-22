@@ -96,6 +96,8 @@ def _run_safety_audits(
     pit_history_trade_dates: np.ndarray | None,
     candidate: str,
     version: str,
+    signal_dates: list[str] | None = None,
+    diagnostics: dict | None = None,
 ) -> PortfolioDecision:
     """Run leakage/numerical audits and assemble the final result."""
     # Combine the two distinct fallback reasons into a single trigger flag.
@@ -104,6 +106,7 @@ def _run_safety_audits(
         or fallback.get("audit_failure", False)
     )
 
+    leakage_failed = False
     if fallback_triggered:
         # Flat or audit-fallback means no signal was computed, so there is no leakage.
         # Return a clearly distinguished status to avoid false FAILED alerts.
@@ -116,12 +119,38 @@ def _run_safety_audits(
             "gap_data_freshness_ok": True,
         }
     else:
-        leakage = run_leakage_audit(
-            signal_date,
-            date_str,
-            gap_data_loaded=not fallback.get("gap_data_missing", False),
-            pit_history_trade_dates=pit_history_trade_dates,
-        )
+        audit_dates = signal_dates or [signal_date]
+        horizon_audits = [
+            run_leakage_audit(
+                candidate_signal_date,
+                date_str,
+                gap_data_loaded=not fallback.get("gap_data_missing", False),
+                pit_history_trade_dates=pit_history_trade_dates,
+            )
+            for candidate_signal_date in audit_dates
+        ]
+        leakage = dict(horizon_audits[0])
+        if len(horizon_audits) > 1:
+            leakage["horizon_audits"] = [
+                {"signal_date": candidate_signal_date, **audit}
+                for candidate_signal_date, audit in zip(audit_dates, horizon_audits)
+            ]
+            leakage["status"] = (
+                "PASSED" if all(audit["status"] == "PASSED" for audit in horizon_audits) else "FAILED"
+            )
+        leakage_failed = leakage["status"] == "FAILED"
+
+        # Leakage is a production safety failure just like a numerical failure.
+        # Do not merely report it: the configured audit-fallback policy must
+        # remove the signal before it can reach the execution layer.
+        if leakage_failed and run_cfg.fallback_on_audit_failure:
+            alerts.append(
+                "Leakage audit FAILED; fallback_on_audit_failure=True. "
+                "Falling back to flat position."
+            )
+            fallback["audit_failure"] = True
+            fallback_triggered = True
+            w_final = np.zeros_like(w_final)
 
     numerical = run_numerical_audit(w_final, scores, Omega_gap)
     if numerical["status"] == "FAILED" and run_cfg.fallback_on_audit_failure:
@@ -144,20 +173,21 @@ def _run_safety_audits(
         scores=scores, mu_gap=mu_gap, Omega_gap=Omega_gap,
     )
 
-    return PortfolioDecision.from_dict({
-        "w_final": w_final,
-        "scores": scores,
-        "mu_gap": mu_gap,
-        "sigma_gap": sigma_gap,
-        "Omega_gap": Omega_gap,
-        "fallback": fallback,
-        "pit_binning": pit_binning,
-        "leakage": leakage,
-        "numerical": numerical,
-        "alerts": alerts,
-        "summary": summary,
-        "run_config": run_cfg,
-    })
+    return PortfolioDecision(
+        w_final=w_final,
+        scores=scores,
+        mu_gap=mu_gap,
+        sigma_gap=sigma_gap,
+        Omega_gap=Omega_gap,
+        fallback=fallback,
+        pit_binning=pit_binning,
+        leakage=leakage,
+        numerical=numerical,
+        alerts=alerts,
+        summary=summary,
+        run_config=run_cfg,
+        diagnostics=diagnostics,
+    )
 
 
 def _compare_distribution(

@@ -11,11 +11,13 @@ the trade date.
 from __future__ import annotations
 
 import logging
+from collections.abc import Mapping
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 
-from leadlag.utils.gap_matrix_io import load_gap_matrices, load_gap_npy
+from leadlag.utils.gap_matrix_io import load_gap_bundle, load_gap_npy
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +48,7 @@ def apply_multi_horizon_blend(
     weights: tuple[float, ...],
     mu_pattern: str = "matrices/mu_gap_h{h}_{date}.npy",
     omega_pattern: str = "matrices/omega_gap_h{h}_{date}.npy",
+    expected_identity: Mapping[str, Any] | None = None,
 ) -> tuple[np.ndarray, list[str]]:
     """Blend mu_over_sigma scores from multiple horizons.
 
@@ -64,6 +67,9 @@ def apply_multi_horizon_blend(
         weights: Tuple of blend weights (must sum to ~1.0).
         mu_pattern: File pattern for h>1 mu matrices.
         omega_pattern: File pattern for h>1 Omega matrices.
+        expected_identity: Run-owned bundle identity.  When omitted, the
+            bundle must still contain all identity fields; callers should pass
+            this mapping when they own the execution frame.
 
     Returns:
         Tuple of (blended_scores, alerts).
@@ -86,18 +92,32 @@ def apply_multi_horizon_blend(
             total_weight += w
             continue
 
-        mu_h, omega_h, _ = load_gap_matrices(
+        mu_h, omega_h, metadata_h, gap_alerts = load_gap_bundle(
             gap_input_dir,
             date_str,
             mu_pattern=mu_pattern,
             omega_pattern=omega_pattern,
             pattern_kwargs={"h": h},
+            require_metadata=True,
+            expected_identity=expected_identity,
+            require_identity=True,
         )
-        if mu_h is None or omega_h is None:
+        if mu_h is None or omega_h is None or any(
+            alert.startswith("[FATAL]") for alert in gap_alerts
+        ):
+            alerts.extend(gap_alerts)
             alerts.append(
-                f"Multi-horizon blend: h={h} matrices not found, skipping (weight={w:.2f} redistributed to h1)."
+                f"Multi-horizon blend: h={h} matrices unavailable or unprovenanced, "
+                f"skipping (weight={w:.2f} redistributed to h1)."
             )
             continue
+        if metadata_h is None or "gap_inputs_version" not in metadata_h:
+            alerts.append(
+                f"Multi-horizon blend: h={h} bundle lacks gap_inputs_version, "
+                f"skipping (weight={w:.2f} redistributed to h1)."
+            )
+            continue
+        alerts.extend(gap_alerts)
 
         # Compute mu_over_sigma for this horizon
         sigma_h = np.sqrt(np.maximum(np.diag(omega_h), 1e-6))
@@ -132,6 +152,8 @@ def apply_rank_reversal_overlay(
     date_str: str,
     weight: float = 0.05,
     file_pattern: str = "matrices/rank_reversal_{date}.npy",
+    rank_reversal_signal: np.ndarray | None = None,
+    allow_implicit_io: bool = True,
 ) -> tuple[np.ndarray, list[str]]:
     """Apply cross-sectional rank reversal overlay to scores.
 
@@ -150,20 +172,31 @@ def apply_rank_reversal_overlay(
         date_str: Trade date string.
         weight: Blend weight for rank reversal signal.
         file_pattern: File pattern with {date} placeholder.
+        allow_implicit_io: Whether a missing explicit signal may be loaded from
+            ``gap_input_dir``.  Strict runs disable this to keep all inputs
+            owned by the run snapshot.
 
     Returns:
         Tuple of (enhanced_scores, alerts).
     """
     alerts: list[str] = []
 
-    if gap_input_dir is None:
+    if rank_reversal_signal is None and gap_input_dir is None:
         alerts.append("Rank reversal overlay: gap_input_dir is None, skipping.")
         return scores.copy(), alerts
 
     if weight <= 0.0:
         return scores.copy(), alerts
 
-    rr_signal, _ = load_gap_npy(gap_input_dir, date_str, file_pattern)
+    rr_signal = rank_reversal_signal
+    if rr_signal is None:
+        assert gap_input_dir is not None
+        if not allow_implicit_io:
+            alerts.append(
+                "Rank reversal overlay: explicit signal missing in strict run snapshot, skipping."
+            )
+            return scores.copy(), alerts
+        rr_signal, _ = load_gap_npy(gap_input_dir, date_str, file_pattern)
     if rr_signal is None:
         alerts.append("Rank reversal overlay: signal file not found, skipping.")
         return scores.copy(), alerts

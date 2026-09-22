@@ -1,0 +1,575 @@
+{
+  "inspection_date": "2026-09-15",
+  "head": "cf97bfaf4577a20c95ce931afd10ac72a6f08285",
+  "scope": "Read-only structural inspection of the dirty worktree; no fresh runtime test or broker API call.",
+  "files": {
+    "src/leadlag/runner/production.py": {
+      "sha256": "25af961413def0416f04fc8e02335bfb960272063b532cccee0237930be97e70",
+      "lines": 122,
+      "large_functions": []
+    },
+    "src/leadlag/execution/config.py": {
+      "sha256": "1aa0daef649c02f717574f906daca025ff7cc0c81d23ef069401d7bf2e0087a4",
+      "lines": 292,
+      "large_functions": [
+        {
+          "name": "build_app_config_from_dict",
+          "line": 113,
+          "span": 152
+        }
+      ]
+    },
+    "src/leadlag/config/schemas.py": {
+      "sha256": "cb7998ed7c463517250ce612665fecdeabad5f0e16807a6d30cc915045915fdb",
+      "lines": 778,
+      "large_functions": [
+        {
+          "name": "_map_flat_to_nested",
+          "line": 415,
+          "span": 189
+        }
+      ]
+    },
+    "src/leadlag/execution/v2_bridge.py": {
+      "sha256": "28810e3524888747c10336a912289453ab5ca8938a52380bff2418256c5b87e5",
+      "lines": 508,
+      "large_functions": [
+        {
+          "name": "run_v2_decision",
+          "line": 180,
+          "span": 329
+        }
+      ]
+    },
+    "src/leadlag/execution/backtester.py": {
+      "sha256": "7a8b5539254af4453ec71d7b4b170f4b495039dae2e7c1ce97b813b3f872bf52",
+      "lines": 574,
+      "large_functions": [
+        {
+          "name": "_simulate_daily_pnl",
+          "line": 87,
+          "span": 143
+        },
+        {
+          "name": "run_v2_backtest",
+          "line": 236,
+          "span": 133
+        }
+      ]
+    },
+    "src/leadlag/execution/var_history.py": {
+      "sha256": "123444b8cabea2537a49bd4298f44a6719001f2b4dfc5e29ecc14dee2995263c",
+      "lines": 677,
+      "large_functions": [
+        {
+          "name": "get_hist_returns_for_risk",
+          "line": 326,
+          "span": 352
+        }
+      ]
+    },
+    "src/leadlag/execution/broker_ops.py": {
+      "sha256": "6651b1ad881364c936ed48a3ee820f07d94c4f5f303d5b18a0f80ba5d888a309",
+      "lines": 730,
+      "large_functions": [
+        {
+          "name": "submit_orders_via_api",
+          "line": 542,
+          "span": 189
+        }
+      ]
+    },
+    "src/leadlag/execution/post_decision.py": {
+      "sha256": "41c1e43f6b9001ab808f9fe341b1a46ab1a75968ded05ffb8a38558ae9266051",
+      "lines": 372,
+      "large_functions": [
+        {
+          "name": "_write_decision_output_and_submit",
+          "line": 202,
+          "span": 122
+        }
+      ]
+    },
+    "src/leadlag/execution/close.py": {
+      "sha256": "9f6e8efb6ffb40ce57ae2ba96fe8f775cfafbe176ae56b7b11444a5c602b8b3b",
+      "lines": 706,
+      "large_functions": [
+        {
+          "name": "close_all_positions",
+          "line": 129,
+          "span": 372
+        },
+        {
+          "name": "wait_and_auto_close",
+          "line": 503,
+          "span": 105
+        }
+      ]
+    },
+    "src/leadlag/execution/pricing.py": {
+      "sha256": "2fb0593c94d65350538fc289e7b3ae8d65deb84ed493997d8759d5e60b668841",
+      "lines": 186,
+      "large_functions": []
+    },
+    "src/leadlag/execution/output_ops.py": {
+      "sha256": "a509c7bf5aeb6918537ece083bc1882123187b8938d14bf6c3c51ef49cdfce98",
+      "lines": 277,
+      "large_functions": []
+    },
+    "src/leadlag/execution/cost_calculator.py": {
+      "sha256": "3dfdb3a589d3608f7a50754a4d1b245810fb4a77fc8565da3e3ae2ae7d2207e0",
+      "lines": 211,
+      "large_functions": []
+    },
+    "src/leadlag/models/production_v2.py": {
+      "sha256": "61f7b17e2d7b66ee1a68586ed85abdf5e8df69a2430865b9bda8a3565f4de539",
+      "lines": 224,
+      "large_functions": []
+    },
+    "src/leadlag/models/blp_base.py": {
+      "sha256": "1bfd56850cccdd7fb90fab5eb5d69118e381cd7fb89ba13bd970cab58ee020ee",
+      "lines": 305,
+      "large_functions": []
+    },
+    "src/leadlag/models/v2/decision_engine.py": {
+      "sha256": "86a99a8e72b66cf0dc2d198b122c5615ecd48ddae829ed0129447f22f96573e8",
+      "lines": 412,
+      "large_functions": [
+        {
+          "name": "_decide",
+          "line": 223,
+          "span": 190
+        }
+      ]
+    },
+    "src/leadlag/models/v2/distribution_source.py": {
+      "sha256": "6a97182bd03a78802fb691de6d113202fb62c829a4466e5b0d19732ca5dd0508",
+      "lines": 426,
+      "large_functions": []
+    },
+    "src/leadlag/models/v2/fallback_policy.py": {
+      "sha256": "34168589f408b85a233ec063a73ffcc44da4d6797c8d80036bca6fa24a739b76",
+      "lines": 134,
+      "large_functions": []
+    },
+    "src/leadlag/models/v2/overlay_applier.py": {
+      "sha256": "38e13a508a43ad1be29939b1d0e9be26c5d3aaead785381f70e65996371341de",
+      "lines": 222,
+      "large_functions": [
+        {
+          "name": "_multi_horizon_scores_with_metadata",
+          "line": 65,
+          "span": 129
+        }
+      ]
+    },
+    "src/leadlag/models/v2/gap_io.py": {
+      "sha256": "b69f3f4347d7c4fe92c3d4437e877c983be4c99ca06e91d835f1f199c686e884",
+      "lines": 337,
+      "large_functions": []
+    },
+    "src/leadlag/models/v2/fallback.py": {
+      "sha256": "6cc40bd5e5bf98050e62c7565ed7f43097eb22a564c656eb3ecb26e16255d2ae",
+      "lines": 201,
+      "large_functions": [
+        {
+          "name": "_repair_and_adjust",
+          "line": 25,
+          "span": 111
+        }
+      ]
+    },
+    "src/leadlag/models/ml_order_overlay.py": {
+      "sha256": "1719f16c1a18c829284728798fc4f94dda429c4292c0dc15e86d71946173d966",
+      "lines": 1008,
+      "large_functions": [
+        {
+          "name": "_collect_training_data",
+          "line": 567,
+          "span": 119
+        },
+        {
+          "name": "apply_overlay",
+          "line": 847,
+          "span": 135
+        }
+      ]
+    },
+    "src/leadlag/data/pit_lake.py": {
+      "sha256": "ae9b13bf4553620cd5165d9be09bdf72bd447584a38d25761cb10bb5f8238942",
+      "lines": 233,
+      "large_functions": []
+    },
+    "src/leadlag/data/preprocessor.py": {
+      "sha256": "36f9b1b83532ef5d757b736d0d812d10a4800bc8a1f6784ee9f2190594d303b6",
+      "lines": 847,
+      "large_functions": [
+        {
+          "name": "preprocess_data",
+          "line": 136,
+          "span": 434
+        }
+      ]
+    },
+    "src/leadlag/data/gap_store.py": {
+      "sha256": "ae76f9a04ff388cc93e53c1367a3a575e383a97d79be91dbedbc86b2d586ee9e",
+      "lines": 363,
+      "large_functions": []
+    },
+    "src/leadlag/domain/portfolio.py": {
+      "sha256": "e5b66cd81c0eacff6049c005808faa967322cfcfb11fb7826f016c018d9749b0",
+      "lines": 143,
+      "large_functions": []
+    },
+    "src/leadlag/domain/signal.py": {
+      "sha256": "f5263e51e54e1f743a5bf0bb3c393ec1d8930f0eb0a3ca2e6946b02cde6fc29d",
+      "lines": 134,
+      "large_functions": []
+    },
+    "src/leadlag/core/pipeline.py": {
+      "sha256": "dfb405e3666d4754fd261c4fa0501ea49c4da9ae4b0be15ce81394d91826d877",
+      "lines": 798,
+      "large_functions": [
+        {
+          "name": "build_common_inputs",
+          "line": 289,
+          "span": 101
+        }
+      ]
+    },
+    "src/leadlag/core/macro.py": {
+      "sha256": "4acfe85ba4078004bd9e0a4fa904e7e49b66f79dfddf06cecc8b127dc30fa736",
+      "lines": 476,
+      "large_functions": []
+    },
+    "src/leadlag/core/allocator.py": {
+      "sha256": "a90119565c506bb178ebc404cd5f5aee51481b92db41bcca7a50aa26cfa0a266",
+      "lines": 232,
+      "large_functions": [
+        {
+          "name": "allocate_capital",
+          "line": 19,
+          "span": 214
+        }
+      ]
+    },
+    "src/leadlag/utils/cache_manager.py": {
+      "sha256": "74ecee46aed5e659b1bfe1954375d51f34c8db43574e9ea581ab5d9893e2bafa",
+      "lines": 109,
+      "large_functions": []
+    },
+    "src/leadlag/utils/dataframe_fingerprint.py": {
+      "sha256": "045faf74b47d09a602d39a08a232f8210565bac7442c27318a2216830986e909",
+      "lines": 42,
+      "large_functions": []
+    },
+    "src/leadlag/utils/distribution_provenance.py": {
+      "sha256": "e1fd65b6fb53f540532c028c71211be9f5b4e59b4a6f9263f7dd4485458fe67f",
+      "lines": 126,
+      "large_functions": []
+    },
+    "src/leadlag/reporting/daily_pnl_report.py": {
+      "sha256": "0123fc9087f61c515230b080c5cc84fdb30e506c599527fb4314841c9085343b",
+      "lines": 555,
+      "large_functions": []
+    },
+    "src/leadlag/experiment_registry.py": {
+      "sha256": "142595b5e27d2b74664e5f33ec6b8963d4bf046aab1895651e6becb4edf49696",
+      "lines": 293,
+      "large_functions": []
+    },
+    "src/research/experiment_utils.py": {
+      "sha256": "2cb50c2b50596431a94c6585235b73b548c12bcca1318c225e766fa114b3cf99",
+      "lines": 198,
+      "large_functions": []
+    },
+    "tools/research/compute_gap_adjusted_distribution.py": {
+      "sha256": "9079ba3925a9f569672a2d69041a7abfafafe809f2fc0e5cc8bd6d66d117be4f",
+      "lines": 2214,
+      "large_functions": [
+        {
+          "name": "inject_tachibana_realtime_prices",
+          "line": 101,
+          "span": 184
+        },
+        {
+          "name": "_process_date_impl",
+          "line": 554,
+          "span": 538
+        },
+        {
+          "name": "main",
+          "line": 1124,
+          "span": 1088
+        }
+      ]
+    },
+    "scripts/batch/run_decision_v2.sh": {
+      "sha256": "d43fbaf4f62072c2c390a65bbe61db742a0436dab4107717e139ff3a9c570697",
+      "lines": 56
+    },
+    "scripts/batch/run_close_positions.sh": {
+      "sha256": "3a0a344b9c80fce2c756e0777b4b4730687ff19c94646007b5750b8ffeaceb8d",
+      "lines": 33
+    },
+    "scripts/batch/run_gap_distribution.sh": {
+      "sha256": "6449ddb00748878bf56c5fdc8d690060e560e614284442905b0b3eb636283dd6",
+      "lines": 181
+    },
+    "pyproject.toml": {
+      "sha256": "54e24d89a2069dadb0d0f5dd01c4dc35245ec2f74fa60cdcd73193ab5b723169",
+      "lines": 189
+    },
+    "configs/production/production.yaml": {
+      "sha256": "02b10cd738ce8647e9d3ff4e6d7e9c3ba7f7160b2875e6fe3e73cc1171b6056d",
+      "lines": 1
+    },
+    "configs/base.yaml": {
+      "sha256": "39cbefee870384534c172e6ce9592e2412f030febe61a6375729e87d2cd20794",
+      "lines": 120
+    },
+    "docs/refactor_roadmap.md": {
+      "sha256": "bb7abcc69dc1ed6f7378448f89c7075e547502985662728dbe82021a6f11b65d",
+      "lines": 903
+    },
+    "docs/ARCHITECTURE.md": {
+      "sha256": "5690528f91c3ed78c7c07367146a9a29d8314dd497a991d424640268998071b9",
+      "lines": 494
+    },
+    "docs/decisions/2026-09-13-stage-abc-safety-boundaries.md": {
+      "sha256": "3e5a2b74057c94a4cce2c42d3aeccd179372cbca7a03439ce61ca3b589f9b005",
+      "lines": 74
+    },
+    "reports/20260915_stage_abc_round8_review/review.md": {
+      "sha256": "e007f258c0080684c42bf41198238df52d9233f3c10badcf75ff9ccb07eead5c",
+      "lines": 94
+    }
+  },
+  "resolved_config_without_broker_credentials": {
+    "v2": {
+      "long_count": 5,
+      "short_count": 5,
+      "baseline_gross": 2.0,
+      "cost_bps_per_gross": 10.0,
+      "pit_rolling_window": 252,
+      "tertile_low_pct": 33.3333,
+      "tertile_high_pct": 66.6667,
+      "mult_low": 0.75,
+      "mult_mid": 1.0,
+      "mult_high": 1.0,
+      "fallback_multiplier": 1.0,
+      "fallback_on_gap_data_missing": true,
+      "fallback_on_audit_failure": true,
+      "ondemand_fallback_enabled": true,
+      "shadow_ondemand_validation": false,
+      "mh_blend_enabled": true,
+      "mh_horizons": [
+        1,
+        3,
+        5
+      ],
+      "mh_weights": [
+        0.8,
+        0.1,
+        0.1
+      ],
+      "mh_mu_file_pattern_h": "matrices/mu_gap_h{h}_{date}.npy",
+      "mh_omega_file_pattern_h": "matrices/omega_gap_h{h}_{date}.npy",
+      "cs_overlay_enabled": true,
+      "cs_overlay_weight": 0.05,
+      "cs_rank_reversal_file_pattern": "matrices/rank_reversal_{date}.npy",
+      "minvar_enabled": true,
+      "minvar_alpha": 0.8,
+      "macro_kappa_enabled": true,
+      "macro_kappas": [
+        3.0,
+        0.5,
+        0.5
+      ],
+      "macro_surprise_halflife_mean": 20.0,
+      "macro_surprise_halflife_vol": 60.0,
+      "macro_direction_enabled": true,
+      "gap_input_dir": "var/live/pipeline_data/gap_adjusted_distribution/gap_store.sqlite",
+      "mu_file_pattern": "matrices/mu_gap_{date}.npy",
+      "omega_file_pattern": "matrices/omega_gap_{date}.npy",
+      "sigma_floor": 1e-06,
+      "residualization_enabled_for_p3": true,
+      "residualization_beta_window": 60,
+      "residualization_beta_winsor_sigma": 3.0,
+      "residualization_beta_shrinkage": 0.05,
+      "frac_diff_enabled": true,
+      "frac_diff_d": 0.1,
+      "frac_diff_threshold": 1e-05,
+      "frac_diff_window": 100,
+      "frac_diff_normalize": null,
+      "ml_overlay_enabled": true,
+      "ml_overlay_model_dir": "models/ml_order_overlay/phase2_8",
+      "ml_overlay_use_ticker": true,
+      "ml_overlay_use_classification": false,
+      "ml_overlay_per_ticker_interactions": true,
+      "blpx": {
+        "param_set": "phase1d_optimized_residual_blpx_production",
+        "model_name": "ProductionBLPXModel",
+        "n_u": 15,
+        "n_j": 17,
+        "k": 6,
+        "q": 0.3,
+        "weight_mode": "signal",
+        "normalization": "zscore",
+        "rank": "full",
+        "ewma_halflife": 120,
+        "blp_ewma_halflife": 120.0,
+        "blp_window": 504,
+        "corr_window": 60,
+        "corr_min_periods": 60,
+        "beta_window": 60,
+        "beta_floor": 0.0,
+        "prior_variant": null,
+        "lambda_reg": 0.75,
+        "lambda_lw": 0.5,
+        "lw_target": "equicorrelation",
+        "include_v4_prior": true,
+        "min_raw_weight": 0.0,
+        "raw_pca_weight": 0.0,
+        "residual_pca_weight": 0.0,
+        "raw_blpx_weight": 0.0,
+        "residual_blpx_weight": 1.0,
+        "p4_weight": 0.0,
+        "rho": 0.01,
+        "alpha_xx": 0.2,
+        "alpha_yx": 0.15,
+        "alpha_yy": 0.5,
+        "lambda_pca": 0.1,
+        "lambda_sector": 0.6,
+        "beta_conf": 0.25,
+        "frobenius_scale_priors": false,
+        "winsor_sigma": 3.0,
+        "sector_eta": 0.5,
+        "sector_gamma": 4.0,
+        "target": "topix_residual",
+        "use_raw_target": false,
+        "gap_open_coef": 0.7,
+        "gap_open_coef_neg": 0.6,
+        "topix_beta_coef": 0.6,
+        "topix_beta_coef_neg": 0.6,
+        "vol_adjusted_target": false,
+        "execution_target_cost_adjustment": "none",
+        "asymmetry_mode": "scalar",
+        "asymmetry_delta": 0.3,
+        "asymmetry_post_gap_delta": 0.0,
+        "asymmetry_post_gap_mode": "signal_split",
+        "macro_confidence_enabled": true,
+        "macro_kappa_enabled": true,
+        "macro_direction_enabled": true,
+        "macro_kappas": [
+          3.0,
+          0.5,
+          0.5
+        ],
+        "macro_surprise_halflife_mean": 20.0,
+        "macro_surprise_halflife_vol": 60.0,
+        "macro_sigma_yy_inflation_enabled": false,
+        "copula_enabled": true,
+        "copula_blend_weight": 1.0,
+        "copula_dynamic_blend": true,
+        "copula_stress_threshold": 1.5,
+        "copula_nu_init": 5.0,
+        "copula_marginal_method": "empirical",
+        "minvar_enabled": false,
+        "minvar_alpha": 0.5,
+        "us_res_enabled": false,
+        "us_res_gamma": 0.5,
+        "us_res_beta_window": 252,
+        "frac_diff_enabled": true,
+        "frac_diff_d": 0.1,
+        "frac_diff_threshold": 1e-05,
+        "frac_diff_window": 100,
+        "frac_diff_normalize": null,
+        "p5_weight": null,
+        "p5p3_weight": null,
+        "signal_components": null,
+        "exec_adjustment": null,
+        "slippage_bps": 5.0,
+        "costs": null
+      },
+      "costs": {
+        "cost_bps_per_gross": 10.0,
+        "slippage_bps_per_side": 5.0,
+        "overnight_alpha_long": 0.75,
+        "overnight_alpha_short": 0.5,
+        "buy_interest_annual": 0.025,
+        "borrow_fee_annual": 0.0115,
+        "reverse_fee_bps": 2.0,
+        "side_leverage": 1.5
+      }
+    },
+    "risk": {
+      "var_confidence": 0.99,
+      "var_window": 250,
+      "var_method": "historical",
+      "var_warning": 0.02,
+      "var_stop": 0.03,
+      "es_warning": 0.025,
+      "es_stop": 0.04,
+      "daily_loss_warning": 0.015,
+      "daily_loss_stop": 0.025,
+      "monthly_loss_stop": 0.05,
+      "max_net_exposure": 0.05,
+      "max_gross_exposure": 3.0
+    },
+    "strategy": {
+      "model_name": "production_residual_blpx",
+      "k": 6,
+      "lambda_reg": 0.75,
+      "q": 0.3,
+      "weight_mode": "signal",
+      "dispersion_filter": false,
+      "dispersion_metric": "long_short_mean_gap",
+      "v3_mode": "static",
+      "ewma_half_life": 120,
+      "lambda_lw": 0.5,
+      "lw_target": "equicorrelation",
+      "min_raw_weight": 0.0,
+      "corr_window": 60,
+      "include_v4_prior": true,
+      "signal_mode": "gap_residual",
+      "gap_open_coef": 0.7,
+      "topix_beta_coef": 0.6,
+      "beta_window": 60,
+      "beta_ewma_halflife": null,
+      "beta_shrinkage": 0.05,
+      "beta_winsor_sigma": 3.0,
+      "gamma": 0.5,
+      "slippage_bps": 5.0,
+      "vol_adjusted_target": false,
+      "copula_enabled": true,
+      "copula_blend_weight": 1.0,
+      "copula_dynamic_blend": true,
+      "copula_stress_threshold": 1.5,
+      "copula_nu_init": 5.0,
+      "copula_marginal_method": "empirical",
+      "minvar_enabled": false,
+      "minvar_alpha": 0.5,
+      "overnight_alpha_long": 0.75,
+      "overnight_alpha_short": 0.5,
+      "buy_interest_annual": 0.025,
+      "borrow_fee_annual": 0.0115,
+      "reverse_fee_bps": 2.0,
+      "side_leverage": 1.5,
+      "start_date": "2015-01-05",
+      "var_confidence": 0.99,
+      "var_window": 250,
+      "var_method": "historical",
+      "var_warning": 0.02,
+      "var_stop": 0.03,
+      "es_warning": 0.025,
+      "es_stop": 0.04,
+      "daily_loss_warning": 0.015,
+      "daily_loss_stop": 0.025,
+      "monthly_loss_stop": 0.05,
+      "max_net_exposure": 0.05,
+      "max_gross_exposure": 3.0
+    },
+    "gap_distribution_dir": "var/live/pipeline_data/gap_adjusted_distribution/gap_store.sqlite"
+  }
+}

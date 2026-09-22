@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -9,11 +10,12 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from leadlag.data.adr_features import load_adr_features
 from leadlag.data.tickers import JP_TICKERS
+from leadlag.domain.portfolio import PortfolioDecision
 from leadlag.models.ml_order_overlay import (
     MLOrderOverlayModel,
     _build_ticker_features,
-    _load_adr_features,
     _predict_p_trade,
     _safe,
     _sigmoid,
@@ -41,25 +43,39 @@ def _run_config() -> SimpleNamespace:
     )
 
 
-def _base_result(scores: np.ndarray, omega: np.ndarray | None = None) -> dict:
+def _verified_overlay_metadata(train_end: str = "2023-03-24") -> dict[str, str | int]:
+    """Build a valid artifact provenance record for direct application tests."""
+    return {
+        "metadata_version": 2,
+        "metadata_status": "verified",
+        "train_start": "2015-01-05",
+        "train_end": train_end,
+        "data_hash": "unit-data",
+        "config_hash": "unit-config",
+    }
+
+
+def _base_result(scores: np.ndarray, omega: np.ndarray | None = None) -> PortfolioDecision:
     if omega is None:
         omega = np.eye(N_J)
-    return {
-        "scores": scores.astype(float),
-        "mu_gap": np.zeros(N_J),
-        "sigma_gap": np.full(N_J, 0.01),
-        "Omega_gap": omega,
-        "run_config": _run_config(),
-        "pit_binning": {"multiplier": 1.0, "assigned_bin": "Medium"},
-        "fallback": {"gap_data_missing": False},
-        "summary": {
+    return PortfolioDecision(
+        w_final=np.zeros(N_J),
+        scores=scores.astype(float),
+        mu_gap=np.zeros(N_J),
+        sigma_gap=np.full(N_J, 0.01),
+        Omega_gap=omega,
+        run_config=_run_config(),
+        pit_binning={"multiplier": 1.0, "assigned_bin": "Medium"},
+        fallback={"gap_data_missing": False},
+        leakage={"status": "PASSED"},
+        numerical={"status": "PASSED"},
+        alerts=[],
+        summary={
             "target_gross": 2.0,
             "expected_cost_bps": 20.0,
             "predicted_portfolio_ir": 0.0,
         },
-        "w_final": np.zeros(N_J),
-        "numerical": {"status": "PASSED"},
-    }
+    )
 
 
 def _make_df_exec(trade_date: pd.Timestamp) -> pd.DataFrame:
@@ -89,8 +105,8 @@ def test_build_ticker_features_per_ticker_interactions():
     trade_date = pd.Timestamp("2023-03-27")
     df_exec = _make_df_exec(trade_date)
     v2_result = _base_result(np.linspace(-1.0, 1.0, N_J))
-    v2_result["mu_gap"] = np.full(N_J, 0.0)
-    v2_result["sigma_gap"] = np.full(N_J, 0.01)
+    v2_result.mu_gap[:] = 0.0
+    v2_result.sigma_gap[:] = 0.01
     market_vol = df_exec[[f"jp_oc_{tk}" for tk in JP_TICKERS]].abs().rolling(
         window=20, min_periods=5
     ).mean().shift(1)
@@ -135,14 +151,15 @@ def test_predict_p_trade():
         use_ticker=False,
         use_classification=False,
         per_ticker_interactions=False,
+        metadata=_verified_overlay_metadata(),
     )
     p_trade = _predict_p_trade(features, model)
     assert np.allclose(p_trade, [0.5, 0.5])
 
 
 def test_apply_overlay_adjusts_scores_and_weights():
-    trade_date = "2023-03-27"
-    date = pd.Timestamp(trade_date)
+    trade_date = "2023-03-26T15:00:00+00:00"  # 2023-03-27 00:00 JST
+    date = pd.Timestamp("2023-03-27")
     df_exec = _make_df_exec(date)
     scores = np.linspace(-1.0, 1.0, N_J)
     result = _base_result(scores)
@@ -154,7 +171,7 @@ def test_apply_overlay_adjusts_scores_and_weights():
     w_init[scores <= short_thr] = -1.0
     if np.sum(np.abs(w_init)) > 0:
         w_init *= 2.0 / np.sum(np.abs(w_init))
-    result["w_final"] = w_init
+    result = replace(result, w_final=w_init)
 
     model = MLOrderOverlayModel(
         lgbm=_DummyLGBM(),
@@ -175,22 +192,41 @@ def test_apply_overlay_adjusts_scores_and_weights():
         use_ticker=False,
         use_classification=False,
         per_ticker_interactions=False,
+        metadata=_verified_overlay_metadata(),
     )
 
     out = apply_overlay(result, df_exec, model, trade_date)
 
     assert out is not result
-    assert "scores_overlay" in out
-    assert np.allclose(out["scores_overlay"], scores * 0.5, atol=1e-6)
-    assert out["summary"]["overlay_applied"] == 1
-    assert out["numerical"]["status"] == "PASSED"
-    assert abs(float(np.sum(np.abs(out["w_final"]))) - 2.0) < 1e-6
-    assert abs(float(np.sum(out["w_final"]))) < 1e-6
+    assert out.scores_overlay is not None
+    assert np.allclose(out.scores_overlay, scores * 0.5, atol=1e-6)
+    assert out.summary["overlay_applied"] == 1
+    assert out.numerical["status"] == "PASSED"
+    assert abs(float(np.sum(np.abs(out.w_final))) - 2.0) < 1e-6
+    assert abs(float(np.sum(out.w_final))) < 1e-6
+
+
+def test_apply_overlay_normalizes_training_end_in_jst():
+    """A UTC timestamp at 00:00 JST must block that same JST trade date."""
+    trade_date = "2026-09-18"
+    df_exec = _make_df_exec(pd.Timestamp(trade_date))
+    result = _base_result(np.linspace(-1.0, 1.0, N_J))
+    model = MLOrderOverlayModel(
+        lgbm=_DummyLGBM(),
+        cont_cols=["score"],
+        target_std=1.0,
+        use_ticker=False,
+        use_classification=False,
+        per_ticker_interactions=False,
+        metadata=_verified_overlay_metadata("2026-09-17T15:00:00+00:00"),
+    )
+    with pytest.raises(ValueError, match="in-sample"):
+        apply_overlay(result, df_exec, model, trade_date)
 
 
 def test_apply_overlay_skips_when_fallback_active():
     result = _base_result(np.linspace(-1.0, 1.0, N_J))
-    result["fallback"]["gap_data_missing"] = True
+    result.fallback["gap_data_missing"] = True
     df_exec = _make_df_exec(pd.Timestamp("2023-03-27"))
     model = MLOrderOverlayModel(
         lgbm=_DummyLGBM(),
@@ -214,6 +250,7 @@ def test_apply_overlay_skips_when_date_missing():
         use_ticker=False,
         use_classification=False,
         per_ticker_interactions=False,
+        metadata=_verified_overlay_metadata(),
     )
     out = apply_overlay(result, df_exec, model, "2023-03-28")
     assert out is result
@@ -228,17 +265,102 @@ def test_load_adr_features_staleness(tmp_path: Path):
     )
     df.to_pickle(p)
     # 2026-08-12 + 3 business days = 2026-08-17, so 2026-08-18 is stale.
-    out = _load_adr_features(p, trade_date="2026-08-18", max_stale_bdays=3)
+    out = load_adr_features(p, trade_date="2026-08-18", max_stale_bdays=3)
     assert out is None
 
     # Trade date absent from the ADR index should be rejected.
-    out = _load_adr_features(p, trade_date="2026-08-13", max_stale_bdays=3)
+    out = load_adr_features(p, trade_date="2026-08-13", max_stale_bdays=3)
     assert out is None
 
     # Within the stale window and present in the index should load successfully.
-    out = _load_adr_features(p, trade_date="2026-08-12", max_stale_bdays=3)
+    out = load_adr_features(p, trade_date="2026-08-12", max_stale_bdays=3)
     assert out is not None
     assert out.index[-1] == pd.Timestamp("2026-08-12")
+
+
+def test_load_adr_features_normalizes_timezone_aware_index(tmp_path: Path):
+    """An offset-aware row is matched by its JST trade date."""
+    p = tmp_path / "adr_features_timezone.pkl"
+    df = pd.DataFrame(
+        {"adr_1617.T": [0.1]},
+        index=pd.DatetimeIndex(["2025-06-01T15:00:00+00:00"]),
+    )
+    df.to_pickle(p)
+
+    out = load_adr_features(p, trade_date="2025-06-01T15:00:00+00:00")
+
+    assert out is not None
+    assert out.index.tolist() == [pd.Timestamp("2025-06-02")]
+    assert out.loc[pd.Timestamp("2025-06-02"), "adr_1617.T"] == pytest.approx(0.1)
+
+
+def test_load_adr_features_normalizes_full_timezone_aware_artifact(tmp_path: Path):
+    """Full-frame consumers receive the same JST date keys as inference."""
+    p = tmp_path / "adr_features_full_timezone.pkl"
+    df = pd.DataFrame(
+        {"adr_1617.T": [0.1]},
+        index=pd.DatetimeIndex(["2025-06-01T15:00:00+00:00"]),
+    )
+    df.to_pickle(p)
+
+    out = load_adr_features(p)
+
+    assert out is not None
+    assert out.index.tolist() == [pd.Timestamp("2025-06-02")]
+
+
+def test_apply_overlay_rejects_missing_adr_date_for_full_run_snapshot(tmp_path: Path):
+    """Backtest full artifacts and live date-filtered inputs share the same gate."""
+    trade_date = pd.Timestamp("2023-03-27")
+    df_exec = _make_df_exec(trade_date)
+    result = _base_result(np.linspace(-1.0, 1.0, N_J))
+    result = replace(result, w_final=np.r_[-np.full(5, 0.2), np.zeros(7), np.full(5, 0.2)])
+    model = MLOrderOverlayModel(
+        lgbm=_DummyLGBM(),
+        cont_cols=["score", "adr_return"],
+        target_std=1.0,
+        use_ticker=False,
+        use_classification=False,
+        per_ticker_interactions=False,
+        metadata=_verified_overlay_metadata(),
+    )
+    adr = pd.DataFrame(
+        {f"adr_{ticker}": [0.01] for ticker in JP_TICKERS},
+        index=pd.to_datetime(["2023-03-24"]),
+    )
+    out = apply_overlay(
+        result, df_exec, model, str(trade_date.date()),
+        adr_features=adr, allow_implicit_io=False,
+    )
+    assert out is result
+
+
+def test_apply_overlay_skips_empty_adr_snapshot():
+    """An empty run-owned ADR artifact must take the safe skip path."""
+    trade_date = pd.Timestamp("2023-03-27")
+    df_exec = _make_df_exec(trade_date)
+    result = _base_result(np.linspace(-1.0, 1.0, N_J))
+    result = replace(result, w_final=np.r_[-np.full(5, 0.2), np.zeros(7), np.full(5, 0.2)])
+    model = MLOrderOverlayModel(
+        lgbm=_DummyLGBM(),
+        cont_cols=["score", "adr_return"],
+        target_std=1.0,
+        use_ticker=False,
+        use_classification=False,
+        per_ticker_interactions=False,
+        metadata=_verified_overlay_metadata(),
+    )
+
+    out = apply_overlay(
+        result,
+        df_exec,
+        model,
+        str(trade_date.date()),
+        adr_features=pd.DataFrame(),
+        allow_implicit_io=False,
+    )
+
+    assert out is result
 
 
 def test_build_ticker_features_logs_adr_missing(caplog):
@@ -246,8 +368,8 @@ def test_build_ticker_features_logs_adr_missing(caplog):
     trade_date = pd.Timestamp("2023-03-27")
     df_exec = _make_df_exec(trade_date)
     v2_result = _base_result(np.linspace(-1.0, 1.0, N_J))
-    v2_result["mu_gap"] = np.full(N_J, 0.0)
-    v2_result["sigma_gap"] = np.full(N_J, 0.01)
+    v2_result.mu_gap[:] = 0.0
+    v2_result.sigma_gap[:] = 0.01
     market_vol = df_exec[[f"jp_oc_{tk}" for tk in JP_TICKERS]].abs().rolling(
         window=20, min_periods=5
     ).mean().shift(1)
@@ -278,8 +400,8 @@ def test_apply_overlay_falls_back_on_numerical_audit_failure():
     scores = np.linspace(-1.0, 1.0, N_J)
     result = _base_result(scores)
     # Make Omega_gap non-symmetric so numerical audit fails.
-    result["Omega_gap"] = np.eye(N_J)
-    result["Omega_gap"][0, 1] = 1.0
+    result.Omega_gap[:] = np.eye(N_J)
+    result.Omega_gap[0, 1] = 1.0
 
     model = MLOrderOverlayModel(
         lgbm=_DummyLGBM(),
@@ -300,6 +422,7 @@ def test_apply_overlay_falls_back_on_numerical_audit_failure():
         use_ticker=False,
         use_classification=False,
         per_ticker_interactions=False,
+        metadata=_verified_overlay_metadata(),
     )
     out = apply_overlay(result, df_exec, model, trade_date)
     assert out is result

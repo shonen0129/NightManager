@@ -32,9 +32,11 @@ import pandas as pd
 import yaml
 from scipy import stats
 
-from leadlag.data.cache import load_df_exec_from_local_cache
+from leadlag.core.pnl import simulate_daily_pnl
+from leadlag.data.market_data_cache import load_df_exec_from_local_cache
 from leadlag.data.fetcher import download_data
-from leadlag.data.preprocessor import compute_jp_target_returns, preprocess_data
+from leadlag.data.intraday_inputs import compute_jp_target_returns
+from leadlag.data.preprocessor import preprocess_data
 from leadlag.data.tickers import JP_TICKERS
 from leadlag.reporting.metrics import calculate_metrics
 from research.backtest_v1 import run_v1_backtest
@@ -151,61 +153,49 @@ def simulate_overnight_holding(
     gap_arr = gap_returns_df.values if gap_returns_df is not None else np.zeros((n_days, n_assets))
     signals_arr = signals_df.values if signals_df is not None else None
 
-    records: dict[str, list[float]] = {
-        "intraday": [], "overnight": [], "slip": [], "financing": [],
-        "borrow": [], "reverse": [], "turnover": [], "gross": [],
-        "long": [], "short": [], "hold_count": [],
-    }
-
-    w_prev = np.zeros(n_assets)
+    alpha_masks = np.empty((n_days, n_assets), dtype=float)
     for i in range(n_days):
-        w_t = weights_arr[i]
-        r_target = target_arr[i]
-
         if callable(alpha):
             sig_row = signals_arr[i] if signals_arr is not None else None
-            alpha_mask = np.asarray(alpha(i, dates[i], w_t, r_target, sig_row), dtype=float)
+            alpha_masks[i] = np.asarray(
+                alpha(i, dates[i], weights_arr[i], target_arr[i], sig_row), dtype=float
+            )
         else:
-            alpha_mask = np.full(n_assets, float(alpha))
+            alpha_masks[i] = float(alpha)
 
-        intraday = float(np.sum(w_t * r_target))
-        gross_exp = float(np.sum(np.abs(w_t)))
-        long_exp = float(np.sum(np.maximum(w_t, 0.0)))
-        short_exp = float(np.sum(np.maximum(-w_t, 0.0)))
-        turnover = float(np.sum(np.abs(w_t - w_prev)) / 2.0)
-
-        overnight = 0.0
-        if np.any(alpha_mask > 0) and i < n_days - 1:
-            r_gap_next = gap_arr[i + 1]
-            overnight = float(np.sum(alpha_mask * w_t * r_gap_next))
-
-        slip_cost = costs.slip * (
-            2.0 * float(np.sum((1.0 - alpha_mask) * np.abs(w_t)))
-            + float(np.sum(alpha_mask * np.abs(w_t - w_prev)) / 2.0)
-        )
-        held_long = float(np.sum(alpha_mask * np.maximum(w_t, 0.0)))
-        held_short = float(np.sum(alpha_mask * np.maximum(-w_t, 0.0)))
-        fin_cost = held_long * costs.financing_daily
-        borrow_cost = held_short * costs.borrow_daily
-        reverse_cost = held_short * costs.reverse_daily
-
-        records["intraday"].append(intraday)
-        records["overnight"].append(overnight)
-        records["slip"].append(slip_cost)
-        records["financing"].append(fin_cost)
-        records["borrow"].append(borrow_cost)
-        records["reverse"].append(reverse_cost)
-        records["turnover"].append(turnover)
-        records["gross"].append(gross_exp)
-        records["long"].append(long_exp)
-        records["short"].append(short_exp)
-        records["hold_count"].append(float(np.sum(alpha_mask > 0)))
-
-        w_prev = w_t
-
-    series = {k: pd.Series(v, index=dates) for k, v in records.items()}
-    daily_costs = series["slip"] + series["financing"] + series["borrow"] + series["reverse"]
-    daily_returns = series["intraday"] + series["overnight"] - daily_costs
+    pnl = simulate_daily_pnl(
+        weights=weights_arr,
+        target_returns=target_arr,
+        gap_returns=gap_arr,
+        sim_dates=dates,
+        slip=costs.slip,
+        financing_daily=costs.financing_daily,
+        borrow_daily=costs.borrow_daily,
+        reverse_daily=costs.reverse_daily,
+        alpha_long=0.0,
+        alpha_short=0.0,
+        alpha_masks=alpha_masks,
+        # Preserve this research helper's established one-session holding
+        # assumption; the production BT uses calendar-day gaps by default.
+        calendar_days=np.ones(n_days),
+    )
+    intraday = pd.Series(np.sum(weights_arr * target_arr, axis=1), index=dates)
+    overnight = pd.Series(pnl["overnight_returns"], index=dates)
+    daily_costs = pd.Series(pnl["costs"], index=dates)
+    series = {
+        "intraday": intraday,
+        "overnight": overnight,
+        "slip": pd.Series(pnl["slip_costs"], index=dates),
+        "financing": pd.Series(pnl["financing_costs"], index=dates),
+        "borrow": pd.Series(pnl["borrow_costs"], index=dates),
+        "reverse": pd.Series(pnl["reverse_costs"], index=dates),
+        "turnover": pd.Series(pnl["turnover"], index=dates),
+        "gross": pd.Series(np.sum(np.abs(weights_arr), axis=1), index=dates),
+        "long": pd.Series(np.sum(np.maximum(weights_arr, 0.0), axis=1), index=dates),
+        "short": pd.Series(np.sum(np.maximum(-weights_arr, 0.0), axis=1), index=dates),
+        "hold_count": pd.Series(np.sum(alpha_masks > 0, axis=1), index=dates),
+    }
+    daily_returns = pd.Series(pnl["net_returns"], index=dates)
     wealth = (1.0 + daily_returns).cumprod()
     drawdown = (wealth / wealth.cummax()) - 1.0
 

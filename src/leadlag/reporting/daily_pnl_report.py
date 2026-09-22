@@ -25,6 +25,7 @@ from pathlib import Path
 from typing import Any, cast
 
 from leadlag.config.paths import results as _results_path
+from leadlag.core.pnl import Fill, InventoryLedger, fill_from_record
 
 logger = logging.getLogger(__name__)
 
@@ -121,47 +122,120 @@ def load_close_artifacts(
 
 
 def compute_realized_pnl(close_results: Sequence[dict[str, Any]]) -> list[RealizedPnl]:
-    """Compute realized P&L for each filled close order.
+    """Compute realized P&L through the shared FIFO inventory ledger.
 
-    ``close_results`` is expected to contain ``original_price`` and
-    ``original_side`` (added by ``close_all_positions`` since 2026-07).
-    Falls back to the close ``side`` if the original side is not present.
+    Close JSON is an outer compatibility format.  Each confirmed close row is
+    translated into an opening fill plus an observed closing fill and then
+    matched by :class:`~leadlag.core.pnl.InventoryLedger`.  The observed fill
+    price is used as-is; no backtest slippage assumption is applied here.
     """
     realized: list[RealizedPnl] = []
     for r in close_results:
         status = r.get("status")
         if status in ("FAILED", "SKIPPED", "SIMULATED"):
             continue
-        fill_price = r.get("fill_price")
-        if fill_price is None:
+        # Older close logs do not contain a trade_date.  Keep a stable
+        # compatibility date for the standalone report helper; production
+        # callers pass the date in the persisted execution row.
+        accounting_date = r.get("trade_date") or r.get("executed_at") or "1970-01-01"
+        closing_fill = fill_from_record(r, source="observed_fill", trade_date=accounting_date)
+        if closing_fill is None:
             continue
 
         original_price = _safe_float(r.get("original_price"))
-        fill_price_f = _safe_float(fill_price)
-        quantity = _safe_int(r.get("fill_quantity", r.get("quantity")))
-        original_side = cast(str, r.get("original_side") or r.get("side"))
-        close_side = cast(str, r.get("side", ""))
-        fill_detail = r.get("fill_detail") or {}
-        fee = _safe_float(fill_detail.get("sBaiBaiTesuryo"))
+        quantity = closing_fill.quantity
+        close_side = closing_fill.side
+        original_side = cast(
+            str,
+            r.get("original_side")
+            or ("SELL" if close_side.upper() == "BUY" else "BUY"),
+        )
+        entry_fee = _safe_float(r.get("entry_fee", r.get("original_fee", 0.0)))
+        ticker = closing_fill.ticker
+        if not original_price:
+            continue
 
-        if original_side == "BUY":
-            pnl = (fill_price_f - original_price) * quantity - fee
-        else:
-            pnl = (original_price - fill_price_f) * quantity - fee
-
-        realized.append(
-            RealizedPnl(
-                ticker=cast(str, r.get("ticker", "")),
-                close_side=close_side,
-                original_side=original_side,
+        # A close row is an order-level record, so its original inventory is
+        # seeded only for this accounting projection.  Repeated broker polls
+        # must be consolidated by the execution layer before they reach the
+        # close report; the order_id remains attached for auditability.
+        ledger = InventoryLedger()
+        ledger.apply_fill(
+            Fill(
+                trade_date=accounting_date,
+                ticker=ticker,
+                side=original_side,
                 quantity=quantity,
-                original_price=original_price,
-                fill_price=fill_price_f,
-                fee=fee,
-                realized_pnl=pnl,
+                price=original_price,
+                fee=entry_fee,
+                source="observed_entry",
+                order_id=r.get("order_id"),
             )
         )
+        matches = ledger.apply_fill(closing_fill)
+        for match in matches:
+            realized.append(
+                RealizedPnl(
+                    ticker=match.ticker,
+                    close_side=match.close_side,
+                    original_side=match.original_side,
+                    quantity=match.quantity,
+                    original_price=match.original_price,
+                    fill_price=match.fill_price,
+                    fee=match.fee,
+                    realized_pnl=match.realized_pnl,
+                )
+            )
     return realized
+
+
+def compute_unrealized_pnl(position_snapshot: dict | None) -> float:
+    """Mark residual positions through the shared inventory ledger.
+
+    Snapshots produced by older runs may lack entry/evaluation prices.  In
+    that case their explicitly reported total is retained as a compatibility
+    fallback, and the caller can still display the source in its artifacts.
+    """
+    if not position_snapshot:
+        return 0.0
+    positions = position_snapshot.get("positions") or []
+    if not positions:
+        return _safe_float(position_snapshot.get("total_unrealized_pnl"))
+    ledger = InventoryLedger()
+    marks: dict[str, float] = {}
+    accounting_date = (
+        position_snapshot.get("trade_date")
+        or position_snapshot.get("timestamp")
+        or "1970-01-01"
+    )
+    try:
+        for position in positions:
+            ticker = str(position.get("ticker", ""))
+            side = str(position.get("side", "")).upper()
+            quantity = _safe_int(position.get("quantity"))
+            entry = _safe_float(position.get("entry_price", position.get("price")))
+            mark = _safe_float(
+                position.get("evaluation_price", position.get("current_price", position.get("last_price")))
+            )
+            if not ticker or side not in {"BUY", "SELL"} or quantity <= 0 or entry <= 0 or mark <= 0:
+                raise ValueError("position snapshot lacks a complete mark contract")
+            ledger.apply_fill(
+                Fill(
+                    trade_date=accounting_date,
+                    ticker=ticker,
+                    side=side,
+                    quantity=quantity,
+                    price=entry,
+                    fee=_safe_float(position.get("entry_fee")),
+                    source="observed_position",
+                )
+            )
+            marks[ticker] = mark
+        return float(sum(item.unrealized_pnl for item in ledger.mark_to_market(
+            marks, trade_date=accounting_date
+        )))
+    except (TypeError, ValueError, KeyError):
+        return _safe_float(position_snapshot.get("total_unrealized_pnl"))
 
 
 def _build_markdown_report(
@@ -177,7 +251,7 @@ def _build_markdown_report(
     pending_count = len([r for r in close_log.get("close_results", []) if r.get("fill_price") is None and r.get("status") not in ("FAILED", "SKIPPED")])
 
     positions = (position_snapshot or {}).get("positions", [])
-    total_unrealized = _safe_float((position_snapshot or {}).get("total_unrealized_pnl"))
+    total_unrealized = compute_unrealized_pnl(position_snapshot)
     total_daily_pnl = total_realized + total_unrealized
 
     lines: list[str] = []
@@ -279,7 +353,7 @@ def generate_close_pnl_report(
 
     total_realized = sum(r.realized_pnl for r in realized)
     total_fees = sum(r.fee for r in realized)
-    total_unrealized = _safe_float((position_snapshot or {}).get("total_unrealized_pnl"))
+    total_unrealized = compute_unrealized_pnl(position_snapshot)
 
     report_md = _build_markdown_report(
         date_str,
@@ -552,4 +626,3 @@ def send_post_close_pnl_report(
         send_timeout=send_timeout,
         snapshot_label="pnl",
     )
-

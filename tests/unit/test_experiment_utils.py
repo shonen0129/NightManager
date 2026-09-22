@@ -34,7 +34,9 @@ def test_record_backtest_experiment_appends_and_counts_trials(tmp_path):
     assert rec1.decision == Decision.PENDING
     assert rec1.metrics["trials"] == 1
     assert "net_sharpe" in rec1.metrics
-    assert rec1.metrics["n_observations"] == 40
+    # Primary registry metrics include flat fallback dates so the observation
+    # count and Sharpe denominator match the backtest report.
+    assert rec1.metrics["n_observations"] == 50
     assert rec1.parameters == app_config
 
     rec2 = record_backtest_experiment(

@@ -433,18 +433,49 @@ class TachibanaBrokerClient(BrokerClient):
             return OrderStatus.SUBMITTED
 
         # Execution quantity (total filled) and ordered quantity.
+        # CLMOrderListDetail uses the ``sOrder*`` names.  The similarly named
+        # fields in the order request (``sOrderSuryou``) must not be used here.
         cum_qty = int(detail.get("sYakuzyouSuryou", 0) or 0)
-        order_qty = int(detail.get("sOrderSuryou", 0) or 0)
+        order_qty = int(detail.get("sOrderOrderSuryou", 0) or 0)
+        status_code = str(detail.get("sOrderStatusCode", "")).strip()
+
+        # Prefer the broker's terminal status code.  Quantity is also checked
+        # because a broker can report a filled quantity before the status list
+        # catches up.  Expiry is terminal even when only part of the order was
+        # executed; it must not be mistaken for a still-live partial order.
+        if status_code == "10":
+            return OrderStatus.FILLED
+        if status_code == "7":
+            # Cancellation is terminal even when a portion was executed.
+            return OrderStatus.CANCELLED
+        if status_code in {"11", "12", "19"}:
+            # 一部/全部失効 and 繰越失効 are terminal broker outcomes.  The
+            # fill quantity remains available through get_order_detail for
+            # reconciliation; the neutral state only controls polling.
+            return OrderStatus.CANCELLED
+        if status_code in {"5", "8"}:
+            # 訂正失敗/取消失敗 describe the request, not necessarily the
+            # original order.  Keep polling the original order until its own
+            # terminal status is confirmed.
+            if order_qty > 0 and cum_qty >= order_qty:
+                return OrderStatus.FILLED
+            if cum_qty > 0:
+                return OrderStatus.PARTIALLY_FILLED
+            return OrderStatus.SUBMITTED
+        if status_code in {"2", "14", "17", "20", "21"}:
+            # These are explicit rejection/invalid/abnormal terminal outcomes.
+            # Do not let a contradictory quantity field turn them into FILLED.
+            return OrderStatus.FAILED
+        if status_code == "9" or (cum_qty > 0 and order_qty > cum_qty):
+            return OrderStatus.PARTIALLY_FILLED
         if order_qty > 0 and cum_qty >= order_qty:
+            # Quantity is a fallback only when the broker has not supplied a
+            # contradictory terminal status code.
             return OrderStatus.FILLED
 
-        # Order status code; 8=fully cancelled, 9=error/failure.
-        status = str(detail.get("sStatus", ""))
-        if status == "8":
-            return OrderStatus.CANCELLED
-        if status == "9":
-            return OrderStatus.FAILED
-
+        # 0/1/3/4/6/13/15/16/50 are in-flight or non-terminal states.  An
+        # unknown code is deliberately kept pending so it cannot be counted as
+        # a successful order or trigger an unsafe retry.
         return OrderStatus.SUBMITTED
 
     def submit_orders_batch(
@@ -480,15 +511,25 @@ class TachibanaBrokerClient(BrokerClient):
         # --- Market-Neutrality Rollback Check ---
         # Skip rollback for close orders (返済) — they reduce positions, not open new ones.
         # Partial close failures are acceptable; the decision run will report them.
+        accepted_statuses = {
+            OrderStatus.SUBMITTED,
+            OrderStatus.PARTIALLY_FILLED,
+            OrderStatus.FILLED,
+            OrderStatus.SIMULATED,
+        }
         if is_close:
-            success = sum(1 for r in results if r.status == OrderStatus.SUBMITTED)
+            success = sum(1 for r in results if r.status in accepted_statuses)
             logger.info("Batch close submission complete: %d/%d orders successful.", success, len(orders))
             return results
 
         buy_total = sum(1 for o in orders if o.side == OrderSide.BUY)
         sell_total = sum(1 for o in orders if o.side == OrderSide.SELL)
-        buy_success = sum(1 for r in results if r.side == OrderSide.BUY and r.status == OrderStatus.SUBMITTED)
-        sell_success = sum(1 for r in results if r.side == OrderSide.SELL and r.status == OrderStatus.SUBMITTED)
+        buy_success = sum(
+            1 for r in results if r.side == OrderSide.BUY and r.status in accepted_statuses
+        )
+        sell_success = sum(
+            1 for r in results if r.side == OrderSide.SELL and r.status in accepted_statuses
+        )
         buy_fail = buy_total - buy_success
         sell_fail = sell_total - sell_success
 

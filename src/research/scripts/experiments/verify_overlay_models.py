@@ -26,13 +26,32 @@ WF_BASE = ROOT / "models" / "ml_order_overlay" / "phase2_13_reg_wf"
 
 
 def verify_dir(model_dir: Path) -> bool:
-    model_path = model_dir / "model.pkl"
-    meta_path = model_dir / "metadata.json"
-    if not model_path.exists():
-        print(f"[skip] {model_dir}: model.pkl not found")
+    current_path = model_dir / "CURRENT"
+    if current_path.exists():
+        try:
+            active_version = current_path.read_text(encoding="utf-8").strip()
+        except OSError as exc:
+            print(f"[fail] {model_dir}: CURRENT unreadable: {exc}")
+            return False
+        active_dir = model_dir / "versions" / active_version
+        meta_path = active_dir / "metadata.json"
+    else:
+        if (model_dir / "model.pkl").exists() or (model_dir / "metadata.json").exists():
+            print(
+                f"[fail] {model_dir}: legacy root artifact is rejected; "
+                "retrain and publish a versioned replacement"
+            )
+            return False
+        print(f"[skip] {model_dir}: active model.pkl not found")
         return True
-
-    model = load_overlay_model(model_dir)
+    try:
+        # CURRENT makes this a declared artifact.  Missing files, an invalid
+        # pointer, or a digest/provenance failure must be a verification
+        # failure; they are not an absent optional model.
+        model = load_overlay_model(model_dir)
+    except Exception as exc:  # noqa: BLE001
+        print(f"[fail] {model_dir}: active artifact is not loadable: {exc}")
+        return False
     p_trade_scale = float(getattr(model, "p_trade_scale", 1.0))
 
     if not meta_path.exists():
@@ -60,7 +79,7 @@ def verify_dir(model_dir: Path) -> bool:
         ok = False
 
     if ok:
-        print(f"[ok] {model_dir}: p_trade_scale={p_trade_scale} (metadata matches model.pkl)")
+        print(f"[ok] {model_dir}: p_trade_scale={p_trade_scale} (active metadata matches model.pkl)")
     return ok
 
 

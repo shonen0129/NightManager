@@ -10,7 +10,6 @@ import numpy as np
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
-from leadlag.data.cache import load_df_exec_from_local_cache
 from research.diagnostics.sprint0 import run_sprint0_calculations
 from research.diagnostics.sprint1_experiments import (
     generate_targets_panel,
@@ -20,9 +19,9 @@ from research.diagnostics.sprint1_experiments import (
 )
 
 
-def test_targets_panel_generation():
+def test_targets_panel_generation(sprint_market_inputs):
     """Verify targets panel generation and separation on a subset of dates."""
-    df_exec = load_df_exec_from_local_cache()
+    df_exec = sprint_market_inputs
     # Test on a small end period to be fast
     start_date = "2026-05-15"
 
@@ -40,6 +39,7 @@ def test_targets_panel_generation():
     # Check that is_true_0910 contains boolean values
     assert df_targets["is_true_0910"].dtype == bool
     assert set(df_targets["entry_price_type"].unique()).issubset({"true_0910", "open"})
+    assert set(df_targets["entry_price_type"].unique()) == {"true_0910", "open"}
 
 
 def test_slsqp_solver():
@@ -74,9 +74,9 @@ def test_slsqp_solver():
     assert np.sum(np.abs(w_opt)) <= target_gross + 1e-6
 
 
-def test_backtest_simulation():
+def test_backtest_simulation(sprint_market_inputs):
     """Verify backtest and capacity constraints simulations."""
-    df_exec = load_df_exec_from_local_cache()
+    df_exec = sprint_market_inputs
     start_date = "2026-05-15"
 
     base_results = run_sprint0_calculations(start_date=start_date)
@@ -105,9 +105,9 @@ def test_backtest_simulation():
     assert "turnover" in df_backtest.columns
 
 
-def test_calibration_rolling():
+def test_calibration_rolling(sprint_market_inputs):
     """Verify RuleD rolling calibration calibration."""
-    df_exec = load_df_exec_from_local_cache()
+    df_exec = sprint_market_inputs
     # Need sufficient history to run rolling 252d (at least 300 days)
     start_date = "2025-01-01"
 
@@ -117,10 +117,10 @@ def test_calibration_rolling():
 
     df_calib = run_ruled_rolling_calibration(df_exec, w_ruled_df, valid_dates_beta)
 
-    if not df_calib.empty:
-        assert "full_sample_bin" in df_calib.columns
-        assert "rolling_252_bin" in df_calib.columns
-        assert "expanding_bin" in df_calib.columns
-        assert "pnl_multiplier_rolling" in df_calib.columns
-        # Values should be Low, Medium, or High
-        assert set(df_calib["rolling_252_bin"].unique()).issubset({"Low", "Medium", "High"})
+    assert not df_calib.empty
+    assert "full_sample_bin" in df_calib.columns
+    assert "rolling_252_bin" in df_calib.columns
+    assert "expanding_bin" in df_calib.columns
+    assert "pnl_multiplier_rolling" in df_calib.columns
+    # Values should be Low, Medium, or High.
+    assert set(df_calib["rolling_252_bin"].unique()).issubset({"Low", "Medium", "High"})

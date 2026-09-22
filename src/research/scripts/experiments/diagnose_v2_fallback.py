@@ -18,7 +18,8 @@ while not (ROOT / "pyproject.toml").exists():
 sys.path.insert(0, str(ROOT / "src"))
 
 from leadlag.execution.config import load_config_from_yaml
-from leadlag.models.production_v2 import generate_v2_production_portfolio
+from leadlag.config.schemas import parse_run_config
+from leadlag.models.production_v2 import ProductionV2Model
 from research.experiment_registry import Decision
 from research.experiment_utils import record_simple_experiment
 
@@ -34,7 +35,7 @@ def main() -> int:
     ]
 
     for date_str in dates:
-        res = generate_v2_production_portfolio(date_str, gap_dir, cfg=app_config.v2)
+        res = ProductionV2Model(parse_run_config(app_config.v2)).decide(trade_date=date_str, gap_input_dir=gap_dir, overlay_enabled=False, use_file_cache=True)
         numerical = res["numerical"]
         print(
             f"{date_str}: fallback={res['fallback']} "

@@ -13,6 +13,8 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+from leadlag.utils.timestamps import normalize_jst_date
+
 
 def run_leakage_audit(
     sig_date: str,
@@ -42,8 +44,8 @@ def run_leakage_audit(
           realized_returns_not_used_in_signal: bool
           pit_binning_strictly_historical: bool
     """
-    sig_dt = pd.to_datetime(sig_date).tz_localize(None).normalize()
-    trade_dt = pd.to_datetime(trade_date).tz_localize(None).normalize()
+    sig_dt = normalize_jst_date(sig_date)
+    trade_dt = normalize_jst_date(trade_date)
     dates_ok = sig_dt < trade_dt
 
     # Gap data is only available after JP market open (9:00 JST).
@@ -56,7 +58,9 @@ def run_leakage_audit(
 
     # PIT IR history must not include the current trade date.
     if pit_history_trade_dates is not None and len(pit_history_trade_dates) > 0:
-        hist_dts = pd.to_datetime(pit_history_trade_dates).normalize()
+        hist_dts = pd.DatetimeIndex(
+            [normalize_jst_date(value) for value in pit_history_trade_dates]
+        )
         pit_ok = bool((hist_dts < trade_dt).all())
     else:
         pit_ok = True

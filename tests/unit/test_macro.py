@@ -5,7 +5,7 @@ Unit tests for macro confidence (Factor-Specific Kappa) functionality.
 Covers:
 - compute_macro_surprise: lookahead safety, shape, z-score properties
 - compute_factor_kappa_scale: scale >= 1.0, shape, zero surprise, sensitivity
-- download_macro_prices: timeout behavior, cache behavior
+- load_macro_prices: timeout behavior, cache behavior
 - Integration: signal direction preservation under scaling
 """
 
@@ -26,11 +26,10 @@ from leadlag.core.macro import (
     MACRO_NAMES,
     MACRO_SENS_MATRIX,
     N_MACRO,
-    clear_macro_cache,
     compute_factor_kappa_scale,
     compute_macro_surprise,
-    download_macro_prices,
 )
+from leadlag.data.macro import clear_macro_cache, load_macro_prices
 
 # ---------------------------------------------------------------------------
 # compute_macro_surprise tests
@@ -167,7 +166,7 @@ def test_kappa_scale_custom_sens_matrix():
 
 
 # ---------------------------------------------------------------------------
-# download_macro_prices tests (mocked yfinance)
+# load_macro_prices tests (mocked yfinance)
 # ---------------------------------------------------------------------------
 
 
@@ -186,8 +185,8 @@ def _make_mock_yf_download(close_data: pd.DataFrame):
     return _mock_download
 
 
-def test_download_macro_prices_cache():
-    """download_macro_prices should cache results and avoid re-downloading."""
+def test_load_macro_prices_cache():
+    """load_macro_prices should cache results and avoid re-downloading."""
     clear_macro_cache()
     dates = pd.date_range("2020-01-01", periods=50)
     mock_close = pd.DataFrame(
@@ -204,16 +203,16 @@ def test_download_macro_prices_cache():
         return _make_mock_yf_download(mock_close)(*args, **kwargs)
 
     with patch("yfinance.download", side_effect=counting_download):
-        result1 = download_macro_prices(start="2020-01-01", end="2020-02-20")
-        result2 = download_macro_prices(start="2020-01-01", end="2020-02-20")
+        result1 = load_macro_prices(start="2020-01-01", end="2020-02-20")
+        result2 = load_macro_prices(start="2020-01-01", end="2020-02-20")
 
     assert call_count == 1  # Only downloaded once
     pd.testing.assert_frame_equal(result1, result2)
     clear_macro_cache()
 
 
-def test_download_macro_prices_timeout():
-    """download_macro_prices should raise TimeoutError when yfinance hangs."""
+def test_load_macro_prices_timeout():
+    """load_macro_prices should raise TimeoutError when yfinance hangs."""
     clear_macro_cache()
 
     def hanging_download(*args, **kwargs):
@@ -222,12 +221,12 @@ def test_download_macro_prices_timeout():
 
     with patch("yfinance.download", side_effect=hanging_download):
         with pytest.raises(TimeoutError):
-            download_macro_prices(start="2020-01-01", end="2020-02-20", timeout=0.5)
+            load_macro_prices(start="2020-01-01", end="2020-02-20", timeout=0.5)
 
     clear_macro_cache()
 
 
-def test_download_macro_prices_column_names():
+def test_load_macro_prices_column_names():
     """Returned DataFrame should have MACRO_NAMES as columns."""
     clear_macro_cache()
     dates = pd.date_range("2020-01-01", periods=30)
@@ -238,13 +237,13 @@ def test_download_macro_prices_column_names():
     )
 
     with patch("yfinance.download", side_effect=_make_mock_yf_download(mock_close)):
-        result = download_macro_prices(start="2020-01-01", end="2020-01-30")
+        result = load_macro_prices(start="2020-01-01", end="2020-01-30")
 
     assert list(result.columns) == MACRO_NAMES
     clear_macro_cache()
 
 
-def test_download_macro_prices_yfinance_column_reordering():
+def test_load_macro_prices_yfinance_column_reordering():
     """Columns returned by yfinance in a different order must be mapped by ticker, not position.
 
     yfinance 1.5.2 returns the Close panel with columns sorted alphabetically
@@ -282,7 +281,7 @@ def test_download_macro_prices_yfinance_column_reordering():
 
     for mock_raw in [mock_multi, mock_multi_request]:
         with patch("yfinance.download", side_effect=_make_mock_yf_download(mock_raw)):
-            result = download_macro_prices(start="2020-01-01", end="2020-01-30")
+            result = load_macro_prices(start="2020-01-01", end="2020-01-30")
 
         assert list(result.columns) == MACRO_NAMES
         np.testing.assert_allclose(result["USDJPY"].values, mock_data["JPY=X"])

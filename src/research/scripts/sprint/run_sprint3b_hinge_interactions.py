@@ -65,7 +65,7 @@ sys.path.insert(0, str(ROOT / "src"))
 # ---------------------------------------------------------------------------
 # Project module imports
 # ---------------------------------------------------------------------------
-from leadlag.data.cache import load_df_exec_from_local_cache
+from leadlag.data.market_data_cache import load_df_exec_from_local_cache
 from leadlag.data.tickers import JP_TICKERS
 from research.diagnostics.sprint0 import run_sprint0_calculations
 from research.diagnostics.sprint1_experiments import generate_targets_panel

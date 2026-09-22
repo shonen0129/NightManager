@@ -46,6 +46,13 @@ nonlinear = [
     "shap>=0.46.0",
     "scikit-learn>=1.4.0",
 ]
+# Research code is kept out of the production wheel.  Install this extra in a
+# dedicated research environment before using the training tools.
+research = [
+    "lightgbm>=4.0.0",
+    "shap>=0.46.0",
+    "scikit-learn>=1.4.0",
+]
 calendar = [
     "jpholiday>=0.1.10",
 ]
@@ -68,6 +75,7 @@ leadlag = "leadlag.cli:main"
 # ---------------------------------------------------------------------------
 [tool.setuptools.packages.find]
 where = ["src"]
+include = ["leadlag*"]
 
 [tool.setuptools.package-dir]
 "" = "src"
@@ -78,7 +86,7 @@ where = ["src"]
 [tool.ruff]
 src = ["src"]
 line-length = 100
-target-version = "py311"
+target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP"]
@@ -162,6 +170,47 @@ name = "models do not depend on execution or CLI"
 type = "forbidden"
 source_modules = ["leadlag.models"]
 forbidden_modules = [
+    "leadlag.execution",
+    "leadlag.cli",
+    "leadlag.reporting",
+    "leadlag.broker",
+]
+
+[[tool.importlinter.contracts]]
+name = "production does not depend on research"
+type = "forbidden"
+source_modules = ["leadlag"]
+forbidden_modules = ["research"]
+
+[[tool.importlinter.contracts]]
+name = "pure calculation modules do not depend on I/O adapters"
+type = "forbidden"
+source_modules = [
+    "leadlag.core.gap_adjustment",
+    "leadlag.core.macro",
+    "leadlag.core.target_returns",
+    "leadlag.pipeline.gap_distribution",
+]
+forbidden_modules = [
+    "leadlag.data.fetcher",
+    "leadlag.data.macro",
+    "leadlag.data.adr_features",
+    "leadlag.data.intraday_inputs",
+    "leadlag.data.cache_store",
+    "leadlag.data.market_data_cache",
+    "leadlag.data.decision_cache",
+    "leadlag.data.gap_store",
+    "leadlag.data.pit_lake",
+    "leadlag.execution",
+    "leadlag.broker",
+]
+
+[[tool.importlinter.contracts]]
+name = "domain does not depend on application configuration"
+type = "forbidden"
+source_modules = ["leadlag.domain"]
+forbidden_modules = [
+    "leadlag.config",
     "leadlag.execution",
     "leadlag.cli",
     "leadlag.reporting",

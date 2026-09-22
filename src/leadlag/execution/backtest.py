@@ -13,12 +13,12 @@ from typing import Any
 
 import pandas as pd
 
-from leadlag.config.paths import gap_store_path
+from leadlag.config.paths import gap_store_path, project_root
 from leadlag.config.schemas import AppConfig
 from leadlag.core.risk import compute_var_es
 from leadlag.data.backtest_store import BacktestResultStore
-from leadlag.data.cache import load_df_exec_from_local_cache
 from leadlag.data.fetcher import download_data
+from leadlag.data.market_data_cache import load_df_exec_from_local_cache
 from leadlag.data.preprocessor import preprocess_data
 from leadlag.execution.backtester import BacktestEngine
 from leadlag.execution.config import load_config_from_yaml
@@ -26,18 +26,6 @@ from leadlag.execution.output_ops import build_output_dir, save_summary_files
 from leadlag.reporting.metrics import calculate_metrics, generate_report
 
 logger = logging.getLogger(__name__)
-
-
-def _resolve_config_path(config_path: str | Path | None) -> tuple[Path, Path]:
-    """Return project root and resolved config path."""
-    project_root = Path(__file__).resolve().parents[3]
-    if config_path is None:
-        resolved = project_root / "configs" / "production" / "production.yaml"
-    else:
-        resolved = Path(config_path)
-        if not resolved.is_absolute():
-            resolved = project_root / resolved
-    return project_root, resolved
 
 
 def _resolve_gap_input_dir(
@@ -163,7 +151,13 @@ def run_production(
     if output_level not in ("minimal", "detailed"):
         raise ValueError("output_level must be 'minimal' or 'detailed'")
 
-    project_root, resolved = _resolve_config_path(config_path)
+    project_root_path = project_root()
+    if config_path is None:
+        resolved = project_root_path / "configs" / "production" / "production.yaml"
+    else:
+        resolved = Path(config_path)
+        if not resolved.is_absolute():
+            resolved = project_root_path / resolved
     app_config = load_config_from_yaml(resolved, strict=True)
 
     output_dir = build_output_dir(output_root, run_tag, run_name="production_backtest")
@@ -190,7 +184,7 @@ def run_production(
         resolved_slippage,
     )
 
-    gap_dir = _resolve_gap_input_dir(gap_input_dir, app_config, project_root)
+    gap_dir = _resolve_gap_input_dir(gap_input_dir, app_config, project_root_path)
 
     results = BacktestEngine.run_v2_backtest(
         cfg=app_config,
@@ -204,11 +198,9 @@ def run_production(
         overlay_model_dir=overlay_model_dir,
     )
 
-    valid_returns = results["daily_returns"]
-    if "daily_fallback" in results:
-        valid_returns = valid_returns[~results["daily_fallback"]]
-
-    metrics = calculate_metrics(valid_returns)
+    # Primary metrics cover every evaluation date, including flat fallback
+    # days. Excluding them overstates Sharpe and understates drawdown.
+    metrics = calculate_metrics(results["daily_returns"])
     risk_cfg = app_config.risk
     var_es_result = compute_var_es(
         results["daily_returns"],
