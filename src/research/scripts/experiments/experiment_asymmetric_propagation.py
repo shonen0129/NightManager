@@ -110,7 +110,7 @@ def run_variant(
     avg_turnover = float(results["daily_turnover"].mean())
 
     # Compute daily Spearman IC of combined signals against targets
-    from leadlag.data.preprocessor import compute_jp_target_returns
+    from leadlag.data.intraday_inputs import compute_jp_target_returns
     y_jp_target_full = compute_jp_target_returns(df_exec, JP_TICKERS)
     y_jp_target_df = pd.DataFrame(y_jp_target_full, index=df_exec.index, columns=JP_TICKERS)
     y_jp_target = y_jp_target_df.loc[results["signals"].index].values

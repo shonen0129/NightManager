@@ -1,58 +1,51 @@
 #!/usr/bin/env python3
-"""Regenerate metadata.json for existing overlay models to include p_trade_scale.
+"""Report legacy ML overlay artifacts that must be retrained.
 
-Reads p_trade_scale from each model.pkl and rewrites metadata.json so that the
-on-disk metadata matches the pickled MLOrderOverlayModel attributes.
+Overlay artifacts are immutable model/provenance pairs selected by a CURRENT
+pointer. Updating root-level metadata would recreate the unpaired legacy
+layout, so this migration helper deliberately performs no writes.
 """
 from __future__ import annotations
 
-import json
-import pickle
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve()
 while not (ROOT / "pyproject.toml").exists():
     ROOT = ROOT.parent
-sys.path.insert(0, str(ROOT / "src"))
-
-from leadlag.data.tickers import JP_TICKERS
-from leadlag.models.ml_order_overlay import MLOrderOverlayModel
-
 BASE_DIR = ROOT / "models" / "ml_order_overlay"
 
 
-def fix_one(model_dir: Path) -> None:
-    model_path = model_dir / "model.pkl"
-    meta_path = model_dir / "metadata.json"
-    if not model_path.exists():
-        print(f"[skip] {model_dir.name}: model.pkl not found")
+def inspect_one(model_dir: Path) -> bool:
+    if (model_dir / "CURRENT").exists():
+        print(f"[ok] {model_dir}: versioned artifact")
+        return True
+    if (model_dir / "model.pkl").exists() or (model_dir / "metadata.json").exists():
+        print(
+            f"[retrain] {model_dir}: legacy root artifact is rejected; "
+            "run the training command to publish a versioned replacement"
+        )
+        return False
+    return True
+
+
+def _is_artifact_root(path: Path) -> bool:
+    return any(
+        (path / name).exists() for name in ("CURRENT", "model.pkl", "metadata.json")
+    )
+
+
+def _iter_artifact_roots(base_dir: Path):
+    """Yield roots while treating ``versions`` and staging as internal data."""
+    if not base_dir.is_dir():
         return
-
-    with open(model_path, "rb") as f:
-        model = pickle.load(f)
-    if not isinstance(model, MLOrderOverlayModel):
-        print(f"[skip] {model_dir.name}: not an MLOrderOverlayModel ({type(model)})")
-        return
-
-    p_trade_scale = float(getattr(model, "p_trade_scale", 1.0))
-
-    if meta_path.exists():
-        with open(meta_path) as f:
-            metadata = json.load(f)
-    else:
-        metadata = {}
-
-    metadata["cont_cols"] = model.cont_cols
-    metadata["target_std"] = float(model.target_std)
-    metadata["use_ticker"] = model.use_ticker
-    metadata["use_classification"] = model.use_classification
-    metadata["per_ticker_interactions"] = model.per_ticker_interactions
-    metadata["n_tickers"] = len(JP_TICKERS)
-    metadata["p_trade_scale"] = p_trade_scale
-
-    meta_path.write_text(json.dumps(metadata, indent=2))
-    print(f"[ok] {model_dir.name}: p_trade_scale={p_trade_scale} -> {meta_path}")
+    for path in sorted(base_dir.iterdir()):
+        if not path.is_dir() or path.name == "versions" or path.name.startswith(".staging-"):
+            continue
+        if _is_artifact_root(path):
+            yield path
+            continue
+        yield from _iter_artifact_roots(path)
 
 
 def main() -> int:
@@ -60,18 +53,10 @@ def main() -> int:
         print(f"[error] {BASE_DIR} does not exist")
         return 1
 
-    for sub in sorted(BASE_DIR.iterdir()):
-        if not sub.is_dir():
-            continue
-        # If the directory itself has a model.pkl, fix it directly.
-        if (sub / "model.pkl").exists():
-            fix_one(sub)
-        # Otherwise, look for nested fold_* subdirectories (walk-forward layout).
-        else:
-            for fold in sorted(sub.iterdir()):
-                if fold.is_dir() and (fold / "model.pkl").exists():
-                    fix_one(fold)
-    return 0
+    all_versioned = True
+    for subdir in _iter_artifact_roots(BASE_DIR):
+        all_versioned &= inspect_one(subdir)
+    return 0 if all_versioned else 1
 
 
 if __name__ == "__main__":

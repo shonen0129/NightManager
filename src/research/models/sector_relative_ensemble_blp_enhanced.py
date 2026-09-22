@@ -258,13 +258,14 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
         If download fails or the resulting data is too short, returns None.
         """
         try:
-            from leadlag.core.macro import MACRO_NAMES, download_macro_prices
+            from leadlag.core.macro import MACRO_NAMES
+            from leadlag.data import macro as macro_data
 
             sim_dates = df_exec.index
             start = sim_dates[0].strftime("%Y-%m-%d")
             end = sim_dates[-1].strftime("%Y-%m-%d")
 
-            close_prices = download_macro_prices(start=start, end=end)
+            close_prices = macro_data.load_macro_prices(start=start, end=end)
             if close_prices is None or len(close_prices) < 30:
                 logger.warning("Macro data too short (%d rows); skipping.", len(close_prices) if close_prices is not None else 0)
                 return None

@@ -15,9 +15,9 @@ import numpy as np
 import pandas as pd
 import scipy.stats as stats
 
-from leadlag.data.cache import load_df_exec_from_local_cache, load_intraday_cache
+from leadlag.data.market_data_cache import load_df_exec_from_local_cache, load_intraday_cache
 from leadlag.data.fetcher import _yf_download_with_timeout
-from leadlag.data.preprocessor import compute_jp_target_returns
+from leadlag.data.intraday_inputs import compute_jp_target_returns
 from leadlag.data.tickers import JP_TICKERS
 from research.models.sector_relative_ensemble_blp_enhanced import (
     SectorRelativeEnsembleBLPEnhancedModel,
@@ -241,7 +241,8 @@ def run_sprint0_calculations(
     from pathlib import Path
     prod_config_path = Path(__file__).resolve().parents[3] / "configs" / "production" / "production.yaml"
     import yaml
-    from leadlag.models.production_v2 import parse_run_config
+
+    from leadlag.config.schemas import parse_run_config
     with open(prod_config_path) as f:
         prod_config = parse_run_config(yaml.safe_load(f)).model_dump()
 

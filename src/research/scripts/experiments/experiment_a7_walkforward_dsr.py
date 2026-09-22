@@ -1,8 +1,12 @@
 #!/usr/bin/env python
-"""A7: ウォークフォワード検証プロトコル + Deflated Sharpe Ratio.
+"""Legacy V1 walk-forward diagnostic (not production V2 evidence).
 
 設計仕様（docs/design/A_theory_design_specs.md A7 + C_validation_frameworks.md C1参照）:
-  1. 2018-2026の年次ロール（9区間）でOOS backtestを実行
+  This script intentionally remains available for historical comparison, but
+  it uses the archived V1 model.  It must never be presented as a production
+  V2 OOS result; use the V2 backtest runner for promotion decisions.
+
+  1. 2018-2026の年次ロール（9区間）でV1 diagnosticを実行
   2. purge = corr_window(60) + 1日、embargo = 5日
   3. 各区間のnet Sharpeを報告
   4. Deflated Sharpe Ratio（Bailey & López de Prado 2014）を計算
@@ -17,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 import copy
+import json
 import logging
 import sys
 import time
@@ -31,7 +36,8 @@ while not (ROOT / "pyproject.toml").exists():
     ROOT = ROOT.parent
 sys.path.insert(0, str(ROOT / "src"))
 
-from leadlag.data.cache import load_df_exec_from_local_cache
+from leadlag.config.loader import load_yaml_with_base
+from leadlag.data.market_data_cache import load_df_exec_from_local_cache
 from research.backtest_v1 import run_v1_backtest
 from research.models.sector_relative_ensemble_blp_enhanced import (
     SectorRelativeEnsembleBLPEnhancedModel,
@@ -140,14 +146,23 @@ def main():
                         help="Effective number of trials for DSR (see C1 spec)")
     parser.add_argument("--trials-sharpe-std", type=float, default=0.5,
                         help="Cross-trial Sharpe std for DSR")
+    parser.add_argument(
+        "--allow-legacy-v1",
+        action="store_true",
+        help="Explicitly run this archived V1 diagnostic; it is not production evidence.",
+    )
     args = parser.parse_args()
+
+    if not args.allow_legacy_v1:
+        raise SystemExit(
+            "A7 is an archived V1 diagnostic and cannot be used as production V2 evidence. "
+            "Pass --allow-legacy-v1 only for historical comparison."
+        )
 
     out_dir = ROOT / args.output_dir
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    import yaml
-    with open(ROOT / "configs" / "production" / "production.yaml") as f:
-        cfg_base = yaml.safe_load(f)
+    cfg_base = load_yaml_with_base(ROOT / "configs" / "production" / "production.yaml")
 
     logger.info("Loading df_exec...")
     df_exec = load_df_exec_from_local_cache()
@@ -195,6 +210,18 @@ def main():
 
     period_df = pd.DataFrame(period_results)
     period_df.to_csv(out_dir / "walkforward_period_metrics.csv", index=False)
+    (out_dir / "validation_manifest.json").write_text(
+        json.dumps(
+            {
+                "strategy": "legacy_v1",
+                "production_evidence": False,
+                "purge_days": WF_CONFIG["purge_days"],
+                "embargo_days": WF_CONFIG["embargo_days"],
+                "note": "Use the canonical V2 walk-forward runner for production promotion.",
+            },
+            indent=2,
+        )
+    )
 
     # 2. Compute pooled statistics
     pooled_dr = pd.concat(all_daily_returns)

@@ -4,14 +4,14 @@ Uses the same per-ticker feature construction as Phase 1, but replaces the
 Ridge regression with a ``lightgbm.LGBMRegressor``.  The predicted
 contribution is still converted to ``p_trade`` via a sigmoid.
 
-The overlay is again applied by monkey-patching ``generate_v2_production_portfolio``
-and running ``BacktestEngine.run_v2_backtest`` for both baseline and overlay.
+The overlay is passed explicitly as a decision transform to ``BacktestEngine.run_v2_backtest`` for both baseline and overlay.
 """
 
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from collections.abc import Callable
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 import lightgbm as lgb
@@ -19,9 +19,10 @@ import numpy as np
 import pandas as pd
 from scipy.special import expit
 
-from leadlag.config.schemas import AppConfig, ProductionV2RunConfig
-from leadlag.data.preprocessor import compute_jp_target_returns
+from leadlag.config.schemas import AppConfig
+from leadlag.data.intraday_inputs import compute_jp_target_returns
 from leadlag.data.tickers import JP_TICKERS
+from leadlag.domain.portfolio import PortfolioDecision
 from leadlag.execution.backtester import BacktestEngine
 from research.experiments.ml_order_decision.phase1 import (
     _build_ticker_features,
@@ -154,13 +155,12 @@ def make_overlay_generator_lgbm(
     df_exec: pd.DataFrame,
     market_vol: pd.DataFrame,
     model: LightGBMModel,
-    original_generate: callable,
     p_trade_ema_span: float | None = None,
     use_ticker: bool = True,
     per_ticker_interactions: bool = False,
     vix_features: pd.DataFrame | None = None,
-) -> callable:
-    """Return a wrapped ``generate_v2_production_portfolio`` for LightGBM overlay.
+) -> Callable[[str, PortfolioDecision], PortfolioDecision]:
+    """Return a decision transform for the LightGBM overlay.
 
     If ``p_trade_ema_span`` is set, a per-ticker exponential moving average of
     ``p_trade`` is applied to smooth day-to-day fluctuations.  This requires the
@@ -172,10 +172,10 @@ def make_overlay_generator_lgbm(
     ema_dates: dict[str, pd.Timestamp] = {}
     ema_alpha = 2.0 / (p_trade_ema_span + 1.0) if p_trade_ema_span and p_trade_ema_span > 0 else 1.0
 
-    def _wrapped(trade_date: str, gap_input_dir: Path, cfg: ProductionV2RunConfig | dict) -> dict:
-        result = original_generate(trade_date, gap_input_dir, cfg)
-
-        if result["fallback"]["gap_data_missing"]:
+    def _wrapped(
+        trade_date: str, result: PortfolioDecision
+    ) -> PortfolioDecision:
+        if result.fallback.get("gap_data_missing") or result.fallback.get("audit_failure"):
             return result
 
         date = pd.Timestamp(trade_date)
@@ -198,24 +198,21 @@ def make_overlay_generator_lgbm(
                 ema_dates[tk] = date
             p_trade = np.array([ema_state[tk] for tk in JP_TICKERS], dtype=float)
 
-        score_adjusted = result["scores"] * p_trade
+        score_adjusted = result.scores * p_trade
 
         w_pre_overlay = _recompute_w_pre(
-            score_adjusted, result["Omega_gap"], result["run_config"]
+            score_adjusted, result.Omega_gap, result.run_config
         )
-        mult = result["pit_binning"]["multiplier"]
+        mult = result.pit_binning["multiplier"]
         w_final_overlay = w_pre_overlay * mult
 
         w_final_overlay[np.abs(w_final_overlay) < 1e-8] = 0.0
 
-        result = dict(result)
-        result["w_final"] = w_final_overlay
-        summary = dict(result.get("summary", {}))
+        summary = dict(result.summary)
         summary["overlay_applied"] = 2
         summary["p_trade_mean"] = float(np.mean(p_trade))
         summary["p_trade_std"] = float(np.std(p_trade))
-        result["summary"] = summary
-        return result
+        return replace(result, w_final=w_final_overlay, summary=summary)
 
     return _wrapped
 
@@ -341,36 +338,30 @@ def run_phase2_experiment(
         n_jobs=n_jobs,
     )
 
-    # 3. Overlay V2 backtest via monkey-patch
-    import leadlag.models.production_v2 as pv2
-
-    original_generate = pv2.generate_v2_production_portfolio
+    # 3. Explicit transform is invoked by the backtest model boundary.
     wrapped_generate = make_overlay_generator_lgbm(
-        df_exec, market_vol, model, original_generate,
+        df_exec, market_vol, model,
         p_trade_ema_span=p_trade_ema_span,
         use_ticker=use_ticker,
         per_ticker_interactions=per_ticker_interactions,
         vix_features=vix_features,
     )
-    pv2.generate_v2_production_portfolio = wrapped_generate
 
     # EMA smoothing requires sequential execution so the per-ticker EMA history
     # is updated in calendar order.
     overlay_n_jobs = 1 if p_trade_ema_span and p_trade_ema_span > 0 else n_jobs
 
-    try:
-        logger.info("Running overlay V2 backtest (n_jobs=%s, EMA span=%s)...", overlay_n_jobs, p_trade_ema_span)
-        overlay_result = BacktestEngine.run_v2_backtest(
-            app_config,
-            gap_input_dir,
-            df_exec,
-            start_date=test_start,
-            end_date=test_end,
-            side_leverage=side_leverage,
-            n_jobs=overlay_n_jobs,
-        )
-    finally:
-        pv2.generate_v2_production_portfolio = original_generate
+    logger.info("Running overlay V2 backtest (n_jobs=%s, EMA span=%s)...", overlay_n_jobs, p_trade_ema_span)
+    overlay_result = BacktestEngine.run_v2_backtest(
+        app_config,
+        gap_input_dir,
+        df_exec,
+        start_date=test_start,
+        end_date=test_end,
+        side_leverage=side_leverage,
+        n_jobs=overlay_n_jobs,
+        decision_transform=wrapped_generate,
+    )
 
     # 4. Metrics
     baseline_metrics = _compute_metrics(baseline_result["daily_returns"])

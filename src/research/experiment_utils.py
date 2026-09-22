@@ -43,34 +43,27 @@ def _extract_metrics(results: dict[str, Any] | None) -> dict[str, Any]:
 
     if isinstance(daily_returns, (pd.Series, np.ndarray)):
         returns = np.asarray(daily_returns, dtype=float)
-        if fallback is not None:
-            mask = ~np.asarray(fallback, dtype=bool)
-            returns = returns[mask]
         if len(returns) > 1 and np.std(returns, ddof=1) > 1e-12:
             metrics["net_sharpe"] = float(
-                np.mean(returns) / np.std(returns, ddof=1) * np.sqrt(252)
+                np.mean(returns) / np.std(returns, ddof=1) * np.sqrt(245)
             )
         else:
             metrics["net_sharpe"] = 0.0
         metrics["n_observations"] = int(len(returns))
 
-        cum = np.cumsum(returns)
-        running_max = np.maximum.accumulate(cum)
-        mdd = float(np.min(cum - running_max)) if len(cum) > 0 else 0.0
+        wealth = np.concatenate(([1.0], np.cumprod(1.0 + returns)))
+        running_max = np.maximum.accumulate(wealth)
+        mdd = float(np.min(wealth / running_max - 1.0)) if len(wealth) > 0 else 0.0
         metrics["max_dd"] = mdd
-        metrics["total_return"] = float(np.sum(returns))
+        metrics["total_return"] = float(wealth[-1] - 1.0)
 
     if isinstance(turnover, (pd.Series, np.ndarray)):
         to_arr = np.asarray(turnover, dtype=float)
-        if fallback is not None:
-            to_arr = to_arr[~np.asarray(fallback, dtype=bool)]
         if len(to_arr) > 0:
             metrics["turnover"] = float(np.mean(to_arr))
 
     if isinstance(gross_exps, (pd.Series, np.ndarray)):
         gross_arr = np.asarray(gross_exps, dtype=float)
-        if fallback is not None:
-            gross_arr = gross_arr[~np.asarray(fallback, dtype=bool)]
         if len(gross_arr) > 0:
             metrics["avg_gross"] = float(np.mean(gross_arr))
 

@@ -23,7 +23,7 @@ while not (ROOT / "pyproject.toml").exists():
     ROOT = ROOT.parent
 sys.path.insert(0, str(ROOT / "src"))
 
-from leadlag.data.cache import load_intraday_cache
+from leadlag.data.market_data_cache import load_intraday_cache
 
 
 def main():

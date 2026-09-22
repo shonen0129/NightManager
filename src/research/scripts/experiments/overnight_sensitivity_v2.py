@@ -19,7 +19,7 @@ def main():
     import sys
     sys.path.insert(0, str(ROOT / "src"))
 
-    from leadlag.data.cache import load_df_exec_from_local_cache
+    from leadlag.data.market_data_cache import load_df_exec_from_local_cache
     from leadlag.execution.backtester import BacktestEngine
     from leadlag.execution.config import load_config_from_yaml
     from research.experiment_registry import Decision

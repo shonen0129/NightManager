@@ -42,7 +42,7 @@ class _BLPBase(BaseModel):
                 9:10-to-close target from the h=1 ``df_exec``.
         """
         from leadlag.core.pipeline import build_common_inputs
-        from leadlag.data.preprocessor import compute_jp_target_returns
+        from leadlag.data.intraday_inputs import compute_jp_target_returns
 
         if y_jp_target is None:
             y_jp_target = compute_jp_target_returns(

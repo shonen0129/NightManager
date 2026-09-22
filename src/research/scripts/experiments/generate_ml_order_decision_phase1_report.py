@@ -221,7 +221,7 @@ def main():
         "",
         "- The overlay applies ``p_trade = sigmoid(contribution_hat / target_std)`` to rescale the raw ``mu_gap / sigma_gap`` scores before V2 weight construction.",
         "- RuleD multiplier is taken from the baseline V2 run (PIT history is not recomputed for the overlay because the available gap distribution output lacks a diagnostics CSV; multiplier is 1.0 in this run).",
-        "- Cost, financing, borrow, and reverse-fee calculations are exactly those used by ``BacktestEngine.run_v2_backtest`` because the overlay is injected by monkey-patching ``generate_v2_production_portfolio``.",
+        "- Cost, financing, borrow, and reverse-fee calculations are exactly those used by ``BacktestEngine.run_v2_backtest`` because the overlay is supplied through the explicit ``decision_transform`` boundary.",
         "- Training target is ``side * realized_9:10_close - round_trip_cost`` per ticker, where ``realized`` comes from ``compute_jp_target_returns``.",
         "",
     ]

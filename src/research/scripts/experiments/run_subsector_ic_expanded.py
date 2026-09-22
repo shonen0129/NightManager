@@ -34,6 +34,7 @@ SUBSECTOR_NAMES = [str(c) for c in _subsector_oc.columns]
 
 import leadlag.data.tickers as _tickers
 import leadlag.data.preprocessor as _preprocessor
+import leadlag.data.intraday_inputs as _intraday_inputs
 import leadlag.core.pipeline as _pipeline
 import leadlag.core.correlation as _correlation
 import leadlag.models.blpx.prior_builder as _prior_builder
@@ -91,7 +92,7 @@ def _prepare_common_inputs_sub(
         return common_inputs_cache[cache_key]
 
     if y_jp_target is None:
-        y_jp_target = _preprocessor.compute_jp_target_returns(
+        y_jp_target = _intraday_inputs.compute_jp_target_returns(
             df_exec, SUBSECTOR_NAMES, horizon=horizon, p_910_df=p_910_df
         )
 

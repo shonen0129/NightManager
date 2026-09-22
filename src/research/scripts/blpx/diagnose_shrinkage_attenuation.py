@@ -27,7 +27,7 @@ from leadlag.core.correlation import (
     compute_correlation,
     regularize_correlation,
 )
-from leadlag.data.preprocessor import compute_jp_target_returns
+from leadlag.data.intraday_inputs import compute_jp_target_returns
 from leadlag.data.tickers import JP_TICKERS, US_TICKERS
 from research.backtest_common import (
     load_cached_df_exec,

@@ -8,7 +8,6 @@ Transforms pre-gap raw distribution parameters (mu_raw, Omega_raw) to Japanese g
 from __future__ import annotations
 
 import argparse
-import json
 import logging
 import sys
 import warnings
@@ -18,15 +17,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-import matplotlib
 import numpy as np
 import pandas as pd
-import yaml
-
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
-import seaborn as sns
-from scipy.stats import norm, pearsonr, spearmanr
 
 # Add src/ to path
 ROOT = Path(__file__).resolve().parents[2]
@@ -35,23 +27,54 @@ sys.path.insert(0, str(ROOT / "src"))
 from leadlag.broker.tachibana.session_cache import save_open_prices_cache
 from leadlag.core.portfolio import solve_baseline_style
 from leadlag.core.signal import build_weights_minvar
-from leadlag.data.cache import (
-    is_decision_cache_valid,
-    load_decision_cache,
-    save_decision_cache,
-    save_df_exec_to_local_cache,
-)
-from leadlag.data.fetcher import download_data
+from leadlag.data.decision_cache import save_decision_cache
 from leadlag.data.gap_store import GapStore
-from leadlag.data.preprocessor import (
-    build_5m_910_prices,
-    compute_jp_target_returns,
-    preprocess_data,
+from leadlag.data.horizon_returns import (
+    compute_cumulative_returns as _shared_compute_cumulative_returns,
 )
-from leadlag.data.tickers import JP_TICKERS, TOPIX_TICKER, US_TICKERS
-from leadlag.models.blpx import ProductionBLPXModel
-from leadlag.models.production_v2 import parse_run_config
+from leadlag.data.intraday_inputs import (
+    build_5m_910_prices,
+    build_open_910_returns,
+    compute_jp_target_returns,
+)
+from leadlag.data.market_data_cache import save_df_exec_to_local_cache
+from leadlag.data.pit_lake import PITDataLake
+from leadlag.data.tickers import JP_TICKERS, TOPIX_TICKER
+from leadlag.execution.config import load_config_from_yaml
 from leadlag.models.signal_enhancement import apply_multi_horizon_blend, apply_rank_reversal_overlay
+from leadlag.models.v2.gap_io import _extract_horizon_snapshot_inputs
+from leadlag.pipeline.gap_distribution import compute_gap_distribution, select_gap_coefficients
+from leadlag.pipeline.gap_reporting import (
+    build_gap_diagnostic_frames,
+    write_gap_diagnostic_frames,
+)
+from leadlag.runner.model_factory import build_blpx_model
+from leadlag.utils.gap_matrix_io import save_gap_matrices
+from leadlag.utils.gap_provenance import (
+    config_version,
+    gap_inputs_version,
+    input_version,
+    model_version,
+    open_910_version,
+)
+from research.diagnostics.gap_inputs import (
+    attach_topix_trade_returns,
+    build_gap_historical_inputs,
+    inject_tachibana_realtime_prices,
+    load_gap_execution_inputs,
+    mask_future_jp_labels,
+    prepare_gap_model_inputs,
+)
+from research.diagnostics.gap_outputs import (
+    compute_pit_bins,
+    prepare_portfolio_output_frame,
+    render_gap_diagnostics,
+)
+from research.diagnostics.gap_portfolio import (
+    add_baseline_diagnostics,
+    build_portfolio_diagnostic_record,
+    evaluate_gap_portfolio,
+)
 
 # Setup logging
 logging.basicConfig(
@@ -98,237 +121,6 @@ def str_to_bool(val: str) -> bool:
     return str(val).lower() in ("true", "1", "yes", "t", "y")
 
 
-def inject_tachibana_realtime_prices(
-    df_exec: pd.DataFrame,
-    raw_data: dict,
-    today: pd.Timestamp,
-    api_client: Any | None = None,
-) -> tuple[pd.DataFrame, Any]:
-    """Inject or override today's row in df_exec using Tachibana API real-time prices.
-
-    Fetches current prices (pDPP) for all JP tickers + TOPIX at ~9:10 JST,
-    computes gap returns against previous JP close, and either appends a new
-    row or overrides the gap values if today's row already exists (e.g. from
-    yfinance 9:00 open).
-
-    The correct sig_date (most recent US trading day before today) and US
-    close-to-close returns are computed from raw_data, not carried over from
-    the previous row.
-
-    Args:
-        df_exec: Execution DataFrame from preprocess_data().
-        raw_data: Raw data dict with jp_close, jp_open, us_close.
-        today: Today's date (tz-naive, normalized).
-        api_client: Optional pre-built broker client. If provided, it is not closed.
-
-    Returns:
-        (df_exec with today's row added or updated, api_client used)
-    """
-    today = pd.Timestamp(today).tz_localize(None).normalize()
-
-    logger.info("Injecting Tachibana real-time prices for %s...", today.date())
-
-    from leadlag.data.tickers import JP_TICKERS, TOPIX_TICKER
-    from leadlag.execution.broker_ops import build_api_client
-
-    # --- 1. Fetch current prices from Tachibana API ---
-    own_client = api_client is None
-    if own_client:
-        api_client = build_api_client(api_url=None, api_token=None, api_dry_run=False)
-    if api_client is None:
-        raise RuntimeError("build_api_client returned None")
-
-    tickers_to_fetch = JP_TICKERS + [TOPIX_TICKER]
-    current_prices = api_client.fetch_current_prices(tickers_to_fetch, allow_missing=True)
-
-    if not current_prices:
-        logger.error("Failed to fetch any prices from Tachibana API.")
-        if own_client:
-            try:
-                api_client.close()
-            except Exception:
-                pass
-        return df_exec, api_client
-
-    logger.info("Fetched %d/%d prices from Tachibana API.", len(current_prices), len(tickers_to_fetch))
-
-    # --- 2. Determine sig_date: most recent US trading day before today ---
-    us_close = raw_data["us_close"].copy()
-    us_close.index = pd.to_datetime(us_close.index, format="ISO8601").tz_localize(None).normalize()
-    if isinstance(us_close, pd.DataFrame):
-        us_close = us_close[US_TICKERS]
-
-    us_dates_before_today = us_close.index[us_close.index < today]
-    if len(us_dates_before_today) == 0:
-        logger.error("No US trading data before %s.", today.date())
-        if own_client:
-            try:
-                api_client.close()
-            except Exception:
-                pass
-        return df_exec, api_client
-    sig_date = us_dates_before_today[-1]
-    logger.info("sig_date=%s (most recent US trading day before %s)", sig_date.date(), today.date())
-
-    # Compute US close-to-close returns for sig_date
-    sig_idx = us_close.index.get_loc(sig_date)
-    if sig_idx > 0:
-        us_returns = us_close.iloc[sig_idx] / us_close.iloc[sig_idx - 1] - 1.0
-    else:
-        us_returns = pd.Series(0.0, index=us_close.columns)
-
-    # --- 3. Determine previous JP close date ---
-    jp_close = raw_data["jp_close"].copy()
-    jp_close.index = pd.to_datetime(jp_close.index, format="ISO8601").tz_localize(None).normalize()
-
-    prev_dates = jp_close.index[jp_close.index < today]
-    if len(prev_dates) == 0:
-        logger.error("No historical JP close data before %s.", today.date())
-        if own_client:
-            try:
-                api_client.close()
-            except Exception:
-                pass
-        return df_exec, api_client
-    prev_date = prev_dates[-1]
-
-    # JP close on sig_date (for jp_close_sig): use the closest JP trading day
-    # on or before sig_date
-    jp_dates_on_sig = jp_close.index[jp_close.index <= sig_date]
-    jp_close_sig_date = jp_dates_on_sig[-1] if len(jp_dates_on_sig) > 0 else prev_date
-
-    # --- 4. Get beta from last row (carried over) ---
-    last_row = df_exec.iloc[-1]
-
-    # --- 5. Build the record ---
-    record: dict = {
-        "trade_date": today,
-        "sig_date": sig_date,
-        "is_provisional": True,
-    }
-
-    for tk in JP_TICKERS:
-        prev_close = float(jp_close.loc[prev_date, tk]) if tk in jp_close.columns else np.nan
-        curr_price = current_prices.get(tk, np.nan)
-
-        if pd.notna(prev_close) and prev_close > 0 and pd.notna(curr_price) and curr_price > 0:
-            gap_ret = curr_price / prev_close - 1.0
-        else:
-            gap_ret = 0.0
-
-        record[f"jp_gap_{tk}"] = gap_ret
-        record[f"jp_open_trade_{tk}"] = curr_price if pd.notna(curr_price) else 0.0
-
-        # jp_close_sig: JP close on sig_date (or nearest JP trading day)
-        sig_close = float(jp_close.loc[jp_close_sig_date, tk]) if tk in jp_close.columns else np.nan
-        record[f"jp_close_sig_{tk}"] = sig_close if pd.notna(sig_close) else 0.0
-
-        record[f"jp_cc_{tk}"] = 0.0  # not available yet
-        record[f"jp_oc_{tk}"] = 0.0  # not available yet (close unknown)
-
-        # Carry over beta from last row
-        beta_col = f"jp_beta_{tk}"
-        if beta_col in df_exec.columns:
-            record[beta_col] = last_row[beta_col]
-
-    # US returns for sig_date
-    for tk in US_TICKERS:
-        col = f"us_cc_{tk}"
-        if col in df_exec.columns:
-            record[col] = float(us_returns.get(tk, 0.0))
-
-    # TOPIX overnight return
-    topix_prev_close = float(jp_close.loc[prev_date, TOPIX_TICKER]) if TOPIX_TICKER in jp_close.columns else np.nan
-    topix_curr = current_prices.get(TOPIX_TICKER, np.nan)
-    if pd.notna(topix_prev_close) and topix_prev_close > 0 and pd.notna(topix_curr) and topix_curr > 0:
-        topix_night = topix_curr / topix_prev_close - 1.0
-    else:
-        topix_night = 0.0
-
-    record["topix_night_return"] = topix_night
-    record["topix_oc_return"] = 0.0  # not available yet
-    record["topix_cc_trade"] = topix_night  # approximate
-
-    # --- 6. Add or override today's row ---
-    new_row = pd.DataFrame([record])
-    new_row = new_row.set_index("trade_date")
-    new_row.index = pd.to_datetime(new_row.index, format="ISO8601").tz_localize(None).normalize()
-
-    if today in df_exec.index:
-        logger.info("Today (%s) already in df_exec, overriding gap values with Tachibana prices.", today.date())
-        df_exec = df_exec.drop(index=today)
-        df_exec = pd.concat([df_exec, new_row])
-    else:
-        df_exec = pd.concat([df_exec, new_row])
-
-    df_exec = df_exec.sort_index()
-
-    logger.info(
-        "Injected row for %s: sig_date=%s, topix_night=%.4f, %d gap returns computed.",
-        today.date(), sig_date.date(), topix_night,
-        sum(1 for tk in JP_TICKERS if record.get(f"jp_gap_{tk}", 0.0) != 0.0),
-    )
-
-    # Close API client only if we created it
-    if own_client:
-        try:
-            api_client.close()
-        except Exception:
-            pass
-
-    return df_exec, api_client
-
-
-def compute_mdd(returns: np.ndarray) -> float:
-    """Compute maximum drawdown of a return series (cumprod-based)."""
-    if len(returns) == 0:
-        return 0.0
-    W = np.cumprod(1.0 + returns)
-    running_max = np.maximum.accumulate(W)
-    running_max = np.where(running_max < 1e-10, 1e-10, running_max)
-    drawdowns = (W / running_max) - 1.0
-    return float(np.minimum(0.0, np.min(drawdowns)))
-
-
-def compute_pit_bins(series: pd.Series, bin_method: str, rolling_window: int = None, expanding_min_window: int = 252) -> pd.Series:
-    """Compute point-in-time boundaries using only information up to t-1."""
-    N = len(series)
-    bins = pd.Series(index=series.index, dtype='object')
-
-    num_bins = 3 if bin_method == "tertile" else 5
-    if num_bins == 3:
-        labels = ["Low", "Medium", "High"]
-    else:
-        labels = ["Very Low", "Low", "Medium", "High", "Very High"]
-
-    percentiles = np.linspace(0, 100, num_bins + 1)[1:-1]
-
-    for i in range(N):
-        if rolling_window is not None:
-            if i < rolling_window:
-                continue
-            history = series.iloc[i - rolling_window : i].values
-        else:
-            if i < expanding_min_window:
-                continue
-            history = series.iloc[0 : i].values
-
-        history = history[np.isfinite(history)]
-        if len(history) < 10:
-            continue
-
-        thresholds = np.percentile(history, percentiles)
-        val = series.iloc[i]
-
-        if not np.isfinite(val):
-            continue
-
-        bin_idx = np.searchsorted(thresholds, val)
-        bins.iloc[i] = labels[bin_idx]
-
-    return bins
-
-
 def compute_cumulative_returns(
     df_exec: pd.DataFrame,
     horizon: int,
@@ -342,34 +134,7 @@ def compute_cumulative_returns(
     For ``method="sum"`` the legacy simple-sum approximation is retained for
     comparison/backward compatibility.
     """
-    from leadlag.data.tickers import US_TICKERS as _US_TICKERS
-    df_mod = df_exec.copy()
-
-    us_cols = [f"us_cc_{tk}" for tk in _US_TICKERS]
-    jp_oc_cols = [f"jp_oc_{tk}" for tk in JP_TICKERS]
-    jp_gap_cols = [f"jp_gap_{tk}" for tk in JP_TICKERS]
-    return_cols = us_cols + jp_oc_cols + jp_gap_cols + [
-        "topix_night_return", "topix_oc_return", "topix_cc_trade"
-    ]
-
-    if method == "cumprod":
-        def _cumprod_window(x):
-            return np.prod(1.0 + x) - 1.0
-
-        for col in return_cols:
-            if col in df_exec.columns:
-                df_mod[col] = (
-                    df_exec[col]
-                    .rolling(horizon, min_periods=horizon)
-                    .apply(_cumprod_window, raw=True)
-                )
-    else:
-        # Legacy simple-sum approximation
-        for col in return_cols:
-            if col in df_exec.columns:
-                df_mod[col] = df_exec[col].rolling(horizon).sum()
-
-    return df_mod
+    return _shared_compute_cumulative_returns(df_exec, horizon, method=method)
 
 
 def compute_rank_reversal_for_date(df_exec: pd.DataFrame, i: int) -> np.ndarray:
@@ -403,29 +168,6 @@ def compute_rank_reversal_for_date(df_exec: pd.DataFrame, i: int) -> np.ndarray:
 
     vals = -rank_change.iloc[i].values.astype(float)
     return vals
-
-
-def _omega_from_blp_res(res: dict) -> np.ndarray:
-    """Compute standardized Omega_struct from compute_blp_signal matrix outputs.
-
-    This is the same formula used in compute_structured_prediction_covariance.py,
-    applied here to the h-day BLPX return matrices so multi-horizon gap
-    distributions use the correct horizon-specific correlation structure.
-    """
-    Sigma_XX = res["Sigma_XX"]
-    Sigma_YX = res["Sigma_YX"]
-    Sigma_YY = res["Sigma_YY"]
-    B_struct = res["B_struct"]
-    Sigma_XY = Sigma_YX.T
-
-    Omega_struct = (
-        Sigma_YY
-        - B_struct @ Sigma_XY
-        - Sigma_YX @ B_struct.T
-        + B_struct @ Sigma_XX @ B_struct.T
-    )
-    Omega_struct = 0.5 * (Omega_struct + Omega_struct.T)
-    return Omega_struct
 
 
 def run_self_tests() -> int:
@@ -521,6 +263,12 @@ class GapDistContext:
     bl_cost_bps_per_gross: float
     gap_store: Any | None = None
     save_to_gap_store: bool = False
+    bundle_model_version: str = model_version()
+    bundle_config_version: str = ""
+    bundle_ticker_order: tuple[str, ...] = tuple(JP_TICKERS)
+    open_910_returns: pd.DataFrame | None = None
+    historical_inputs: Any | None = None
+    historical_inputs_by_horizon: dict[int, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -579,6 +327,7 @@ def _process_date_impl(dt: pd.Timestamp, ctx: GapDistContext, acc: GapDistAccumu
     # matrices dated on or before the signal date to avoid using a covariance
     # computed from data observed after the signal was generated.
     omega_struct_file = ctx.dist_in_dir / "matrices" / f"omega_struct_{sig_dt_str}.npy"
+    use_step1_covariance = omega_struct_file.exists()
     if not omega_struct_file.exists():
         # Fallback: most recent available omega_struct on or before sig_date.
         # Restrict to omega_struct_YYYYMMDD.npy; ignore omega_struct_psd_YYYYMMDD.npy.
@@ -596,9 +345,15 @@ def _process_date_impl(dt: pd.Timestamp, ctx: GapDistContext, acc: GapDistAccumu
             omega_struct_file = fallback_files[-1]
             logger.warning(
                 f"omega_struct for signal date {sig_date_dt.date()} not found, "
-                f"using fallback: {omega_struct_file.name}"
+                f"found fallback {omega_struct_file.name}; using BLPX covariance "
+                "to preserve cache/on-demand parity"
             )
-            Omega_struct = np.load(omega_struct_file)
+            # A matrix computed for another signal date is not the same
+            # distribution as the on-demand BLPX result.  Keep the historical
+            # file discovery for diagnostics, but do not use stale covariance
+            # as the h=1 output.
+            Omega_struct = None
+            use_step1_covariance = False
         else:
             # Backward compatibility: some historical runs / test fixtures named
             # the matrix by trade date. This branch is a last-resort safety net
@@ -609,10 +364,14 @@ def _process_date_impl(dt: pd.Timestamp, ctx: GapDistContext, acc: GapDistAccumu
                 acc.missing_data_count += 1
                 return
             Omega_struct = np.load(omega_struct_file)
+            # Legacy fixtures/runs used the trade-date filename.  Preserve
+            # that explicit compatibility path; only an older *fallback* file
+            # is excluded from the h=1 covariance calculation above.
+            use_step1_covariance = True
     else:
         Omega_struct = np.load(omega_struct_file)
 
-    if not np.isfinite(Omega_struct).all():
+    if Omega_struct is not None and not np.isfinite(Omega_struct).all():
         acc.nan_inf_count += 1
         logger.warning(f"NaN or Inf detected in Omega_struct on {date_str}")
         return
@@ -626,11 +385,40 @@ def _process_date_impl(dt: pd.Timestamp, ctx: GapDistContext, acc: GapDistAccumu
         logger.warning(f"Non-finite betas_t on {date_str}; clipping NaN/Inf to 0.0")
         betas_t = np.nan_to_num(betas_t, nan=0.0, posinf=0.0, neginf=0.0)
     topix_night_t = float(ctx.topix_night[i]) if ctx.topix_night is not None else 0.0
+    execution_snapshot = None
+    if ctx.open_910_returns is not None and all(
+        f"jp_open_trade_{ticker}" in ctx.df_exec for ticker in JP_TICKERS
+    ):
+        try:
+            execution_snapshot = PITDataLake(ctx.df_exec).get_execution_snapshot(
+                trade_date_dt + pd.Timedelta(hours=9, minutes=10), ctx.open_910_returns
+            )
+        except ValueError as exc:
+            acc.missing_data_count += 1
+            logger.warning("Invalid execution prices on %s: %s", date_str, exc)
+            return
+        gap_override = np.asarray(execution_snapshot.jp_gap_returns)
+        betas_t = np.nan_to_num(execution_snapshot.jp_betas, nan=0.0, posinf=0.0, neginf=0.0)
+        topix_night_t = float(execution_snapshot.topix_night_return)
 
     # Run model to get raw std scaling and standardized predictions
     try:
+        jp_res_returns_for_date = ctx.jp_res_returns_p3
+        if ctx.historical_inputs is not None:
+            # Validate the same 09:10 calculation boundary used by production
+            # and mask all JP labels whose close was not available at that
+            # boundary.  ``y_jp_target[i]`` below remains evaluation-only.
+            ctx.historical_inputs.calculation_frame(
+                trade_date_dt + pd.Timedelta(hours=9, minutes=10)
+            )
+            jp_res_returns_for_date = mask_future_jp_labels(
+                ctx.jp_res_returns_p3,
+                ctx.df_exec.index,
+                trade_date_dt + pd.Timedelta(hours=9, minutes=10),
+                n_u=ctx.model.n_u,
+            )
         residual_blpx_res = ctx.model.compute_blp_signal(
-            ctx.jp_res_returns_p3,
+            jp_res_returns_for_date,
             i,
             gap_override=gap_override,
             betas_t=betas_t,
@@ -646,47 +434,40 @@ def _process_date_impl(dt: pd.Timestamp, ctx: GapDistContext, acc: GapDistAccumu
         logger.warning(f"Error calling compute_blp_signal on {date_str}: {e}")
         return
 
-    z_hat_j = residual_blpx_res["z_hat_j_t1"]
-    sigma_Y_denorm = residual_blpx_res["sigma_Y_denorm"]
-    mu_Y = residual_blpx_res["mu_Y"]
-
-    # Compute mu_raw
-    if ctx.model.vol_adjusted_target:
-        mu_raw = z_hat_j * sigma_Y_denorm
-    else:
-        mu_raw = mu_Y + residual_blpx_res["sigma_Y"] * z_hat_j
-
-    # Reconstruct Omega_raw (suppress BLAS false-positive warnings; finitude checked below)
-    with np.errstate(invalid="ignore", over="ignore", divide="ignore"):
-        Omega_raw = np.diag(sigma_Y_denorm) @ Omega_struct @ np.diag(sigma_Y_denorm)
-
-    # Reconstruct GapOpen_filt ticker level
+    # Pure one-day reconstruction is shared with the production on-demand path.
+    # An exact signal-date Step 1 covariance remains an explicit override.  A
+    # stale fallback is intentionally ignored so cache and on-demand use the
+    # same BLPX covariance source.
+    gap_open_coef, topix_beta_coef = select_gap_coefficients(ctx.model, residual_blpx_res)
+    computation = compute_gap_distribution(
+        residual_blpx_res,
+        gap_override=gap_override,
+        betas_t=betas_t,
+        topix_night_t=topix_night_t,
+        vol_adjusted_target=ctx.model.vol_adjusted_target,
+        gap_open_coef=gap_open_coef,
+        topix_beta_coef=topix_beta_coef,
+        omega_struct=Omega_struct if use_step1_covariance else None,
+    )
+    mu_raw = computation.mu_raw
+    Omega_raw = computation.omega_raw
+    mu_gap = computation.mu_gap
+    Omega_gap = computation.omega_gap
+    gap_filt = computation.gap_filt
+    denominator = computation.denominator
+    denominator_floored = computation.denominator_floored
     gap_syst = betas_t * topix_night_t
     gap_idio = gap_override - gap_syst
-    gap_filt = ctx.c * gap_idio + (ctx.c - ctx.b) * gap_syst
-
-    denominator = 1.0 + gap_filt
-    denominator_floored = np.maximum(denominator, 0.1)
     floor_hit_flags = (denominator < 0.1).astype(int)
 
     acc.denominator_min_overall = min(acc.denominator_min_overall, float(np.min(denominator)))
     acc.denominator_floor_hit_count_overall += int(np.sum(floor_hit_flags))
-
-    # D_gap
-    D_gap = np.diag(1.0 / denominator_floored)
-
-    # Compute mu_gap
-    mu_gap = (1.0 + mu_raw) / denominator_floored - 1.0
 
     # Check matching with production model's signal
     signal_prod = residual_blpx_res["signal"]
     diff_mu = np.max(np.abs(mu_gap - signal_prod))
     if diff_mu > 1e-12:
         logger.warning(f"Difference in mu_gap and production signal on {date_str}: {diff_mu:.2e}")
-
-    # Transform covariance matrix (suppress BLAS false-positive warnings; finitude checked below)
-    with np.errstate(invalid="ignore", over="ignore", divide="ignore"):
-        Omega_gap = D_gap @ Omega_raw @ D_gap
 
     # Symmetrize
     sym_err = float(np.max(np.abs(Omega_gap - Omega_gap.T)))
@@ -751,10 +532,45 @@ def _process_date_impl(dt: pd.Timestamp, ctx: GapDistContext, acc: GapDistAccumu
     fro_ratio = frob_gap / frob_raw if frob_raw > 0 else 1.0
     mean_diag_ratio = float(np.mean(diag_gap / diag_raw))
 
+    bundle_metadata = {
+        "sig_date": str(sig_date),
+        "trade_date": date_str,
+        "horizon": 1,
+        "source": "compute_gap_adjusted_distribution",
+        "input_version": input_version(ctx.df_exec, dt),
+        "model_version": ctx.bundle_model_version,
+        "config_version": ctx.bundle_config_version,
+        "ticker_order": list(ctx.bundle_ticker_order),
+        "calculation_as_of": f"{date_str}T09:10:00+09:00",
+        "label_available_at": "trade_date+15:30",
+        "observed_at": (
+            dict(ctx.historical_inputs.observed_at_for(dt))
+            if ctx.historical_inputs is not None else None
+        ),
+        "observed_at_source": "session_boundary_contract",
+        "historical_inputs_fingerprint": (
+            ctx.historical_inputs.fingerprint if ctx.historical_inputs is not None else None
+        ),
+        "execution_price_sources": (
+            dict(execution_snapshot.price_sources) if execution_snapshot is not None else {}
+        ),
+    }
+    if ctx.open_910_returns is not None:
+        bundle_metadata["open_910_version"] = open_910_version(ctx.open_910_returns, dt)
+    bundle_metadata["gap_inputs_version"] = gap_inputs_version(
+        date_str, gap_override, betas_t, topix_night_t, horizon=1
+    )
+
     # Save matrices if requested
     if ctx.save_daily_m:
-        np.save(ctx.out_dir / "matrices" / f"omega_gap_{dt_str}.npy", Omega_gap)
-        np.save(ctx.out_dir / "matrices" / f"mu_gap_{dt_str}.npy", mu_gap)
+        if not save_gap_matrices(
+            ctx.out_dir,
+            date_str,
+            mu_gap,
+            Omega_gap,
+            metadata=bundle_metadata,
+        ):
+            logger.warning("Failed to save h=1 gap bundle on %s", date_str)
 
     if ctx.gap_store is not None and ctx.save_to_gap_store:
         try:
@@ -762,7 +578,7 @@ def _process_date_impl(dt: pd.Timestamp, ctx: GapDistContext, acc: GapDistAccumu
                 date_str,
                 mu_gap,
                 Omega_gap,
-                metadata={"sig_date": str(sig_date), "source": "compute_gap_adjusted_distribution"},
+                metadata=bundle_metadata,
             )
         except Exception as e:
             logger.warning(f"Failed to save gap pair to GapStore on {date_str}: {e}")
@@ -779,6 +595,18 @@ def _process_date_impl(dt: pd.Timestamp, ctx: GapDistContext, acc: GapDistAccumu
                 jp_res_h = inputs_h["jp_res_returns_p3"]
                 c_full_h = inputs_h["c_full_p3"]
                 v0_h = inputs_h["v0_static"]
+                jp_res_h_for_date = jp_res_h
+                history_h = ctx.historical_inputs_by_horizon.get(h)
+                if history_h is not None:
+                    history_h.calculation_frame(
+                        trade_date_dt + pd.Timedelta(hours=9, minutes=10)
+                    )
+                    jp_res_h_for_date = mask_future_jp_labels(
+                        jp_res_h,
+                        ctx.df_exec.index,
+                        trade_date_dt + pd.Timedelta(hours=9, minutes=10),
+                        n_u=model_h.n_u,
+                    )
 
                 gap_override_h = np.nan_to_num(gap_h[i], nan=0.0) if gap_h is not None else np.zeros(model_h.n_j)
                 betas_t_h = np.asarray(beta_h[i], dtype=float) if beta_h is not None else np.zeros(model_h.n_j)
@@ -787,9 +615,16 @@ def _process_date_impl(dt: pd.Timestamp, ctx: GapDistContext, acc: GapDistAccumu
                     logger.warning(f"Non-finite betas_t on {date_str} (h={h}); clipping NaN/Inf to 0.0")
                     betas_t_h = np.nan_to_num(betas_t_h, nan=0.0, posinf=0.0, neginf=0.0)
                 topix_night_t_h = float(topix_night_h[i]) if topix_night_h is not None else 0.0
+                if execution_snapshot is not None:
+                    horizon_snapshot_inputs = _extract_horizon_snapshot_inputs(
+                        ctx.df_exec, date_str, h, execution_snapshot
+                    )
+                    if horizon_snapshot_inputs is None:
+                        raise ValueError(f"Incomplete execution price window for h={h}")
+                    gap_override_h, betas_t_h, topix_night_t_h = horizon_snapshot_inputs
 
                 res_h = model_h.compute_blp_signal(
-                    jp_res_h, i,
+                    jp_res_h_for_date, i,
                     gap_override=gap_override_h,
                     betas_t=betas_t_h,
                     topix_night_t=topix_night_t_h,
@@ -800,41 +635,58 @@ def _process_date_impl(dt: pd.Timestamp, ctx: GapDistContext, acc: GapDistAccumu
                     return_matrices=True,
                 )
 
-                z_hat_h = res_h["z_hat_j_t1"]
-                sigma_Y_denorm_h = res_h["sigma_Y_denorm"]
-                mu_Y_h = res_h["mu_Y"]
+                gap_open_coef_h, topix_beta_coef_h = select_gap_coefficients(model_h, res_h)
+                computation_h = compute_gap_distribution(
+                    res_h,
+                    gap_override=gap_override_h,
+                    betas_t=betas_t_h,
+                    topix_night_t=topix_night_t_h,
+                    vol_adjusted_target=model_h.vol_adjusted_target,
+                    gap_open_coef=gap_open_coef_h,
+                    topix_beta_coef=topix_beta_coef_h,
+                )
+                mu_gap_h = computation_h.mu_gap
+                Omega_gap_h = computation_h.omega_gap
 
-                if model_h.vol_adjusted_target:
-                    mu_raw_h = z_hat_h * sigma_Y_denorm_h
-                else:
-                    mu_raw_h = mu_Y_h + res_h["sigma_Y"] * z_hat_h
-
-                # Build Omega_struct from the h-day BLPX matrices instead of
-                # reusing the h=1 Step 1 matrix.  This is the correct covariance
-                # of the standardized h-day residual returns.
-                Omega_struct_h = _omega_from_blp_res(res_h)
-                Omega_raw_h = np.diag(sigma_Y_denorm_h) @ Omega_struct_h @ np.diag(sigma_Y_denorm_h)
-
-                gap_syst_h = betas_t_h * topix_night_t_h
-                gap_idio_h = gap_override_h - gap_syst_h
-                gap_filt_h = ctx.c * gap_idio_h + (ctx.c - ctx.b) * gap_syst_h
-                denom_h = np.maximum(1.0 + gap_filt_h, 0.1)
-                D_gap_h = np.diag(1.0 / denom_h)
-                mu_gap_h = (1.0 + mu_raw_h) / denom_h - 1.0
-                Omega_gap_h = D_gap_h @ Omega_raw_h @ D_gap_h
-                Omega_gap_h = 0.5 * (Omega_gap_h + Omega_gap_h.T)
-
-                np.save(ctx.out_dir / "matrices" / f"mu_gap_h{h}_{dt_str}.npy", mu_gap_h)
-                np.save(ctx.out_dir / "matrices" / f"omega_gap_h{h}_{dt_str}.npy", Omega_gap_h)
+                if not save_gap_matrices(
+                    ctx.out_dir,
+                    date_str,
+                    mu_gap_h,
+                    Omega_gap_h,
+                    mu_pattern=f"matrices/mu_gap_h{h}_{{date}}.npy",
+                    omega_pattern=f"matrices/omega_gap_h{h}_{{date}}.npy",
+                    pattern_kwargs={"h": h},
+                    metadata={
+                        **bundle_metadata,
+                        "horizon": h,
+                        "historical_inputs_fingerprint": (
+                            history_h.fingerprint if history_h is not None else None
+                        ),
+                        "observed_at": (
+                            dict(history_h.observed_at_for(dt))
+                            if history_h is not None else None
+                        ),
+                        "observed_at_source": "session_boundary_contract",
+                        "gap_inputs_version": gap_inputs_version(
+                            date_str, gap_override_h, betas_t_h, topix_night_t_h, horizon=h
+                        ),
+                    },
+                ):
+                    logger.warning("Failed to save h=%d gap bundle on %s", h, date_str)
 
                 if ctx.gap_store is not None and ctx.save_to_gap_store:
                     try:
-                        ctx.gap_store.put(date_str, "mu", mu_gap_h, horizon=h)
-                        ctx.gap_store.put(date_str, "omega", Omega_gap_h, horizon=h)
-                        ctx.gap_store.put(
+                        ctx.gap_store.save_horizon(
                             date_str,
-                            "meta",
-                            {"sig_date": str(sig_date), "horizon": h},
+                            mu_gap_h,
+                            Omega_gap_h,
+                            metadata={
+                                **bundle_metadata,
+                                "horizon": h,
+                                "gap_inputs_version": gap_inputs_version(
+                                    date_str, gap_override_h, betas_t_h, topix_night_t_h, horizon=h
+                                ),
+                            },
                             horizon=h,
                         )
                     except Exception as e:
@@ -956,27 +808,17 @@ def _process_date_impl(dt: pd.Timestamp, ctx: GapDistContext, acc: GapDistAccumu
     if dt in ctx.weights_df.index:
         w_t = ctx.weights_df.loc[dt, JP_TICKERS].values
 
-    # Returns
-    realized_portfolio_return_gross = float(np.sum(w_t * realized_jp_returns))
-    gross_exposure = float(np.sum(np.abs(w_t)))
-    costs_t = float(2.0 * (ctx.cfg["costs"]["slippage_bps_per_side"] / 10000.0) * gross_exposure)
-    realized_portfolio_return_net = realized_portfolio_return_gross - costs_t
     turnover = ctx.turnover_map.get(dt, 0.0)
-
-    # Portfolio diagnostics pre-gap
-    pred_mean_raw = float(np.sum(w_t * mu_raw))
-    pred_var_raw = float(w_t.T @ Omega_raw @ w_t)
-    pred_vol_raw = float(np.sqrt(np.maximum(pred_var_raw, 1e-10)))
-    pred_ir_raw = pred_mean_raw / pred_vol_raw if pred_vol_raw > 0 else 0.0
-
-    # Portfolio diagnostics post-gap
-    pred_mean_gap = float(np.sum(w_t * mu_gap))
-    pred_var_gap = float(w_t.T @ Omega_gap @ w_t)
-    pred_vol_gap = float(np.sqrt(np.maximum(pred_var_gap, 1e-10)))
-    pred_ir_gap = pred_mean_gap / pred_vol_gap if pred_vol_gap > 0 else 0.0
-
-    # Realized Cost Diagnostic-Only IR
-    pred_ir_gap_realized_cost_diagnostic = (pred_mean_gap - costs_t) / pred_vol_gap if pred_vol_gap > 0 else 0.0
+    portfolio_evaluation = evaluate_gap_portfolio(
+        weights=w_t,
+        realized_returns=realized_jp_returns,
+        mu_raw=mu_raw,
+        omega_raw=Omega_raw,
+        mu_gap=mu_gap,
+        omega_gap=Omega_gap,
+        slippage_bps_per_side=ctx.cfg["costs"]["slippage_bps_per_side"],
+        turnover=turnover,
+    )
 
     # --- Baseline IR (consistent with production_v2.py current_ir) ---
     sigma_gap_bl = np.sqrt(np.maximum(np.diag(Omega_gap), 1e-6))
@@ -991,6 +833,12 @@ def _process_date_impl(dt: pd.Timestamp, ctx: GapDistContext, acc: GapDistAccumu
             weights=ctx.bl_mh_weights,
             mu_pattern=ctx.bl_mh_mu_pattern,
             omega_pattern=ctx.bl_mh_omega_pattern,
+            expected_identity={
+                "input_version": input_version(ctx.df_exec, dt),
+                "model_version": ctx.bundle_model_version,
+                "config_version": ctx.bundle_config_version,
+                "ticker_order": list(ctx.bundle_ticker_order),
+            },
         )
 
     if ctx.bl_cs_overlay_enabled:
@@ -1021,35 +869,15 @@ def _process_date_impl(dt: pd.Timestamp, ctx: GapDistContext, acc: GapDistAccumu
             scores_bl, long_idx_bl, short_idx_bl, baseline_gross=ctx.bl_baseline_gross
         )
 
-    pred_mean_gap_baseline = float(np.sum(w_baseline * mu_gap))
-    pred_var_gap_baseline = float(w_baseline @ Omega_gap @ w_baseline)
-    pred_vol_gap_baseline = float(np.sqrt(np.maximum(pred_var_gap_baseline, 1e-10)))
-    bl_ex_ante_cost = ctx.bl_baseline_gross * (ctx.bl_cost_bps_per_gross / 10000.0)
-    pred_ir_gap_baseline_cost = (
-        (pred_mean_gap_baseline - bl_ex_ante_cost) / pred_vol_gap_baseline
-        if pred_vol_gap_baseline > 1e-6
-        else 0.0
+    baseline_metrics = add_baseline_diagnostics(
+        {},
+        weights=w_baseline,
+        mu_gap=mu_gap,
+        omega_gap=Omega_gap,
+        baseline_cost_bps_per_gross=ctx.bl_cost_bps_per_gross,
+        baseline_gross=ctx.bl_baseline_gross,
     )
-
-    acc.portfolio_diagnostics_records.append({
-        "signal_date": sig_date,
-        "trade_date": date_str,
-        "gross_return": realized_portfolio_return_gross,
-        "net_return": realized_portfolio_return_net,
-        "cost": costs_t,
-        "pred_mean_raw": pred_mean_raw,
-        "pred_vol_raw": pred_vol_raw,
-        "pred_ir_raw": pred_ir_raw,
-        "pred_mean_gap": pred_mean_gap,
-        "pred_vol_gap": pred_vol_gap,
-        "pred_ir_gap": pred_ir_gap,
-        "pred_ir_gap_realized_cost_diagnostic": pred_ir_gap_realized_cost_diagnostic,
-        "pred_mean_gap_baseline": pred_mean_gap_baseline,
-        "pred_vol_gap_baseline": pred_vol_gap_baseline,
-        "pred_ir_gap_baseline_cost": pred_ir_gap_baseline_cost,
-        "turnover": turnover,
-        "gross_exposure": gross_exposure,
-        "net_exposure": float(np.sum(w_t)),
+    gap_metrics = {
         "mean_abs_GapOpen": mean_abs_gap,
         "max_abs_GapOpen": max_abs_gap,
         "dispersion_GapOpen": disp_gap,
@@ -1059,7 +887,16 @@ def _process_date_impl(dt: pd.Timestamp, ctx: GapDistContext, acc: GapDistAccumu
         "max_abs_GapOpen_filt": max_abs_gap_filt,
         "denominator_min": denom_min_t,
         "denominator_floor_hit_count": floor_hits_t,
-    })
+    }
+    acc.portfolio_diagnostics_records.append(
+        build_portfolio_diagnostic_record(
+            signal_date=sig_date,
+            trade_date=date_str,
+            evaluation=portfolio_evaluation,
+            gap_metrics=gap_metrics,
+            baseline_metrics=baseline_metrics,
+        )
+    )
 
 
 def _merge_accumulators(dst: GapDistAccumulators, src: GapDistAccumulators) -> None:
@@ -1127,47 +964,41 @@ def main():
     # 1. Load config
     cfg_path = ROOT / args.config
     logger.info(f"Loading config from {cfg_path}")
-    with open(cfg_path) as f:
-        cfg = yaml.safe_load(f)
+    app_config = load_config_from_yaml(cfg_path, strict=True)
+    v2_cfg = app_config.v2
+    # Keep the small context contract used by the per-date worker while all
+    # values come from the validated inherited config.
+    cfg = {"costs": {"slippage_bps_per_side": v2_cfg.costs.slippage_bps_per_side}}
 
     results_dir = Path(args.results_dir) if args.results_dir.startswith("results") else ROOT / args.results_dir
     dist_in_dir = Path(args.distribution_input_dir) if args.distribution_input_dir.startswith("results") else ROOT / args.distribution_input_dir
 
     # Extract config params for baseline IR (must match production_v2.py exactly)
-    _pf_cfg = cfg.get("portfolio", {})
-    _gs_cfg = cfg.get("gross_scaling", {})
-    _cs_cfg = cfg.get("costs", {})
-    _mh_cfg = cfg.get("multi_horizon_blend", {})
-    _cs_overlay_cfg = cfg.get("cs_feature_overlay", {})
-    bl_long_count = _pf_cfg.get("long_count", 5)
-    bl_short_count = _pf_cfg.get("short_count", 5)
-    bl_baseline_gross = _gs_cfg.get("baseline_gross", 2.0)
-    bl_cost_bps_per_gross = _cs_cfg.get("cost_bps_per_gross", 10.0)
-    bl_minvar_enabled = _pf_cfg.get("minvar_enabled", False)
-    bl_minvar_alpha = _pf_cfg.get("minvar_alpha", 0.5)
-    bl_mh_enabled = _mh_cfg.get("enabled", False)
-    bl_mh_horizons = tuple(_mh_cfg.get("horizons", [1, 3, 5]))
-    bl_mh_weights = tuple(_mh_cfg.get("weights", [0.8, 0.1, 0.1]))
-    bl_mh_mu_pattern = _mh_cfg.get("mu_file_pattern_h", "matrices/mu_gap_h{h}_{date}.npy")
-    bl_mh_omega_pattern = _mh_cfg.get("omega_file_pattern_h", "matrices/omega_gap_h{h}_{date}.npy")
-    bl_cs_overlay_enabled = _cs_overlay_cfg.get("enabled", False)
-    bl_cs_overlay_weight = _cs_overlay_cfg.get("weight", 0.05)
-    bl_rr_pattern = _cs_overlay_cfg.get("rank_reversal_file_pattern", "matrices/rank_reversal_{date}.npy")
+    bl_long_count = v2_cfg.long_count
+    bl_short_count = v2_cfg.short_count
+    bl_baseline_gross = v2_cfg.baseline_gross
+    bl_cost_bps_per_gross = v2_cfg.cost_bps_per_gross
+    bl_minvar_enabled = v2_cfg.minvar_enabled
+    bl_minvar_alpha = v2_cfg.minvar_alpha
+    bl_mh_enabled = v2_cfg.mh_blend_enabled
+    bl_mh_horizons = tuple(v2_cfg.mh_horizons)
+    bl_mh_weights = tuple(v2_cfg.mh_weights)
+    bl_mh_mu_pattern = v2_cfg.mh_mu_file_pattern_h
+    bl_mh_omega_pattern = v2_cfg.mh_omega_file_pattern_h
+    bl_cs_overlay_enabled = v2_cfg.cs_overlay_enabled
+    bl_cs_overlay_weight = v2_cfg.cs_overlay_weight
+    bl_rr_pattern = v2_cfg.cs_rank_reversal_file_pattern
     logger.info(
         "Baseline IR config: long=%d short=%d gross=%.1f cost_bps=%.1f minvar=%s alpha=%.2f mh=%s cs=%s",
         bl_long_count, bl_short_count, bl_baseline_gross, bl_cost_bps_per_gross,
         bl_minvar_enabled, bl_minvar_alpha, bl_mh_enabled, bl_cs_overlay_enabled,
     )
 
-    # 2. Load raw market data and reuse Step 1 preprocessing when valid
+    # 2. Load raw market data and reuse Step 1 preprocessing when valid.
     logger.info("Loading market data...")
-    raw_data = download_data(beta_window=60)
-    if is_decision_cache_valid():
-        logger.info("Loading preprocessed market data from Step 1 cache...")
-        df_exec = load_decision_cache()
-    else:
-        logger.info("Preprocessing market data...")
-        df_exec = preprocess_data(raw_data, beta_window=60)
+    market_inputs = load_gap_execution_inputs(beta_window=60)
+    raw_data = market_inputs.raw_data
+    df_exec = market_inputs.df_exec
 
     # Inject Tachibana real-time prices for today if enabled
     api_client = None
@@ -1196,25 +1027,31 @@ def main():
         opens_future = opens_executor.submit(_fetch_and_cache_opens)
 
     # Compute TOPIX returns (guard against zero TOPIX open prices).
-    topix_close = raw_data["jp_close"][TOPIX_TICKER].copy()
-    topix_open = raw_data["jp_open"][TOPIX_TICKER].copy()
-    topix_close.index = pd.to_datetime(topix_close.index, format="ISO8601").tz_localize(None).normalize()
-    topix_open.index = pd.to_datetime(topix_open.index, format="ISO8601").tz_localize(None).normalize()
-    with np.errstate(divide="ignore", invalid="ignore"):
-        r_topix_oc = topix_close / topix_open - 1.0
-    r_topix_oc = r_topix_oc.replace([np.inf, -np.inf], np.nan)
-    df_exec["topix_oc_return"] = r_topix_oc.reindex(df_exec.index).values
-    # Preserve injected 0.0 for today (Tachibana real-time prices do not have today's close)
-    if str_to_bool(args.use_tachibana_prices):
-        today = pd.Timestamp.now().tz_localize(None).normalize()
-        if today in df_exec.index and pd.isna(df_exec.loc[today, "topix_oc_return"]):
-            df_exec.loc[today, "topix_oc_return"] = 0.0
-    df_exec["topix_cc_trade"] = (1.0 + df_exec["topix_night_return"]) * (1.0 + df_exec["topix_oc_return"]) - 1.0
+    df_exec = attach_topix_trade_returns(
+        df_exec,
+        raw_data,
+        preserve_today_placeholder=str_to_bool(args.use_tachibana_prices),
+    )
 
     # Setup model
     logger.info("Instantiating Residual-BLPX model...")
-    model = ProductionBLPXModel(parse_run_config(cfg).blpx)
-    inputs = model._prepare_common_inputs(df_exec)
+    model = build_blpx_model(app_config)
+    # Keep the exact 09:10 input frame used for targets and bundle provenance.
+    # This prevents a later 5-minute correction from being hidden behind an
+    # unchanged df_exec fingerprint.
+    open_910_returns = build_open_910_returns(df_exec, JP_TICKERS)
+    historical_inputs = build_gap_historical_inputs(
+        df_exec,
+        open_910_returns=open_910_returns,
+        horizon=1,
+        source="gap_generation_h1",
+    )
+    inputs = prepare_gap_model_inputs(
+        model,
+        df_exec,
+        open_910_returns=open_910_returns,
+        historical_inputs=historical_inputs,
+    )
 
     # Fetch weights
     weights_file = results_dir / "daily_positions_Residual-BLPX_only.csv"
@@ -1226,17 +1063,18 @@ def main():
     weights_df.index = pd.to_datetime(weights_df.index, format="ISO8601").tz_localize(None).normalize()
 
     # Model inputs
-    y_jp_target = inputs["y_jp_target"]
-    jp_gap = inputs["jp_gap"]
-    jp_beta = inputs["jp_beta"]
-    topix_night = inputs["topix_night"]
-    jp_res_returns_p3 = inputs["jp_res_returns_p3"]
-    c_full_p3 = inputs["c_full_p3"]
-    v0_static = inputs["v0_static"]
+    y_jp_target = inputs.y_jp_target
+    jp_gap = inputs.jp_gap
+    jp_beta = inputs.jp_beta
+    topix_night = inputs.topix_night
+    jp_res_returns_p3 = inputs.jp_res_returns_p3
+    c_full_p3 = inputs.c_full_p3
+    v0_static = inputs.v0_static
 
     # --- Phase 2A: Multi-horizon model setup ---
     mh_models = {}   # {h: model_instance}
     mh_inputs = {}   # {h: inputs_dict}
+    historical_inputs_by_horizon: dict[int, Any] = {}
 
     if save_mh and mh_horizons:
         # 5分足 09:10 価格は h-day target 計算で使う。h=3/h=5 両方に共有。
@@ -1250,12 +1088,24 @@ def main():
             y_jp_target_h = compute_jp_target_returns(
                 df_exec, JP_TICKERS, horizon=h, p_910_df=p_910_df
             )
-            model_h = ProductionBLPXModel(parse_run_config(cfg).blpx)
-            inputs_h = model_h._prepare_common_inputs(
-                df_exec_h, y_jp_target=y_jp_target_h
+            model_h = build_blpx_model(app_config)
+            historical_inputs_h = build_gap_historical_inputs(
+                df_exec,
+                open_910_returns=open_910_returns,
+                horizon=h,
+                source=f"gap_generation_h{h}",
+            )
+            inputs_h = prepare_gap_model_inputs(
+                model_h,
+                df_exec_h,
+                y_jp_target=y_jp_target_h,
+                horizon=h,
+                open_910_returns=open_910_returns,
+                historical_inputs=historical_inputs_h,
             )
             mh_models[h] = model_h
             mh_inputs[h] = inputs_h
+            historical_inputs_by_horizon[h] = historical_inputs_h
             logger.info(f"  h={h} model ready (corr_window={model_h.corr_window})")
 
     if save_rr:
@@ -1328,6 +1178,12 @@ def main():
         bl_minvar_alpha=bl_minvar_alpha,
         bl_baseline_gross=bl_baseline_gross,
         bl_cost_bps_per_gross=bl_cost_bps_per_gross,
+        bundle_model_version=model_version(model),
+        bundle_config_version=config_version(app_config.v2),
+        bundle_ticker_order=tuple(JP_TICKERS),
+        open_910_returns=open_910_returns,
+        historical_inputs=historical_inputs,
+        historical_inputs_by_horizon=historical_inputs_by_horizon,
     )
 
     def _process_date(dt):
@@ -1358,49 +1214,16 @@ def main():
         except Exception as e:
             logger.warning("Failed to persist Tachibana-injected df_exec: %s", e)
 
-    # Save ticker level summary
-    ticker_gap_summary = []
-    for tk in JP_TICKERS:
-        df_tk = pd.DataFrame(acc.omega_gap_ticker_records[tk])
-        mean_raw = df_tk["omega_raw_diag"].mean()
-        mean_gap = df_tk["omega_gap_diag"].mean()
-        mean_ratio = (df_tk["omega_gap_diag"] / df_tk["omega_raw_diag"].replace(0.0, 1e-10)).mean()
-        corr_val = df_tk["omega_gap_diag"].corr(df_tk["omega_raw_diag"])
-        ticker_gap_summary.append({
-            "ticker": tk,
-            "mean_omega_raw_diag": mean_raw,
-            "mean_omega_gap_diag": mean_gap,
-            "mean_ratio": mean_ratio,
-            "time_series_correlation": corr_val,
-        })
-    df_ticker_gap_summary = pd.DataFrame(ticker_gap_summary)
-    df_ticker_gap_summary.to_csv(out_dir / "omega_gap_summary_by_ticker.csv", index=False)
-
-    # Build DataFrames
-    df_gap_long = pd.DataFrame(acc.gap_long_records)
-    df_gap_long.to_csv(out_dir / "gap_components_long.csv", index=False)
-
-    df_gap_daily = pd.DataFrame(acc.gap_daily_records)
-    df_gap_daily.to_csv(out_dir / "gap_components_daily.csv", index=False)
-
-    df_dist_long = pd.DataFrame(acc.dist_long_records)
-    df_dist_long.to_csv(out_dir / "gap_adjusted_distribution_long.csv", index=False)
-
-    df_dist_daily = pd.DataFrame(acc.dist_daily_records)
-    df_dist_daily.to_csv(out_dir / "gap_adjusted_distribution_daily.csv", index=False)
-
-    df_omega_daily = pd.DataFrame(acc.omega_gap_daily_records)
-    df_omega_daily.to_csv(out_dir / "omega_gap_summary_daily.csv", index=False)
+    diagnostic_frames = build_gap_diagnostic_frames(acc, tickers=JP_TICKERS)
+    write_gap_diagnostic_frames(diagnostic_frames, out_dir)
+    df_gap_long = diagnostic_frames.gap_long
+    df_gap_daily = diagnostic_frames.gap_daily
+    df_dist_long = diagnostic_frames.distribution_long
+    df_dist_daily = diagnostic_frames.distribution_daily
+    df_omega_daily = diagnostic_frames.omega_daily
 
     df_port = pd.DataFrame(acc.portfolio_diagnostics_records)
-
-    # Compute ex-ante cost estimate: lookahead-free rolling 60 days shifted cost
-    df_port["cost_estimate_exante"] = df_port["cost"].shift(1).rolling(60, min_periods=1).mean()
-    df_port["cost_estimate_exante"] = df_port["cost_estimate_exante"].fillna(0.0)
-
-    # Ex-ante Net IR
-    df_port["pred_ir_gap_exante_cost"] = (df_port["pred_mean_gap"] - df_port["cost_estimate_exante"]) / df_port["pred_vol_gap"]
-    df_port["pred_ir_gap_exante_cost"] = df_port["pred_ir_gap_exante_cost"].fillna(0.0)
+    df_port = prepare_portfolio_output_frame(df_port)
 
     # Merge Vol State panel if available
     vol_state_merged = False
@@ -1461,725 +1284,26 @@ def main():
         print(f"Diagnostics files written to output directory: {out_dir}")
         return
 
-    # 6. Pre-gap vs Post-gap IR comparison
-    logger.info("Computing pre-gap vs post-gap comparisons...")
-    ir_columns = [
-        ("pred_ir_raw", "pred_ir_raw"),
-        ("pred_ir_gap", "pred_ir_gap"),
-        ("pred_ir_gap_exante_cost", "pred_ir_gap_exante_cost"),
-        ("pred_ir_gap_realized_cost_diagnostic", "pred_ir_gap_realized_cost_diagnostic"),
-    ]
-
-    # Compute rolling and expanding PIT bins
-    for col_name, col_key in ir_columns:
-        df_port[f"bin_{col_name}_fullsample"] = pd.qcut(df_port[col_key], 3 if args.bin_method == "tertile" else 5, labels=["Low", "Medium", "High"] if args.bin_method == "tertile" else ["Very Low", "Low", "Medium", "High", "Very High"], duplicates='drop')
-        df_port[f"bin_{col_name}_rolling"] = compute_pit_bins(df_port[col_key], args.bin_method, rolling_window=args.rolling_bin_window)
-        df_port[f"bin_{col_name}_expanding"] = compute_pit_bins(df_port[col_key], args.bin_method, expanding_min_window=args.expanding_min_window)
-
-    # Fullsample Bin Summary
-    fullsample_bin_summary = []
-    # Rolling PIT Bin Summary
-    rolling_bin_summary = []
-    # Expanding PIT Bin Summary
-    expanding_bin_summary = []
-
-    bin_labels = ["Low", "Medium", "High"] if args.bin_method == "tertile" else ["Very Low", "Low", "Medium", "High", "Very High"]
-
-    for col_name, col_key in ir_columns:
-        # Fullsample
-        for lbl in bin_labels:
-            sub = df_port[df_port[f"bin_{col_name}_fullsample"] == lbl]
-            sub_net = sub["net_return"].values
-            sub_gross = sub["gross_return"].values
-            fullsample_bin_summary.append({
-                "ir_metric": col_name,
-                "bin": lbl,
-                "count": len(sub),
-                "mean_gross_return": float(np.mean(sub_gross)) if len(sub) > 0 else 0.0,
-                "mean_net_return": float(np.mean(sub_net)) if len(sub) > 0 else 0.0,
-                "ann_return_net": float(np.mean(sub_net) * 252.0) if len(sub) > 0 else 0.0,
-                "ann_sharpe_net": float(np.mean(sub_net) / np.std(sub_net) * np.sqrt(252.0)) if len(sub) > 0 and np.std(sub_net) > 0 else 0.0,
-                "hit_rate": float(np.sum(sub_net > 0) / len(sub)) if len(sub) > 0 else 0.0,
-                "mdd_net": compute_mdd(sub_net),
-                "turnover": float(np.mean(sub["turnover"])) if len(sub) > 0 else 0.0,
-                "cost": float(np.mean(sub["cost"])) if len(sub) > 0 else 0.0,
-            })
-
-        # Rolling PIT
-        for lbl in bin_labels:
-            sub = df_port[df_port[f"bin_{col_name}_rolling"] == lbl]
-            sub_net = sub["net_return"].values
-            sub_gross = sub["gross_return"].values
-            rolling_bin_summary.append({
-                "ir_metric": col_name,
-                "bin": lbl,
-                "count": len(sub),
-                "mean_gross_return": float(np.mean(sub_gross)) if len(sub) > 0 else 0.0,
-                "mean_net_return": float(np.mean(sub_net)) if len(sub) > 0 else 0.0,
-                "ann_return_net": float(np.mean(sub_net) * 252.0) if len(sub) > 0 else 0.0,
-                "ann_sharpe_net": float(np.mean(sub_net) / np.std(sub_net) * np.sqrt(252.0)) if len(sub) > 0 and np.std(sub_net) > 0 else 0.0,
-                "hit_rate": float(np.sum(sub_net > 0) / len(sub)) if len(sub) > 0 else 0.0,
-                "mdd_net": compute_mdd(sub_net),
-                "turnover": float(np.mean(sub["turnover"])) if len(sub) > 0 else 0.0,
-                "cost": float(np.mean(sub["cost"])) if len(sub) > 0 else 0.0,
-            })
-
-        # Expanding PIT
-        for lbl in bin_labels:
-            sub = df_port[df_port[f"bin_{col_name}_expanding"] == lbl]
-            sub_net = sub["net_return"].values
-            sub_gross = sub["gross_return"].values
-            expanding_bin_summary.append({
-                "ir_metric": col_name,
-                "bin": lbl,
-                "count": len(sub),
-                "mean_gross_return": float(np.mean(sub_gross)) if len(sub) > 0 else 0.0,
-                "mean_net_return": float(np.mean(sub_net)) if len(sub) > 0 else 0.0,
-                "ann_return_net": float(np.mean(sub_net) * 252.0) if len(sub) > 0 else 0.0,
-                "ann_sharpe_net": float(np.mean(sub_net) / np.std(sub_net) * np.sqrt(252.0)) if len(sub) > 0 and np.std(sub_net) > 0 else 0.0,
-                "hit_rate": float(np.sum(sub_net > 0) / len(sub)) if len(sub) > 0 else 0.0,
-                "mdd_net": compute_mdd(sub_net),
-                "turnover": float(np.mean(sub["turnover"])) if len(sub) > 0 else 0.0,
-                "cost": float(np.mean(sub["cost"])) if len(sub) > 0 else 0.0,
-            })
-
-    pd.DataFrame(fullsample_bin_summary).to_csv(out_dir / "pre_vs_post_gap_ir_bins_fullsample.csv", index=False)
-    pd.DataFrame(rolling_bin_summary).to_csv(out_dir / "pre_vs_post_gap_ir_bins_rolling252.csv", index=False)
-    pd.DataFrame(expanding_bin_summary).to_csv(out_dir / "pre_vs_post_gap_ir_bins_expanding.csv", index=False)
-
-    # Pre vs Post Gap Overall Comparison Stats
-    overall_comparison = []
-    for col_name, col_key in ir_columns:
-        c_net, _ = pearsonr(df_port[col_key], df_port["net_return"])
-        c_gross, _ = pearsonr(df_port[col_key], df_port["gross_return"])
-        s_net, _ = spearmanr(df_port[col_key], df_port["net_return"])
-        s_gross, _ = spearmanr(df_port[col_key], df_port["gross_return"])
-
-        # Calculate Spread High - Low rolling PIT bin
-        sub_high = df_port[df_port[f"bin_{col_name}_rolling"] == "High"]
-        sub_low = df_port[df_port[f"bin_{col_name}_rolling"] == "Low"]
-        high_mean = sub_high["net_return"].mean() if len(sub_high) > 0 else 0.0
-        low_mean = sub_low["net_return"].mean() if len(sub_low) > 0 else 0.0
-        spread_net = high_mean - low_mean
-
-        # Check rolling PIT monotonicity (High > Medium > Low)
-        sub_med = df_port[df_port[f"bin_{col_name}_rolling"] == "Medium"]
-        med_mean = sub_med["net_return"].mean() if len(sub_med) > 0 else 0.0
-        is_monotonic = int(high_mean > med_mean > low_mean) if args.bin_method == "tertile" else 0
-
-        overall_comparison.append({
-            "ir_metric": col_name,
-            "corr_net_return": c_net,
-            "corr_gross_return": c_gross,
-            "spearman_corr_net": s_net,
-            "spearman_corr_gross": s_gross,
-            "rolling_pit_high_low_spread_net": spread_net,
-            "rolling_pit_monotonicity_verified": is_monotonic,
-            "mdd_net_overall": compute_mdd(df_port["net_return"].values),
-            "hit_rate_overall": float(np.sum(df_port["net_return"] > 0) / len(df_port)),
-            "mean_cost_overall": float(df_port["cost"].mean()),
-            "mean_turnover_overall": float(df_port["turnover"].mean()),
-        })
-    pd.DataFrame(overall_comparison).to_csv(out_dir / "pre_vs_post_gap_ir_comparison.csv", index=False)
-
-    # Comparison by Year
-    df_port["year"] = pd.to_datetime(df_port["trade_date"], format="ISO8601").dt.year
-    by_year_records = []
-    years = sorted(df_port["year"].unique())
-    for yr in years:
-        df_yr = df_port[df_port["year"] == yr]
-        for col_name, col_key in ir_columns:
-            cy_net, _ = pearsonr(df_yr[col_key], df_yr["net_return"]) if len(df_yr) > 5 else (0.0, 1.0)
-            sy_net, _ = spearmanr(df_yr[col_key], df_yr["net_return"]) if len(df_yr) > 5 else (0.0, 1.0)
-            by_year_records.append({
-                "year": yr,
-                "ir_metric": col_name,
-                "count": len(df_yr),
-                "pearson_corr_net": cy_net,
-                "spearman_corr_net": sy_net,
-                "mean_net_return": float(df_yr["net_return"].mean()),
-                "std_net_return": float(df_yr["net_return"].std()),
-            })
-    pd.DataFrame(by_year_records).to_csv(out_dir / "pre_vs_post_gap_ir_by_year.csv", index=False)
-
-    # 7. Japanese Gap State interaction diagnostics
-    logger.info("Computing Japanese gap state interactions...")
-    # Compute tertiles of gap state variables
-    df_port["bin_pred_ir_gap"] = pd.qcut(df_port["pred_ir_gap"], 3, labels=["Low", "Medium", "High"], duplicates='drop')
-
-    gap_state_vars = [
-        "mean_abs_GapOpen_filt",
-        "dispersion_GapOpen",
-        "mean_abs_GapOpen_idio",
-        "mean_abs_GapOpen_syst",
-    ]
-
-    interaction_summary = []
-    for gv in gap_state_vars:
-        df_port[f"bin_{gv}"] = pd.qcut(df_port[gv], 3, labels=["Small Gap", "Medium Gap", "Large Gap"], duplicates='drop')
-
-        # 3x3 Grid statistics
-        for ir_lbl in ["Low", "Medium", "High"]:
-            for gap_lbl in ["Small Gap", "Medium Gap", "Large Gap"]:
-                sub = df_port[(df_port["bin_pred_ir_gap"] == ir_lbl) & (df_port[f"bin_{gv}"] == gap_lbl)]
-                interaction_summary.append({
-                    "gap_state_variable": gv,
-                    "pred_ir_gap_bin": ir_lbl,
-                    "gap_state_bin": gap_lbl,
-                    "count": len(sub),
-                    "mean_net_return": float(sub["net_return"].mean()) if len(sub) > 0 else 0.0,
-                    "std_net_return": float(sub["net_return"].std()) if len(sub) > 0 else 0.0,
-                    "hit_rate": float(np.sum(sub["net_return"] > 0) / len(sub)) if len(sub) > 0 else 0.0,
-                })
-    pd.DataFrame(interaction_summary).to_csv(out_dir / "gap_state_interaction_diagnostics.csv", index=False)
-
-    # Transition of IR bin from raw to gap
-    df_port["bin_pred_ir_raw"] = pd.qcut(df_port["pred_ir_raw"], 3, labels=["Low", "Medium", "High"], duplicates='drop')
-    df_port["bin_pred_ir_gap_tertile"] = pd.qcut(df_port["pred_ir_gap"], 3, labels=["Low", "Medium", "High"], duplicates='drop')
-
-    transition_matrix = df_port.groupby(["bin_pred_ir_raw", "bin_pred_ir_gap_tertile"])["net_return"].agg(["count", "mean", "std"])
-    transition_matrix = transition_matrix.reset_index()
-    transition_matrix.rename(columns={"mean": "mean_net_return", "std": "std_net_return"}, inplace=True)
-    transition_matrix.to_csv(out_dir / "ir_bin_transition_raw_to_gap.csv", index=False)
-
-    # Largest gap adjustments (where |pred_ir_raw - pred_ir_gap| is largest)
-    df_port["ir_diff"] = (df_port["pred_ir_raw"] - df_port["pred_ir_gap"]).abs()
-    largest_adj = df_port.sort_values(by="ir_diff", ascending=False).head(20)
-    largest_adj[[
-        "trade_date",
-        "pred_ir_raw",
-        "pred_ir_gap",
-        "ir_diff",
-        "net_return",
-        "mean_abs_GapOpen_filt",
-        "max_abs_GapOpen_filt",
-        "dispersion_GapOpen",
-        "denominator_min",
-    ]].to_csv(out_dir / "largest_gap_adjustment_cases.csv", index=False)
-
-    # Write gap_state_summary.md
-    with open(out_dir / "gap_state_summary.md", "w") as f:
-        f.write("# Japanese Gap State Interaction Summary\n\n")
-        f.write("This document summarizes the diagnostics between Japanese opening gap states and the gap-adjusted predicted IR.\n\n")
-        f.write("## Efficacy in High Gap Regimes\n\n")
-
-        # Calculate correlation under Small vs Large filtered gap days
-        median_gap = df_port["mean_abs_GapOpen_filt"].median()
-        df_low_gap = df_port[df_port["mean_abs_GapOpen_filt"] <= median_gap]
-        df_high_gap = df_port[df_port["mean_abs_GapOpen_filt"] > median_gap]
-
-        corr_raw_low, _ = pearsonr(df_low_gap["pred_ir_raw"], df_low_gap["net_return"])
-        corr_gap_low, _ = pearsonr(df_low_gap["pred_ir_gap"], df_low_gap["net_return"])
-        corr_raw_high, _ = pearsonr(df_high_gap["pred_ir_raw"], df_high_gap["net_return"])
-        corr_gap_high, _ = pearsonr(df_high_gap["pred_ir_gap"], df_high_gap["net_return"])
-
-        f.write(f"- **Low Gap Days** (≤ median={median_gap:.4f}):\n")
-        f.write(f"  - Correlation of raw predicted IR vs net return: {corr_raw_low:.4f}\n")
-        f.write(f"  - Correlation of gap-adjusted predicted IR vs net return: {corr_gap_low:.4f}\n")
-        f.write(f"- **High Gap Days** ($>$ median={median_gap:.4f}):\n")
-        f.write(f"  - Correlation of raw predicted IR vs net return: {corr_raw_high:.4f}\n")
-        f.write(f"  - Correlation of gap-adjusted predicted IR vs net return: {corr_gap_high:.4f}\n\n")
-
-        if abs(corr_gap_high) > abs(corr_raw_high):
-            f.write("> [!NOTE]\n")
-            f.write("> The gap-adjusted IR has **higher correlation** with net return than the raw IR on High Gap days, demonstrating that applying the gap correction consistently to both covariance and mean improves model explanatory power during volatile market openings.\n\n")
-
-        f.write("## 3x3 Interaction (pred_ir_gap vs mean_abs_GapOpen_filt)\n\n")
-        f.write("| pred_ir_gap Bin | Gap Open Filt Bin | Day Count | Mean Net Return (bps) | Hit Rate |\n")
-        f.write("| --- | --- | --- | --- | --- |\n")
-        for ir_lbl in ["Low", "Medium", "High"]:
-            for gap_lbl in ["Small Gap", "Medium Gap", "Large Gap"]:
-                sub = df_port[(df_port["bin_pred_ir_gap"] == ir_lbl) & (df_port["bin_mean_abs_GapOpen_filt"] == gap_lbl)]
-                f.write(f"| {ir_lbl} | {gap_lbl} | {len(sub)} | {sub['net_return'].mean()*10000.0:.2f} | {np.sum(sub['net_return'] > 0)/len(sub)*100.0:.2f}% |\n")
-
-    # 8. US Vol State interaction diagnostics
-    if vol_state_merged:
-        logger.info("Computing US vol state interactions...")
-        us_state_summary_records = []
-
-        for v_col in vol_cols:
-            if v_col == "VIX_level":
-                continue
-            df_port[f"bin_{v_col}"] = pd.qcut(df_port[v_col].fillna(0.0), 3, labels=["Low State", "Medium State", "High State"], duplicates='drop')
-
-            # Cross-tabulation
-            for ir_lbl in ["Low", "Medium", "High"]:
-                for vol_lbl in ["Low State", "Medium State", "High State"]:
-                    sub = df_port[(df_port["bin_pred_ir_gap"] == ir_lbl) & (df_port[f"bin_{v_col}"] == vol_lbl)]
-                    us_state_summary_records.append({
-                        "vol_state_variable": v_col,
-                        "pred_ir_gap_bin": ir_lbl,
-                        "vol_state_bin": vol_lbl,
-                        "count": len(sub),
-                        "mean_net_return": float(sub["net_return"].mean()) if len(sub) > 0 else 0.0,
-                        "std_net_return": float(sub["net_return"].std()) if len(sub) > 0 else 0.0,
-                        "hit_rate": float(np.sum(sub["net_return"] > 0) / len(sub)) if len(sub) > 0 else 0.0,
-                    })
-        df_vol_cross = pd.DataFrame(us_state_summary_records)
-        df_vol_cross.to_csv(out_dir / "gap_distribution_vol_state_cross.csv", index=False)
-
-        # Write gap_distribution_vol_state_summary.md
-        with open(out_dir / "gap_distribution_vol_state_summary.md", "w") as f:
-            f.write("# US Vol State Interaction Summary\n\n")
-            f.write("This document summarizes the diagnostics between US Volatility State variables and the gap-adjusted predicted IR.\n\n")
-
-            # High US dispersion effect on High-Low spread
-            if "US_ret_dispersion_z_60" in df_port.columns:
-                f.write("## US Return Dispersion effect on High-Low Spread\n\n")
-                median_us_disp = df_port["US_ret_dispersion_z_60"].median()
-                df_low_us = df_port[df_port["US_ret_dispersion_z_60"] <= median_us_disp]
-                df_high_us = df_port[df_port["US_ret_dispersion_z_60"] > median_us_disp]
-
-                low_high_m = df_low_us[df_low_us["bin_pred_ir_gap"] == "High"]["net_return"].mean()
-                low_low_m = df_low_us[df_low_us["bin_pred_ir_gap"] == "Low"]["net_return"].mean()
-                low_spread = low_high_m - low_low_m
-
-                high_high_m = df_high_us[df_high_us["bin_pred_ir_gap"] == "High"]["net_return"].mean()
-                high_low_m = df_high_us[df_high_us["bin_pred_ir_gap"] == "Low"]["net_return"].mean()
-                high_spread = high_high_m - high_low_m
-
-                f.write(f"- **Low US Dispersion Days** (≤ median={median_us_disp:.2f}): PIT High-Low Net Return Spread = {low_spread*10000.0:.2f} bps\n")
-                f.write(f"- **High US Dispersion Days** ($>$ median={median_us_disp:.2f}): PIT High-Low Net Return Spread = {high_spread*10000.0:.2f} bps\n\n")
-
-                if high_spread > low_spread:
-                    f.write("> [!TIP]\n")
-                    f.write("> The predicted IR **spread expands** during high US dispersion days, suggesting that US market vol regimes amplify the execution edge of the Japan model.\n\n")
-
-            # Correlation of predicted vol vs realized absolute returns under high VIX / high correlation
-            f.write("## Volatility Efficacy: pred_vol_gap vs abs(net_return)\n\n")
-            if "VIX_z_60" in df_port.columns:
-                median_vix = df_port["VIX_z_60"].median()
-                df_low_vix = df_port[df_port["VIX_z_60"] <= median_vix]
-                df_high_vix = df_port[df_port["VIX_z_60"] > median_vix]
-
-                cv_low, _ = pearsonr(df_low_vix["pred_vol_gap"], df_low_vix["net_return"].abs())
-                cv_high, _ = pearsonr(df_high_vix["pred_vol_gap"], df_high_vix["net_return"].abs())
-
-                f.write(f"- **Low VIX z-score Days** (≤ median={median_vix:.2f}): Correlation of predicted vol vs realized abs return = {cv_low:.4f}\n")
-                f.write(f"- **High VIX z-score Days** ($>$ median={median_vix:.2f}): Correlation of predicted vol vs realized abs return = {cv_high:.4f}\n\n")
-
-            if "US_avg_corr_60" in df_port.columns:
-                median_corr = df_port["US_avg_corr_60"].median()
-                df_low_corr = df_port[df_port["US_avg_corr_60"] <= median_corr]
-                df_high_corr = df_port[df_port["US_avg_corr_60"] > median_corr]
-
-                cc_low, _ = pearsonr(df_low_corr["pred_vol_gap"], df_low_corr["net_return"].abs())
-                cc_high, _ = pearsonr(df_high_corr["pred_vol_gap"], df_high_corr["net_return"].abs())
-
-                f.write(f"- **Low US Correlation Days** (≤ median={median_corr:.2f}): Correlation of predicted vol vs realized abs return = {cc_low:.4f}\n")
-                f.write(f"- **High US Correlation Days** ($>$ median={median_corr:.2f}): Correlation of predicted vol vs realized abs return = {cc_high:.4f}\n\n")
-
-    # 9. Stock-level Gap IC and residual validation
-    logger.info("Computing stock-level metrics...")
-    ticker_ic_records = []
-
-    for tk in JP_TICKERS:
-        df_tk = df_dist_long[df_dist_long["ticker"] == tk]
-        realized_tk = df_tk["realized_target_return"].values
-        mu_raw_tk = df_tk["mu_raw"].values
-        mu_gap_tk = df_tk["mu_gap"].values
-        std_raw_tk = df_tk["omega_std_raw"].values
-        std_gap_tk = df_tk["omega_std_gap"].values
-
-        ic_raw_p, _ = pearsonr(mu_raw_tk, realized_tk)
-        ic_gap_p, _ = pearsonr(mu_gap_tk, realized_tk)
-
-        # Ticker level Information Ratio based signal
-        ir_raw_tk = mu_raw_tk / np.where(std_raw_tk < 1e-8, 1e-8, std_raw_tk)
-        ir_gap_tk = mu_gap_tk / np.where(std_gap_tk < 1e-8, 1e-8, std_gap_tk)
-
-        ic_raw_ir_p, _ = pearsonr(ir_raw_tk, realized_tk)
-        ic_gap_ir_p, _ = pearsonr(ir_gap_tk, realized_tk)
-
-        ticker_ic_records.append({
-            "ticker": tk,
-            "ic_raw_mean": ic_raw_p,
-            "ic_gap_mean": ic_gap_p,
-            "ic_raw_ir": ic_raw_ir_p,
-            "ic_gap_ir": ic_gap_ir_p,
-        })
-    df_ticker_ic = pd.DataFrame(ticker_ic_records)
-    df_ticker_ic.to_csv(out_dir / "ticker_level_gap_ic.csv", index=False)
-
-    # Standardized residual gap analysis
-    df_dist_long["std_residual_gap"] = (df_dist_long["realized_target_return"] - df_dist_long["mu_gap"]) / df_dist_long["omega_std_gap"].replace(0.0, 1e-8)
-
-    total_obs = len(df_dist_long)
-    obs_gt_2 = int(np.sum(df_dist_long["std_residual_gap"].abs() > 2.0))
-    obs_gt_3 = int(np.sum(df_dist_long["std_residual_gap"].abs() > 3.0))
-
-    resid_mean = float(df_dist_long["std_residual_gap"].mean())
-    resid_std = float(df_dist_long["std_residual_gap"].std())
-    resid_skew = float(df_dist_long["std_residual_gap"].skew())
-    resid_kurt = float(df_dist_long["std_residual_gap"].kurtosis())
-
-    # Outliers frequency checks (against standard normal)
-    # Standard normal expects: ~4.55% outside [-2, 2], ~0.27% outside [-3, 3]
-    freq_gt_2 = obs_gt_2 / total_obs
-    freq_gt_3 = obs_gt_3 / total_obs
-
-    resid_summary = {
-        "total_observations": total_obs,
-        "residual_mean": resid_mean,
-        "residual_std": resid_std,
-        "residual_skewness": resid_skew,
-        "residual_kurtosis": resid_kurt,
-        "count_outside_2sigma": obs_gt_2,
-        "count_outside_3sigma": obs_gt_3,
-        "frequency_outside_2sigma": freq_gt_2,
-        "frequency_outside_3sigma": freq_gt_3,
-        "expected_outside_2sigma_normal": 0.04550026389635842,
-        "expected_outside_3sigma_normal": 0.0026997960632502853,
-    }
-    pd.DataFrame([resid_summary]).to_csv(out_dir / "standardized_residuals_gap_summary.csv", index=False)
-
-    # By stock residual summary
-    ticker_resid_records = []
-    for tk in JP_TICKERS:
-        sub = df_dist_long[df_dist_long["ticker"] == tk]
-        sub_res = sub["std_residual_gap"].values
-        ticker_resid_records.append({
-            "ticker": tk,
-            "count": len(sub),
-            "residual_mean": float(np.mean(sub_res)),
-            "residual_std": float(np.std(sub_res, ddof=1)),
-            "residual_skewness": float(pd.Series(sub_res).skew()),
-            "residual_kurtosis": float(pd.Series(sub_res).kurtosis()),
-            "frequency_outside_2sigma": float(np.sum(np.abs(sub_res) > 2.0) / len(sub)),
-            "frequency_outside_3sigma": float(np.sum(np.abs(sub_res) > 3.0) / len(sub)),
-        })
-    pd.DataFrame(ticker_resid_records).to_csv(out_dir / "standardized_residuals_gap_by_ticker.csv", index=False)
-
-    # 10. Audit checks
-    logger.info("Executing audits...")
-    # Leakage Audit
-    leakage_audit = {
-        "signal_date_strictly_before_trade_date_passed": bool(acc.all_dates_audit),
-        "leakage_violations_detected": bool(acc.leakage_violation),
-        "omega_point_in_time_only_passed": True,  # checked in Step 1
-        "realized_target_return_excluded_from_omega_passed": True,
-        "expected_cost_identified_as_realized_only": True,
-        "rolling_pit_boundaries_leakage_free": True,
-        "gap_treated_as_post_open_910_state": True,
-        "dropped_rows_count": acc.dropped_count,
-        "missing_data_count": acc.missing_data_count,
-        "nan_inf_count": acc.nan_inf_count,
-    }
-    with open(out_dir / "leakage_audit.json", "w") as f:
-        json.dump(leakage_audit, f, indent=4)
-
-    # Numerical Audit
-    numerical_audit = {
-        "Omega_gap_symmetry_max_abs_error": float(acc.symmetry_max_err_gap),
-        "min_eigenvalue_avg": float(df_dist_daily["min_eigenvalue_gap"].mean()),
-        "max_eigenvalue_avg": float(df_omega_daily["max_eigenvalue"].mean()),
-        "negative_eigenvalue_days_pct": float(acc.neg_eigen_days_gap / len(df_dist_daily)) if len(df_dist_daily) > 0 else 0.0,
-        "days_with_min_eigenvalue_lt_neg_1e_8": int(acc.days_with_min_eigen_lt_neg_1e_8_gap),
-        "days_with_diag_le_zero": int(acc.days_with_diag_le_zero_gap),
-        "condition_number_median": float(df_omega_daily["condition_number"].median()),
-        "avg_offdiag_corr_mean": float(df_omega_daily["avg_offdiag_corr"].mean()),
-        "frob_norm_mean": float(df_omega_daily["frob_norm"].mean()),
-        "frob_norm_ratio_gap_vs_raw_mean": float(df_dist_daily["fro_norm_ratio_gap_vs_raw"].mean()),
-        "mean_diag_ratio_gap_vs_raw_mean": float(df_dist_daily["mean_diag_ratio_gap_vs_raw"].mean()),
-        "denominator_min_overall": float(acc.denominator_min_overall),
-        "denominator_floor_hit_count_overall": int(acc.denominator_floor_hit_count_overall),
-        "ticker_order_correct": bool(np.all(df_gap_long["ticker"].values[:model.n_j] == JP_TICKERS)),
-        "psd_projection_applied": False,  # Not strictly applied here, checked via min eigenvalue
-    }
-    with open(out_dir / "numerical_audit.json", "w") as f:
-        json.dump(numerical_audit, f, indent=4)
-
-    # Save simple run config
-    run_config = {
-        "config_file": args.config,
-        "model": args.model,
-        "start": args.start,
-        "end": args.end,
-        "bin_method": args.bin_method,
-        "rolling_bin_window": args.rolling_bin_window,
-        "expanding_min_window": args.expanding_min_window,
-        "save_daily_matrices": save_daily_m,
-        "compare_pre_gap": compare_pre,
-        "vol_state_panel": args.vol_state_panel,
-    }
-    with open(out_dir / "run_config.json", "w") as f:
-        json.dump(run_config, f, indent=4)
-
-    # Write data availability info
-    data_avail = {
-        "total_days_processed": len(df_dist_daily),
-        "missing_days": acc.missing_data_count,
-        "vol_state_merged": bool(vol_state_merged),
-        "ticker_ic_calculated": True,
-        "standardized_residuals_calculated": True,
-    }
-    with open(out_dir / "data_availability.json", "w") as f:
-        json.dump(data_avail, f, indent=4)
-
-    # 12. Plot generation
-    logger.info("Generating diagnostic plots...")
-    # Plot 1: pred_ir_raw vs pred_ir_gap scatter
-    plt.figure(figsize=(7, 6))
-    plt.scatter(df_port["pred_ir_raw"], df_port["pred_ir_gap"], alpha=0.3, color="teal")
-    plt.plot([df_port["pred_ir_raw"].min(), df_port["pred_ir_raw"].max()], [df_port["pred_ir_raw"].min(), df_port["pred_ir_raw"].max()], 'r--', label="y = x")
-    plt.title("Portfolio Predicted IR: Raw vs Gap-Adjusted")
-    plt.xlabel("Raw Predicted IR")
-    plt.ylabel("Gap-Adjusted Predicted IR")
-    plt.grid(True)
-    plt.legend()
-    plt.savefig(plots_dir / "pred_ir_raw_vs_gap_scatter.png", bbox_inches="tight")
-    plt.close()
-
-    # Plot 2: pred_ir_raw bin cumulative returns
-    plt.figure(figsize=(9, 5))
-    for lbl in bin_labels:
-        sub = df_port[df_port["bin_pred_ir_raw_fullsample"] == lbl]
-        ret_cum = np.cumprod(1.0 + sub["net_return"]) - 1.0
-        plt.plot(ret_cum.values, label=f"Raw Bin: {lbl}")
-    plt.title("Cumulative Net Returns: Raw pred_ir Bins (Full-Sample)")
-    plt.xlabel("Days in Bin")
-    plt.ylabel("Cumulative Net Return")
-    plt.legend()
-    plt.grid(True)
-    plt.savefig(plots_dir / "pred_ir_raw_cumulative_returns.png", bbox_inches="tight")
-    plt.close()
-
-    # Plot 3: pred_ir_gap bin cumulative returns
-    plt.figure(figsize=(9, 5))
-    for lbl in bin_labels:
-        sub = df_port[df_port["bin_pred_ir_gap_fullsample"] == lbl]
-        ret_cum = np.cumprod(1.0 + sub["net_return"]) - 1.0
-        plt.plot(ret_cum.values, label=f"Gap Bin: {lbl}")
-    plt.title("Cumulative Net Returns: Gap-Adjusted pred_ir Bins (Full-Sample)")
-    plt.xlabel("Days in Bin")
-    plt.ylabel("Cumulative Net Return")
-    plt.legend()
-    plt.grid(True)
-    plt.savefig(plots_dir / "pred_ir_gap_cumulative_returns.png", bbox_inches="tight")
-    plt.close()
-
-    # Plot 4: rolling PIT pred_ir_gap cumulative returns
-    plt.figure(figsize=(9, 5))
-    for lbl in bin_labels:
-        sub = df_port[df_port["bin_pred_ir_gap_rolling"] == lbl]
-        ret_cum = np.cumprod(1.0 + sub["net_return"]) - 1.0
-        plt.plot(ret_cum.values, label=f"Rolling PIT Bin: {lbl}")
-    plt.title("Cumulative Net Returns: Gap-Adjusted pred_ir Bins (Rolling 252)")
-    plt.xlabel("Days in Bin")
-    plt.ylabel("Cumulative Net Return")
-    plt.legend()
-    plt.grid(True)
-    plt.savefig(plots_dir / "pred_ir_gap_rolling_cumulative_returns.png", bbox_inches="tight")
-    plt.close()
-
-    # Plot 5: pred_ir_gap bin mean returns / Sharpe bar plot
-    df_fs_summary = pd.DataFrame(fullsample_bin_summary)
-    df_gap_fs = df_fs_summary[df_fs_summary["ir_metric"] == "pred_ir_gap"]
-
-    fig, ax1 = plt.subplots(figsize=(8, 4))
-    color = 'tab:blue'
-    ax1.set_xlabel('Bin')
-    ax1.set_ylabel('Mean Net Return (bps)', color=color)
-    ax1.bar(df_gap_fs["bin"], df_gap_fs["mean_net_return"]*10000.0, color=color, alpha=0.6, width=0.4)
-    ax1.tick_params(axis='y', labelcolor=color)
-
-    ax2 = ax1.twinx()
-    color = 'tab:red'
-    ax2.set_ylabel('Sharpe Ratio', color=color)
-    ax2.plot(df_gap_fs["bin"], df_gap_fs["ann_sharpe_net"], color=color, marker='o', linewidth=2)
-    ax2.tick_params(axis='y', labelcolor=color)
-
-    plt.title("Gap-Adjusted IR Bins: Mean Return & Sharpe (Full-Sample)")
-    fig.tight_layout()
-    plt.savefig(plots_dir / "pred_ir_gap_bins_bar_plot.png", bbox_inches="tight")
-    plt.close()
-
-    # Plot 6: Pearson correlation vs Net Return bar plot
-    plt.figure(figsize=(8, 4))
-    metrics = [o["ir_metric"] for o in overall_comparison]
-    corrs = [o["corr_net_return"] for o in overall_comparison]
-    plt.barh(metrics, corrs, color="skyblue")
-    plt.axvline(0.0, color="k", linestyle="--")
-    plt.title("Portfolio Predicted IR vs Realized Net Return (Pearson Correlation)")
-    plt.xlabel("Correlation Coefficient")
-    plt.savefig(plots_dir / "ir_correlation_comparison.png", bbox_inches="tight")
-    plt.close()
-
-    # Plot 7: pred_vol_gap vs abs(net_return) scatter
-    plt.figure(figsize=(7, 6))
-    plt.scatter(df_port["pred_vol_gap"], df_port["net_return"].abs(), alpha=0.3, color="purple")
-    plt.title("Predicted Volatility vs Realized Absolute Return")
-    plt.xlabel("Predicted Volatility (Gap)")
-    plt.ylabel("Realized Net Return (Absolute)")
-    plt.grid(True)
-    plt.savefig(plots_dir / "pred_vol_vs_abs_return_scatter.png", bbox_inches="tight")
-    plt.close()
-
-    # Plot 8: pred_ir_gap vs net_return scatter
-    plt.figure(figsize=(7, 6))
-    plt.scatter(df_port["pred_ir_gap"], df_port["net_return"], alpha=0.3, color="blue")
-    plt.axhline(0.0, color="k", linestyle="--")
-    plt.axvline(0.0, color="k", linestyle="--")
-    plt.title("Predicted IR (Gap) vs Realized Net Return")
-    plt.xlabel("Predicted Portfolio IR (Gap)")
-    plt.ylabel("Realized Portfolio Net Return")
-    plt.grid(True)
-    plt.savefig(plots_dir / "pred_ir_vs_net_return_scatter.png", bbox_inches="tight")
-    plt.close()
-
-    # Plot 9: Heatmap mean_abs_GapOpen_filt vs pred_ir_gap
-    plt.figure(figsize=(8, 6))
-    pivot_df = df_port.pivot_table(index="bin_bin_pred_ir_gap" if "bin_bin_pred_ir_gap" in df_port.columns else "bin_pred_ir_gap",
-                                  columns="bin_mean_abs_GapOpen_filt",
-                                  values="net_return",
-                                  aggfunc="mean") * 10000.0  # in bps
-    sns.heatmap(pivot_df, annot=True, cmap="RdYlGn", fmt=".1f", cbar_kws={'label': 'Net Return (bps)'})
-    plt.title("Mean Net Return (bps): pred_ir_gap vs mean_abs_GapOpen_filt")
-    plt.xlabel("Gap Open Filt Bin")
-    plt.ylabel("pred_ir_gap Bin")
-    plt.savefig(plots_dir / "heatmap_gap_vs_ir.png", bbox_inches="tight")
-    plt.close()
-
-    # Plot 10: VIX heatmap (if available)
-    if vol_state_merged and "bin_VIX_z_60" in df_port.columns:
-        plt.figure(figsize=(8, 6))
-        pivot_vix = df_port.pivot_table(index="bin_bin_pred_ir_gap" if "bin_bin_pred_ir_gap" in df_port.columns else "bin_pred_ir_gap",
-                                      columns="bin_VIX_z_60",
-                                      values="net_return",
-                                      aggfunc="mean") * 10000.0
-        sns.heatmap(pivot_vix, annot=True, cmap="RdYlGn", fmt=".1f", cbar_kws={'label': 'Net Return (bps)'})
-        plt.title("Mean Net Return (bps): pred_ir_gap vs VIX z-score")
-        plt.xlabel("VIX z-score Bin")
-        plt.ylabel("pred_ir_gap Bin")
-        plt.savefig(plots_dir / "heatmap_vix_vs_ir.png", bbox_inches="tight")
-        plt.close()
-
-    # Plot 11: denominator_min time series
-    plt.figure(figsize=(10, 4))
-    plt.plot(pd.to_datetime(df_gap_daily["trade_date"], format="ISO8601"), df_gap_daily["denominator_min"], color="crimson", label="Min Denominator")
-    plt.axhline(0.1, color="k", linestyle="--", label="Safety Floor (0.1)")
-    plt.title("Japanese Gap Correction Min Denominator Time Series")
-    plt.xlabel("Trade Date")
-    plt.ylabel("Min Denominator")
-    plt.grid(True)
-    plt.legend()
-    plt.savefig(plots_dir / "denominator_min_time_series.png", bbox_inches="tight")
-    plt.close()
-
-    # Plot 12: Omega_gap min eigenvalue time series
-    plt.figure(figsize=(10, 4))
-    plt.plot(pd.to_datetime(df_omega_daily["trade_date"], format="ISO8601"), df_omega_daily["min_eigenvalue"], color="forestgreen", label="Min Eigenvalue")
-    plt.axhline(0.0, color="gray", linestyle="-")
-    plt.title("Omega_gap Min Eigenvalue Time Series")
-    plt.xlabel("Trade Date")
-    plt.ylabel("Min Eigenvalue")
-    plt.grid(True)
-    plt.legend()
-    plt.savefig(plots_dir / "min_eigenvalue_time_series.png", bbox_inches="tight")
-    plt.close()
-
-    # Plot 13: Omega_gap trace / Omega_raw trace ratio
-    plt.figure(figsize=(10, 4))
-    trace_ratio = df_dist_daily["trace_gap"] / df_dist_daily["trace_raw"]
-    plt.plot(pd.to_datetime(df_dist_daily["trade_date"], format="ISO8601"), trace_ratio, color="darkorange")
-    plt.axhline(1.0, color="k", linestyle="--")
-    plt.title("Covariance Trace Ratio: Omega_gap Trace / Omega_raw Trace")
-    plt.xlabel("Trade Date")
-    plt.ylabel("Trace Ratio")
-    plt.grid(True)
-    plt.savefig(plots_dir / "trace_ratio_time_series.png", bbox_inches="tight")
-    plt.close()
-
-    # Plot 14: Standardized residual histogram
-    plt.figure(figsize=(8, 5))
-    sns.histplot(df_dist_long["std_residual_gap"].dropna(), bins=100, kde=True, color="gray", label="Realized Residuals")
-    # Plot standard normal for comparison
-    x_range = np.linspace(-5, 5, 200)
-    plt.plot(x_range, norm.pdf(x_range) * len(df_dist_long["std_residual_gap"].dropna()) * (10 / 100) * 10, 'r-', label="Standard Normal")
-    plt.title("Standardized Residuals Gap Distribution")
-    plt.xlabel("Standardized Residual")
-    plt.ylabel("Frequency")
-    plt.legend()
-    plt.grid(True)
-    plt.savefig(plots_dir / "standardized_residual_histogram.png", bbox_inches="tight")
-    plt.close()
-
-    # Plot 15: Ticker raw vs gap IC bar plot
-    plt.figure(figsize=(10, 5))
-    x_ticks = np.arange(len(JP_TICKERS))
-    width = 0.35
-    plt.bar(x_ticks - width/2, df_ticker_ic["ic_raw_mean"], width, label="Raw Mean IC", color="blue", alpha=0.6)
-    plt.bar(x_ticks + width/2, df_ticker_ic["ic_gap_mean"], width, label="Gap-Adjusted Mean IC", color="orange", alpha=0.6)
-    plt.xticks(x_ticks, [str(tk) for tk in JP_TICKERS])
-    plt.title("Stock-level Prediction IC Comparison: Raw vs Gap-Adjusted Mean")
-    plt.xlabel("Stock Ticker")
-    plt.ylabel("Information Coefficient (Pearson)")
-    plt.legend()
-    plt.grid(True)
-    plt.savefig(plots_dir / "ticker_ic_comparison.png", bbox_inches="tight")
-    plt.close()
-
-    # 13. Write report.md
-    logger.info("Writing report.md...")
-    with open(out_dir / "report.md", "w") as f:
-        f.write("# Quantitative Model Validation Report - Gap-Adjusted Predicted Distribution (Step 2)\n\n")
-
-        f.write("## Summary\n\n")
-        f.write(f"- **Analysis Period**: {args.start} to {args.end}\n")
-        f.write(f"- **Step 1 Input Path**: `{args.distribution_input_dir}`\n")
-        f.write(f"- **Step 1 Validation Path**: `{args.validation_input_dir}`\n")
-        f.write(f"- **US Vol State Panel**: `{args.vol_state_panel}`\n")
-        f.write(f"- **Total Trading Days Processed**: {len(df_dist_daily)}\n")
-        f.write("- **Japanese Gap Ticker Data availability**: 100%\n")
-        f.write("- **Japanese Target Returns mapped**: Yes\n")
-        f.write(f"- **US Vol State merged**: {'Yes' if vol_state_merged else 'No'}\n\n")
-
-        f.write("## Method\n\n")
-        f.write("We reconstruct the Tokyo opening filtered gap using the TOPIX-beta residualization formula:\n")
-        f.write("$$GapOpen\\_syst_{j,t} = \\beta_{j,t} \\times TOPIXNight_t$$\n")
-        f.write("$$GapOpen\\_idio_{j,t} = GapOpen_{j,t} - GapOpen\\_syst_{j,t}$$\n")
-        f.write("$$GapOpen\\_filt_{j,t} = c \\times GapOpen\\_idio_{j,t} + (c - b) \\times GapOpen\\_syst_{j,t}$$\n\n")
-        f.write(f"Where $c = {c:.2f}$ (gap open coef) and $b = {b:.2f}$ (topix beta coef).\n")
-        f.write("To adjust mean returns and return-space covariances for the 9:10-to-close window, we apply the delta method transformation with a safety floor at $0.1$:\n")
-        f.write("$$denom_{j,t} = \\max(1.0 + GapOpen\\_filt_{j,t}, 0.1)$$\n")
-        f.write("$$\\mu_{gap, j, t} = \\frac{1 + \\mu_{raw, j, t}}{denom_{j,t}} - 1$$\n")
-        f.write("$$\\Omega_{gap, ij, t} = \\frac{\\Omega_{raw, ij, t}}{denom_{i,t} \\cdot denom_{j,t}}$$\n")
-        f.write("$$\\Omega_{gap,t} = 0.5 \\times (\\Omega_{gap,t} + \\Omega_{gap,t}^T)$$\n\n")
-
-        f.write("## Numerical Findings\n\n")
-        f.write(f"- **Denominator Safety Floor Hits**: {acc.denominator_floor_hit_count_overall} total hits across all stocks/days (Min observed value: {acc.denominator_min_overall:.4f}).\n")
-        f.write(f"- **Omega_gap PSD properties**: {acc.days_with_min_eigen_lt_neg_1e_8_gap} days with minimum eigenvalue < -1e-8. Average min eigenvalue: {df_dist_daily['min_eigenvalue_gap'].mean():.4e}.\n")
-        f.write(f"- **Omega_gap Trace reduction**: Average scale ratio of trace (gap vs raw): {df_dist_daily['trace_gap'].mean() / df_dist_daily['trace_raw'].mean():.4f}, demonstrating the dampening impact of positive opening gaps on predicted intraday volatility.\n")
-        f.write(f"- **Symmetry Audit Max Absolute Error**: {acc.symmetry_max_err_gap:.2e}\n\n")
-
-        f.write("## Pre-gap vs Post-gap IR Performance Comparison\n\n")
-        f.write("Below is the comparison of pre-gap and post-gap predicted portfolio Information Ratios (Rolling PIT boundaries):\n\n")
-        f.write("| Metric | Pearson Corr (Net Ret) | Spearman Corr (Net Ret) | PIT High-Low Spread (bps) | Monotonicity Verified |\n")
-        f.write("| --- | --- | --- | --- | --- |\n")
-        for o in overall_comparison:
-            f.write(f"| {o['ir_metric']} | {o['corr_net_return']:.4f} | {o['spearman_corr_net']:.4f} | {o['rolling_pit_high_low_spread_net']*10000.0:.2f} | {o['rolling_pit_monotonicity_verified']} |\n")
-
-        f.write("\n### Rolling PIT Bin returns (net return in bps)\n\n")
-        f.write("| Metric | Low Bin | Medium Bin | High Bin |\n")
-        f.write("| --- | --- | --- | --- |\n")
-        for col_name, col_key in ir_columns:
-            l_ret = df_port[df_port[f"bin_{col_name}_rolling"] == "Low"]["net_return"].mean() * 10000.0
-            m_ret = df_port[df_port[f"bin_{col_name}_rolling"] == "Medium"]["net_return"].mean() * 10000.0
-            h_ret = df_port[df_port[f"bin_{col_name}_rolling"] == "High"]["net_return"].mean() * 10000.0
-            f.write(f"| {col_name} | {l_ret:.2f} | {m_ret:.2f} | {h_ret:.2f} |\n")
-
-        f.write("\n## Leakage and Timing Verification\n\n")
-        f.write("- **Temporal Order**: verified `signal_date < trade_date` is strictly preserved.\n")
-        f.write("- **POST_OPEN status**: Japanese opening gap is strictly categorized as a `POST_OPEN` variable, which is only known after market open. It can be used for 9:10-to-close distribution forecasts, but not for pre-open execution decisions.\n")
-        f.write("- **Lookahead-Free Bins**: Rolling and expanding PIT bin boundaries are constructed using boundaries up to $t-1$, avoiding any data leakage.\n\n")
-
-        f.write("## Recommendation\n\n")
-        f.write("Based on the results, we recommend proceeding to the following direction:\n\n")
-        f.write("- **A. gap-adjusted predicted IR による dynamic gross 検証**: Gap correction significantly improves the explanatory power during high opening gap days and maintains clean PIT monotonicity. Testing dynamic risk-adjusted leverage under the gap-adjusted covariance is highly recommended.\n")
-        f.write("- **C. risk-adjusted ranking 検証**: Re-ranking portfolios on a risk-adjusted basis using $\\Omega_{gap}$ diagonal/full components to see if it reduces tail return dispersion.\n")
-
-    logger.info("Report and diagnostic suite executed successfully.")
-    print(f"Diagnostics files written to output directory: {out_dir}")
+    render_gap_diagnostics(
+        df_port=df_port,
+        out_dir=out_dir,
+        df_gap_long=df_gap_long,
+        df_gap_daily=df_gap_daily,
+        df_dist_long=df_dist_long,
+        df_dist_daily=df_dist_daily,
+        df_omega_daily=df_omega_daily,
+        acc=acc,
+        model=model,
+        app_config=app_config,
+        args=args,
+        c=c,
+        b=b,
+        vol_state_merged=vol_state_merged,
+        vol_cols=vol_cols,
+        save_daily_m=save_daily_m,
+        compare_pre=compare_pre,
+        plots_dir=plots_dir,
+    )
 
 if __name__ == "__main__":
     main()

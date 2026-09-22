@@ -6,7 +6,7 @@ auxiliary features.  The predicted value is mapped to a ``p_trade`` probability
 which is then used to re-scale V2 ``mu_gap / sigma_gap`` scores.
 
 To keep the cost/execution model identical between baseline and overlay, the
-overlay is applied by monkey-patching ``generate_v2_production_portfolio`` and
+overlay is passed explicitly as a decision transform while
 running ``BacktestEngine.run_v2_backtest`` a second time.
 
 This is an *experiment* module; it lives outside ``src/leadlag/`` to avoid
@@ -16,7 +16,8 @@ contaminating the production path.
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from collections.abc import Callable
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 import numpy as np
@@ -24,14 +25,15 @@ import pandas as pd
 from scipy.special import expit
 from sklearn.linear_model import Ridge
 
-from leadlag.config.schemas import AppConfig, ProductionV2RunConfig
+from leadlag.config.schemas import AppConfig, ProductionV2RunConfig, parse_run_config
 from leadlag.core.portfolio import solve_baseline_style
 from leadlag.core.signal import build_weights_minvar
-from leadlag.data.preprocessor import compute_jp_target_returns
+from leadlag.data.intraday_inputs import compute_jp_target_returns
 from leadlag.data.tickers import JP_TICKERS
+from leadlag.domain.portfolio import PortfolioDecision
 from leadlag.execution.backtester import BacktestEngine
 from leadlag.execution.config import build_app_config_from_dict
-from leadlag.models.production_v2 import generate_v2_production_portfolio
+from leadlag.models.production_v2 import ProductionV2Model
 
 logger = logging.getLogger(__name__)
 
@@ -162,16 +164,16 @@ def _precompute_market_vol(df_exec: pd.DataFrame) -> pd.DataFrame:
 
 def _build_ticker_features(
     df_exec: pd.DataFrame,
-    v2_result: dict,
+    v2_result: PortfolioDecision,
     date: pd.Timestamp,
     market_vol: pd.DataFrame,
     per_ticker_interactions: bool = False,
     vix_features: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
     """Build a per-ticker feature DataFrame for one date."""
-    scores = v2_result["scores"]
-    mu_gap = v2_result["mu_gap"]
-    sigma_gap = v2_result["sigma_gap"]
+    scores = v2_result.scores
+    mu_gap = v2_result.mu_gap
+    sigma_gap = v2_result.sigma_gap
 
     row = df_exec.loc[date]
     topix_night = float(row["topix_night_return"])
@@ -275,15 +277,15 @@ def _collect_training_data(
 
         date_str = date.strftime("%Y-%m-%d")
         try:
-            v2 = generate_v2_production_portfolio(date_str, gap_input_dir, cfg=run_cfg)
+            v2 = ProductionV2Model(parse_run_config(run_cfg)).decide(trade_date=date_str, gap_input_dir=gap_input_dir, overlay_enabled=False, use_file_cache=True)
         except Exception as e:
             logger.warning("[%s] V2 generation failed: %s", date_str, e)
             continue
 
-        if v2["fallback"]["gap_data_missing"]:
+        if v2.fallback["gap_data_missing"]:
             continue
 
-        scores = v2["scores"]
+        scores = v2.scores
         row = df_exec.loc[date]
         topix_night = float(row["topix_night_return"])
 
@@ -303,8 +305,8 @@ def _collect_training_data(
             rec = {
                 "ticker": tk,
                 "score": score,
-                "mu_gap": float(v2["mu_gap"][j]),
-                "sigma_gap": float(v2["sigma_gap"][j]),
+                "mu_gap": float(v2.mu_gap[j]),
+                "sigma_gap": float(v2.sigma_gap[j]),
                 "gap": gap,
                 "gap_idio": gap_idio,
                 "topix_night": topix_night,
@@ -406,14 +408,13 @@ def make_overlay_generator(
     df_exec: pd.DataFrame,
     market_vol: pd.DataFrame,
     model: FitResult,
-    original_generate: callable,
-) -> callable:
-    """Return a wrapped ``generate_v2_production_portfolio`` that applies the overlay."""
+) -> Callable[[str, PortfolioDecision], PortfolioDecision]:
+    """Return a transform of the existing V2 decision."""
 
-    def _wrapped(trade_date: str, gap_input_dir: Path, cfg: ProductionV2RunConfig | dict) -> dict:
-        result = original_generate(trade_date, gap_input_dir, cfg)
-
-        if result["fallback"]["gap_data_missing"]:
+    def _wrapped(
+        trade_date: str, result: PortfolioDecision
+    ) -> PortfolioDecision:
+        if result.fallback.get("gap_data_missing") or result.fallback.get("audit_failure"):
             return result
 
         date = pd.Timestamp(trade_date)
@@ -422,26 +423,23 @@ def make_overlay_generator(
             per_ticker_interactions=model.per_ticker_interactions,
         )
         p_trade = _predict_p_trade(features, model)
-        score_adjusted = result["scores"] * p_trade
+        score_adjusted = result.scores * p_trade
 
         w_pre_overlay = _recompute_w_pre(
-            score_adjusted, result["Omega_gap"], result["run_config"]
+            score_adjusted, result.Omega_gap, result.run_config
         )
-        mult = result["pit_binning"]["multiplier"]
+        mult = result.pit_binning["multiplier"]
         w_final_overlay = w_pre_overlay * mult
 
         # Zero out tiny weights and preserve sign
         w_final_overlay[np.abs(w_final_overlay) < 1e-8] = 0.0
 
-        result = dict(result)
-        result["w_final"] = w_final_overlay
         # Update summary so downstream diagnostics are not misleading
-        summary = dict(result.get("summary", {}))
+        summary = dict(result.summary)
         summary["overlay_applied"] = 1
         summary["p_trade_mean"] = float(np.mean(p_trade))
         summary["p_trade_std"] = float(np.std(p_trade))
-        result["summary"] = summary
-        return result
+        return replace(result, w_final=w_final_overlay, summary=summary)
 
     return _wrapped
 
@@ -527,28 +525,22 @@ def run_phase1_experiment(
         n_jobs=n_jobs,
     )
 
-    # 3. Overlay V2 backtest via monkey-patch
-    import leadlag.models.production_v2 as pv2
-
-    original_generate = pv2.generate_v2_production_portfolio
+    # 3. Explicit transform is invoked by the backtest model boundary.
     wrapped_generate = make_overlay_generator(
-        df_exec, market_vol, model, original_generate
+        df_exec, market_vol, model
     )
-    pv2.generate_v2_production_portfolio = wrapped_generate
 
-    try:
-        logger.info("Running overlay V2 backtest...")
-        overlay_result = BacktestEngine.run_v2_backtest(
-            app_config,
-            gap_input_dir,
-            df_exec,
-            start_date=test_start,
-            end_date=test_end,
-            side_leverage=side_leverage,
-            n_jobs=n_jobs,
-        )
-    finally:
-        pv2.generate_v2_production_portfolio = original_generate
+    logger.info("Running overlay V2 backtest...")
+    overlay_result = BacktestEngine.run_v2_backtest(
+        app_config,
+        gap_input_dir,
+        df_exec,
+        start_date=test_start,
+        end_date=test_end,
+        side_leverage=side_leverage,
+        n_jobs=n_jobs,
+        decision_transform=wrapped_generate,
+    )
 
     # 4. Metrics
     baseline_metrics = _compute_metrics(baseline_result["daily_returns"])

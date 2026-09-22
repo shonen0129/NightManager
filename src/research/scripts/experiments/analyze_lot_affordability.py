@@ -44,7 +44,7 @@ def main():
     # Get prices
     prices = {}
     if args.price_source == "5m":
-        from leadlag.data.cache import load_intraday_cache
+        from leadlag.data.market_data_cache import load_intraday_cache
         df_5m = load_intraday_cache("5m")
         day_data = df_5m[df_5m.index.date == dt.date()]
         if day_data.empty:

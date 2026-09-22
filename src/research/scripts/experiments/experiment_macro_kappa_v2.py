@@ -30,16 +30,16 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Pre-download and cache macro prices once to avoid repeated yfinance calls
-# inside generate_v2_production_portfolio (which requests a 2-year window per date).
-from leadlag.core import macro as _macro_module
+# inside ProductionV2Model.decide (which requests a 2-year window per date).
+from leadlag.data import macro as _macro_module
 
 logger.info("Pre-downloading macro prices for caching...")
-_FULL_MACRO_PRICES = _macro_module.download_macro_prices(
+_FULL_MACRO_PRICES = _macro_module.load_macro_prices(
     start="2018-01-01", end="2026-12-31"
 )
 
 
-def _cached_download_macro_prices(
+def _cached_load_macro_prices(
     start: str | None = None,
     end: str | None = None,
     period: str = "10y",
@@ -61,10 +61,10 @@ def _cached_download_macro_prices(
     return df
 
 
-_macro_module.download_macro_prices = _cached_download_macro_prices
+_macro_module.load_macro_prices = _cached_load_macro_prices
 
 from leadlag.config.schemas import AppConfig
-from leadlag.data.cache import load_df_exec_from_local_cache
+from leadlag.data.market_data_cache import load_df_exec_from_local_cache
 from leadlag.execution.backtester import BacktestEngine
 from leadlag.execution.config import load_config_from_yaml
 from leadlag.reporting.metrics import calculate_metrics

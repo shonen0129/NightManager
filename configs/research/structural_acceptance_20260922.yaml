@@ -1,0 +1,5 @@
+# Acceptance replay only. The promoted production root is recorded separately
+# in configs/production/production.yaml; this file preserves the replay path.
+__base__: ../production/production.yaml
+ml_overlay_enabled: true
+ml_overlay_model_dir: var/results/20260922_production_acceptance/artifacts/evaluation_2025

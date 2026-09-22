@@ -3,7 +3,7 @@
 This module contains the generic ``BaseModel`` backtest that used to live in
 ``leadlag.execution.backtester.BacktestEngine.run_backtest``.  It is intentionally
 moved to the ``research`` package because the production path is now V2
-(``BacktestEngine.run_v2_backtest`` / ``generate_v2_production_portfolio``).
+(``BacktestEngine.run_v2_backtest`` / ``ProductionV2Model.decide``).
 
 Research experiments that still need the legacy ``BaseModel`` path should import
 ``run_v1_backtest`` from here instead of ``BacktestEngine.run_backtest``.

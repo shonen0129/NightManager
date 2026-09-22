@@ -34,14 +34,15 @@ while not (ROOT / "pyproject.toml").exists():
     ROOT = ROOT.parent
 sys.path.insert(0, str(ROOT / "src"))
 
-from leadlag.data.cache import load_df_exec_from_local_cache
+from leadlag.data.market_data_cache import load_df_exec_from_local_cache
 from leadlag.data.tickers import JP_TICKERS
 from leadlag.execution.config import load_config_from_yaml
 from leadlag.models.ml_order_overlay import (
     generate_v2_production_portfolio_with_overlay,
     load_overlay_model,
 )
-from leadlag.models.production_v2 import generate_v2_production_portfolio
+from leadlag.config.schemas import parse_run_config
+from leadlag.models.production_v2 import ProductionV2Model
 from research.experiment_registry import Decision
 from research.experiment_utils import record_simple_experiment
 
@@ -92,14 +93,14 @@ def write_daily_files(
     output_dir.mkdir(parents=True, exist_ok=True)
     pd.to_datetime(trade_date)
 
-    w_final = result["w_final"]
-    scores = result["scores"]
-    mu_gap = result["mu_gap"]
-    sigma_gap = result["sigma_gap"]
-    Omega_gap = result["Omega_gap"]
-    pit = result["pit_binning"]
+    w_final = result.w_final
+    scores = result.scores
+    mu_gap = result.mu_gap
+    sigma_gap = result.sigma_gap
+    Omega_gap = result.Omega_gap
+    pit = result.pit_binning
     mult = float(pit["multiplier"])
-    run_cfg = result["run_config"]
+    run_cfg = result.run_config
     cost_bps_per_gross = float(run_cfg.cost_bps_per_gross)
 
     len(JP_TICKERS)
@@ -142,7 +143,7 @@ def write_daily_files(
     pd.DataFrame(port_records).to_csv(output_dir / "shadow_portfolios.csv", index=False)
 
     # 2. shadow_candidate_summary.csv
-    summary = dict(result.get("summary", {}))
+    summary = dict(result.summary)
     summary["candidate"] = "primary_ruleD"
     summary["trade_date"] = trade_date
     summary["signal_date"] = trade_date
@@ -185,17 +186,17 @@ def write_daily_files(
         json.dump(pit, f, indent=2, default=str)
 
     with open(output_dir / "leakage_audit.json", "w") as f:
-        json.dump(result["leakage"], f, indent=2, default=str)
+        json.dump(result.leakage, f, indent=2, default=str)
 
     with open(output_dir / "numerical_audit.json", "w") as f:
-        json.dump(result["numerical"], f, indent=2, default=str)
+        json.dump(result.numerical, f, indent=2, default=str)
 
     data_avail = {
         "trade_date": trade_date,
         "mu_gap_available": True,
         "Omega_gap_available": True,
-        "fallback_triggered": bool(result["fallback"].get("gap_data_missing", False)),
-        "alerts": result.get("alerts", []),
+        "fallback_triggered": bool(result.fallback.get("gap_data_missing", False)),
+        "alerts": result.alerts,
     }
     with open(output_dir / "data_availability.json", "w") as f:
         json.dump(data_avail, f, indent=2, default=str)
@@ -309,11 +310,7 @@ def build_shadow_run(args: argparse.Namespace) -> int:
                     overlay_model=overlay_model,
                 )
             else:
-                result = generate_v2_production_portfolio(
-                    trade_date=trade_date,
-                    gap_input_dir=gap_input_dir,
-                    cfg=app_config.v2,
-                )
+                result = ProductionV2Model(parse_run_config(app_config.v2)).decide(trade_date=trade_date, gap_input_dir=gap_input_dir, overlay_enabled=False, use_file_cache=True)
 
             out_dir = shadow_root / trade_date.replace("-", "")
             write_daily_files(trade_date, out_dir, result)
