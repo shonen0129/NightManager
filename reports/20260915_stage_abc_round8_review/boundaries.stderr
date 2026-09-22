@@ -1,0 +1,42 @@
+/Users/shonen/.matplotlib is not a writable directory
+Matplotlib created a temporary cache directory at /var/folders/tr/lj1npbw51t90q2m3m78__3040000gn/T/matplotlib-a6cb16wy because there was an issue with the default path ({configdir}); it is highly recommended to set the MPLCONFIGDIR environment variable to a writable directory, in particular to speed up the import of Matplotlib and to better support multiprocessing.
+Matplotlib is building the font cache; this may take a moment.
+[2026-08-14] File cache gap matrices are invalid ([FATAL] Gap bundle provenance sig_date/signal_date disagree); falling back to on-demand.
+[2026-08-14] Gap file cache missing (h=1); computing on-demand.
+[2026-08-14] File cache gap matrices are invalid ([FATAL] Gap bundle provenance sig_date/signal_date disagree); falling back to on-demand.
+[2026-08-14] Gap file cache missing (h=3); computing on-demand.
+[2026-08-14] File cache gap matrices are invalid ([FATAL] Gap bundle provenance sig_date/signal_date disagree); falling back to on-demand.
+[2026-08-14] Gap file cache missing (h=5); computing on-demand.
+[2026-08-14] File cache gap matrices are invalid ([FATAL] Gap bundle provenance trade_date must be one non-null scalar date); falling back to on-demand.
+[2026-08-14] Gap file cache missing (h=1); computing on-demand.
+[2026-08-14] File cache gap matrices are invalid ([FATAL] Gap bundle provenance trade_date must be one non-null scalar date); falling back to on-demand.
+[2026-08-14] Gap file cache missing (h=3); computing on-demand.
+[2026-08-14] File cache gap matrices are invalid ([FATAL] Gap bundle provenance trade_date must be one non-null scalar date); falling back to on-demand.
+[2026-08-14] Gap file cache missing (h=5); computing on-demand.
+[2026-08-14] File cache gap matrices are invalid ([FATAL] Gap bundle provenance sig_date is invalid); falling back to on-demand.
+[2026-08-14] Gap file cache missing (h=1); computing on-demand.
+[2026-08-14] File cache gap matrices are invalid ([FATAL] Gap bundle provenance sig_date is invalid); falling back to on-demand.
+[2026-08-14] Gap file cache missing (h=3); computing on-demand.
+[2026-08-14] File cache gap matrices are invalid ([FATAL] Gap bundle provenance sig_date is invalid); falling back to on-demand.
+[2026-08-14] Gap file cache missing (h=5); computing on-demand.
+[2026-08-14] File cache gap matrices are invalid ([FATAL] Gap bundle provenance sig_date is invalid); falling back to on-demand.
+[2026-08-14] Gap file cache missing (h=1); computing on-demand.
+[2026-08-14] File cache gap matrices are invalid ([FATAL] Gap bundle provenance sig_date is invalid); falling back to on-demand.
+[2026-08-14] Gap file cache missing (h=3); computing on-demand.
+[2026-08-14] File cache gap matrices are invalid ([FATAL] Gap bundle provenance sig_date is invalid); falling back to on-demand.
+[2026-08-14] Gap file cache missing (h=5); computing on-demand.
+[2026-08-14] File cache gap matrices are invalid ([FATAL] Gap bundle provenance trade_date must be one non-null scalar date); falling back to on-demand.
+[2026-08-14] Gap file cache missing (h=1); computing on-demand.
+[2026-08-14] File cache gap matrices are invalid ([FATAL] Gap bundle provenance trade_date must be one non-null scalar date); falling back to on-demand.
+[2026-08-14] Gap file cache missing (h=3); computing on-demand.
+[2026-08-14] File cache gap matrices are invalid ([FATAL] Gap bundle provenance trade_date must be one non-null scalar date); falling back to on-demand.
+[2026-08-14] Gap file cache missing (h=5); computing on-demand.
+[2026-08-14] File cache gap matrices are invalid ([FATAL] Gap bundle provenance horizon must be one finite integer); falling back to on-demand.
+[2026-08-14] Gap file cache missing (h=1); computing on-demand.
+[2026-08-14] File cache gap matrices are invalid ([FATAL] Gap bundle provenance horizon must be one finite integer); falling back to on-demand.
+[2026-08-14] Gap file cache missing (h=3); computing on-demand.
+[2026-08-14] File cache gap matrices are invalid ([FATAL] Gap bundle provenance horizon must be one finite integer); falling back to on-demand.
+[2026-08-14] Gap file cache missing (h=5); computing on-demand.
+get_hist_returns_for_risk V2 backtest timed out after 1.0s
+V2 backtest for VaR/ES timed out after 1 seconds; returning empty series so risk check blocks.
+WATCHDOG: exit=0 elapsed=15.8s

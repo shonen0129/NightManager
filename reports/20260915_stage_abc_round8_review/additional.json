@@ -1,0 +1,425 @@
+{
+  "provenance_fields": {
+    "loader_cases": [
+      {
+        "backend": "npy",
+        "horizon": 1,
+        "field": "sig_date",
+        "value": "nat",
+        "passed": true
+      },
+      {
+        "backend": "npy",
+        "horizon": 1,
+        "field": "sig_date",
+        "value": "empty",
+        "passed": true
+      },
+      {
+        "backend": "npy",
+        "horizon": 1,
+        "field": "signal_date",
+        "value": "nat",
+        "passed": true
+      },
+      {
+        "backend": "npy",
+        "horizon": 1,
+        "field": "signal_date",
+        "value": "empty",
+        "passed": true
+      },
+      {
+        "backend": "npy",
+        "horizon": 1,
+        "field": "trade_date",
+        "value": "nat",
+        "passed": true
+      },
+      {
+        "backend": "npy",
+        "horizon": 1,
+        "field": "trade_date",
+        "value": "empty",
+        "passed": true
+      },
+      {
+        "backend": "npy",
+        "horizon": 3,
+        "field": "sig_date",
+        "value": "nat",
+        "passed": true
+      },
+      {
+        "backend": "npy",
+        "horizon": 3,
+        "field": "sig_date",
+        "value": "empty",
+        "passed": true
+      },
+      {
+        "backend": "npy",
+        "horizon": 3,
+        "field": "signal_date",
+        "value": "nat",
+        "passed": true
+      },
+      {
+        "backend": "npy",
+        "horizon": 3,
+        "field": "signal_date",
+        "value": "empty",
+        "passed": true
+      },
+      {
+        "backend": "npy",
+        "horizon": 3,
+        "field": "trade_date",
+        "value": "nat",
+        "passed": true
+      },
+      {
+        "backend": "npy",
+        "horizon": 3,
+        "field": "trade_date",
+        "value": "empty",
+        "passed": true
+      },
+      {
+        "backend": "npy",
+        "horizon": 5,
+        "field": "sig_date",
+        "value": "nat",
+        "passed": true
+      },
+      {
+        "backend": "npy",
+        "horizon": 5,
+        "field": "sig_date",
+        "value": "empty",
+        "passed": true
+      },
+      {
+        "backend": "npy",
+        "horizon": 5,
+        "field": "signal_date",
+        "value": "nat",
+        "passed": true
+      },
+      {
+        "backend": "npy",
+        "horizon": 5,
+        "field": "signal_date",
+        "value": "empty",
+        "passed": true
+      },
+      {
+        "backend": "npy",
+        "horizon": 5,
+        "field": "trade_date",
+        "value": "nat",
+        "passed": true
+      },
+      {
+        "backend": "npy",
+        "horizon": 5,
+        "field": "trade_date",
+        "value": "empty",
+        "passed": true
+      },
+      {
+        "backend": "sqlite",
+        "horizon": 1,
+        "field": "sig_date",
+        "value": "nat",
+        "passed": true
+      },
+      {
+        "backend": "sqlite",
+        "horizon": 1,
+        "field": "sig_date",
+        "value": "empty",
+        "passed": true
+      },
+      {
+        "backend": "sqlite",
+        "horizon": 1,
+        "field": "signal_date",
+        "value": "nat",
+        "passed": true
+      },
+      {
+        "backend": "sqlite",
+        "horizon": 1,
+        "field": "signal_date",
+        "value": "empty",
+        "passed": true
+      },
+      {
+        "backend": "sqlite",
+        "horizon": 1,
+        "field": "trade_date",
+        "value": "nat",
+        "passed": true
+      },
+      {
+        "backend": "sqlite",
+        "horizon": 1,
+        "field": "trade_date",
+        "value": "empty",
+        "passed": true
+      },
+      {
+        "backend": "sqlite",
+        "horizon": 3,
+        "field": "sig_date",
+        "value": "nat",
+        "passed": true
+      },
+      {
+        "backend": "sqlite",
+        "horizon": 3,
+        "field": "sig_date",
+        "value": "empty",
+        "passed": true
+      },
+      {
+        "backend": "sqlite",
+        "horizon": 3,
+        "field": "signal_date",
+        "value": "nat",
+        "passed": true
+      },
+      {
+        "backend": "sqlite",
+        "horizon": 3,
+        "field": "signal_date",
+        "value": "empty",
+        "passed": true
+      },
+      {
+        "backend": "sqlite",
+        "horizon": 3,
+        "field": "trade_date",
+        "value": "nat",
+        "passed": true
+      },
+      {
+        "backend": "sqlite",
+        "horizon": 3,
+        "field": "trade_date",
+        "value": "empty",
+        "passed": true
+      },
+      {
+        "backend": "sqlite",
+        "horizon": 5,
+        "field": "sig_date",
+        "value": "nat",
+        "passed": true
+      },
+      {
+        "backend": "sqlite",
+        "horizon": 5,
+        "field": "sig_date",
+        "value": "empty",
+        "passed": true
+      },
+      {
+        "backend": "sqlite",
+        "horizon": 5,
+        "field": "signal_date",
+        "value": "nat",
+        "passed": true
+      },
+      {
+        "backend": "sqlite",
+        "horizon": 5,
+        "field": "signal_date",
+        "value": "empty",
+        "passed": true
+      },
+      {
+        "backend": "sqlite",
+        "horizon": 5,
+        "field": "trade_date",
+        "value": "nat",
+        "passed": true
+      },
+      {
+        "backend": "sqlite",
+        "horizon": 5,
+        "field": "trade_date",
+        "value": "empty",
+        "passed": true
+      }
+    ],
+    "direct_validator_cases": [
+      {
+        "field": "sig_date",
+        "value": "none",
+        "passed": true
+      },
+      {
+        "field": "sig_date",
+        "value": "nat_object",
+        "passed": true
+      },
+      {
+        "field": "sig_date",
+        "value": "numpy_nat",
+        "passed": true
+      },
+      {
+        "field": "sig_date",
+        "value": "nat_text",
+        "passed": true
+      },
+      {
+        "field": "sig_date",
+        "value": "empty",
+        "passed": true
+      },
+      {
+        "field": "signal_date",
+        "value": "none",
+        "passed": true
+      },
+      {
+        "field": "signal_date",
+        "value": "nat_object",
+        "passed": true
+      },
+      {
+        "field": "signal_date",
+        "value": "numpy_nat",
+        "passed": true
+      },
+      {
+        "field": "signal_date",
+        "value": "nat_text",
+        "passed": true
+      },
+      {
+        "field": "signal_date",
+        "value": "empty",
+        "passed": true
+      },
+      {
+        "field": "trade_date",
+        "value": "none",
+        "passed": true
+      },
+      {
+        "field": "trade_date",
+        "value": "nat_object",
+        "passed": true
+      },
+      {
+        "field": "trade_date",
+        "value": "numpy_nat",
+        "passed": true
+      },
+      {
+        "field": "trade_date",
+        "value": "nat_text",
+        "passed": true
+      },
+      {
+        "field": "trade_date",
+        "value": "empty",
+        "passed": true
+      },
+      {
+        "field": "requested_trade_date",
+        "value": "none",
+        "passed": true
+      },
+      {
+        "field": "requested_trade_date",
+        "value": "nat_object",
+        "passed": true
+      },
+      {
+        "field": "requested_trade_date",
+        "value": "numpy_nat",
+        "passed": true
+      },
+      {
+        "field": "requested_trade_date",
+        "value": "nat_text",
+        "passed": true
+      },
+      {
+        "field": "requested_trade_date",
+        "value": "empty",
+        "passed": true
+      }
+    ],
+    "passed": true
+  },
+  "delayed_preparation": {
+    "directory_file_copy": {
+      "fault_reached": true,
+      "empty": true,
+      "configured_timeout": 0.25,
+      "elapsed": 0.2602697080001235,
+      "worker_pending_after_return": true,
+      "backtest_calls": 0,
+      "snapshot_removed_after_release": true,
+      "cached_values_after_release": [],
+      "passed": true
+    },
+    "config_load": {
+      "fault_reached": true,
+      "empty": true,
+      "configured_timeout": 0.25,
+      "elapsed": 0.2602062909863889,
+      "worker_pending_after_return": true,
+      "backtest_calls": 0,
+      "snapshot_removed_after_release": true,
+      "cached_values_after_release": [],
+      "passed": true
+    },
+    "cache_init": {
+      "fault_reached": true,
+      "empty": true,
+      "configured_timeout": 0.25,
+      "elapsed": 0.2601802080171183,
+      "worker_pending_after_return": true,
+      "backtest_calls": 0,
+      "snapshot_removed_after_release": true,
+      "cached_values_after_release": [],
+      "passed": true
+    }
+  },
+  "cache_write_process": {
+    "normal_after_warm_parent_read": [
+      {
+        "elapsed": 0.07724641601089388,
+        "equal": true
+      },
+      {
+        "elapsed": 0.011115457979030907,
+        "equal": true
+      },
+      {
+        "elapsed": 0.009774207952432334,
+        "equal": true
+      }
+    ],
+    "real_sqlite_write_lock": {
+      "error": "TimeoutError",
+      "elapsed": 0.15489200002048165,
+      "late_value_published": false
+    },
+    "serialization_error": {
+      "error": "RuntimeError",
+      "message": "cache write process failed with exit code 1",
+      "prior_value_preserved": true
+    },
+    "new_children_remaining": [],
+    "passed": true
+  },
+  "passed": true
+}

@@ -1,0 +1,25 @@
+{
+  "date": "2026-09-16",
+  "target": "S5a/S5b",
+  "tests": {
+    "targeted": 92,
+    "full": 705,
+    "warnings": 17,
+    "full_elapsed_seconds": 377.53,
+    "full_guard_timeout_seconds": 1800,
+    "full_guard_return_code": 0
+  },
+  "static": {
+    "ruff": "pass",
+    "mypy": {"status": "pass", "source_files": 6},
+    "compileall": "pass",
+    "import_linter": {"status": "pass", "contracts_kept": 4, "contracts_broken": 0, "files": 174, "dependencies": 444},
+    "bash_n": "pass",
+    "git_diff_check": "pass"
+  },
+  "external_operations": {
+    "broker_api": "not_run",
+    "real_order": "not_run",
+    "scheduler_registration": "not_run"
+  }
+}

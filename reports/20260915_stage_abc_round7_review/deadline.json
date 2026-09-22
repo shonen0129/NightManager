@@ -1,0 +1,99 @@
+{
+  "cold_hash": {
+    "returned_normally": true,
+    "empty": true,
+    "value": null,
+    "elapsed": 1.012296959059313,
+    "configured_timeout": 1,
+    "injected_delay_reached": true,
+    "backtest_calls": 0,
+    "cache_keys": [],
+    "snapshot_removed": [
+      true
+    ]
+  },
+  "warm_hash": {
+    "returned_normally": true,
+    "empty": true,
+    "value": null,
+    "elapsed": 1.0123762500006706,
+    "configured_timeout": 1,
+    "injected_delay_reached": true,
+    "backtest_calls": 1,
+    "cache_keys": [
+      "daily_returns:941d26eb80f24c8f"
+    ],
+    "snapshot_removed": [
+      true,
+      true
+    ]
+  },
+  "warm_get": {
+    "returned_normally": true,
+    "empty": true,
+    "value": null,
+    "elapsed": 1.0122774170013145,
+    "configured_timeout": 1,
+    "injected_delay_reached": true,
+    "backtest_calls": 1,
+    "cache_keys": [
+      "daily_returns:efb53110df870aa8",
+      "daily_returns:efb53110df870aa8"
+    ],
+    "snapshot_removed": [
+      true,
+      true
+    ]
+  },
+  "directory_copy": {
+    "error_type": "TimeoutError",
+    "error": "injected copy deadline",
+    "configured_timeout": 0.1,
+    "deadline_checks": 3,
+    "copytree_bypassed": true
+  },
+  "late_cache_write": {
+    "configured_timeout": 0.1,
+    "timed_out": true,
+    "elapsed": 0.11202145798597485,
+    "late_value_published": false
+  },
+  "cleanup": {
+    "config_error": {
+      "error_type": "RuntimeError",
+      "snapshot_exists_after_return": [
+        false
+      ],
+      "snapshot_exists_after_worker_finish": [
+        false
+      ]
+    },
+    "cache_error": {
+      "error_type": "RuntimeError",
+      "snapshot_exists_after_return": [
+        false
+      ],
+      "snapshot_exists_after_worker_finish": [
+        false
+      ]
+    },
+    "worker_error": {
+      "error_type": "RuntimeError",
+      "snapshot_exists_after_return": [
+        false
+      ],
+      "snapshot_exists_after_worker_finish": [
+        false
+      ]
+    },
+    "worker_late": {
+      "empty": true,
+      "snapshot_exists_after_return": [
+        true
+      ],
+      "snapshot_exists_after_worker_finish": [
+        false
+      ]
+    }
+  }
+}

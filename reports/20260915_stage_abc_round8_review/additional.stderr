@@ -1,0 +1,40 @@
+/Users/shonen/.matplotlib is not a writable directory
+Matplotlib created a temporary cache directory at /var/folders/tr/lj1npbw51t90q2m3m78__3040000gn/T/matplotlib-110au099 because there was an issue with the default path ({configdir}); it is highly recommended to set the MPLCONFIGDIR environment variable to a writable directory, in particular to speed up the import of Matplotlib and to better support multiprocessing.
+Matplotlib is building the font cache; this may take a moment.
+/Users/shonen/leadlag/reports/20260915_stage_abc_round8_review/probe_additional.py:53: DeprecationWarning: The 'generic' unit for NumPy timedelta is deprecated, and will raise an error in the future. This includes implicit conversion of bare integers (e.g. `+ 1`).Please use a specific unit instead.
+  for name, value in (("none", None), ("nat_object", pd.NaT), ("numpy_nat", np.datetime64("NaT")), ("nat_text", "NaT"), ("empty", "")):
+VaR/ES gap-input snapshot timed out after 0.2s
+VaR/ES cannot obtain a stable gap-input snapshot: VaR/ES gap-input snapshot exceeded 0.24616329104173928s timeout
+Returning empty historical return series so risk check blocks.
+VaR/ES effective config load timed out after 0.2s
+VaR/ES effective config load timed out: VaR/ES effective config load exceeded 0.2488271250622347s timeout
+Returning empty historical return series so risk check blocks.
+VaR/ES return-cache initialization timed out after 0.2s
+VaR/ES return-cache initialization timed out: VaR/ES return-cache initialization exceeded 0.2499994159443304s timeout
+Returning empty historical return series so risk check blocks.
+Process ForkProcess-5:
+Traceback (most recent call last):
+  File "/Users/shonen/.local/share/uv/python/cpython-3.12.0-macos-aarch64-none/lib/python3.12/multiprocessing/process.py", line 314, in _bootstrap
+    self.run()
+  File "/Users/shonen/.local/share/uv/python/cpython-3.12.0-macos-aarch64-none/lib/python3.12/multiprocessing/process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "/Users/shonen/leadlag/src/leadlag/execution/var_history.py", line 283, in _cache_set_worker
+    SqliteCacheStore(path, timeout=max(0.01, timeout)).set(key, value)
+  File "/Users/shonen/leadlag/src/leadlag/data/cache_store.py", line 272, in set
+    self._set_with_conn(conn, key, value)
+  File "/Users/shonen/leadlag/src/leadlag/data/cache_store.py", line 257, in _set_with_conn
+    blob = json.dumps(
+           ^^^^^^^^^^^
+  File "/Users/shonen/.local/share/uv/python/cpython-3.12.0-macos-aarch64-none/lib/python3.12/json/__init__.py", line 238, in dumps
+    **kw).encode(obj)
+          ^^^^^^^^^^^
+  File "/Users/shonen/.local/share/uv/python/cpython-3.12.0-macos-aarch64-none/lib/python3.12/json/encoder.py", line 200, in encode
+    chunks = self.iterencode(o, _one_shot=True)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/shonen/.local/share/uv/python/cpython-3.12.0-macos-aarch64-none/lib/python3.12/json/encoder.py", line 258, in iterencode
+    return _iterencode(o, 0)
+           ^^^^^^^^^^^^^^^^^
+  File "/Users/shonen/leadlag/src/leadlag/data/cache_store.py", line 291, in _json_default
+    raise TypeError(f"Object of type {type(value).__name__} is not JSON serializable")
+TypeError: Object of type object is not JSON serializable
+WATCHDOG: exit=0 elapsed=13.6s

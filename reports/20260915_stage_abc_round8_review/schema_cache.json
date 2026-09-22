@@ -1,0 +1,12 @@
+{
+  "rows": 4135,
+  "columns": 122,
+  "renamed_columns": [
+    "us_cc_XLB",
+    "us_cc_XLC"
+  ],
+  "row_hash_unchanged": true,
+  "cache_reused": false,
+  "max_abs_all_returns_difference": 0.0,
+  "has_difference": false
+}

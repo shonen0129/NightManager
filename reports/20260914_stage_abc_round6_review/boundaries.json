@@ -1,0 +1,299 @@
+{
+  "metadata": {
+    "valid_h1": {
+      "loader": {
+        "available": true,
+        "alerts": []
+      },
+      "full_validator_alerts": [],
+      "compute_distribution": {
+        "accepted_cache": true,
+        "ondemand_calls": 0
+      }
+    },
+    "valid_h3": {
+      "loader": {
+        "available": true,
+        "alerts": []
+      },
+      "full_validator_alerts": [],
+      "compute_distribution": {
+        "accepted_cache": true,
+        "ondemand_calls": 0
+      },
+      "blend": {
+        "max_score_change": 2.0,
+        "alerts": []
+      }
+    },
+    "valid_h5": {
+      "loader": {
+        "available": true,
+        "alerts": []
+      },
+      "full_validator_alerts": [],
+      "compute_distribution": {
+        "accepted_cache": true,
+        "ondemand_calls": 0
+      },
+      "blend": {
+        "max_score_change": 2.0,
+        "alerts": []
+      }
+    },
+    "alias_future_h1": {
+      "loader": {
+        "available": false,
+        "alerts": [
+          "[FATAL] Gap bundle provenance sig_date/signal_date disagree"
+        ]
+      },
+      "full_validator_alerts": [
+        "Distribution provenance for h=1 sig_date/signal_date disagree"
+      ],
+      "compute_distribution": {
+        "accepted_cache": false,
+        "ondemand_calls": 1
+      }
+    },
+    "alias_future_h3": {
+      "loader": {
+        "available": false,
+        "alerts": [
+          "[FATAL] Gap bundle provenance sig_date/signal_date disagree"
+        ]
+      },
+      "full_validator_alerts": [
+        "Distribution provenance for h=3 sig_date/signal_date disagree"
+      ],
+      "compute_distribution": {
+        "accepted_cache": false,
+        "ondemand_calls": 1
+      },
+      "blend": {
+        "max_score_change": 0.0,
+        "alerts": [
+          "[FATAL] Gap bundle provenance sig_date/signal_date disagree",
+          "Multi-horizon blend: h=3 matrices unavailable or unprovenanced, skipping (weight=0.50 redistributed to h1)."
+        ]
+      }
+    },
+    "alias_future_h5": {
+      "loader": {
+        "available": false,
+        "alerts": [
+          "[FATAL] Gap bundle provenance sig_date/signal_date disagree"
+        ]
+      },
+      "full_validator_alerts": [
+        "Distribution provenance for h=5 sig_date/signal_date disagree"
+      ],
+      "compute_distribution": {
+        "accepted_cache": false,
+        "ondemand_calls": 1
+      },
+      "blend": {
+        "max_score_change": 0.0,
+        "alerts": [
+          "[FATAL] Gap bundle provenance sig_date/signal_date disagree",
+          "Multi-horizon blend: h=5 matrices unavailable or unprovenanced, skipping (weight=0.50 redistributed to h1)."
+        ]
+      }
+    },
+    "trade_date_null_h1": {
+      "loader": {
+        "available": false,
+        "alerts": [
+          "[FATAL] Gap bundle provenance trade_date must be one non-null scalar date"
+        ]
+      },
+      "full_validator_alerts": [
+        "Distribution provenance for h=1 trade_date must be one non-null scalar date"
+      ],
+      "compute_distribution": {
+        "accepted_cache": false,
+        "ondemand_calls": 1
+      }
+    },
+    "trade_date_null_h3": {
+      "loader": {
+        "available": false,
+        "alerts": [
+          "[FATAL] Gap bundle provenance trade_date must be one non-null scalar date"
+        ]
+      },
+      "full_validator_alerts": [
+        "Distribution provenance for h=3 trade_date must be one non-null scalar date"
+      ],
+      "compute_distribution": {
+        "accepted_cache": false,
+        "ondemand_calls": 1
+      },
+      "blend": {
+        "max_score_change": 0.0,
+        "alerts": [
+          "[FATAL] Gap bundle provenance trade_date must be one non-null scalar date",
+          "Multi-horizon blend: h=3 matrices unavailable or unprovenanced, skipping (weight=0.50 redistributed to h1)."
+        ]
+      }
+    },
+    "trade_date_null_h5": {
+      "loader": {
+        "available": false,
+        "alerts": [
+          "[FATAL] Gap bundle provenance trade_date must be one non-null scalar date"
+        ]
+      },
+      "full_validator_alerts": [
+        "Distribution provenance for h=5 trade_date must be one non-null scalar date"
+      ],
+      "compute_distribution": {
+        "accepted_cache": false,
+        "ondemand_calls": 1
+      },
+      "blend": {
+        "max_score_change": 0.0,
+        "alerts": [
+          "[FATAL] Gap bundle provenance trade_date must be one non-null scalar date",
+          "Multi-horizon blend: h=5 matrices unavailable or unprovenanced, skipping (weight=0.50 redistributed to h1)."
+        ]
+      }
+    },
+    "trade_date_list_h1": {
+      "loader": {
+        "available": false,
+        "alerts": [
+          "[FATAL] Gap bundle provenance trade_date must be one non-null scalar date"
+        ]
+      },
+      "full_validator_alerts": [
+        "Distribution provenance for h=1 trade_date must be one non-null scalar date"
+      ],
+      "compute_distribution": {
+        "accepted_cache": false,
+        "ondemand_calls": 1
+      }
+    },
+    "trade_date_list_h3": {
+      "loader": {
+        "available": false,
+        "alerts": [
+          "[FATAL] Gap bundle provenance trade_date must be one non-null scalar date"
+        ]
+      },
+      "full_validator_alerts": [
+        "Distribution provenance for h=3 trade_date must be one non-null scalar date"
+      ],
+      "compute_distribution": {
+        "accepted_cache": false,
+        "ondemand_calls": 1
+      },
+      "blend": {
+        "max_score_change": 0.0,
+        "alerts": [
+          "[FATAL] Gap bundle provenance trade_date must be one non-null scalar date",
+          "Multi-horizon blend: h=3 matrices unavailable or unprovenanced, skipping (weight=0.50 redistributed to h1)."
+        ]
+      }
+    },
+    "trade_date_list_h5": {
+      "loader": {
+        "available": false,
+        "alerts": [
+          "[FATAL] Gap bundle provenance trade_date must be one non-null scalar date"
+        ]
+      },
+      "full_validator_alerts": [
+        "Distribution provenance for h=5 trade_date must be one non-null scalar date"
+      ],
+      "compute_distribution": {
+        "accepted_cache": false,
+        "ondemand_calls": 1
+      },
+      "blend": {
+        "max_score_change": 0.0,
+        "alerts": [
+          "[FATAL] Gap bundle provenance trade_date must be one non-null scalar date",
+          "Multi-horizon blend: h=5 matrices unavailable or unprovenanced, skipping (weight=0.50 redistributed to h1)."
+        ]
+      }
+    },
+    "horizon_inf_h1": {
+      "loader": {
+        "available": false,
+        "alerts": [
+          "[FATAL] Gap bundle provenance horizon must be one finite integer"
+        ]
+      },
+      "full_validator_alerts": [
+        "Distribution provenance for h=1 horizon must be one finite integer"
+      ],
+      "compute_distribution": {
+        "accepted_cache": false,
+        "ondemand_calls": 1
+      }
+    },
+    "horizon_inf_h3": {
+      "loader": {
+        "available": false,
+        "alerts": [
+          "[FATAL] Gap bundle provenance horizon must be one finite integer"
+        ]
+      },
+      "full_validator_alerts": [
+        "Distribution provenance for h=3 horizon must be one finite integer"
+      ],
+      "compute_distribution": {
+        "accepted_cache": false,
+        "ondemand_calls": 1
+      },
+      "blend": {
+        "max_score_change": 0.0,
+        "alerts": [
+          "[FATAL] Gap bundle provenance horizon must be one finite integer",
+          "Multi-horizon blend: h=3 matrices unavailable or unprovenanced, skipping (weight=0.50 redistributed to h1)."
+        ]
+      }
+    },
+    "horizon_inf_h5": {
+      "loader": {
+        "available": false,
+        "alerts": [
+          "[FATAL] Gap bundle provenance horizon must be one finite integer"
+        ]
+      },
+      "full_validator_alerts": [
+        "Distribution provenance for h=5 horizon must be one finite integer"
+      ],
+      "compute_distribution": {
+        "accepted_cache": false,
+        "ondemand_calls": 1
+      },
+      "blend": {
+        "max_score_change": 0.0,
+        "alerts": [
+          "[FATAL] Gap bundle provenance horizon must be one finite integer",
+          "Multi-horizon blend: h=5 matrices unavailable or unprovenanced, skipping (weight=0.50 redistributed to h1)."
+        ]
+      }
+    }
+  },
+  "snapshot_timeout_lifetime": {
+    "path": "/var/folders/tr/lj1npbw51t90q2m3m78__3040000gn/T/leadlag-gap-snapshot-94_idfd_/gap.sqlite",
+    "exists_before_timeout": true,
+    "caller_returned_empty": true,
+    "exists_after_caller_timeout": true,
+    "exists_when_worker_resumes": true
+  },
+  "locked_snapshot": {
+    "still_pending_at_35_seconds": false,
+    "child_exit": 0,
+    "after_lock_release": {
+      "elapsed": 1.102480125031434,
+      "configured_timeout": 1,
+      "empty": true,
+      "backtest_calls": 0
+    },
+    "stderr": "VaR/ES cannot obtain a stable gap-input snapshot: gap-input snapshot exceeded 0.9971452079480514s deadline\nReturning empty historical return series so risk check blocks.\n"
+  }
+}

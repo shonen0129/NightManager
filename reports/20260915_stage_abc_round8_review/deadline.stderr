@@ -1,0 +1,15 @@
+/Users/shonen/.matplotlib is not a writable directory
+Matplotlib created a temporary cache directory at /var/folders/tr/lj1npbw51t90q2m3m78__3040000gn/T/matplotlib-jekebth9 because there was an issue with the default path ({configdir}); it is highly recommended to set the MPLCONFIGDIR environment variable to a writable directory, in particular to speed up the import of Matplotlib and to better support multiprocessing.
+Matplotlib is building the font cache; this may take a moment.
+VaR/ES code fingerprint timed out after 1.0s
+VaR/ES preparation exceeded its deadline: VaR/ES code fingerprint exceeded 0.9940234590321779s timeout
+Returning empty historical return series so risk check blocks.
+VaR/ES code fingerprint timed out after 1.0s
+VaR/ES preparation exceeded its deadline: VaR/ES code fingerprint exceeded 0.9945552080171183s timeout
+Returning empty historical return series so risk check blocks.
+VaR/ES return-cache read timed out after 1.0s
+VaR/ES return-cache read timed out: VaR/ES return-cache read exceeded 0.9876523750135675s timeout
+Returning empty historical return series so risk check blocks.
+get_hist_returns_for_risk V2 backtest timed out after 1.0s
+V2 backtest for VaR/ES timed out after 1 seconds; returning empty series so risk check blocks.
+WATCHDOG: exit=0 elapsed=16.8s

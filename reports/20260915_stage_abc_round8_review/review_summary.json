@@ -1,0 +1,187 @@
+{
+  "review_date": "2026-09-15",
+  "round": 8,
+  "verdict": "CONDITIONAL_PASS",
+  "head": "cf97bfaf4577a20c95ce931afd10ac72a6f08285",
+  "scope": "前回修正X01/X02の差分4ファイルと下流経路、およびF01〜F22・R〜Wの記録済み再発条件",
+  "production_source_modified_by_review": false,
+  "live_broker_called": false,
+  "findings": [],
+  "previous_round": {
+    "W01": "共通validatorのalias整合・null/配列/非有限値拒否を維持",
+    "W02": "SQLite snapshotの待機期限・worker寿命・後始末を維持",
+    "X01": "NaT文字列・空文字の拒否とstrict例外・on-demand・blend契約を独立再確認",
+    "X02": "hash/read/copy/initializationの待機打切り、実SQLiteロックと保存子プロセスの終了を独立再確認"
+  },
+  "original_findings": [
+    {
+      "id": "F01",
+      "status": "reproduction_resolved",
+      "evidence": "reproductions.json#F01_F02_F20_brokers"
+    },
+    {
+      "id": "F02",
+      "status": "reproduction_resolved",
+      "evidence": "reproductions.json#F01_F02_F20_brokers"
+    },
+    {
+      "id": "F03",
+      "status": "reproduction_resolved",
+      "evidence": "reproductions.json#F03_risk_reduction"
+    },
+    {
+      "id": "F04",
+      "status": "reproduction_resolved_scope_limited",
+      "evidence": "reproductions.json#F04_audit_flat"
+    },
+    {
+      "id": "F05",
+      "status": "reproduction_resolved",
+      "evidence": "reproductions.json#F05_F07_F08_F09_data"
+    },
+    {
+      "id": "F06",
+      "status": "config_and_version_identity_resolved",
+      "evidence": "contracts.json#F06_step2_config"
+    },
+    {
+      "id": "F07",
+      "status": "reproduction_resolved_scope_limited",
+      "evidence": "reproductions.json#F05_F07_F08_F09_data"
+    },
+    {
+      "id": "F08",
+      "status": "reproduction_resolved",
+      "evidence": "reproductions.json#F05_F07_F08_F09_data"
+    },
+    {
+      "id": "F09",
+      "status": "reproduction_resolved",
+      "evidence": "reproductions.json#F05_F07_F08_F09_data"
+    },
+    {
+      "id": "F10",
+      "status": "reproduction_resolved",
+      "evidence": "reproductions.json#F10_correlation_cache"
+    },
+    {
+      "id": "F11",
+      "status": "reproduction_resolved",
+      "evidence": "schema_cache.json"
+    },
+    {
+      "id": "F12",
+      "status": "atomicity_and_provenance_resolved",
+      "evidence": "reproductions.json#F12_atomic_sqlite_write"
+    },
+    {
+      "id": "F13",
+      "status": "autoload_verified_operational_pending",
+      "evidence": "reproductions.json#F13_default_backtest_overlay"
+    },
+    {
+      "id": "F14",
+      "status": "reproduction_resolved",
+      "evidence": "reproductions.json#F14_inventory_slippage"
+    },
+    {
+      "id": "F15",
+      "status": "reproduction_resolved",
+      "evidence": "reproductions.json#F15_initial_drawdown"
+    },
+    {
+      "id": "F16",
+      "status": "reproduction_resolved",
+      "evidence": "reproductions.json#F16_all_days_metrics"
+    },
+    {
+      "id": "F17",
+      "status": "reproduction_resolved",
+      "evidence": "reproductions.json#F17_DSR"
+    },
+    {
+      "id": "F18",
+      "status": "reproduction_resolved_scope_limited",
+      "evidence": "contracts.json#F18_A7_guard"
+    },
+    {
+      "id": "F19",
+      "status": "validation_verified_operational_pending",
+      "evidence": "reproductions.json#T01_artifact_dates"
+    },
+    {
+      "id": "F20",
+      "status": "reproduction_resolved",
+      "evidence": "reproductions.json#F01_F02_F20_brokers"
+    },
+    {
+      "id": "F21",
+      "status": "reproduction_resolved",
+      "evidence": "reproductions.json#F21_PIT_multiplier"
+    },
+    {
+      "id": "F22",
+      "status": "reproduction_resolved",
+      "evidence": "contracts.json#F22_R08_regression_isolation"
+    }
+  ],
+  "verification": {
+    "pytest": {
+      "passed": 650,
+      "warnings": 17,
+      "seconds": 705.34,
+      "workers": 10,
+      "whole_process_timeout_seconds": 1800,
+      "exit_code": 0
+    },
+    "ruff": "passed within recorded scope",
+    "mypy": "passed, 122 production source files",
+    "compileall": "passed, src/leadlag tests tools scripts src/research",
+    "import_linter": "4 contracts kept, 0 broken",
+    "diff_check": "passed",
+    "batch_syntax": "passed",
+    "provenance_contract": {
+      "cases": 72,
+      "passed": 72,
+      "failed": 0,
+      "evidence": "provenance.json"
+    },
+    "additional_acceptance": {
+      "evidence": "additional.json",
+      "passed": true,
+      "loader_cases": 36,
+      "direct_validator_cases": 20,
+      "case_counts_overlap_prior_conditions": true,
+      "deadline": "directory file copy / config load / cache initialization blocked until caller timeout",
+      "cache_process": "3 normal writes with intervening parent reads, actual SQLite write lock, serialization error rollback; no remaining children"
+    }
+  },
+  "operational_pending": [
+    "models/ml_order_overlay/phase2_8はlegacy artifactとして実runnerに拒否される。検証可能な学習データからversioned artifactを再生成する必要がある。",
+    "同じ入力・同じ本番ML artifactでの本番/BT weights照合は未実施。"
+  ],
+  "limitations": [
+    "今回の判定は修正差分と明記した回帰条件に限定する。全ワークスペースの無欠陥や本番昇格を保証しない。",
+    "VaR待機打切りはdaemon thread自体のキャンセルではない。OS内で永久停止したreadやBT workerは外側watchdogで管理する。",
+    "実行環境はmacOS/Python 3.12。Windowsのspawn経路と強制終了挙動は実行していない。",
+    "VaR検証は実cache・一時DBを使用し、重いBT数値ループは版識別markerまたは待機workerへ置換した。",
+    "未来target摂動はmacro無効の合成入力。全外部系列の公表時刻・実約定後exposure・新規OOS成績は検証していない。"
+  ],
+  "resolved_fixes": [
+    {
+      "id": "X01",
+      "status": "resolved",
+      "file": "src/leadlag/utils/distribution_provenance.py",
+      "change": "pd.to_datetime後のNaTをnormalize・timezone処理前に拒否し、loaderのDataValidationError/fallback契約へ統一",
+      "evidence": "provenance.json#results"
+    },
+    {
+      "id": "X02",
+      "status": "resolved",
+      "file": "src/leadlag/execution/var_history.py",
+      "change": "呼出側の総deadlineと背景workerの所有権を実確認。保存子プロセスの正常終了・ロック時停止・異常終了rollbackを確認",
+      "evidence": "deadline.json"
+    }
+  ],
+  "reviewed_fix_verdict": "PASS"
+}

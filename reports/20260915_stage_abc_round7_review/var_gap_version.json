@@ -1,0 +1,15 @@
+{
+  "cache_keys": [
+    "daily_returns:e5e234e63981bf33",
+    "daily_returns:e5e234e63981bf33"
+  ],
+  "same_key": true,
+  "backtest_versions": [
+    "A"
+  ],
+  "cache_key_input_version": "A",
+  "first_marker": 0.01,
+  "after_snapshot_restore_marker": 0.01,
+  "expected_A_marker": 0.01,
+  "note": "Actual VaR function, config loaders, SQLite cache and GapStore; numeric BT replaced with a version marker."
+}

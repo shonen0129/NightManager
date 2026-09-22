@@ -1,0 +1,198 @@
+ M docs/ARCHITECTURE.md
+ M docs/SCHEDULER_SETUP.md
+ M docs/decisions/README.md
+ M docs/refactor_roadmap.md
+ M "docs/\343\203\242\343\203\207\343\203\253\346\212\200\350\241\223\344\273\225\346\247\230\346\233\270.md"
+ M pyproject.toml
+ M scripts/batch/run_close_positions.sh
+ D scripts/batch/run_decision.sh
+ M scripts/batch/run_decision_v2.sh
+ M scripts/batch/run_gap_distribution.sh
+ M src/leadlag/broker/kabu/client.py
+ M src/leadlag/broker/tachibana/client.py
+ M src/leadlag/broker/tachibana/session_cache.py
+ M src/leadlag/cli.py
+ M src/leadlag/config/__init__.py
+ M src/leadlag/config/paths.py
+ M src/leadlag/config/schemas.py
+ M src/leadlag/core/macro.py
+ M src/leadlag/core/market_calendar.py
+ M src/leadlag/core/pit.py
+ M src/leadlag/core/portfolio.py
+ M src/leadlag/core/types.py
+ M src/leadlag/data/backtest_store.py
+ M src/leadlag/data/cache_store.py
+ M src/leadlag/data/gap_store.py
+ M src/leadlag/data/pit_lake.py
+ M src/leadlag/data/preprocessor.py
+ M src/leadlag/domain/__init__.py
+ M src/leadlag/domain/portfolio.py
+ M src/leadlag/execution/backtest.py
+ M src/leadlag/execution/backtester.py
+ M src/leadlag/execution/broker_ops.py
+ M src/leadlag/execution/close.py
+ M src/leadlag/execution/config.py
+ M src/leadlag/execution/cost_calculator.py
+ M src/leadlag/execution/output_ops.py
+ M src/leadlag/execution/post_decision.py
+ M src/leadlag/execution/pricing.py
+ M src/leadlag/execution/risk_capital.py
+ M src/leadlag/execution/v2_bridge.py
+ M src/leadlag/execution/var_history.py
+ M src/leadlag/experiment_registry.py
+ M src/leadlag/models/__init__.py
+ M src/leadlag/models/blp_base.py
+ D src/leadlag/models/blpx.py
+ M src/leadlag/models/blpx/correlation.py
+ M src/leadlag/models/blpx/prior_builder.py
+ M src/leadlag/models/ml_order_overlay.py
+ M src/leadlag/models/production_v2.py
+ M src/leadlag/models/signal_enhancement.py
+ M src/leadlag/models/v2/__init__.py
+ M src/leadlag/models/v2/audit_comparator.py
+ M src/leadlag/models/v2/decision_engine.py
+ M src/leadlag/models/v2/distribution_source.py
+ M src/leadlag/models/v2/fallback.py
+ M src/leadlag/models/v2/fallback_policy.py
+ M src/leadlag/models/v2/gap_io.py
+ M src/leadlag/models/v2/overlay_applier.py
+ M src/leadlag/pipeline/__init__.py
+ M src/leadlag/pipeline/compute_omega_struct.py
+ M src/leadlag/reporting/daily_pnl_report.py
+ M src/leadlag/reporting/metrics.py
+ M src/leadlag/reporting/production_v2_writer.py
+ M src/leadlag/runner/__init__.py
+ M src/leadlag/runner/production.py
+ M src/leadlag/utils/cache_manager.py
+ M src/leadlag/utils/gap_matrix_io.py
+ M src/leadlag/utils/threading.py
+ M src/research/backtest_common.py
+ M src/research/diagnostics/__init__.py
+ M src/research/diagnostics/sprint0.py
+ M src/research/diagnostics/sprint1_experiments.py
+ M src/research/experiment_utils.py
+ M src/research/experiments/ml_order_decision/phase1.py
+ M src/research/experiments/ml_order_decision/phase2.py
+ M src/research/models/blp_base.py
+ M src/research/models/sector_relative_ensemble_blp_enhanced.py
+ M src/research/scripts/blpx/diagnose_shrinkage_attenuation.py
+ M src/research/scripts/experiments/build_v2_production_shadow_run.py
+ M src/research/scripts/experiments/compare_cumulative_method.py
+ M src/research/scripts/experiments/compare_ic_5m_period.py
+ M src/research/scripts/experiments/diagnose_recent_loss_cause.py
+ M src/research/scripts/experiments/experiment_a1_adaptive_gap_coef.py
+ M src/research/scripts/experiments/experiment_a2_empirical_bayes_lambda.py
+ M src/research/scripts/experiments/experiment_a4_ensemble_ic_optimization.py
+ M src/research/scripts/experiments/experiment_a7_walkforward_dsr.py
+ M src/research/scripts/experiments/experiment_asymmetric_propagation.py
+ M src/research/scripts/experiments/experiment_fractional_diff_normalization.py
+ M src/research/scripts/experiments/experiment_macro_kappa_v2.py
+ M src/research/scripts/experiments/fix_overlay_metadata.py
+ M src/research/scripts/experiments/run_live_aligned_v2_backtest.py
+ M src/research/scripts/experiments/run_v2_backtest.py
+ M src/research/scripts/experiments/simulate_prevention_measures.py
+ M src/research/scripts/experiments/verify_overlay_models.py
+ M tests/integration/test_production_v2.py
+ M tests/regression/baselines/v2_snapshot_v20260813.json
+ M tests/regression/conftest.py
+ M tests/regression/test_v2_baseline.py
+ M tests/research/test_backtester_910.py
+ M tests/unit/test_backtest_store.py
+ M tests/unit/test_close_positions.py
+ M tests/unit/test_execution_submodules.py
+ M tests/unit/test_experiment_utils.py
+ M tests/unit/test_gap_matrix_io.py
+ M tests/unit/test_gap_store.py
+ M tests/unit/test_jp_target_returns.py
+ M tests/unit/test_macro.py
+ M tests/unit/test_ml_order_overlay.py
+ M tests/unit/test_pipeline_speed_caches.py
+ M tests/unit/test_preprocessor.py
+ M tests/unit/test_runner_config.py
+ M tests/unit/test_split_large_orders.py
+ M tests/unit/test_synthetic_smoke.py
+ M tests/unit/test_tachibana_broker.py
+ M tests/unit/test_v2_distribution_sources.py
+ M tools/production/train_ml_order_overlay.py
+ M tools/research/compute_gap_adjusted_distribution.py
+ M tools/research/compute_structured_prediction_covariance.py
+ M tools/validation/diagnose_us_vol_states.py
+ M uv.lock
+?? .github/
+?? docs/CI.md
+?? docs/RESEARCH_ENV.md
+?? docs/decisions/2026-09-13-stage-abc-safety-boundaries.md
+?? docs/decisions/2026-09-15-structural-improvement-boundaries.md
+?? reports/20260912_workspace_audit/fix_report.md
+?? reports/20260913_stage_abc_rereview/
+?? reports/20260913_stage_abc_review/
+?? reports/20260913_stage_abc_round3_review/
+?? reports/20260914_stage_abc_round4_fix/
+?? reports/20260914_stage_abc_round4_review/
+?? reports/20260914_stage_abc_round5_fix/
+?? reports/20260914_stage_abc_round5_review/
+?? reports/20260914_stage_abc_round6_fix/
+?? reports/20260914_stage_abc_round6_review/
+?? reports/20260915_stage_abc_round7_review/
+?? reports/20260915_stage_abc_round8_review/
+?? reports/20260915_structural_improvement/
+?? reports/20260916_structural_improvement_s3a_s3b/
+?? reports/20260916_structural_improvement_s3b/
+?? reports/20260916_structural_improvement_s3c/
+?? reports/20260916_structural_improvement_s4/
+?? reports/20260916_structural_improvement_s5/
+?? reports/20260916_structural_improvement_s6/
+?? reports/20260917_structural_completion_review/
+?? reports/20260917_structural_improvement_s7/
+?? reports/20260917_structural_improvement_s8/
+?? scripts/ci/
+?? src/leadlag/config/loader.py
+?? src/leadlag/core/pnl.py
+?? src/leadlag/data/adr_features.py
+?? src/leadlag/data/intraday_inputs.py
+?? src/leadlag/data/macro.py
+?? src/leadlag/domain/distribution.py
+?? src/leadlag/domain/gap_bundle.py
+?? src/leadlag/domain/inputs.py
+?? src/leadlag/execution/contracts.py
+?? src/leadlag/execution/job_guard.py
+?? src/leadlag/execution/order_lifecycle.py
+?? src/leadlag/execution/state_store.py
+?? src/leadlag/execution/var_cache.py
+?? src/leadlag/models/ml_overlay_artifact.py
+?? src/leadlag/models/ml_overlay_features.py
+?? src/leadlag/models/ml_overlay_inference.py
+?? src/leadlag/pipeline/gap_distribution.py
+?? src/leadlag/pipeline/gap_reporting.py
+?? src/leadlag/runner/model_factory.py
+?? src/leadlag/utils/dataframe_fingerprint.py
+?? src/leadlag/utils/distribution_provenance.py
+?? src/research/diagnostics/gap_inputs.py
+?? src/research/diagnostics/gap_outputs.py
+?? src/research/diagnostics/gap_portfolio.py
+?? src/research/experiments/ml_overlay_training.py
+?? tests/regression/baselines/df_exec_20260814.csv.gz
+?? tests/regression/baselines/matrices/.mu_gap_20260814.bundle.json
+?? tests/regression/baselines/matrices/.mu_gap_h3_20260814.bundle.json
+?? tests/regression/baselines/matrices/.mu_gap_h5_20260814.bundle.json
+?? tests/regression/baselines/matrices/gap_metadata_20260814.json
+?? tests/regression/baselines/matrices/gap_metadata_h3_20260814.json
+?? tests/regression/baselines/matrices/gap_metadata_h5_20260814.json
+?? tests/unit/test_backtester_pnl.py
+?? tests/unit/test_config_loader.py
+?? tests/unit/test_execution_state_store.py
+?? tests/unit/test_gap_distribution_core.py
+?? tests/unit/test_job_guard.py
+?? tests/unit/test_metrics.py
+?? tests/unit/test_model_factory.py
+?? tests/unit/test_order_lifecycle.py
+?? tests/unit/test_pnl_ledger.py
+?? tests/unit/test_portfolio_decision_contract.py
+?? tests/unit/test_s2a_input_boundaries.py
+?? tests/unit/test_s2b_input_contracts.py
+?? tests/unit/test_s3a_distribution_contracts.py
+?? tests/unit/test_s3b_research_boundaries.py
+?? tests/unit/test_s3c_cache_contracts.py
+?? tests/unit/test_s7_ml_boundaries.py
+?? tests/unit/test_stage_abc_fixes.py
+?? tests/unit/test_stage_abc_followup_fixes.py

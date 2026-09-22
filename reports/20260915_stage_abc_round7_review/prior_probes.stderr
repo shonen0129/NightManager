@@ -1,0 +1,15 @@
+ERROR:leadlag.models.v2.distribution_source:[2026-08-14] All distribution sources failed. Returning flat position (w_final=0). No trading today.
+ERROR:leadlag.models.v2.decision_engine:[2026-08-14] Multi-horizon computation failed: Multi-horizon distribution unavailable for h=3: [FATAL] Gap bundle provenance signal date 2026-08-17 is not before trade date 2026-08-14; On-demand computation failed: 'types.SimpleNamespace' object has no attribute '_prepare_common_inputs'. Falling back to flat.
+ERROR:leadlag.models.v2.distribution_source:[2026-08-14] All distribution sources failed. Returning flat position (w_final=0). No trading today.
+ERROR:leadlag.models.v2.distribution_source:[2026-08-14] All distribution sources failed. Returning flat position (w_final=0). No trading today.
+ERROR:leadlag.models.v2.decision_engine:[2026-08-14] Multi-horizon computation failed: Multi-horizon distribution unavailable for h=3: [FATAL] Gap bundle provenance signal date 2026-08-17 is not before trade date 2026-08-14; On-demand computation failed: 'types.SimpleNamespace' object has no attribute '_prepare_common_inputs'. Falling back to flat.
+ERROR:leadlag.models.v2.distribution_source:[2026-08-14] All distribution sources failed. Returning flat position (w_final=0). No trading today.
+ERROR:leadlag.execution.close:Close-positions incomplete: filled=0/1, pending=0, failed=1
+ERROR:leadlag.models.ml_order_overlay:Failed to publish overlay artifact version 20260915T003540975553Z-3888aa5df93b
+Traceback (most recent call last):
+  File "/Users/shonen/leadlag/src/leadlag/models/ml_order_overlay.py", line 468, in save_overlay_model
+    os.replace(current_tmp, output_dir / "CURRENT")
+  File "/Users/shonen/leadlag/reports/20260913_stage_abc_rereview/probe_remaining.py", line 187, in fail_current
+    raise OSError('injected publication failure')
+OSError: injected publication failure
+WATCHDOG: exit=0 elapsed=1.4s

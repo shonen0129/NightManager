@@ -1,0 +1,11 @@
+{
+  "status": "PASS",
+  "local_links_checked": 26,
+  "new_probe_cases": 6,
+  "prior_probe_cases": 8,
+  "test_passed": 605,
+  "test_warnings": 17,
+  "test_elapsed_seconds": 700.81,
+  "git_diff_check": "PASS",
+  "source_hashes_recorded": 57
+}

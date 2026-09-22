@@ -1,0 +1,872 @@
+{
+  "U01_bundle_boundaries": {
+    "1": {
+      "normal": {
+        "save_returned": true,
+        "write_fault_count": 0,
+        "metadata": {
+          "sig_date": "2026-08-13",
+          "trade_date": "2026-08-14",
+          "horizon": 1
+        },
+        "alerts": [],
+        "mu_is_new": false,
+        "omega_is_new": false,
+        "compute_distribution_ondemand_calls": 0,
+        "compute_distribution_used_new_mu": false,
+        "compute_distribution_used_old_omega": true,
+        "decision": {
+          "gross": 1.9999999999999998,
+          "leakage": "PASSED",
+          "fallback": {
+            "gap_data_missing": false
+          }
+        }
+      },
+      "no_metadata": {
+        "save_returned": true,
+        "write_fault_count": 0,
+        "metadata": null,
+        "alerts": [],
+        "mu_is_new": true,
+        "omega_is_new": true,
+        "compute_distribution_ondemand_calls": 1,
+        "compute_distribution_used_new_mu": false,
+        "compute_distribution_used_old_omega": true,
+        "decision": {
+          "gross": 0.0,
+          "leakage": "FLAT",
+          "fallback": {
+            "gap_data_missing": true,
+            "audit_failure": true
+          }
+        }
+      },
+      "omega_failure": {
+        "save_returned": false,
+        "write_fault_count": 1,
+        "metadata": null,
+        "alerts": [
+          "[FATAL] Gap bundle consistency check failed: /var/folders/tr/lj1npbw51t90q2m3m78__3040000gn/T/abc-r5-npy-d7lqm8tz/1/omega_failure/matrices/.mu_gap_20260814.bundle.json: mu digest mismatch"
+        ],
+        "mu_is_new": false,
+        "omega_is_new": false,
+        "compute_distribution_ondemand_calls": 1,
+        "compute_distribution_used_new_mu": false,
+        "compute_distribution_used_old_omega": true,
+        "decision": {
+          "gross": 0.0,
+          "leakage": "FLAT",
+          "fallback": {
+            "gap_data_missing": true,
+            "audit_failure": true
+          }
+        }
+      },
+      "metadata_failure": {
+        "save_returned": false,
+        "write_fault_count": 1,
+        "metadata": null,
+        "alerts": [
+          "[FATAL] Gap bundle consistency check failed: /var/folders/tr/lj1npbw51t90q2m3m78__3040000gn/T/abc-r5-npy-d7lqm8tz/1/metadata_failure/matrices/.mu_gap_20260814.bundle.json: mu digest mismatch"
+        ],
+        "mu_is_new": false,
+        "omega_is_new": false,
+        "compute_distribution_ondemand_calls": 1,
+        "compute_distribution_used_new_mu": false,
+        "compute_distribution_used_old_omega": true,
+        "decision": {
+          "gross": 0.0,
+          "leakage": "FLAT",
+          "fallback": {
+            "gap_data_missing": true,
+            "audit_failure": true
+          }
+        }
+      },
+      "manifest_failure": {
+        "save_returned": false,
+        "write_fault_count": 1,
+        "metadata": null,
+        "alerts": [
+          "[FATAL] Gap bundle consistency check failed: /var/folders/tr/lj1npbw51t90q2m3m78__3040000gn/T/abc-r5-npy-d7lqm8tz/1/manifest_failure/matrices/.mu_gap_20260814.bundle.json: mu digest mismatch"
+        ],
+        "mu_is_new": false,
+        "omega_is_new": false,
+        "compute_distribution_ondemand_calls": 1,
+        "compute_distribution_used_new_mu": false,
+        "compute_distribution_used_old_omega": true,
+        "decision": {
+          "gross": 0.0,
+          "leakage": "FLAT",
+          "fallback": {
+            "gap_data_missing": true,
+            "audit_failure": true
+          }
+        }
+      },
+      "missing_manifest": {
+        "save_returned": true,
+        "write_fault_count": 0,
+        "metadata": null,
+        "alerts": [
+          "[FATAL] Gap bundle provenance missing; commit manifest missing: /var/folders/tr/lj1npbw51t90q2m3m78__3040000gn/T/abc-r5-npy-d7lqm8tz/1/missing_manifest/matrices/.mu_gap_20260814.bundle.json"
+        ],
+        "mu_is_new": false,
+        "omega_is_new": false,
+        "compute_distribution_ondemand_calls": 1,
+        "compute_distribution_used_new_mu": false,
+        "compute_distribution_used_old_omega": true,
+        "decision": {
+          "gross": 0.0,
+          "leakage": "FLAT",
+          "fallback": {
+            "gap_data_missing": true,
+            "audit_failure": true
+          }
+        }
+      },
+      "interleaved_read": {
+        "interleaved_commit": true,
+        "metadata": null,
+        "alerts": [
+          "[FATAL] Gap bundle consistency check failed: /var/folders/tr/lj1npbw51t90q2m3m78__3040000gn/T/abc-r5-npy-d7lqm8tz/1/interleaved_read/matrices/.mu_gap_20260814.bundle.json: omega digest mismatch"
+        ]
+      }
+    },
+    "3": {
+      "normal": {
+        "save_returned": true,
+        "write_fault_count": 0,
+        "metadata": {
+          "sig_date": "2026-08-13",
+          "trade_date": "2026-08-14",
+          "horizon": 3
+        },
+        "alerts": [],
+        "mu_is_new": false,
+        "omega_is_new": false,
+        "compute_distribution_ondemand_calls": 0,
+        "compute_distribution_used_new_mu": false,
+        "compute_distribution_used_old_omega": true,
+        "blend_max_change": 2.220446049250313e-16,
+        "blend_alerts": []
+      },
+      "no_metadata": {
+        "save_returned": true,
+        "write_fault_count": 0,
+        "metadata": null,
+        "alerts": [],
+        "mu_is_new": true,
+        "omega_is_new": true,
+        "compute_distribution_ondemand_calls": 1,
+        "compute_distribution_used_new_mu": false,
+        "compute_distribution_used_old_omega": true,
+        "blend_max_change": 0.0,
+        "blend_alerts": [
+          "[FATAL] Gap bundle provenance metadata is missing",
+          "Multi-horizon blend: h=3 matrices unavailable or unprovenanced, skipping (weight=0.50 redistributed to h1)."
+        ]
+      },
+      "omega_failure": {
+        "save_returned": false,
+        "write_fault_count": 1,
+        "metadata": null,
+        "alerts": [
+          "[FATAL] Gap bundle consistency check failed: /var/folders/tr/lj1npbw51t90q2m3m78__3040000gn/T/abc-r5-npy-d7lqm8tz/3/omega_failure/matrices/.mu_gap_h3_20260814.bundle.json: mu digest mismatch"
+        ],
+        "mu_is_new": false,
+        "omega_is_new": false,
+        "compute_distribution_ondemand_calls": 1,
+        "compute_distribution_used_new_mu": false,
+        "compute_distribution_used_old_omega": true,
+        "blend_max_change": 0.0,
+        "blend_alerts": [
+          "[FATAL] Gap bundle consistency check failed: /var/folders/tr/lj1npbw51t90q2m3m78__3040000gn/T/abc-r5-npy-d7lqm8tz/3/omega_failure/matrices/.mu_gap_h3_20260814.bundle.json: mu digest mismatch",
+          "Multi-horizon blend: h=3 matrices unavailable or unprovenanced, skipping (weight=0.50 redistributed to h1)."
+        ]
+      },
+      "metadata_failure": {
+        "save_returned": false,
+        "write_fault_count": 1,
+        "metadata": null,
+        "alerts": [
+          "[FATAL] Gap bundle consistency check failed: /var/folders/tr/lj1npbw51t90q2m3m78__3040000gn/T/abc-r5-npy-d7lqm8tz/3/metadata_failure/matrices/.mu_gap_h3_20260814.bundle.json: mu digest mismatch"
+        ],
+        "mu_is_new": false,
+        "omega_is_new": false,
+        "compute_distribution_ondemand_calls": 1,
+        "compute_distribution_used_new_mu": false,
+        "compute_distribution_used_old_omega": true,
+        "blend_max_change": 0.0,
+        "blend_alerts": [
+          "[FATAL] Gap bundle consistency check failed: /var/folders/tr/lj1npbw51t90q2m3m78__3040000gn/T/abc-r5-npy-d7lqm8tz/3/metadata_failure/matrices/.mu_gap_h3_20260814.bundle.json: mu digest mismatch",
+          "Multi-horizon blend: h=3 matrices unavailable or unprovenanced, skipping (weight=0.50 redistributed to h1)."
+        ]
+      },
+      "manifest_failure": {
+        "save_returned": false,
+        "write_fault_count": 1,
+        "metadata": null,
+        "alerts": [
+          "[FATAL] Gap bundle consistency check failed: /var/folders/tr/lj1npbw51t90q2m3m78__3040000gn/T/abc-r5-npy-d7lqm8tz/3/manifest_failure/matrices/.mu_gap_h3_20260814.bundle.json: mu digest mismatch"
+        ],
+        "mu_is_new": false,
+        "omega_is_new": false,
+        "compute_distribution_ondemand_calls": 1,
+        "compute_distribution_used_new_mu": false,
+        "compute_distribution_used_old_omega": true,
+        "blend_max_change": 0.0,
+        "blend_alerts": [
+          "[FATAL] Gap bundle consistency check failed: /var/folders/tr/lj1npbw51t90q2m3m78__3040000gn/T/abc-r5-npy-d7lqm8tz/3/manifest_failure/matrices/.mu_gap_h3_20260814.bundle.json: mu digest mismatch",
+          "Multi-horizon blend: h=3 matrices unavailable or unprovenanced, skipping (weight=0.50 redistributed to h1)."
+        ]
+      },
+      "missing_manifest": {
+        "save_returned": true,
+        "write_fault_count": 0,
+        "metadata": null,
+        "alerts": [
+          "[FATAL] Gap bundle provenance missing; commit manifest missing: /var/folders/tr/lj1npbw51t90q2m3m78__3040000gn/T/abc-r5-npy-d7lqm8tz/3/missing_manifest/matrices/.mu_gap_h3_20260814.bundle.json"
+        ],
+        "mu_is_new": false,
+        "omega_is_new": false,
+        "compute_distribution_ondemand_calls": 1,
+        "compute_distribution_used_new_mu": false,
+        "compute_distribution_used_old_omega": true,
+        "blend_max_change": 0.0,
+        "blend_alerts": [
+          "[FATAL] Gap bundle provenance missing; commit manifest missing: /var/folders/tr/lj1npbw51t90q2m3m78__3040000gn/T/abc-r5-npy-d7lqm8tz/3/missing_manifest/matrices/.mu_gap_h3_20260814.bundle.json",
+          "Multi-horizon blend: h=3 matrices unavailable or unprovenanced, skipping (weight=0.50 redistributed to h1)."
+        ]
+      },
+      "interleaved_read": {
+        "interleaved_commit": true,
+        "metadata": null,
+        "alerts": [
+          "[FATAL] Gap bundle consistency check failed: /var/folders/tr/lj1npbw51t90q2m3m78__3040000gn/T/abc-r5-npy-d7lqm8tz/3/interleaved_read/matrices/.mu_gap_h3_20260814.bundle.json: omega digest mismatch"
+        ]
+      }
+    },
+    "5": {
+      "normal": {
+        "save_returned": true,
+        "write_fault_count": 0,
+        "metadata": {
+          "sig_date": "2026-08-13",
+          "trade_date": "2026-08-14",
+          "horizon": 5
+        },
+        "alerts": [],
+        "mu_is_new": false,
+        "omega_is_new": false,
+        "compute_distribution_ondemand_calls": 0,
+        "compute_distribution_used_new_mu": false,
+        "compute_distribution_used_old_omega": true,
+        "blend_max_change": 2.220446049250313e-16,
+        "blend_alerts": []
+      },
+      "no_metadata": {
+        "save_returned": true,
+        "write_fault_count": 0,
+        "metadata": null,
+        "alerts": [],
+        "mu_is_new": true,
+        "omega_is_new": true,
+        "compute_distribution_ondemand_calls": 1,
+        "compute_distribution_used_new_mu": false,
+        "compute_distribution_used_old_omega": true,
+        "blend_max_change": 0.0,
+        "blend_alerts": [
+          "[FATAL] Gap bundle provenance metadata is missing",
+          "Multi-horizon blend: h=5 matrices unavailable or unprovenanced, skipping (weight=0.50 redistributed to h1)."
+        ]
+      },
+      "omega_failure": {
+        "save_returned": false,
+        "write_fault_count": 1,
+        "metadata": null,
+        "alerts": [
+          "[FATAL] Gap bundle consistency check failed: /var/folders/tr/lj1npbw51t90q2m3m78__3040000gn/T/abc-r5-npy-d7lqm8tz/5/omega_failure/matrices/.mu_gap_h5_20260814.bundle.json: mu digest mismatch"
+        ],
+        "mu_is_new": false,
+        "omega_is_new": false,
+        "compute_distribution_ondemand_calls": 1,
+        "compute_distribution_used_new_mu": false,
+        "compute_distribution_used_old_omega": true,
+        "blend_max_change": 0.0,
+        "blend_alerts": [
+          "[FATAL] Gap bundle consistency check failed: /var/folders/tr/lj1npbw51t90q2m3m78__3040000gn/T/abc-r5-npy-d7lqm8tz/5/omega_failure/matrices/.mu_gap_h5_20260814.bundle.json: mu digest mismatch",
+          "Multi-horizon blend: h=5 matrices unavailable or unprovenanced, skipping (weight=0.50 redistributed to h1)."
+        ]
+      },
+      "metadata_failure": {
+        "save_returned": false,
+        "write_fault_count": 1,
+        "metadata": null,
+        "alerts": [
+          "[FATAL] Gap bundle consistency check failed: /var/folders/tr/lj1npbw51t90q2m3m78__3040000gn/T/abc-r5-npy-d7lqm8tz/5/metadata_failure/matrices/.mu_gap_h5_20260814.bundle.json: mu digest mismatch"
+        ],
+        "mu_is_new": false,
+        "omega_is_new": false,
+        "compute_distribution_ondemand_calls": 1,
+        "compute_distribution_used_new_mu": false,
+        "compute_distribution_used_old_omega": true,
+        "blend_max_change": 0.0,
+        "blend_alerts": [
+          "[FATAL] Gap bundle consistency check failed: /var/folders/tr/lj1npbw51t90q2m3m78__3040000gn/T/abc-r5-npy-d7lqm8tz/5/metadata_failure/matrices/.mu_gap_h5_20260814.bundle.json: mu digest mismatch",
+          "Multi-horizon blend: h=5 matrices unavailable or unprovenanced, skipping (weight=0.50 redistributed to h1)."
+        ]
+      },
+      "manifest_failure": {
+        "save_returned": false,
+        "write_fault_count": 1,
+        "metadata": null,
+        "alerts": [
+          "[FATAL] Gap bundle consistency check failed: /var/folders/tr/lj1npbw51t90q2m3m78__3040000gn/T/abc-r5-npy-d7lqm8tz/5/manifest_failure/matrices/.mu_gap_h5_20260814.bundle.json: mu digest mismatch"
+        ],
+        "mu_is_new": false,
+        "omega_is_new": false,
+        "compute_distribution_ondemand_calls": 1,
+        "compute_distribution_used_new_mu": false,
+        "compute_distribution_used_old_omega": true,
+        "blend_max_change": 0.0,
+        "blend_alerts": [
+          "[FATAL] Gap bundle consistency check failed: /var/folders/tr/lj1npbw51t90q2m3m78__3040000gn/T/abc-r5-npy-d7lqm8tz/5/manifest_failure/matrices/.mu_gap_h5_20260814.bundle.json: mu digest mismatch",
+          "Multi-horizon blend: h=5 matrices unavailable or unprovenanced, skipping (weight=0.50 redistributed to h1)."
+        ]
+      },
+      "missing_manifest": {
+        "save_returned": true,
+        "write_fault_count": 0,
+        "metadata": null,
+        "alerts": [
+          "[FATAL] Gap bundle provenance missing; commit manifest missing: /var/folders/tr/lj1npbw51t90q2m3m78__3040000gn/T/abc-r5-npy-d7lqm8tz/5/missing_manifest/matrices/.mu_gap_h5_20260814.bundle.json"
+        ],
+        "mu_is_new": false,
+        "omega_is_new": false,
+        "compute_distribution_ondemand_calls": 1,
+        "compute_distribution_used_new_mu": false,
+        "compute_distribution_used_old_omega": true,
+        "blend_max_change": 0.0,
+        "blend_alerts": [
+          "[FATAL] Gap bundle provenance missing; commit manifest missing: /var/folders/tr/lj1npbw51t90q2m3m78__3040000gn/T/abc-r5-npy-d7lqm8tz/5/missing_manifest/matrices/.mu_gap_h5_20260814.bundle.json",
+          "Multi-horizon blend: h=5 matrices unavailable or unprovenanced, skipping (weight=0.50 redistributed to h1)."
+        ]
+      },
+      "interleaved_read": {
+        "interleaved_commit": true,
+        "metadata": null,
+        "alerts": [
+          "[FATAL] Gap bundle consistency check failed: /var/folders/tr/lj1npbw51t90q2m3m78__3040000gn/T/abc-r5-npy-d7lqm8tz/5/interleaved_read/matrices/.mu_gap_h5_20260814.bundle.json: omega digest mismatch"
+        ]
+      }
+    }
+  },
+  "U02_var_version_race": {
+    "runner_version": "20260915T025139050897Z-27386d264456",
+    "version_a": "20260915T025139050897Z-27386d264456",
+    "version_b": "20260915T025139051667Z-44ba3eea5eec",
+    "backtest_loaded_versions": [
+      "20260915T025139050897Z-27386d264456"
+    ],
+    "cache_keys": [
+      "daily_returns:43d7e92206f6fccf",
+      "daily_returns:43d7e92206f6fccf"
+    ],
+    "same_cache_key": true,
+    "first_value": 0.01,
+    "after_rollback_value": 0.01,
+    "expected_a_marker": 0.01,
+    "backtest_count": 1
+  },
+  "U03_verification": {
+    "healthy": {
+      "verification_exit": 0,
+      "stdout": "[ok] /var/folders/tr/lj1npbw51t90q2m3m78__3040000gn/T/abc-r4-verification-xeivyvp8/healthy: p_trade_scale=1.0 (active metadata matches model.pkl)\n",
+      "loader": {
+        "accepted": true,
+        "returned_type": "MLOrderOverlayModel"
+      }
+    },
+    "missing_active_model": {
+      "verification_exit": 1,
+      "stdout": "[fail] /var/folders/tr/lj1npbw51t90q2m3m78__3040000gn/T/abc-r4-verification-xeivyvp8/healthy: active artifact is not loadable: Overlay model not found: /var/folders/tr/lj1npbw51t90q2m3m78__3040000gn/T/abc-r4-verification-xeivyvp8/healthy/versions/20260915T025139152473Z-0dfb273f93bc/model.pkl\n",
+      "loader": {
+        "accepted": false,
+        "error_type": "FileNotFoundError",
+        "error": "Overlay model not found: /var/folders/tr/lj1npbw51t90q2m3m78__3040000gn/T/abc-r4-verification-xeivyvp8/healthy/versions/20260915T025139152473Z-0dfb273f93bc/model.pkl"
+      }
+    },
+    "missing_active_version": {
+      "verification_exit": 1,
+      "stdout": "[fail] /var/folders/tr/lj1npbw51t90q2m3m78__3040000gn/T/abc-r4-verification-xeivyvp8/healthy: active artifact is not loadable: Active overlay artifact version is missing: /var/folders/tr/lj1npbw51t90q2m3m78__3040000gn/T/abc-r4-verification-xeivyvp8/healthy/versions/nonexistent\n",
+      "loader": {
+        "accepted": false,
+        "error_type": "ValueError",
+        "error": "Active overlay artifact version is missing: /var/folders/tr/lj1npbw51t90q2m3m78__3040000gn/T/abc-r4-verification-xeivyvp8/healthy/versions/nonexistent"
+      }
+    }
+  },
+  "U04_migration": {
+    "loader_accepts": true,
+    "migration_exit": 0,
+    "stdout": "[ok] /var/folders/tr/lj1npbw51t90q2m3m78__3040000gn/T/abc-r4-migration-h9tnpnkv/healthy: versioned artifact\n"
+  },
+  "T01_artifact_dates": {
+    "null": {
+      "save": {
+        "accepted": false,
+        "error_type": "ValueError",
+        "error": "Overlay artifact publication train_end is required"
+      },
+      "direct_apply": {
+        "accepted": false,
+        "error_type": "ValueError",
+        "error": "Overlay application for 2021-01-04 train_end is required"
+      }
+    },
+    "nat_string": {
+      "save": {
+        "accepted": false,
+        "error_type": "ValueError",
+        "error": "Overlay artifact publication train_end must not be null or NaT"
+      },
+      "direct_apply": {
+        "accepted": false,
+        "error_type": "ValueError",
+        "error": "Overlay application for 2021-01-04 train_end must not be null or NaT"
+      }
+    },
+    "nat_object": {
+      "save": {
+        "accepted": false,
+        "error_type": "ValueError",
+        "error": "Overlay artifact publication train_end must not be null or NaT"
+      },
+      "direct_apply": {
+        "accepted": false,
+        "error_type": "ValueError",
+        "error": "Overlay application for 2021-01-04 train_end must not be null or NaT"
+      }
+    },
+    "empty": {
+      "save": {
+        "accepted": false,
+        "error_type": "ValueError",
+        "error": "Overlay artifact publication train_end must not be null or NaT"
+      },
+      "direct_apply": {
+        "accepted": false,
+        "error_type": "ValueError",
+        "error": "Overlay application for 2021-01-04 train_end must not be null or NaT"
+      }
+    },
+    "list": {
+      "save": {
+        "accepted": false,
+        "error_type": "ValueError",
+        "error": "Overlay artifact publication train_end must be one scalar date"
+      },
+      "direct_apply": {
+        "accepted": false,
+        "error_type": "ValueError",
+        "error": "Overlay application for 2021-01-04 train_end must be one scalar date"
+      }
+    },
+    "reversed": {
+      "save": {
+        "accepted": false,
+        "error_type": "ValueError",
+        "error": "Overlay artifact publication train_start must not be after train_end"
+      },
+      "direct_apply": {
+        "accepted": false,
+        "error_type": "ValueError",
+        "error": "Overlay application for 2021-01-04 train_start must not be after train_end"
+      }
+    },
+    "missing_hash": {
+      "save": {
+        "accepted": false,
+        "error_type": "ValueError",
+        "error": "Overlay artifact publication data_hash must be a non-empty string"
+      },
+      "direct_apply": {
+        "accepted": false,
+        "error_type": "ValueError",
+        "error": "Overlay application for 2021-01-04 data_hash must be a non-empty string"
+      }
+    },
+    "future_label": {
+      "save": {
+        "accepted": false,
+        "error_type": "ValueError",
+        "error": "Overlay artifact publication label_asof_end must not be after train_end"
+      },
+      "direct_apply": {
+        "accepted": false,
+        "error_type": "ValueError",
+        "error": "Overlay application for 2021-01-04 label_asof_end must not be after train_end"
+      }
+    },
+    "wrong_version": {
+      "save": {
+        "accepted": false,
+        "error_type": "ValueError",
+        "error": "Training metadata conflicts with fitted overlay field: metadata_version"
+      },
+      "direct_apply": {
+        "accepted": false,
+        "error_type": "ValueError",
+        "error": "Overlay application for 2021-01-04 metadata_version must be 2, got 3"
+      }
+    },
+    "train_end_day": {
+      "accepted": false,
+      "error_type": "ValueError",
+      "error": "Overlay was trained through 2020-12-31 and cannot be applied in-sample on 2020-12-31. Supply a fold-specific artifact or run an explicit ML-disabled comparison."
+    },
+    "first_oos_day": {
+      "accepted": true,
+      "returned_type": "dict"
+    }
+  },
+  "T02_legacy": {
+    "accepted": false,
+    "error_type": "ValueError",
+    "error": "Legacy root overlay artifact is not accepted: /var/folders/tr/lj1npbw51t90q2m3m78__3040000gn/T/abc-r3-legacy-xpseil3_. Retrain and publish a versioned artifact with CURRENT."
+  },
+  "T03_missing_metadata": {
+    "future": {
+      "audit": {
+        "status": "FLAT",
+        "signal_date_strictly_before_trade_date": true,
+        "post_open_timing_respected": true,
+        "realized_returns_not_used_in_signal": true,
+        "pit_binning_strictly_historical": true,
+        "gap_data_freshness_ok": true
+      },
+      "gross": 0.0,
+      "fallback": {
+        "gap_data_missing": true,
+        "audit_failure": true
+      },
+      "diagnostics": {
+        "distribution_provenance": {
+          "status": "rejected",
+          "error": "[FATAL] Gap bundle provenance signal date 2026-08-17 is not before trade date 2026-08-14; blpx_model not available for on-demand computation."
+        }
+      }
+    },
+    "missing": {
+      "audit": {
+        "status": "FLAT",
+        "signal_date_strictly_before_trade_date": true,
+        "post_open_timing_respected": true,
+        "realized_returns_not_used_in_signal": true,
+        "pit_binning_strictly_historical": true,
+        "gap_data_freshness_ok": true
+      },
+      "gross": 0.0,
+      "fallback": {
+        "gap_data_missing": true,
+        "audit_failure": true
+      },
+      "diagnostics": {
+        "distribution_provenance": {
+          "status": "rejected",
+          "error": "[FATAL] Gap bundle provenance metadata is missing; blpx_model not available for on-demand computation."
+        }
+      }
+    },
+    "npy_missing": {
+      "audit": {
+        "status": "FLAT",
+        "signal_date_strictly_before_trade_date": true,
+        "post_open_timing_respected": true,
+        "realized_returns_not_used_in_signal": true,
+        "pit_binning_strictly_historical": true,
+        "gap_data_freshness_ok": true
+      },
+      "gross": 0.0,
+      "fallback": {
+        "gap_data_missing": true,
+        "audit_failure": true
+      },
+      "diagnostics": {
+        "distribution_provenance": {
+          "status": "rejected",
+          "error": "[FATAL] Gap bundle provenance missing; commit manifest missing: /var/folders/tr/lj1npbw51t90q2m3m78__3040000gn/T/abc-r3-gap-f655cotc/legacy/matrices/.mu_gap_20260814.bundle.json; blpx_model not available for on-demand computation."
+        }
+      }
+    }
+  },
+  "T04_fill_failure": {
+    "decision": {
+      "returned_normally": false,
+      "error": "Post-decision reconciliation incomplete: fill_prices: Fill-price reconciliation failed: order_id=fake-0: injected detail endpoint failure; order_id=fake-1: injected detail endpoint failure",
+      "detail_calls": 2,
+      "fill_statuses": [
+        "FETCH_ERROR",
+        "FETCH_ERROR"
+      ],
+      "reconciliation_errors": [
+        "fill_prices: Fill-price reconciliation failed: order_id=fake-0: injected detail endpoint failure; order_id=fake-1: injected detail endpoint failure"
+      ]
+    },
+    "close": {
+      "cli_return_code": 2,
+      "detail_calls": 1,
+      "fill_statuses": [
+        "FETCH_ERROR"
+      ],
+      "close_incomplete": true,
+      "reconciliation_errors": [
+        "fill_prices: Fill-price reconciliation failed: order_id=fake-0: injected detail endpoint failure"
+      ]
+    }
+  },
+  "T05_initial_log": {
+    "error_type": "OrderExecutionIncomplete",
+    "error": "Order submission incomplete: accepted=2/expected=2, failed=0, partial=2, unresolved=2, recording_errors=1. See /var/folders/tr/lj1npbw51t90q2m3m78__3040000gn/T/abc-r3-log-1domp0rl/api_execution_log.json for details.",
+    "reconciliation_calls": [
+      "fills",
+      "positions",
+      "wallet"
+    ]
+  },
+  "F01_F02_F20_brokers": {
+    "filled": "FILLED",
+    "partial": "PARTIALLY_FILLED",
+    "cancelled_partial": "CANCELLED",
+    "cancelled": "CANCELLED",
+    "rejected": "FAILED",
+    "expired_partial": "CANCELLED",
+    "cancel_failed_unfilled": "SUBMITTED",
+    "amend_failed_unfilled": "SUBMITTED",
+    "fill_collection": {
+      "queries": 2,
+      "quantities": [
+        30,
+        30
+      ]
+    },
+    "all_rejected": {
+      "returned_normally": false,
+      "accepted": 0,
+      "failed": 2
+    },
+    "leadlag.execution.broker_ops_poll": {
+      "calls": 3,
+      "status": "FILLED",
+      "completed": true
+    },
+    "leadlag.execution.close_poll": {
+      "calls": 3,
+      "status": "FILLED",
+      "completed": true
+    }
+  },
+  "F03_risk_reduction": {
+    "actual_stop_flat_flow": {
+      "blocked": false
+    },
+    "flat": {
+      "allowed": true
+    },
+    "reduce": {
+      "allowed": true
+    },
+    "increase": {
+      "allowed": false
+    },
+    "reverse": {
+      "allowed": false
+    },
+    "new": {
+      "allowed": false
+    }
+  },
+  "F04_audit_flat": {
+    "leakage": {
+      "status": "FAILED",
+      "signal_date_strictly_before_trade_date": false,
+      "post_open_timing_respected": true,
+      "realized_returns_not_used_in_signal": false,
+      "pit_binning_strictly_historical": true,
+      "gap_data_freshness_ok": false
+    },
+    "numerical": "PASSED",
+    "gross": 0.0,
+    "fallback": {
+      "gap_data_missing": false,
+      "audit_failure": true
+    },
+    "alerts": [
+      "Leakage audit FAILED; fallback_on_audit_failure=True. Falling back to flat position."
+    ]
+  },
+  "F05_F07_F08_F09_data": {
+    "holiday": {
+      "2026-08-12": {
+        "sig_date": "2026-08-11",
+        "us_return": 0.10000000000000009
+      },
+      "2026-08-13": {
+        "sig_date": "2026-08-12",
+        "us_return": 0.0
+      }
+    },
+    "stale_requested_day": {
+      "accepted": false,
+      "error_type": "RuntimeError",
+      "error": "Requested trade_date 2026-08-17 is not available in df_exec; refusing stale PIT fallback."
+    },
+    "strict_clean_data": {
+      "rows": 79,
+      "signals_strictly_prior": true
+    },
+    "current_prices": {
+      "calls": [
+        "current"
+      ],
+      "price": 1050.0
+    }
+  },
+  "F10_correlation_cache": {
+    "cached_object_reused": false,
+    "reported_jp_sigma": 0.03074838127824614,
+    "expected_jp_sigma": 0.03074838127824614,
+    "ratio": 1.0
+  },
+  "F11_common_inputs_cache": {
+    "build_calls": 2,
+    "same_object": false,
+    "expected_last": 100.0,
+    "observed_last": 100.0,
+    "target_remains_zero": false
+  },
+  "F11_column_identity": {
+    "old_columns": [
+      "us_cc_XLB",
+      "us_cc_XLC"
+    ],
+    "new_columns": [
+      "us_cc_XLC",
+      "us_cc_XLB"
+    ],
+    "same_numeric_buffer": true,
+    "same_instance_build_calls": 2,
+    "cache_reused": false,
+    "cached_value": 0.04,
+    "fresh_value": 0.04
+  },
+  "F12_atomic_sqlite_write": {
+    "None": {
+      "fault_reached": true,
+      "error": "GapStoreError",
+      "mu": 1.0,
+      "omega": 1.0,
+      "metadata": {
+        "version": "old"
+      }
+    },
+    "3": {
+      "fault_reached": true,
+      "error": "GapStoreError",
+      "mu": 1.0,
+      "omega": 1.0,
+      "metadata": {
+        "version": "old"
+      }
+    },
+    "5": {
+      "fault_reached": true,
+      "error": "GapStoreError",
+      "mu": 1.0,
+      "omega": 1.0,
+      "metadata": {
+        "version": "old"
+      }
+    }
+  },
+  "F13_default_backtest_overlay": {
+    "ml_overlay_enabled": true,
+    "model_dir": "/var/folders/tr/lj1npbw51t90q2m3m78__3040000gn/T/abc-r5-bt-tywkz59v",
+    "overlay_model_forwarded": "MLOrderOverlayModel(lgbm=<review_overlay_helpers._DummyLGBM object at 0x11f409cd0>, cont_cols=['score'], target_std=1.0, use_ticker=False, use_classification=False, per_ticker_interactions=False, p_trade_scale=1.0, metadata={'cont_cols': ['score'], 'target_std': 1.0, 'use_ticker': False, 'use_classification': False, 'per_ticker_interactions': False, 'n_tickers': 17, 'p_trade_scale': 1.0, 'metadata_version': 2, 'metadata_status': 'verified', 'train_start': '2015-01-05', 'train_end': '2020-12-31', 'data_hash': 'probe-data', 'config_hash': 'probe-config', 'artifact_version': '20260915T025139295666Z-241fdbc6d949', 'model_sha256': '237501e4de919d73fbde876775b08abfc707224fd30ba828bf8b3bb79dd3f133'})"
+  },
+  "F14_inventory_slippage": {
+    "flat": {
+      "reported_slip_bps": [
+        20.625,
+        9.375
+      ],
+      "inventory_flow_slip_bps": [
+        20.625,
+        9.375
+      ]
+    },
+    "sign_flip": {
+      "reported_slip_bps": [
+        20.625,
+        30.0
+      ],
+      "inventory_flow_slip_bps": [
+        20.625,
+        30.0
+      ]
+    },
+    "unchanged": {
+      "reported_slip_bps": [
+        20.625,
+        11.250000000000002
+      ],
+      "inventory_flow_slip_bps": [
+        20.625,
+        11.250000000000002
+      ]
+    }
+  },
+  "F15_initial_drawdown": {
+    "AR": -0.9999975185392723,
+    "RISK": 1.106797181058933,
+    "R/R": -0.9035056608858728,
+    "Sharpe": -11.067971810589327,
+    "MDD": -0.09999999999999998,
+    "Total Return": -0.09999999999999998
+  },
+  "F16_all_days_metrics": {
+    "net_sharpe": -5.780059766913394,
+    "n_observations": 4,
+    "max_dd": -0.09999999999999998,
+    "total_return": -0.08199999999999996,
+    "fallback_rate": 0.5,
+    "returns": [
+      -0.1,
+      0.0,
+      0.02,
+      0.0
+    ]
+  },
+  "F17_DSR": {
+    "245": {
+      "reported": 0.8440251865142823,
+      "reference": 0.8440251865142823
+    },
+    "252": {
+      "reported": 0.84062387995459,
+      "reference": 0.84062387995459
+    }
+  },
+  "F21_PIT_multiplier": {
+    "configured_fallback_multiplier": 0.25,
+    "actual_multiplier": 0.25,
+    "fallback_flag": true
+  },
+  "production_artifact_readiness": {
+    "accepted": false,
+    "error_type": "ValueError",
+    "error": "Legacy root overlay artifact is not accepted: models/ml_order_overlay/phase2_8. Retrain and publish a versioned artifact with CURRENT."
+  }
+}

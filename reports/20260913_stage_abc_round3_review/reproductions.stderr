@@ -1,0 +1,3 @@
+ERROR:leadlag.models.v2.distribution_source:[2026-08-14] All distribution sources failed. Returning flat position (w_final=0). No trading today.
+ERROR:leadlag.models.v2.distribution_source:[2026-08-14] All distribution sources failed. Returning flat position (w_final=0). No trading today.
+WATCHDOG: exit=0 elapsed=1.0s

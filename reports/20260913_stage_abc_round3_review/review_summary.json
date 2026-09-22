@@ -1,0 +1,54 @@
+{
+  "status": "reviewed",
+  "verdict": "BLOCK",
+  "findings": [
+    {
+      "id": "T01",
+      "priority": "P1",
+      "previous": "S04",
+      "issue": "Invalid ML train_end allows application",
+      "probe": "invalid_artifact_dates"
+    },
+    {
+      "id": "T02",
+      "priority": "P2",
+      "previous": "S04",
+      "issue": "Legacy model/metadata mismatch accepted",
+      "probe": "legacy_artifact_mix"
+    },
+    {
+      "id": "T03",
+      "priority": "P2",
+      "previous": "S01",
+      "issue": "Metadata-free npy path bypasses provenance validation",
+      "probe": "missing_distribution_metadata"
+    },
+    {
+      "id": "T04",
+      "priority": "P2",
+      "previous": "S02/S03",
+      "issue": "Fill-detail failure not propagated",
+      "probe": "fill_failure_silent_success"
+    },
+    {
+      "id": "T05",
+      "priority": "P2",
+      "previous": "S02",
+      "issue": "Initial execution-log failure skips reconciliation",
+      "probe": "initial_log_failure_skips_reconciliation"
+    }
+  ],
+  "validation": {
+    "status": "PASS",
+    "local_links_checked": 26,
+    "new_probe_cases": 6,
+    "prior_probe_cases": 8,
+    "test_passed": 605,
+    "test_warnings": 17,
+    "test_elapsed_seconds": 700.81,
+    "git_diff_check": "PASS",
+    "source_hashes_recorded": 57
+  },
+  "production_artifact_migration": "pending, existing phase2_8 rejected for missing provenance",
+  "live_actions": false
+}

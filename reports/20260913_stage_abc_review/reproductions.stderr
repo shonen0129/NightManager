@@ -1,0 +1,13 @@
+/Users/shonen/.matplotlib is not a writable directory
+Matplotlib created a temporary cache directory at /var/folders/tr/lj1npbw51t90q2m3m78__3040000gn/T/matplotlib-8fd_uug_ because there was an issue with the default path ({configdir}); it is highly recommended to set the MPLCONFIGDIR environment variable to a writable directory, in particular to speed up the import of Matplotlib and to better support multiprocessing.
+Matplotlib is building the font cache; this may take a moment.
+ERROR:leadlag.models.ml_order_overlay:[2026-08-13] Overlay was trained through 2026-08-14; refusing in-sample application.
+ERROR:yfinance:Failed to get ticker '^TNX' reason: Failed to perform, curl: (6) Could not resolve host: guce.yahoo.com. See https://curl.se/libcurl/c/libcurl-errors.html first for more details.
+ERROR:yfinance:Failed to get ticker 'CL=F' reason: Failed to perform, curl: (6) Could not resolve host: guce.yahoo.com. See https://curl.se/libcurl/c/libcurl-errors.html first for more details.
+ERROR:yfinance:Failed to get ticker 'JPY=X' reason: Failed to perform, curl: (6) Could not resolve host: guce.yahoo.com. See https://curl.se/libcurl/c/libcurl-errors.html first for more details.
+ERROR:yfinance:$JPY=X: possibly delisted; no timezone found
+ERROR:yfinance:
+3 Failed downloads:
+ERROR:yfinance:['^TNX', 'CL=F']: DNSError('Failed to perform, curl: (6) Could not resolve host: guce.yahoo.com. See https://curl.se/libcurl/c/libcurl-errors.html first for more details.')
+ERROR:yfinance:['JPY=X']: possibly delisted; no timezone found
+WATCHDOG: exit=0 elapsed=12.4s

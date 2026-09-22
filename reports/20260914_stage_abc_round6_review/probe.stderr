@@ -1,0 +1,56 @@
+ERROR:leadlag.models.v2.gap_io:[2026-08-14] File cache gap matrices are invalid ([FATAL] Gap bundle provenance metadata is missing); falling back to on-demand.
+ERROR:leadlag.models.v2.distribution_source:[2026-08-14] All distribution sources failed. Returning flat position (w_final=0). No trading today.
+ERROR:leadlag.models.v2.gap_io:[2026-08-14] File cache gap matrices are invalid ([FATAL] Gap bundle consistency check failed: /var/folders/tr/lj1npbw51t90q2m3m78__3040000gn/T/abc-r5-npy-_3v4ftn3/1/omega_failure/matrices/.mu_gap_20260814.bundle.json: mu digest mismatch); falling back to on-demand.
+ERROR:leadlag.models.v2.distribution_source:[2026-08-14] All distribution sources failed. Returning flat position (w_final=0). No trading today.
+ERROR:leadlag.models.v2.gap_io:[2026-08-14] File cache gap matrices are invalid ([FATAL] Gap bundle consistency check failed: /var/folders/tr/lj1npbw51t90q2m3m78__3040000gn/T/abc-r5-npy-_3v4ftn3/1/metadata_failure/matrices/.mu_gap_20260814.bundle.json: mu digest mismatch); falling back to on-demand.
+ERROR:leadlag.models.v2.distribution_source:[2026-08-14] All distribution sources failed. Returning flat position (w_final=0). No trading today.
+ERROR:leadlag.models.v2.gap_io:[2026-08-14] File cache gap matrices are invalid ([FATAL] Gap bundle consistency check failed: /var/folders/tr/lj1npbw51t90q2m3m78__3040000gn/T/abc-r5-npy-_3v4ftn3/1/manifest_failure/matrices/.mu_gap_20260814.bundle.json: mu digest mismatch); falling back to on-demand.
+ERROR:leadlag.models.v2.distribution_source:[2026-08-14] All distribution sources failed. Returning flat position (w_final=0). No trading today.
+ERROR:leadlag.models.v2.gap_io:[2026-08-14] File cache gap matrices are invalid ([FATAL] Gap bundle provenance missing; commit manifest missing: /var/folders/tr/lj1npbw51t90q2m3m78__3040000gn/T/abc-r5-npy-_3v4ftn3/1/missing_manifest/matrices/.mu_gap_20260814.bundle.json); falling back to on-demand.
+ERROR:leadlag.models.v2.distribution_source:[2026-08-14] All distribution sources failed. Returning flat position (w_final=0). No trading today.
+ERROR:leadlag.models.v2.gap_io:[2026-08-14] File cache gap matrices are invalid ([FATAL] Gap bundle provenance metadata is missing); falling back to on-demand.
+ERROR:leadlag.models.v2.gap_io:[2026-08-14] File cache gap matrices are invalid ([FATAL] Gap bundle consistency check failed: /var/folders/tr/lj1npbw51t90q2m3m78__3040000gn/T/abc-r5-npy-_3v4ftn3/3/omega_failure/matrices/.mu_gap_h3_20260814.bundle.json: mu digest mismatch); falling back to on-demand.
+ERROR:leadlag.models.v2.gap_io:[2026-08-14] File cache gap matrices are invalid ([FATAL] Gap bundle consistency check failed: /var/folders/tr/lj1npbw51t90q2m3m78__3040000gn/T/abc-r5-npy-_3v4ftn3/3/metadata_failure/matrices/.mu_gap_h3_20260814.bundle.json: mu digest mismatch); falling back to on-demand.
+ERROR:leadlag.models.v2.gap_io:[2026-08-14] File cache gap matrices are invalid ([FATAL] Gap bundle consistency check failed: /var/folders/tr/lj1npbw51t90q2m3m78__3040000gn/T/abc-r5-npy-_3v4ftn3/3/manifest_failure/matrices/.mu_gap_h3_20260814.bundle.json: mu digest mismatch); falling back to on-demand.
+ERROR:leadlag.models.v2.gap_io:[2026-08-14] File cache gap matrices are invalid ([FATAL] Gap bundle provenance missing; commit manifest missing: /var/folders/tr/lj1npbw51t90q2m3m78__3040000gn/T/abc-r5-npy-_3v4ftn3/3/missing_manifest/matrices/.mu_gap_h3_20260814.bundle.json); falling back to on-demand.
+ERROR:leadlag.models.v2.gap_io:[2026-08-14] File cache gap matrices are invalid ([FATAL] Gap bundle provenance metadata is missing); falling back to on-demand.
+ERROR:leadlag.models.v2.gap_io:[2026-08-14] File cache gap matrices are invalid ([FATAL] Gap bundle consistency check failed: /var/folders/tr/lj1npbw51t90q2m3m78__3040000gn/T/abc-r5-npy-_3v4ftn3/5/omega_failure/matrices/.mu_gap_h5_20260814.bundle.json: mu digest mismatch); falling back to on-demand.
+ERROR:leadlag.models.v2.gap_io:[2026-08-14] File cache gap matrices are invalid ([FATAL] Gap bundle consistency check failed: /var/folders/tr/lj1npbw51t90q2m3m78__3040000gn/T/abc-r5-npy-_3v4ftn3/5/metadata_failure/matrices/.mu_gap_h5_20260814.bundle.json: mu digest mismatch); falling back to on-demand.
+ERROR:leadlag.models.v2.gap_io:[2026-08-14] File cache gap matrices are invalid ([FATAL] Gap bundle consistency check failed: /var/folders/tr/lj1npbw51t90q2m3m78__3040000gn/T/abc-r5-npy-_3v4ftn3/5/manifest_failure/matrices/.mu_gap_h5_20260814.bundle.json: mu digest mismatch); falling back to on-demand.
+ERROR:leadlag.models.v2.gap_io:[2026-08-14] File cache gap matrices are invalid ([FATAL] Gap bundle provenance missing; commit manifest missing: /var/folders/tr/lj1npbw51t90q2m3m78__3040000gn/T/abc-r5-npy-_3v4ftn3/5/missing_manifest/matrices/.mu_gap_h5_20260814.bundle.json); falling back to on-demand.
+ERROR:leadlag.models.v2.distribution_source:[2026-08-14] All distribution sources failed. Returning flat position (w_final=0). No trading today.
+ERROR:leadlag.models.v2.distribution_source:[2026-08-14] All distribution sources failed. Returning flat position (w_final=0). No trading today.
+ERROR:leadlag.models.v2.distribution_source:[2026-08-14] All distribution sources failed. Returning flat position (w_final=0). No trading today.
+ERROR:leadlag.execution.post_decision:[JOURNAL] Fill-price reconciliation failed
+Traceback (most recent call last):
+  File "/Users/shonen/leadlag/src/leadlag/execution/post_decision.py", line 262, in _write_decision_output_and_submit
+    fetch_fill_prices(api_client, all_results)
+  File "/Users/shonen/leadlag/src/leadlag/execution/pricing.py", line 185, in fetch_fill_prices
+    raise FillPriceReconciliationError(order_results, errors)
+leadlag.execution.pricing.FillPriceReconciliationError: Fill-price reconciliation failed: order_id=fake-0: injected detail endpoint failure; order_id=fake-1: injected detail endpoint failure
+ERROR:leadlag.execution.close:Failed to fetch close fill prices
+Traceback (most recent call last):
+  File "/Users/shonen/leadlag/src/leadlag/execution/close.py", line 446, in close_all_positions
+    fetch_fill_prices(api_client, summary["close_results"], wait_seconds=5.0)
+  File "/Users/shonen/leadlag/src/leadlag/execution/pricing.py", line 185, in fetch_fill_prices
+    raise FillPriceReconciliationError(order_results, errors)
+leadlag.execution.pricing.FillPriceReconciliationError: Fill-price reconciliation failed: order_id=fake-0: injected detail endpoint failure
+ERROR:leadlag.execution.close:Position close incomplete: filled=1/1, pending=0, failed=0
+ERROR:leadlag.execution.close:Close-positions incomplete: filled=1/1, pending=0, failed=0
+ERROR:leadlag.execution.broker_ops:[EXECUTION] Failed to write initial API execution log
+Traceback (most recent call last):
+  File "/Users/shonen/leadlag/src/leadlag/execution/broker_ops.py", line 697, in submit_orders_via_api
+    log_path = _write_api_execution_log(summary, output_dir)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/shonen/.local/share/uv/python/cpython-3.12.0-macos-aarch64-none/lib/python3.12/unittest/mock.py", line 1134, in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/shonen/.local/share/uv/python/cpython-3.12.0-macos-aarch64-none/lib/python3.12/unittest/mock.py", line 1138, in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/shonen/.local/share/uv/python/cpython-3.12.0-macos-aarch64-none/lib/python3.12/unittest/mock.py", line 1193, in _execute_mock_call
+    raise effect
+OSError: injected log disk error
+ERROR:leadlag.reporting.formatter:[RISK-STOP] DailyLoss=10.0000% >= stop 2.50%
+ERROR:leadlag.reporting.formatter:[RISK-STOP] MonthlyLoss=10.0000% >= stop 5.00%
+WATCHDOG: exit=0 elapsed=23.5s

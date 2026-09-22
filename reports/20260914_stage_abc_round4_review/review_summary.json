@@ -1,0 +1,54 @@
+{
+  "review_date": "2026-09-14",
+  "review_round": 4,
+  "verdict": "BLOCK",
+  "head": "cf97bfaf4577a20c95ce931afd10ac72a6f08285",
+  "scope": "Stage A-C fixes after Round 3, dirty working tree",
+  "prior_reproductions_resolved": ["T01", "T02", "T03", "T04", "T05"],
+  "findings": [
+    {
+      "id": "U01",
+      "priority": "P2",
+      "title": ".npy再保存失敗・metadata省略時に旧来歴で別世代の行列を受理する",
+      "file": "src/leadlag/utils/gap_matrix_io.py",
+      "line": 456,
+      "evidence_key": "npy_republication",
+      "required_outcome": "Actual loaded mu/omega bytes must match the provenance; failed/interleaved publication must yield one complete version or rejection."
+    },
+    {
+      "id": "U02",
+      "priority": "P2",
+      "title": "VaRがkey作成時と異なるartifact版の系列を同じkeyへ保存できる",
+      "file": "src/leadlag/execution/var_history.py",
+      "line": 180,
+      "evidence_key": "var_version_race",
+      "required_outcome": "Pin one verified overlay object/version across live runner, VaR key and BacktestEngine; switching CURRENT must not mix versions."
+    },
+    {
+      "id": "U03",
+      "priority": "P2",
+      "title": "artifact検証ツールがCURRENTの参照先欠落をskipしてexit=0を返す",
+      "file": "src/research/scripts/experiments/verify_overlay_models.py",
+      "line": 48,
+      "evidence_key": "verification_dangling_pointer",
+      "required_outcome": "Declared artifacts with missing or invalid active contents must fail verification and yield nonzero overall status."
+    },
+    {
+      "id": "U04",
+      "priority": "P3",
+      "title": "移行確認ツールが正常artifact内のversionsをlegacy rootと誤判定する",
+      "file": "src/research/scripts/experiments/fix_overlay_metadata.py",
+      "line": 38,
+      "evidence_key": "migration_report",
+      "required_outcome": "Discover artifact roots without treating their internal versions/staging directories as independent roots; retain nested fold discovery."
+    }
+  ],
+  "tests": {"passed": 614, "warnings": 17, "seconds": 373.52, "workers": 10, "watchdog_exit": 0},
+  "operational_readiness": {
+    "production_overlay": "Legacy phase2_8 artifact is rejected by the production loader; migration/retraining remains pending.",
+    "same_input_live_backtest_weights": "Not verified with a production-ready artifact in this review.",
+    "new_profitability_experiment": "Not performed."
+  },
+  "production_source_modified_by_review": false,
+  "live_broker_actions": false
+}

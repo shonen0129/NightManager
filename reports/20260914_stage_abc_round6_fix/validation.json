@@ -1,0 +1,31 @@
+{
+  "passed": true,
+  "scope": "stage-abc-round6-fixes",
+  "pytest": {
+    "command": ".venv/bin/python -m pytest tests/ -n auto --tb=short -q",
+    "passed": 646,
+    "warnings": 17,
+    "watchdog_exit": 0,
+    "duration_seconds": 711.96,
+    "log": "pytest_full_after_cleanup.log"
+  },
+  "targeted_regression": {
+    "passed": 35,
+    "logical_areas": ["provenance validation", "gap bundle loading", "V2 distribution sources", "VaR snapshot lifetime"]
+  },
+  "static_checks": {
+    "ruff": "passed",
+    "mypy": "passed",
+    "compileall": "passed",
+    "import_linter": "passed",
+    "git_diff_check": "passed"
+  },
+  "boundary_probes": {
+    "provenance_alias_and_scalar_validation": "passed",
+    "sqlite_snapshot_lock_deadline": "passed",
+    "timeout_worker_snapshot_lifetime": "passed",
+    "gap_version_key_and_backtest_consistency": "passed",
+    "existing_stage_abc_regression_probes": "passed"
+  },
+  "live_broker_or_production_ordering": false
+}

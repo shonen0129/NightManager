@@ -1,0 +1,379 @@
+{
+  "T01_artifact_boundaries": {
+    "null": {
+      "save": {
+        "accepted": false,
+        "error_type": "ValueError",
+        "error": "Overlay artifact publication train_end is required"
+      },
+      "direct_apply": {
+        "accepted": false,
+        "error_type": "ValueError",
+        "error": "Overlay application for 2021-01-04 train_end is required"
+      }
+    },
+    "nat_string": {
+      "save": {
+        "accepted": false,
+        "error_type": "ValueError",
+        "error": "Overlay artifact publication train_end must not be null or NaT"
+      },
+      "direct_apply": {
+        "accepted": false,
+        "error_type": "ValueError",
+        "error": "Overlay application for 2021-01-04 train_end must not be null or NaT"
+      }
+    },
+    "nat_object": {
+      "save": {
+        "accepted": false,
+        "error_type": "ValueError",
+        "error": "Overlay artifact publication train_end must not be null or NaT"
+      },
+      "direct_apply": {
+        "accepted": false,
+        "error_type": "ValueError",
+        "error": "Overlay application for 2021-01-04 train_end must not be null or NaT"
+      }
+    },
+    "empty": {
+      "save": {
+        "accepted": false,
+        "error_type": "ValueError",
+        "error": "Overlay artifact publication train_end must not be null or NaT"
+      },
+      "direct_apply": {
+        "accepted": false,
+        "error_type": "ValueError",
+        "error": "Overlay application for 2021-01-04 train_end must not be null or NaT"
+      }
+    },
+    "list": {
+      "save": {
+        "accepted": false,
+        "error_type": "ValueError",
+        "error": "Overlay artifact publication train_end must be one scalar date"
+      },
+      "direct_apply": {
+        "accepted": false,
+        "error_type": "ValueError",
+        "error": "Overlay application for 2021-01-04 train_end must be one scalar date"
+      }
+    },
+    "reversed": {
+      "save": {
+        "accepted": false,
+        "error_type": "ValueError",
+        "error": "Overlay artifact publication train_start must not be after train_end"
+      },
+      "direct_apply": {
+        "accepted": false,
+        "error_type": "ValueError",
+        "error": "Overlay application for 2021-01-04 train_start must not be after train_end"
+      }
+    },
+    "missing_hash": {
+      "save": {
+        "accepted": false,
+        "error_type": "ValueError",
+        "error": "Overlay artifact publication data_hash must be a non-empty string"
+      },
+      "direct_apply": {
+        "accepted": false,
+        "error_type": "ValueError",
+        "error": "Overlay application for 2021-01-04 data_hash must be a non-empty string"
+      }
+    },
+    "future_label": {
+      "save": {
+        "accepted": false,
+        "error_type": "ValueError",
+        "error": "Overlay artifact publication label_asof_end must not be after train_end"
+      },
+      "direct_apply": {
+        "accepted": false,
+        "error_type": "ValueError",
+        "error": "Overlay application for 2021-01-04 label_asof_end must not be after train_end"
+      }
+    },
+    "wrong_version": {
+      "save": {
+        "accepted": false,
+        "error_type": "ValueError",
+        "error": "Training metadata conflicts with fitted overlay field: metadata_version"
+      },
+      "direct_apply": {
+        "accepted": false,
+        "error_type": "ValueError",
+        "error": "Overlay application for 2021-01-04 metadata_version must be 2, got 3"
+      }
+    },
+    "train_end_day": {
+      "accepted": false,
+      "error_type": "ValueError",
+      "error": "Overlay was trained through 2020-12-31 and cannot be applied in-sample on 2020-12-31. Supply a fold-specific artifact or run an explicit ML-disabled comparison."
+    },
+    "first_oos_day": {
+      "accepted": true,
+      "returned_type": "dict"
+    }
+  },
+  "T02_legacy_rejection": {
+    "accepted": false,
+    "error_type": "ValueError",
+    "error": "Legacy root overlay artifact is not accepted: /var/folders/tr/lj1npbw51t90q2m3m78__3040000gn/T/abc-r3-legacy-n2mr0lfw. Retrain and publish a versioned artifact with CURRENT."
+  },
+  "T03_missing_provenance": {
+    "future": {
+      "audit": {
+        "status": "FLAT",
+        "signal_date_strictly_before_trade_date": true,
+        "post_open_timing_respected": true,
+        "realized_returns_not_used_in_signal": true,
+        "pit_binning_strictly_historical": true,
+        "gap_data_freshness_ok": true
+      },
+      "gross": 0.0,
+      "fallback": {
+        "gap_data_missing": false,
+        "audit_failure": true
+      },
+      "diagnostics": {
+        "distribution_provenance": {
+          "status": "rejected",
+          "error": "Distribution provenance signal date 2026-08-17 is not before trade date 2026-08-14 for h=1."
+        }
+      }
+    },
+    "missing": {
+      "audit": {
+        "status": "FLAT",
+        "signal_date_strictly_before_trade_date": true,
+        "post_open_timing_respected": true,
+        "realized_returns_not_used_in_signal": true,
+        "pit_binning_strictly_historical": true,
+        "gap_data_freshness_ok": true
+      },
+      "gross": 0.0,
+      "fallback": {
+        "gap_data_missing": false,
+        "audit_failure": true
+      },
+      "diagnostics": {
+        "distribution_provenance": {
+          "status": "rejected",
+          "error": "Distribution provenance missing for h=1 (2026-08-14)."
+        }
+      }
+    },
+    "npy_missing": {
+      "audit": {
+        "status": "FLAT",
+        "signal_date_strictly_before_trade_date": true,
+        "post_open_timing_respected": true,
+        "realized_returns_not_used_in_signal": true,
+        "pit_binning_strictly_historical": true,
+        "gap_data_freshness_ok": true
+      },
+      "gross": 0.0,
+      "fallback": {
+        "gap_data_missing": false,
+        "audit_failure": true
+      },
+      "diagnostics": {
+        "distribution_provenance": {
+          "status": "rejected",
+          "error": "Distribution provenance missing for h=1 (2026-08-14)."
+        }
+      }
+    }
+  },
+  "T04_fill_failure": {
+    "decision": {
+      "returned_normally": false,
+      "error": "Post-decision reconciliation incomplete: fill_prices: Fill-price reconciliation failed: order_id=fake-0: injected detail endpoint failure; order_id=fake-1: injected detail endpoint failure",
+      "detail_calls": 2,
+      "fill_statuses": [
+        "FETCH_ERROR",
+        "FETCH_ERROR"
+      ],
+      "reconciliation_errors": [
+        "fill_prices: Fill-price reconciliation failed: order_id=fake-0: injected detail endpoint failure; order_id=fake-1: injected detail endpoint failure"
+      ]
+    },
+    "close": {
+      "cli_return_code": 2,
+      "detail_calls": 1,
+      "fill_statuses": [
+        "FETCH_ERROR"
+      ],
+      "close_incomplete": true,
+      "reconciliation_errors": [
+        "fill_prices: Fill-price reconciliation failed: order_id=fake-0: injected detail endpoint failure"
+      ]
+    }
+  },
+  "T05_initial_log_failure": {
+    "error_type": "OrderExecutionIncomplete",
+    "error": "Order submission incomplete: accepted=2/expected=2, failed=0, partial=2, unresolved=2, recording_errors=1. See /var/folders/tr/lj1npbw51t90q2m3m78__3040000gn/T/abc-r3-log-fni54au6/api_execution_log.json for details.",
+    "reconciliation_calls": [
+      "fills",
+      "positions",
+      "wallet"
+    ]
+  },
+  "npy_republication": {
+    "normal": {
+      "save_returned": true,
+      "mu_version": "old",
+      "omega_version": "old",
+      "loaded_metadata": {
+        "sig_date": "2026-08-13",
+        "trade_date": "2026-08-14",
+        "horizon": 1,
+        "marker": "old"
+      },
+      "load_alerts": [],
+      "leakage": {
+        "status": "PASSED",
+        "signal_date_strictly_before_trade_date": true,
+        "post_open_timing_respected": true,
+        "realized_returns_not_used_in_signal": true,
+        "pit_binning_strictly_historical": true,
+        "gap_data_freshness_ok": true
+      },
+      "fallback": {
+        "gap_data_missing": false
+      },
+      "gross": 1.9999999999999998
+    },
+    "overwrite_without_metadata": {
+      "save_returned": true,
+      "mu_version": "new",
+      "omega_version": "new",
+      "loaded_metadata": null,
+      "load_alerts": [],
+      "leakage": {
+        "status": "FLAT",
+        "signal_date_strictly_before_trade_date": true,
+        "post_open_timing_respected": true,
+        "realized_returns_not_used_in_signal": true,
+        "pit_binning_strictly_historical": true,
+        "gap_data_freshness_ok": true
+      },
+      "fallback": {
+        "gap_data_missing": false,
+        "audit_failure": true
+      },
+      "gross": 0.0
+    },
+    "omega_write_failure": {
+      "save_returned": false,
+      "mu_version": "old",
+      "omega_version": "old",
+      "loaded_metadata": {
+        "sig_date": "2026-08-13",
+        "trade_date": "2026-08-14",
+        "horizon": 1,
+        "marker": "old"
+      },
+      "load_alerts": [],
+      "leakage": {
+        "status": "PASSED",
+        "signal_date_strictly_before_trade_date": true,
+        "post_open_timing_respected": true,
+        "realized_returns_not_used_in_signal": true,
+        "pit_binning_strictly_historical": true,
+        "gap_data_freshness_ok": true
+      },
+      "fallback": {
+        "gap_data_missing": false
+      },
+      "gross": 1.9999999999999998
+    },
+    "sidecar_write_failure": {
+      "save_returned": true,
+      "mu_version": "new",
+      "omega_version": "new",
+      "loaded_metadata": {
+        "sig_date": "2026-08-17",
+        "trade_date": "2026-08-14",
+        "horizon": 1,
+        "marker": "new-future"
+      },
+      "load_alerts": [],
+      "leakage": {
+        "status": "FLAT",
+        "signal_date_strictly_before_trade_date": true,
+        "post_open_timing_respected": true,
+        "realized_returns_not_used_in_signal": true,
+        "pit_binning_strictly_historical": true,
+        "gap_data_freshness_ok": true
+      },
+      "fallback": {
+        "gap_data_missing": false,
+        "audit_failure": true
+      },
+      "gross": 0.0
+    }
+  },
+  "active_fingerprint_scope": {
+    "staging_changes_key": false,
+    "current_switch_changes_key": true
+  },
+  "var_version_race": {
+    "runner_version": "20260914T003917474654Z-47764aaa85dd",
+    "version_a": "20260914T003917474654Z-47764aaa85dd",
+    "version_b": "20260914T003917475369Z-596c56fad3c1",
+    "backtest_loaded_versions": [
+      "20260914T003917474654Z-47764aaa85dd"
+    ],
+    "cache_keys": [
+      "daily_returns:7000bb35a395cb11",
+      "daily_returns:7000bb35a395cb11"
+    ],
+    "same_cache_key": true,
+    "first_value": 0.01,
+    "after_rollback_value": 0.01,
+    "expected_a_marker": 0.01,
+    "backtest_count": 1
+  },
+  "migration_report": {
+    "loader_accepts": true,
+    "migration_exit": 0,
+    "stdout": "[ok] /var/folders/tr/lj1npbw51t90q2m3m78__3040000gn/T/abc-r4-migration-73xc7obs/healthy: versioned artifact\n"
+  },
+  "verification_dangling_pointer": {
+    "healthy": {
+      "verification_exit": 0,
+      "stdout": "[ok] /var/folders/tr/lj1npbw51t90q2m3m78__3040000gn/T/abc-r4-verification-6ukte_f4/healthy: p_trade_scale=1.0 (active metadata matches model.pkl)\n",
+      "loader": {
+        "accepted": true,
+        "returned_type": "MLOrderOverlayModel"
+      }
+    },
+    "missing_active_model": {
+      "verification_exit": 1,
+      "stdout": "[fail] /var/folders/tr/lj1npbw51t90q2m3m78__3040000gn/T/abc-r4-verification-6ukte_f4/healthy: active artifact is not loadable: Overlay model not found: /var/folders/tr/lj1npbw51t90q2m3m78__3040000gn/T/abc-r4-verification-6ukte_f4/healthy/versions/20260914T003917548197Z-54f25d938eb9/model.pkl\n",
+      "loader": {
+        "accepted": false,
+        "error_type": "FileNotFoundError",
+        "error": "Overlay model not found: /var/folders/tr/lj1npbw51t90q2m3m78__3040000gn/T/abc-r4-verification-6ukte_f4/healthy/versions/20260914T003917548197Z-54f25d938eb9/model.pkl"
+      }
+    },
+    "missing_active_version": {
+      "verification_exit": 1,
+      "stdout": "[fail] /var/folders/tr/lj1npbw51t90q2m3m78__3040000gn/T/abc-r4-verification-6ukte_f4/healthy: active artifact is not loadable: Active overlay artifact version is missing: /var/folders/tr/lj1npbw51t90q2m3m78__3040000gn/T/abc-r4-verification-6ukte_f4/healthy/versions/nonexistent\n",
+      "loader": {
+        "accepted": false,
+        "error_type": "ValueError",
+        "error": "Active overlay artifact version is missing: /var/folders/tr/lj1npbw51t90q2m3m78__3040000gn/T/abc-r4-verification-6ukte_f4/healthy/versions/nonexistent"
+      }
+    }
+  },
+  "live_artifact_readiness": {
+    "accepted": false,
+    "error_type": "ValueError",
+    "error": "Legacy root overlay artifact is not accepted: models/ml_order_overlay/phase2_8. Retrain and publish a versioned artifact with CURRENT."
+  }
+}

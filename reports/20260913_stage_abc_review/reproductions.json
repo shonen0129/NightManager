@@ -1,0 +1,88 @@
+{
+  "provisional_uses_same_day_us_close": {
+    "future_us_close_100": {
+      "sig_date": "2026-08-14 00:00:00",
+      "trade_date": "2026-08-14 00:00:00",
+      "us_return": 0.0,
+      "provisional": true
+    },
+    "future_us_close_110": {
+      "sig_date": "2026-08-14 00:00:00",
+      "trade_date": "2026-08-14 00:00:00",
+      "us_return": 0.10000000000000009,
+      "provisional": true
+    }
+  },
+  "partial_fill_stops_polling": {
+    "calls": 2,
+    "final_status": "PARTIALLY_FILLED",
+    "polled": true,
+    "filled_would_arrive_on_call": 3
+  },
+  "cancelled_partial_status": {
+    "broker_status": "cancelled_with_30_filled",
+    "mapped_status": "PARTIALLY_FILLED"
+  },
+  "partial_orders_report_normal_completion": {
+    "returned_normally": true,
+    "expected_orders_count": 2,
+    "accepted_orders_count": 2,
+    "filled_orders_count": 0,
+    "failed_orders_count": 0,
+    "first_batch_failed": true
+  },
+  "production_pair_reader_mixes_atomic_versions": {
+    "mu": 1.0,
+    "omega": 2.0,
+    "alerts": [],
+    "strict_passed": true
+  },
+  "var_fingerprint_ignores_wal_updates": {
+    "fingerprint_unchanged": true,
+    "current_mu": 2.0,
+    "wal_bytes": 16512
+  },
+  "drawdown_outputs_disagree": {
+    "summary_mdd": -0.09999999999999998,
+    "engine_drawdown": [
+      0.0,
+      0.0
+    ],
+    "chart_drawdown": [
+      0.0,
+      0.0
+    ]
+  },
+  "ml_in_sample_silently_keeps_base_weights": {
+    "same_decision_object": true,
+    "gross": 2.0,
+    "summary": {
+      "fallback_triggered": 0
+    },
+    "fallback": {
+      "gap_data_missing": false,
+      "audit_failure": false
+    }
+  },
+  "configured_runner_readiness": {
+    "constructs": false,
+    "error": "Overlay artifact models/ml_order_overlay/phase2_8 lacks temporal/data provenance metadata; retrain it before use"
+  },
+  "default_weekend_selects_past_trade": {
+    "wall_date": "2026-09-13",
+    "selected_trade_date": "2026-09-11"
+  },
+  "future_distribution_metadata_is_not_audited": {
+    "provided_signal_date": "2026-08-17",
+    "trade_date": "2026-08-14",
+    "leakage": {
+      "status": "PASSED",
+      "signal_date_strictly_before_trade_date": true,
+      "post_open_timing_respected": true,
+      "realized_returns_not_used_in_signal": true,
+      "pit_binning_strictly_historical": true,
+      "gap_data_freshness_ok": true
+    },
+    "gross": 2.0
+  }
+}

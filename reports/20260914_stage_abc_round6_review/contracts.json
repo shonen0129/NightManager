@@ -1,0 +1,64 @@
+{
+  "resolved_config": {
+    "gap_input": "var/live/pipeline_data/gap_adjusted_distribution/gap_store.sqlite",
+    "ml_enabled": true,
+    "ml_model_dir": "models/ml_order_overlay/phase2_8",
+    "audit_failure_fallback": true,
+    "ondemand_fallback": true,
+    "costs": {
+      "cost_bps_per_gross": 10.0,
+      "slippage_bps_per_side": 5.0,
+      "overnight_alpha_long": 0.75,
+      "overnight_alpha_short": 0.5,
+      "buy_interest_annual": 0.025,
+      "borrow_fee_annual": 0.0115,
+      "reverse_fee_bps": 2.0,
+      "side_leverage": 1.5
+    },
+    "blpx": {
+      "rho": 0.01,
+      "alpha_xx": 0.2,
+      "alpha_yx": 0.15,
+      "lambda_pca": 0.1,
+      "lambda_sector": 0.6,
+      "blp_window": 504,
+      "copula_enabled": true
+    }
+  },
+  "F06_step2_config": {
+    "config_calls": [
+      {
+        "path": "/Users/shonen/leadlag/configs/production/production.yaml",
+        "strict": true,
+        "same_v2": true
+      }
+    ],
+    "baseline_parameters": [
+      5,
+      5,
+      2.0,
+      10.0,
+      true,
+      0.8,
+      true,
+      true
+    ]
+  },
+  "R05_WAL_fingerprint": {
+    "main_bytes_unchanged": true,
+    "key_changed": true,
+    "loaded_mu": 2.0
+  },
+  "F18_A7_guard": {
+    "blocked": true,
+    "reason": "A7 is an archived V1 diagnostic and cannot be used as production V2 evidence. Pass --allow-legacy-v1 only for historical comparison.",
+    "data_load_calls": 0
+  },
+  "F22_R08_regression_isolation": {
+    "pytest_exit": 0,
+    "macro_function_restored": true,
+    "model_gross": 1.5,
+    "model_net": 1.3877787807814457e-16,
+    "baseline_date": "2026-08-14"
+  }
+}

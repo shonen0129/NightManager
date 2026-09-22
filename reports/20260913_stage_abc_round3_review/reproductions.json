@@ -1,0 +1,116 @@
+{
+  "missing_distribution_metadata": {
+    "future": {
+      "audit": {
+        "status": "FLAT",
+        "signal_date_strictly_before_trade_date": true,
+        "post_open_timing_respected": true,
+        "realized_returns_not_used_in_signal": true,
+        "pit_binning_strictly_historical": true,
+        "gap_data_freshness_ok": true
+      },
+      "gross": 0.0,
+      "fallback": {
+        "gap_data_missing": false,
+        "audit_failure": true
+      },
+      "diagnostics": {
+        "distribution_provenance": {
+          "status": "rejected",
+          "error": "Distribution provenance signal date 2026-08-17 is not before trade date 2026-08-14 for h=1."
+        }
+      }
+    },
+    "missing": {
+      "audit": {
+        "status": "FLAT",
+        "signal_date_strictly_before_trade_date": true,
+        "post_open_timing_respected": true,
+        "realized_returns_not_used_in_signal": true,
+        "pit_binning_strictly_historical": true,
+        "gap_data_freshness_ok": true
+      },
+      "gross": 0.0,
+      "fallback": {
+        "gap_data_missing": false,
+        "audit_failure": true
+      },
+      "diagnostics": {
+        "distribution_provenance": {
+          "status": "rejected",
+          "error": "Distribution provenance missing for h=1 (2026-08-14)."
+        }
+      }
+    },
+    "npy_missing": {
+      "audit": {
+        "status": "PASSED",
+        "signal_date_strictly_before_trade_date": true,
+        "post_open_timing_respected": true,
+        "realized_returns_not_used_in_signal": true,
+        "pit_binning_strictly_historical": true,
+        "gap_data_freshness_ok": true
+      },
+      "gross": 2.0,
+      "fallback": {
+        "gap_data_missing": false
+      },
+      "diagnostics": null
+    }
+  },
+  "invalid_artifact_dates": {
+    "null": {
+      "load_accepted": true,
+      "apply_accepted": true,
+      "train_end": null,
+      "gross": 2.0
+    },
+    "nat": {
+      "load_accepted": true,
+      "apply_accepted": true,
+      "train_end": "NaT",
+      "gross": 2.0
+    },
+    "valid_future": {
+      "load_accepted": true,
+      "apply_accepted": false,
+      "error": "Overlay was trained through 2026-08-14 and cannot be applied in-sample on 2021-01-04. Supply a fold-specific artifact or run an explicit ML-disabled comparison."
+    }
+  },
+  "legacy_artifact_mix": {
+    "embedded_cutoff_before_load": "2026-08-14",
+    "loaded_cutoff": "2020-12-31",
+    "current_exists": false,
+    "accepted": true
+  },
+  "fill_failure_silent_success": {
+    "decision": {
+      "returned_normally": true,
+      "returned": "fake.csv",
+      "detail_calls": 2,
+      "fill_statuses": [
+        "FETCH_ERROR",
+        "FETCH_ERROR"
+      ],
+      "reconciliation_errors": null
+    },
+    "close": {
+      "cli_return_code": 0,
+      "detail_calls": 1,
+      "fill_statuses": [
+        "FETCH_ERROR"
+      ],
+      "close_incomplete": false,
+      "reconciliation_errors": null
+    }
+  },
+  "initial_log_failure_skips_reconciliation": {
+    "error_type": "OSError",
+    "error": "injected log disk error",
+    "reconciliation_calls": []
+  },
+  "inactive_staging_invalidates_var_cache": {
+    "same_loaded_version": true,
+    "cache_key_changed": true
+  }
+}

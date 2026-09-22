@@ -1,0 +1,1135 @@
+{
+  "execution_completed": true,
+  "passed": true,
+  "cases": 72,
+  "results": [
+    {
+      "backend": "npy",
+      "horizon": 1,
+      "case": "normal",
+      "expected_accepted": true,
+      "accepted": true,
+      "strict_rejected": false,
+      "model_accepted": true,
+      "passed": true,
+      "metadata": {
+        "trade_date": "2026-08-14",
+        "horizon": 1,
+        "sig_date": "2026-08-13"
+      },
+      "alerts": [],
+      "errors": {}
+    },
+    {
+      "backend": "npy",
+      "horizon": 1,
+      "case": "matching_alias",
+      "expected_accepted": true,
+      "accepted": true,
+      "strict_rejected": false,
+      "model_accepted": true,
+      "passed": true,
+      "metadata": {
+        "trade_date": "2026-08-14",
+        "horizon": 1,
+        "sig_date": "2026-08-13",
+        "signal_date": "2026-08-13"
+      },
+      "alerts": [],
+      "errors": {}
+    },
+    {
+      "backend": "npy",
+      "horizon": 1,
+      "case": "alias_only",
+      "expected_accepted": true,
+      "accepted": true,
+      "strict_rejected": false,
+      "model_accepted": true,
+      "passed": true,
+      "metadata": {
+        "trade_date": "2026-08-14",
+        "horizon": 1,
+        "signal_date": "2026-08-13",
+        "sig_date": "2026-08-13"
+      },
+      "alerts": [],
+      "errors": {}
+    },
+    {
+      "backend": "npy",
+      "horizon": 1,
+      "case": "alias_disagreement",
+      "expected_accepted": false,
+      "accepted": false,
+      "strict_rejected": true,
+      "model_accepted": false,
+      "passed": true,
+      "metadata": null,
+      "alerts": [
+        "[FATAL] Gap bundle provenance sig_date/signal_date disagree"
+      ],
+      "errors": {}
+    },
+    {
+      "backend": "npy",
+      "horizon": 1,
+      "case": "null_signal",
+      "expected_accepted": false,
+      "accepted": false,
+      "strict_rejected": true,
+      "model_accepted": false,
+      "passed": true,
+      "metadata": null,
+      "alerts": [
+        "[FATAL] Gap bundle provenance sig_date must be one non-null scalar date"
+      ],
+      "errors": {}
+    },
+    {
+      "backend": "npy",
+      "horizon": 1,
+      "case": "nat_signal",
+      "expected_accepted": false,
+      "accepted": false,
+      "strict_rejected": true,
+      "model_accepted": false,
+      "passed": true,
+      "metadata": null,
+      "alerts": [
+        "[FATAL] Gap bundle provenance sig_date is invalid"
+      ],
+      "errors": {}
+    },
+    {
+      "backend": "npy",
+      "horizon": 1,
+      "case": "signal_array",
+      "expected_accepted": false,
+      "accepted": false,
+      "strict_rejected": true,
+      "model_accepted": false,
+      "passed": true,
+      "metadata": null,
+      "alerts": [
+        "[FATAL] Gap bundle provenance sig_date must be one non-null scalar date"
+      ],
+      "errors": {}
+    },
+    {
+      "backend": "npy",
+      "horizon": 1,
+      "case": "null_trade",
+      "expected_accepted": false,
+      "accepted": false,
+      "strict_rejected": true,
+      "model_accepted": false,
+      "passed": true,
+      "metadata": null,
+      "alerts": [
+        "[FATAL] Gap bundle provenance trade_date must be one non-null scalar date"
+      ],
+      "errors": {}
+    },
+    {
+      "backend": "npy",
+      "horizon": 1,
+      "case": "trade_array",
+      "expected_accepted": false,
+      "accepted": false,
+      "strict_rejected": true,
+      "model_accepted": false,
+      "passed": true,
+      "metadata": null,
+      "alerts": [
+        "[FATAL] Gap bundle provenance trade_date must be one non-null scalar date"
+      ],
+      "errors": {}
+    },
+    {
+      "backend": "npy",
+      "horizon": 1,
+      "case": "fractional_horizon",
+      "expected_accepted": false,
+      "accepted": false,
+      "strict_rejected": true,
+      "model_accepted": false,
+      "passed": true,
+      "metadata": null,
+      "alerts": [
+        "[FATAL] Gap bundle provenance horizon must be one finite integer"
+      ],
+      "errors": {}
+    },
+    {
+      "backend": "npy",
+      "horizon": 1,
+      "case": "nonfinite_horizon",
+      "expected_accepted": false,
+      "accepted": false,
+      "strict_rejected": true,
+      "model_accepted": false,
+      "passed": true,
+      "metadata": null,
+      "alerts": [
+        "[FATAL] Gap bundle provenance horizon must be one finite integer"
+      ],
+      "errors": {}
+    },
+    {
+      "backend": "npy",
+      "horizon": 1,
+      "case": "same_day",
+      "expected_accepted": false,
+      "accepted": false,
+      "strict_rejected": true,
+      "model_accepted": false,
+      "passed": true,
+      "metadata": null,
+      "alerts": [
+        "[FATAL] Gap bundle provenance signal date 2026-08-14 is not before trade date 2026-08-14"
+      ],
+      "errors": {}
+    },
+    {
+      "backend": "npy",
+      "horizon": 3,
+      "case": "normal",
+      "expected_accepted": true,
+      "accepted": true,
+      "strict_rejected": false,
+      "model_accepted": true,
+      "passed": true,
+      "metadata": {
+        "trade_date": "2026-08-14",
+        "horizon": 3,
+        "sig_date": "2026-08-13"
+      },
+      "alerts": [],
+      "errors": {}
+    },
+    {
+      "backend": "npy",
+      "horizon": 3,
+      "case": "matching_alias",
+      "expected_accepted": true,
+      "accepted": true,
+      "strict_rejected": false,
+      "model_accepted": true,
+      "passed": true,
+      "metadata": {
+        "trade_date": "2026-08-14",
+        "horizon": 3,
+        "sig_date": "2026-08-13",
+        "signal_date": "2026-08-13"
+      },
+      "alerts": [],
+      "errors": {}
+    },
+    {
+      "backend": "npy",
+      "horizon": 3,
+      "case": "alias_only",
+      "expected_accepted": true,
+      "accepted": true,
+      "strict_rejected": false,
+      "model_accepted": true,
+      "passed": true,
+      "metadata": {
+        "trade_date": "2026-08-14",
+        "horizon": 3,
+        "signal_date": "2026-08-13",
+        "sig_date": "2026-08-13"
+      },
+      "alerts": [],
+      "errors": {}
+    },
+    {
+      "backend": "npy",
+      "horizon": 3,
+      "case": "alias_disagreement",
+      "expected_accepted": false,
+      "accepted": false,
+      "strict_rejected": true,
+      "model_accepted": false,
+      "passed": true,
+      "metadata": null,
+      "alerts": [
+        "[FATAL] Gap bundle provenance sig_date/signal_date disagree"
+      ],
+      "errors": {}
+    },
+    {
+      "backend": "npy",
+      "horizon": 3,
+      "case": "null_signal",
+      "expected_accepted": false,
+      "accepted": false,
+      "strict_rejected": true,
+      "model_accepted": false,
+      "passed": true,
+      "metadata": null,
+      "alerts": [
+        "[FATAL] Gap bundle provenance sig_date must be one non-null scalar date"
+      ],
+      "errors": {}
+    },
+    {
+      "backend": "npy",
+      "horizon": 3,
+      "case": "nat_signal",
+      "expected_accepted": false,
+      "accepted": false,
+      "strict_rejected": true,
+      "model_accepted": false,
+      "passed": true,
+      "metadata": null,
+      "alerts": [
+        "[FATAL] Gap bundle provenance sig_date is invalid"
+      ],
+      "errors": {}
+    },
+    {
+      "backend": "npy",
+      "horizon": 3,
+      "case": "signal_array",
+      "expected_accepted": false,
+      "accepted": false,
+      "strict_rejected": true,
+      "model_accepted": false,
+      "passed": true,
+      "metadata": null,
+      "alerts": [
+        "[FATAL] Gap bundle provenance sig_date must be one non-null scalar date"
+      ],
+      "errors": {}
+    },
+    {
+      "backend": "npy",
+      "horizon": 3,
+      "case": "null_trade",
+      "expected_accepted": false,
+      "accepted": false,
+      "strict_rejected": true,
+      "model_accepted": false,
+      "passed": true,
+      "metadata": null,
+      "alerts": [
+        "[FATAL] Gap bundle provenance trade_date must be one non-null scalar date"
+      ],
+      "errors": {}
+    },
+    {
+      "backend": "npy",
+      "horizon": 3,
+      "case": "trade_array",
+      "expected_accepted": false,
+      "accepted": false,
+      "strict_rejected": true,
+      "model_accepted": false,
+      "passed": true,
+      "metadata": null,
+      "alerts": [
+        "[FATAL] Gap bundle provenance trade_date must be one non-null scalar date"
+      ],
+      "errors": {}
+    },
+    {
+      "backend": "npy",
+      "horizon": 3,
+      "case": "fractional_horizon",
+      "expected_accepted": false,
+      "accepted": false,
+      "strict_rejected": true,
+      "model_accepted": false,
+      "passed": true,
+      "metadata": null,
+      "alerts": [
+        "[FATAL] Gap bundle provenance horizon must be one finite integer"
+      ],
+      "errors": {}
+    },
+    {
+      "backend": "npy",
+      "horizon": 3,
+      "case": "nonfinite_horizon",
+      "expected_accepted": false,
+      "accepted": false,
+      "strict_rejected": true,
+      "model_accepted": false,
+      "passed": true,
+      "metadata": null,
+      "alerts": [
+        "[FATAL] Gap bundle provenance horizon must be one finite integer"
+      ],
+      "errors": {}
+    },
+    {
+      "backend": "npy",
+      "horizon": 3,
+      "case": "same_day",
+      "expected_accepted": false,
+      "accepted": false,
+      "strict_rejected": true,
+      "model_accepted": false,
+      "passed": true,
+      "metadata": null,
+      "alerts": [
+        "[FATAL] Gap bundle provenance signal date 2026-08-14 is not before trade date 2026-08-14"
+      ],
+      "errors": {}
+    },
+    {
+      "backend": "npy",
+      "horizon": 5,
+      "case": "normal",
+      "expected_accepted": true,
+      "accepted": true,
+      "strict_rejected": false,
+      "model_accepted": true,
+      "passed": true,
+      "metadata": {
+        "trade_date": "2026-08-14",
+        "horizon": 5,
+        "sig_date": "2026-08-13"
+      },
+      "alerts": [],
+      "errors": {}
+    },
+    {
+      "backend": "npy",
+      "horizon": 5,
+      "case": "matching_alias",
+      "expected_accepted": true,
+      "accepted": true,
+      "strict_rejected": false,
+      "model_accepted": true,
+      "passed": true,
+      "metadata": {
+        "trade_date": "2026-08-14",
+        "horizon": 5,
+        "sig_date": "2026-08-13",
+        "signal_date": "2026-08-13"
+      },
+      "alerts": [],
+      "errors": {}
+    },
+    {
+      "backend": "npy",
+      "horizon": 5,
+      "case": "alias_only",
+      "expected_accepted": true,
+      "accepted": true,
+      "strict_rejected": false,
+      "model_accepted": true,
+      "passed": true,
+      "metadata": {
+        "trade_date": "2026-08-14",
+        "horizon": 5,
+        "signal_date": "2026-08-13",
+        "sig_date": "2026-08-13"
+      },
+      "alerts": [],
+      "errors": {}
+    },
+    {
+      "backend": "npy",
+      "horizon": 5,
+      "case": "alias_disagreement",
+      "expected_accepted": false,
+      "accepted": false,
+      "strict_rejected": true,
+      "model_accepted": false,
+      "passed": true,
+      "metadata": null,
+      "alerts": [
+        "[FATAL] Gap bundle provenance sig_date/signal_date disagree"
+      ],
+      "errors": {}
+    },
+    {
+      "backend": "npy",
+      "horizon": 5,
+      "case": "null_signal",
+      "expected_accepted": false,
+      "accepted": false,
+      "strict_rejected": true,
+      "model_accepted": false,
+      "passed": true,
+      "metadata": null,
+      "alerts": [
+        "[FATAL] Gap bundle provenance sig_date must be one non-null scalar date"
+      ],
+      "errors": {}
+    },
+    {
+      "backend": "npy",
+      "horizon": 5,
+      "case": "nat_signal",
+      "expected_accepted": false,
+      "accepted": false,
+      "strict_rejected": true,
+      "model_accepted": false,
+      "passed": true,
+      "metadata": null,
+      "alerts": [
+        "[FATAL] Gap bundle provenance sig_date is invalid"
+      ],
+      "errors": {}
+    },
+    {
+      "backend": "npy",
+      "horizon": 5,
+      "case": "signal_array",
+      "expected_accepted": false,
+      "accepted": false,
+      "strict_rejected": true,
+      "model_accepted": false,
+      "passed": true,
+      "metadata": null,
+      "alerts": [
+        "[FATAL] Gap bundle provenance sig_date must be one non-null scalar date"
+      ],
+      "errors": {}
+    },
+    {
+      "backend": "npy",
+      "horizon": 5,
+      "case": "null_trade",
+      "expected_accepted": false,
+      "accepted": false,
+      "strict_rejected": true,
+      "model_accepted": false,
+      "passed": true,
+      "metadata": null,
+      "alerts": [
+        "[FATAL] Gap bundle provenance trade_date must be one non-null scalar date"
+      ],
+      "errors": {}
+    },
+    {
+      "backend": "npy",
+      "horizon": 5,
+      "case": "trade_array",
+      "expected_accepted": false,
+      "accepted": false,
+      "strict_rejected": true,
+      "model_accepted": false,
+      "passed": true,
+      "metadata": null,
+      "alerts": [
+        "[FATAL] Gap bundle provenance trade_date must be one non-null scalar date"
+      ],
+      "errors": {}
+    },
+    {
+      "backend": "npy",
+      "horizon": 5,
+      "case": "fractional_horizon",
+      "expected_accepted": false,
+      "accepted": false,
+      "strict_rejected": true,
+      "model_accepted": false,
+      "passed": true,
+      "metadata": null,
+      "alerts": [
+        "[FATAL] Gap bundle provenance horizon must be one finite integer"
+      ],
+      "errors": {}
+    },
+    {
+      "backend": "npy",
+      "horizon": 5,
+      "case": "nonfinite_horizon",
+      "expected_accepted": false,
+      "accepted": false,
+      "strict_rejected": true,
+      "model_accepted": false,
+      "passed": true,
+      "metadata": null,
+      "alerts": [
+        "[FATAL] Gap bundle provenance horizon must be one finite integer"
+      ],
+      "errors": {}
+    },
+    {
+      "backend": "npy",
+      "horizon": 5,
+      "case": "same_day",
+      "expected_accepted": false,
+      "accepted": false,
+      "strict_rejected": true,
+      "model_accepted": false,
+      "passed": true,
+      "metadata": null,
+      "alerts": [
+        "[FATAL] Gap bundle provenance signal date 2026-08-14 is not before trade date 2026-08-14"
+      ],
+      "errors": {}
+    },
+    {
+      "backend": "sqlite",
+      "horizon": 1,
+      "case": "normal",
+      "expected_accepted": true,
+      "accepted": true,
+      "strict_rejected": false,
+      "model_accepted": true,
+      "passed": true,
+      "metadata": {
+        "trade_date": "2026-08-14",
+        "horizon": 1,
+        "sig_date": "2026-08-13"
+      },
+      "alerts": [],
+      "errors": {}
+    },
+    {
+      "backend": "sqlite",
+      "horizon": 1,
+      "case": "matching_alias",
+      "expected_accepted": true,
+      "accepted": true,
+      "strict_rejected": false,
+      "model_accepted": true,
+      "passed": true,
+      "metadata": {
+        "trade_date": "2026-08-14",
+        "horizon": 1,
+        "sig_date": "2026-08-13",
+        "signal_date": "2026-08-13"
+      },
+      "alerts": [],
+      "errors": {}
+    },
+    {
+      "backend": "sqlite",
+      "horizon": 1,
+      "case": "alias_only",
+      "expected_accepted": true,
+      "accepted": true,
+      "strict_rejected": false,
+      "model_accepted": true,
+      "passed": true,
+      "metadata": {
+        "trade_date": "2026-08-14",
+        "horizon": 1,
+        "signal_date": "2026-08-13",
+        "sig_date": "2026-08-13"
+      },
+      "alerts": [],
+      "errors": {}
+    },
+    {
+      "backend": "sqlite",
+      "horizon": 1,
+      "case": "alias_disagreement",
+      "expected_accepted": false,
+      "accepted": false,
+      "strict_rejected": true,
+      "model_accepted": false,
+      "passed": true,
+      "metadata": null,
+      "alerts": [
+        "[FATAL] Gap bundle provenance sig_date/signal_date disagree"
+      ],
+      "errors": {}
+    },
+    {
+      "backend": "sqlite",
+      "horizon": 1,
+      "case": "null_signal",
+      "expected_accepted": false,
+      "accepted": false,
+      "strict_rejected": true,
+      "model_accepted": false,
+      "passed": true,
+      "metadata": null,
+      "alerts": [
+        "[FATAL] Gap bundle provenance sig_date must be one non-null scalar date"
+      ],
+      "errors": {}
+    },
+    {
+      "backend": "sqlite",
+      "horizon": 1,
+      "case": "nat_signal",
+      "expected_accepted": false,
+      "accepted": false,
+      "strict_rejected": true,
+      "model_accepted": false,
+      "passed": true,
+      "metadata": null,
+      "alerts": [
+        "[FATAL] Gap bundle provenance sig_date is invalid"
+      ],
+      "errors": {}
+    },
+    {
+      "backend": "sqlite",
+      "horizon": 1,
+      "case": "signal_array",
+      "expected_accepted": false,
+      "accepted": false,
+      "strict_rejected": true,
+      "model_accepted": false,
+      "passed": true,
+      "metadata": null,
+      "alerts": [
+        "[FATAL] Gap bundle provenance sig_date must be one non-null scalar date"
+      ],
+      "errors": {}
+    },
+    {
+      "backend": "sqlite",
+      "horizon": 1,
+      "case": "null_trade",
+      "expected_accepted": false,
+      "accepted": false,
+      "strict_rejected": true,
+      "model_accepted": false,
+      "passed": true,
+      "metadata": null,
+      "alerts": [
+        "[FATAL] Gap bundle provenance trade_date must be one non-null scalar date"
+      ],
+      "errors": {}
+    },
+    {
+      "backend": "sqlite",
+      "horizon": 1,
+      "case": "trade_array",
+      "expected_accepted": false,
+      "accepted": false,
+      "strict_rejected": true,
+      "model_accepted": false,
+      "passed": true,
+      "metadata": null,
+      "alerts": [
+        "[FATAL] Gap bundle provenance trade_date must be one non-null scalar date"
+      ],
+      "errors": {}
+    },
+    {
+      "backend": "sqlite",
+      "horizon": 1,
+      "case": "fractional_horizon",
+      "expected_accepted": false,
+      "accepted": false,
+      "strict_rejected": true,
+      "model_accepted": false,
+      "passed": true,
+      "metadata": null,
+      "alerts": [
+        "[FATAL] Gap bundle provenance horizon must be one finite integer"
+      ],
+      "errors": {}
+    },
+    {
+      "backend": "sqlite",
+      "horizon": 1,
+      "case": "nonfinite_horizon",
+      "expected_accepted": false,
+      "accepted": false,
+      "strict_rejected": true,
+      "model_accepted": false,
+      "passed": true,
+      "metadata": null,
+      "alerts": [
+        "[FATAL] Gap bundle provenance horizon must be one finite integer"
+      ],
+      "errors": {}
+    },
+    {
+      "backend": "sqlite",
+      "horizon": 1,
+      "case": "same_day",
+      "expected_accepted": false,
+      "accepted": false,
+      "strict_rejected": true,
+      "model_accepted": false,
+      "passed": true,
+      "metadata": null,
+      "alerts": [
+        "[FATAL] Gap bundle provenance signal date 2026-08-14 is not before trade date 2026-08-14"
+      ],
+      "errors": {}
+    },
+    {
+      "backend": "sqlite",
+      "horizon": 3,
+      "case": "normal",
+      "expected_accepted": true,
+      "accepted": true,
+      "strict_rejected": false,
+      "model_accepted": true,
+      "passed": true,
+      "metadata": {
+        "trade_date": "2026-08-14",
+        "horizon": 3,
+        "sig_date": "2026-08-13"
+      },
+      "alerts": [],
+      "errors": {}
+    },
+    {
+      "backend": "sqlite",
+      "horizon": 3,
+      "case": "matching_alias",
+      "expected_accepted": true,
+      "accepted": true,
+      "strict_rejected": false,
+      "model_accepted": true,
+      "passed": true,
+      "metadata": {
+        "trade_date": "2026-08-14",
+        "horizon": 3,
+        "sig_date": "2026-08-13",
+        "signal_date": "2026-08-13"
+      },
+      "alerts": [],
+      "errors": {}
+    },
+    {
+      "backend": "sqlite",
+      "horizon": 3,
+      "case": "alias_only",
+      "expected_accepted": true,
+      "accepted": true,
+      "strict_rejected": false,
+      "model_accepted": true,
+      "passed": true,
+      "metadata": {
+        "trade_date": "2026-08-14",
+        "horizon": 3,
+        "signal_date": "2026-08-13",
+        "sig_date": "2026-08-13"
+      },
+      "alerts": [],
+      "errors": {}
+    },
+    {
+      "backend": "sqlite",
+      "horizon": 3,
+      "case": "alias_disagreement",
+      "expected_accepted": false,
+      "accepted": false,
+      "strict_rejected": true,
+      "model_accepted": false,
+      "passed": true,
+      "metadata": null,
+      "alerts": [
+        "[FATAL] Gap bundle provenance sig_date/signal_date disagree"
+      ],
+      "errors": {}
+    },
+    {
+      "backend": "sqlite",
+      "horizon": 3,
+      "case": "null_signal",
+      "expected_accepted": false,
+      "accepted": false,
+      "strict_rejected": true,
+      "model_accepted": false,
+      "passed": true,
+      "metadata": null,
+      "alerts": [
+        "[FATAL] Gap bundle provenance sig_date must be one non-null scalar date"
+      ],
+      "errors": {}
+    },
+    {
+      "backend": "sqlite",
+      "horizon": 3,
+      "case": "nat_signal",
+      "expected_accepted": false,
+      "accepted": false,
+      "strict_rejected": true,
+      "model_accepted": false,
+      "passed": true,
+      "metadata": null,
+      "alerts": [
+        "[FATAL] Gap bundle provenance sig_date is invalid"
+      ],
+      "errors": {}
+    },
+    {
+      "backend": "sqlite",
+      "horizon": 3,
+      "case": "signal_array",
+      "expected_accepted": false,
+      "accepted": false,
+      "strict_rejected": true,
+      "model_accepted": false,
+      "passed": true,
+      "metadata": null,
+      "alerts": [
+        "[FATAL] Gap bundle provenance sig_date must be one non-null scalar date"
+      ],
+      "errors": {}
+    },
+    {
+      "backend": "sqlite",
+      "horizon": 3,
+      "case": "null_trade",
+      "expected_accepted": false,
+      "accepted": false,
+      "strict_rejected": true,
+      "model_accepted": false,
+      "passed": true,
+      "metadata": null,
+      "alerts": [
+        "[FATAL] Gap bundle provenance trade_date must be one non-null scalar date"
+      ],
+      "errors": {}
+    },
+    {
+      "backend": "sqlite",
+      "horizon": 3,
+      "case": "trade_array",
+      "expected_accepted": false,
+      "accepted": false,
+      "strict_rejected": true,
+      "model_accepted": false,
+      "passed": true,
+      "metadata": null,
+      "alerts": [
+        "[FATAL] Gap bundle provenance trade_date must be one non-null scalar date"
+      ],
+      "errors": {}
+    },
+    {
+      "backend": "sqlite",
+      "horizon": 3,
+      "case": "fractional_horizon",
+      "expected_accepted": false,
+      "accepted": false,
+      "strict_rejected": true,
+      "model_accepted": false,
+      "passed": true,
+      "metadata": null,
+      "alerts": [
+        "[FATAL] Gap bundle provenance horizon must be one finite integer"
+      ],
+      "errors": {}
+    },
+    {
+      "backend": "sqlite",
+      "horizon": 3,
+      "case": "nonfinite_horizon",
+      "expected_accepted": false,
+      "accepted": false,
+      "strict_rejected": true,
+      "model_accepted": false,
+      "passed": true,
+      "metadata": null,
+      "alerts": [
+        "[FATAL] Gap bundle provenance horizon must be one finite integer"
+      ],
+      "errors": {}
+    },
+    {
+      "backend": "sqlite",
+      "horizon": 3,
+      "case": "same_day",
+      "expected_accepted": false,
+      "accepted": false,
+      "strict_rejected": true,
+      "model_accepted": false,
+      "passed": true,
+      "metadata": null,
+      "alerts": [
+        "[FATAL] Gap bundle provenance signal date 2026-08-14 is not before trade date 2026-08-14"
+      ],
+      "errors": {}
+    },
+    {
+      "backend": "sqlite",
+      "horizon": 5,
+      "case": "normal",
+      "expected_accepted": true,
+      "accepted": true,
+      "strict_rejected": false,
+      "model_accepted": true,
+      "passed": true,
+      "metadata": {
+        "trade_date": "2026-08-14",
+        "horizon": 5,
+        "sig_date": "2026-08-13"
+      },
+      "alerts": [],
+      "errors": {}
+    },
+    {
+      "backend": "sqlite",
+      "horizon": 5,
+      "case": "matching_alias",
+      "expected_accepted": true,
+      "accepted": true,
+      "strict_rejected": false,
+      "model_accepted": true,
+      "passed": true,
+      "metadata": {
+        "trade_date": "2026-08-14",
+        "horizon": 5,
+        "sig_date": "2026-08-13",
+        "signal_date": "2026-08-13"
+      },
+      "alerts": [],
+      "errors": {}
+    },
+    {
+      "backend": "sqlite",
+      "horizon": 5,
+      "case": "alias_only",
+      "expected_accepted": true,
+      "accepted": true,
+      "strict_rejected": false,
+      "model_accepted": true,
+      "passed": true,
+      "metadata": {
+        "trade_date": "2026-08-14",
+        "horizon": 5,
+        "signal_date": "2026-08-13",
+        "sig_date": "2026-08-13"
+      },
+      "alerts": [],
+      "errors": {}
+    },
+    {
+      "backend": "sqlite",
+      "horizon": 5,
+      "case": "alias_disagreement",
+      "expected_accepted": false,
+      "accepted": false,
+      "strict_rejected": true,
+      "model_accepted": false,
+      "passed": true,
+      "metadata": null,
+      "alerts": [
+        "[FATAL] Gap bundle provenance sig_date/signal_date disagree"
+      ],
+      "errors": {}
+    },
+    {
+      "backend": "sqlite",
+      "horizon": 5,
+      "case": "null_signal",
+      "expected_accepted": false,
+      "accepted": false,
+      "strict_rejected": true,
+      "model_accepted": false,
+      "passed": true,
+      "metadata": null,
+      "alerts": [
+        "[FATAL] Gap bundle provenance sig_date must be one non-null scalar date"
+      ],
+      "errors": {}
+    },
+    {
+      "backend": "sqlite",
+      "horizon": 5,
+      "case": "nat_signal",
+      "expected_accepted": false,
+      "accepted": false,
+      "strict_rejected": true,
+      "model_accepted": false,
+      "passed": true,
+      "metadata": null,
+      "alerts": [
+        "[FATAL] Gap bundle provenance sig_date is invalid"
+      ],
+      "errors": {}
+    },
+    {
+      "backend": "sqlite",
+      "horizon": 5,
+      "case": "signal_array",
+      "expected_accepted": false,
+      "accepted": false,
+      "strict_rejected": true,
+      "model_accepted": false,
+      "passed": true,
+      "metadata": null,
+      "alerts": [
+        "[FATAL] Gap bundle provenance sig_date must be one non-null scalar date"
+      ],
+      "errors": {}
+    },
+    {
+      "backend": "sqlite",
+      "horizon": 5,
+      "case": "null_trade",
+      "expected_accepted": false,
+      "accepted": false,
+      "strict_rejected": true,
+      "model_accepted": false,
+      "passed": true,
+      "metadata": null,
+      "alerts": [
+        "[FATAL] Gap bundle provenance trade_date must be one non-null scalar date"
+      ],
+      "errors": {}
+    },
+    {
+      "backend": "sqlite",
+      "horizon": 5,
+      "case": "trade_array",
+      "expected_accepted": false,
+      "accepted": false,
+      "strict_rejected": true,
+      "model_accepted": false,
+      "passed": true,
+      "metadata": null,
+      "alerts": [
+        "[FATAL] Gap bundle provenance trade_date must be one non-null scalar date"
+      ],
+      "errors": {}
+    },
+    {
+      "backend": "sqlite",
+      "horizon": 5,
+      "case": "fractional_horizon",
+      "expected_accepted": false,
+      "accepted": false,
+      "strict_rejected": true,
+      "model_accepted": false,
+      "passed": true,
+      "metadata": null,
+      "alerts": [
+        "[FATAL] Gap bundle provenance horizon must be one finite integer"
+      ],
+      "errors": {}
+    },
+    {
+      "backend": "sqlite",
+      "horizon": 5,
+      "case": "nonfinite_horizon",
+      "expected_accepted": false,
+      "accepted": false,
+      "strict_rejected": true,
+      "model_accepted": false,
+      "passed": true,
+      "metadata": null,
+      "alerts": [
+        "[FATAL] Gap bundle provenance horizon must be one finite integer"
+      ],
+      "errors": {}
+    },
+    {
+      "backend": "sqlite",
+      "horizon": 5,
+      "case": "same_day",
+      "expected_accepted": false,
+      "accepted": false,
+      "strict_rejected": true,
+      "model_accepted": false,
+      "passed": true,
+      "metadata": null,
+      "alerts": [
+        "[FATAL] Gap bundle provenance signal date 2026-08-14 is not before trade date 2026-08-14"
+      ],
+      "errors": {}
+    }
+  ]
+}

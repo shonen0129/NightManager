@@ -1,0 +1,171 @@
+{
+  "future_h3_metadata_not_audited": {
+    "h3_sig_date": "2026-08-17",
+    "trade_date": "2026-08-14",
+    "case_1": {
+      "audit": {
+        "status": "PASSED",
+        "signal_date_strictly_before_trade_date": true,
+        "post_open_timing_respected": true,
+        "realized_returns_not_used_in_signal": true,
+        "pit_binning_strictly_historical": true,
+        "gap_data_freshness_ok": true
+      },
+      "fallback": {
+        "gap_data_missing": false
+      },
+      "gross": 2.0,
+      "scores": [
+        1.6329931618554518,
+        1.4288690166235192,
+        1.2247448713915885,
+        1.0206207261596587,
+        0.8164965809277259,
+        0.6123724356957932,
+        0.40824829046386296,
+        0.20412414523193337,
+        0.0,
+        -0.20412414523192987,
+        -0.40824829046386296,
+        -0.6123724356957964,
+        -0.8164965809277259,
+        -1.0206207261596576,
+        -1.2247448713915885,
+        -1.4288690166235232,
+        -1.6329931618554518
+      ]
+    },
+    "case_2": {
+      "audit": {
+        "status": "PASSED",
+        "signal_date_strictly_before_trade_date": true,
+        "post_open_timing_respected": true,
+        "realized_returns_not_used_in_signal": true,
+        "pit_binning_strictly_historical": true,
+        "gap_data_freshness_ok": true
+      },
+      "fallback": {
+        "gap_data_missing": false
+      },
+      "gross": 2.0,
+      "scores": [
+        -1.6329931618554523,
+        -1.4288690166235205,
+        -1.224744871391589,
+        -1.0206207261596576,
+        -0.8164965809277261,
+        -0.6123724356957944,
+        -0.4082482904638631,
+        -0.20412414523193162,
+        0.0,
+        0.2041241452319316,
+        0.4082482904638631,
+        0.6123724356957944,
+        0.8164965809277261,
+        1.0206207261596578,
+        1.224744871391589,
+        1.4288690166235205,
+        1.6329931618554523
+      ]
+    },
+    "max_score_change": 3.265986323710904
+  },
+  "atomic_reader_passes_all_horizons": {
+    "None": {
+      "interleaved_commit": true,
+      "mu": 1.0,
+      "omega": 1.0,
+      "meta": {
+        "version": "old"
+      },
+      "latest_mu": 2.0
+    },
+    "3": {
+      "interleaved_commit": true,
+      "mu": 1.0,
+      "omega": 1.0,
+      "meta": {
+        "version": "old"
+      },
+      "latest_mu": 2.0
+    },
+    "5": {
+      "interleaved_commit": true,
+      "mu": 1.0,
+      "omega": 1.0,
+      "meta": {
+        "version": "old"
+      },
+      "latest_mu": 2.0
+    }
+  },
+  "nontrading_nan_row_loses_next_return": {
+    "False": {
+      "dates": [
+        "2026-08-05",
+        "2026-08-06",
+        "2026-08-07",
+        "2026-08-10",
+        "2026-08-14",
+        "2026-08-17"
+      ],
+      "contains_20260813": false
+    },
+    "True": {
+      "error": "jp_gap missing for non-provisional row on 2026-08-12 00:00:00"
+    },
+    "market_sessions_only": {
+      "dates": [
+        "2026-08-05",
+        "2026-08-06",
+        "2026-08-07",
+        "2026-08-10",
+        "2026-08-12",
+        "2026-08-13",
+        "2026-08-14",
+        "2026-08-17"
+      ],
+      "contains_20260813": true
+    }
+  },
+  "partial_failure_skips_reconciliation": {
+    "raised": "Order submission incomplete: accepted=2/expected=2, failed=0, partial=2, unresolved=2. See /var/folders/tr/lj1npbw51t90q2m3m78__3040000gn/T/abc-rereview-journal-tlvyq3fv/api_execution_log.json for details.",
+    "post_failure_collection": [],
+    "persisted_statuses": [
+      "PARTIALLY_FILLED",
+      "PARTIALLY_FILLED"
+    ],
+    "persisted_fill_quantities": [
+      null,
+      null
+    ]
+  },
+  "cancelled_partial_not_collected": {
+    "calls": 0,
+    "result": {
+      "order_id": "fake",
+      "status": "CANCELLED",
+      "ticker": "1617.T",
+      "eigyou_day": "20260814",
+      "fill_price": null,
+      "fill_quantity": null,
+      "fill_status": "NOT_FILLABLE"
+    }
+  },
+  "all_rejected_close_cli_success": {
+    "close_incomplete": true,
+    "all_orders_rejected": true,
+    "cli_return_code": 0
+  },
+  "overlay_binary_and_metadata_mix": {
+    "loaded_marker": "trained-through-2026",
+    "loaded_train_end": "2020-12-31",
+    "load_accepted": true,
+    "guard_would_accept_2021": true
+  },
+  "configured_runner": {
+    "constructs": false,
+    "error": "Overlay artifact models/ml_order_overlay/phase2_8 lacks temporal/data provenance metadata; retrain it before use",
+    "type": "ValueError"
+  }
+}

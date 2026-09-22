@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "scope": "validation:s0_s8_after_r1_final2",
+  "command": [
+    "env",
+    "-u",
+    "LEADLAG_LEASE_OWNER",
+    "-u",
+    "LEADLAG_LEASE_SCOPE",
+    "-u",
+    "LEADLAG_LEASE_DB",
+    ".venv/bin/python",
+    "-m",
+    "pytest",
+    "tests/",
+    "-q",
+    "--junitxml=reports/20260917_structural_completion_review/tests_after_r1_final2.xml"
+  ],
+  "started_at": "2026-09-18T02:27:32.326+00:00",
+  "timeout_seconds": 1800.0,
+  "grace_seconds": 10.0,
+  "status": "completed",
+  "lease_owner": "9f8009da4c9a41c4965e3b7ef0139a85",
+  "finished_at": "2026-09-18T02:29:18.465+00:00",
+  "elapsed_seconds": 106.137,
+  "return_code": 0
+}

@@ -1,0 +1,2 @@
+ERROR:leadlag.execution.close:Close-positions incomplete: filled=0/1, pending=0, failed=1
+WATCHDOG: exit=0 elapsed=1.5s

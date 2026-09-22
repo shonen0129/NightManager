@@ -1,0 +1,87 @@
+{
+  "schema_version": 1,
+  "baseline_id": "20260915_structural_improvement_s0",
+  "status": "PASS",
+  "manifest": "s0_baseline_manifest.json",
+  "tracked_worktree_patch": {
+    "path": "s0_tracked_worktree.patch",
+    "sha256": "71fe677175a07b8b4332e8f7760896364bd6aa4095053b08540a8d8d531e0039",
+    "bytes": 252194
+  },
+  "manifest_scope": "manifest captures the dirty worktree before these S0 result files were added",
+  "checks": [
+    {
+      "name": "parallel test suite",
+      "command": "bash scripts/run_tests_parallel.sh",
+      "status": "PASS",
+      "passed": 622,
+      "warnings": 17,
+      "log": "s0_tests_parallel.log",
+      "split_logs": [
+        "s0_tests_p1.log",
+        "s0_tests_p2.log",
+        "s0_tests_p3.log",
+        "s0_tests_p4.log",
+        "s0_tests_p5.log",
+        "s0_tests_p6.log",
+        "s0_tests_p7.log",
+        "s0_tests_p8.log"
+      ]
+    },
+    {
+      "name": "regression and features not covered by the parallel script",
+      "command": "PYTHONPATH=src .venv/bin/python -m pytest tests/regression tests/features -q -n auto",
+      "status": "PASS",
+      "passed": 28,
+      "warnings": 0
+    },
+    {
+      "name": "syntax",
+      "command": "PYTHONPATH=src .venv/bin/python -m compileall -q src/leadlag tests tools scripts src/research",
+      "status": "PASS"
+    },
+    {
+      "name": "ruff production",
+      "command": ".venv/bin/ruff check src/leadlag",
+      "status": "PASS"
+    },
+    {
+      "name": "undefined-name lint",
+      "command": "bash scripts/run_tests_parallel.sh (F821 precheck)",
+      "status": "PASS"
+    },
+    {
+      "name": "mypy production",
+      "command": ".venv/bin/mypy --config-file pyproject.toml src/leadlag",
+      "status": "PASS",
+      "files_checked": 122
+    },
+    {
+      "name": "import boundary",
+      "command": ".venv/bin/lint-imports",
+      "status": "PASS",
+      "contracts_kept": 4,
+      "contracts_broken": 0,
+      "files_analyzed": 156,
+      "dependencies_analyzed": 385
+    },
+    {
+      "name": "shell syntax",
+      "command": "bash -n scripts/batch/run_decision_v2.sh scripts/batch/run_close_positions.sh scripts/batch/run_gap_distribution.sh scripts/run_tests_parallel.sh",
+      "status": "PASS"
+    },
+    {
+      "name": "diff whitespace",
+      "command": "git diff --check",
+      "status": "PASS"
+    }
+  ],
+  "total_tests_passed": 650,
+  "total_warnings": 17,
+  "external_api_or_ordering": "not_run",
+  "notes": [
+    "The existing parallel script covers unit, integration, and research tests but omits regression and features; those 28 tests were run separately.",
+    "Ruff production scope uses the repository configuration. Full research-tree Ruff is outside this S0 result and retains the audit's separately tracked legacy findings.",
+    "The test suite was launched under an external 1800-second process-group watchdog; it completed normally with exit code 0."
+  ]
+}
