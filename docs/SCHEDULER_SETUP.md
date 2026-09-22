@@ -1,58 +1,35 @@
 # 自動スケジューラ セットアップガイド
 
-日米ラグ戦略の自動実行を設定する手順です。Windows と macOS の両方に対応しています。
+日米ラグ戦略の自動実行を設定する手順です。現行の正本は macOS の launchd です。
+Windows 用スクリプトは `archive/legacy_scripts/windows/` に保管しており、現行運用では使用しません。
 
 ## スケジュール一覧
 
 | タスク名 | 実行時刻 | Windows | macOS | 内容 |
 |---|---|---|---|---|
-| `日米ラグ_AutoLogin` | 毎朝 7:00 | `run_auto_login.bat` | — | kabuステーション自動ログイン |
-| `日米ラグ_Decision` | 毎朝 9:05 | `run_decision.bat` | `run_decision.sh` | 売買判定 (`leadlag cli decision`) |
-| `日米ラグ_ClosePositions` | 毎日 14:50 | `run_close_positions.bat` | `run_close_positions.sh` | 引け反対売買 (`leadlag cli close`) |
-| `日米ラグ_PnlReport` | 毎日 15:40 | — | `run_pnl_report.sh` | 引け損益レポート作成・送信 (`send_daily_close_pnl_report.py`) |
+| `日米ラグ_AutoLogin` | 毎朝 7:00 | —（legacy archive） | — | kabuステーション自動ログイン |
+| `日米ラグ_DistributionDiagnostics` | 月〜土 8:15 | — | `run_distribution_diagnostics.sh` | 分布診断の事前計算 |
+| `日米ラグ_Decision` | 毎朝 9:10 | —（legacy archive） | `run_decision_v2.sh` | 売買判定 (`leadlag cli decision`) |
+| `日米ラグ_ClosePositions` | 毎日 14:50 | —（legacy archive） | `run_close_positions.sh` | 引け反対売買 (`leadlag cli close`) |
+| `日米ラグ_PnlReport` | 毎日 15:40 | — | `run_pnl_report.sh` | 未完了runの読取専用照合と引け損益レポート |
 
 ## 前提条件
 
 ### 共通
 - `.env` に `KABU_ACCOUNT_NUMBER`, `KABU_PASSWORD` 等の環境変数が設定済みであること
-- `creds/credentials.json` (Gmail API) が配置済みで、初回認証（`token.json` 生成）が完了していること
-
-### Windows
-- Windows 10/11
-- Python 仮想環境 (`.venv`) がプロジェクトルートに存在すること
+- Gmail送信を有効化する場合だけ `creds/credentials.json` と初回OAuthトークンを用意すること（通常のscheduler dry-runには不要）
 
 ### macOS
-- Python 仮想環境 (`.venv-mac`) がプロジェクトルートに存在すること
+- Python 仮想環境 (`.venv`) がプロジェクトルートに存在すること
 - プロジェクトディレクトリが iCloud 外にあること（iCloud 内では launchd が `Operation not permitted` エラーで実行できません）
 
 ## セットアップ手順
 
 ### Windows
 
-#### 1. 自動セットアップ（推奨）
-
-PowerShell を **管理者として** 開き、以下を実行：
-
-```powershell
-cd "プロジェクトディレクトリのパス\scripts\batch"
-Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
-.\setup_scheduler.ps1
-```
-
-これで3つのタスクがすべて登録されます。
-
-#### 2. 手動セットアップ
-
-タスクスケジューラ GUI (`taskschd.msc`) から手動で登録する場合：
-
-1. **タスクスケジューラ**を開く（`Win + R` → `taskschd.msc`）
-2. **タスクの作成** を選択
-3. 以下を設定：
-   - **全般タブ**: タスク名を入力、「最上位の特権で実行する」にチェック
-   - **トリガータブ**: 「毎日」を選択し、実行時刻を設定
-   - **操作タブ**: 「プログラムの開始」で `cmd.exe` を指定し、引数に `/c "バッチファイルのフルパス"` を入力
-   - **条件タブ**: 「コンピュータを AC 電源で使用している場合のみ」のチェックを外す
-   - **設定タブ**: 「スケジュールされた時刻にタスクを開始できなかった場合、すぐにタスクを実行する」にチェック
+現行リポジトリにはWindows用のアクティブなscheduler入口はありません。
+過去の `.bat` / `.ps1` は `archive/legacy_scripts/windows/` にあり、必要な移行は
+Windows側で別途設計してください。
 
 ### macOS
 
@@ -62,7 +39,8 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 bash scripts/batch/setup_scheduler_macos.sh
 ```
 
-これで2つのタスク（Decision / Close）が launchd に登録されます。
+これで5つのタスク（market data update / distribution diagnostics / Decision / Close / P&L report）が launchd に登録されます。既存のplistはプロジェクトルートから生成し直されるため、作業ディレクトリを移動した後も古いパスを残しません。
+旧コマンド `bash scripts/batch/install_launchd.sh` はこの手順へ委譲する互換入口です。
 
 > [!WARNING]
 > プロジェクトディレクトリが iCloud 内にある場合、launchd からスクリプトにアクセスできません（`Operation not permitted`）。iCloud 外のディレクトリに移動してからセットアップしてください。
@@ -70,7 +48,7 @@ bash scripts/batch/setup_scheduler_macos.sh
 #### 2. 手動テスト実行
 
 ```bash
-bash scripts/batch/run_decision.sh
+bash scripts/batch/run_decision_v2.sh
 bash scripts/batch/run_close_positions.sh
 ```
 
@@ -86,25 +64,21 @@ launchctl list | grep leadlag
 launchctl unload ~/Library/LaunchAgents/com.leadlag.decision.plist
 launchctl unload ~/Library/LaunchAgents/com.leadlag.close.plist
 launchctl unload ~/Library/LaunchAgents/com.leadlag.pnl_report.plist
+launchctl unload ~/Library/LaunchAgents/com.leadlag.update-market-data.plist
 ```
 
 ## 動作確認
 
 ### ログ確認
 
-実行ログは `logs/` ディレクトリに日付別で出力されます：
+実行ログは `var/logs/` ディレクトリに日付別で出力され、job guardの結果は
+`var/logs/job_guard/` に保存されます：
 
 ```
-logs/
+var/logs/
 ├── auto_login_20260507.log
 ├── decision_20260507.log
 └── close_positions_20260507.log
-```
-
-### Windows タスク状態確認
-
-```powershell
-Get-ScheduledTask -TaskName "日米ラグ*" | Format-Table TaskName, State
 ```
 
 ### macOS タスク状態確認
@@ -115,17 +89,10 @@ launchctl list | grep leadlag
 
 ## タスクの削除
 
-### Windows
-
-```powershell
-Unregister-ScheduledTask -TaskName "日米ラグ_AutoLogin" -Confirm:$false
-Unregister-ScheduledTask -TaskName "日米ラグ_Decision" -Confirm:$false
-Unregister-ScheduledTask -TaskName "日米ラグ_ClosePositions" -Confirm:$false
-```
-
 ### macOS
 
 ```bash
+launchctl unload ~/Library/LaunchAgents/com.leadlag.update-market-data.plist
 launchctl unload ~/Library/LaunchAgents/com.leadlag.decision.plist
 launchctl unload ~/Library/LaunchAgents/com.leadlag.close.plist
 launchctl unload ~/Library/LaunchAgents/com.leadlag.pnl_report.plist
@@ -133,23 +100,30 @@ launchctl unload ~/Library/LaunchAgents/com.leadlag.pnl_report.plist
 
 ## スクリプトのカスタマイズ
 
-### `run_decision` のオプション (Windows: `.bat` / macOS: `.sh`)
+### `run_decision_v2.sh` のオプション（macOS正本）
 
-`leadlag cli decision` に渡すオプションを変更できます：
+`leadlag cli decision` に渡すオプションを変更できます。macOSの正本入口は
+`scripts/batch/run_decision_v2.sh`です：
 
 | オプション | 説明 | デフォルト |
 |---|---|---|
-| `--api-enable` | kabuステーション API 経由で注文送信 | 有効 |
-| `--google-opens` | Google Finance から寄付値を取得 | 有効 |
+| `--config configs/production/production.yaml` | 継承を解決した本番設定 | 指定済み |
+| `--api-enable` | 設定で選ばれたbrokerへ注文送信 | 有効 |
+| `--capital-from-wallet` | broker余力から配分資本を取得 | 有効 |
 | `--text-output` | コンソールにテキスト注文表を出力 | 有効 |
 | `--api-dry-run` | 注文をシミュレーション（実際には送信しない） | 無効 |
-| `--capital 1000000` | 運用資本（JPY） | 1,000,000 |
+
+gap参照は本番設定のSQLiteを使い、batchから`latest` directoryで上書きしない。
+gap生成に失敗した場合も、当日cache → 許可されたon-demand → flatの順に判定する。
+gap batchの終了時には、本番設定が参照するcanonical `gap_store.sqlite`について、対象取引日の
+μ・Ω・metadata・commit manifestを同一SQLite読込で検査する。休日は「未生成」を成功扱いできるが、
+営業日のbundle欠損・manifest不一致は非ゼロ終了として記録される。
+`--google-opens`や固定`--capital`は現行batchでは指定していない。
 
 > [!IMPORTANT]
 > 本番運用前に必ず `--api-dry-run` を追加してテスト実行してください。
-> `run_decision.bat` 内の python コマンド行に `--api-dry-run` を追加するだけです。
 
-### `run_close_positions` のオプション (Windows: `.bat` / macOS: `.sh`)
+### `run_close_positions.sh` のオプション（macOS正本）
 
 `leadlag cli close` に渡すオプションを変更できます：
 
@@ -162,13 +136,83 @@ launchctl unload ~/Library/LaunchAgents/com.leadlag.pnl_report.plist
 
 | 症状 | 対処法 |
 |---|---|
-| タスクが実行されない (Windows) | PCがスリープ状態。電源オプションで「スリープ解除タイマーを許可」を有効化 |
 | タスクが実行されない (macOS) | プロジェクトがiCloud内にないか確認。iCloud内ではlaunchdが`Operation not permitted`で失敗します |
-| `仮想環境が見つかりません` (Windows) | `.venv` がプロジェクトルートに存在するか確認 |
-| `venv not found` (macOS) | `.venv-mac` がプロジェクトルートに存在するか確認 |
+| `venv not found` (macOS) | `.venv` がプロジェクトルートに存在するか確認 |
 | ログインが失敗する | kabuステーションがタスクバーにピン留めされているか確認 |
 | OTP取得に失敗 | `creds/token.json` が有効か確認（初回は手動で認証フローを実行） |
-| 土日祝に実行される | 現在は毎日実行。休日判定が必要な場合はスクリプトにロジック追加が必要 |
+| 土日祝に実行される | schedulerの起動日とCLIの市場休業日判定は別。発注可否はCLIの営業日判定とログを確認する |
+
+## 期限・排他と未完了runの復旧
+
+decision・close・gap・引け後レポートbatchは`job_guard`を通る。decision内のgap生成は親のleaseを共有する。
+decision/close/gapの既定の全体期限は1800秒、TERM後の猶予は10秒で、環境変数
+`LEADLAG_DECISION_TIMEOUT_SECONDS` / `LEADLAG_CLOSE_TIMEOUT_SECONDS` /
+`LEADLAG_GAP_TIMEOUT_SECONDS` / `LEADLAG_JOB_GRACE_SECONDS`で調整できる。
+gapがdecisionの子である場合はdecision全体の期限が適用される。
+引け後の照合・レポート全体の既定期限は300秒で、`LEADLAG_RECONCILIATION_TIMEOUT_SECONDS`で調整する。
+
+各batchには全体期限とは別に工程期限もある。既定値は decision の gap生成900秒・decision900秒、
+単独gap生成のcompute1500秒・canonical store検証30秒、close240秒、引け後の照合180秒・
+レポート120秒で、`LEADLAG_GAP_PHASE_TIMEOUT_SECONDS` /
+`LEADLAG_DECISION_PHASE_TIMEOUT_SECONDS` /
+`LEADLAG_GAP_COMPUTE_TIMEOUT_SECONDS` /
+`LEADLAG_GAP_STORE_CHECK_TIMEOUT_SECONDS` /
+`LEADLAG_CLOSE_PHASE_TIMEOUT_SECONDS` /
+`LEADLAG_RECONCILIATION_PHASE_TIMEOUT_SECONDS` /
+`LEADLAG_PNL_REPORT_PHASE_TIMEOUT_SECONDS`で調整できる。工程ごとの結果は
+`var/logs/job_guard/*_<phase>.json`へ保存される。いずれの期限超過も未発注の証拠ではないため、
+再実行前に下記の台帳照合を行う。
+
+exit 124は期限超過、73はlease競合である。runは注文がFILLEDになっただけでは完了しない。
+約定・建玉・余力・journalの照合を終えるまで`executing`または`reconciliation_required`に残る。
+同じ口座・戦略の未解決runがあると、別日・別jobの送信も停止する。
+
+brokerへ接続せず、保存台帳の復旧候補を表示する:
+
+```bash
+.venv/bin/python reports/20260912_workspace_audit/watchdog.py 30 \
+  .venv/bin/python -m leadlag.execution.reconcile \
+  --state-db var/live/pipeline_data/execution/execution_state.sqlite
+```
+
+大引け後など、保存済み注文の終端を確認できる時点で、対象runを読取専用で照合する:
+
+```bash
+.venv/bin/python reports/20260912_workspace_audit/watchdog.py 180 \
+  .venv/bin/python -m leadlag.execution.reconcile \
+  --state-db var/live/pipeline_data/execution/execution_state.sqlite \
+  --run-id '<一覧に表示されたrun_id>' \
+  --output-dir var/results/reconciliation
+```
+
+このコマンドは設定済みbrokerから注文状態・約定・建玉・余力を取得し、照合結果を保存する。
+発注・取消・再送は行わない。注文ID不明、開始在庫未保存、数量/価格/費用の不足・不一致は
+未解決のまま残す。runの状態だけを手動でcompletedへ書き換えて再送しない。
+
+未解決runがない場合でも、実口座の残高・建玉を発注なしで記録するには次を使う。これは
+brokerの注文ID一覧を取得するAPIではないため、約定の突合が必要な場合は上記`--run-id`を使う。
+
+```bash
+.venv/bin/python reports/20260912_workspace_audit/watchdog.py 180 \
+  .venv/bin/python -m leadlag.execution.reconcile \
+  --account-snapshot \
+  --output-dir var/results/reconciliation
+```
+
+15:40の既存`run_pnl_report.sh`は、最初に`reconcile --pending`を呼ぶ。
+設定済みbroker・production_v2の未解決runだけを照合し、dry-runや別口座を対象にしない。
+候補がなければbroker接続を省く。照合失敗時も独立した損益レポート作成を試みるが、
+batchの終了コードは非ゼロのままとする。レポート成功だけで実行台帳を完了にしない。
+実schedulerへの登録状態と実brokerでの照合証跡は、引き続きS5bの運用確認事項である。
+
+## 実行manifest
+
+decisionの`var/results/.../run_manifest.json`には、`runtime`としてtrade date、09:10時点の
+`as_of`、最大`available_at`、ticker順、入力fingerprint、解決済みconfig hash、モデル/ML artifact
+版、gap source/reason、fallback理由、PIT・数値・リーク監査、model net/grossを保存する。
+注文処理後は同じmanifestの`execution`へrun ID、注文ID、fill/pending/failed件数、約定・建玉・余力の
+snapshot参照、照合エラーを追記する。closeも同じ形式で記録する。manifestは再送許可の根拠ではなく、
+再現と未説明状態の検出に使う証跡である。
 
 ## 引け損益レポート（オプション）
 
@@ -192,18 +236,20 @@ launchctl unload ~/Library/LaunchAgents/com.leadlag.pnl_report.plist
 
 3. `.env` に以下を追加:
    ```bash
-   LEADLAG_PNL_REPORT_SEND=1
+   LEADLAG_SCHEDULED_PNL_SEND=1
    LEADLAG_PNL_REPORT_RECIPIENTS=you@example.com,ops@example.com
+   # LEADLAG_PNL_REPORT_SEND=1 は手動CLI互換用で、schedulerの送信許可には使わない
    # LEADLAG_PNL_FROM_EMAIL=optional-sender@example.com
    ```
 
 ### 動作
 
 - `run_pnl_report.sh` は 15:40 に起動
-- 直近の `results/...production_close_positions` ディレクトリを自動検出
+- 同じ口座・戦略の未完了runを読取専用で照合し、約定・建玉・余力・journalの確認後に完了を記録
+- 直近の `var/results/...production_close_positions` ディレクトリを自動検出
 - 約定情報をブローカー API から再取得し `close_execution_log.json` を更新
 - 引け後の残存ポジション・ウォレットスナップショットを取得（`positions_pnl_YYYYMMDD.json`, `wallet_pnl_YYYYMMDD.json`）
 - `daily_pnl_report_YYYYMMDD.md` を作成し、設定されていればメール送信
-- `LEADLAG_PNL_REPORT_SEND=1` かつ `LEADLAG_PNL_REPORT_RECIPIENTS` が設定されている場合のみメール送信されます
-- デフォルトは **dry-run / ファイル保存のみ** で、勝手にメールは送信されません
+- 通常のscheduler経路はP&L送信を **dry-run / ファイル保存のみ** とし、Gmailには接続しません。先行する`reconcile --pending`は未完了runがある場合に限り、設定済みbrokerへ読取専用で接続します
+- schedulerからメールを送る場合は、受信先を確認したうえで `LEADLAG_SCHEDULED_PNL_SEND=1` と `LEADLAG_PNL_REPORT_RECIPIENTS` を明示設定します（`LEADLAG_PNL_REPORT_SEND` だけでは送信されません）
 - レポート失敗してもポジションクローズには影響しません

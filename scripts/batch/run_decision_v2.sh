@@ -9,9 +9,42 @@ set -euo pipefail
 PROJECT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
 LOG_DIR="${PROJECT_DIR}/var/logs"
 
+# The guard owns the whole gap-generation + decision process.  It uses a
+# process-group deadline and a durable single-flight lease. The child receives
+# a lease owner token which the execution entry verifies against SQLite.
+if [ -z "${LEADLAG_LEASE_OWNER:-}" ]; then
+    if [ -f "${PROJECT_DIR}/.venv/bin/python" ]; then
+        GUARD_PYTHON="${PROJECT_DIR}/.venv/bin/python"
+    else
+        GUARD_PYTHON="$(command -v python3)"
+    fi
+    DATESTR=$(date +%Y%m%d)
+    exec env PYTHONPATH="${PROJECT_DIR}/src" \
+        "${GUARD_PYTHON}" -m leadlag.execution.job_guard \
+        --scope "live:production_v2" \
+        --timeout "${LEADLAG_DECISION_TIMEOUT_SECONDS:-1800}" \
+        --grace "${LEADLAG_JOB_GRACE_SECONDS:-10}" \
+        --state-db "${PROJECT_DIR}/var/live/pipeline_data/execution/execution_state.sqlite" \
+        --guard-log "${PROJECT_DIR}/var/logs/job_guard/decision_${DATESTR}.json" \
+        -- bash "$0" "$@"
+fi
+
 mkdir -p "${LOG_DIR}"
 DATESTR=$(date +%Y%m%d)
 LOG_FILE="${LOG_DIR}/decision_${DATESTR}.log"
+PHASE_LOG_DIR="${PROJECT_DIR}/var/logs/job_guard"
+
+run_phase() {
+    local label="$1"
+    local timeout_seconds="$2"
+    shift 2
+    PYTHONPATH=src "${PYTHON_BIN}" -m leadlag.execution.phase_deadline \
+        --label "${label}" \
+        --timeout "${timeout_seconds}" \
+        --grace "${LEADLAG_JOB_GRACE_SECONDS:-10}" \
+        --log "${PHASE_LOG_DIR}/decision_${DATESTR}_${label}.json" \
+        -- "$@"
+}
 
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] === decision v2 開始 ===" >> "${LOG_FILE}"
 
@@ -29,11 +62,12 @@ cd "${PROJECT_DIR}"
 # --- Step 1: gap distribution（立花API価格注入） ---
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] [1/2] gap distribution 開始" >> "${LOG_FILE}"
 set +e
-bash scripts/batch/run_gap_distribution.sh >> "${LOG_FILE}" 2>&1
+run_phase "gap_distribution" "${LEADLAG_GAP_PHASE_TIMEOUT_SECONDS:-900}" \
+    bash scripts/batch/run_gap_distribution.sh >> "${LOG_FILE}" 2>&1
 GAP_EXIT=$?
 set -e
 if [ ${GAP_EXIT} -ne 0 ]; then
-    echo "[ERROR] gap distribution failed (exit=${GAP_EXIT}). Proceeding to decision (will be flat)." >> "${LOG_FILE}"
+    echo "[ERROR] gap distribution failed (exit=${GAP_EXIT}). Decision will check today's cache, then permitted on-demand fallback, then flat." >> "${LOG_FILE}"
 else
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] [1/2] gap distribution 完了" >> "${LOG_FILE}"
 fi
@@ -41,9 +75,9 @@ fi
 # --- Step 2: decision v2 ---
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] [2/2] decision v2 開始" >> "${LOG_FILE}"
 set +e
-PYTHONPATH=src "${PYTHON_BIN}" -m leadlag.cli decision \
+run_phase "decision" "${LEADLAG_DECISION_PHASE_TIMEOUT_SECONDS:-900}" \
+    "${PYTHON_BIN}" -m leadlag.cli decision \
     --config configs/production/production.yaml \
-    --gap-dir var/live/pipeline_data/gap_adjusted_distribution/latest \
     --live-dir var/live/production_residual_blpx \
     --api-enable \
     --capital-from-wallet \

@@ -8,9 +8,29 @@ set -euo pipefail
 PROJECT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
 LOG_DIR="${PROJECT_DIR}/var/logs"
 
+# Reconciliation and reporting share a bounded guard. A read-only recovery
+# failure is recorded without skipping the independent PnL report.
+if [ -z "${LEADLAG_LEASE_OWNER:-}" ]; then
+    if [ -f "${PROJECT_DIR}/.venv/bin/python" ]; then
+        GUARD_PYTHON="${PROJECT_DIR}/.venv/bin/python"
+    else
+        GUARD_PYTHON="$(command -v python3)"
+    fi
+    DATESTR=$(date +%Y%m%d)
+    exec env PYTHONPATH="${PROJECT_DIR}/src" \
+        "${GUARD_PYTHON}" -m leadlag.execution.job_guard \
+        --scope "live:production_v2" \
+        --timeout "${LEADLAG_RECONCILIATION_TIMEOUT_SECONDS:-300}" \
+        --grace "${LEADLAG_JOB_GRACE_SECONDS:-10}" \
+        --state-db "${PROJECT_DIR}/var/live/pipeline_data/execution/execution_state.sqlite" \
+        --guard-log "${PROJECT_DIR}/var/logs/job_guard/pnl_${DATESTR}.json" \
+        -- bash "$0" "$@"
+fi
+
 mkdir -p "${LOG_DIR}"
 DATESTR=$(date +%Y%m%d)
 LOG_FILE="${LOG_DIR}/pnl_report_${DATESTR}.log"
+PHASE_LOG_DIR="${PROJECT_DIR}/var/logs/job_guard"
 
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] === pnl report 開始 ===" >> "${LOG_FILE}"
 
@@ -31,9 +51,45 @@ fi
 
 # スクリプト実行
 cd "${PROJECT_DIR}"
-PYTHONPATH=src "${PYTHON_BIN}" tools/production/send_daily_close_pnl_report.py \
+run_phase() {
+    local label="$1"
+    local timeout_seconds="$2"
+    shift 2
+    PYTHONPATH=src "${PYTHON_BIN}" -m leadlag.execution.phase_deadline \
+        --label "${label}" \
+        --timeout "${timeout_seconds}" \
+        --grace "${LEADLAG_JOB_GRACE_SECONDS:-10}" \
+        --log "${PHASE_LOG_DIR}/pnl_${DATESTR}_${label}.json" \
+        -- "$@"
+}
+set +e
+run_phase "reconcile" "${LEADLAG_RECONCILIATION_PHASE_TIMEOUT_SECONDS:-180}" \
+    "${PYTHON_BIN}" -m leadlag.execution.reconcile --pending \
+    --state-db "${PROJECT_DIR}/var/live/pipeline_data/execution/execution_state.sqlite" \
+    --output-dir "${PROJECT_DIR}/var/results/reconciliation" \
+    >> "${LOG_FILE}" 2>&1
+RECONCILE_EXIT=$?
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] reconciliation exit: ${RECONCILE_EXIT}" >> "${LOG_FILE}"
+
+REPORT_ARGS=()
+# Email delivery is an explicit second opt-in for the scheduler.  The normal
+# scheduled path generates the report locally and never contacts Gmail.  The
+# preceding pending reconciliation may use the configured broker in read-only
+# mode; set LEADLAG_SCHEDULED_PNL_SEND=1 only after the mail account and
+# recipient list have been verified in a separate controlled run.
+if [ "${LEADLAG_SCHEDULED_PNL_SEND:-0}" = "1" ]; then
+    REPORT_ARGS+=(--send)
+else
+    REPORT_ARGS+=(--dry-run --no-api)
+fi
+run_phase "report" "${LEADLAG_PNL_REPORT_PHASE_TIMEOUT_SECONDS:-120}" \
+    "${PYTHON_BIN}" tools/production/send_daily_close_pnl_report.py "${REPORT_ARGS[@]}" \
     >> "${LOG_FILE}" 2>&1
 
 EXIT_CODE=$?
+set -e
+if [ ${EXIT_CODE} -eq 0 ] && [ ${RECONCILE_EXIT} -ne 0 ]; then
+    EXIT_CODE=${RECONCILE_EXIT}
+fi
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] === 終了コード: ${EXIT_CODE} ===" >> "${LOG_FILE}"
 exit ${EXIT_CODE}

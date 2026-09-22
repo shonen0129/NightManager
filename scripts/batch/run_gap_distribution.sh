@@ -9,9 +9,27 @@ set -euo pipefail
 PROJECT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
 LOG_DIR="${PROJECT_DIR}/var/logs"
 
+if [ -z "${LEADLAG_LEASE_OWNER:-}" ]; then
+    if [ -f "${PROJECT_DIR}/.venv/bin/python" ]; then
+        GUARD_PYTHON="${PROJECT_DIR}/.venv/bin/python"
+    else
+        GUARD_PYTHON="$(command -v python3)"
+    fi
+    DATESTR=$(date +%Y%m%d)
+    exec env PYTHONPATH="${PROJECT_DIR}/src" \
+        "${GUARD_PYTHON}" -m leadlag.execution.job_guard \
+        --scope "live:production_v2" \
+        --timeout "${LEADLAG_GAP_TIMEOUT_SECONDS:-1800}" \
+        --grace "${LEADLAG_JOB_GRACE_SECONDS:-10}" \
+        --state-db "${PROJECT_DIR}/var/live/pipeline_data/execution/execution_state.sqlite" \
+        --guard-log "${PROJECT_DIR}/var/logs/job_guard/gap_${DATESTR}.json" \
+        -- bash "$0" "$@"
+fi
+
 mkdir -p "${LOG_DIR}"
 DATESTR=$(date +%Y%m%d)
 LOG_FILE="${LOG_DIR}/gap_distribution_${DATESTR}.log"
+PHASE_LOG_DIR="${PROJECT_DIR}/var/logs/job_guard"
 
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] === gap distribution 開始 ===" >> "${LOG_FILE}"
 
@@ -26,6 +44,18 @@ else
 fi
 
 cd "${PROJECT_DIR}"
+
+run_phase() {
+    local label="$1"
+    local timeout_seconds="$2"
+    shift 2
+    PYTHONPATH=src "${PYTHON_BIN}" -m leadlag.execution.phase_deadline \
+        --label "${label}" \
+        --timeout "${timeout_seconds}" \
+        --grace "${LEADLAG_JOB_GRACE_SECONDS:-10}" \
+        --log "${PHASE_LOG_DIR}/gap_${DATESTR}_${label}.json" \
+        -- "$@"
+}
 
 # Step 1: distribution_diagnostics (Step 1) と distribution_validation は
 # 事前計算済みの結果を再利用するため、最新のものを検索
@@ -117,7 +147,8 @@ fi
 # Step 2: gap調整済み分布の計算
 # 不足営業日のみ再計算（前回latestにmu_gapが存在する日はスキップ）
 set +e
-PYTHONPATH=src "${PYTHON_BIN}" tools/research/compute_gap_adjusted_distribution.py \
+run_phase "compute" "${LEADLAG_GAP_COMPUTE_TIMEOUT_SECONDS:-1500}" \
+    "${PYTHON_BIN}" tools/research/compute_gap_adjusted_distribution.py \
     --distribution-input-dir "${DIST_DIR}" \
     --validation-input-dir "${VAL_DIR}" \
     --vol-state-panel "${VOL_STATE}" \
@@ -164,14 +195,36 @@ if [ -f "${NEW_DIAG}" ]; then
     fi
 fi
 
-# 当日の行列ファイルが生成されたか確認
+# 当日の行列bundle（μ・Ω・来歴sidecar）が生成されたか確認
 # 前日行列のコピーは行わない — 前日のgap行列で発注すると誤ったポジションとなるリスクがあるため
-# 当日の行列がない場合は decision_v2 が flat position (w_final=0) を返すのが正しい挙動
+# 来歴がない場合も decision_v2 が flat position (w_final=0) を返すのが正しい挙動
 MU_FILE="${PIPELINE_DIR}/gap_adjusted_distribution/latest/matrices/mu_gap_${TODAY_NUMERIC}.npy"
-if [ ! -f "${MU_FILE}" ]; then
-    echo "[WARNING] Today's mu_gap_${TODAY_NUMERIC}.npy not found. Decision will return flat position (no trading)." >> "${LOG_FILE}"
-    echo "[WARNING] This indicates the gap distribution computation did not produce today's matrices." >> "${LOG_FILE}"
+OMEGA_FILE="${PIPELINE_DIR}/gap_adjusted_distribution/latest/matrices/omega_gap_${TODAY_NUMERIC}.npy"
+METADATA_FILE="${PIPELINE_DIR}/gap_adjusted_distribution/latest/matrices/gap_metadata_${TODAY_NUMERIC}.json"
+MANIFEST_FILE="${PIPELINE_DIR}/gap_adjusted_distribution/latest/matrices/.mu_gap_${TODAY_NUMERIC}.bundle.json"
+if [ ! -f "${MU_FILE}" ] || [ ! -f "${OMEGA_FILE}" ] || [ ! -f "${METADATA_FILE}" ] || [ ! -f "${MANIFEST_FILE}" ]; then
+    echo "[WARNING] Today's gap bundle is incomplete (mu/omega/metadata/manifest required). Decision will return flat position (no trading)." >> "${LOG_FILE}"
+    echo "[WARNING] This indicates the gap distribution computation did not publish a provenanced bundle." >> "${LOG_FILE}"
     echo "[WARNING] Possible causes: (1) etf_data.pkl cache stale (2) Step 1 omega_struct missing (3) non-trading day" >> "${LOG_FILE}"
+fi
+
+# The decision path reads the canonical SQLite store from production.yaml.
+# Validate that same store explicitly so a complete-looking compatibility
+# directory cannot mask a missing or mixed-generation bundle.
+set +e
+run_phase "store_check" "${LEADLAG_GAP_STORE_CHECK_TIMEOUT_SECONDS:-30}" \
+    "${PYTHON_BIN}" -m leadlag.execution.gap_store_check \
+    --store "${PIPELINE_DIR}/gap_adjusted_distribution/gap_store.sqlite" \
+    --trade-date "${TODAY}" \
+    >> "${LOG_FILE}" 2>&1
+STORE_CHECK_EXIT=$?
+set -e
+if [ ${STORE_CHECK_EXIT} -ne 0 ]; then
+    echo "[WARNING] Canonical gap SQLite check failed (exit=${STORE_CHECK_EXIT}). Decision will use its configured fallback policy." >> "${LOG_FILE}"
+    # Missing data is a valid fail-closed outcome for the decision; retain the
+    # non-zero batch result so the scheduler records that gap generation was
+    # not complete.
+    exit ${STORE_CHECK_EXIT}
 fi
 
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] === gap distribution 終了コード: ${EXIT_CODE} ===" >> "${LOG_FILE}"
