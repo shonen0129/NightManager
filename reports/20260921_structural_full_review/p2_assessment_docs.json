@@ -1,0 +1,13 @@
+{
+  "command": [
+    ".venv/bin/python",
+    "scripts/ci/validate_docs.py",
+    "docs/decisions/2026-09-22-var-input-fingerprint-deadline.md",
+    "docs/decisions/README.md",
+    "reports/20260921_structural_full_review/report.md"
+  ],
+  "timeout_seconds": 60.0,
+  "exit_code": 0,
+  "timed_out": false,
+  "elapsed_seconds": 0.039969541830942035
+}

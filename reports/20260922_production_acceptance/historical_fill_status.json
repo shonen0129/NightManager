@@ -1,0 +1,43 @@
+{
+  "logs": [
+    {
+      "path": "var/results/20260729_145007_production_close_positions/close_execution_log.json",
+      "sha256": "d287b87c0f698a3ca6385a65bc0daf7eb925eeec96ec0bfe811e16947bbda173",
+      "dry_run": false,
+      "records": 9,
+      "real_order_records": 9,
+      "saved_fill_details": 9
+    },
+    {
+      "path": "var/results/20260730_145005_production_close_positions/close_execution_log.json",
+      "sha256": "583651e30878d029e8408f2dee16f8244f951bd8c60d016e159b1101daf9b99e",
+      "dry_run": false,
+      "records": 10,
+      "real_order_records": 10,
+      "saved_fill_details": 10
+    },
+    {
+      "path": "var/results/20260731_145004_production_close_positions/close_execution_log.json",
+      "sha256": "62950e82479aabdb103d271350dc4d236bd91b57318a40f2263c3d5b998e10e7",
+      "dry_run": false,
+      "records": 8,
+      "real_order_records": 8,
+      "saved_fill_details": 8
+    },
+    {
+      "path": "var/results/20260803_145004_production_close_positions/close_execution_log.json",
+      "sha256": "d4cec2058aa147a3447048989e3d4d340de1479f4dd4edb2c4985698dffd1192",
+      "dry_run": false,
+      "records": 0,
+      "real_order_records": 0,
+      "saved_fill_details": 0
+    }
+  ],
+  "unique_order_count": 27,
+  "errors": [
+    "FillPriceReconciliationError"
+  ],
+  "fresh_fill_details": 0,
+  "query_failed_records": 27,
+  "snapshot_path": "var/results/20260922_production_acceptance/historical_fills/readonly_results.json"
+}

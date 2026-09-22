@@ -1,0 +1,9 @@
+{
+  "command": [
+    ".venv/bin/lint-imports"
+  ],
+  "timeout_seconds": 120.0,
+  "exit_code": 0,
+  "timed_out": false,
+  "elapsed_seconds": 0.1323046248871833
+}

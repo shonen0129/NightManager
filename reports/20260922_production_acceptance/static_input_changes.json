@@ -1,0 +1,19 @@
+{
+  "command": [
+    ".venv/bin/ruff",
+    "check",
+    "src/leadlag/data/intraday_inputs.py",
+    "src/leadlag/data/pit_lake.py",
+    "src/leadlag/domain/inputs.py",
+    "src/leadlag/execution/backtester.py",
+    "src/leadlag/models/v2/decision_engine.py",
+    "src/leadlag/models/v2/distribution_source.py",
+    "src/research/experiments/ml_overlay_training.py",
+    "tests/unit/test_execution_price_inputs.py",
+    "tests/unit/test_s2a_input_boundaries.py"
+  ],
+  "timeout_seconds": 90.0,
+  "exit_code": 1,
+  "timed_out": false,
+  "elapsed_seconds": 0.08226308389566839
+}

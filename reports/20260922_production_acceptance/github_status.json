@@ -1,0 +1,47 @@
+{
+  "auth_available": true,
+  "auth_source": "configured_git_credential_helper",
+  "repository": {
+    "full_name": "shonen0129/NightManager",
+    "private": false,
+    "default_branch": "main",
+    "permissions": {
+      "admin": true,
+      "maintain": true,
+      "push": true,
+      "triage": true,
+      "pull": true
+    },
+    "http_status": 200
+  },
+  "workflows": {
+    "total_count": 1,
+    "workflows": [
+      {
+        "id": 363979736,
+        "name": "leadlag-ci",
+        "path": ".github/workflows/ci.yml",
+        "state": "active"
+      }
+    ],
+    "http_status": 200
+  },
+  "runs": {
+    "total_count": 2,
+    "runs": [
+      {
+        "html_url": "https://github.com/shonen0129/NightManager/actions/runs/35695110032",
+        "head_sha": "5aee63faee2e03b517c18dd8bb2ea90741e4d819",
+        "status": "in_progress",
+        "conclusion": null
+      },
+      {
+        "html_url": "https://github.com/shonen0129/NightManager/actions/runs/35694973455",
+        "head_sha": "561df39942f14fd196a9d6c1f3aec40e8d33f885",
+        "status": "completed",
+        "conclusion": "failure"
+      }
+    ],
+    "http_status": 200
+  }
+}

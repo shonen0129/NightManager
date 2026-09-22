@@ -1,0 +1,17 @@
+uid=501
+gui/501/com.leadlag.decision = {
+	active count = 0
+	path = /Users/shonen/Library/LaunchAgents/com.leadlag.decision.plist
+	type = LaunchAgent
+gui/501/com.leadlag.close = {
+	active count = 0
+	path = /Users/shonen/Library/LaunchAgents/com.leadlag.close.plist
+	type = LaunchAgent
+gui/501/com.leadlag.pnl_report = {
+	active count = 0
+	path = /Users/shonen/Library/LaunchAgents/com.leadlag.pnl_report.plist
+	type = LaunchAgent
+gui/501/com.leadlag.distribution-diagnostics = {
+	active count = 0
+	path = /Users/shonen/Library/LaunchAgents/com.leadlag.distribution-diagnostics.plist
+	type = LaunchAgent

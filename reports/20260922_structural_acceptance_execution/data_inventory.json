@@ -1,0 +1,10 @@
+{
+  "command": [
+    ".venv/bin/python",
+    "reports/20260922_structural_acceptance_execution/data_inventory.py"
+  ],
+  "timeout_seconds": 60.0,
+  "exit_code": 0,
+  "timed_out": false,
+  "elapsed_seconds": 0.24219745793379843
+}

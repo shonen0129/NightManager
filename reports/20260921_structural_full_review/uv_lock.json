@@ -1,0 +1,12 @@
+{
+  "command": [
+    "uv",
+    "lock",
+    "--check",
+    "--offline"
+  ],
+  "timeout_seconds": 60.0,
+  "exit_code": 2,
+  "timed_out": false,
+  "elapsed_seconds": 0.08559891697950661
+}

@@ -1,0 +1,15 @@
+{
+  "command": [
+    ".venv/bin/python",
+    "scripts/ci/validate_docs.py",
+    "docs/ARCHITECTURE.md",
+    "docs/CI.md",
+    "docs/SCHEDULER_SETUP.md",
+    "docs/decisions/2026-09-15-structural-improvement-boundaries.md",
+    "reports/20260915_structural_improvement/plan.md"
+  ],
+  "timeout_seconds": 60.0,
+  "exit_code": 0,
+  "timed_out": false,
+  "elapsed_seconds": 0.04456087504513562
+}

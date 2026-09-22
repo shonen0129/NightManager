@@ -1,0 +1,10 @@
+{
+  "command": [
+    ".venv/bin/python",
+    "src/research/scripts/experiments/structural_artifact_evaluate.py"
+  ],
+  "timeout_seconds": 1200.0,
+  "exit_code": 0,
+  "timed_out": false,
+  "elapsed_seconds": 53.747169125126675
+}

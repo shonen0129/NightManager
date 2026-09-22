@@ -1,0 +1,10 @@
+{
+  "command": [
+    "bash",
+    "scripts/batch/setup_scheduler_macos.sh"
+  ],
+  "timeout_seconds": 120.0,
+  "exit_code": 0,
+  "timed_out": false,
+  "elapsed_seconds": 0.07160174986347556
+}

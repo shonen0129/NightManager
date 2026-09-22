@@ -1,0 +1,13 @@
+{
+  "command": [
+    ".venv/bin/python",
+    "-m",
+    "pytest",
+    "tests/unit/test_stage_abc_followup_fixes.py",
+    "-q"
+  ],
+  "timeout_seconds": 90.0,
+  "exit_code": 0,
+  "timed_out": false,
+  "elapsed_seconds": 3.791974625084549
+}

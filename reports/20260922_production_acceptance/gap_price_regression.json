@@ -1,0 +1,16 @@
+{
+  "command": [
+    ".venv/bin/python",
+    "-m",
+    "pytest",
+    "tests/unit/test_gap_distribution.py",
+    "tests/unit/test_execution_price_inputs.py",
+    "tests/unit/test_gap_ondemand_horizon.py",
+    "-q",
+    "--tb=short"
+  ],
+  "timeout_seconds": 180.0,
+  "exit_code": 0,
+  "timed_out": false,
+  "elapsed_seconds": 2.1979528749361634
+}

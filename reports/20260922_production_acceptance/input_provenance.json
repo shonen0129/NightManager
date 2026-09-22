@@ -1,0 +1,22 @@
+{
+  "macro_provider": "Yahoo Finance via yfinance",
+  "macro_requested_at": "2026-09-22T00:58:03.228226+00:00",
+  "macro_received_at": "2026-09-22T00:58:03.961610+00:00",
+  "historical_provider_available_at": null,
+  "historical_available_at_proven": false,
+  "session_cutoff": "09:10 JST; historical provider timestamp evidence unavailable",
+  "snapshot_hashes": {
+    "var/results/20260922_production_acceptance/inputs/adr.pkl": "2e95201b1d673de5e6c17cb8fd3ac2a83df2cc68991615f33997e2b62933535f",
+    "var/results/20260922_production_acceptance/inputs/df_exec.pkl": "d6a6750dddb1c47e7560e316ac8f16864d95d51bdea7ede15f6b8a665fb38805",
+    "var/results/20260922_production_acceptance/inputs/config.json": "c1f1fac765b0ee932e376d0354fbc9af76ef80556d624d5d556bb88ebb69d0c1",
+    "var/results/20260922_production_acceptance/inputs/bars_5m.pkl": "c67ad7660d4d77262a0aa2e3b5cfb4d0475f6c2cc41f212044e49da6ef55c6bb",
+    "var/results/20260922_production_acceptance/inputs/history_kwargs.pkl": "e373d786285c17cbc4b5e4ff3ef3a0e6e73e6a6c2e9f02a2200b65699ce96694",
+    "var/results/20260922_production_acceptance/inputs/open_910_returns.pkl": "076900ef03d626c33ad686ed3157f703e6426579693591c362ad1150627f03e5",
+    "var/results/20260922_production_acceptance/inputs/macro.pkl": "2efaf36545fabc20f49f5c3252f3a5358fe93e37868c810b711bf3fda5cf0b69",
+    "var/results/20260922_production_acceptance/inputs/gap/full_history_diagnostics.csv": "1c3c1bb9c26d5934cc318ee33531a3df7e516fd4c51844d3046a0d7d4b6bc47b"
+  },
+  "pit_warnings": [],
+  "rank_rows": 6,
+  "evaluation_end": "2026-08-17",
+  "trade_dates": 2757
+}

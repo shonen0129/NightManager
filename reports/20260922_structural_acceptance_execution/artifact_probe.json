@@ -1,0 +1,10 @@
+{
+  "command": [
+    ".venv/bin/python",
+    "reports/20260922_structural_acceptance_execution/artifact_probe.py"
+  ],
+  "timeout_seconds": 120.0,
+  "exit_code": 0,
+  "timed_out": false,
+  "elapsed_seconds": 1.1191442080307752
+}

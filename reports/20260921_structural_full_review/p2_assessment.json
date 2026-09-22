@@ -1,0 +1,10 @@
+{
+  "command": [
+    ".venv/bin/python",
+    "reports/20260921_structural_full_review/assess_p2.py"
+  ],
+  "timeout_seconds": 120.0,
+  "exit_code": 0,
+  "timed_out": false,
+  "elapsed_seconds": 5.67592979199253
+}

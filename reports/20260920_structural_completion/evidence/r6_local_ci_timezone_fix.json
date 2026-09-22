@@ -1,0 +1,23 @@
+{
+  "command": [
+    ".venv/bin/python",
+    "reports/20260912_workspace_audit/watchdog.py",
+    "300",
+    ".venv/bin/python",
+    "-m",
+    "pytest",
+    "tests/",
+    "-q",
+    "--junitxml=/private/tmp/leadlag_full_fix.xml"
+  ],
+  "returncode": 0,
+  "result": {
+    "passed": 803,
+    "failed": 0,
+    "errors": 0,
+    "warnings": 17,
+    "pytest_elapsed_seconds": 104.40,
+    "watchdog_elapsed_seconds": 104.9
+  },
+  "watchdog_timeout_seconds": 300
+}

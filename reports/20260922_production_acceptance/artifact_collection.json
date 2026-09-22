@@ -1,0 +1,11 @@
+{
+  "command": [
+    ".venv/bin/python",
+    "src/research/scripts/experiments/structural_artifact_acceptance.py",
+    "collect"
+  ],
+  "timeout_seconds": 2400.0,
+  "exit_code": 0,
+  "timed_out": false,
+  "elapsed_seconds": 688.1693814159371
+}

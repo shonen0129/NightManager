@@ -1,0 +1,30 @@
+{
+  "missing_dates": [
+    {
+      "date": "2026-08-17",
+      "reason": "execution prices require finite positive daily opens",
+      "is_provisional": true
+    }
+  ],
+  "last_rows": [
+    {
+      "date": "2026-08-13",
+      "is_provisional": false,
+      "invalid_opens": 0
+    },
+    {
+      "date": "2026-08-14",
+      "is_provisional": false,
+      "invalid_opens": 0
+    },
+    {
+      "date": "2026-08-17",
+      "is_provisional": true,
+      "invalid_opens": 17
+    }
+  ],
+  "fallbacks": {
+    "{'gap_data_missing': False}": 2755,
+    "{'gap_data_missing': False, 'audit_failure': True}": 1
+  }
+}

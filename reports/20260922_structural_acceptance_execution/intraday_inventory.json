@@ -1,0 +1,10 @@
+{
+  "command": [
+    ".venv/bin/python",
+    "reports/20260922_structural_acceptance_execution/intraday_inventory.py"
+  ],
+  "timeout_seconds": 60.0,
+  "exit_code": 0,
+  "timed_out": false,
+  "elapsed_seconds": 0.32449012505821884
+}

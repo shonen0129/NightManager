@@ -1,0 +1,12 @@
+{
+  "command": [
+    ".venv/bin/python",
+    "reports/20260922_production_acceptance/poll_ci.py",
+    "shonen0129/NightManager",
+    "35694973455"
+  ],
+  "timeout_seconds": 700.0,
+  "exit_code": 1,
+  "timed_out": false,
+  "elapsed_seconds": 1.046432290924713
+}

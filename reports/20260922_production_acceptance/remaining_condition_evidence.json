@@ -1,0 +1,131 @@
+{
+  "collected_at": "2026-09-22T15:39:35.168575+00:00",
+  "historical_provider_freshness": {
+    "status": "unverifiable",
+    "historical_provider_available_at": null,
+    "historical_available_at_proven": false,
+    "reason": "Canonical historical inputs contain observed/session cutoffs but no provider-issued available_at; no timestamp is synthesized.",
+    "macro_current_capture": {
+      "provider": "Yahoo Finance via yfinance",
+      "requested_at": "2026-09-22T00:58:03.228226+00:00",
+      "received_at": "2026-09-22T00:58:03.961610+00:00"
+    },
+    "cache_metadata": {
+      "etf_prices.sqlite": {
+        "exists": true,
+        "sha256": "23c39e0572c5a7078244606117891ed2ce9bb72f58a7b5d5f121dea0689dc2cb",
+        "keys": [
+          {
+            "key": "intraday_1m",
+            "store_updated_at": "2026-08-10 21:39:48"
+          },
+          {
+            "key": "intraday_5m",
+            "store_updated_at": "2026-08-10 21:39:48"
+          },
+          {
+            "key": "raw_ohlc",
+            "store_updated_at": "2026-09-21 23:00:08"
+          },
+          {
+            "key": "raw_ohlc_meta",
+            "store_updated_at": "2026-09-21 23:00:08"
+          }
+        ]
+      },
+      "df_exec.sqlite": {
+        "exists": true,
+        "sha256": "d5e13ad867e47ae9c57f158b9c6281f3d54f4aa3eef9b6efd01fdc8c20dcf6f0",
+        "keys": [
+          {
+            "key": "df_exec",
+            "store_updated_at": "2026-08-16 23:00:19"
+          },
+          {
+            "key": "df_exec_meta",
+            "store_updated_at": "2026-08-16 23:00:19"
+          }
+        ]
+      }
+    }
+  },
+  "broker_reconciliation": {
+    "readonly_requery_attempts": 2,
+    "unique_order_count": 27,
+    "query_failed_records": 27,
+    "error_codes": [
+      "991012"
+    ],
+    "saved_fill_values_are_not_authoritative": true,
+    "account_snapshot": "reports/20260922_production_acceptance/reconciliation/account_snapshot_20260922T071503Z.json",
+    "pending_reconciliation": "runs=[]; complete=true",
+    "official_transaction_csv": {
+      "source": "/Users/shonen/Downloads/Tachibana_取引記録.csv",
+      "sha256": "48ae6774d763338950d7452e9a46fd75063c3ce7acb8cc1d0ab4f08c2f6aebff",
+      "csv_row_count": 563,
+      "official_transaction_row_count": 339,
+      "local_real_order_count": 27,
+      "local_group_count": 23,
+      "quantity_reconciled_group_count": 23,
+      "quantity_reconciled_local_order_count": 27,
+      "local_quantity_total": 207.0,
+      "official_quantity_for_local_keys_total": 207.0,
+      "unreconciled_local_group_count": 0,
+      "parsed_artifact": "reports/20260922_production_acceptance/tachibana_csv_analysis.json",
+      "fee_components_present": false
+    }
+  },
+  "scheduler": {
+    "registered_jobs": {
+      "checked_at": "2026-09-22T16:26:00.076396+09:00",
+      "services": [
+        {
+          "name": "update-market-data",
+          "registered": true,
+          "current_workspace": true,
+          "state": "not running",
+          "last_exit": "1",
+          "runs": "1"
+        },
+        {
+          "name": "distribution-diagnostics",
+          "registered": true,
+          "current_workspace": true,
+          "state": "not running",
+          "last_exit": "0",
+          "runs": "1"
+        },
+        {
+          "name": "decision",
+          "registered": true,
+          "current_workspace": true,
+          "state": "not running",
+          "last_exit": "0",
+          "runs": "1"
+        },
+        {
+          "name": "close",
+          "registered": true,
+          "current_workspace": true,
+          "state": "not running",
+          "last_exit": "0",
+          "runs": "1"
+        },
+        {
+          "name": "pnl_report",
+          "registered": true,
+          "current_workspace": true,
+          "state": "not running",
+          "last_exit": "0",
+          "runs": "2"
+        }
+      ]
+    },
+    "dry_run_log": "reports/20260922_production_acceptance/scheduler_like_dry_run.log",
+    "launchd_wrapper": "reports/20260922_production_acceptance/launchd_dry_run_wrapper.sh",
+    "promoted_production_dry_run_log": "reports/20260922_production_acceptance/promoted_production_dry_run.log",
+    "safe_launchd_dry_run_passed": true,
+    "promoted_production_config_dry_run_passed": true
+  },
+  "decision": "Treat the user-provided Tachibana transaction CSV as authoritative for the matched execution date/side/quantity/price/PnL rows; record fee-component reconciliation and historical provider freshness as outstanding operational conditions. Production promotion was explicitly approved by the user on 2026-09-23 under the recorded numerical-gate override."
+}

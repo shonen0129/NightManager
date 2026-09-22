@@ -1,0 +1,12 @@
+{
+  "command": [
+    ".venv/bin/ruff",
+    "check",
+    "src/leadlag/execution/var_history.py",
+    "tests/unit/test_stage_abc_followup_fixes.py"
+  ],
+  "timeout_seconds": 60.0,
+  "exit_code": 0,
+  "timed_out": false,
+  "elapsed_seconds": 0.07712049991823733
+}

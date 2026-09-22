@@ -1,0 +1,26 @@
+{
+  "rows": [
+    {
+      "date": "2026-08-14",
+      "topix_night_local": 0.0052825409802226275,
+      "topix_night_research": 0.0052825409802226275,
+      "topix_oc_local": 0.0002284112020773943,
+      "topix_oc_research": 0.0002284112020773943,
+      "topix_cc_local": 0.005512158773835374,
+      "topix_cc_research": 0.005512158773835374,
+      "gap_max_abs": 0.0,
+      "beta_max_abs": 0.0
+    },
+    {
+      "date": "2026-08-17",
+      "topix_night_local": NaN,
+      "topix_night_research": 0.0006852862469441945,
+      "topix_oc_local": NaN,
+      "topix_oc_research": -0.005021712340518514,
+      "topix_cc_local": NaN,
+      "topix_cc_research": -0.004339867403977404,
+      "gap_max_abs": 0.01782945736434105,
+      "beta_max_abs": NaN
+    }
+  ]
+}

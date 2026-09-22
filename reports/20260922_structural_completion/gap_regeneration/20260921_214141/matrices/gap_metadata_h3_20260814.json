@@ -1,0 +1,41 @@
+{
+  "sig_date": "2026-08-13T00:00:00.000",
+  "trade_date": "2026-08-14",
+  "horizon": 3,
+  "source": "compute_gap_adjusted_distribution",
+  "input_version": "3474ff62dbf89503fb354eb61a86ec3f947bbcd380ff4c9283fa05399ea5b778",
+  "model_version": "production_residual_blpx_v2",
+  "config_version": "c357f7441620b4106eca0dd0e6b503b5fff613571107aaef8d19ae21e204a0df",
+  "ticker_order": [
+    "1617.T",
+    "1618.T",
+    "1619.T",
+    "1620.T",
+    "1621.T",
+    "1622.T",
+    "1623.T",
+    "1624.T",
+    "1625.T",
+    "1626.T",
+    "1627.T",
+    "1628.T",
+    "1629.T",
+    "1630.T",
+    "1631.T",
+    "1632.T",
+    "1633.T"
+  ],
+  "calculation_as_of": "2026-08-14T09:10:00+09:00",
+  "label_available_at": "trade_date+15:30",
+  "observed_at": {
+    "us_returns": "2026-08-14 09:00",
+    "jp_gap_returns": "2026-08-14 09:10",
+    "jp_betas": "2026-08-14 09:10",
+    "topix_night_return": "2026-08-14 09:10",
+    "open_910_returns": "2026-08-14 09:10"
+  },
+  "observed_at_source": "session_boundary_contract",
+  "historical_inputs_fingerprint": "eb4ccbfddd623a48c9c59badad0ff42bdf235a9ee3711845d8bb3654a35ae502",
+  "open_910_version": "b6f67fb582b725114bdc9e72c40132c09e7ec88584ff928cb7050f61bb3c7736",
+  "gap_inputs_version": "31c6421ea7346ec10c8e39b4e2d2678ec546e380d79a09a92a9d8a81e5aa9ef7"
+}

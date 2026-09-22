@@ -1,0 +1,439 @@
+{
+  "source": "/Users/shonen/Downloads/Tachibana_取引記録.csv",
+  "source_exists": true,
+  "csv_row_count": 563,
+  "official_transaction_row_count": 339,
+  "local_real_order_count": 27,
+  "local_order_ids": [
+    "29026064",
+    "29026065",
+    "29026066",
+    "29026067",
+    "29026068",
+    "29026069",
+    "29026070",
+    "29026072",
+    "29026073",
+    "30014725",
+    "30014726",
+    "30014727",
+    "30014728",
+    "30014729",
+    "30014730",
+    "30014731",
+    "30014732",
+    "30014733",
+    "30014734",
+    "31023716",
+    "31023717",
+    "31023719",
+    "31023723",
+    "31023724",
+    "31023725",
+    "31023726",
+    "31023727"
+  ],
+  "local_group_count": 23,
+  "local_group_reconciliations": [
+    {
+      "trade_date": "2026-07-29",
+      "ticker": "1618.T",
+      "side": "BUY",
+      "local_order_ids": [
+        "29026064"
+      ],
+      "local_order_count": 1,
+      "local_quantity": 1.0,
+      "official_transaction_count": 1,
+      "official_quantity": 1.0,
+      "quantity_reconciled": true,
+      "official_prices": [
+        33750.0
+      ],
+      "official_pnl_or_settlement_total": -431.0
+    },
+    {
+      "trade_date": "2026-07-29",
+      "ticker": "1619.T",
+      "side": "SELL",
+      "local_order_ids": [
+        "29026065"
+      ],
+      "local_order_count": 1,
+      "local_quantity": 1.0,
+      "official_transaction_count": 1,
+      "official_quantity": 1.0,
+      "quantity_reconciled": true,
+      "official_prices": [
+        45890.0
+      ],
+      "official_pnl_or_settlement_total": -633.0
+    },
+    {
+      "trade_date": "2026-07-29",
+      "ticker": "1620.T",
+      "side": "SELL",
+      "local_order_ids": [
+        "29026066"
+      ],
+      "local_order_count": 1,
+      "local_quantity": 1.0,
+      "official_transaction_count": 1,
+      "official_quantity": 1.0,
+      "quantity_reconciled": true,
+      "official_prices": [
+        36430.0
+      ],
+      "official_pnl_or_settlement_total": -162.0
+    },
+    {
+      "trade_date": "2026-07-29",
+      "ticker": "1621.T",
+      "side": "SELL",
+      "local_order_ids": [
+        "29026067"
+      ],
+      "local_order_count": 1,
+      "local_quantity": 1.0,
+      "official_transaction_count": 1,
+      "official_quantity": 1.0,
+      "quantity_reconciled": true,
+      "official_prices": [
+        30860.0
+      ],
+      "official_pnl_or_settlement_total": 578.0
+    },
+    {
+      "trade_date": "2026-07-29",
+      "ticker": "1622.T",
+      "side": "BUY",
+      "local_order_ids": [
+        "29026068",
+        "29026069"
+      ],
+      "local_order_count": 2,
+      "local_quantity": 3.0,
+      "official_transaction_count": 2,
+      "official_quantity": 3.0,
+      "quantity_reconciled": true,
+      "official_prices": [
+        36680.0
+      ],
+      "official_pnl_or_settlement_total": -5544.0
+    },
+    {
+      "trade_date": "2026-07-29",
+      "ticker": "1623.T",
+      "side": "BUY",
+      "local_order_ids": [
+        "29026070"
+      ],
+      "local_order_count": 1,
+      "local_quantity": 1.0,
+      "official_transaction_count": 1,
+      "official_quantity": 1.0,
+      "quantity_reconciled": true,
+      "official_prices": [
+        55360.0
+      ],
+      "official_pnl_or_settlement_total": 2599.0
+    },
+    {
+      "trade_date": "2026-07-29",
+      "ticker": "1629.T",
+      "side": "BUY",
+      "local_order_ids": [
+        "29026072",
+        "29026073"
+      ],
+      "local_order_count": 2,
+      "local_quantity": 180.0,
+      "official_transaction_count": 3,
+      "official_quantity": 180.0,
+      "quantity_reconciled": true,
+      "official_prices": [
+        263.6
+      ],
+      "official_pnl_or_settlement_total": -521.0
+    },
+    {
+      "trade_date": "2026-07-30",
+      "ticker": "1617.T",
+      "side": "SELL",
+      "local_order_ids": [
+        "30014725"
+      ],
+      "local_order_count": 1,
+      "local_quantity": 1.0,
+      "official_transaction_count": 1,
+      "official_quantity": 1.0,
+      "quantity_reconciled": true,
+      "official_prices": [
+        48270.0
+      ],
+      "official_pnl_or_settlement_total": -403.0
+    },
+    {
+      "trade_date": "2026-07-30",
+      "ticker": "1618.T",
+      "side": "BUY",
+      "local_order_ids": [
+        "30014726",
+        "30014727"
+      ],
+      "local_order_count": 2,
+      "local_quantity": 2.0,
+      "official_transaction_count": 2,
+      "official_quantity": 2.0,
+      "quantity_reconciled": true,
+      "official_prices": [
+        33600.0
+      ],
+      "official_pnl_or_settlement_total": -295.0
+    },
+    {
+      "trade_date": "2026-07-30",
+      "ticker": "1620.T",
+      "side": "BUY",
+      "local_order_ids": [
+        "30014728"
+      ],
+      "local_order_count": 1,
+      "local_quantity": 1.0,
+      "official_transaction_count": 1,
+      "official_quantity": 1.0,
+      "quantity_reconciled": true,
+      "official_prices": [
+        36130.0
+      ],
+      "official_pnl_or_settlement_total": 129.0
+    },
+    {
+      "trade_date": "2026-07-30",
+      "ticker": "1623.T",
+      "side": "BUY",
+      "local_order_ids": [
+        "30014729"
+      ],
+      "local_order_count": 1,
+      "local_quantity": 1.0,
+      "official_transaction_count": 1,
+      "official_quantity": 1.0,
+      "quantity_reconciled": true,
+      "official_prices": [
+        55470.0
+      ],
+      "official_pnl_or_settlement_total": -471.0
+    },
+    {
+      "trade_date": "2026-07-30",
+      "ticker": "1624.T",
+      "side": "BUY",
+      "local_order_ids": [
+        "30014730"
+      ],
+      "local_order_count": 1,
+      "local_quantity": 1.0,
+      "official_transaction_count": 1,
+      "official_quantity": 1.0,
+      "quantity_reconciled": true,
+      "official_prices": [
+        82920.0
+      ],
+      "official_pnl_or_settlement_total": -862.0
+    },
+    {
+      "trade_date": "2026-07-30",
+      "ticker": "1625.T",
+      "side": "BUY",
+      "local_order_ids": [
+        "30014731"
+      ],
+      "local_order_count": 1,
+      "local_quantity": 1.0,
+      "official_transaction_count": 1,
+      "official_quantity": 1.0,
+      "quantity_reconciled": true,
+      "official_prices": [
+        60180.0
+      ],
+      "official_pnl_or_settlement_total": -751.0
+    },
+    {
+      "trade_date": "2026-07-30",
+      "ticker": "1627.T",
+      "side": "SELL",
+      "local_order_ids": [
+        "30014732"
+      ],
+      "local_order_count": 1,
+      "local_quantity": 2.0,
+      "official_transaction_count": 1,
+      "official_quantity": 2.0,
+      "quantity_reconciled": true,
+      "official_prices": [
+        11505.0
+      ],
+      "official_pnl_or_settlement_total": 79.0
+    },
+    {
+      "trade_date": "2026-07-30",
+      "ticker": "1630.T",
+      "side": "SELL",
+      "local_order_ids": [
+        "30014733"
+      ],
+      "local_order_count": 1,
+      "local_quantity": 1.0,
+      "official_transaction_count": 1,
+      "official_quantity": 1.0,
+      "quantity_reconciled": true,
+      "official_prices": [
+        39340.0
+      ],
+      "official_pnl_or_settlement_total": -292.0
+    },
+    {
+      "trade_date": "2026-07-30",
+      "ticker": "1632.T",
+      "side": "SELL",
+      "local_order_ids": [
+        "30014734"
+      ],
+      "local_order_count": 1,
+      "local_quantity": 1.0,
+      "official_transaction_count": 1,
+      "official_quantity": 1.0,
+      "quantity_reconciled": true,
+      "official_prices": [
+        43550.0
+      ],
+      "official_pnl_or_settlement_total": 118.0
+    },
+    {
+      "trade_date": "2026-07-31",
+      "ticker": "1617.T",
+      "side": "BUY",
+      "local_order_ids": [
+        "31023716"
+      ],
+      "local_order_count": 1,
+      "local_quantity": 1.0,
+      "official_transaction_count": 1,
+      "official_quantity": 1.0,
+      "quantity_reconciled": true,
+      "official_prices": [
+        47860.0
+      ],
+      "official_pnl_or_settlement_total": 459.0
+    },
+    {
+      "trade_date": "2026-07-31",
+      "ticker": "1619.T",
+      "side": "BUY",
+      "local_order_ids": [
+        "31023717"
+      ],
+      "local_order_count": 1,
+      "local_quantity": 1.0,
+      "official_transaction_count": 1,
+      "official_quantity": 1.0,
+      "quantity_reconciled": true,
+      "official_prices": [
+        46000.0
+      ],
+      "official_pnl_or_settlement_total": 69.0
+    },
+    {
+      "trade_date": "2026-07-31",
+      "ticker": "1622.T",
+      "side": "SELL",
+      "local_order_ids": [
+        "31023719"
+      ],
+      "local_order_count": 1,
+      "local_quantity": 1.0,
+      "official_transaction_count": 1,
+      "official_quantity": 1.0,
+      "quantity_reconciled": true,
+      "official_prices": [
+        34910.0
+      ],
+      "official_pnl_or_settlement_total": -302.0
+    },
+    {
+      "trade_date": "2026-07-31",
+      "ticker": "1623.T",
+      "side": "BUY",
+      "local_order_ids": [
+        "31023723",
+        "31023724"
+      ],
+      "local_order_count": 2,
+      "local_quantity": 2.0,
+      "official_transaction_count": 2,
+      "official_quantity": 2.0,
+      "quantity_reconciled": true,
+      "official_prices": [
+        59960.0
+      ],
+      "official_pnl_or_settlement_total": -2132.0
+    },
+    {
+      "trade_date": "2026-07-31",
+      "ticker": "1624.T",
+      "side": "BUY",
+      "local_order_ids": [
+        "31023725"
+      ],
+      "local_order_count": 1,
+      "local_quantity": 1.0,
+      "official_transaction_count": 1,
+      "official_quantity": 1.0,
+      "quantity_reconciled": true,
+      "official_prices": [
+        84570.0
+      ],
+      "official_pnl_or_settlement_total": -2515.0
+    },
+    {
+      "trade_date": "2026-07-31",
+      "ticker": "1625.T",
+      "side": "SELL",
+      "local_order_ids": [
+        "31023726"
+      ],
+      "local_order_count": 1,
+      "local_quantity": 1.0,
+      "official_transaction_count": 1,
+      "official_quantity": 1.0,
+      "quantity_reconciled": true,
+      "official_prices": [
+        63920.0
+      ],
+      "official_pnl_or_settlement_total": 736.0
+    },
+    {
+      "trade_date": "2026-07-31",
+      "ticker": "1626.T",
+      "side": "BUY",
+      "local_order_ids": [
+        "31023727"
+      ],
+      "local_order_count": 1,
+      "local_quantity": 1.0,
+      "official_transaction_count": 1,
+      "official_quantity": 1.0,
+      "quantity_reconciled": true,
+      "official_prices": [
+        44300.0
+      ],
+      "official_pnl_or_settlement_total": 229.0
+    }
+  ],
+  "quantity_reconciled_group_count": 23,
+  "quantity_reconciled_local_order_count": 27,
+  "local_quantity_total": 207.0,
+  "official_quantity_for_local_keys_total": 207.0,
+  "unreconciled_local_group_count": 0
+}

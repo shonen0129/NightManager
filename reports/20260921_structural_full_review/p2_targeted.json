@@ -1,0 +1,14 @@
+{
+  "command": [
+    ".venv/bin/python",
+    "-m",
+    "pytest",
+    "tests/unit/test_stage_abc_followup_fixes.py::test_var_input_fingerprint_respects_total_deadline",
+    "-q",
+    "--tb=short"
+  ],
+  "timeout_seconds": 60.0,
+  "exit_code": 0,
+  "timed_out": false,
+  "elapsed_seconds": 11.923199708107859
+}

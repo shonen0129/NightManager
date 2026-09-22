@@ -1,0 +1,45 @@
+{
+  "checked_at": "2026-09-22T16:26:00.076396+09:00",
+  "services": [
+    {
+      "name": "update-market-data",
+      "registered": true,
+      "current_workspace": true,
+      "state": "not running",
+      "last_exit": "1",
+      "runs": "1"
+    },
+    {
+      "name": "distribution-diagnostics",
+      "registered": true,
+      "current_workspace": true,
+      "state": "not running",
+      "last_exit": "0",
+      "runs": "1"
+    },
+    {
+      "name": "decision",
+      "registered": true,
+      "current_workspace": true,
+      "state": "not running",
+      "last_exit": "0",
+      "runs": "1"
+    },
+    {
+      "name": "close",
+      "registered": true,
+      "current_workspace": true,
+      "state": "not running",
+      "last_exit": "0",
+      "runs": "1"
+    },
+    {
+      "name": "pnl_report",
+      "registered": true,
+      "current_workspace": true,
+      "state": "not running",
+      "last_exit": "0",
+      "runs": "2"
+    }
+  ]
+}

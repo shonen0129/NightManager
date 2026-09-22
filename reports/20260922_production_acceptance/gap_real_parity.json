@@ -1,0 +1,11 @@
+{
+  "command": [
+    ".venv/bin/python",
+    "src/research/scripts/experiments/structural_gap_var_acceptance.py",
+    "gap"
+  ],
+  "timeout_seconds": 240.0,
+  "exit_code": 0,
+  "timed_out": false,
+  "elapsed_seconds": 8.762469082837924
+}

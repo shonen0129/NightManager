@@ -1,0 +1,14 @@
+{
+  "command": [
+    ".venv/bin/python",
+    "-m",
+    "leadlag.execution.reconcile",
+    "--account-snapshot",
+    "--output-dir",
+    "reports/20260922_structural_acceptance_execution/account_snapshot"
+  ],
+  "timeout_seconds": 90.0,
+  "exit_code": 1,
+  "timed_out": false,
+  "elapsed_seconds": 0.8901108328718692
+}

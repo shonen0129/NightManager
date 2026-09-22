@@ -1,0 +1,177 @@
+[
+  {
+    "command": [
+      "uv",
+      "lock",
+      "--check"
+    ],
+    "returncode": 0,
+    "stdout_tail": "",
+    "stderr_tail": "Resolved 123 packages in 4ms\n"
+  },
+  {
+    "command": [
+      "uv",
+      "run",
+      "--locked",
+      "python",
+      "-m",
+      "compileall",
+      "-q",
+      "src/leadlag",
+      "tests",
+      "tools",
+      "scripts",
+      "src/research"
+    ],
+    "returncode": 0,
+    "stdout_tail": "",
+    "stderr_tail": ""
+  },
+  {
+    "command": [
+      "uv",
+      "run",
+      "--locked",
+      "ruff",
+      "check",
+      "src/leadlag",
+      "tests",
+      "tools/production",
+      "tools/validation"
+    ],
+    "returncode": 0,
+    "stdout_tail": "All checks passed!\n",
+    "stderr_tail": ""
+  },
+  {
+    "command": [
+      "uv",
+      "run",
+      "--locked",
+      "ruff",
+      "check",
+      "src/research/experiments/ml_overlay_training.py"
+    ],
+    "returncode": 0,
+    "stdout_tail": "All checks passed!\n",
+    "stderr_tail": ""
+  },
+  {
+    "command": [
+      "uv",
+      "run",
+      "--locked",
+      "mypy",
+      "--config-file",
+      "pyproject.toml",
+      "src/leadlag"
+    ],
+    "returncode": 0,
+    "stdout_tail": "Success: no issues found in 145 source files\n",
+    "stderr_tail": ""
+  },
+  {
+    "command": [
+      "uv",
+      "run",
+      "--locked",
+      "lint-imports"
+    ],
+    "returncode": 0,
+    "stdout_tail": "\n╔══╗─────────▶╔╗ ╔╗      ╔╗◀───┐\n╚╣╠╝◀─────┐  ╔╝╚╗║║────▶╔╝╚╗   │\n ║║   ╔══╦══╦╩╗╔╝║║  ╔╦═╩╗╔╝╔═╦══╗\n ║║╔══╣╔╗║╔╗║╔╣║ ║║ ╔╬╣╔╗║║ ║│║╔═╝\n╔╣╠╣║║║╚╝║╚╝║║║╚╗║╚═╝║║║║║╚╗║═╣║\n╚══╩╩╩╣╔═╩══╩╝╚═╝╚═══╩╩╝╚╩═╩╩═╩╝\n  └──▶║║                    ▲ \n      ╚╝────────────────────┘\n\n\n---------\nContracts\n---------\n\nAnalyzed 183 files, 502 dependencies.\n-------------------------------------\n\ndata does not depend on higher layers KEPT\ncore does not do broker/CLI/execution I/O KEPT\ndomain is a pure layer without execution or CLI KEPT\nmodels do not depend on execution or CLI KEPT\nproduction does not depend on research KEPT\npure calculation modules do not depend on I/O adapters KEPT\ndomain does not depend on application configuration KEPT\n\nContracts: 7 kept, 0 broken.\n",
+    "stderr_tail": ""
+  },
+  {
+    "command": [
+      "uv",
+      "run",
+      "--locked",
+      "python",
+      "scripts/ci/validate_docs.py",
+      "docs/ARCHITECTURE.md",
+      "docs/CI.md",
+      "docs/SCHEDULER_SETUP.md",
+      "docs/decisions/2026-09-15-structural-improvement-boundaries.md",
+      "reports/20260915_structural_improvement/plan.md"
+    ],
+    "returncode": 0,
+    "stdout_tail": "documentation links verified: 83\n",
+    "stderr_tail": ""
+  },
+  {
+    "command": [
+      "uv",
+      "run",
+      "--locked",
+      "--with",
+      "build>=1.2,<2",
+      "python",
+      "-m",
+      "build",
+      "--wheel",
+      "--outdir",
+      "dist"
+    ],
+    "returncode": 0,
+    "stdout_tail": "/execution/state_store.py'\nadding 'leadlag/execution/v2_bridge.py'\nadding 'leadlag/execution/var_cache.py'\nadding 'leadlag/execution/var_history.py'\nadding 'leadlag/execution/var_inputs.py'\nadding 'leadlag/execution/var_worker.py'\nadding 'leadlag/execution/microstructure/__init__.py'\nadding 'leadlag/execution/microstructure/execution_constraints.py'\nadding 'leadlag/execution/microstructure/order_book_cost.py'\nadding 'leadlag/execution/microstructure/order_book_schema.py'\nadding 'leadlag/execution/microstructure/slippage_model.py'\nadding 'leadlag/features/__init__.py'\nadding 'leadlag/features/fractional_diff.py'\nadding 'leadlag/models/__init__.py'\nadding 'leadlag/models/blp_base.py'\nadding 'leadlag/models/ml_order_overlay.py'\nadding 'leadlag/models/ml_overlay_artifact.py'\nadding 'leadlag/models/ml_overlay_features.py'\nadding 'leadlag/models/ml_overlay_inference.py'\nadding 'leadlag/models/production_v2.py'\nadding 'leadlag/models/signal_enhancement.py'\nadding 'leadlag/models/blpx/__init__.py'\nadding 'leadlag/models/blpx/blp_solver.py'\nadding 'leadlag/models/blpx/correlation.py'\nadding 'leadlag/models/blpx/diagnostics_collector.py'\nadding 'leadlag/models/blpx/model.py'\nadding 'leadlag/models/blpx/model_meta.py'\nadding 'leadlag/models/blpx/model_predict.py'\nadding 'leadlag/models/blpx/prior_builder.py'\nadding 'leadlag/models/blpx/signal_computer.py'\nadding 'leadlag/models/v2/__init__.py'\nadding 'leadlag/models/v2/audit_comparator.py'\nadding 'leadlag/models/v2/decision_engine.py'\nadding 'leadlag/models/v2/distribution_resolver.py'\nadding 'leadlag/models/v2/distribution_source.py'\nadding 'leadlag/models/v2/fallback.py'\nadding 'leadlag/models/v2/fallback_policy.py'\nadding 'leadlag/models/v2/gap_io.py'\nadding 'leadlag/models/v2/overlay_applier.py'\nadding 'leadlag/models/v2/pit.py'\nadding 'leadlag/monitoring/__init__.py'\nadding 'leadlag/pipeline/__init__.py'\nadding 'leadlag/pipeline/compute_omega_struct.py'\nadding 'leadlag/pipeline/gap_distribution.py'\nadding 'leadlag/pipeline/gap_reporting.py'\nadding 'leadlag/reporting/__init__.py'\nadding 'leadlag/reporting/daily_pnl_report.py'\nadding 'leadlag/reporting/formatter.py'\nadding 'leadlag/reporting/gmail_sender.py'\nadding 'leadlag/reporting/metrics.py'\nadding 'leadlag/reporting/production_v2_writer.py'\nadding 'leadlag/reporting/results_format.py'\nadding 'leadlag/runner/__init__.py'\nadding 'leadlag/runner/model_factory.py'\nadding 'leadlag/runner/production.py'\nadding 'leadlag/utils/__init__.py'\nadding 'leadlag/utils/cache_manager.py'\nadding 'leadlag/utils/dataframe_fingerprint.py'\nadding 'leadlag/utils/distribution_provenance.py'\nadding 'leadlag/utils/gap_matrix_io.py'\nadding 'leadlag/utils/threading.py'\nadding 'leadlag-2.1.0.dist-info/METADATA'\nadding 'leadlag-2.1.0.dist-info/WHEEL'\nadding 'leadlag-2.1.0.dist-info/entry_points.txt'\nadding 'leadlag-2.1.0.dist-info/top_level.txt'\nadding 'leadlag-2.1.0.dist-info/RECORD'\nremoving build/bdist.macosx-11.0-arm64/wheel\nSuccessfully built leadlag-2.1.0-py3-none-any.whl\n",
+    "stderr_tail": "* Creating isolated environment: venv+pip...\n* Installing packages in isolated environment:\n  - setuptools>=68\n  - wheel\n* Getting build dependencies for wheel...\nWARNING `project.license` as a TOML table is deprecated\n!!\n\n        ********************************************************************************\n        Please use a simple string containing a SPDX expression for `project.license`. You can also use `project.license-files`. (Both options available on setuptools>=77.0.0).\n\n        By 2027-Feb-18, you need to update your project and remove deprecated calls\n        or your builds will no longer be supported.\n\n        See https://packaging.python.org/en/latest/guides/writing-pyproject-toml/#license for details.\n        ********************************************************************************\n\n!!\n* Installed build dependency versions:\n  - setuptools==84.0.0\n  - wheel==0.48.0\n* Building wheel...\nWARNING `project.license` as a TOML table is deprecated\n!!\n\n        ********************************************************************************\n        Please use a simple string containing a SPDX expression for `project.license`. You can also use `project.license-files`. (Both options available on setuptools>=77.0.0).\n\n        By 2027-Feb-18, you need to update your project and remove deprecated calls\n        or your builds will no longer be supported.\n\n        See https://packaging.python.org/en/latest/guides/writing-pyproject-toml/#license for details.\n        ********************************************************************************\n\n!!\n"
+  },
+  {
+    "command": [
+      "uv",
+      "run",
+      "--locked",
+      "python",
+      "scripts/ci/verify_wheel.py",
+      "/Users/shonen/leadlag/dist/leadlag-2.1.0-py3-none-any.whl"
+    ],
+    "returncode": 0,
+    "stdout_tail": "wheel verified: /Users/shonen/leadlag/dist/leadlag-2.1.0-py3-none-any.whl (151 files; research excluded)\n",
+    "stderr_tail": ""
+  },
+  {
+    "command": [
+      "uv",
+      "pip",
+      "install",
+      "--no-deps",
+      "--target",
+      "/tmp/leadlag-wheel-smoke",
+      "/Users/shonen/leadlag/dist/leadlag-2.1.0-py3-none-any.whl"
+    ],
+    "returncode": 0,
+    "stdout_tail": "",
+    "stderr_tail": "Using CPython 3.12.0 interpreter at: .venv/bin/python3\nResolved 1 package in 4ms\nPrepared 1 package in 12ms\nUninstalled 1 package in 13ms\nInstalled 1 package in 4ms\n ~ leadlag==2.1.0 (from file:///Users/shonen/leadlag/dist/leadlag-2.1.0-py3-none-any.whl)\n"
+  },
+  {
+    "command": [
+      "uv",
+      "run",
+      "--locked",
+      "python",
+      "scripts/ci/smoke_installed_wheel.py",
+      "/tmp/leadlag-wheel-smoke"
+    ],
+    "returncode": 0,
+    "stdout_tail": "usage: smoke_installed_wheel.py [-h]\n                                {decision,backtest,daily,close,self-test} ...\n\nCLI tool for the lead-lag market-neutral trading strategy.\n\npositional arguments:\n  {decision,backtest,daily,close,self-test}\n                        Subcommand to run\n    decision            Run one-day V2 trade decision pipeline\n    backtest            Run full V2 historical simulation\n    daily               Run the appropriate daily operation (decision in\n                        morning, close in afternoon)\n    close               Run end-of-day position closing logic\n    self-test           Run CLI production self-tests and exit\n\noptions:\n  -h, --help            show this help message and exit\n{\"wheel_import\": \"/private/tmp/leadlag-wheel-smoke/leadlag/__init__.py\", \"cli_help\": \"pass\", \"artifact_roundtrip_inference\": \"pass\", \"research_import\": \"absent\"}\n",
+    "stderr_tail": "2026-09-20 06:58:15 [INFO] leadlag.models.ml_order_overlay: Overlay model saved to /var/folders/tr/lj1npbw51t90q2m3m78__3040000gn/T/leadlag-wheel-artifact-ny5rcyqo\n2026-09-20 06:58:15 [INFO] leadlag.models.ml_order_overlay: Overlay model loaded from /var/folders/tr/lj1npbw51t90q2m3m78__3040000gn/T/leadlag-wheel-artifact-ny5rcyqo\n"
+  },
+  {
+    "command": [
+      "uv",
+      "run",
+      "--locked",
+      "python",
+      "-m",
+      "pytest",
+      "tests",
+      "-n",
+      "auto",
+      "--junitxml=var/ci/tests.xml"
+    ],
+    "returncode": 0,
+    "stdout_tail": "ell \n[gw6] [100%] PASSED tests/unit/test_allocator.py::TestAllocateCapital::test_gross_budget_equals_buy_plus_sell \n\n=============================== warnings summary ===============================\ntests/unit/test_gap_ondemand_horizon.py::test_ondemand_horizon_uses_cumulative_gap_and_overnight_inputs\n  /Users/shonen/leadlag/tests/unit/test_gap_ondemand_horizon.py:25: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`\n    frame[\"topix_night_return\"] = [0.001, 0.002, 0.003]\n\ntests/unit/test_stage_abc_followup_fixes.py::test_var_backtest_receives_same_selected_overlay_object\n  /Users/shonen/.local/share/uv/python/cpython-3.12.0-macos-aarch64-none/lib/python3.12/multiprocessing/popen_fork.py:66: DeprecationWarning: This process (pid=18232) is multi-threaded, use of fork() may lead to deadlocks in the child.\n    self.pid = os.fork()\n\ntests/research/test_sprint0_qa.py::test_sprint0_qa_subset\n  /Users/shonen/leadlag/src/research/diagnostics/sprint0_qa.py:240: ConstantInputWarning: An input array is constant; the correlation coefficient is not defined.\n    rank_ic, _ = stats.spearmanr(s_t, r_tk)\n\ntests/research/test_sprint1.py::test_backtest_simulation\ntests/research/test_sprint1.py::test_backtest_simulation\ntests/research/test_sprint1.py::test_backtest_simulation\ntests/research/test_sprint1.py::test_backtest_simulation\n  /Users/shonen/leadlag/src/research/diagnostics/sprint1_experiments.py:373: RuntimeWarning: invalid value encountered in divide\n    ratios = np.where(caps > 0.0, np.abs(w_t_mat) / caps, np.where(w_t_mat != 0.0, np.inf, 0.0))\n\ntests/research/test_sprint1.py::test_backtest_simulation\ntests/research/test_sprint1.py::test_backtest_simulation\ntests/research/test_sprint1.py::test_backtest_simulation\ntests/research/test_sprint1.py::test_backtest_simulation\n  /Users/shonen/leadlag/src/research/diagnostics/sprint1_experiments.py:375: RuntimeWarning: invalid value encountered in divide\n    w_opt_mat = np.where(max_ratio > 1.0, w_t_mat / max_ratio, w_t_mat)\n\ntests/research/test_sprint1.py::test_backtest_simulation\ntests/research/test_sprint1.py::test_backtest_simulation\ntests/research/test_sprint1.py::test_backtest_simulation\ntests/research/test_sprint1.py::test_backtest_simulation\ntests/research/test_sprint1.py::test_backtest_simulation\ntests/research/test_sprint1.py::test_backtest_simulation\n  /Users/shonen/leadlag/src/research/diagnostics/sprint1_experiments.py:386: RuntimeWarning: invalid value encountered in divide\n    trade_adv_ratios = np.where(adv_t_mat > 0.0, trade_val / adv_t_mat, 0.0)\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n---------- generated xml file: /Users/shonen/leadlag/var/ci/tests.xml ----------\n================= 786 passed, 17 warnings in 74.42s (0:01:14) ==================\n",
+    "stderr_tail": ""
+  }
+]

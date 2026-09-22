@@ -1,0 +1,20 @@
+{
+  "command": [
+    ".venv/bin/python",
+    "-m",
+    "pytest",
+    "tests",
+    "-n",
+    "auto",
+    "--junitxml=/private/tmp/leadlag_fix_tests.xml"
+  ],
+  "returncode": 0,
+  "result": {
+    "passed": 798,
+    "failed": 0,
+    "errors": 0,
+    "warnings": 16,
+    "elapsed_seconds": 99.08
+  },
+  "watchdog_timeout_seconds": 300
+}

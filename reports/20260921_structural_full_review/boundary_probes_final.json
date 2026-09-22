@@ -1,0 +1,12 @@
+{
+  "command": [
+    "env",
+    "MPLCONFIGDIR=/private/tmp/leadlag-review-matplotlib",
+    ".venv/bin/python",
+    "reports/20260921_structural_full_review/probe_boundaries.py"
+  ],
+  "timeout_seconds": 180.0,
+  "exit_code": 1,
+  "timed_out": false,
+  "elapsed_seconds": 4.967196624958888
+}

@@ -1,0 +1,11 @@
+{
+  "command": [
+    "sh",
+    "-c",
+    "curl -sS --max-time 15 -H \"Accept: application/vnd.github+json\" \"https://api.github.com/repos/shonen0129/NightManager/actions/runs?per_page=1\""
+  ],
+  "timeout_seconds": 30.0,
+  "exit_code": 0,
+  "timed_out": false,
+  "elapsed_seconds": 0.2959521671291441
+}

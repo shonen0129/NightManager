@@ -1,0 +1,20 @@
+{
+  "read_only": true,
+  "provider": "tachibana",
+  "observed_at": "2026-09-22T07:15:03.560340+00:00",
+  "positions": [],
+  "position_count": 0,
+  "wallet": {
+    "cash_available": 11102.0,
+    "margin_available": 0.0,
+    "extra": {
+      "ukeire_hosyoukin": 11102.0,
+      "hosyoukin_yoryoku": 11102.0,
+      "hosyoukin_ritu": 33.0,
+      "sHosyouKinritu": "0.00",
+      "sOisyouHasseiFlg": "0",
+      "sTatekaekinHasseiFlg": "0"
+    }
+  },
+  "fill_query": "known broker order IDs only; use --run-id for persisted runs"
+}

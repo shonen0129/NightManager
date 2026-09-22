@@ -1,0 +1,9 @@
+[
+  {
+    "chunk": "benchmark",
+    "dates": 5,
+    "decisions": 4,
+    "training_rows": 68,
+    "elapsed_seconds": 5.563265250064433
+  }
+]

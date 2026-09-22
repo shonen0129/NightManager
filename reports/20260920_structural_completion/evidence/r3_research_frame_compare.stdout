@@ -1,0 +1,160 @@
+{
+  "dates": [
+    {
+      "date": "2026-08-14",
+      "status": "OK",
+      "horizons": {
+        "1": {
+          "cache_status": "ready",
+          "cache_source": "file_cache",
+          "cache_reason": "resolved",
+          "on_demand_status": "ready",
+          "on_demand_source": "on_demand",
+          "on_demand_reason": "resolved",
+          "cache_metadata": {
+            "sig_date": "2026-08-13",
+            "trade_date": "2026-08-14",
+            "horizon": 1,
+            "source": "compute_gap_adjusted_distribution"
+          },
+          "on_demand_metadata": {
+            "sig_date": "2026-08-13",
+            "trade_date": "2026-08-14",
+            "horizon": 1,
+            "source": "df_exec"
+          },
+          "mu_max_abs_diff": 0.0,
+          "mu_l2_diff": 0.0,
+          "omega_max_abs_diff": 0.000982902813676155,
+          "omega_l2_diff": 0.0013665680706902083
+        },
+        "3": {
+          "cache_status": "ready",
+          "cache_source": "file_cache",
+          "cache_reason": "resolved",
+          "on_demand_status": "ready",
+          "on_demand_source": "on_demand",
+          "on_demand_reason": "resolved",
+          "cache_metadata": {
+            "sig_date": "2026-08-13",
+            "trade_date": "2026-08-14",
+            "horizon": 3,
+            "source": "compute_gap_adjusted_distribution"
+          },
+          "on_demand_metadata": {
+            "sig_date": "2026-08-13",
+            "trade_date": "2026-08-14",
+            "horizon": 3,
+            "source": "df_exec"
+          },
+          "mu_max_abs_diff": 0.024312906069965168,
+          "mu_l2_diff": 0.0376518223043,
+          "omega_max_abs_diff": 0.00015099575410022076,
+          "omega_l2_diff": 0.00016301979081502374
+        },
+        "5": {
+          "cache_status": "ready",
+          "cache_source": "file_cache",
+          "cache_reason": "resolved",
+          "on_demand_status": "ready",
+          "on_demand_source": "on_demand",
+          "on_demand_reason": "resolved",
+          "cache_metadata": {
+            "sig_date": "2026-08-13",
+            "trade_date": "2026-08-14",
+            "horizon": 5,
+            "source": "compute_gap_adjusted_distribution"
+          },
+          "on_demand_metadata": {
+            "sig_date": "2026-08-13",
+            "trade_date": "2026-08-14",
+            "horizon": 5,
+            "source": "df_exec"
+          },
+          "mu_max_abs_diff": 0.04063447212868099,
+          "mu_l2_diff": 0.05217320006080748,
+          "omega_max_abs_diff": 9.747954229478994e-05,
+          "omega_l2_diff": 0.0001564854729944024
+        }
+      }
+    },
+    {
+      "date": "2026-08-17",
+      "status": "OK",
+      "horizons": {
+        "1": {
+          "cache_status": "ready",
+          "cache_source": "file_cache",
+          "cache_reason": "resolved",
+          "on_demand_status": "ready",
+          "on_demand_source": "on_demand",
+          "on_demand_reason": "resolved",
+          "cache_metadata": {
+            "sig_date": "2026-08-14",
+            "trade_date": "2026-08-17",
+            "horizon": 1,
+            "source": "compute_gap_adjusted_distribution"
+          },
+          "on_demand_metadata": {
+            "sig_date": "2026-08-14",
+            "trade_date": "2026-08-17",
+            "horizon": 1,
+            "source": "df_exec"
+          },
+          "mu_max_abs_diff": 0.0,
+          "mu_l2_diff": 0.0,
+          "omega_max_abs_diff": 0.000971267411932146,
+          "omega_l2_diff": 0.001356875977746789
+        },
+        "3": {
+          "cache_status": "ready",
+          "cache_source": "file_cache",
+          "cache_reason": "resolved",
+          "on_demand_status": "ready",
+          "on_demand_source": "on_demand",
+          "on_demand_reason": "resolved",
+          "cache_metadata": {
+            "sig_date": "2026-08-14",
+            "trade_date": "2026-08-17",
+            "horizon": 3,
+            "source": "compute_gap_adjusted_distribution"
+          },
+          "on_demand_metadata": {
+            "sig_date": "2026-08-14",
+            "trade_date": "2026-08-17",
+            "horizon": 3,
+            "source": "df_exec"
+          },
+          "mu_max_abs_diff": 0.012174096850144034,
+          "mu_l2_diff": 0.030592600539782897,
+          "omega_max_abs_diff": 0.00015704721961943419,
+          "omega_l2_diff": 0.00016005297895147632
+        },
+        "5": {
+          "cache_status": "ready",
+          "cache_source": "file_cache",
+          "cache_reason": "resolved",
+          "on_demand_status": "ready",
+          "on_demand_source": "on_demand",
+          "on_demand_reason": "resolved",
+          "cache_metadata": {
+            "sig_date": "2026-08-14",
+            "trade_date": "2026-08-17",
+            "horizon": 5,
+            "source": "compute_gap_adjusted_distribution"
+          },
+          "on_demand_metadata": {
+            "sig_date": "2026-08-14",
+            "trade_date": "2026-08-17",
+            "horizon": 5,
+            "source": "df_exec"
+          },
+          "mu_max_abs_diff": 0.014770034134604315,
+          "mu_l2_diff": 0.03017285099579049,
+          "omega_max_abs_diff": 0.00011521293037266081,
+          "omega_l2_diff": 0.00013872923535582994
+        }
+      }
+    }
+  ]
+}

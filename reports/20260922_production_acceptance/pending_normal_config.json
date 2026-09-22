@@ -1,0 +1,14 @@
+{
+  "command": [
+    ".venv/bin/python",
+    "-m",
+    "leadlag.execution.reconcile",
+    "--pending",
+    "--output-dir",
+    "var/results/20260922_production_acceptance/reconciliation"
+  ],
+  "timeout_seconds": 60.0,
+  "exit_code": 0,
+  "timed_out": false,
+  "elapsed_seconds": 0.6670022089965641
+}

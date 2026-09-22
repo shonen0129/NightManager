@@ -1,0 +1,11 @@
+{
+  "command": [
+    ".venv/bin/python",
+    "reports/20260922_production_acceptance/operations.py",
+    "scheduler"
+  ],
+  "timeout_seconds": 60.0,
+  "exit_code": 0,
+  "timed_out": false,
+  "elapsed_seconds": 0.12605729210190475
+}

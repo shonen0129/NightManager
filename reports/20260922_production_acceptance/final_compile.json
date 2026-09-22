@@ -1,0 +1,17 @@
+{
+  "command": [
+    ".venv/bin/python",
+    "-m",
+    "compileall",
+    "-q",
+    "src/leadlag",
+    "tests",
+    "tools",
+    "scripts",
+    "src/research"
+  ],
+  "timeout_seconds": 180.0,
+  "exit_code": 0,
+  "timed_out": false,
+  "elapsed_seconds": 0.14395441696979105
+}

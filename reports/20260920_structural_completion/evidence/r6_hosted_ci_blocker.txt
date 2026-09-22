@@ -1,0 +1,4 @@
+gh: unavailable
+origin	https://github.com/shonen0129/NightManager.git (fetch)
+origin	https://github.com/shonen0129/NightManager.git (push)
+cf97bfaf

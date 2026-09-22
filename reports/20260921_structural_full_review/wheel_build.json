@@ -1,0 +1,14 @@
+{
+  "command": [
+    "env",
+    "UV_OFFLINE=1",
+    ".venv/bin/python",
+    "scripts/ci/build_wheel_clean.py",
+    "--outdir",
+    "reports/20260921_structural_full_review/dist"
+  ],
+  "timeout_seconds": 180.0,
+  "exit_code": 1,
+  "timed_out": false,
+  "elapsed_seconds": 0.04698758386075497
+}

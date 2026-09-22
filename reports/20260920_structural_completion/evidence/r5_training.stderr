@@ -1,0 +1,10 @@
+Traceback (most recent call last):
+  File "/Users/shonen/leadlag/tools/production/train_ml_order_overlay.py", line 152, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/Users/shonen/leadlag/tools/production/train_ml_order_overlay.py", line 127, in main
+    df_exec = load_df_exec_from_local_cache(max_stale_bdays=3)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/shonen/leadlag/src/leadlag/data/market_data_cache.py", line 298, in load_df_exec_from_local_cache
+    raise RuntimeError(
+RuntimeError: [FAST MODE] Could not load a fresh df_exec cache and rebuilding from raw ETF cache also failed; stale cache fallback is disabled when max_stale_bdays is set. Prepare fresh caches via the non-fast path before running fast mode.

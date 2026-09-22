@@ -1,0 +1,15 @@
+{
+  "command": [
+    ".venv/bin/ruff",
+    "check",
+    "src/leadlag",
+    "tests",
+    "tools/production",
+    "tools/validation",
+    "src/research/experiments/ml_overlay_training.py"
+  ],
+  "timeout_seconds": 60.0,
+  "exit_code": 0,
+  "timed_out": false,
+  "elapsed_seconds": 0.07714587496593595
+}

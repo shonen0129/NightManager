@@ -1,0 +1,16 @@
+{
+  "command": [
+    "env",
+    "TACHIBANA_PRIVATE_KEY_PATH=/Users/shonen/leadlag/creds/e_api_private_key.pem",
+    ".venv/bin/python",
+    "-m",
+    "leadlag.execution.reconcile",
+    "--account-snapshot",
+    "--output-dir",
+    "reports/20260922_structural_acceptance_execution/account_snapshot_current_key"
+  ],
+  "timeout_seconds": 90.0,
+  "exit_code": 0,
+  "timed_out": false,
+  "elapsed_seconds": 2.5160904589574784
+}

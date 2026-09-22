@@ -1,0 +1,30 @@
+[
+  {
+    "chunk": "0",
+    "dates": 690,
+    "decisions": 690,
+    "training_rows": 11730,
+    "elapsed_seconds": 457.28325470886193
+  },
+  {
+    "chunk": "1",
+    "dates": 689,
+    "decisions": 689,
+    "training_rows": 11696,
+    "elapsed_seconds": 562.9560492499731
+  },
+  {
+    "chunk": "2",
+    "dates": 689,
+    "decisions": 689,
+    "training_rows": 11713,
+    "elapsed_seconds": 591.7296662919689
+  },
+  {
+    "chunk": "3",
+    "dates": 689,
+    "decisions": 688,
+    "training_rows": 11696,
+    "elapsed_seconds": 685.8812682910357
+  }
+]

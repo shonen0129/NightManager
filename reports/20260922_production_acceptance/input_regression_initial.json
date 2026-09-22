@@ -1,0 +1,19 @@
+{
+  "command": [
+    ".venv/bin/python",
+    "-m",
+    "pytest",
+    "tests/unit/test_s2a_input_boundaries.py",
+    "tests/unit/test_s2b_input_contracts.py",
+    "tests/unit/test_v2_distribution_sources.py",
+    "tests/unit/test_s7_ml_boundaries.py",
+    "tests/unit/test_backtest_transform.py",
+    "tests/unit/test_jp_target_returns.py",
+    "-q",
+    "--tb=short"
+  ],
+  "timeout_seconds": 180.0,
+  "exit_code": 1,
+  "timed_out": false,
+  "elapsed_seconds": 2.5461866669356823
+}

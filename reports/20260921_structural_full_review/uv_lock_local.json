@@ -1,0 +1,14 @@
+{
+  "command": [
+    "uv",
+    "--cache-dir",
+    "/private/tmp/leadlag-review-uv-cache",
+    "lock",
+    "--check",
+    "--offline"
+  ],
+  "timeout_seconds": 60.0,
+  "exit_code": 0,
+  "timed_out": false,
+  "elapsed_seconds": 0.08889266708865762
+}

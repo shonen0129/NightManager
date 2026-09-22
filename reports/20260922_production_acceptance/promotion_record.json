@@ -1,0 +1,32 @@
+{
+  "promotion_date": "2026-09-23",
+  "approval": "explicit user approval in current session",
+  "source_artifact": "var/results/20260922_production_acceptance/artifacts/evaluation_2025",
+  "source_current": "20260922T011723828589Z-7e1a81ab2617",
+  "published_artifact": "models/ml_order_overlay/production_20260923",
+  "model_sha256": "df5bc337be0b999a84780943aaf2918fa8b775be7eb7e4357ccd37e0600aa85a",
+  "metadata_status": "verified",
+  "numerical_promotion_criteria_pass": false,
+  "promotion_status": "promoted_by_explicit_operator_override",
+  "operator_override_reason": "The user approved promotion after reviewing the documented numerical-gate failure and remaining operational conditions.",
+  "aggregate_comparison": {
+    "baseline_net_sharpe": 2.204668565104916,
+    "candidate_net_sharpe": 2.2201035169055974,
+    "baseline_max_drawdown": -0.2774822615424746,
+    "candidate_max_drawdown": -0.2940712086308004,
+    "baseline_turnover": 1.2970713159375833,
+    "candidate_turnover": 1.3083086238954742
+  },
+  "loader_checks": {
+    "current_pointer": true,
+    "metadata_verified": true,
+    "model_digest_verified": true,
+    "production_config_resolves_to_published_root": true,
+    "production_bundle_active_version_matches": true
+  },
+  "outstanding_conditions": [
+    "historical provider-issued available_at remains unverifiable",
+    "broker fee-component reconciliation remains unavailable (991012; CSV has no fee breakdown)",
+    "live scheduler order cycle remains untested; malformed old cache rows still fail closed"
+  ]
+}

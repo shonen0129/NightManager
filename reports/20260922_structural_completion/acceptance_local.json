@@ -1,0 +1,143 @@
+{
+  "collected_at": "2026-09-21T21:55:53.613664+09:00",
+  "resolved_config": {
+    "ml_overlay_enabled": true,
+    "mh_horizons": [
+      1,
+      3,
+      5
+    ],
+    "fallback_on_audit_failure": true
+  },
+  "gap_regeneration": {
+    "files": 6,
+    "horizons": [
+      1,
+      3,
+      5
+    ],
+    "all_have_observed_at": true,
+    "all_have_label_availability": true,
+    "all_have_calculation_as_of": true,
+    "all_have_history_fingerprint": true
+  },
+  "gap_regeneration_complete": true,
+  "artifact": {
+    "current": "20260919T211305249223Z-db9535d77b24",
+    "metadata_status": "verified",
+    "train_start": "2026-01-05",
+    "train_end": "2026-08-13",
+    "data_hash": "9ca13f26a46fc1782598779b937ad0c871a56b4ccb3618c7ddb5630b691db19e",
+    "config_hash": "565b36762e92dbc08122491f21038badded9d0cca629ea16bba9db477c509489",
+    "oos_evidence_in_metadata": false
+  },
+  "existing_shadow_oos": [
+    {
+      "annualized_net_return": 0.9734611792743536,
+      "annualized_volatility": 0.1356134726567105,
+      "sharpe_ratio": 7.1782040545378205,
+      "sortino_ratio": 16.064731243077247,
+      "max_drawdown": -0.0517489698599666,
+      "calmar_ratio": 18.811218501712226,
+      "cvar_95_pct": -0.0074337988805842,
+      "cvar_99_pct": -0.0119447229688139,
+      "average_max_abs_weight": 0.6737244536642798,
+      "average_turnover": 2.737829489293674,
+      "hit_rate": 0.6787564766839378,
+      "candidate": "primary_ruleD",
+      "days_count": 1544
+    }
+  ],
+  "execution_state": {
+    "recovery_candidates": 0
+  },
+  "scheduler": [
+    {
+      "command": [
+        "launchctl",
+        "print",
+        "gui/501/com.leadlag.update-market-data"
+      ],
+      "returncode": 0,
+      "stdout": "gui/501/com.leadlag.update-market-data = {\n\tactive count = 0\n\tpath = /Users/shonen/Library/LaunchAgents/com.leadlag.update-market-data.plist\n\ttype = LaunchAgent\n\tstate = not running\n\n\tprogram = /bin/bash\n\targuments = {\n\t\t/bin/bash\n\t\t/Users/shonen/日米ラグ/scripts/batch/update_market_data.sh\n\t}\n\n\tworking directory = /Users/shonen/日米ラグ\n\n\tstdout path = /Users/shonen/日米ラグ/var/logs/update_market_data_launchd.log\n\tstderr path = /Users/shonen/日米ラグ/var/logs/update_market_data_launchd.log\n\tinherited environment = {\n\t\tSSH_AUTH_SOCK => /var/run/com.apple.launchd.BdCqu2aqFc/Listeners\n\t}\n\n\tdefault environment = {\n\t\tPATH => /usr/bin:/bin:/usr/sbin:/sbin\n\t}\n\n\tenvironment = {\n\t\tOSLogRateLimit => 64\n\t\tPATH => /opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin\n\t\tXPC_SERVICE_NAME => com.leadlag.update-market-data\n\t}\n\n\tLWCR = {\n\t\t\"reqs\" => {\n\t\t\t\"signing-identifier\" => \"com.apple.bash\"\n\t\t\t\"validation-category\" => 1\n\t\t}\n\t\t\"vers\" => 1\n\t\t\"comp\" => 1\n\t\t\"ccat\" => 0\n\t}\n\n\tdomain = gui/501 [100014]\n\tasid = 100014\n\tminimum runtime = 10\n\texit timeout = 5\n\truns = 12\n\tlast exit code = 127\n\n\tevent triggers = {\n\t\tcom.leadlag.update-market-data.268435476 => {\n\t\t\tkeepalive = 0\n\t\t\tservice = com.leadlag.update-market-data\n\t\t\tstream = com.apple.launchd.calendarinterval\n\t\t\tmonitor = com.apple.UserEventAgent-Aqua\n\t\t\tdescriptor = {\n\t\t\t\t\"Minute\" => 0\n\t\t\t\t\"Hour\" => 8\n\t\t\t\t\"Weekday\" => 6\n\t\t\t}\n\t\t}\n\t\tcom.leadlag.update-market-data.268435475 => {\n\t\t\tkeepalive = 0\n\t\t\tservice = com.leadlag.update-market-data\n\t\t\tstream = com.apple.launchd.calendarinterval\n\t\t\tmonitor = com.apple.UserEventAgent-Aqua\n\t\t\tdescriptor = {\n\t\t\t\t\"Minute\" => 0\n\t\t\t\t\"Hour\" => 8\n\t\t\t\t\"Weekday\" => 5\n\t\t\t}\n\t\t}\n\t\tcom.leadlag.update-market-data.268435474 => {\n\t\t\tkeepalive = 0\n\t\t\tservice = com.leadlag.update-market-data\n\t\t\tstream = com.apple.launchd.calendarinterval\n\t\t\tmonitor = com.apple.UserEventAgent-Aqua\n\t\t\tdescriptor = {\n\t\t\t\t\"Minute\" => 0\n\t\t\t\t\"Hour\" => 8\n\t\t\t\t\"Weekday\" => 4\n\t\t\t}\n\t\t}\n\t\tcom.leadlag.update-market-data.268435473 => {\n\t\t\tkeepalive = 0\n\t\t\tservice = com.leadlag.update-market-data\n\t\t\tstream = com.apple.launchd.calendarinterval\n\t\t\tmonitor = com.apple.UserEventAgent-Aqua\n\t\t\tdescriptor = {\n\t\t\t\t\"Minute\" => 0\n\t\t\t\t\"Hour\" => 8\n\t\t\t\t\"Weekday\" => 3\n\t\t\t}\n\t\t}\n\t\tcom.leadlag.update-market-data.268435472 => {\n\t\t\tkeepalive = 0\n\t\t\tservice = com.leadlag.update-market-data\n\t\t\tstream = com.apple.launchd.calendarinterval\n\t\t\tmonitor = com.apple.UserEventAgent-Aqua\n\t\t\tdescriptor = {\n\t\t\t\t\"Minute\" => 0\n\t\t\t\t\"Hour\" => 8\n\t\t\t\t\"Weekday\" => 2\n\t\t\t}\n\t\t}\n\t\tcom.leadlag.update-market-data.268435471 => {\n\t\t\tkeepalive = 0\n\t\t\tservice = com.leadlag.update-market-data\n\t\t\tstream = com.apple.launchd.calendarinterval\n\t\t\tmonitor = com.apple.UserEventAgent-Aqua\n\t\t\tdescriptor = {\n\t\t\t\t\"Minute\" => 0\n\t\t\t\t\"Hour\" => 8\n\t\t\t\t\"Weekday\" => 1\n\t\t\t}\n\t\t}\n\t}\n\n\tevent channels = {\n\t\t\"com.apple.launchd.calendarinterval\" = {\n\t\t\tport = 0x1176e7\n\t\t\tactive = 0\n\t\t\tmanaged = 1\n\t\t\treset = 0\n\t\t\thide = 0\n\t\t\twatching = 1\n\t\t}\n\t}\n\n\tresource coalition = {\n\t\tID = 6590\n\t\ttype = resource\n\t\tstate = active\n\t\tactive count = 1\n\t\tname = com.leadlag.update-market-data\n\t}\n\n\tjetsam coalition = {\n\t\tID = 6591\n\t\ttype = jetsam\n\t\tstate = active\n\t\tactive count = 1\n\t\tname = com.leadlag.update-market-data\n\t}\n\n\tspawn type = background (5)\n\tjetsam priority = 40\n\tjetsam memory limit (active) = (unlimited)\n\tjetsam memory limit (inactive) = (unlimited)\n\tjetsamproperties category = daemon\n\tjetsam thread limit = 32\n\tcpumon = default\n\tjob state = exited\n\tsanitizer flags = 0x0\n\n\tproperties = inferred program | managed LWCR | has LWCR\n}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "launchctl",
+        "print",
+        "gui/501/com.leadlag.distribution-diagnostics"
+      ],
+      "returncode": 0,
+      "stdout": "gui/501/com.leadlag.distribution-diagnostics = {\n\tactive count = 0\n\tpath = /Users/shonen/Library/LaunchAgents/com.leadlag.distribution-diagnostics.plist\n\ttype = LaunchAgent\n\tstate = not running\n\n\tprogram = /bin/bash\n\targuments = {\n\t\t/bin/bash\n\t\t/Users/shonen/leadlag/scripts/batch/run_distribution_diagnostics.sh\n\t}\n\n\tworking directory = /Users/shonen/leadlag\n\n\tstdout path = /Users/shonen/leadlag/var/logs/distribution_diagnostics_launchd.log\n\tstderr path = /Users/shonen/leadlag/var/logs/distribution_diagnostics_launchd.log\n\tinherited environment = {\n\t\tSSH_AUTH_SOCK => /var/run/com.apple.launchd.BdCqu2aqFc/Listeners\n\t}\n\n\tdefault environment = {\n\t\tPATH => /usr/bin:/bin:/usr/sbin:/sbin\n\t}\n\n\tenvironment = {\n\t\tOSLogRateLimit => 64\n\t\tPATH => /opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin\n\t\tXPC_SERVICE_NAME => com.leadlag.distribution-diagnostics\n\t}\n\n\tdomain = gui/501 [100014]\n\tasid = 100014\n\tminimum runtime = 10\n\texit timeout = 5\n\truns = 1\n\tlast exit code = 0\n\n\tevent triggers = {\n\t\tcom.leadlag.distribution-diagnostics.268435502 => {\n\t\t\tkeepalive = 0\n\t\t\tservice = com.leadlag.distribution-diagnostics\n\t\t\tstream = com.apple.launchd.calendarinterval\n\t\t\tmonitor = com.apple.UserEventAgent-Aqua\n\t\t\tdescriptor = {\n\t\t\t\t\"Minute\" => 15\n\t\t\t\t\"Hour\" => 8\n\t\t\t\t\"Weekday\" => 5\n\t\t\t}\n\t\t}\n\t\tcom.leadlag.distribution-diagnostics.268435499 => {\n\t\t\tkeepalive = 0\n\t\t\tservice = com.leadlag.distribution-diagnostics\n\t\t\tstream = com.apple.launchd.calendarinterval\n\t\t\tmonitor = com.apple.UserEventAgent-Aqua\n\t\t\tdescriptor = {\n\t\t\t\t\"Minute\" => 15\n\t\t\t\t\"Hour\" => 8\n\t\t\t\t\"Weekday\" => 2\n\t\t\t}\n\t\t}\n\t\tcom.leadlag.distribution-diagnostics.268435501 => {\n\t\t\tkeepalive = 0\n\t\t\tservice = com.leadlag.distribution-diagnostics\n\t\t\tstream = com.apple.launchd.calendarinterval\n\t\t\tmonitor = com.apple.UserEventAgent-Aqua\n\t\t\tdescriptor = {\n\t\t\t\t\"Minute\" => 15\n\t\t\t\t\"Hour\" => 8\n\t\t\t\t\"Weekday\" => 4\n\t\t\t}\n\t\t}\n\t\tcom.leadlag.distribution-diagnostics.268435498 => {\n\t\t\tkeepalive = 0\n\t\t\tservice = com.leadlag.distribution-diagnostics\n\t\t\tstream = com.apple.launchd.calendarinterval\n\t\t\tmonitor = com.apple.UserEventAgent-Aqua\n\t\t\tdescriptor = {\n\t\t\t\t\"Minute\" => 15\n\t\t\t\t\"Hour\" => 8\n\t\t\t\t\"Weekday\" => 1\n\t\t\t}\n\t\t}\n\t\tcom.leadlag.distribution-diagnostics.268435500 => {\n\t\t\tkeepalive = 0\n\t\t\tservice = com.leadlag.distribution-diagnostics\n\t\t\tstream = com.apple.launchd.calendarinterval\n\t\t\tmonitor = com.apple.UserEventAgent-Aqua\n\t\t\tdescriptor = {\n\t\t\t\t\"Minute\" => 15\n\t\t\t\t\"Hour\" => 8\n\t\t\t\t\"Weekday\" => 3\n\t\t\t}\n\t\t}\n\t\tcom.leadlag.distribution-diagnostics.268435503 => {\n\t\t\tkeepalive = 0\n\t\t\tservice = com.leadlag.distribution-diagnostics\n\t\t\tstream = com.apple.launchd.calendarinterval\n\t\t\tmonitor = com.apple.UserEventAgent-Aqua\n\t\t\tdescriptor = {\n\t\t\t\t\"Minute\" => 15\n\t\t\t\t\"Hour\" => 8\n\t\t\t\t\"Weekday\" => 6\n\t\t\t}\n\t\t}\n\t}\n\n\tevent channels = {\n\t\t\"com.apple.launchd.calendarinterval\" = {\n\t\t\tport = 0xc863b\n\t\t\tactive = 0\n\t\t\tmanaged = 1\n\t\t\treset = 0\n\t\t\thide = 0\n\t\t\twatching = 1\n\t\t}\n\t}\n\n\tresource coalition = {\n\t\tID = 53142\n\t\ttype = resource\n\t\tstate = active\n\t\tactive count = 1\n\t\tname = com.leadlag.distribution-diagnostics\n\t}\n\n\tjetsam coalition = {\n\t\tID = 53143\n\t\ttype = jetsam\n\t\tstate = active\n\t\tactive count = 1\n\t\tname = com.leadlag.distribution-diagnostics\n\t}\n\n\tspawn type = background (5)\n\tjetsam priority = 40\n\tjetsam memory limit (active) = (unlimited)\n\tjetsam memory limit (inactive) = (unlimited)\n\tjetsamproperties category = daemon\n\tsubmitted job. ignore execute allowed\n\tjetsam thread limit = 32\n\tcpumon = default\n\tjob state = exited\n\tsanitizer flags = 0x0\n\n\tproperties = inferred program\n}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "launchctl",
+        "print",
+        "gui/501/com.leadlag.decision"
+      ],
+      "returncode": 0,
+      "stdout": "gui/501/com.leadlag.decision = {\n\tactive count = 0\n\tpath = /Users/shonen/Library/LaunchAgents/com.leadlag.decision.plist\n\ttype = LaunchAgent\n\tstate = not running\n\n\tprogram = /bin/bash\n\targuments = {\n\t\t/bin/bash\n\t\t/Users/shonen/leadlag/scripts/batch/run_decision_v2.sh\n\t}\n\n\tworking directory = /Users/shonen/leadlag\n\n\tstdout path = /Users/shonen/leadlag/var/logs/decision_launchd.log\n\tstderr path = /Users/shonen/leadlag/var/logs/decision_launchd.log\n\tinherited environment = {\n\t\tSSH_AUTH_SOCK => /var/run/com.apple.launchd.BdCqu2aqFc/Listeners\n\t}\n\n\tdefault environment = {\n\t\tPATH => /usr/bin:/bin:/usr/sbin:/sbin\n\t}\n\n\tenvironment = {\n\t\tOSLogRateLimit => 64\n\t\tPATH => /opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin\n\t\tXPC_SERVICE_NAME => com.leadlag.decision\n\t}\n\n\tdomain = gui/501 [100014]\n\tasid = 100014\n\tminimum runtime = 10\n\texit timeout = 5\n\truns = 1\n\tlast exit code = 0\n\n\tevent triggers = {\n\t\tcom.leadlag.decision.268435505 => {\n\t\t\tkeepalive = 0\n\t\t\tservice = com.leadlag.decision\n\t\t\tstream = com.apple.launchd.calendarinterval\n\t\t\tmonitor = com.apple.UserEventAgent-Aqua\n\t\t\tdescriptor = {\n\t\t\t\t\"Minute\" => 10\n\t\t\t\t\"Hour\" => 9\n\t\t\t\t\"Weekday\" => 2\n\t\t\t}\n\t\t}\n\t\tcom.leadlag.decision.268435504 => {\n\t\t\tkeepalive = 0\n\t\t\tservice = com.leadlag.decision\n\t\t\tstream = com.apple.launchd.calendarinterval\n\t\t\tmonitor = com.apple.UserEventAgent-Aqua\n\t\t\tdescriptor = {\n\t\t\t\t\"Minute\" => 10\n\t\t\t\t\"Hour\" => 9\n\t\t\t\t\"Weekday\" => 1\n\t\t\t}\n\t\t}\n\t\tcom.leadlag.decision.268435508 => {\n\t\t\tkeepalive = 0\n\t\t\tservice = com.leadlag.decision\n\t\t\tstream = com.apple.launchd.calendarinterval\n\t\t\tmonitor = com.apple.UserEventAgent-Aqua\n\t\t\tdescriptor = {\n\t\t\t\t\"Minute\" => 10\n\t\t\t\t\"Hour\" => 9\n\t\t\t\t\"Weekday\" => 5\n\t\t\t}\n\t\t}\n\t\tcom.leadlag.decision.268435507 => {\n\t\t\tkeepalive = 0\n\t\t\tservice = com.leadlag.decision\n\t\t\tstream = com.apple.launchd.calendarinterval\n\t\t\tmonitor = com.apple.UserEventAgent-Aqua\n\t\t\tdescriptor = {\n\t\t\t\t\"Minute\" => 10\n\t\t\t\t\"Hour\" => 9\n\t\t\t\t\"Weekday\" => 4\n\t\t\t}\n\t\t}\n\t\tcom.leadlag.decision.268435506 => {\n\t\t\tkeepalive = 0\n\t\t\tservice = com.leadlag.decision\n\t\t\tstream = com.apple.launchd.calendarinterval\n\t\t\tmonitor = com.apple.UserEventAgent-Aqua\n\t\t\tdescriptor = {\n\t\t\t\t\"Minute\" => 10\n\t\t\t\t\"Hour\" => 9\n\t\t\t\t\"Weekday\" => 3\n\t\t\t}\n\t\t}\n\t}\n\n\tevent channels = {\n\t\t\"com.apple.launchd.calendarinterval\" = {\n\t\t\tport = 0x12cb9b\n\t\t\tactive = 0\n\t\t\tmanaged = 1\n\t\t\treset = 0\n\t\t\thide = 0\n\t\t\twatching = 1\n\t\t}\n\t}\n\n\tresource coalition = {\n\t\tID = 53381\n\t\ttype = resource\n\t\tstate = active\n\t\tactive count = 1\n\t\tname = com.leadlag.decision\n\t}\n\n\tjetsam coalition = {\n\t\tID = 53382\n\t\ttype = jetsam\n\t\tstate = active\n\t\tactive count = 1\n\t\tname = com.leadlag.decision\n\t}\n\n\tspawn type = background (5)\n\tjetsam priority = 40\n\tjetsam memory limit (active) = (unlimited)\n\tjetsam memory limit (inactive) = (unlimited)\n\tjetsamproperties category = daemon\n\tsubmitted job. ignore execute allowed\n\tjetsam thread limit = 32\n\tcpumon = default\n\tjob state = exited\n\tsanitizer flags = 0x0\n\n\tproperties = inferred program\n}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "launchctl",
+        "print",
+        "gui/501/com.leadlag.close"
+      ],
+      "returncode": 0,
+      "stdout": "gui/501/com.leadlag.close = {\n\tactive count = 0\n\tpath = /Users/shonen/Library/LaunchAgents/com.leadlag.close.plist\n\ttype = LaunchAgent\n\tstate = not running\n\n\tprogram = /bin/bash\n\targuments = {\n\t\t/bin/bash\n\t\t/Users/shonen/leadlag/scripts/batch/run_close_positions.sh\n\t}\n\n\tworking directory = /Users/shonen/leadlag\n\n\tstdout path = /Users/shonen/leadlag/var/logs/close_launchd.log\n\tstderr path = /Users/shonen/leadlag/var/logs/close_launchd.log\n\tinherited environment = {\n\t\tSSH_AUTH_SOCK => /var/run/com.apple.launchd.BdCqu2aqFc/Listeners\n\t}\n\n\tdefault environment = {\n\t\tPATH => /usr/bin:/bin:/usr/sbin:/sbin\n\t}\n\n\tenvironment = {\n\t\tOSLogRateLimit => 64\n\t\tPATH => /opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin\n\t\tXPC_SERVICE_NAME => com.leadlag.close\n\t}\n\n\tdomain = gui/501 [100014]\n\tasid = 100014\n\tminimum runtime = 10\n\texit timeout = 5\n\truns = 1\n\tlast exit code = 0\n\n\tevent triggers = {\n\t\tcom.leadlag.close.268435509 => {\n\t\t\tkeepalive = 0\n\t\t\tservice = com.leadlag.close\n\t\t\tstream = com.apple.launchd.calendarinterval\n\t\t\tmonitor = com.apple.UserEventAgent-Aqua\n\t\t\tdescriptor = {\n\t\t\t\t\"Minute\" => 50\n\t\t\t\t\"Hour\" => 14\n\t\t\t\t\"Weekday\" => 1\n\t\t\t}\n\t\t}\n\t\tcom.leadlag.close.268435513 => {\n\t\t\tkeepalive = 0\n\t\t\tservice = com.leadlag.close\n\t\t\tstream = com.apple.launchd.calendarinterval\n\t\t\tmonitor = com.apple.UserEventAgent-Aqua\n\t\t\tdescriptor = {\n\t\t\t\t\"Minute\" => 50\n\t\t\t\t\"Hour\" => 14\n\t\t\t\t\"Weekday\" => 5\n\t\t\t}\n\t\t}\n\t\tcom.leadlag.close.268435512 => {\n\t\t\tkeepalive = 0\n\t\t\tservice = com.leadlag.close\n\t\t\tstream = com.apple.launchd.calendarinterval\n\t\t\tmonitor = com.apple.UserEventAgent-Aqua\n\t\t\tdescriptor = {\n\t\t\t\t\"Minute\" => 50\n\t\t\t\t\"Hour\" => 14\n\t\t\t\t\"Weekday\" => 4\n\t\t\t}\n\t\t}\n\t\tcom.leadlag.close.268435511 => {\n\t\t\tkeepalive = 0\n\t\t\tservice = com.leadlag.close\n\t\t\tstream = com.apple.launchd.calendarinterval\n\t\t\tmonitor = com.apple.UserEventAgent-Aqua\n\t\t\tdescriptor = {\n\t\t\t\t\"Minute\" => 50\n\t\t\t\t\"Hour\" => 14\n\t\t\t\t\"Weekday\" => 3\n\t\t\t}\n\t\t}\n\t\tcom.leadlag.close.268435510 => {\n\t\t\tkeepalive = 0\n\t\t\tservice = com.leadlag.close\n\t\t\tstream = com.apple.launchd.calendarinterval\n\t\t\tmonitor = com.apple.UserEventAgent-Aqua\n\t\t\tdescriptor = {\n\t\t\t\t\"Minute\" => 50\n\t\t\t\t\"Hour\" => 14\n\t\t\t\t\"Weekday\" => 2\n\t\t\t}\n\t\t}\n\t}\n\n\tevent channels = {\n\t\t\"com.apple.launchd.calendarinterval\" = {\n\t\t\tport = 0xc0777\n\t\t\tactive = 0\n\t\t\tmanaged = 1\n\t\t\treset = 0\n\t\t\thide = 0\n\t\t\twatching = 1\n\t\t}\n\t}\n\n\tresource coalition = {\n\t\tID = 54487\n\t\ttype = resource\n\t\tstate = active\n\t\tactive count = 1\n\t\tname = com.leadlag.close\n\t}\n\n\tjetsam coalition = {\n\t\tID = 54488\n\t\ttype = jetsam\n\t\tstate = active\n\t\tactive count = 1\n\t\tname = com.leadlag.close\n\t}\n\n\tspawn type = background (5)\n\tjetsam priority = 40\n\tjetsam memory limit (active) = (unlimited)\n\tjetsam memory limit (inactive) = (unlimited)\n\tjetsamproperties category = daemon\n\tsubmitted job. ignore execute allowed\n\tjetsam thread limit = 32\n\tcpumon = default\n\tjob state = exited\n\tsanitizer flags = 0x0\n\n\tproperties = inferred program\n}\n",
+      "stderr": ""
+    },
+    {
+      "command": [
+        "launchctl",
+        "print",
+        "gui/501/com.leadlag.pnl_report"
+      ],
+      "returncode": 0,
+      "stdout": "gui/501/com.leadlag.pnl_report = {\n\tactive count = 0\n\tpath = /Users/shonen/Library/LaunchAgents/com.leadlag.pnl_report.plist\n\ttype = LaunchAgent\n\tstate = not running\n\n\tprogram = /bin/bash\n\targuments = {\n\t\t/bin/bash\n\t\t/Users/shonen/leadlag/scripts/batch/run_pnl_report.sh\n\t}\n\n\tworking directory = /Users/shonen/leadlag\n\n\tstdout path = /Users/shonen/leadlag/var/logs/pnl_report_launchd.log\n\tstderr path = /Users/shonen/leadlag/var/logs/pnl_report_launchd.log\n\tinherited environment = {\n\t\tSSH_AUTH_SOCK => /var/run/com.apple.launchd.BdCqu2aqFc/Listeners\n\t}\n\n\tdefault environment = {\n\t\tPATH => /usr/bin:/bin:/usr/sbin:/sbin\n\t}\n\n\tenvironment = {\n\t\tOSLogRateLimit => 64\n\t\tPATH => /opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin\n\t\tXPC_SERVICE_NAME => com.leadlag.pnl_report\n\t}\n\n\tdomain = gui/501 [100014]\n\tasid = 100014\n\tminimum runtime = 10\n\texit timeout = 5\n\truns = 1\n\tlast exit code = 1\n\n\tevent triggers = {\n\t\tcom.leadlag.pnl_report.268435514 => {\n\t\t\tkeepalive = 0\n\t\t\tservice = com.leadlag.pnl_report\n\t\t\tstream = com.apple.launchd.calendarinterval\n\t\t\tmonitor = com.apple.UserEventAgent-Aqua\n\t\t\tdescriptor = {\n\t\t\t\t\"Minute\" => 40\n\t\t\t\t\"Hour\" => 15\n\t\t\t\t\"Weekday\" => 1\n\t\t\t}\n\t\t}\n\t\tcom.leadlag.pnl_report.268435518 => {\n\t\t\tkeepalive = 0\n\t\t\tservice = com.leadlag.pnl_report\n\t\t\tstream = com.apple.launchd.calendarinterval\n\t\t\tmonitor = com.apple.UserEventAgent-Aqua\n\t\t\tdescriptor = {\n\t\t\t\t\"Minute\" => 40\n\t\t\t\t\"Hour\" => 15\n\t\t\t\t\"Weekday\" => 5\n\t\t\t}\n\t\t}\n\t\tcom.leadlag.pnl_report.268435517 => {\n\t\t\tkeepalive = 0\n\t\t\tservice = com.leadlag.pnl_report\n\t\t\tstream = com.apple.launchd.calendarinterval\n\t\t\tmonitor = com.apple.UserEventAgent-Aqua\n\t\t\tdescriptor = {\n\t\t\t\t\"Minute\" => 40\n\t\t\t\t\"Hour\" => 15\n\t\t\t\t\"Weekday\" => 4\n\t\t\t}\n\t\t}\n\t\tcom.leadlag.pnl_report.268435516 => {\n\t\t\tkeepalive = 0\n\t\t\tservice = com.leadlag.pnl_report\n\t\t\tstream = com.apple.launchd.calendarinterval\n\t\t\tmonitor = com.apple.UserEventAgent-Aqua\n\t\t\tdescriptor = {\n\t\t\t\t\"Minute\" => 40\n\t\t\t\t\"Hour\" => 15\n\t\t\t\t\"Weekday\" => 3\n\t\t\t}\n\t\t}\n\t\tcom.leadlag.pnl_report.268435515 => {\n\t\t\tkeepalive = 0\n\t\t\tservice = com.leadlag.pnl_report\n\t\t\tstream = com.apple.launchd.calendarinterval\n\t\t\tmonitor = com.apple.UserEventAgent-Aqua\n\t\t\tdescriptor = {\n\t\t\t\t\"Minute\" => 40\n\t\t\t\t\"Hour\" => 15\n\t\t\t\t\"Weekday\" => 2\n\t\t\t}\n\t\t}\n\t}\n\n\tevent channels = {\n\t\t\"com.apple.launchd.calendarinterval\" = {\n\t\t\tport = 0x12f66f\n\t\t\tactive = 0\n\t\t\tmanaged = 1\n\t\t\treset = 0\n\t\t\thide = 0\n\t\t\twatching = 1\n\t\t}\n\t}\n\n\tresource coalition = {\n\t\tID = 54699\n\t\ttype = resource\n\t\tstate = active\n\t\tactive count = 1\n\t\tname = com.leadlag.pnl_report\n\t}\n\n\tjetsam coalition = {\n\t\tID = 54700\n\t\ttype = jetsam\n\t\tstate = active\n\t\tactive count = 1\n\t\tname = com.leadlag.pnl_report\n\t}\n\n\tspawn type = background (5)\n\tjetsam priority = 40\n\tjetsam memory limit (active) = (unlimited)\n\tjetsam memory limit (inactive) = (unlimited)\n\tjetsamproperties category = daemon\n\tsubmitted job. ignore execute allowed\n\tjetsam thread limit = 32\n\tcpumon = default\n\tjob state = exited\n\tsanitizer flags = 0x0\n\n\tproperties = inferred program\n}\n",
+      "stderr": ""
+    }
+  ],
+  "scheduler_checks": [
+    {
+      "service": "com.leadlag.update-market-data",
+      "registered": true,
+      "workspace_path_current": false,
+      "last_exit_code": 127
+    },
+    {
+      "service": "com.leadlag.distribution-diagnostics",
+      "registered": true,
+      "workspace_path_current": true,
+      "last_exit_code": 0
+    },
+    {
+      "service": "com.leadlag.decision",
+      "registered": true,
+      "workspace_path_current": true,
+      "last_exit_code": 0
+    },
+    {
+      "service": "com.leadlag.close",
+      "registered": true,
+      "workspace_path_current": true,
+      "last_exit_code": 0
+    },
+    {
+      "service": "com.leadlag.pnl_report",
+      "registered": true,
+      "workspace_path_current": true,
+      "last_exit_code": 1
+    }
+  ],
+  "hosted_ci": {
+    "workflow": ".github/workflows/ci.yml",
+    "gh_available": false,
+    "run_url": null
+  }
+}

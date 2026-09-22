@@ -1,0 +1,122 @@
+{
+  "benchmark": {
+    "frame_shape": [
+      4135,
+      122
+    ],
+    "sim_dates": 2757,
+    "diagnostic_rows": 1555,
+    "pit_elements": 1209790,
+    "fixed_frame": {
+      "direct_seconds": [
+        0.004016750026494265,
+        0.0036706668324768543,
+        0.0036221251357346773,
+        0.0037263750564306974,
+        0.0035402080975472927
+      ],
+      "wrapped_seconds": [
+        0.004026083974167705,
+        0.0038367498200386763,
+        0.0036343748215585947,
+        0.0037219999358057976,
+        0.00363454082980752
+      ],
+      "direct_median_seconds": 0.0036706668324768543,
+      "wrapped_median_seconds": 0.0037219999358057976,
+      "same_digest": true
+    },
+    "rich_shape": {
+      "direct_seconds": [
+        0.026782291010022163,
+        0.024847291875630617,
+        0.03966258396394551,
+        0.02562566683627665,
+        0.024933916050940752
+      ],
+      "wrapped_seconds": [
+        0.025637292070314288,
+        0.02535845898091793,
+        0.02554404200054705,
+        0.025758333038538694,
+        0.0252185829449445
+      ],
+      "direct_median_seconds": 0.02562566683627665,
+      "wrapped_median_seconds": 0.02554404200054705,
+      "same_digest": true
+    },
+    "scope": "Actual fixed daily/diagnostic files; 4 synthetic 17-column auxiliary frames. Fingerprinting only, not live-run latency."
+  },
+  "current_normal": {
+    "elapsed_seconds": 0.006312999874353409,
+    "returned_values": [
+      0.01,
+      0.02
+    ],
+    "raised": null,
+    "cache_keys": [
+      "daily_returns:1bfccf8d23df7802"
+    ],
+    "subsequent_code_hash_called": true,
+    "backtest_started": false,
+    "cache_written": false,
+    "snapshot_removed_at_return": true,
+    "hash_finished_at_return": true,
+    "hash_finished_after_wait": true
+  },
+  "candidate_normal": {
+    "elapsed_seconds": 0.001716958126053214,
+    "returned_values": [
+      0.01,
+      0.02
+    ],
+    "raised": null,
+    "cache_keys": [
+      "daily_returns:1bfccf8d23df7802"
+    ],
+    "subsequent_code_hash_called": true,
+    "backtest_started": false,
+    "cache_written": false,
+    "snapshot_removed_at_return": true,
+    "hash_finished_at_return": true,
+    "hash_finished_after_wait": true
+  },
+  "current_slow": {
+    "elapsed_seconds": 0.5095389999914914,
+    "returned_values": [],
+    "raised": null,
+    "cache_keys": [],
+    "subsequent_code_hash_called": false,
+    "backtest_started": false,
+    "cache_written": false,
+    "snapshot_removed_at_return": true,
+    "hash_finished_at_return": true,
+    "hash_finished_after_wait": true
+  },
+  "candidate_slow": {
+    "elapsed_seconds": 0.10718062496744096,
+    "returned_values": [],
+    "raised": null,
+    "cache_keys": [],
+    "subsequent_code_hash_called": false,
+    "backtest_started": false,
+    "cache_written": false,
+    "snapshot_removed_at_return": true,
+    "hash_finished_at_return": false,
+    "hash_finished_after_wait": true
+  },
+  "candidate_error": {
+    "elapsed_seconds": 0.003747417125850916,
+    "returned_values": [],
+    "raised": "P2 injected fingerprint error",
+    "cache_keys": [],
+    "subsequent_code_hash_called": false,
+    "backtest_started": false,
+    "cache_written": false,
+    "snapshot_removed_at_return": true,
+    "hash_finished_at_return": true,
+    "hash_finished_after_wait": true
+  },
+  "source_sha256": "ccba0a45b5f08f63891539c9c8149ad6e90468ccfcccd546295d449ca534226e",
+  "source_unchanged": true
+}

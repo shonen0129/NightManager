@@ -1,0 +1,11 @@
+{
+  "command": [
+    ".venv/bin/python",
+    "reports/20260922_production_acceptance/operations.py",
+    "github"
+  ],
+  "timeout_seconds": 90.0,
+  "exit_code": 0,
+  "timed_out": false,
+  "elapsed_seconds": 1.537889749975875
+}

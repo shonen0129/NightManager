@@ -1,0 +1,18 @@
+[
+  {
+    "mode": "cold",
+    "days": 375,
+    "elapsed_seconds": 369.6275865829084,
+    "max_return_error": 0.0,
+    "last_date": "2026-08-14",
+    "artifact_version": "20260922T011723828589Z-7e1a81ab2617"
+  },
+  {
+    "mode": "warm",
+    "days": 375,
+    "elapsed_seconds": 1.5067811659537256,
+    "max_return_error": 0.0,
+    "last_date": "2026-08-14",
+    "artifact_version": "20260922T011723828589Z-7e1a81ab2617"
+  }
+]

@@ -1,0 +1,17 @@
+{
+  "command": [
+    ".venv/bin/ruff",
+    "check",
+    "src/leadlag",
+    "tests",
+    "tools/production",
+    "tools/validation",
+    "src/research/experiments/ml_overlay_training.py",
+    "src/research/scripts/experiments/structural_artifact_acceptance.py",
+    "src/research/scripts/experiments/structural_artifact_evaluate.py"
+  ],
+  "timeout_seconds": 180.0,
+  "exit_code": 0,
+  "timed_out": false,
+  "elapsed_seconds": 0.07655462506227195
+}

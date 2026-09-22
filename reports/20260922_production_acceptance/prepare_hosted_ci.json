@@ -1,0 +1,10 @@
+{
+  "command": [
+    ".venv/bin/python",
+    "reports/20260922_production_acceptance/prepare_ci_snapshot.py"
+  ],
+  "timeout_seconds": 240.0,
+  "exit_code": 1,
+  "timed_out": false,
+  "elapsed_seconds": 0.6284933330025524
+}

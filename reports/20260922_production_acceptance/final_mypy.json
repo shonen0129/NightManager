@@ -1,0 +1,14 @@
+{
+  "command": [
+    ".venv/bin/python",
+    "-m",
+    "mypy",
+    "--config-file",
+    "pyproject.toml",
+    "src/leadlag"
+  ],
+  "timeout_seconds": 300.0,
+  "exit_code": 0,
+  "timed_out": false,
+  "elapsed_seconds": 0.3805220420472324
+}
