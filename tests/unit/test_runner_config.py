@@ -9,7 +9,7 @@ import dataclasses
 
 import pytest
 
-from leadlag.execution.config import StrategyConfig as ProductionConfig
+from leadlag.config.schemas import StrategyConfig as ProductionConfig
 
 
 class TestProductionConfig:

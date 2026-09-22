@@ -21,7 +21,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 from leadlag.compliance.v2_auditor import run_leakage_audit, run_numerical_audit
-from leadlag.config.schemas import ProductionV2RunConfig
+from leadlag.config.schemas import ProductionV2RunConfig, parse_run_config
 from leadlag.core.portfolio import get_rolling_pit_bin, solve_baseline_style
 from leadlag.data.tickers import JP_TICKERS
 from leadlag.models.production_v2 import (
@@ -29,10 +29,9 @@ from leadlag.models.production_v2 import (
     LONG_COUNT,
     SHORT_COUNT,
     ProductionV2Model,
-    generate_v2_production_portfolio,
     load_pit_ir_history,
-    parse_run_config,
 )
+from leadlag.utils.gap_matrix_io import save_gap_matrices
 
 N_J = len(JP_TICKERS)
 
@@ -48,6 +47,26 @@ def _make_synthetic_gap_data(n_j: int = N_J, seed: int = 42) -> tuple[np.ndarray
     A = rng.normal(0.0, 1.0, (n_j, n_j))
     Omega_gap = (A @ A.T) / n_j + np.eye(n_j) * 0.01
     return mu_gap, Omega_gap
+
+
+def _save_synthetic_gap_bundle(
+    output_dir: Path,
+    trade_date: str,
+    mu_gap: np.ndarray,
+    omega_gap: np.ndarray,
+) -> None:
+    assert save_gap_matrices(
+        output_dir,
+        trade_date,
+        mu_gap,
+        omega_gap,
+        metadata={
+            "sig_date": "2026-06-15",
+            "trade_date": trade_date,
+            "horizon": 1,
+            "source": "test_fixture",
+        },
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -122,6 +141,17 @@ class TestGetRollingPitBin:
         assert b == "Medium"
         assert np.isnan(lo) and np.isnan(hi)
 
+    def test_configured_fallback_multiplier(self):
+        b, lo, hi, m = get_rolling_pit_bin(
+            np.array([1.0, 2.0]),
+            1.0,
+            rolling_window=252,
+            fallback_multiplier=0.25,
+        )
+        assert b == "Medium"
+        assert np.isnan(lo) and np.isnan(hi)
+        assert m == 0.25
+
 
 # ---------------------------------------------------------------------------
 # load_pit_ir_history
@@ -184,6 +214,58 @@ class TestLoadPitIrHistory:
         assert len(hist) == 1
         assert abs(hist[0] - 0.1) < 1e-9
 
+    def test_timestamp_boundary_still_excludes_same_trade_date(self, tmp_path):
+        """An intraday trade timestamp must use the date-only PIT cutoff."""
+        rows = [
+            {"trade_date": "2025-06-01", "pred_ir_gap_baseline_cost": 0.1},
+            {"trade_date": "2025-06-02", "pred_ir_gap_baseline_cost": 0.2},
+            {"trade_date": "2025-06-03", "pred_ir_gap_baseline_cost": 0.3},
+        ]
+        self._write_diag_csv(tmp_path, rows)
+        hist, alerts, dates = load_pit_ir_history(tmp_path, "2025-06-02 09:10")
+        assert len(hist) == 1
+        assert abs(hist[0] - 0.1) < 1e-9
+
+    def test_timezone_aware_dates_are_normalized_to_jst(self, tmp_path):
+        """UTC rows crossing JST midnight must not enter the same-day PIT history."""
+        rows = [
+            # 2025-06-02 00:00 JST: same trade date, must be excluded.
+            {"trade_date": "2025-06-01T15:00:00+00:00", "pred_ir_gap_baseline_cost": 0.1},
+            # 2025-06-01 23:59:59 JST: historical, must be retained.
+            {"trade_date": "2025-06-01T14:59:59+00:00", "pred_ir_gap_baseline_cost": 0.05},
+            {"trade_date": "2025-06-02T00:00:00+00:00", "pred_ir_gap_baseline_cost": 0.2},
+        ]
+        self._write_diag_csv(tmp_path, rows)
+        hist, alerts, dates = load_pit_ir_history(tmp_path, "2025-06-02 09:10+09:00")
+        assert len(alerts) == 0
+        np.testing.assert_allclose(hist, [0.05])
+        np.testing.assert_array_equal(dates, np.array(["2025-06-01"], dtype="datetime64[ns]"))
+
+    def test_cache_detects_same_size_same_mtime_content_rewrite(self, tmp_path):
+        """A rewritten diagnostics file must invalidate the PIT cache."""
+        import os
+
+        path = tmp_path / "portfolio_gap_distribution_diagnostics.csv"
+        initial = (
+            "trade_date,pred_ir_gap_baseline_cost\n"
+            "2025-06-01,1.0\n"
+            "2025-06-02,2.0\n"
+        )
+        updated = initial.replace(",1.0\n", ",9.0\n")
+        path.write_text(initial)
+
+        hist_before, _, _ = load_pit_ir_history(tmp_path, "2025-06-03")
+        stat_before = path.stat()
+        path.write_text(updated)
+        os.utime(path, ns=(stat_before.st_atime_ns, stat_before.st_mtime_ns))
+        stat_after = path.stat()
+        assert stat_after.st_size == stat_before.st_size
+        assert stat_after.st_mtime_ns == stat_before.st_mtime_ns
+
+        hist_after, _, _ = load_pit_ir_history(tmp_path, "2025-06-03")
+        np.testing.assert_allclose(hist_before, [1.0, 2.0])
+        np.testing.assert_allclose(hist_after, [9.0, 2.0])
+
 
 # ---------------------------------------------------------------------------
 # run_leakage_audit
@@ -241,38 +323,26 @@ class TestNumericalAudit:
 
 
 # ---------------------------------------------------------------------------
-# generate_v2_production_portfolio (integration, no real files)
+# ProductionV2Model.decide (integration, no real files)
 # ---------------------------------------------------------------------------
 
 class TestGenerateV2Portfolio:
     def test_flat_position_when_no_gap_dir(self, tmp_path):
         """When gap_input_dir is None the function returns flat position (w_final=0)."""
-        result = generate_v2_production_portfolio(
-            trade_date="2026-06-16",
-            gap_input_dir=None,
-            cfg=parse_run_config({}),
-        )
-        assert result["fallback"]["gap_data_missing"] is True
-        assert np.allclose(result["w_final"], 0.0)
+        result = ProductionV2Model(parse_run_config({})).decide(trade_date='2026-06-16', gap_input_dir=None, overlay_enabled=False, use_file_cache=True)
+        assert result.fallback["gap_data_missing"] is True
+        assert np.allclose(result.w_final, 0.0)
 
     def test_full_pipeline_with_synthetic_data(self, tmp_path):
         """Full pipeline runs with synthetic gap matrices and produces valid weights."""
         mu_gap, Omega_gap = _make_synthetic_gap_data()
 
-        # Write synthetic gap matrices
-        matrices_dir = tmp_path / "matrices"
-        matrices_dir.mkdir()
-        np.save(matrices_dir / "mu_gap_20260616.npy", mu_gap)
-        np.save(matrices_dir / "omega_gap_20260616.npy", Omega_gap)
+        _save_synthetic_gap_bundle(tmp_path, "2026-06-16", mu_gap, Omega_gap)
 
-        result = generate_v2_production_portfolio(
-            trade_date="2026-06-16",
-            gap_input_dir=tmp_path,
-            cfg=parse_run_config({}),
-        )
+        result = ProductionV2Model(parse_run_config({})).decide(trade_date='2026-06-16', gap_input_dir=tmp_path, overlay_enabled=False, use_file_cache=True)
 
-        assert result["fallback"]["gap_data_missing"] is False
-        w = result["w_final"]
+        assert result.fallback["gap_data_missing"] is False
+        w = result.w_final
         assert len(w) == N_J
         # Weights should be market-neutral
         assert abs(np.sum(w)) < 1e-8
@@ -285,17 +355,10 @@ class TestGenerateV2Portfolio:
     def test_summary_fields_present(self, tmp_path):
         """Summary dict contains all expected fields."""
         mu_gap, Omega_gap = _make_synthetic_gap_data()
-        matrices_dir = tmp_path / "matrices"
-        matrices_dir.mkdir()
-        np.save(matrices_dir / "mu_gap_20260616.npy", mu_gap)
-        np.save(matrices_dir / "omega_gap_20260616.npy", Omega_gap)
+        _save_synthetic_gap_bundle(tmp_path, "2026-06-16", mu_gap, Omega_gap)
 
-        result = generate_v2_production_portfolio(
-            trade_date="2026-06-16",
-            gap_input_dir=tmp_path,
-            cfg=parse_run_config({}),
-        )
-        s = result["summary"]
+        result = ProductionV2Model(parse_run_config({})).decide(trade_date='2026-06-16', gap_input_dir=tmp_path, overlay_enabled=False, use_file_cache=True)
+        s = result.summary
         for key in [
             "trade_date", "candidate", "version",
             "long_count", "short_count",
@@ -310,17 +373,10 @@ class TestGenerateV2Portfolio:
     def test_pit_binning_keys_present(self, tmp_path):
         """pit_binning result contains required keys."""
         mu_gap, Omega_gap = _make_synthetic_gap_data()
-        matrices_dir = tmp_path / "matrices"
-        matrices_dir.mkdir()
-        np.save(matrices_dir / "mu_gap_20260616.npy", mu_gap)
-        np.save(matrices_dir / "omega_gap_20260616.npy", Omega_gap)
+        _save_synthetic_gap_bundle(tmp_path, "2026-06-16", mu_gap, Omega_gap)
 
-        result = generate_v2_production_portfolio(
-            trade_date="2026-06-16",
-            gap_input_dir=tmp_path,
-            cfg=parse_run_config({}),
-        )
-        pit = result["pit_binning"]
+        result = ProductionV2Model(parse_run_config({})).decide(trade_date='2026-06-16', gap_input_dir=tmp_path, overlay_enabled=False, use_file_cache=True)
+        pit = result.pit_binning
         for key in [
             "assigned_bin", "threshold_low", "threshold_high",
             "multiplier", "history_count", "fallback_flag",
@@ -328,38 +384,17 @@ class TestGenerateV2Portfolio:
             assert key in pit, f"Missing pit_binning key: {key}"
 
     def test_leakage_audit_passes_with_valid_gap_files(self, tmp_path):
-        """Leakage audit passes when gap matrices are dated before trade_date.
-
-        The pipeline:
-        1. Loads gap data for trade_date=2026-06-16 (mu_gap_20260616.npy)
-        2. _derive_signal_date() scans matrices/ for the most-recent file
-           strictly before trade_date → finds mu_gap_20260615.npy → signal_date=2026-06-15
-        3. run_leakage_audit("2026-06-15", "2026-06-16") → PASSED
-        """
+        """Leakage audit uses the current bundle's provenanced signal date."""
 
         mu_gap, Omega_gap = _make_synthetic_gap_data()
-        matrices_dir = tmp_path / "matrices"
-        matrices_dir.mkdir()
-
-        # The pipeline loads trade_date's file (20260616)
-        np.save(matrices_dir / "mu_gap_20260616.npy", mu_gap)
-        np.save(matrices_dir / "omega_gap_20260616.npy", Omega_gap)
-
-        # A prior-day file exists so _derive_signal_date returns 2026-06-15
-        # (strictly before trade_date 2026-06-16 → leakage PASSED)
-        np.save(matrices_dir / "mu_gap_20260615.npy", mu_gap)
-        np.save(matrices_dir / "omega_gap_20260615.npy", Omega_gap)
+        _save_synthetic_gap_bundle(tmp_path, "2026-06-16", mu_gap, Omega_gap)
 
 
-        result = generate_v2_production_portfolio(
-            trade_date="2026-06-16",
-            gap_input_dir=tmp_path,
-            cfg=parse_run_config({}),
-        )
-        assert result["fallback"]["gap_data_missing"] is False, \
+        result = ProductionV2Model(parse_run_config({})).decide(trade_date='2026-06-16', gap_input_dir=tmp_path, overlay_enabled=False, use_file_cache=True)
+        assert result.fallback["gap_data_missing"] is False, \
             "Gap data should have been loaded for trade_date"
-        assert result["leakage"]["status"] == "PASSED", \
-            f"Leakage audit should pass; signal_date < trade_date. Got: {result['leakage']}"
+        assert result.leakage["status"] == "PASSED", \
+            f"Leakage audit should pass; signal_date < trade_date. Got: {result.leakage}"
 
 
 # ---------------------------------------------------------------------------
@@ -448,7 +483,7 @@ class TestParseRunConfig:
 
 
 # ---------------------------------------------------------------------------
-# cfg propagation into generate_v2_production_portfolio
+# cfg propagation into ProductionV2Model.decide
 # ---------------------------------------------------------------------------
 
 class TestCfgPropagation:
@@ -456,33 +491,20 @@ class TestCfgPropagation:
 
     def _make_files(self, tmp_path, trade_date="2026-06-16"):
         mu_gap, Omega_gap = _make_synthetic_gap_data()
-        matrices_dir = tmp_path / "matrices"
-        matrices_dir.mkdir(exist_ok=True)
-        date_num = trade_date.replace("-", "")
-        np.save(matrices_dir / f"mu_gap_{date_num}.npy", mu_gap)
-        np.save(matrices_dir / f"omega_gap_{date_num}.npy", Omega_gap)
+        _save_synthetic_gap_bundle(tmp_path, trade_date, mu_gap, Omega_gap)
 
     def test_run_config_in_result(self, tmp_path):
         """result['run_config'] is a ProductionV2RunConfig instance."""
         self._make_files(tmp_path)
-        result = generate_v2_production_portfolio(
-            trade_date="2026-06-16",
-            gap_input_dir=tmp_path,
-            cfg=parse_run_config({}),
-        )
-        assert "run_config" in result
-        assert isinstance(result["run_config"], ProductionV2RunConfig)
+        result = ProductionV2Model(parse_run_config({})).decide(trade_date='2026-06-16', gap_input_dir=tmp_path, overlay_enabled=False, use_file_cache=True)
+        assert isinstance(result.run_config, ProductionV2RunConfig)
 
     def test_custom_long_short_count_respected(self, tmp_path):
         """Custom long_count=3/short_count=3 produces exactly 3 longs and 3 shorts."""
         self._make_files(tmp_path)
         cfg = {"portfolio": {"long_count": 3, "short_count": 3}}
-        result = generate_v2_production_portfolio(
-            trade_date="2026-06-16",
-            gap_input_dir=tmp_path,
-            cfg=parse_run_config(cfg),
-        )
-        w = result["w_final"]
+        result = ProductionV2Model(parse_run_config(cfg)).decide(trade_date='2026-06-16', gap_input_dir=tmp_path, overlay_enabled=False, use_file_cache=True)
+        w = result.w_final
         assert int(np.sum(w > 1e-8)) == 3
         assert int(np.sum(w < -1e-8)) == 3
 
@@ -490,12 +512,8 @@ class TestCfgPropagation:
         """Custom baseline_gross=1.5 yields gross <= 1.5 (RuleD may reduce further)."""
         self._make_files(tmp_path)
         cfg = {"gross_scaling": {"baseline_gross": 1.5, "multipliers": {"Low": 1.0, "Medium": 1.0, "High": 1.0}}}
-        result = generate_v2_production_portfolio(
-            trade_date="2026-06-16",
-            gap_input_dir=tmp_path,
-            cfg=parse_run_config(cfg),
-        )
-        gross = float(np.sum(np.abs(result["w_final"])))
+        result = ProductionV2Model(parse_run_config(cfg)).decide(trade_date='2026-06-16', gap_input_dir=tmp_path, overlay_enabled=False, use_file_cache=True)
+        gross = float(np.sum(np.abs(result.w_final)))
         assert gross <= 1.5 + 1e-10
 
     def test_cost_bps_in_summary(self, tmp_path):
@@ -505,23 +523,15 @@ class TestCfgPropagation:
             "costs": {"cost_bps_per_gross": 20.0},
             "gross_scaling": {"multipliers": {"Low": 1.0, "Medium": 1.0, "High": 1.0}},
         }
-        result = generate_v2_production_portfolio(
-            trade_date="2026-06-16",
-            gap_input_dir=tmp_path,
-            cfg=parse_run_config(cfg),
-        )
-        gross = result["summary"]["target_gross"]
-        expected_cost = result["summary"]["expected_cost_bps"]
+        result = ProductionV2Model(parse_run_config(cfg)).decide(trade_date='2026-06-16', gap_input_dir=tmp_path, overlay_enabled=False, use_file_cache=True)
+        gross = result.summary["target_gross"]
+        expected_cost = result.summary["expected_cost_bps"]
         assert abs(expected_cost - gross * 20.0) < 1e-9
 
     def test_fallback_flag_respected(self, tmp_path):
         """fallback_on_gap_data_missing=True (default) returns flat position when gap dir is None."""
-        result = generate_v2_production_portfolio(
-            trade_date="2026-06-16",
-            gap_input_dir=None,
-            cfg=parse_run_config({}),
-        )
-        assert result["fallback"]["gap_data_missing"] is True
+        result = ProductionV2Model(parse_run_config({})).decide(trade_date='2026-06-16', gap_input_dir=None, overlay_enabled=False, use_file_cache=True)
+        assert result.fallback["gap_data_missing"] is True
 
 
 # ---------------------------------------------------------------------------
@@ -533,11 +543,7 @@ class TestMacroKappaOmegaGapInflation:
 
     def _make_files(self, tmp_path, trade_date="2026-06-16"):
         mu_gap, Omega_gap = _make_synthetic_gap_data()
-        matrices_dir = tmp_path / "matrices"
-        matrices_dir.mkdir(exist_ok=True)
-        date_num = trade_date.replace("-", "")
-        np.save(matrices_dir / f"mu_gap_{date_num}.npy", mu_gap)
-        np.save(matrices_dir / f"omega_gap_{date_num}.npy", Omega_gap)
+        _save_synthetic_gap_bundle(tmp_path, trade_date, mu_gap, Omega_gap)
         return mu_gap, Omega_gap
 
     def test_macro_kappa_disabled_by_default(self):
@@ -556,11 +562,11 @@ class TestMacroKappaOmegaGapInflation:
         """When macro kappa is enabled, Omega_gap is inflated (diagonal increases)."""
         import pandas as pd
 
-        from leadlag.models import production_v2 as pv2_mod
+        from leadlag.models.v2 import fallback as fallback_mod
 
         mu_gap, Omega_gap_orig = self._make_files(tmp_path)
 
-        # Mock download_macro_prices to return synthetic data
+        # Mock the macro data adapter to return synthetic data
         dates = pd.date_range("2025-01-01", "2026-06-16", freq="B")
         rng = np.random.default_rng(123)
         close_data = {
@@ -569,29 +575,25 @@ class TestMacroKappaOmegaGapInflation:
             "TNX": 4.0 + rng.normal(0, 0.05, len(dates)).cumsum(),
         }
         mock_prices = pd.DataFrame(close_data, index=dates, columns=["USDJPY", "CLF", "TNX"])
-        monkeypatch.setattr(pv2_mod, "download_macro_prices", lambda **kw: mock_prices.copy())
+        monkeypatch.setattr(fallback_mod.macro_data, "load_macro_prices", lambda **kw: mock_prices.copy())
 
         cfg = {"portfolio": {"macro_kappa_enabled": True, "macro_kappas": [3.0, 0.5, 0.5]}}
-        result = generate_v2_production_portfolio(
-            trade_date="2026-06-16",
-            gap_input_dir=tmp_path,
-            cfg=parse_run_config(cfg),
-        )
+        result = ProductionV2Model(parse_run_config(cfg)).decide(trade_date='2026-06-16', gap_input_dir=tmp_path, overlay_enabled=False, use_file_cache=True)
 
-        omega_result = result["Omega_gap"]
+        omega_result = result.Omega_gap
         orig_diag = np.diag(Omega_gap_orig)
         result_diag = np.diag(omega_result)
         # At least some diagonal entries should be inflated
         assert np.any(result_diag > orig_diag + 1e-10), \
             "Omega_gap diagonal should be inflated by macro kappa"
         # Check alert was added
-        assert any("Macro kappa" in a for a in result["alerts"])
+        assert any("Macro kappa" in a for a in result.alerts)
 
     def test_inflation_preserves_psd(self, tmp_path, monkeypatch):
         """Inflated Omega_gap remains PSD."""
         import pandas as pd
 
-        from leadlag.models import production_v2 as pv2_mod
+        from leadlag.models.v2 import fallback as fallback_mod
 
         _, _ = self._make_files(tmp_path)
 
@@ -603,28 +605,20 @@ class TestMacroKappaOmegaGapInflation:
             "TNX": 4.0 + rng.normal(0, 0.05, len(dates)).cumsum(),
         }
         mock_prices = pd.DataFrame(close_data, index=dates, columns=["USDJPY", "CLF", "TNX"])
-        monkeypatch.setattr(pv2_mod, "download_macro_prices", lambda **kw: mock_prices.copy())
+        monkeypatch.setattr(fallback_mod.macro_data, "load_macro_prices", lambda **kw: mock_prices.copy())
 
         cfg = {"portfolio": {"macro_kappa_enabled": True, "macro_kappas": [3.0, 0.5, 0.5]}}
-        result = generate_v2_production_portfolio(
-            trade_date="2026-06-16",
-            gap_input_dir=tmp_path,
-            cfg=parse_run_config(cfg),
-        )
+        result = ProductionV2Model(parse_run_config(cfg)).decide(trade_date='2026-06-16', gap_input_dir=tmp_path, overlay_enabled=False, use_file_cache=True)
 
-        omega = result["Omega_gap"]
+        omega = result.Omega_gap
         min_eig = np.min(np.linalg.eigvalsh(omega))
         assert min_eig > -1e-10, "Inflated Omega_gap should remain PSD"
 
     def test_disabled_does_not_inflate(self, tmp_path):
         """When macro kappa is disabled, Omega_gap is unchanged from input."""
         mu_gap, Omega_gap_orig = self._make_files(tmp_path)
-        result = generate_v2_production_portfolio(
-            trade_date="2026-06-16",
-            gap_input_dir=tmp_path,
-            cfg=parse_run_config({}),
-        )
-        assert np.allclose(result["Omega_gap"], Omega_gap_orig, atol=1e-10)
+        result = ProductionV2Model(parse_run_config({})).decide(trade_date='2026-06-16', gap_input_dir=tmp_path, overlay_enabled=False, use_file_cache=True)
+        assert np.allclose(result.Omega_gap, Omega_gap_orig, atol=1e-10)
 
 
 # ---------------------------------------------------------------------------
@@ -652,10 +646,7 @@ class TestProductionV2Model:
         mu_gap = rng.normal(0.0, 0.01, n_j)
         A = rng.normal(0.0, 1.0, (n_j, n_j))
         Omega_gap = (A @ A.T) / n_j + np.eye(n_j) * 0.01
-        matrices_dir = tmp_path / "matrices"
-        matrices_dir.mkdir()
-        np.save(matrices_dir / "mu_gap_20260616.npy", mu_gap)
-        np.save(matrices_dir / "omega_gap_20260616.npy", Omega_gap)
+        _save_synthetic_gap_bundle(tmp_path, "2026-06-16", mu_gap, Omega_gap)
         return mu_gap, Omega_gap
 
     def test_model_decide_matches_procedural(self, tmp_path: Path):
@@ -663,26 +654,22 @@ class TestProductionV2Model:
         self._make_files(tmp_path)
         cfg = {"portfolio": {"long_count": 3, "short_count": 3}}
 
-        result_fn = generate_v2_production_portfolio(
-            trade_date="2026-06-16",
-            gap_input_dir=tmp_path,
-            cfg=parse_run_config(cfg),
-        )
+        result_fn = ProductionV2Model(parse_run_config(cfg)).decide(trade_date='2026-06-16', gap_input_dir=tmp_path, overlay_enabled=False, use_file_cache=True)
 
         run_cfg = parse_run_config(cfg)
         model = ProductionV2Model(run_cfg)
         result_cls = model.decide(trade_date="2026-06-16", gap_input_dir=tmp_path)
 
-        assert np.allclose(result_cls["w_final"], result_fn["w_final"], atol=1e-12)
-        assert result_cls["run_config"].long_count == 3
-        assert result_cls["run_config"].short_count == 3
+        assert np.allclose(result_cls.w_final, result_fn.w_final, atol=1e-12)
+        assert result_cls.run_config.long_count == 3
+        assert result_cls.run_config.short_count == 3
 
     def test_model_flat_fallback(self):
         """Model returns flat position when no gap data is provided."""
         model = ProductionV2Model(parse_run_config({}))
         result = model.decide(trade_date="2026-06-16", gap_input_dir=None)
-        assert result["fallback"]["gap_data_missing"] is True
-        assert np.allclose(result["w_final"], np.zeros(len(JP_TICKERS)), atol=1e-12)
+        assert result.fallback["gap_data_missing"] is True
+        assert np.allclose(result.w_final, np.zeros(len(JP_TICKERS)), atol=1e-12)
 
     def test_model_accepts_pydantic_config(self, tmp_path: Path):
         """Model can be initialized with an already-validated Pydantic config."""
@@ -691,4 +678,4 @@ class TestProductionV2Model:
         model = ProductionV2Model(run_cfg)
         assert model.run_config is run_cfg
         result = model.decide(trade_date="2026-06-16", gap_input_dir=tmp_path)
-        assert result["run_config"] == run_cfg
+        assert result.run_config == run_cfg

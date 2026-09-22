@@ -13,8 +13,9 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from leadlag.data.preprocessor import (
+from leadlag.data.intraday_inputs import (
     build_5m_910_prices,
+    build_open_910_returns,
     compute_jp_target_returns,
 )
 from leadlag.data.tickers import JP_TICKERS
@@ -112,6 +113,70 @@ class TestComputeJpTargetReturns:
                 expected = close[row] / open_start - 1.0
                 assert np.isclose(y[row, i], expected, rtol=1e-12)
 
+    @pytest.mark.parametrize("horizon", [3, 5])
+    def test_multi_day_target_uses_explicit_open_to_910_returns_when_prices_are_not_passed(
+        self, simple_df_exec, horizon
+    ):
+        """The typed adapter's input must set the multi-day denominator."""
+        open_returns = pd.DataFrame(
+            1.0, index=simple_df_exec.index, columns=JP_TICKERS, dtype=float
+        )
+
+        y = compute_jp_target_returns(
+            simple_df_exec,
+            JP_TICKERS,
+            horizon=horizon,
+            open_910_returns=open_returns,
+        )
+
+        # Start-day open is 100+i and the explicit return is 100%, so p_910 is
+        # 2*(100+i), rather than the open-price fallback.
+        for i, tk in enumerate(JP_TICKERS):
+            open_ = 100.0 + i
+            close = (1.0 + simple_df_exec[f"jp_oc_{tk}"].iloc[horizon - 1]) * open_
+            expected = close / (2.0 * open_) - 1.0
+            assert np.isclose(y[horizon - 1, i], expected, rtol=1e-12)
+
+    @pytest.mark.parametrize("horizon", [1, 3, 5])
+    def test_open_910_reconstruction_matches_direct_p910_when_intraday_open_differs(
+        self, simple_df_exec, horizon
+    ):
+        """Cache and on-demand targets share the execution-frame denominator."""
+        ticker = JP_TICKERS[0]
+        day0 = simple_df_exec.index[0]
+        bars_index = pd.DatetimeIndex(
+            [
+                day0 + pd.Timedelta(hours=9),
+                day0 + pd.Timedelta(hours=9, minutes=10),
+            ]
+        )
+        bars = pd.DataFrame(
+            {
+                ("Open", ticker): [90.0, 90.0],
+                ("High", ticker): [90.0, 99.0],
+                ("Low", ticker): [90.0, 99.0],
+                ("Close", ticker): [90.0, 99.0],
+            },
+            index=bars_index,
+        )
+
+        p_910 = build_5m_910_prices(simple_df_exec, [ticker], df_5m=bars)
+        open_returns = build_open_910_returns(
+            simple_df_exec, [ticker], df_5m=bars
+        )
+
+        # The 5-minute open is 90 while jp_open_trade is 100.  The explicit
+        # return must therefore be 99/100 - 1, so reconstruction gives p_910=99.
+        assert np.isclose(open_returns.loc[day0, ticker], -0.01)
+
+        y_cache = compute_jp_target_returns(
+            simple_df_exec, [ticker], horizon=horizon, p_910_df=p_910
+        )
+        y_on_demand = compute_jp_target_returns(
+            simple_df_exec, [ticker], horizon=horizon, open_910_returns=open_returns
+        )
+        np.testing.assert_allclose(y_on_demand, y_cache, equal_nan=True)
+
     def test_invalid_open_returns_zero(self, simple_df_exec):
         """Zero or NaN start-day open should yield 0.0, not inf/NaN."""
         simple_df_exec.loc[simple_df_exec.index[0], "jp_open_trade_1617.T"] = 0.0
@@ -196,12 +261,12 @@ class TestBuild5m910Prices:
 
     def test_empty_5m_cache_returns_all_nan(self, simple_df_exec, monkeypatch):
         """When 5m cache is empty, p_910_df is all NaN."""
-        from leadlag.data import cache as _cache
+        from leadlag.data import intraday_inputs as _inputs
 
         def _mock_load(_interval):
             return pd.DataFrame()
 
-        monkeypatch.setattr(_cache, "load_intraday_cache", _mock_load)
+        monkeypatch.setattr(_inputs, "load_intraday_cache", _mock_load)
         p_910 = build_5m_910_prices(simple_df_exec, JP_TICKERS)
 
         assert p_910.index.equals(simple_df_exec.index)
@@ -256,7 +321,7 @@ class TestBuild5m910Prices:
 
     def test_zero_5m_price_gives_zero_ret_open_910(self, simple_df_exec, monkeypatch):
         """A zero 9:10 or 09:00 5m price must not create -1 / division by zero."""
-        from leadlag.data import cache as _cache
+        from leadlag.data import intraday_inputs as _inputs
 
         # Single-day 5m cache with 0 9:10 price.
         dates = pd.date_range("2025-01-05 09:00:00", periods=3, freq="5min")
@@ -276,7 +341,7 @@ class TestBuild5m910Prices:
         def _mock_load(_interval):
             return df_5m
 
-        monkeypatch.setattr(_cache, "load_intraday_cache", _mock_load)
+        monkeypatch.setattr(_inputs, "load_intraday_cache", _mock_load)
 
         # h=1 without p_910 triggers the legacy path
         y = compute_jp_target_returns(simple_df_exec, JP_TICKERS, horizon=1)

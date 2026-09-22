@@ -25,6 +25,7 @@ def _make_results():
         "daily_financing_costs": pd.Series([0.0002] * 5, index=dates),
         "daily_borrow_costs": pd.Series([0.0003] * 5, index=dates),
         "daily_reverse_costs": pd.Series([0.0004] * 5, index=dates),
+        "daily_overnight_returns": pd.Series([0.0005] * 5, index=dates),
         "daily_costs": pd.Series([0.001] * 5, index=dates),
         "weights": pd.DataFrame(
             np.random.RandomState(42).randn(5, 4) * 0.1,
@@ -47,6 +48,8 @@ def test_backtest_store_round_trip():
         assert len(pnl) == 5
         assert "daily_return" in pnl.columns
         assert "equity" in pnl.columns
+        assert "overnight_return" in pnl.columns
+        assert pnl["overnight_return"].tolist() == [0.0005] * 5
 
         weights = store.load_weights()
         assert weights.shape == (5, 4)

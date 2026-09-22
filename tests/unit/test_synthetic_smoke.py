@@ -34,8 +34,8 @@ def test_production_v2_flat_fallback_smoke(residual_blpx_prod_config: dict):
     # No gap matrices are provided, so the model should fall back to flat weights.
     result = model.decide(trade_date, gap_input_dir=None)
 
-    w_final = result["w_final"]
+    w_final = result.w_final
     assert len(w_final) == len(JP_TICKERS)
     # Flat fallback: all weights are zero because gap matrices are unavailable.
     assert max(abs(w_final)) == pytest.approx(0.0, abs=1e-12)
-    assert result.get("fallback", {}).get("gap_data_missing") is True
+    assert result.fallback.get("gap_data_missing") is True

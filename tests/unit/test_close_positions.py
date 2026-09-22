@@ -5,6 +5,7 @@ Unit tests for close_all_positions lot-size rounding and OrderRequest propagatio
 
 from __future__ import annotations
 
+import json
 import tempfile
 
 from leadlag.broker.base import BrokerClient, Position
@@ -327,3 +328,20 @@ class TestSuccessCount:
         assert by_ticker["1617.T"]["original_price"] == 1234.0
         assert by_ticker["1570.T"]["original_side"] == "SELL"
         assert by_ticker["1570.T"]["original_price"] == 5678.0
+
+    def test_unconfirmed_submission_is_reported_incomplete_and_persisted(self):
+        """A SUBMITTED result must not be logged or reported as a successful close."""
+        client = MockBrokerClient([_make_position("1617.T", "SELL", 100)])
+        with tempfile.TemporaryDirectory() as tmpdir:
+            from leadlag.execution.close import close_all_positions
+
+            summary = close_all_positions(client, tmpdir, dry_run=False)
+            with open(f"{tmpdir}/close_execution_log.json", encoding="utf-8") as handle:
+                persisted = json.load(handle)
+
+        assert summary["filled_orders_count"] == 0
+        assert summary["pending_orders_count"] == 1
+        assert summary["close_incomplete"] is True
+        assert persisted["filled_orders_count"] == 0
+        assert persisted["pending_orders_count"] == 1
+        assert persisted["close_incomplete"] is True

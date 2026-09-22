@@ -133,6 +133,39 @@ class TestTachibanaClient:
 
 
 class TestTachibanaBrokerClient:
+    @pytest.mark.parametrize(
+        ("status_code", "filled", "ordered", "expected"),
+        [
+            ("7", 30, 100, OrderStatus.CANCELLED),
+            ("7", 100, 100, OrderStatus.CANCELLED),
+            ("9", 30, 100, OrderStatus.PARTIALLY_FILLED),
+            ("10", 100, 100, OrderStatus.FILLED),
+            ("11", 30, 100, OrderStatus.CANCELLED),
+            ("12", 0, 100, OrderStatus.CANCELLED),
+            ("19", 0, 100, OrderStatus.CANCELLED),
+            ("5", 0, 100, OrderStatus.SUBMITTED),
+            ("8", 30, 100, OrderStatus.PARTIALLY_FILLED),
+            ("2", 100, 100, OrderStatus.FAILED),
+            ("14", 100, 100, OrderStatus.FAILED),
+            ("17", 100, 100, OrderStatus.FAILED),
+            ("20", 100, 100, OrderStatus.FAILED),
+            ("21", 100, 100, OrderStatus.FAILED),
+        ],
+    )
+    def test_order_status_code_priority_and_request_failure_is_pending(
+        self, broker_config, status_code, filled, ordered, expected
+    ):
+        client = create_broker(broker_config)
+        client._client.get_order_detail = MagicMock(
+            return_value={
+                "sOrderStatusCode": status_code,
+                "sYakuzyouSuryou": str(filled),
+                "sOrderOrderSuryou": str(ordered),
+            }
+        )
+
+        assert client.get_order_status("order-1") is expected
+
     @patch("requests.Session.get")
     def test_get_wallet_success(self, mock_get, broker_config):
         # Mock two API calls: CLMZanKaiSummary then CLMZanKaiSinyouSinkidateSyousai

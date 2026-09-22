@@ -11,7 +11,7 @@ sys.path.insert(0, str(ROOT / "src"))
 from research.diagnostics.sprint0 import run_sprint0_calculations
 
 
-def test_sprint0_calculations_subset():
+def test_sprint0_calculations_subset(sprint_market_inputs):
     """Verify that run_sprint0_calculations runs successfully on a subset of data."""
     # We can pass start_date to limit the data size and speed up calculation
     start_date = "2026-01-01"
@@ -40,3 +40,4 @@ def test_sprint0_calculations_subset():
     # Verify no lookahead in beta (beta should be lookahead-free and not contain future values)
     beta_ts = results["beta_exposure_timeseries"]
     assert not beta_ts["beta_exposure"].isna().all()
+    assert not results["predicted_ir_calibration"].empty

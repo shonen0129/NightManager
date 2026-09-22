@@ -17,10 +17,10 @@ def regression_baseline_dir() -> Path:
 
 @pytest.fixture(scope="session")
 def regression_df_exec() -> pd.DataFrame:
-    """Use the cached df_exec so the regression matches the captured baseline."""
-    from leadlag.data.market_data_cache import load_df_exec_from_local_cache
-
-    df_exec = load_df_exec_from_local_cache()
-    if df_exec is None or df_exec.empty:
-        pytest.skip("No local df_exec cache available for regression tests")
+    """Load the immutable df_exec bundle captured with the baseline."""
+    bundle = Path(__file__).parent / "baselines" / "df_exec_20260814.csv.gz"
+    if not bundle.exists():
+        pytest.skip(f"Regression input bundle not found: {bundle}")
+    df_exec = pd.read_csv(bundle, index_col=0, parse_dates=True)
+    df_exec.index.name = "trade_date"
     return df_exec
