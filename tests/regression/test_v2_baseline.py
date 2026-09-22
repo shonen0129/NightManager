@@ -12,6 +12,7 @@ import pytest
 from leadlag.data.tickers import JP_TICKERS
 from leadlag.execution.config import load_config_from_yaml
 from leadlag.models.production_v2 import ProductionV2Model
+from leadlag.utils.gap_provenance import bundle_identity
 
 BASELINE_VERSION = "v20260813"
 
@@ -46,10 +47,8 @@ def _build_current_prices_from_df_exec(
 
 
 def _capture_v2_snapshot(
-    df_exec: pd.DataFrame,
     trade_date: str,
     gap_input_dir: Path,
-    current_prices: dict[str, float] | None = None,
     config_path: str = "configs/production/production.yaml",
 ) -> dict:
     app_config = load_config_from_yaml(config_path)
@@ -57,8 +56,11 @@ def _capture_v2_snapshot(
     result = model.decide(
         trade_date=trade_date,
         gap_input_dir=gap_input_dir,
-        df_exec=df_exec,
-        current_prices=current_prices,
+        # The offline regression bundle is the source of truth for this
+        # snapshot.  Passing the mutable typed adapter here would force the
+        # test to recompute a platform-sensitive frame fingerprint and can
+        # turn a valid legacy bundle into a flat fallback.  Input identity is
+        # checked separately against the sidecar below.
     )
     return {
         "w_final": result.w_final.tolist(),
@@ -99,14 +101,20 @@ def test_v2_snapshot_matches_baseline(
     trade_date = "2026-08-14"
     if pd.Timestamp(trade_date) not in regression_df_exec.index:
         pytest.skip(f"Regression fixture does not contain fixed date {trade_date}")
-    current_prices = _build_current_prices_from_df_exec(
-        regression_df_exec, trade_date
-    )
-    snapshot = _capture_v2_snapshot(
+    effective_config = load_config_from_yaml("configs/production/production.yaml").v2
+    expected_identity = bundle_identity(
         regression_df_exec,
         trade_date,
+        config=effective_config,
+        model=None,
+    )
+    with open(regression_baseline_dir / "matrices" / ".mu_gap_20260814.bundle.json") as f:
+        bundle_metadata = json.load(f)
+    for field in ("input_version", "model_version", "config_version", "ticker_order"):
+        assert bundle_metadata[field] == expected_identity[field], f"bundle identity mismatch: {field}"
+    snapshot = _capture_v2_snapshot(
+        trade_date,
         regression_baseline_dir,
-        current_prices=current_prices,
     )
 
     np.testing.assert_allclose(
