@@ -56,13 +56,17 @@ class CostConfig:
 
 @dataclass
 class CostBreakdown:
-    """Detailed cost breakdown for a single position (in bps)."""
+    """Detailed cost breakdown for a single position (in basis points)."""
     entry_cost_bps: float
     exit_cost_bps: float
     financing_bps: float
     borrow_bps: float
     reverse_bps: float
     cost_source: CostSource
+
+    @property
+    def unit(self) -> str:
+        return "bps"
 
     @property
     def total_roundtrip_bps(self) -> float:

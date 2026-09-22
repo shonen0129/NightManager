@@ -8,23 +8,31 @@ from __future__ import annotations
 
 import logging
 import os
+from collections.abc import Callable
+from dataclasses import replace
 from pathlib import Path
 from typing import Any, cast
 
 import numpy as np
 import pandas as pd
 
+from leadlag.compliance.v2_auditor import run_numerical_audit
 from leadlag.config.schemas import AppConfig
+from leadlag.core.pnl import simulate_daily_pnl
+from leadlag.data import adr_features as adr_data
+from leadlag.data import macro as macro_data
+from leadlag.data.intraday_inputs import build_open_910_returns, compute_jp_target_returns
 from leadlag.data.pit_lake import PITDataLake
-from leadlag.data.preprocessor import compute_jp_target_returns
+from leadlag.data.rank_reversal import load_rank_reversal_frame
 from leadlag.data.tickers import JP_TICKERS
+from leadlag.domain.inputs import DecisionInputs, HistoricalInputs
+from leadlag.domain.portfolio import PortfolioDecision
 from leadlag.execution.config import build_app_config_from_dict
-from leadlag.models.blpx import ProductionBLPXModel
-from leadlag.models.ml_order_overlay import (
-    MLOrderOverlayModel,
-    load_overlay_model,
-)
-from leadlag.models.production_v2 import ProductionV2Model
+from leadlag.models.ml_order_overlay import MLOrderOverlayModel
+from leadlag.models.v2.pit import load_pit_ir_history
+from leadlag.reporting.metrics import compute_drawdown_series
+from leadlag.runner.model_factory import build_v2_model_bundle
+from leadlag.utils.dataframe_fingerprint import dataframe_fingerprint
 
 logger = logging.getLogger(__name__)
 
@@ -69,9 +77,14 @@ class BacktestEngine:
         df_exec: pd.DataFrame,
         sim_dates: pd.DatetimeIndex,
         sim_dates_slice: pd.DatetimeIndex,
+        open_910_returns: pd.DataFrame | None = None,
     ) -> tuple[np.ndarray, np.ndarray]:
         """Compute 9:10-to-close target returns and overnight gap returns."""
-        y_jp_target = compute_jp_target_returns(df_exec, JP_TICKERS)
+        y_jp_target = compute_jp_target_returns(
+            df_exec,
+            JP_TICKERS,
+            open_910_returns=open_910_returns,
+        )
         y_jp_target_df = pd.DataFrame(y_jp_target, index=sim_dates, columns=JP_TICKERS)
         y_jp_target_arr = y_jp_target_df.loc[sim_dates_slice].values
 
@@ -102,128 +115,21 @@ class BacktestEngine:
         side_leverage: float = 1.0,
         oc_returns: np.ndarray | None = None,
     ) -> dict:
-        """Simulate daily gross/net returns and costs for a weight matrix.
-
-        This is the common cost model shared by V1
-        (``research.backtest_v1.run_v1_backtest``) and V2
-        (``run_v2_backtest``).  The only differences are the optional
-        side-leverage multiplier and the optional open-to-close auxiliary
-        series.
-
-        Args:
-            weights: (n_sim_days, n_j) array of portfolio weights.
-            target_returns: (n_sim_days, n_j) 9:10-to-close returns.
-            gap_returns: (n_sim_days, n_j) overnight gap returns.
-            sim_dates: Simulation dates used to compute calendar days held.
-            slip: One-way slippage fraction (bps/10000).
-            financing_daily: Daily financing rate.
-            borrow_daily: Daily borrow fee.
-            reverse_daily: Daily reverse-fee fraction.
-            alpha_long: Long overnight hold fraction.
-            alpha_short: Short overnight hold fraction.
-            side_leverage: Notional leverage multiplier.  Default 1.0 for
-                ``research.backtest_v1.run_v1_backtest``; ``run_v2_backtest`` passes 1.5.
-            oc_returns: Optional (n_sim_days, n_j) open-to-close returns.
-                If provided, open-to-close gross/net series are computed.
-
-        Returns:
-            Dict of daily lists:
-                gross_returns, net_returns, gross_returns_oc, net_returns_oc,
-                costs, slip_costs, financing_costs, borrow_costs, reverse_costs,
-                overnight_returns, gross_exps, turnover.
-        """
-        n_sim_days = len(weights)
-        n_j = weights.shape[1]
-        w_prev = np.zeros(n_j)
-
-        # Calculate calendar days between trading dates to scale financing/borrow fees correctly.
-        # For the last trading day, assume 1 calendar day as fallback.
-        calendar_days = np.ones(n_sim_days)
-        sim_dates_pd = pd.to_datetime(sim_dates)
-        for i in range(n_sim_days - 1):
-            calendar_days[i] = (sim_dates_pd[i + 1] - sim_dates_pd[i]).days
-
-        gross_returns_list = []
-        net_returns_list = []
-        gross_returns_oc_list = []
-        net_returns_oc_list = []
-        cost_list = []
-        slip_cost_list = []
-        financing_cost_list = []
-        borrow_cost_list = []
-        reverse_cost_list = []
-        overnight_ret_list = []
-        gross_exp_list = []
-        turnover_list = []
-
-        include_oc = oc_returns is not None
-
-        for i in range(n_sim_days):
-            w_t = weights[i]
-            r_target_t = target_returns[i]
-            days_held = calendar_days[i]
-
-            gross_ret = side_leverage * float(np.sum(w_t * r_target_t))
-            gross_exp = float(np.sum(np.abs(w_t)))
-
-            alpha_mask = np.where(w_t > 0, alpha_long, np.where(w_t < 0, alpha_short, 0.0))
-
-            overnight_ret = 0.0
-            if (alpha_long > 0 or alpha_short > 0) and i < n_sim_days - 1:
-                r_gap_next = gap_returns[i + 1]
-                overnight_ret = side_leverage * float(np.sum(alpha_mask * w_t * r_gap_next))
-
-            turnover = float(np.sum(np.abs(w_t - w_prev)) / 2.0)
-
-            slip_cost = side_leverage * slip * (
-                2.0 * np.sum((1.0 - alpha_mask) * np.abs(w_t))
-                + np.sum(alpha_mask * np.abs(w_t - w_prev))
-            )
-            held_long = float(np.sum(alpha_mask * np.maximum(w_t, 0.0)))
-            held_short = float(np.sum(alpha_mask * np.maximum(-w_t, 0.0)))
-            fin_cost = side_leverage * held_long * financing_daily * days_held
-            borrow_cost = side_leverage * held_short * borrow_daily * days_held
-            reverse_cost = side_leverage * held_short * reverse_daily * days_held
-            cost = slip_cost + fin_cost + borrow_cost + reverse_cost
-
-            net_ret = gross_ret + overnight_ret - cost
-
-            gross_returns_list.append(gross_ret + overnight_ret)
-            net_returns_list.append(net_ret)
-            cost_list.append(cost)
-            slip_cost_list.append(slip_cost)
-            financing_cost_list.append(fin_cost)
-            borrow_cost_list.append(borrow_cost)
-            reverse_cost_list.append(reverse_cost)
-            overnight_ret_list.append(overnight_ret)
-            gross_exp_list.append(gross_exp)
-            turnover_list.append(turnover)
-
-            if oc_returns is not None:
-                r_oc_t = oc_returns[i]
-                gross_ret_oc = side_leverage * float(np.sum(w_t * r_oc_t))
-                net_ret_oc = gross_ret_oc - cost
-                gross_returns_oc_list.append(gross_ret_oc)
-                net_returns_oc_list.append(net_ret_oc)
-
-            w_prev = w_t
-
-        result = {
-            "gross_returns": gross_returns_list,
-            "net_returns": net_returns_list,
-            "costs": cost_list,
-            "slip_costs": slip_cost_list,
-            "financing_costs": financing_cost_list,
-            "borrow_costs": borrow_cost_list,
-            "reverse_costs": reverse_cost_list,
-            "overnight_returns": overnight_ret_list,
-            "gross_exps": gross_exp_list,
-            "turnover": turnover_list,
-        }
-        if include_oc:
-            result["gross_returns_oc"] = gross_returns_oc_list
-            result["net_returns_oc"] = net_returns_oc_list
-        return result
+        """Compatibility adapter for the pure daily P&L calculator."""
+        return simulate_daily_pnl(
+            weights=weights,
+            target_returns=target_returns,
+            gap_returns=gap_returns,
+            sim_dates=sim_dates,
+            slip=slip,
+            financing_daily=financing_daily,
+            borrow_daily=borrow_daily,
+            reverse_daily=reverse_daily,
+            alpha_long=alpha_long,
+            alpha_short=alpha_short,
+            side_leverage=side_leverage,
+            oc_returns=oc_returns,
+        )
 
     # ------------------------------------------------------------------
     # V2 backtest (ProductionV2 model — gap-adjusted distribution)
@@ -247,10 +153,12 @@ class BacktestEngine:
         n_jobs: int = 1,
         overlay_model: MLOrderOverlayModel | None = None,
         overlay_model_dir: Path | str | None = None,
+        decision_transform: Callable[[str, PortfolioDecision], PortfolioDecision] | None = None,
+        historical_inputs: HistoricalInputs | None = None,
     ) -> dict:
         """Run a historical backtest using the V2 production model.
 
-        Calls ``generate_v2_production_portfolio()`` for each trading date,
+        Calls the canonical V2 model for each trading date,
         loading per-date gap-adjusted distribution matrices from
         *gap_input_dir*.  The cost model is identical to
         ``research.backtest_v1.run_v1_backtest``.
@@ -284,9 +192,13 @@ class BacktestEngine:
             cfg if isinstance(cfg, AppConfig) else build_app_config_from_dict(cfg)
         )
 
-        if overlay_model is None and overlay_model_dir is not None:
-            overlay_model = load_overlay_model(Path(overlay_model_dir))
-            logger.info("Loaded overlay model from %s", overlay_model_dir)
+        if historical_inputs is not None:
+            expected_frame = PITDataLake(df_exec).df_exec
+            supplied_frame = historical_inputs.to_frame()
+            if dataframe_fingerprint(expected_frame) != dataframe_fingerprint(supplied_frame):
+                raise ValueError(
+                    "historical_inputs frame must match df_exec for a run-owned backtest"
+                )
 
         cost_params = cls._resolve_v2_backtest_cost_params(
             app_config,
@@ -319,8 +231,29 @@ class BacktestEngine:
         sim_dates, start_idx, end_idx = cls._resolve_sim_dates(df_exec, start_date, end_date, 0)
         sim_dates_slice = cast(pd.DatetimeIndex, sim_dates[start_idx : end_idx + 1])
 
+        # A backtest owns one 09:10 input frame for both realized P&L labels
+        # and per-date model decisions.  Supplying it here prevents the target
+        # calculation from reopening a different 5-minute cache.
+        run_open_910_returns = (
+            historical_inputs.open_910_returns
+            if historical_inputs is not None
+            else build_open_910_returns(df_exec, JP_TICKERS)
+        )
+        target_open_910_returns = run_open_910_returns
+        if historical_inputs is not None and target_open_910_returns is None:
+            # A supplied run with no intraday frame must remain explicit; the
+            # pure target arithmetic then falls back to its existing jp_oc
+            # labels instead of performing hidden adapter I/O.
+            target_open_910_returns = pd.DataFrame(
+                np.nan,
+                index=df_exec.index,
+                columns=JP_TICKERS,
+            )
         y_jp_target_arr, gap_returns_arr = cls._compute_target_and_gap_returns(
-            df_exec, sim_dates, sim_dates_slice
+            df_exec,
+            sim_dates,
+            sim_dates_slice,
+            open_910_returns=target_open_910_returns,
         )
 
         n_j = len(JP_TICKERS)
@@ -331,7 +264,11 @@ class BacktestEngine:
             sim_dates_slice,
             n_j,
             overlay_model,
+            overlay_model_dir,
             n_jobs,
+            decision_transform,
+            historical_inputs,
+            run_open_910_returns,
         )
 
         sre_weights_df = pd.DataFrame(sre_weights, index=sim_dates_slice, columns=JP_TICKERS)
@@ -437,7 +374,11 @@ class BacktestEngine:
         sim_dates_slice: pd.DatetimeIndex,
         n_j: int,
         overlay_model: MLOrderOverlayModel | None,
+        overlay_model_dir: Path | str | None,
         n_jobs: int,
+        decision_transform: Callable[[str, PortfolioDecision], PortfolioDecision] | None = None,
+        historical_inputs: HistoricalInputs | None = None,
+        open_910_returns: pd.DataFrame | None = None,
     ) -> tuple[np.ndarray, np.ndarray, list[dict]]:
         """Generate V2 weights for each simulation date using the unified V2 model."""
         n_sim_days = len(sim_dates_slice)
@@ -445,42 +386,149 @@ class BacktestEngine:
         fallback_flags = np.zeros(n_sim_days, dtype=bool)
         v2_summaries = cast(list[dict], [None] * n_sim_days)
 
-        run_cfg = app_config.v2
-
         effective_gap_dir: Path | None = gap_dir
 
-        # Build the BLPX model and the unified V2 decision model.
-        blpx_model = ProductionBLPXModel(run_cfg.blpx)
-        if n_jobs > 1:
-            blpx_model.clear_caches()
-
-        v2_model = ProductionV2Model(
-            run_cfg,
-            blpx_model=blpx_model,
+        bundle = build_v2_model_bundle(
+            app_config,
             overlay_model=overlay_model,
+            overlay_model_dir=overlay_model_dir,
+            clear_blpx_cache=n_jobs > 1,
         )
+        v2_model = bundle.decision_model
+        run_config = getattr(bundle, "run_config", app_config.v2)
+        overlay_enabled = bool(getattr(bundle, "overlay_enabled", run_config.ml_overlay_enabled))
 
         lake = PITDataLake(df_exec)
+        if historical_inputs is None:
+            # Extract the intraday input once at the adapter boundary.  The model
+            # receives this run-owned frame and cannot reopen the 5-minute cache
+            # while computing a per-date decision.
+            if open_910_returns is None:
+                open_910_returns = build_open_910_returns(df_exec, JP_TICKERS)
+            macro_prices = None
+            if run_config.macro_kappa_enabled or run_config.macro_direction_enabled:
+                try:
+                    macro_prices = macro_data.load_macro_prices(
+                        start=df_exec.index.min().strftime("%Y-%m-%d"),
+                        end=(df_exec.index.max() + pd.Timedelta(days=1)).strftime("%Y-%m-%d"),
+                        period="max",
+                    )
+                except Exception as exc:
+                    # Missing adapter data is represented explicitly in the
+                    # snapshot; the typed model will apply its safe skip/fallback
+                    # path without reopening the provider.
+                    logger.warning("Failed to load run-owned macro prices: %s", exc)
+
+            adr_features = None
+            if overlay_enabled:
+                try:
+                    # The overlay selects the row for each trade date.  Loading
+                    # the complete artifact once keeps the run deterministic and
+                    # avoids a per-date filesystem read in model code.
+                    adr_features = adr_data.load_adr_features()
+                except Exception as exc:
+                    logger.warning("Failed to load run-owned ADR features: %s", exc)
+
+            pit_ir_history: dict[str, np.ndarray] | None = None
+            pit_history_trade_dates: dict[str, np.ndarray] | None = None
+            if effective_gap_dir is not None:
+                pit_ir_history = {}
+                pit_history_trade_dates = {}
+                for dt in sim_dates_slice:
+                    date_str = dt.strftime("%Y-%m-%d")
+                    history_ir, _alerts, history_dates = load_pit_ir_history(
+                        effective_gap_dir, date_str
+                    )
+                    pit_ir_history[date_str] = history_ir
+                    pit_history_trade_dates[date_str] = history_dates
+
+            rank_reversal_signals = None
+            if run_config.cs_overlay_enabled:
+                rank_reversal_signals = load_rank_reversal_frame(
+                    effective_gap_dir,
+                    sim_dates_slice,
+                    file_pattern=run_config.cs_rank_reversal_file_pattern,
+                )
+
+            historical_observed_at_by_date = {
+                dt.strftime("%Y-%m-%d"): {
+                    "open_910_returns": f"{dt.date()} 09:10",
+                    "macro_prices": f"{dt.date()} 09:00",
+                    "adr_features": f"{dt.date()} 09:00",
+                    "rank_reversal_signals": f"{dt.date()} 09:00",
+                    "pit_ir_history": f"{dt.date()} 09:10",
+                }
+                for dt in sim_dates_slice
+            }
+
+            historical_inputs = HistoricalInputs(
+                df_exec,
+                source="backtest",
+                open_910_returns=open_910_returns,
+                macro_prices=macro_prices,
+                adr_features_frame=adr_features,
+                pit_ir_history=pit_ir_history,
+                pit_history_trade_dates=pit_history_trade_dates,
+                rank_reversal_signals=rank_reversal_signals,
+                observed_at_by_date=historical_observed_at_by_date,
+            )
 
         def _process_date(i_dt: tuple[int, pd.Timestamp]) -> tuple[int, np.ndarray, bool, dict]:
             i, dt = i_dt
             date_str = dt.strftime("%Y-%m-%d")
             try:
-                snapshot = lake.get_snapshot(dt)
-                result = v2_model.decide(
-                    trade_date=date_str,
+                # Every backtest decision is evaluated at the same 09:10 JST
+                # cutoff used by the live bridge.  Passing a date-only value
+                # would silently make the PIT contract stricter and would
+                # leave source timestamps unspecified.
+                decision_as_of = dt + pd.Timedelta(hours=9, minutes=10)
+                snapshot = (
+                    lake.get_execution_snapshot(decision_as_of, historical_inputs.open_910_returns)
+                    if historical_inputs.open_910_returns is not None
+                    and all(f"jp_open_trade_{ticker}" in df_exec for ticker in JP_TICKERS)
+                    else lake.get_snapshot(decision_as_of)
+                )
+                sig_date = df_exec.loc[dt].get("sig_date") if "sig_date" in df_exec.columns else None
+                if sig_date is not None and pd.isna(sig_date):
+                    sig_date = None
+                decision_inputs = DecisionInputs(
+                    known=snapshot.to_known_inputs(
+                        sig_date=sig_date,
+                        observed_at={
+                            "us_returns": f"{dt.date()} 09:00",
+                            "jp_gap_returns": f"{dt.date()} 09:10",
+                            "jp_betas": f"{dt.date()} 09:10",
+                            "topix_night_return": f"{dt.date()} 09:10",
+                            "current_prices": f"{dt.date()} 09:10",
+                            "prev_closes": f"{dt.date()} 09:10",
+                        },
+                        source="backtest_pit",
+                    ),
+                    historical=historical_inputs,
                     gap_input_dir=effective_gap_dir,
-                    lake=lake,
-                    snapshot=snapshot,
-                    overlay_enabled=run_cfg.ml_overlay_enabled,
                     use_file_cache=True,
                 )
-                w = result["w_final"]
-                fb = (
-                    result["fallback"].get("gap_data_missing", False)
-                    or result["fallback"].get("audit_failure", False)
+                result = v2_model.decide(
+                    inputs=decision_inputs,
+                    overlay_enabled=overlay_enabled,
+                    use_file_cache=True,
                 )
-                summary = result.get("summary", {})
+                # Research drivers inject their fitted transform explicitly.
+                # A failed base decision must never be resurrected by an overlay.
+                if decision_transform is not None and not (
+                    result.fallback.get("gap_data_missing") or result.fallback.get("audit_failure")
+                ):
+                    result = decision_transform(date_str, result)
+                    numerical = run_numerical_audit(result.w_final, result.scores, result.Omega_gap)
+                    if numerical["status"] != "PASSED":
+                        raise ValueError("Research decision transform failed numerical audit")
+                    result = replace(result, numerical=numerical)
+                w = result.w_final
+                fb = (
+                    result.fallback.get("gap_data_missing", False)
+                    or result.fallback.get("audit_failure", False)
+                )
+                summary = result.summary
                 return i, w, fb, summary
             except (ValueError, RuntimeError, FileNotFoundError) as e:
                 logger.warning("[%s] V2 generation failed: %s — flat position", date_str, e)
@@ -547,8 +595,7 @@ class BacktestEngine:
         daily_fallback = pd.Series(fallback_flags, index=sim_dates_slice)
 
         wealth = (1.0 + daily_returns_net).cumprod()
-        running_max = wealth.cummax()
-        drawdown = (wealth / running_max) - 1.0
+        drawdown = compute_drawdown_series(daily_returns_net)
 
         n_fallback = int(fallback_flags.sum())
         n_sim_days = len(sim_dates_slice)

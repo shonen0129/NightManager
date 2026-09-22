@@ -12,10 +12,19 @@ import time
 from datetime import datetime
 
 from leadlag.broker.base import BrokerClient
+from leadlag.config.schemas import StrategyConfig as ProductionConfig
 from leadlag.data.tickers import JP_TICKERS, TOPIX_TICKER
-from leadlag.execution.config import StrategyConfig as ProductionConfig
 
 logger = logging.getLogger(__name__)
+
+
+class FillPriceReconciliationError(RuntimeError):
+    """Raised when one or more submitted orders could not be reconciled."""
+
+    def __init__(self, order_results: list[dict], errors: list[str]) -> None:
+        super().__init__("Fill-price reconciliation failed: " + "; ".join(errors))
+        self.order_results = order_results
+        self.errors = errors
 
 
 def resolve_daily_open_prices(
@@ -118,12 +127,17 @@ def fetch_fill_prices(
     logger.info("[HEARTBEAT] Waiting %.1f seconds before fetching fill prices", wait_seconds)
     time.sleep(wait_seconds)
 
+    errors: list[str] = []
     for result in order_results:
         order_id = result.get("order_id", "")
-        if not order_id or result.get("status") != "SUBMITTED":
+        # A terminal broker status does not imply zero fills.  In particular,
+        # a partially executed order can end as CANCELLED/EXPIRED after its
+        # remaining quantity is withdrawn.  Query every real broker order id;
+        # only simulated/no-id results are intentionally non-queryable.
+        if not order_id or result.get("status") == "SIMULATED":
             result["fill_price"] = None
             result["fill_quantity"] = None
-            result["fill_status"] = "NOT_SUBMITTED"
+            result["fill_status"] = "NOT_SUBMITTED" if not order_id else "NOT_FILLABLE"
             continue
 
         eigyou_day = result.get("eigyou_day") or datetime.now().strftime("%Y%m%d")
@@ -151,7 +165,7 @@ def fetch_fill_prices(
             }
 
             logger.info(
-                "  [FILL] %s: %d shares @ %s (Order ID: %s, Status: %s)",
+                "  [FILL] %s: %s shares @ %s (Order ID: %s, Status: %s)",
                 result.get("ticker"),
                 fill_quantity,
                 fill_price,
@@ -160,8 +174,13 @@ def fetch_fill_prices(
             )
         except Exception as e:
             logger.warning("Failed to fetch fill detail for order %s: %s", order_id, e)
-            result["fill_price"] = None
-            result["fill_quantity"] = None
+            # A later transient query failure must not erase a quantity that
+            # was already confirmed by an earlier reconciliation pass.
+            result.setdefault("fill_price", None)
+            result.setdefault("fill_quantity", None)
             result["fill_status"] = "FETCH_ERROR"
+            errors.append(f"order_id={order_id}: {e}")
 
+    if errors:
+        raise FillPriceReconciliationError(order_results, errors)
     return order_results

@@ -7,9 +7,9 @@ import os
 from pathlib import Path
 from typing import Any
 
-import yaml
 from dotenv import load_dotenv
 
+from leadlag.config.loader import load_yaml_with_base
 from leadlag.config.paths import live, results
 from leadlag.config.schemas import (
     AppConfig,
@@ -20,57 +20,13 @@ from leadlag.config.schemas import (
     ProductionV2RunConfig,
     RiskConfig,
     TachibanaApiConfig,
+    parse_run_config,
 )
 from leadlag.config.schemas import (
     StrategyConfig as StrategyConfig,
 )
 
 logger = logging.getLogger(__name__)
-
-
-_BASE_KEY = "__base__"
-
-
-def _resolve_config_path(path: str, relative_to: Path) -> Path:
-    """Resolve an include path relative to the containing YAML file."""
-    p = Path(path)
-    if p.is_absolute():
-        return p
-    return (relative_to.parent / p).resolve()
-
-
-def _deep_merge(base: Any, override: Any) -> Any:
-    """Recursively merge override into base. Dicts are merged; other values override."""
-    if isinstance(base, dict) and isinstance(override, dict):
-        merged = dict(base)
-        for k, v in override.items():
-            merged[k] = _deep_merge(merged.get(k), v) if k in merged else v
-        return merged
-    return override
-
-
-def _load_yaml_with_base(
-    yaml_path: str | Path,
-    _seen: set[str] | None = None,
-) -> dict[str, Any]:
-    """Load a YAML file, recursively merging any ``__base__`` includes."""
-    _seen = _seen or set()
-    yaml_path = Path(yaml_path).resolve()
-    key = str(yaml_path)
-    if key in _seen:
-        raise ValueError(f"Circular __base__ reference detected: {yaml_path}")
-    _seen.add(key)
-
-    with open(yaml_path, encoding="utf-8") as f:
-        data = yaml.safe_load(f) or {}
-
-    base_path = data.pop(_BASE_KEY, None)
-    if base_path:
-        base_file = _resolve_config_path(str(base_path), yaml_path)
-        base_data = _load_yaml_with_base(base_file, _seen)
-        data = _deep_merge(base_data, data)
-
-    return data
 
 
 class UnknownConfigKeyError(ValueError):
@@ -180,8 +136,6 @@ def build_app_config_from_dict(yaml_data: dict[str, Any], strict: bool = False) 
 
     # V2 config is the single source of truth for production parameters.
     # Build it before StrategyConfig so we can fall back to its values.
-    from leadlag.models.production_v2 import parse_run_config
-
     v2_cfg = parse_run_config(yaml_data)
 
     # Build StrategyConfig from the canonical V2 config. Legacy nested values
@@ -318,7 +272,7 @@ def load_config_from_yaml(
     yaml_data: dict[str, Any] = {}
     if yaml_path and Path(yaml_path).exists():
         logger.info("Loading configuration from %s", yaml_path)
-        yaml_data = _load_yaml_with_base(yaml_path)
+        yaml_data = load_yaml_with_base(yaml_path)
     else:
         logger.info("No configuration YAML found, using default settings")
 

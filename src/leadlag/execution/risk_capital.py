@@ -12,11 +12,11 @@ import logging
 import numpy as np
 import pandas as pd
 
+from leadlag.config.schemas import StrategyConfig as ProductionConfig
 from leadlag.core import allocator as domain_allocator
 from leadlag.core.portfolio import adjust_gross_exposure, classify_actions
 from leadlag.core.risk import evaluate_risk_checks
 from leadlag.core.types import RiskConfig
-from leadlag.execution.config import StrategyConfig as ProductionConfig
 
 logger = logging.getLogger(__name__)
 
