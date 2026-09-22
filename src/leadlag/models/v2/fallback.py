@@ -17,6 +17,7 @@ from leadlag.core.macro import (
     compute_sigma_yy_inflation,
 )
 from leadlag.core.portfolio import get_rolling_pit_bin
+from leadlag.data import macro as macro_data
 from leadlag.models.v2.pit import load_pit_ir_history
 
 logger = logging.getLogger(__name__)
@@ -30,6 +31,8 @@ def _repair_and_adjust(
     n_j: int,
     alerts: list[str],
     cache: dict | None = None,
+    macro_prices: pd.DataFrame | None = None,
+    allow_implicit_io: bool = True,
 ) -> tuple[np.ndarray, np.ndarray, list[str]]:
     """Ensure Omega_gap is symmetric and PSD; optionally apply macro adjustments."""
     # Symmetrize before any eigenvalue or quadratic-form operation.
@@ -49,11 +52,14 @@ def _repair_and_adjust(
     # Macro adjustments (Omega_gap inflation and/or directional mu_gap adjustment)
     if run_cfg.macro_kappa_enabled or run_cfg.macro_direction_enabled:
         try:
-            # Download the full available history once and reuse it across backtest
-            # dates (cache key is stable regardless of the trade date). The PIT cut
-            # and a rolling 2-year window are applied below so no look-ahead occurs.
-            import leadlag.models.production_v2 as _pv2
-            close_prices = _pv2.download_macro_prices(period="max", cache=cache)
+            # Typed decisions must supply the run-owned macro snapshot.  The
+            # compatibility path may still use the data adapter when called
+            # without a DecisionInputs contract.
+            close_prices = macro_prices
+            if close_prices is None and allow_implicit_io:
+                close_prices = macro_data.load_macro_prices(period="max", cache=cache)
+            elif close_prices is None:
+                alerts.append("Macro enabled but explicit macro_prices are missing; skipping.")
             if close_prices is not None:
                 # PIT cut: the close for the trade date itself is not known at 9:10.
                 close_prices = close_prices[close_prices.index < pd.to_datetime(date_str)]
@@ -143,14 +149,37 @@ def _apply_pit_ruleD(
     date_str: str,
     run_cfg: ProductionV2RunConfig,
     alerts: list[str],
+    pit_ir_history: np.ndarray | None = None,
+    pit_history_trade_dates: np.ndarray | None = None,
+    allow_implicit_io: bool = True,
 ) -> tuple[np.ndarray, dict, list[str], np.ndarray]:
     """PIT binning and RuleD gross multiplier."""
     # PIT binning for RuleD — load history, compute current IR
     history_ir = np.array([])
     pit_history_dates = np.array([])
-    if gap_input_dir is not None:
+    if pit_ir_history is not None:
+        history_ir = np.asarray(pit_ir_history, dtype=float).copy()
+        if pit_history_trade_dates is None and len(history_ir) > 0 and not allow_implicit_io:
+            alerts.append(
+                "PIT history trade dates were not supplied in the strict run snapshot; "
+                "failing the leakage audit."
+            )
+            # A current-date sentinel makes the required audit fail closed
+            # instead of treating missing provenance as a vacuous pass.
+            pit_history_dates = np.array([np.datetime64(date_str, "ns")])
+        elif pit_history_trade_dates is not None:
+            pit_history_dates = np.asarray(pit_history_trade_dates).copy()
+            if len(pit_history_dates) != len(history_ir):
+                alerts.append(
+                    "PIT history values and trade dates have different lengths; "
+                    "failing the leakage audit."
+                )
+                pit_history_dates = np.array([np.datetime64(date_str, "ns")])
+    elif gap_input_dir is not None and allow_implicit_io:
         history_ir, pit_alerts, pit_history_dates = load_pit_ir_history(gap_input_dir, date_str)
         alerts.extend(pit_alerts)
+    elif gap_input_dir is not None:
+        alerts.append("PIT history was not supplied in the run snapshot; using fallback multiplier.")
 
     # For PIT binning, use the baseline style weights as reference
     p_mean_baseline = np.dot(w_pre, mu_gap)
@@ -170,6 +199,7 @@ def _apply_pit_ruleD(
         mult_low=run_cfg.mult_low,
         mult_mid=run_cfg.mult_mid,
         mult_high=run_cfg.mult_high,
+        fallback_multiplier=run_cfg.fallback_multiplier,
     )
     history_count = int(np.sum(np.isfinite(history_ir)))
     pit_fallback = history_count < run_cfg.pit_rolling_window

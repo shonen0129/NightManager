@@ -10,11 +10,12 @@ import numpy as np
 import pandas as pd
 
 from leadlag.config.schemas import ProductionV2RunConfig
-from leadlag.core.gap_adjustment import build_raw_distribution, compute_gap_adjusted_distribution
+from leadlag.data.horizon_returns import compute_cumulative_returns
 from leadlag.data.pit_lake import MarketSnapshot
 from leadlag.data.tickers import JP_TICKERS
 from leadlag.data.validation import DataValidationError
-from leadlag.models.v2.audit_comparator import _compare_distribution, _run_safety_audits
+from leadlag.models.v2.audit_comparator import _run_safety_audits
+from leadlag.pipeline.gap_distribution import compute_gap_distribution, select_gap_coefficients
 from leadlag.utils.gap_matrix_io import load_gap_matrices
 
 logger = logging.getLogger(__name__)
@@ -87,6 +88,64 @@ def _extract_gap_inputs(
     topix_night_t = float(row.get("topix_night_return", 0.0))
     if not np.isfinite(topix_night_t):
         topix_night_t = 0.0
+    return gap_override, betas_t, topix_night_t
+
+
+def _extract_horizon_snapshot_inputs(
+    historical_frame: pd.DataFrame,
+    trade_date: str,
+    horizon: int,
+    snapshot: MarketSnapshot,
+) -> tuple[np.ndarray, np.ndarray, float] | None:
+    """Rebuild a cumulative h-day gap from historical rows and today's snapshot.
+
+    ``compute_cumulative_returns`` produces the h-day value from rows ending at
+    the trade date.  For live decisions the current row's gap and TOPIX night
+    return must come from the PIT snapshot, while the preceding h-1 rows stay
+    on the historical execution frame.  Returning ``None`` preserves the
+    existing zero/missing-data behavior when the window is incomplete.
+    """
+    if horizon <= 1 or trade_date not in historical_frame.index:
+        return None
+    try:
+        snapshot_gap = np.asarray(snapshot.jp_gap_returns, dtype=float)
+        snapshot_betas = np.asarray(snapshot.jp_betas, dtype=float)
+    except (TypeError, ValueError):
+        return None
+    if snapshot_gap.shape != (len(JP_TICKERS),) or snapshot_betas.shape != (len(JP_TICKERS),):
+        return None
+
+    window = historical_frame.loc[:trade_date].tail(horizon)
+    if len(window) != horizon:
+        return None
+
+    def _compound(values: np.ndarray, current: float) -> float:
+        values = np.asarray(values, dtype=float).copy()
+        # A missing live observation follows the one-day snapshot fallback of
+        # treating that component as zero.  Missing historical rows still
+        # invalidate the cumulative window, matching the existing rolling
+        # frame behavior.
+        if not np.isfinite(values[:-1]).all():
+            return 0.0
+        values[-1] = current if np.isfinite(current) else 0.0
+        return float(np.prod(1.0 + values) - 1.0)
+
+    gap_override = np.zeros(len(JP_TICKERS), dtype=float)
+    for index, ticker in enumerate(JP_TICKERS):
+        column = f"jp_gap_{ticker}"
+        if column not in window.columns:
+            return None
+        gap_override[index] = _compound(window[column].to_numpy(dtype=float), snapshot_gap[index])
+
+    if "topix_night_return" not in window.columns:
+        return None
+    topix_night_t = _compound(
+        window["topix_night_return"].to_numpy(dtype=float),
+        float(snapshot.topix_night_return),
+    )
+    if not np.isfinite(topix_night_t):
+        topix_night_t = 0.0
+    betas_t = np.nan_to_num(snapshot_betas, nan=0.0, posinf=0.0, neginf=0.0)
     return gap_override, betas_t, topix_night_t
 
 
@@ -199,6 +258,8 @@ def _compute_ondemand(
     *,
     horizon: int = 1,
     snapshot: MarketSnapshot | None = None,
+    open_910_returns: pd.DataFrame | None = None,
+    allow_implicit_io: bool = True,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Compute on-demand gap-adjusted distribution.
 
@@ -207,8 +268,30 @@ def _compute_ondemand(
     """
     if model._blpx_model is None:
         raise RuntimeError("_compute_ondemand requires a blpx_model")
-    inputs = model._blpx_model._prepare_common_inputs(df_exec, horizon=horizon)
-    current_index = _resolve_current_index(df_exec, trade_date)
+    # The feature frame uses h-day cumulative returns, while the JP target is
+    # the corresponding 9:10-to-close return over the original execution
+    # frame.  Passing the target explicitly keeps this aligned with the
+    # research gap generator and prevents accidentally treating cumulative
+    # ``jp_oc`` columns as intraday target inputs.
+    model_frame = compute_cumulative_returns(df_exec, horizon)
+    from leadlag.data.intraday_inputs import compute_jp_target_returns
+
+    y_jp_target = compute_jp_target_returns(
+        df_exec,
+        JP_TICKERS,
+        horizon=horizon,
+        open_910_returns=open_910_returns,
+        allow_implicit_io=allow_implicit_io,
+        required_index=[trade_date],
+    )
+    inputs = model._blpx_model._prepare_common_inputs(
+        model_frame,
+        horizon=horizon,
+        y_jp_target=y_jp_target,
+        open_910_returns=open_910_returns,
+        allow_implicit_io=allow_implicit_io,
+    )
+    current_index = _resolve_current_index(model_frame, trade_date)
     blpx_result = model._blpx_model.compute_blp_signal(
         all_returns=inputs["jp_res_returns_p3"],
         current_index=current_index,
@@ -217,33 +300,48 @@ def _compute_ondemand(
         is_residual=True,
         return_matrices=True,
     )
-    # Determine US market direction from the BLPX z-score of US returns.
-    us_negative = float(np.nanmean(blpx_result["z_U_t"])) < 0.0
-    # Select gap correction coefficients based on US direction.
-    gap_open_coef = model._blpx_model.gap_open_coef
-    if us_negative and getattr(model._blpx_model, "gap_open_coef_neg", None) is not None:
-        gap_open_coef = model._blpx_model.gap_open_coef_neg
-    topix_beta_coef = model._blpx_model.topix_beta_coef
-    if us_negative and getattr(model._blpx_model, "topix_beta_coef_neg", None) is not None:
-        topix_beta_coef = model._blpx_model.topix_beta_coef_neg
+    gap_open_coef, topix_beta_coef = select_gap_coefficients(model._blpx_model, blpx_result)
     # Build gap-adjusted distribution.
-    gap_override, betas_t, topix_night_t = _extract_gap_inputs(
-        df_exec, trade_date, current_prices, snapshot=snapshot
-    )
-    mu_raw, omega_raw = build_raw_distribution(
+    # The research cache uses the horizon-specific cumulative gap and
+    # overnight columns.  Reconstruct those same columns for h>1; a one-day
+    # snapshot remains the authoritative point-in-time source for h=1.
+    if horizon == 1 and snapshot is not None:
+        gap_override, betas_t, topix_night_t = _extract_gap_inputs(
+            df_exec, trade_date, current_prices, snapshot=snapshot
+        )
+    else:
+        snapshot_inputs = (
+            _extract_horizon_snapshot_inputs(df_exec, trade_date, horizon, snapshot)
+            if horizon > 1 and snapshot is not None
+            else None
+        )
+        if snapshot_inputs is not None:
+            gap_override, betas_t, topix_night_t = snapshot_inputs
+        else:
+            gap_override, betas_t, topix_night_t = _extract_gap_inputs(
+                df_exec, trade_date, current_prices, snapshot=None
+            )
+            if horizon > 1 and trade_date in model_frame.index:
+                row = model_frame.loc[trade_date]
+                gap_override = np.asarray(
+                    [row.get(f"jp_gap_{ticker}", 0.0) for ticker in JP_TICKERS],
+                    dtype=float,
+                )
+                gap_override = np.nan_to_num(gap_override, nan=0.0, posinf=0.0, neginf=0.0)
+                if "topix_night_return" in row:
+                    topix_night_t = float(row["topix_night_return"])
+                    if not np.isfinite(topix_night_t):
+                        topix_night_t = 0.0
+    computation = compute_gap_distribution(
         blpx_result,
+        gap_override=gap_override,
+        betas_t=betas_t,
+        topix_night_t=topix_night_t,
         vol_adjusted_target=getattr(model._blpx_model, "vol_adjusted_target", False),
-    )
-    mu_gap, omega_gap = compute_gap_adjusted_distribution(
-        mu_raw,
-        omega_raw,
-        gap_override,
-        betas_t,
-        topix_night_t,
         gap_open_coef=gap_open_coef,
         topix_beta_coef=topix_beta_coef,
     )
-    return mu_gap, omega_gap
+    return computation.mu_gap, computation.omega_gap
 
 
 def compute_distribution(
@@ -272,64 +370,15 @@ def compute_distribution(
     """
     if model._blpx_model is None:
         raise RuntimeError("compute_distribution requires a blpx_model")
-    run_cfg = model.run_config
-    gap_input_dir = getattr(model, "_current_gap_input_dir", None) or getattr(
-        run_cfg, "gap_input_dir", None
-    )
-    ondemand_fallback = getattr(run_cfg, "ondemand_fallback_enabled", True)
-    shadow_validation = getattr(run_cfg, "shadow_ondemand_validation", False)
-    file_mu: np.ndarray | None = None
-    file_omega: np.ndarray | None = None
-    if use_file_cache and gap_input_dir is not None:
-        if horizon == 1:
-            _mu_pattern = mu_pattern or "matrices/mu_gap_{date}.npy"
-            _omega_pattern = omega_pattern or "matrices/omega_gap_{date}.npy"
-            _pattern_kwargs = None
-        else:
-            _mu_pattern = mu_pattern or run_cfg.mh_mu_file_pattern_h
-            _omega_pattern = omega_pattern or run_cfg.mh_omega_file_pattern_h
-            _pattern_kwargs = {"h": horizon}
-        file_mu, file_omega, file_alerts = load_gap_matrices(
-            gap_input_dir,
-            trade_date,
-            mu_pattern=_mu_pattern,
-            omega_pattern=_omega_pattern,
-            pattern_kwargs=_pattern_kwargs,
-            n_j=model.n_j,
-            strict=False,
+    from leadlag.domain.distribution import DistributionReason, DistributionResolutionError
+    from leadlag.models.v2.fallback_policy import FallbackPolicy
+
+    result = FallbackPolicy.default(
+        model, use_file_cache=use_file_cache, mu_pattern=mu_pattern, omega_pattern=omega_pattern,
+    ).resolve(trade_date, df_exec, current_prices, horizon=horizon, snapshot=snapshot)
+    if result.mu_gap is None or result.Omega_gap is None or not result.is_available:
+        raise DistributionResolutionError(
+            result.reason or DistributionReason.POLICY_EXHAUSTED,
+            "; ".join(result.alerts or []), attempts=result.attempts,
         )
-        if _gap_alerts_fatal(file_alerts):
-            logger.error(
-                "[%s] File cache gap matrices are invalid (%s); falling back to on-demand.",
-                trade_date, ", ".join(file_alerts),
-            )
-            file_mu, file_omega = None, None
-    if file_mu is not None and file_omega is not None:
-        if shadow_validation:
-            mu_ondemand, omega_ondemand = _compute_ondemand(
-                model,
-                trade_date=trade_date,
-                df_exec=df_exec,
-                current_prices=current_prices,
-                horizon=horizon,
-                snapshot=snapshot,
-            )
-            label = f"{trade_date}:h{horizon}"
-            _compare_distribution(label, file_mu, file_omega, mu_ondemand, omega_ondemand)
-        return file_mu, file_omega
-    if ondemand_fallback:
-        logger.warning(
-            "[%s] Gap file cache missing (h=%d); computing on-demand.",
-            trade_date, horizon,
-        )
-        return _compute_ondemand(
-            model,
-            trade_date=trade_date,
-            df_exec=df_exec,
-            current_prices=current_prices,
-            horizon=horizon,
-            snapshot=snapshot,
-        )
-    raise RuntimeError(
-        f"Gap matrices missing for {trade_date} (h={horizon}) and on-demand fallback is disabled."
-    )
+    return result.mu_gap, result.Omega_gap

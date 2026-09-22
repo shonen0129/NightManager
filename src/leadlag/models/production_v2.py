@@ -1,7 +1,7 @@
 """Production v2 portfolio construction module.
 
-Public API: parse_run_config, generate_v2_production_portfolio,
-load_pit_ir_history, ProductionV2Model.
+Public API: ProductionV2Model, load_pit_ir_history,
+ProductionV2Model.
 """
 
 from __future__ import annotations
@@ -13,11 +13,14 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from leadlag.config import safe_config_copy
-from leadlag.config.schemas import ProductionV2RunConfig, _map_flat_to_nested
-from leadlag.core.macro import download_macro_prices
-from leadlag.data.pit_lake import MarketSnapshot, PITDataLake
+from leadlag.config.schemas import ProductionV2RunConfig
+from leadlag.data.pit_lake import (
+    MarketSnapshot,
+    PITDataLake,
+    validate_production_decision_inputs,
+)
 from leadlag.data.tickers import JP_TICKERS, US_TICKERS
+from leadlag.domain.inputs import DecisionInputs
 from leadlag.domain.portfolio import PortfolioDecision
 from leadlag.models.v2 import (
     VERSION,
@@ -45,6 +48,7 @@ from leadlag.models.v2 import (
 )
 from leadlag.models.v2.overlay_applier import _apply_overlay as _v2_apply_overlay
 from leadlag.utils.cache_manager import CacheManager
+from leadlag.utils.timestamps import normalize_jst_date
 
 logger = logging.getLogger(__name__)
 
@@ -55,11 +59,8 @@ __all__ = [
     "SHORT_COUNT",
     "ProductionV2Model",
     "VERSION",
-    "download_macro_prices",
-    "generate_v2_production_portfolio",
     "generate_v2_production_portfolio_from_distribution",
     "load_pit_ir_history",
-    "parse_run_config",
     "_build_current_prices_from_df_exec",
 ]
 
@@ -68,33 +69,6 @@ BASELINE_GROSS = 2.0
 COST_BPS_PER_GROSS = 10.0
 LONG_COUNT = 5
 SHORT_COUNT = 5
-
-
-def parse_run_config(cfg: dict) -> ProductionV2RunConfig:
-    """Convert a raw (possibly flat) YAML cfg dict to a validated ``ProductionV2RunConfig``."""
-    cfg = safe_config_copy(cfg) or {}
-    mapped = _map_flat_to_nested(cfg)
-    return ProductionV2RunConfig(**mapped)
-
-
-def generate_v2_production_portfolio(
-    trade_date: str,
-    gap_input_dir: Path | None,
-    cfg: ProductionV2RunConfig | dict,
-) -> PortfolioDecision:
-    """Backward-compatible wrapper around ``ProductionV2Model.decide`` (overlay off)."""
-    cfg = safe_config_copy(cfg)
-    run_cfg = cfg if isinstance(cfg, ProductionV2RunConfig) else parse_run_config(cfg)
-
-    v2_model = ProductionV2Model(run_cfg, blpx_model=None, overlay_model=None)
-    return v2_model.decide(
-        trade_date=trade_date,
-        gap_input_dir=gap_input_dir,
-        df_exec=None,
-        current_prices=None,
-        overlay_enabled=False,
-        use_file_cache=True,
-    )
 
 
 class ProductionV2Model:
@@ -127,7 +101,7 @@ class ProductionV2Model:
 
     def decide(
         self,
-        trade_date: str,
+        trade_date: str | None = None,
         gap_input_dir: str | Path | None = None,
         df_exec: pd.DataFrame | None = None,
         current_prices: dict[str, float] | None = None,
@@ -135,20 +109,43 @@ class ProductionV2Model:
         use_file_cache: bool = True,
         lake: PITDataLake | None = None,
         snapshot: MarketSnapshot | None = None,
+        inputs: DecisionInputs | None = None,
     ) -> PortfolioDecision:
+        if inputs is not None:
+            if gap_input_dir is not None:
+                raise ValueError("DecisionInputs owns gap_input_dir; pass it on the contract")
+            if any(value is not None for value in (df_exec, current_prices, lake, snapshot)):
+                raise ValueError(
+                    "DecisionInputs cannot be combined with df_exec, current_prices, lake, or snapshot"
+                )
+            input_date = inputs.trade_date.strftime("%Y-%m-%d")
+            if trade_date is not None and normalize_jst_date(trade_date) != inputs.trade_date:
+                raise ValueError("trade_date does not match DecisionInputs.known.trade_date")
+            trade_date = input_date
+            use_file_cache = inputs.use_file_cache
+        if trade_date is None:
+            raise ValueError("trade_date is required when DecisionInputs is not supplied")
         if gap_input_dir is not None:
             gap_input_dir = Path(gap_input_dir)
-        self._current_gap_input_dir = gap_input_dir
+        if inputs is None and (df_exec is not None or lake is not None):
+            if lake is not None and df_exec is not None:
+                raise ValueError("Pass one historical source: df_exec or lake")
+            if self._blpx_model is not None and current_prices is None and snapshot is None and lake is None:
+                raise ValueError("current_prices is required for on-demand V2 decision.")
+            if lake is None:
+                assert df_exec is not None
+                lake = PITDataLake(df_exec)
+            inputs = lake.build_decision_inputs(
+                trade_date, snapshot=snapshot,
+                current_prices=None if snapshot is not None else current_prices,
+                gap_input_dir=gap_input_dir, use_file_cache=use_file_cache,
+                source="public_model_adapter",
+            )
+        if inputs is not None:
+            validate_production_decision_inputs(inputs)
         return _v2_decide(
-            self,
-            trade_date=trade_date,
-            gap_input_dir=gap_input_dir,
-            df_exec=df_exec,
-            current_prices=current_prices,
-            overlay_enabled=overlay_enabled,
-            use_file_cache=use_file_cache,
-            lake=lake,
-            snapshot=snapshot,
+            self, trade_date=trade_date, gap_input_dir=gap_input_dir,
+            overlay_enabled=overlay_enabled, use_file_cache=use_file_cache, inputs=inputs,
         )
 
     def compute_distribution(

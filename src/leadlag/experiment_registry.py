@@ -145,7 +145,14 @@ def compute_deflated_sharpe(metrics: dict[str, Any]) -> float | None:
     t = metrics.get("n_observations")
     if sr is None or n is None or t is None:
         return None
+    # Returns and ``n_observations`` are daily by contract.  Registry records
+    # store the selected Sharpe annualized; convert it before applying the
+    # finite-sample/non-normality correction.
+    sharpe_frequency = str(metrics.get("net_sharpe_frequency", "annual")).lower()
+    annual_factor = float(metrics.get("trading_days_per_year", 245.0))
     sr = float(sr)
+    if sharpe_frequency in {"annual", "annualized", "yearly"}:
+        sr /= np.sqrt(annual_factor)
     n = int(n)
     t = int(t)
     if n <= 0 or t <= 1:
@@ -172,10 +179,18 @@ def compute_deflated_sharpe(metrics: dict[str, Any]) -> float | None:
     # Cross-trial variance of Sharpe estimates (V[SR_n]).
     trial_sharpes = metrics.get("trial_sharpes")
     explicit_v = metrics.get("trial_sharpe_variance")
+    variance_frequency = str(
+        metrics.get("trial_sharpe_variance_frequency", sharpe_frequency)
+    ).lower()
     if explicit_v is not None:
         var = float(explicit_v)
+        if variance_frequency in {"annual", "annualized", "yearly"}:
+            var /= annual_factor
     elif trial_sharpes is not None and len(trial_sharpes) >= 2:
-        var = float(np.var(trial_sharpes, ddof=1))
+        trial_arr = np.asarray(trial_sharpes, dtype=float)
+        if sharpe_frequency in {"annual", "annualized", "yearly"}:
+            trial_arr = trial_arr / np.sqrt(annual_factor)
+        var = float(np.var(trial_arr, ddof=1))
     else:
         # Fallback: variance of a single Sharpe under the null.
         var = 1.0 / (t - 1)

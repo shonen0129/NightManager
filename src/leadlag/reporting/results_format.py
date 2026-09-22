@@ -19,6 +19,17 @@ RESULTS_FORMAT_VERSION = "v1"
 TIMESTAMP_FMT = "%Y%m%d_%H%M%S"
 
 
+def _atomic_json_write(path: str, payload: Mapping[str, Any]) -> None:
+    """Write JSON without exposing a partially written manifest."""
+    temporary = f"{path}.{os.getpid()}.tmp"
+    with open(temporary, "w", encoding="utf-8") as f:
+        json.dump(dict(payload), f, ensure_ascii=False, indent=2, default=str)
+        f.write("\n")
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(temporary, path)
+
+
 def get_default_results_root() -> str:
     """Return the project-level canonical results root directory."""
     return str(_results_path())
@@ -68,8 +79,32 @@ def write_run_manifest(
         payload.update(dict(extra))
 
     manifest_path = os.path.join(output_dir, "run_manifest.json")
-    with open(manifest_path, "w", encoding="utf-8") as f:
-        json.dump(payload, f, ensure_ascii=False, indent=2)
+    _atomic_json_write(manifest_path, payload)
+    return manifest_path
+
+
+def update_run_manifest(
+    output_dir: str,
+    extra: Mapping[str, Any],
+    *,
+    manifest_name: str = "run_manifest.json",
+) -> str:
+    """Atomically merge runtime evidence into an existing run manifest.
+
+    A failed post-submission checkpoint must leave the evidence already
+    collected on disk.  The update is therefore best-effort at the call site,
+    but never writes a truncated JSON file.
+    """
+    manifest_path = os.path.join(output_dir, manifest_name)
+    payload: dict[str, Any] = {}
+    if os.path.exists(manifest_path):
+        with open(manifest_path, encoding="utf-8") as f:
+            loaded = json.load(f)
+        if not isinstance(loaded, dict):
+            raise ValueError(f"Run manifest must contain a JSON object: {manifest_path}")
+        payload.update(loaded)
+    payload.update(dict(extra))
+    _atomic_json_write(manifest_path, payload)
     return manifest_path
 
 

@@ -23,7 +23,8 @@ class PITMatrixView:
     Parameters
     ----------
     values
-        Underlying data (copied by reference; the caller must not mutate it).
+        Underlying data. A private copy is kept so callers cannot mutate the
+        source array after the view is created.
     as_of
         Last observable row index. Rows with index > ``as_of`` are the future
         and are inaccessible through this view.
@@ -34,7 +35,8 @@ class PITMatrixView:
     __slots__ = ("_values", "_as_of", "name", "shape", "ndim")
 
     def __init__(self, values: np.ndarray, as_of: int, *, name: str = "data") -> None:
-        self._values = np.asarray(values)
+        self._values = np.array(values, copy=True)
+        self._values.setflags(write=False)
         self._as_of = int(as_of)
         self.name = str(name)
         self.shape = self._values.shape

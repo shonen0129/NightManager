@@ -55,7 +55,10 @@ def predict_signals(self: ProductionBLPXModel, df_exec: pd.DataFrame, n_jobs: in
     if self.exec_adjustment == "vol_scale":
         df_y = pd.DataFrame(y_jp_target)
         rolling_std = df_y.rolling(20).std(ddof=1).values
-        overall_std = np.std(y_jp_target, axis=0, ddof=1)
+        # The current as-of row deliberately has an unavailable close label.
+        # Ignore those NaNs rather than allowing the fallback scale to become
+        # NaN (or, worse, replacing the label with a future value).
+        overall_std = np.nanstd(y_jp_target, axis=0, ddof=1)
         overall_std = np.maximum(overall_std, 1e-8)
         for col_idx in range(self.n_j):
             nan_mask = np.isnan(rolling_std[:, col_idx])

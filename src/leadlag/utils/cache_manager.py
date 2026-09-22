@@ -66,7 +66,7 @@ class CacheManager:
         self._residual_pca_cache = self._cache_manager.namespace("residual_pca")
 
     All namespace views behave like normal ``dict`` instances and can be passed
-    to helpers such as ``download_macro_prices``.
+    to helpers such as ``load_macro_prices``.
     """
 
     def __init__(

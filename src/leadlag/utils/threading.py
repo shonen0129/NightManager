@@ -5,14 +5,11 @@ from __future__ import annotations
 import logging
 import threading
 from collections.abc import Callable
-from typing import TypeVar, cast
+from typing import cast
 
 logger = logging.getLogger(__name__)
 
-T = TypeVar("T")
-
-
-def run_with_timeout(
+def run_with_timeout[T](
     fn: Callable[[], T],
     timeout: float,
     *,

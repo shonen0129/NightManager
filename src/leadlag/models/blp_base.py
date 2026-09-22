@@ -6,6 +6,7 @@ Consolidates the legacy ``src/research/models/base.py`` and
 
 from __future__ import annotations
 
+import hashlib
 from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
@@ -17,6 +18,7 @@ from leadlag.core.gap_adjustment import apply_gap_adjustment, denormalize_signal
 from leadlag.data.tickers import JP_TICKERS
 from leadlag.domain.signal import SignalPackage
 from leadlag.utils.cache_manager import CacheManager
+from leadlag.utils.dataframe_fingerprint import dataframe_fingerprint
 
 if TYPE_CHECKING:
     from leadlag.core.pipeline import PCAComponent
@@ -132,30 +134,54 @@ class _BLPBase:
         horizon: int = 1,
         p_910_df: pd.DataFrame | None = None,
         y_jp_target: np.ndarray | None = None,
+        open_910_returns: pd.DataFrame | None = None,
+        allow_implicit_io: bool = True,
     ) -> dict[str, Any]:
         """Build and cache CommonInputs for the given df_exec and horizon."""
         from leadlag.core.pipeline import build_common_inputs
-        from leadlag.data.preprocessor import compute_jp_target_returns
+        from leadlag.data.intraday_inputs import compute_jp_target_returns
         from leadlag.data.tickers import US_TICKERS
 
-        # Stable cache key based on the (immutable) df_exec shape and index
-        # range, not object identity.  This lets different PITDataLake objects
-        # holding identical history share the common-inputs cache while still
-        # invalidating when the history window changes.
+        # Include the actual input values, target override and 9:10 prices in
+        # the key.  Date/shape-only keys reused stale inputs after a price
+        # correction or provisional row was replaced by a confirmed value.
+        frame_hash = dataframe_fingerprint(df_exec)[:24]
+        p910_hash = None
+        if p_910_df is not None:
+            p910_hash = dataframe_fingerprint(p_910_df)[:24]
+        open910_hash = None
+        if open_910_returns is not None:
+            open910_hash = dataframe_fingerprint(open_910_returns)[:24]
+        target_hash = None
+        if y_jp_target is not None:
+            target_hash = hashlib.sha256(
+                np.ascontiguousarray(np.asarray(y_jp_target)).tobytes()
+            ).hexdigest()[:24]
         cache_key = (
-            df_exec.index[0],
-            df_exec.index[-1],
-            df_exec.shape,
-            hash(tuple(df_exec.columns)),
+            frame_hash,
+            p910_hash,
+            open910_hash,
+            target_hash,
             horizon,
         )
         common_inputs_cache = self._cache_manager.namespace("common_inputs")
         if cache_key in common_inputs_cache:
             return cast(dict[str, Any], common_inputs_cache[cache_key])
 
+        if y_jp_target is None and open_910_returns is None and not allow_implicit_io:
+            raise ValueError(
+                "explicit open_910_returns or y_jp_target is required for typed model inputs"
+            )
         if y_jp_target is None:
             y_jp_target = compute_jp_target_returns(
-                df_exec, JP_TICKERS, horizon=horizon, p_910_df=p_910_df
+                df_exec,
+                JP_TICKERS,
+                horizon=horizon,
+                p_910_df=p_910_df,
+                # The adapter is the only layer allowed to read 5-minute
+                # data.  Passing this frame keeps the model calculation pure.
+                open_910_returns=open_910_returns,
+                allow_implicit_io=allow_implicit_io,
             )
 
         inputs = build_common_inputs(

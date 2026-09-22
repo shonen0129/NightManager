@@ -17,8 +17,10 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import Mapping
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -32,13 +34,36 @@ logger = logging.getLogger(__name__)
 
 def _is_fallback_triggered(fb: dict) -> bool:
     """Return True if the decision was forced to a flat fallback for any reason."""
-    return fb.get("gap_data_missing", False) or fb.get("audit_failure", False)
+    return bool(fb.get("gap_data_missing", False) or fb.get("audit_failure", False))
+
+
+def _coerce_decision(result: PortfolioDecision | Mapping[str, Any]) -> PortfolioDecision:
+    """Convert the legacy mapping at the writer boundary only."""
+    if isinstance(result, PortfolioDecision):
+        return result
+    return PortfolioDecision(
+        w_final=result["w_final"],
+        scores=result["scores"],
+        mu_gap=result["mu_gap"],
+        sigma_gap=result["sigma_gap"],
+        Omega_gap=result["Omega_gap"],
+        fallback=result["fallback"],
+        pit_binning=result["pit_binning"],
+        leakage=result["leakage"],
+        numerical=result["numerical"],
+        alerts=result["alerts"],
+        summary=result["summary"],
+        run_config=result["run_config"],
+        scores_overlay=result.get("scores_overlay"),
+        costs=result.get("costs"),
+        diagnostics=result.get("diagnostics"),
+    )
 
 
 def write_production_files(
     trade_date: str,
     live_dir: Path,
-    result: PortfolioDecision | dict,
+    result: PortfolioDecision | Mapping[str, Any],
     dry_run: bool = False,
 ) -> None:
     """Write all production output files to *live_dir*.
@@ -46,23 +71,24 @@ def write_production_files(
     Args:
         trade_date: Trade execution date (e.g. '2026-06-16').
         live_dir: Target directory.  Created if absent.
-        result: Return value of ``generate_v2_production_portfolio()``.
+        result: Return value of ``ProductionV2Model.decide()``.
         dry_run: When True, log a summary to stdout but do not write files.
     """
+    decision = _coerce_decision(result)
     if dry_run:
         logger.info("[DRY-RUN] Would write files to: %s", live_dir)
-        _print_dry_run_summary(trade_date, result)
+        _print_dry_run_summary(trade_date, decision)
         return
 
     live_dir.mkdir(parents=True, exist_ok=True)
-    run_cfg = result["run_config"]
+    run_cfg = decision.run_config
     cost_bps_per_gross = run_cfg.cost_bps_per_gross
-    w_final = result["w_final"]
-    scores = result.get("scores_overlay", result["scores"])
-    mu_gap = result["mu_gap"]
-    sigma_gap = result["sigma_gap"]
-    pit = result["pit_binning"]
-    fallback_triggered = _is_fallback_triggered(result["fallback"])
+    w_final = decision.w_final
+    scores = decision.scores_overlay if decision.scores_overlay is not None else decision.scores
+    mu_gap = decision.mu_gap
+    sigma_gap = decision.sigma_gap
+    pit = decision.pit_binning
+    fallback_triggered = _is_fallback_triggered(decision.fallback)
 
     # 1. latest_weights.csv
     rows = []
@@ -103,31 +129,31 @@ def write_production_files(
     logger.info("Written: production_scores.csv")
 
     # 4. production_summary.csv
-    pd.DataFrame([result["summary"]]).to_csv(live_dir / "production_summary.csv", index=False)
+    pd.DataFrame([decision.summary]).to_csv(live_dir / "production_summary.csv", index=False)
     logger.info("Written: production_summary.csv")
 
     # 5. JSON audit files
     with open(live_dir / "pit_binning.json", "w") as f:
-        json.dump(result["pit_binning"], f, indent=4, default=str)
+        json.dump(decision.pit_binning, f, indent=4, default=str)
 
     with open(live_dir / "leakage_audit.json", "w") as f:
-        json.dump(result["leakage"], f, indent=4)
+        json.dump(decision.leakage, f, indent=4)
 
     with open(live_dir / "numerical_audit.json", "w") as f:
-        json.dump(result["numerical"], f, indent=4)
+        json.dump(decision.numerical, f, indent=4)
 
     all_passed = (
-        result["leakage"]["status"] == "PASSED"
-        and result["numerical"]["status"] == "PASSED"
+        decision.leakage["status"] == "PASSED"
+        and decision.numerical["status"] == "PASSED"
     )
     production_audit = {
         "trade_date": trade_date,
         "version": VERSION,
         "all_passed": all_passed,
-        "leakage_status": result["leakage"]["status"],
-        "numerical_status": result["numerical"]["status"],
+        "leakage_status": decision.leakage["status"],
+        "numerical_status": decision.numerical["status"],
         "fallback_triggered": fallback_triggered,
-        "alerts": result["alerts"],
+        "alerts": decision.alerts,
         "timestamp": datetime.now().isoformat(),
     }
     with open(live_dir / "production_audit.json", "w") as f:
@@ -151,26 +177,26 @@ def write_production_files(
         json.dump(run_config, f, indent=4)
 
     # 7. daily_production_report.md
-    _write_daily_report(trade_date, live_dir, result)
+    _write_daily_report(trade_date, live_dir, decision)
     logger.info("Written: daily_production_report.md")
 
 
-def _print_dry_run_summary(trade_date: str, result: PortfolioDecision | dict) -> None:
+def _print_dry_run_summary(trade_date: str, result: PortfolioDecision) -> None:
     """Log a dry-run summary to stdout."""
-    pit = result["pit_binning"]
-    s = result["summary"]
+    pit = result.pit_binning
+    s = result.summary
     logger.info("=== DRY-RUN SUMMARY: %s ===", trade_date)
     logger.info("  Candidate     : primary_ruleD (v2)")
     logger.info("  PIT Bin       : %s (mult=%.2f)", pit["assigned_bin"], pit["multiplier"])
     logger.info("  Target Gross  : %.4f", s["target_gross"])
     logger.info("  Target Net    : %.6f", s["target_net"])
     logger.info("  Ex-Ante IR    : %.4f", s["predicted_portfolio_ir"])
-    logger.info("  Fallback      : %s", _is_fallback_triggered(result["fallback"]))
-    logger.info("  Leakage Audit : %s", result["leakage"]["status"])
-    logger.info("  Numerical Audit: %s", result["numerical"]["status"])
-    logger.info("  Alerts        : %s", result["alerts"])
+    logger.info("  Fallback      : %s", _is_fallback_triggered(result.fallback))
+    logger.info("  Leakage Audit : %s", result.leakage["status"])
+    logger.info("  Numerical Audit: %s", result.numerical["status"])
+    logger.info("  Alerts        : %s", result.alerts)
 
-    w = result["w_final"]
+    w = result.w_final
     long_tks = [JP_TICKERS[i] for i in range(len(JP_TICKERS)) if w[i] > 1e-8]
     short_tks = [JP_TICKERS[i] for i in range(len(JP_TICKERS)) if w[i] < -1e-8]
     logger.info("  Longs  (%d): %s", len(long_tks), long_tks)
@@ -178,12 +204,12 @@ def _print_dry_run_summary(trade_date: str, result: PortfolioDecision | dict) ->
     logger.info("=========================")
 
 
-def _write_daily_report(trade_date: str, live_dir: Path, result: PortfolioDecision | dict) -> None:
+def _write_daily_report(trade_date: str, live_dir: Path, result: PortfolioDecision) -> None:
     """Write the human-readable daily production report in Markdown."""
-    pit = result["pit_binning"]
-    s = result["summary"]
-    w = result["w_final"]
-    fb = result["fallback"]
+    pit = result.pit_binning
+    s = result.summary
+    w = result.w_final
+    fb = result.fallback
 
     long_weights = [(JP_TICKERS[i], w[i]) for i in range(len(JP_TICKERS)) if w[i] > 1e-8]
     short_weights = [(JP_TICKERS[i], w[i]) for i in range(len(JP_TICKERS)) if w[i] < -1e-8]
@@ -202,8 +228,8 @@ def _write_daily_report(trade_date: str, live_dir: Path, result: PortfolioDecisi
         )
 
     alert_text = ""
-    if result["alerts"]:
-        alert_text = "\n## Alerts\n" + "\n".join(f"- {a}" for a in result["alerts"]) + "\n"
+    if result.alerts:
+        alert_text = "\n## Alerts\n" + "\n".join(f"- {a}" for a in result.alerts) + "\n"
 
     def _fmt_thresh(v: float) -> str:
         return f"{v:.4f}" if (isinstance(v, float) and v == v) else "N/A"
@@ -260,8 +286,8 @@ def _write_daily_report(trade_date: str, live_dir: Path, result: PortfolioDecisi
 
 | Audit | Status |
 |---|---|
-| Leakage Audit | **{result['leakage']['status']}** |
-| Numerical Audit | **{result['numerical']['status']}** |
+| Leakage Audit | **{result.leakage['status']}** |
+| Numerical Audit | **{result.numerical['status']}** |
 {alert_text}
 ---
 *This file is generated automatically by `python3 -m leadlag.cli decision`.

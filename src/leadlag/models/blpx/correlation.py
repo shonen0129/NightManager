@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import logging
 from typing import TYPE_CHECKING, cast
 
@@ -68,6 +69,10 @@ def _estimate_correlation(
         self.blp_ewma_halflife,
         is_residual,
         self.copula_enabled,
+        # The same index/window can be evaluated for different horizons or
+        # corrected prices.  Hash the already-prepared window so cached
+        # (mu, sigma, corr) never crosses those data boundaries.
+        hashlib.sha256(np.ascontiguousarray(window_returns).tobytes()).hexdigest()[:24],
     )
     if cache_key in self._blp_corr_cache:
         return cast(tuple[np.ndarray, np.ndarray, np.ndarray], self._blp_corr_cache[cache_key])

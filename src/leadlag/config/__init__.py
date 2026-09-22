@@ -29,6 +29,7 @@ from leadlag.config.schemas import (
     RiskConfig,
     StrategyConfig,
     TachibanaApiConfig,
+    parse_run_config,
 )
 
 __all__ = [
@@ -38,6 +39,7 @@ __all__ = [
     "ProductionV2RunConfig",
     "RiskConfig",
     "StrategyConfig",
+    "parse_run_config",
     "FrozenConfigDict",
     "ConfigMutationError",
     "freeze_config_dict",

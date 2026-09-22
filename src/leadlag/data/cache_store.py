@@ -293,9 +293,15 @@ class SqliteCacheStore:
     def get(self, key: str, default: Any = None) -> Any:
         """Return the value stored under ``key``, or ``default``."""
         with self._connect() as conn:
-            row = conn.execute(
-                "SELECT value FROM cache_store WHERE key = ?", (key,)
-            ).fetchone()
+            return self._get_with_conn(conn, key, default)
+
+    def _get_with_conn(
+        self, conn: sqlite3.Connection, key: str, default: Any = None
+    ) -> Any:
+        """Read a value using an existing transaction/connection."""
+        row = conn.execute(
+            "SELECT value FROM cache_store WHERE key = ?", (key,)
+        ).fetchone()
         if row is None:
             return default
         blob = row[0]
