@@ -10,7 +10,8 @@ runtime と開発用検査を同じ解決結果から構築する。CI は次を
 2. `compileall`、Ruff、mypy、import-linter
 3. architecture/ADR/plan の相対リンク検査
 4. production wheel のビルド、`research`混入検査、隔離インストール後のCLI・artifact推論
-5. `tests/` 全体（unit / integration / research / regression / features）
+5. `tests/` 全体（unit / integration / research / regression / features）。回帰baselineは
+   並列worker間の状態影響を受けないよう単独で実行し、残りを並列化する。
 
 S0で固定したコード版・入力fingerprint・回帰基準は、CIの構造比較manifest artifactとして
 毎回保存する。全体テストのJUnit結果も保存する。S0 manifestの保存だけでは、当該PRの
@@ -44,8 +45,9 @@ uv run --locked python -m compileall -q src/leadlag tests tools scripts src/rese
 uv run --locked ruff check src/leadlag tests tools/production tools/validation
 uv run --locked mypy --config-file pyproject.toml src/leadlag
 uv run --locked lint-imports
+uv run --locked python -m pytest tests/regression/test_v2_baseline.py
 .venv/bin/python reports/20260912_workspace_audit/watchdog.py 1800 \
-  .venv/bin/python -m pytest tests -n auto --junitxml=var/ci/tests.xml
+  .venv/bin/python -m pytest tests --ignore=tests/regression/test_v2_baseline.py -n auto --junitxml=var/ci/tests.xml
 ```
 
 長時間になるbuild・静的検査にも同じwatchdog等で全体期限を設定する。
