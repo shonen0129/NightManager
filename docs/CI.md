@@ -3,8 +3,10 @@
 `.github/workflows/ci.yml` は Python 3.12 と `uv.lock` を使い、production
 runtime と開発用検査を同じ解決結果から構築する。CI は次を順番に検査する。
 
-1. `uv sync --locked --extra dev` と `uv lock --check`。研究用の`research`/`nonlinear`
-   extraはHosted production CIの解決対象から外し、[研究環境手順](RESEARCH_ENV.md)で分離する。
+1. `uv sync --locked --extra dev --extra ci-ml` と `uv lock --check`。`ci-ml` は
+   LightGBM境界テストだけを満たし、研究用の`research`/`nonlinear` extraに含まれる
+   SHAP/llvmlite依存はHosted production CIの解決対象から外す。[研究環境手順](RESEARCH_ENV.md)
+   で研究依存を分離する。
 2. `compileall`、Ruff、mypy、import-linter
 3. architecture/ADR/plan の相対リンク検査
 4. production wheel のビルド、`research`混入検査、隔離インストール後のCLI・artifact推論
@@ -36,7 +38,7 @@ Sprint診断テストは`tests/research/conftest.py`の固定市場入力と一�
 ローカルでCI相当の検査を行う場合（`uv` が利用できる環境）は次を実行する。
 
 ```bash
-uv sync --locked --extra dev --extra nonlinear
+uv sync --locked --extra dev --extra ci-ml
 uv lock --check
 uv run --locked python -m compileall -q src/leadlag tests tools scripts src/research
 uv run --locked ruff check src/leadlag tests tools/production tools/validation

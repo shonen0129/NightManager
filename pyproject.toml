@@ -46,6 +46,11 @@ nonlinear = [
     "shap>=0.46.0",
     "scikit-learn>=1.4.0",
 ]
+# Hosted production CI exercises the LightGBM-backed boundary tests without
+# pulling the research-only SHAP/llvmlite dependency chain.
+ci-ml = [
+    "lightgbm>=4.0.0",
+]
 # Research code is kept out of the production wheel.  Install this extra in a
 # dedicated research environment before using the training tools.
 research = [

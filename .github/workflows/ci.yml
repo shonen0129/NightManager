@@ -27,12 +27,12 @@ jobs:
         with:
           enable-cache: true
 
-      - name: Install locked production and development dependencies
+      - name: Install locked production, development, and CI ML dependencies
         # Research/nonlinear extras are intentionally excluded here.  The
         # locked SHAP dependency currently resolves an old llvmlite sdist
         # that cannot build on the production Python 3.12 runner.  Research
         # environments are validated separately by docs/RESEARCH_ENV.md.
-        run: uv sync --locked --extra dev
+        run: uv sync --locked --extra dev --extra ci-ml
 
       - name: Verify lockfile
         run: uv lock --check

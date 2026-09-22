@@ -571,6 +571,9 @@ dependencies = [
 calendar = [
     { name = "jpholiday" },
 ]
+ci-ml = [
+    { name = "lightgbm" },
+]
 dev = [
     { name = "mypy" },
     { name = "pytest" },
@@ -615,6 +618,7 @@ requires-dist = [
     { name = "google-auth-oauthlib", marker = "extra == 'gmail'", specifier = ">=1.0.0" },
     { name = "jpholiday", specifier = ">=1.0.3" },
     { name = "jpholiday", marker = "extra == 'calendar'", specifier = ">=0.1.10" },
+    { name = "lightgbm", marker = "extra == 'ci-ml'", specifier = ">=4.0.0" },
     { name = "lightgbm", marker = "extra == 'nonlinear'", specifier = ">=4.0.0" },
     { name = "lightgbm", marker = "extra == 'research'", specifier = ">=4.0.0" },
     { name = "matplotlib", specifier = ">=3.10.0" },
@@ -648,7 +652,7 @@ requires-dist = [
     { name = "xlrd", specifier = ">=2.0.2" },
     { name = "yfinance", specifier = ">=1.2.0" },
 ]
-provides-extras = ["kabu-login", "gmail", "nonlinear", "research", "calendar", "dev"]
+provides-extras = ["kabu-login", "gmail", "nonlinear", "ci-ml", "research", "calendar", "dev"]
 
 [package.metadata.requires-dev]
 dev = [{ name = "import-linter", specifier = ">=2.13" }]
