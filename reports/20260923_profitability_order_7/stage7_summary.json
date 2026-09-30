@@ -1,0 +1,180 @@
+{
+  "stage": 7,
+  "status": "PENDING_COST_CALIBRATION_AND_EXECUTION_EVIDENCE",
+  "period": {
+    "start": "2024-12-23",
+    "end": "2026-07-29",
+    "days": 368
+  },
+  "annualization_days": 252.0,
+  "comparison": {
+    "ml_on": {
+      "net": {
+        "n": 368,
+        "mean_daily": 0.005338605909111335,
+        "annualized_return": 1.3453286890960565,
+        "annualized_volatility": 0.260539021055131,
+        "annualized_sharpe": 5.163636078955636,
+        "sum_return": 1.9646069745529715,
+        "max_drawdown": -0.24979866009864837
+      },
+      "gross": {
+        "n": 368,
+        "mean_daily": 0.007803355790453763,
+        "annualized_return": 1.9664456591943482,
+        "annualized_volatility": 0.2603549919280045,
+        "annualized_sharpe": 7.552940101636792,
+        "sum_return": 2.8716349308869846,
+        "max_drawdown": -0.11423058117213947
+      },
+      "cost": {
+        "n": 368,
+        "mean_daily": -0.002464749881342383,
+        "annualized_return": -0.6211169700982806,
+        "annualized_volatility": 0.007536377717593042,
+        "annualized_sharpe": -82.41584928105914,
+        "sum_return": -0.907027956333997,
+        "max_drawdown": -0.5958112481821167
+      },
+      "avg_turnover": 1.2870647717451411,
+      "avg_gross_exposure": 1.752717391304348
+    },
+    "ml_off": {
+      "net": {
+        "n": 368,
+        "mean_daily": 0.00522122870681595,
+        "annualized_return": 1.3157496341176194,
+        "annualized_volatility": 0.2540114595234201,
+        "annualized_sharpe": 5.1798829729424325,
+        "sum_return": 1.9214121641082698,
+        "max_drawdown": -0.23701132642297273
+      },
+      "gross": {
+        "n": 368,
+        "mean_daily": 0.007676509598412135,
+        "annualized_return": 1.9344804187998579,
+        "annualized_volatility": 0.2538685653854351,
+        "annualized_sharpe": 7.620007683357094,
+        "sum_return": 2.8249555322156654,
+        "max_drawdown": -0.10708812738689766
+      },
+      "cost": {
+        "n": 368,
+        "mean_daily": -0.0024552808915961405,
+        "annualized_return": -0.6187307846822274,
+        "annualized_volatility": 0.007531806284283852,
+        "annualized_sharpe": -82.14905712236575,
+        "sum_return": -0.9035433681073797,
+        "max_drawdown": -0.5943968538615245
+      },
+      "avg_turnover": 1.2759064213598208,
+      "avg_gross_exposure": 1.752717391304348
+    },
+    "paired_delta": {
+      "net": {
+        "n": 368,
+        "mean_daily": 0.00011737720229538499,
+        "annualized_return": 0.029579054978437016,
+        "annualized_volatility": 0.013029394631969926,
+        "annualized_sharpe": 2.270178762247294,
+        "sum_return": 0.04319481044470168,
+        "max_drawdown": -0.018063590526913642
+      },
+      "gross": {
+        "n": 368,
+        "mean_daily": 0.00012684619204162808,
+        "annualized_return": 0.03196524039449028,
+        "annualized_volatility": 0.013036741531398298,
+        "annualized_sharpe": 2.4519348118932713,
+        "sum_return": 0.046679398671319136,
+        "max_drawdown": -0.017411250752025875
+      },
+      "cost": {
+        "n": 368,
+        "mean_daily": -9.46898974624266e-06,
+        "annualized_return": -0.0023861854160531506,
+        "annualized_volatility": 0.0002464705490069848,
+        "annualized_sharpe": -9.681422083356207,
+        "sum_return": -0.003484588226617299,
+        "max_drawdown": -0.0034913966114458184
+      },
+      "turnover": {
+        "n": 368,
+        "mean_daily": 0.011158350385320424,
+        "annualized_return": 2.811904297100747,
+        "annualized_volatility": 0.2297548152830956,
+        "annualized_sharpe": 12.238717580896054,
+        "sum_return": 4.106272941797916,
+        "max_drawdown": -0.05309831488736272
+      },
+      "block_bootstrap": {
+        "block_days": 20,
+        "samples": 1000,
+        "seed": 42,
+        "mean_daily_delta": 0.00011737720229538499,
+        "sum_delta": 0.04319481044470168,
+        "ci95_mean_daily_delta": [
+          1.3516229179013233e-05,
+          0.0002226492394667472
+        ]
+      },
+      "net_identity_max_abs_error": 2.0057740190981832e-16
+    }
+  },
+  "inventory_proxy": {
+    "actual_fills_available": false,
+    "weight_change_days": 368,
+    "weight_change_rate": 1.0,
+    "mean_l1_weight_delta": 0.07912428657496219,
+    "max_l1_weight_delta": 0.24633744885818123,
+    "mean_max_single_ticker_delta": 0.022681851109212774,
+    "max_model_net_ml_on": 4.163336342344337e-16,
+    "max_model_net_ml_off": 3.885780586188048e-16,
+    "max_model_gross_ml_on": 2.0000000000000004,
+    "max_model_gross_ml_off": 2.0,
+    "note": "Weights are a backtest proxy; they are not broker inventory or fill quantities."
+  },
+  "target_cost_contract": {
+    "target_type": "raw",
+    "training_code_round_trip_cost": 0.001,
+    "training_code_slippage_bps_per_side": 5.0,
+    "target_includes_fixed_round_trip_cost": true,
+    "observed_fill_costs_used_in_target": false
+  },
+  "artifact": {
+    "metadata_path": "models/ml_order_overlay/production_20260923/versions/20260922T011723828589Z-7e1a81ab2617/metadata.json",
+    "artifact_version": "20260922T011723828589Z-7e1a81ab2617",
+    "target_type": "raw",
+    "train_start": "2015-01-05",
+    "train_end": "2024-12-20",
+    "label_asof_end": "2024-12-20",
+    "historical_provider_available_at_proven": false,
+    "metadata_status": "verified"
+  },
+  "execution_evidence": {
+    "observed_provider_available_at": false,
+    "historical_fill_detail_requery_success": false,
+    "historical_fill_detail_requery_success_count": 0,
+    "broker_requery_failed_count": 27,
+    "official_quantity_reconciled": true,
+    "official_fee_components_present": false,
+    "official_transaction_source": "/Users/shonen/Downloads/Tachibana_取引記録.csv",
+    "actual_9_10_fill_costs_available": false,
+    "actual_inventory_path_available": false
+  },
+  "production_changed": false,
+  "decision": "PENDING_NOT_ADOPTED",
+  "limitations": [
+    "The comparison uses modeled V2 costs, not broker fee components or observed 09:10 fills.",
+    "The artifact target subtracts a fixed round-trip cost; observed fill costs are not in the target.",
+    "No probability calibration curve or realized fill-cost calibration sample is stored for this artifact.",
+    "Weights provide a position proxy only; broker inventory and order-level quantities are unavailable for this OOS period.",
+    "No new ML target, artifact, or production setting is promoted at stage 7."
+  ],
+  "registry_record": {
+    "name": "stage7_ml_trade_value_20260923",
+    "decision": "pending",
+    "trials": 2,
+    "deflated_sharpe": null
+  }
+}

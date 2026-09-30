@@ -1,0 +1,294 @@
+{
+  "stage": 2,
+  "stage_name": "true_0910_prices_spreads_order_book_and_fills",
+  "status": "INSTRUMENTED_HISTORICAL_DATA_INSUFFICIENT",
+  "decision": "HOLD_BEFORE_STAGE_3",
+  "read_only": true,
+  "capture_time_jst": "2026-09-23T03:13:13.793327+09:00",
+  "target_time_jst": "09:10",
+  "historical_proxy": {
+    "source": "local_5m_cache",
+    "status": "PROXY_ONLY",
+    "true_0910": false,
+    "quote_days": 102,
+    "complete_cross_section_days": 8,
+    "per_ticker_days": {
+      "1617.T": 74,
+      "1618.T": 98,
+      "1619.T": 91,
+      "1620.T": 81,
+      "1621.T": 93,
+      "1622.T": 85,
+      "1623.T": 102,
+      "1624.T": 90,
+      "1625.T": 94,
+      "1626.T": 70,
+      "1627.T": 90,
+      "1628.T": 67,
+      "1629.T": 102,
+      "1630.T": 76,
+      "1631.T": 101,
+      "1632.T": 83,
+      "1633.T": 83
+    },
+    "observed_at_semantics": "5m bar midpoint/close proxy, not a timestamped executable quote"
+  },
+  "live_capture": {
+    "status": "STORED_CAPTURE_SUMMARY",
+    "stored_capture_count": 4,
+    "true_0910_capture_count": 0,
+    "latest_observed_at": "2026-09-23T02:58:45.073455+09:00",
+    "observed_count": 17,
+    "lob_count": 17,
+    "spread_bps_summary": {
+      "count": 17,
+      "min": 3.2567985670086306,
+      "median": 53.475935828877,
+      "max": 121.89029873114198
+    },
+    "true_0910_observed": false
+  },
+  "fill_evidence": {
+    "status": "AUTHORITATIVE_CSV_WITHOUT_ORDER_IDS",
+    "official_quantity_for_local_keys": 207,
+    "runtime_confirmed_quantity": 8,
+    "runtime_quantity_gap": 199,
+    "broker_detail_status": "UNAVAILABLE_991012",
+    "local_runtime_fill_orders": 8,
+    "local_runtime_fill_quantity": 8,
+    "local_runtime_fill_price_count": 8,
+    "local_runtime_fee_detail_count": 8,
+    "local_runtime_fee_nonzero_count": 8,
+    "local_runtime_fill_order_ids": [
+      "31023716",
+      "31023717",
+      "31023719",
+      "31023723",
+      "31023724",
+      "31023725",
+      "31023726",
+      "31023727"
+    ],
+    "local_runtime_fill_records": [
+      {
+        "trade_date": "2026-07-31",
+        "order_id": "31023716",
+        "ticker": "1617.T",
+        "side": "BUY",
+        "requested_quantity": 1,
+        "filled_quantity": 1,
+        "fill_price": 47860.0,
+        "original_side": "SELL",
+        "original_price": 48320.0,
+        "realized_pnl": 459.0,
+        "fee_fields": {
+          "sKessaiTateTesuryou": 0.0,
+          "sKessaiZyunHibu": 0.0,
+          "sKessaiGyakuhibu": 0.0,
+          "sKessaiKakikaeryou": 0.0,
+          "sKessaiKanrihi": 0.0,
+          "sKessaiKasikaburyou": 1.0,
+          "sKessaiSonota": 0.0
+        },
+        "slippage_bps": null,
+        "slippage_status": "missing_reference_9_10_quote"
+      },
+      {
+        "trade_date": "2026-07-31",
+        "order_id": "31023717",
+        "ticker": "1619.T",
+        "side": "BUY",
+        "requested_quantity": 1,
+        "filled_quantity": 1,
+        "fill_price": 46000.0,
+        "original_side": "SELL",
+        "original_price": 46070.0,
+        "realized_pnl": 69.0,
+        "fee_fields": {
+          "sKessaiTateTesuryou": 0.0,
+          "sKessaiZyunHibu": 0.0,
+          "sKessaiGyakuhibu": 0.0,
+          "sKessaiKakikaeryou": 0.0,
+          "sKessaiKanrihi": 0.0,
+          "sKessaiKasikaburyou": 1.0,
+          "sKessaiSonota": 0.0
+        },
+        "slippage_bps": null,
+        "slippage_status": "missing_reference_9_10_quote"
+      },
+      {
+        "trade_date": "2026-07-31",
+        "order_id": "31023719",
+        "ticker": "1622.T",
+        "side": "SELL",
+        "requested_quantity": 1,
+        "filled_quantity": 1,
+        "fill_price": 34910.0,
+        "original_side": "BUY",
+        "original_price": 35210.0,
+        "realized_pnl": -302.0,
+        "fee_fields": {
+          "sKessaiTateTesuryou": 0.0,
+          "sKessaiZyunHibu": 2.0,
+          "sKessaiGyakuhibu": 0.0,
+          "sKessaiKakikaeryou": 0.0,
+          "sKessaiKanrihi": 0.0,
+          "sKessaiKasikaburyou": 0.0,
+          "sKessaiSonota": 0.0
+        },
+        "slippage_bps": null,
+        "slippage_status": "missing_reference_9_10_quote"
+      },
+      {
+        "trade_date": "2026-07-31",
+        "order_id": "31023723",
+        "ticker": "1623.T",
+        "side": "BUY",
+        "requested_quantity": 1,
+        "filled_quantity": 1,
+        "fill_price": 59960.0,
+        "original_side": "SELL",
+        "original_price": 58900.0,
+        "realized_pnl": -1061.0,
+        "fee_fields": {
+          "sKessaiTateTesuryou": 0.0,
+          "sKessaiZyunHibu": 0.0,
+          "sKessaiGyakuhibu": 0.0,
+          "sKessaiKakikaeryou": 0.0,
+          "sKessaiKanrihi": 0.0,
+          "sKessaiKasikaburyou": 1.0,
+          "sKessaiSonota": 0.0
+        },
+        "slippage_bps": null,
+        "slippage_status": "missing_reference_9_10_quote"
+      },
+      {
+        "trade_date": "2026-07-31",
+        "order_id": "31023724",
+        "ticker": "1623.T",
+        "side": "BUY",
+        "requested_quantity": 1,
+        "filled_quantity": 1,
+        "fill_price": 59960.0,
+        "original_side": "SELL",
+        "original_price": 58900.0,
+        "realized_pnl": -1071.0,
+        "fee_fields": {
+          "sKessaiTateTesuryou": 0.0,
+          "sKessaiZyunHibu": 0.0,
+          "sKessaiGyakuhibu": 0.0,
+          "sKessaiKakikaeryou": 0.0,
+          "sKessaiKanrihi": 0.0,
+          "sKessaiKasikaburyou": 1.0,
+          "sKessaiSonota": 0.0
+        },
+        "slippage_bps": null,
+        "slippage_status": "missing_reference_9_10_quote"
+      },
+      {
+        "trade_date": "2026-07-31",
+        "order_id": "31023725",
+        "ticker": "1624.T",
+        "side": "BUY",
+        "requested_quantity": 1,
+        "filled_quantity": 1,
+        "fill_price": 84570.0,
+        "original_side": "SELL",
+        "original_price": 82060.0,
+        "realized_pnl": -2515.0,
+        "fee_fields": {
+          "sKessaiTateTesuryou": 0.0,
+          "sKessaiZyunHibu": 0.0,
+          "sKessaiGyakuhibu": 0.0,
+          "sKessaiKakikaeryou": 0.0,
+          "sKessaiKanrihi": 0.0,
+          "sKessaiKasikaburyou": 5.0,
+          "sKessaiSonota": 0.0
+        },
+        "slippage_bps": null,
+        "slippage_status": "missing_reference_9_10_quote"
+      },
+      {
+        "trade_date": "2026-07-31",
+        "order_id": "31023726",
+        "ticker": "1625.T",
+        "side": "SELL",
+        "requested_quantity": 1,
+        "filled_quantity": 1,
+        "fill_price": 63920.0,
+        "original_side": "BUY",
+        "original_price": 63180.0,
+        "realized_pnl": 736.0,
+        "fee_fields": {
+          "sKessaiTateTesuryou": 0.0,
+          "sKessaiZyunHibu": 4.0,
+          "sKessaiGyakuhibu": 0.0,
+          "sKessaiKakikaeryou": 0.0,
+          "sKessaiKanrihi": 0.0,
+          "sKessaiKasikaburyou": 0.0,
+          "sKessaiSonota": 0.0
+        },
+        "slippage_bps": null,
+        "slippage_status": "missing_reference_9_10_quote"
+      },
+      {
+        "trade_date": "2026-07-31",
+        "order_id": "31023727",
+        "ticker": "1626.T",
+        "side": "BUY",
+        "requested_quantity": 1,
+        "filled_quantity": 1,
+        "fill_price": 44300.0,
+        "original_side": "SELL",
+        "original_price": 44530.0,
+        "realized_pnl": 229.0,
+        "fee_fields": {
+          "sKessaiTateTesuryou": 0.0,
+          "sKessaiZyunHibu": 0.0,
+          "sKessaiGyakuhibu": 0.0,
+          "sKessaiKakikaeryou": 0.0,
+          "sKessaiKanrihi": 0.0,
+          "sKessaiKasikaburyou": 1.0,
+          "sKessaiSonota": 0.0
+        },
+        "slippage_bps": null,
+        "slippage_status": "missing_reference_9_10_quote"
+      }
+    ],
+    "fees_observed": true,
+    "all_requested_fills_observed": false,
+    "source": "reports/20260923_profitability_order_1/reconciliation.json"
+  },
+  "completion_rules": {
+    "true_timestamped_0910_quote": false,
+    "all_17_lob_snapshots": false,
+    "broker_fill_and_fee_detail": false,
+    "no_proxy_promoted_to_true_quote": true
+  },
+  "unresolved": [
+    "Historical five-minute bars are proxy observations, not executable 09:10 quotes.",
+    "The official CSV has no broker order IDs and the historical detail re-query is unavailable.",
+    "No fill quantity/price/fee is inferred from a market quote snapshot."
+  ],
+  "storage": {
+    "snapshot_jsonl": "reports/20260923_profitability_order_2/quote_snapshots.jsonl",
+    "stored_snapshot_count": 4,
+    "append_only": true
+  },
+  "operational_capture_hook": {
+    "decision_script": "scripts/batch/run_decision_v2.sh",
+    "enable_flag": "LEADLAG_CAPTURE_0910=1",
+    "scheduler_plist": "scripts/batch/com.leadlag.decision.plist",
+    "scheduler_install_executed": false,
+    "read_only_market_data_only": true,
+    "installed_scheduler": {
+      "status": "INSTALLED_OLD_TEMPLATE",
+      "path": "/Users/shonen/Library/LaunchAgents/com.leadlag.decision.plist",
+      "capture_flag": null,
+      "program": [
+        "/bin/bash",
+        "/Users/shonen/leadlag/scripts/batch/run_decision_v2.sh"
+      ]
+    }
+  }
+}

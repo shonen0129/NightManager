@@ -1,0 +1,42 @@
+{
+  "status": "PASS",
+  "model_dir": "var/results/20260922_production_acceptance/artifacts/evaluation_2025",
+  "dates": [
+    {
+      "date": "2026-07-24",
+      "max_weight_error": 0.0,
+      "max_score_error": 0.0,
+      "max_mu_error": 0.0,
+      "max_sigma_error": 0.0,
+      "max_omega_error": 0.0,
+      "pit_equal": true
+    },
+    {
+      "date": "2026-08-06",
+      "max_weight_error": 0.0,
+      "max_score_error": 0.0,
+      "max_mu_error": 0.0,
+      "max_sigma_error": 0.0,
+      "max_omega_error": 0.0,
+      "pit_equal": true
+    },
+    {
+      "date": "2026-08-14",
+      "max_weight_error": 0.0,
+      "max_score_error": 0.0,
+      "max_mu_error": 0.0,
+      "max_sigma_error": 0.0,
+      "max_omega_error": 0.0,
+      "pit_equal": true
+    }
+  ],
+  "checks": {
+    "weights": true,
+    "scores": true,
+    "mu": true,
+    "sigma": true,
+    "omega": true,
+    "pit": true
+  },
+  "note": "Read-only replay; acceptance artifact files were not rewritten."
+}

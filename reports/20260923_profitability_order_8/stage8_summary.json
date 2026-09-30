@@ -1,0 +1,121 @@
+{
+  "stage": 8,
+  "status": "COMPLETE_MODEL_DIAGNOSTIC_PENDING_EXECUTION_CAPACITY",
+  "decision": "PENDING_NOT_ADOPTED",
+  "period": {
+    "start": "2024-12-23",
+    "end": "2026-07-29",
+    "days": 368
+  },
+  "model_constraints": {
+    "max_abs_model_net": 4.163336342344337e-16,
+    "max_model_gross": 2.0000000000000004,
+    "max_effective_abs_net": 6.245004513516506e-16,
+    "max_effective_gross": 3.000000000000001,
+    "model_net_limit": 0.05,
+    "model_gross_limit": 2.0,
+    "model_constraints_pass": true,
+    "effective_exposure_is_reported_separately": true
+  },
+  "concentration": {
+    "mean_max_single_weight": 0.331021091874587,
+    "p95_max_single_weight": 0.45528285149285336,
+    "max_max_single_weight": 0.6774083260387951,
+    "mean_top1_abs_share": 0.18854084655437595,
+    "p95_top3_abs_share": 0.5565040928165326,
+    "max_hhi_abs_weights": 0.18267391053996315,
+    "mean_long_count": 5.0,
+    "mean_short_count": 5.0
+  },
+  "gap_beta_proxy": {
+    "available": true,
+    "mean_weighted_gap_beta": 0.021940265364076426,
+    "p95_abs_weighted_gap_beta": 0.5358643406182112,
+    "max_abs_weighted_gap_beta": 1.0469183526088313,
+    "definition": "sum(model_weight * strictly historical jp_beta); not an executed/fill beta"
+  },
+  "slippage_stress": [
+    {
+      "slippage_bps_per_side": 5.0,
+      "additional_cost_sum": 0.0,
+      "n": 368,
+      "mean_daily": 0.005338605909111379,
+      "annualized_sharpe": 5.163636078955677,
+      "sum_return": 1.9646069745529875,
+      "max_drawdown": -0.2497986600986466
+    },
+    {
+      "slippage_bps_per_side": 10.0,
+      "additional_cost_sum": 0.7784265864709836,
+      "n": 368,
+      "mean_daily": 0.003223316271961967,
+      "annualized_sharpe": 3.115212085792705,
+      "sum_return": 1.1861803880820039,
+      "max_drawdown": -0.36805988995226924
+    },
+    {
+      "slippage_bps_per_side": 20.0,
+      "additional_cost_sum": 2.3352797594129506,
+      "n": 368,
+      "mean_daily": -0.0010072630023368573,
+      "annualized_sharpe": -0.970627456535707,
+      "sum_return": -0.37067278485996347,
+      "max_drawdown": -0.5801222905584021
+    }
+  ],
+  "illustrative_aum_notional": [
+    {
+      "aum_jpy": 10000000.0,
+      "mean_model_gross_notional_jpy": 17527173.913043477,
+      "p95_model_gross_notional_jpy": 20000000.0,
+      "max_model_gross_notional_jpy": 20000000.000000004,
+      "p95_largest_single_name_notional_jpy": 4552828.514928534
+    },
+    {
+      "aum_jpy": 100000000.0,
+      "mean_model_gross_notional_jpy": 175271739.13043478,
+      "p95_model_gross_notional_jpy": 200000000.0,
+      "max_model_gross_notional_jpy": 200000000.00000003,
+      "p95_largest_single_name_notional_jpy": 45528285.14928534
+    },
+    {
+      "aum_jpy": 1000000000.0,
+      "mean_model_gross_notional_jpy": 1752717391.3043478,
+      "p95_model_gross_notional_jpy": 2000000000.0,
+      "max_model_gross_notional_jpy": 2000000000.0000005,
+      "p95_largest_single_name_notional_jpy": 455282851.49285334
+    },
+    {
+      "aum_jpy": 3000000000.0,
+      "mean_model_gross_notional_jpy": 5258152173.913043,
+      "p95_model_gross_notional_jpy": 6000000000.0,
+      "max_model_gross_notional_jpy": 6000000000.000001,
+      "p95_largest_single_name_notional_jpy": 1365848554.4785602
+    }
+  ],
+  "execution_capacity_inputs": {
+    "true_0910_quotes": false,
+    "all_17_lob_snapshots": false,
+    "fill_and_fee_detail": false,
+    "observed_spread_count": 17,
+    "observed_spread_is_oos_executable": false,
+    "official_quantity_reconciled": true,
+    "runtime_quantity_gap": 199,
+    "borrow_by_ticker_available": false,
+    "lot_size_and_fill_price_available_for_oos": false
+  },
+  "production_changed": false,
+  "limitations": [
+    "No historical timestamped 09:10 quote/5-level executable book exists for this OOS period.",
+    "No OOS order quantity, fill rate, lot rounding, or order-level spread/impact is available.",
+    "AUM rows are model notional scenarios, not capacity or fillability estimates.",
+    "Slippage stress scales the backtest slip component and is not a substitute for observed spread/depth.",
+    "The beta result is a model gap-beta proxy and does not prove realized post-fill beta neutrality."
+  ],
+  "registry_record": {
+    "name": "stage8_capacity_beta_20260923",
+    "decision": "pending",
+    "trials": 2,
+    "deflated_sharpe": null
+  }
+}

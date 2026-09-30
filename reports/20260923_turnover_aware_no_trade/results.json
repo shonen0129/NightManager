@@ -1,0 +1,342 @@
+{
+  "run_at": "2026-09-22T16:56:53.374056+00:00",
+  "source_result": "var/results/20260922_production_acceptance/evaluation/aggregate.pkl",
+  "source_result_sha256": "4ca1d57dafcac63bc296abc5f09774be837341270e7eefbea9d4c34828f179a5",
+  "df_exec_end": "2026-08-17",
+  "evaluation_start": "2020-01-06",
+  "evaluation_end": "2026-08-14",
+  "candidate_caps_raw_weight_l1": [
+    1.0,
+    1.5,
+    2.0
+  ],
+  "annual_factor": 245,
+  "all_dates_included": true,
+  "base_reproduction_max_daily_return_error": 0.0,
+  "selected_variant": "baseline",
+  "selection_pass": false,
+  "holdout_pass": true,
+  "decision": "REJECTED",
+  "selection_dsr": 1.0,
+  "trial_count": 4,
+  "trial_sharpes_selection": [
+    6.516570527887579,
+    5.856705046561367,
+    6.311319047880624,
+    6.435634623927335
+  ],
+  "variants": {
+    "baseline": {
+      "days": 1555,
+      "start": "2020-01-06",
+      "end": "2026-08-14",
+      "net_sharpe": 2.2201035169055974,
+      "gross_sharpe": 2.4838527283123377,
+      "annualized_net_return": 38.18949733307794,
+      "max_drawdown": -0.2940712086308004,
+      "mean_turnover": 1.3083086238954742,
+      "mean_gross_exposure": 1.777491961414791,
+      "net_cumulative_return": 12934525473.434174,
+      "cost_period_sum_return_fraction": {
+        "slip": 3.333706086077823,
+        "financing": 0.16547517123287675,
+        "borrow": 0.050745719178082196,
+        "reverse": 0.322125
+      },
+      "total_cost_period_sum_return_fraction": 3.872051976488782,
+      "max_abs_model_net": 4.440892098500626e-16,
+      "max_model_gross": 2.0000000000000004,
+      "flat_days": 0
+    },
+    "cap_1.0": {
+      "days": 1555,
+      "start": "2020-01-06",
+      "end": "2026-08-14",
+      "net_sharpe": 1.9426582761406845,
+      "gross_sharpe": 2.0809663012563124,
+      "annualized_net_return": 17.44865450707984,
+      "max_drawdown": -0.18399330796736457,
+      "mean_turnover": 0.5,
+      "mean_gross_exposure": 1.2237015978278065,
+      "net_cumulative_return": 108392797.42683674,
+      "cost_period_sum_return_fraction": {
+        "slip": 1.5524036515179356,
+        "financing": 0.11413905873685393,
+        "borrow": 0.03500264467930186,
+        "reverse": 0.2221907010077423
+      },
+      "total_cost_period_sum_return_fraction": 1.9237360559418337,
+      "max_abs_model_net": 3.885780586188048e-16,
+      "max_model_gross": 1.9931565357699845,
+      "flat_days": 0
+    },
+    "cap_1.5": {
+      "days": 1555,
+      "start": "2020-01-06",
+      "end": "2026-08-14",
+      "net_sharpe": 2.0426173740987323,
+      "gross_sharpe": 2.2200204828902765,
+      "annualized_net_return": 23.297736936090434,
+      "max_drawdown": -0.2464192006011563,
+      "mean_turnover": 0.7475734310874527,
+      "mean_gross_exposure": 1.4282888686458641,
+      "net_cumulative_return": 622445691.2587887,
+      "cost_period_sum_return_fraction": {
+        "slip": 2.096471849071251,
+        "financing": 0.13320069205881957,
+        "borrow": 0.040848212231371334,
+        "reverse": 0.25929734720783537
+      },
+      "total_cost_period_sum_return_fraction": 2.529818100569277,
+      "max_abs_model_net": 3.608224830031759e-16,
+      "max_model_gross": 2.0000000000000004,
+      "flat_days": 0
+    },
+    "cap_2.0": {
+      "days": 1555,
+      "start": "2020-01-06",
+      "end": "2026-08-14",
+      "net_sharpe": 2.118656391040987,
+      "gross_sharpe": 2.3328776542924285,
+      "annualized_net_return": 28.592007261065763,
+      "max_drawdown": -0.2900806478952196,
+      "mean_turnover": 0.9766163835000795,
+      "mean_gross_exposure": 1.5815237166612819,
+      "net_cumulative_return": 2174973663.7657824,
+      "cost_period_sum_return_fraction": {
+        "slip": 2.6066101144487708,
+        "financing": 0.1473188739626664,
+        "borrow": 0.045177788015217685,
+        "reverse": 0.28678074131399056
+      },
+      "total_cost_period_sum_return_fraction": 3.0858875177406455,
+      "max_abs_model_net": 4.163336342344337e-16,
+      "max_model_gross": 2.0000000000000004,
+      "flat_days": 0
+    }
+  },
+  "folds": {
+    "selection_2020_2024": {
+      "baseline": {
+        "days": 1180,
+        "start": "2020-01-06",
+        "end": "2024-12-30",
+        "net_sharpe": 6.516570527887579,
+        "gross_sharpe": 9.62112389397595,
+        "annualized_net_return": 2.511506099752718,
+        "max_drawdown": -0.07711827067325294,
+        "mean_turnover": 1.3292727890553737,
+        "mean_gross_exposure": 1.7944915254237288,
+        "net_cumulative_return": 422.91078460564694,
+        "cost_period_sum_return_fraction": {
+          "slip": 2.5605065306976367,
+          "financing": 0.12663955479452058,
+          "borrow": 0.0388361301369863,
+          "reverse": 0.24652499999999997
+        },
+        "total_cost_period_sum_return_fraction": 2.972507215629143,
+        "max_abs_model_net": 4.440892098500626e-16,
+        "max_model_gross": 2.0000000000000004,
+        "flat_days": 0
+      },
+      "cap_1.0": {
+        "days": 1180,
+        "start": "2020-01-06",
+        "end": "2024-12-30",
+        "net_sharpe": 5.856705046561367,
+        "gross_sharpe": 8.6678974470995,
+        "annualized_net_return": 0.8519673740365481,
+        "max_drawdown": -0.03662208981756654,
+        "mean_turnover": 0.5,
+        "mean_gross_exposure": 1.2246859056785553,
+        "net_cumulative_return": 18.454027026843242,
+        "cost_period_sum_return_fraction": {
+          "slip": 1.1763905989090264,
+          "financing": 0.0867039877337544,
+          "borrow": 0.02658922290501801,
+          "reverse": 0.16878376278837523
+        },
+        "total_cost_period_sum_return_fraction": 1.4584675723361737,
+        "max_abs_model_net": 3.885780586188048e-16,
+        "max_model_gross": 1.8393627984249845,
+        "flat_days": 0
+      },
+      "cap_1.5": {
+        "days": 1180,
+        "start": "2020-01-06",
+        "end": "2024-12-30",
+        "net_sharpe": 6.311319047880624,
+        "gross_sharpe": 9.232306821317483,
+        "annualized_net_return": 1.3155509054670014,
+        "max_drawdown": -0.05406716565837044,
+        "mean_turnover": 0.7480345075696296,
+        "mean_gross_exposure": 1.432074679774711,
+        "net_cumulative_return": 56.05508263603088,
+        "cost_period_sum_return_fraction": {
+          "slip": 1.5886721600292728,
+          "financing": 0.10138269269582331,
+          "borrow": 0.031090692426719142,
+          "reverse": 0.1973583084478694
+        },
+        "total_cost_period_sum_return_fraction": 1.9185038535996848,
+        "max_abs_model_net": 3.608224830031759e-16,
+        "max_model_gross": 2.0,
+        "flat_days": 0
+      },
+      "cap_2.0": {
+        "days": 1180,
+        "start": "2020-01-06",
+        "end": "2024-12-30",
+        "net_sharpe": 6.435634623927335,
+        "gross_sharpe": 9.465057515871836,
+        "annualized_net_return": 1.7435407078380805,
+        "max_drawdown": -0.06670618794775596,
+        "mean_turnover": 0.979814520920539,
+        "mean_gross_exposure": 1.5873147839488202,
+        "net_cumulative_return": 128.1370512793748,
+        "cost_period_sum_return_fraction": {
+          "slip": 1.9793342149622424,
+          "financing": 0.11222918892793869,
+          "borrow": 0.03441695127123452,
+          "reverse": 0.218472821113054
+        },
+        "total_cost_period_sum_return_fraction": 2.34445317627447,
+        "max_abs_model_net": 4.163336342344337e-16,
+        "max_model_gross": 2.0000000000000004,
+        "flat_days": 0
+      }
+    },
+    "holdout": {
+      "baseline": {
+        "days": 375,
+        "start": "2025-01-06",
+        "end": "2026-08-14",
+        "net_sharpe": 3.742500900683733,
+        "gross_sharpe": 3.870090156130742,
+        "annualized_net_return": 77598.27723143743,
+        "max_drawdown": -0.2940712086308003,
+        "mean_turnover": 1.2423413841923237,
+        "mean_gross_exposure": 1.724,
+        "net_cumulative_return": 30512375.52862929,
+        "cost_period_sum_return_fraction": {
+          "slip": 0.7731995553801866,
+          "financing": 0.038835616438356174,
+          "borrow": 0.01190958904109589,
+          "reverse": 0.0756
+        },
+        "total_cost_period_sum_return_fraction": 0.8995447608596386,
+        "max_abs_model_net": 3.885780586188048e-16,
+        "max_model_gross": 2.0000000000000004,
+        "flat_days": 0
+      },
+      "cap_1.0": {
+        "days": 375,
+        "start": "2025-01-06",
+        "end": "2026-08-14",
+        "net_sharpe": 3.5773894816494143,
+        "gross_sharpe": 3.6455799661552213,
+        "annualized_net_return": 25548.40145747357,
+        "max_drawdown": -0.18399330796736513,
+        "mean_turnover": 0.5,
+        "mean_gross_exposure": 1.2206043091241163,
+        "net_cumulative_return": 5571739.919104978,
+        "cost_period_sum_return_fraction": {
+          "slip": 0.3760130526089094,
+          "financing": 0.02743507100309952,
+          "borrow": 0.008413421774283851,
+          "reverse": 0.05340693821936705
+        },
+        "total_cost_period_sum_return_fraction": 0.46526848360565976,
+        "max_abs_model_net": 2.7798943702528334e-16,
+        "max_model_gross": 1.9931565357699845,
+        "flat_days": 0
+      },
+      "cap_1.5": {
+        "days": 375,
+        "start": "2025-01-06",
+        "end": "2026-08-14",
+        "net_sharpe": 3.6390127017814122,
+        "gross_sharpe": 3.727039609544186,
+        "annualized_net_return": 39629.904976396654,
+        "max_drawdown": -0.24641920060115585,
+        "mean_turnover": 0.7461225770902026,
+        "mean_gross_exposure": 1.4163761829604276,
+        "net_cumulative_return": 10909556.28220624,
+        "cost_period_sum_return_fraction": {
+          "slip": 0.507799689041978,
+          "financing": 0.03181799936299626,
+          "borrow": 0.009757519804652184,
+          "reverse": 0.06193903875996604
+        },
+        "total_cost_period_sum_return_fraction": 0.6113142469695925,
+        "max_abs_model_net": 3.3306690738754696e-16,
+        "max_model_gross": 2.0000000000000004,
+        "flat_days": 0
+      },
+      "cap_2.0": {
+        "days": 375,
+        "start": "2025-01-06",
+        "end": "2026-08-14",
+        "net_sharpe": 3.6859405655054003,
+        "gross_sharpe": 3.792409692002012,
+        "annualized_net_return": 52631.02136493797,
+        "max_drawdown": -0.29008064789522037,
+        "mean_turnover": 0.9665529110837001,
+        "mean_gross_exposure": 1.5633011582631606,
+        "net_cumulative_return": 16842366.41677218,
+        "cost_period_sum_return_fraction": {
+          "slip": 0.6272758994865281,
+          "financing": 0.03508968503472771,
+          "borrow": 0.01076083674398316,
+          "reverse": 0.0683079202009366
+        },
+        "total_cost_period_sum_return_fraction": 0.7414343414661755,
+        "max_abs_model_net": 3.3306690738754696e-16,
+        "max_model_gross": 2.0000000000000004,
+        "flat_days": 0
+      },
+      "paired_block_bootstrap": {
+        "baseline": {
+          "mean_daily_net_delta": 0.0,
+          "block_days": 20,
+          "samples": 1000,
+          "seed": 42,
+          "mean_daily_net_delta_ci95": [
+            0.0,
+            0.0
+          ]
+        },
+        "cap_1.0": {
+          "mean_daily_net_delta": -0.007042603860835475,
+          "block_days": 20,
+          "samples": 1000,
+          "seed": 42,
+          "mean_daily_net_delta_ci95": [
+            -0.016439404389952037,
+            -0.0015222887374831643
+          ]
+        },
+        "cap_1.5": {
+          "mean_daily_net_delta": -0.004206161406139057,
+          "block_days": 20,
+          "samples": 1000,
+          "seed": 42,
+          "mean_daily_net_delta_ci95": [
+            -0.009950730358850347,
+            -0.0008608787968227965
+          ]
+        },
+        "cap_2.0": {
+          "mean_daily_net_delta": -0.002519192537177325,
+          "block_days": 20,
+          "samples": 1000,
+          "seed": 42,
+          "mean_daily_net_delta_ci95": [
+            -0.006162945862311733,
+            -0.0005154954580759178
+          ]
+        }
+      }
+    }
+  }
+}

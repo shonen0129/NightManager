@@ -1,0 +1,147 @@
+{
+  "checks": {
+    "cost_breakdown_max_abs_error": 1.960237527853792e-16,
+    "pnl_attribution_max_abs_error": 1.1102230246251565e-16,
+    "replay_net_max_abs_error": 9.985502008591496e-17,
+    "replay_overnight_max_abs_error": 9.93129189996722e-17,
+    "replay_cost_max_abs_error": 9.8879238130678e-17
+  },
+  "cost_parameters": {
+    "slip": 0.0005,
+    "financing_daily": 6.849315068493152e-05,
+    "borrow_daily": 3.150684931506849e-05,
+    "reverse_daily": 0.0002,
+    "alpha_long": 0.75,
+    "alpha_short": 0.5,
+    "side_leverage": 1.5
+  },
+  "stress_threshold_abs_gross": 0.03200261287954731,
+  "all_days": {
+    "n": 368,
+    "mean_daily": 0.005338605909111335,
+    "annualized_return": 1.3453286890960565,
+    "annualized_volatility": 0.260539021055131,
+    "annualized_sharpe": 5.163636078955636,
+    "sum_return": 1.9646069745529715,
+    "max_drawdown": -0.24979866009864837
+  },
+  "intraday_gross": {
+    "n": 368,
+    "mean_daily": 0.007746719070801131,
+    "annualized_return": 1.9521732058418848,
+    "annualized_volatility": 0.21830938692442464,
+    "annualized_sharpe": 8.942232092464707,
+    "sum_return": 2.850792618054816,
+    "max_drawdown": -0.08925214967787909
+  },
+  "overnight": {
+    "n": 368,
+    "mean_daily": 5.6636719652631837e-05,
+    "annualized_return": 0.014272453352463223,
+    "annualized_volatility": 0.11390709859431532,
+    "annualized_sharpe": 0.12529906852684516,
+    "sum_return": 0.020842312832168516,
+    "max_drawdown": -0.13298439723541344
+  },
+  "cost_as_negative_return": {
+    "n": 368,
+    "mean_daily": -0.002464749881342383,
+    "annualized_return": -0.6211169700982806,
+    "annualized_volatility": 0.007536377717593042,
+    "annualized_sharpe": -82.41584928105914,
+    "sum_return": -0.907027956333997,
+    "max_drawdown": -0.5958112481821167
+  },
+  "cost_components": {
+    "slip": 0.7784265864709836,
+    "financing": 0.039529109589036576,
+    "borrow": 0.012122260273972563,
+    "reverse": 0.07694999999999559
+  },
+  "no_carry_net": {
+    "n": 368,
+    "mean_daily": 0.005117642983844631,
+    "annualized_return": 1.289646031928847,
+    "annualized_volatility": 0.2174583098784973,
+    "annualized_sharpe": 5.930543802393315,
+    "sum_return": 1.8832926180548242,
+    "max_drawdown": -0.1585115456171493
+  },
+  "no_carry_net_delta_vs_baseline": {
+    "n": 368,
+    "mean_daily": -0.00022096292526670402,
+    "annualized_return": -0.055682657167209416,
+    "annualized_volatility": 0.11455557798851711,
+    "annualized_sharpe": -0.4860754765934747,
+    "sum_return": -0.08131435649814708,
+    "max_drawdown": -0.23023869997893376
+  },
+  "fallback_days": 0,
+  "fallback_rate": 0.0,
+  "session_gap_groups": {
+    "next_session_1d": {
+      "n": 270,
+      "intraday_sum": 2.1131915951626383,
+      "overnight_sum": 0.10867388663415502,
+      "cost_sum": 0.6284119789925064,
+      "net_sum": 1.5934535028042747,
+      "mean_net": 0.005901679640015832,
+      "worst_net": -0.0394613012322883
+    },
+    "weekend_or_holiday": {
+      "n": 97,
+      "intraday_sum": 0.7128843232256338,
+      "overnight_sum": -0.0878315738019865,
+      "cost_sum": 0.27608243254495357,
+      "net_sum": 0.34897031687868996,
+      "mean_net": 0.0035976321327699998,
+      "worst_net": -0.0239782425193392
+    },
+    "terminal": {
+      "n": 1,
+      "intraday_sum": 0.0247166996665438,
+      "overnight_sum": 0.0,
+      "cost_sum": 0.0025335447965369,
+      "net_sum": 0.0221831548700068,
+      "mean_net": 0.0221831548700068,
+      "worst_net": 0.0221831548700068
+    }
+  },
+  "realized_stress_group": {
+    "other": {
+      "n": 349,
+      "intraday_sum": 2.126423123622457,
+      "overnight_sum": -0.14405531795560145,
+      "cost_sum": 0.8606189098301273,
+      "net_sum": 1.1217488958367132,
+      "mean_net": 0.0032141802172971725,
+      "worst_net": -0.0335531715933555
+    },
+    "top_5pct_abs_gross": {
+      "n": 19,
+      "intraday_sum": 0.7243694944323589,
+      "overnight_sum": 0.16489763078777003,
+      "cost_sum": 0.0464090465038696,
+      "net_sum": 0.8428580787162582,
+      "mean_net": 0.04436095151138201,
+      "worst_net": -0.0394613012322883
+    }
+  },
+  "period": {
+    "start": "2024-12-23",
+    "end": "2026-07-29",
+    "days": 368
+  },
+  "production_config": "configs/production/production.yaml",
+  "active_overlay": "models/ml_order_overlay/production_20260923",
+  "gap_input": "var/live/pipeline_data/gap_adjusted_distribution/20260731_024303",
+  "oos_boundary": "2024-12-23 (after overlay training end 2024-12-20)",
+  "decision": "PENDING_STAGE_5_COMPLETION",
+  "limitation": "This diagnostic uses canonical V2 backtest/proxy inputs, not true 09:10 quotes or live fills.",
+  "registry_record": {
+    "name": "stage5_intraday_carry_decomposition_20260923",
+    "decision": "pending",
+    "trials": 3,
+    "deflated_sharpe": 0.9999999997522357
+  }
+}

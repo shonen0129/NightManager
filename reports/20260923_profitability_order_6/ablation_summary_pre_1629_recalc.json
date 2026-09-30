@@ -1,0 +1,433 @@
+{
+  "stage": 6,
+  "status": "COMPLETE_DIAGNOSTIC_PENDING_ADOPTION",
+  "period": {
+    "start": "2024-12-23",
+    "end": "2026-07-29",
+    "days": 369
+  },
+  "config": "configs/production/production.yaml",
+  "active_overlay": "models/ml_order_overlay/production_20260923",
+  "gap_input": "var/live/pipeline_data/gap_adjusted_distribution/20260731_024303",
+  "ablation_design": "one-at-a-time, each variant removes exactly one component",
+  "candidate_count": 8,
+  "annualization_days": 252.0,
+  "bootstrap": {
+    "block_days": 20,
+    "samples": 1000,
+    "seed": 42
+  },
+  "baseline": {
+    "n": 369,
+    "annualized_return": 16.534368960720396,
+    "annualized_volatility": 4.278750540286784,
+    "net_sharpe": 3.8642984219435665,
+    "max_drawdown": -0.21425742365795708,
+    "sum_return": 24.21104026391201,
+    "mean_daily": 0.06561257524095396,
+    "gross_sharpe": 4.006381723645985,
+    "fallback_days": 0,
+    "fallback_rate": 0.0,
+    "avg_turnover": 1.254283661232623,
+    "avg_gross_exposure": 1.7235772357723578,
+    "max_model_net": 4.163336342344337e-16,
+    "max_model_gross": 2.0000000000000004,
+    "max_effective_net": 6.245004513516506e-16,
+    "max_effective_gross": 3.000000000000001,
+    "costs": {
+      "slip": 0.7659085846788822,
+      "financing": 0.03875856164383127,
+      "borrow": 0.011885958904109501,
+      "reverse": 0.07544999999999509,
+      "total": 0.8920031052268269
+    },
+    "cost_identity_max_error": 4.440892098500626e-16
+  },
+  "variants": {
+    "ml_off": {
+      "n": 369,
+      "annualized_return": 16.07833099758245,
+      "annualized_volatility": 4.158778963002571,
+      "net_sharpe": 3.8661181901271706,
+      "max_drawdown": -0.20112642944953285,
+      "sum_return": 23.543270389317158,
+      "mean_daily": 0.06380290078405734,
+      "gross_sharpe": 4.011683080817878,
+      "fallback_days": 0,
+      "fallback_rate": 0.0,
+      "avg_turnover": 1.2444731005313547,
+      "avg_gross_exposure": 1.7235772357723578,
+      "max_model_net": 3.191891195797325e-16,
+      "max_model_gross": 2.0000000000000004,
+      "max_effective_net": 4.787836793695988e-16,
+      "max_effective_gross": 3.000000000000001,
+      "costs": {
+        "slip": 0.7626681315856665,
+        "financing": 0.03875856164383562,
+        "borrow": 0.011885958904109588,
+        "reverse": 0.07545,
+        "total": 0.8887626521336117
+      },
+      "cost_identity_max_error": 0.0,
+      "paired_block_bootstrap": {
+        "block_days": 20,
+        "samples": 1000,
+        "seed": 42,
+        "mean_daily_delta": -0.001809674456896642,
+        "sum_delta": -0.6677698745948609,
+        "ci95_mean_daily_delta": [
+          -0.005138674613867728,
+          -6.425579107951182e-05
+        ]
+      },
+      "label": "ML overlay off",
+      "adoption": {
+        "decision": "RETAIN_COMPONENT",
+        "criteria": {
+          "net_sharpe_not_lower": "True",
+          "max_drawdown_not_worse": true,
+          "turnover_not_higher": true,
+          "fallback_not_higher": true,
+          "block_ci_lower_nonnegative": false
+        }
+      }
+    },
+    "mh_off": {
+      "n": 369,
+      "annualized_return": 7.2924495451534375,
+      "annualized_volatility": 4.647226703275478,
+      "net_sharpe": 1.569204605407682,
+      "max_drawdown": -2.9120060169890616,
+      "sum_return": 10.678229691117533,
+      "mean_daily": 0.028938291845846974,
+      "gross_sharpe": 1.7095514527537767,
+      "fallback_days": 0,
+      "fallback_rate": 0.0,
+      "avg_turnover": 1.3795803138851224,
+      "avg_gross_exposure": 1.7859078590785908,
+      "max_model_net": 4.996003610813204e-16,
+      "max_model_gross": 2.0000000000000004,
+      "max_effective_net": 7.494005416219807e-16,
+      "max_effective_gross": 3.000000000000001,
+      "costs": {
+        "slip": 0.8246562648843722,
+        "financing": 0.04018407534246576,
+        "borrow": 0.012323116438356166,
+        "reverse": 0.078225,
+        "total": 0.9553884566651941
+      },
+      "cost_identity_max_error": 0.0,
+      "paired_block_bootstrap": {
+        "block_days": 20,
+        "samples": 1000,
+        "seed": 42,
+        "mean_daily_delta": -0.03667428339510702,
+        "sum_delta": -13.532810572794489,
+        "ci95_mean_daily_delta": [
+          -0.10220735802914394,
+          -0.0027252116959378537
+        ]
+      },
+      "label": "MH off",
+      "adoption": {
+        "decision": "RETAIN_COMPONENT",
+        "criteria": {
+          "net_sharpe_not_lower": "False",
+          "max_drawdown_not_worse": false,
+          "turnover_not_higher": false,
+          "fallback_not_higher": true,
+          "block_ci_lower_nonnegative": false
+        }
+      }
+    },
+    "macro_off": {
+      "n": 369,
+      "annualized_return": 17.790428758091323,
+      "annualized_volatility": 4.5592650847806055,
+      "net_sharpe": 3.902038689848939,
+      "max_drawdown": -0.2168962890024665,
+      "sum_return": 26.050270681490865,
+      "mean_daily": 0.07059693951623541,
+      "gross_sharpe": 4.0407531348592665,
+      "fallback_days": 0,
+      "fallback_rate": 0.0,
+      "avg_turnover": 1.3038317966808242,
+      "avg_gross_exposure": 1.7981029810298104,
+      "max_model_net": 3.885780586188048e-16,
+      "max_model_gross": 2.0000000000000004,
+      "max_effective_net": 5.828670879282072e-16,
+      "max_effective_gross": 3.000000000000001,
+      "costs": {
+        "slip": 0.7984688007876068,
+        "financing": 0.04014554794520549,
+        "borrow": 0.012311301369863014,
+        "reverse": 0.07815,
+        "total": 0.9290756501026753
+      },
+      "cost_identity_max_error": 0.0,
+      "paired_block_bootstrap": {
+        "block_days": 20,
+        "samples": 1000,
+        "seed": 42,
+        "mean_daily_delta": 0.004984364275281426,
+        "sum_delta": 1.839230417578846,
+        "ci95_mean_daily_delta": [
+          0.0003244088688922273,
+          0.013944148992672958
+        ]
+      },
+      "label": "macro kappa/direction off",
+      "adoption": {
+        "decision": "RETAIN_COMPONENT",
+        "criteria": {
+          "net_sharpe_not_lower": "True",
+          "max_drawdown_not_worse": false,
+          "turnover_not_higher": false,
+          "fallback_not_higher": true,
+          "block_ci_lower_nonnegative": true
+        }
+      }
+    },
+    "fracdiff_off": {
+      "n": 369,
+      "annualized_return": 16.504409540819932,
+      "annualized_volatility": 4.2791460327462145,
+      "net_sharpe": 3.8569400096467263,
+      "max_drawdown": -0.23331915491192323,
+      "sum_return": 24.16717111334347,
+      "mean_daily": 0.06549368865404735,
+      "gross_sharpe": 3.9980139993440833,
+      "fallback_days": 0,
+      "fallback_rate": 0.0,
+      "avg_turnover": 1.235166882248316,
+      "avg_gross_exposure": 1.7289972899728998,
+      "max_model_net": 3.885780586188048e-16,
+      "max_model_gross": 2.0000000000000004,
+      "max_effective_net": 5.828670879282072e-16,
+      "max_effective_gross": 3.000000000000001,
+      "costs": {
+        "slip": 0.7595409233730377,
+        "financing": 0.038893407534246575,
+        "borrow": 0.011927311643835616,
+        "reverse": 0.07571250000000002,
+        "total": 0.8860741425511198
+      },
+      "cost_identity_max_error": 0.0,
+      "paired_block_bootstrap": {
+        "block_days": 20,
+        "samples": 1000,
+        "seed": 42,
+        "mean_daily_delta": -0.00011888658690663261,
+        "sum_delta": -0.043869150568547434,
+        "ci95_mean_daily_delta": [
+          -0.00027561008598602925,
+          2.0779041666030305e-05
+        ]
+      },
+      "label": "fractional differentiation off",
+      "adoption": {
+        "decision": "RETAIN_COMPONENT",
+        "criteria": {
+          "net_sharpe_not_lower": "False",
+          "max_drawdown_not_worse": false,
+          "turnover_not_higher": true,
+          "fallback_not_higher": true,
+          "block_ci_lower_nonnegative": false
+        }
+      }
+    },
+    "copula_off": {
+      "n": 369,
+      "annualized_return": 16.535059284787597,
+      "annualized_volatility": 4.2786622937925465,
+      "net_sharpe": 3.8645394633683865,
+      "max_drawdown": -0.21299649447452795,
+      "sum_return": 24.212051095581838,
+      "mean_daily": 0.065615314622173,
+      "gross_sharpe": 4.0070337042837645,
+      "fallback_days": 0,
+      "fallback_rate": 0.0,
+      "avg_turnover": 1.259093657126718,
+      "avg_gross_exposure": 1.7249322493224932,
+      "max_model_net": 4.0939474033052647e-16,
+      "max_model_gross": 2.0000000000000004,
+      "max_effective_net": 6.140921104957897e-16,
+      "max_effective_gross": 3.000000000000001,
+      "costs": {
+        "slip": 0.7682852395097437,
+        "financing": 0.03877782534246576,
+        "borrow": 0.011891866438356165,
+        "reverse": 0.07548750000000001,
+        "total": 0.8944424312905657
+      },
+      "cost_identity_max_error": 0.0,
+      "paired_block_bootstrap": {
+        "block_days": 20,
+        "samples": 1000,
+        "seed": 42,
+        "mean_daily_delta": 2.7393812190350207e-06,
+        "sum_delta": 0.0010108316698239227,
+        "ci95_mean_daily_delta": [
+          -5.929888230774402e-05,
+          6.95399688111971e-05
+        ]
+      },
+      "label": "copula off",
+      "adoption": {
+        "decision": "RETAIN_COMPONENT",
+        "criteria": {
+          "net_sharpe_not_lower": "True",
+          "max_drawdown_not_worse": true,
+          "turnover_not_higher": false,
+          "fallback_not_higher": true,
+          "block_ci_lower_nonnegative": false
+        }
+      }
+    },
+    "cs_off": {
+      "n": 369,
+      "annualized_return": 18.120598022301813,
+      "annualized_volatility": 4.724267260976652,
+      "net_sharpe": 3.8356420205057846,
+      "max_drawdown": -0.20960091222500332,
+      "sum_return": 26.533732818370513,
+      "mean_daily": 0.07190713500913418,
+      "gross_sharpe": 3.9642949882276857,
+      "fallback_days": 0,
+      "fallback_rate": 0.0,
+      "avg_turnover": 1.239933927127513,
+      "avg_gross_exposure": 1.7235772357723578,
+      "max_model_net": 3.885780586188048e-16,
+      "max_model_gross": 2.0000000000000004,
+      "max_effective_net": 5.828670879282072e-16,
+      "max_effective_gross": 3.000000000000001,
+      "costs": {
+        "slip": 0.7603229345274909,
+        "financing": 0.03875856164383562,
+        "borrow": 0.011885958904109588,
+        "reverse": 0.07545000000000002,
+        "total": 0.8864174550754362
+      },
+      "cost_identity_max_error": 0.0,
+      "paired_block_bootstrap": {
+        "block_days": 20,
+        "samples": 1000,
+        "seed": 42,
+        "mean_daily_delta": 0.006294559768180209,
+        "sum_delta": 2.322692554458497,
+        "ci95_mean_daily_delta": [
+          -0.00013371312827262065,
+          0.018719589471355724
+        ]
+      },
+      "label": "cross-sectional reversal overlay off",
+      "adoption": {
+        "decision": "RETAIN_COMPONENT",
+        "criteria": {
+          "net_sharpe_not_lower": "False",
+          "max_drawdown_not_worse": true,
+          "turnover_not_higher": true,
+          "fallback_not_higher": true,
+          "block_ci_lower_nonnegative": false
+        }
+      }
+    },
+    "minvar_off": {
+      "n": 369,
+      "annualized_return": 17.608057863290554,
+      "annualized_volatility": 4.567554061391227,
+      "net_sharpe": 3.8550299846757228,
+      "max_drawdown": -0.2199761211506973,
+      "sum_return": 25.783227585532597,
+      "mean_daily": 0.06987324548924823,
+      "gross_sharpe": 3.9888869987452953,
+      "fallback_days": 0,
+      "fallback_rate": 0.0,
+      "avg_turnover": 1.263568174070171,
+      "avg_gross_exposure": 1.7262872628726287,
+      "max_model_net": 3.7470027081099033e-16,
+      "max_model_gross": 2.0000000000000004,
+      "max_effective_net": 5.620504062164855e-16,
+      "max_effective_gross": 3.000000000000001,
+      "costs": {
+        "slip": 0.769719599138844,
+        "financing": 0.038854880136986306,
+        "borrow": 0.011915496575342466,
+        "reverse": 0.0756375,
+        "total": 0.8961274758511728
+      },
+      "cost_identity_max_error": 0.0,
+      "paired_block_bootstrap": {
+        "block_days": 20,
+        "samples": 1000,
+        "seed": 42,
+        "mean_daily_delta": 0.004260670248294254,
+        "sum_delta": 1.57218732162058,
+        "ci95_mean_daily_delta": [
+          8.931237200231108e-05,
+          0.01232764485431596
+        ]
+      },
+      "label": "MinVar off",
+      "adoption": {
+        "decision": "RETAIN_COMPONENT",
+        "criteria": {
+          "net_sharpe_not_lower": "False",
+          "max_drawdown_not_worse": false,
+          "turnover_not_higher": false,
+          "fallback_not_higher": true,
+          "block_ci_lower_nonnegative": true
+        }
+      }
+    },
+    "rule_d_off": {
+      "n": 369,
+      "annualized_return": 17.817600272338705,
+      "annualized_volatility": 4.559574599367052,
+      "net_sharpe": 3.9077330316762664,
+      "max_drawdown": -0.25574003899964326,
+      "sum_return": 26.09005754163882,
+      "mean_daily": 0.07070476298547106,
+      "gross_sharpe": 4.062915262463033,
+      "fallback_days": 0,
+      "fallback_rate": 0.0,
+      "avg_turnover": 1.4465865117609797,
+      "avg_gross_exposure": 2.0,
+      "max_model_net": 3.885780586188048e-16,
+      "max_model_gross": 2.0000000000000004,
+      "max_effective_net": 5.828670879282072e-16,
+      "max_effective_gross": 3.000000000000001,
+      "costs": {
+        "slip": 0.8862489958177233,
+        "financing": 0.045000000000000005,
+        "borrow": 0.0138,
+        "reverse": 0.0876,
+        "total": 1.0326489958177234
+      },
+      "cost_identity_max_error": 0.0,
+      "paired_block_bootstrap": {
+        "block_days": 20,
+        "samples": 1000,
+        "seed": 42,
+        "mean_daily_delta": 0.005092187744517079,
+        "sum_delta": 1.8790172777268022,
+        "ci95_mean_daily_delta": [
+          0.00041298877070659835,
+          0.014153847605805275
+        ]
+      },
+      "label": "RuleD scaling off",
+      "adoption": {
+        "decision": "RETAIN_COMPONENT",
+        "criteria": {
+          "net_sharpe_not_lower": "True",
+          "max_drawdown_not_worse": false,
+          "turnover_not_higher": false,
+          "fallback_not_higher": true,
+          "block_ci_lower_nonnegative": true
+        }
+      }
+    }
+  },
+  "production_changed": false
+}

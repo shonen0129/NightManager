@@ -1,0 +1,18 @@
+{
+  "period": "2024-12-23 -> 2026-07-29",
+  "total_days": 368,
+  "fallback_days": 0,
+  "fallback_rate_pct": 0.0,
+  "sharpe": 5.163636078955643,
+  "total_return_pct": 196.46069745529772,
+  "cagr_pct": 270.2108489295537,
+  "final_wealth": 6.76263902918223,
+  "annualized_return_pct": 134.53286890960607,
+  "annualized_volatility_pct": 26.053902105513142,
+  "max_drawdown_pct": -24.979866009864836,
+  "avg_turnover": 1.2870647717451411,
+  "avg_gross_exposure": 1.752717391304348,
+  "side_leverage": 1.5,
+  "overlay_model_dir": "/Users/shonen/leadlag/models/ml_order_overlay/production_20260923",
+  "gap_dir": "/Users/shonen/leadlag/var/live/pipeline_data/gap_adjusted_distribution/20260731_024303"
+}
