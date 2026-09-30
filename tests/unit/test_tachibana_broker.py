@@ -25,7 +25,7 @@ from leadlag.core.types import (
 @pytest.fixture
 def api_config() -> TachibanaApiConfig:
     return TachibanaApiConfig(
-        api_url="https://demo-kabuka.e-shiten.jp/e_api_v4r9",
+        api_url="https://demo-kabuka.e-shiten.jp/e_api_v4r10",
         auth_id="test_auth_id",
         private_key_path="dummy_key.pem",
         second_password="test_second_password",
@@ -37,7 +37,7 @@ def api_config() -> TachibanaApiConfig:
 def broker_config() -> BrokerConfig:
     return BrokerConfig(
         provider="tachibana",
-        api_url="https://demo-kabuka.e-shiten.jp/e_api_v4r9",
+        api_url="https://demo-kabuka.e-shiten.jp/e_api_v4r10",
         api_token="test_auth_id",
         api_password="test_second_password",
         request_timeout=5,
@@ -46,6 +46,25 @@ def broker_config() -> BrokerConfig:
 
 
 class TestTachibanaClient:
+    def test_market_price_history_uses_v410_official_history_function(self, api_config):
+        client = TachibanaClient(api_config)
+        rows = [{"sDate": "20260928", "pDPP": "100.0000"}]
+        with patch.object(
+            client,
+            "_request",
+            return_value={"aCLMMfdsMarketPriceHistory": rows},
+        ) as request:
+            assert client.get_market_price_history("1617") == rows
+
+        request.assert_called_once_with(
+            "sUrlPrice",
+            {
+                "sCLMID": "CLMMfdsGetMarketPriceHistory",
+                "sIssueCode": "1617",
+                "sSizyouC": "00",
+            },
+        )
+
     @patch("requests.Session.get")
     def test_login_success(self, mock_get, api_config):
         mock_response = MagicMock()
@@ -220,6 +239,57 @@ class TestTachibanaBrokerClient:
         opens = client.fetch_open_prices(["1617.T", "1618.T"])
         assert opens["1617.T"] == 1520.0
         assert opens["1618.T"] == 912.5
+
+    @patch("requests.Session.get")
+    def test_fetch_market_quotes_preserves_timestamp_and_lob(self, mock_get, broker_config):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "sResultCode": "0",
+            "aCLMMfdsMarketPrice": [
+                {
+                    "sIssueCode": "1617",
+                    "pDPP": "1520.0000",
+                    "pGAP1": "1521.0000",
+                    "pGAV1": "100",
+                    "pGBP1": "1519.0000",
+                    "pGBV1": "80",
+                }
+            ],
+        }
+        mock_get.return_value = mock_response
+
+        client = create_broker(broker_config)
+        client._client.logged_in = True
+        client._client.decrypted_urls = {"sUrlPrice": "https://price-url.jp"}
+
+        quotes = client.fetch_market_quotes(
+            ["1617.T"], observed_at="2026-09-23T09:10:01+09:00"
+        )
+
+        assert quotes[0]["ticker"] == "1617.T"
+        assert quotes[0]["observed_at"] == "2026-09-23T09:10:01+09:00"
+        assert quotes[0]["bid_price_1"] == 1519.0
+        assert quotes[0]["ask_price_1"] == 1521.0
+        assert quotes[0]["bid_size_1"] == 80.0
+        assert quotes[0]["ask_size_1"] == 100.0
+        assert quotes[0]["source"] == "tachibana:CLMMfdsGetMarketPrice"
+
+    @patch("requests.Session.get")
+    def test_fetch_market_quotes_does_not_invent_missing_ticker(self, mock_get, broker_config):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "sResultCode": "0",
+            "aCLMMfdsMarketPrice": [],
+        }
+        mock_get.return_value = mock_response
+
+        client = create_broker(broker_config)
+        client._client.logged_in = True
+        client._client.decrypted_urls = {"sUrlPrice": "https://price-url.jp"}
+
+        assert client.fetch_market_quotes(["1617.T"], allow_missing=True) == []
 
     @patch("yfinance.Ticker")
     def test_fetch_us_etf_returns_fallback(self, mock_ticker, broker_config):

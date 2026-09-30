@@ -8,6 +8,7 @@ to ``var/experiments/registry.jsonl``.
 from __future__ import annotations
 
 import logging
+from collections.abc import Mapping
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -22,16 +23,81 @@ from leadlag.experiment_registry import (
     ExperimentRecord,
     ExperimentRegistry,
 )
+from leadlag.reporting.metrics import MetricsSpec, calculate_metrics
 
 logger = logging.getLogger(__name__)
+_REDACTED = "[REDACTED]"
+_SECRET_PARAMETER_NAMES = {
+    "api_key",
+    "api_password",
+    "api_token",
+    "auth_id",
+    "authorization",
+    "credential",
+    "credentials",
+    "password",
+    "private_key",
+    "private_key_path",
+    "secret",
+    "secret_key",
+    "second_password",
+    "token",
+}
+_NORMALIZED_SECRET_PARAMETER_NAMES = {
+    "".join(character for character in name if character.isalnum())
+    for name in _SECRET_PARAMETER_NAMES
+}
 
 
 def _utc_now() -> datetime:
     return datetime.now(UTC)
 
 
-def _extract_metrics(results: dict[str, Any] | None) -> dict[str, Any]:
-    """Best-effort extraction of net Sharpe / MDD / turnover / fallback rate."""
+def _is_secret_parameter(name: object) -> bool:
+    normalized = "".join(character for character in str(name).lower() if character.isalnum())
+    return (
+        normalized in _NORMALIZED_SECRET_PARAMETER_NAMES
+        or normalized.endswith(("password", "token", "secret"))
+        or "credential" in normalized
+    )
+
+
+def _safe_parameter_value(value: Any, key: object | None = None) -> Any:
+    """Copy JSON-like configuration values while removing credentials."""
+    if key is not None and _is_secret_parameter(key):
+        return _REDACTED
+    if hasattr(value, "model_dump"):
+        value = value.model_dump(mode="json")
+    if isinstance(value, Mapping):
+        return {str(name): _safe_parameter_value(item, name) for name, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_safe_parameter_value(item) for item in value]
+    return value
+
+
+def _safe_app_parameters(app_config: AppConfig | dict[str, Any] | None) -> dict[str, Any]:
+    """Return research-relevant settings without broker credentials."""
+    if isinstance(app_config, AppConfig):
+        return {
+            "snapshot_schema": "research-safe-v1",
+            "strategy": {
+                "start_date": app_config.strategy.start_date,
+                "side_leverage": app_config.strategy.side_leverage,
+            },
+            "risk": app_config.risk.model_dump(mode="json"),
+            "v2": app_config.v2.model_dump(mode="json"),
+            "gap_distribution_dir": app_config.gap_distribution_dir,
+        }
+    safe = _safe_parameter_value(app_config or {})
+    return safe if isinstance(safe, dict) else {}
+
+
+def _extract_metrics(
+    results: dict[str, Any] | None,
+    *,
+    metrics_spec: MetricsSpec | None = None,
+) -> dict[str, Any]:
+    """Extract daily performance metrics under the shared MetricsSpec."""
     if results is None:
         return {}
 
@@ -43,19 +109,27 @@ def _extract_metrics(results: dict[str, Any] | None) -> dict[str, Any]:
 
     if isinstance(daily_returns, (pd.Series, np.ndarray)):
         returns = np.asarray(daily_returns, dtype=float)
-        if len(returns) > 1 and np.std(returns, ddof=1) > 1e-12:
-            metrics["net_sharpe"] = float(
-                np.mean(returns) / np.std(returns, ddof=1) * np.sqrt(245)
-            )
+        spec = metrics_spec or MetricsSpec()
+        if spec.frequency != "daily":
+            raise ValueError("experiment registry metrics require daily-frequency returns")
+        metrics["metric_schema_version"] = "daily-v1"
+        metrics["net_sharpe_frequency"] = "annual"
+        metrics["trading_days_per_year"] = int(spec.annualization_periods)
+        if not np.isfinite(returns).all():
+            metrics["metric_status"] = "invalid_non_finite_returns"
+            metrics["n_observations_expected"] = int(len(returns))
+            metrics["missing_return_count"] = int((~np.isfinite(returns)).sum())
+            metrics["returns"] = [float(value) if np.isfinite(value) else None for value in returns]
         else:
-            metrics["net_sharpe"] = 0.0
-        metrics["n_observations"] = int(len(returns))
-
-        wealth = np.concatenate(([1.0], np.cumprod(1.0 + returns)))
-        running_max = np.maximum.accumulate(wealth)
-        mdd = float(np.min(wealth / running_max - 1.0)) if len(wealth) > 0 else 0.0
-        metrics["max_dd"] = mdd
-        metrics["total_return"] = float(wealth[-1] - 1.0)
+            metrics["metric_status"] = "valid"
+            summary = calculate_metrics(pd.Series(daily_returns), spec=spec)
+            metrics["net_sharpe"] = (
+                float(summary["Sharpe"]) if np.isfinite(summary.get("Sharpe", np.nan)) else None
+            )
+            metrics["n_observations"] = int(len(returns))
+            metrics["max_dd"] = float(summary["MDD"])
+            metrics["total_return"] = float(summary["Total Return"])
+            metrics["returns"] = returns.tolist()
 
     if isinstance(turnover, (pd.Series, np.ndarray)):
         to_arr = np.asarray(turnover, dtype=float)
@@ -72,15 +146,6 @@ def _extract_metrics(results: dict[str, Any] | None) -> dict[str, Any]:
         if len(fb_arr) > 0:
             metrics["fallback_rate"] = float(np.mean(fb_arr))
 
-    metrics["returns"] = (
-        daily_returns.dropna().tolist()
-        if isinstance(daily_returns, pd.Series)
-        else (
-            np.asarray(daily_returns, dtype=float).tolist()
-            if daily_returns is not None
-            else []
-        )
-    )
     return metrics
 
 
@@ -95,13 +160,15 @@ def record_backtest_experiment(
     report_path: str | Path | None = None,
     tags: list[str] | None = None,
     registry_path: str | Path | None = None,
+    metrics_spec: MetricsSpec | None = None,
+    study_id: str | None = None,
 ) -> ExperimentRecord:
     """Record a backtest experiment to the registry.
 
     Args:
         name: Experiment / script name.
         hypothesis: Free-text hypothesis.
-        app_config: AppConfig (or dict) to freeze as parameters.
+        app_config: AppConfig (or dict) to freeze as safe research parameters.
         results: Backtest results dict from ``BacktestEngine.run_v2_backtest``
             or ``run_v1_backtest``.
         extra_metrics: Additional metrics not inferable from *results*.
@@ -110,25 +177,34 @@ def record_backtest_experiment(
         report_path: Path to a markdown report.
         tags: Optional tags appended to the hypothesis.
         registry_path: Override the default ``var/experiments/registry.jsonl``.
+        metrics_spec: Daily return definition. Defaults to the shared 245-day
+            annualization and includes flat days.
+        study_id: Stable grouping for trials that share one hypothesis family.
 
     Returns:
         The recorded ``ExperimentRecord``.
     """
     registry = ExperimentRegistry(registry_path or default_registry_path())
-    params = (
-        app_config.model_dump()
-        if isinstance(app_config, AppConfig)
-        else (dict(app_config) if app_config is not None else {})
-    )
+    params = _safe_app_parameters(app_config)
 
-    metrics = _extract_metrics(results)
+    if metrics_spec is None and extra_metrics and "trading_days_per_year" in extra_metrics:
+        metrics_spec = MetricsSpec(
+            annualization_periods=int(extra_metrics["trading_days_per_year"]),
+            include_flat_days=bool(extra_metrics.get("include_flat_days", True)),
+        )
+    metrics = _extract_metrics(results, metrics_spec=metrics_spec)
     if extra_metrics:
         metrics.update(extra_metrics)
 
-    # Trial count is the number of records already in this name family + 1.
-    # This is a conservative proxy for the number of trials tried.
-    existing = list(registry.iter_records(name=name))
-    metrics["trials"] = len(existing) + 1
+    # Preserve an explicit count when the experiment belongs to a wider study
+    # or when the caller has already tallied related trials. Otherwise, use
+    # the number of prior records with this name as a conservative proxy.
+    if "trials" not in metrics:
+        metrics["trials"] = (
+            registry.count_trials(study_id=study_id) + 1
+            if study_id is not None
+            else sum(1 for rec in registry.iter_records(name=name) if rec.correction_of is None) + 1
+        )
 
     if reason:
         metrics["reason"] = reason
@@ -144,6 +220,7 @@ def record_backtest_experiment(
         metrics=metrics,
         decision=decision,
         report_path=str(report_path) if report_path is not None else None,
+        study_id=study_id,
     )
     record.end_time = _utc_now()
     record.metrics["deflated_sharpe"] = record.deflated_sharpe()
@@ -166,13 +243,17 @@ def record_simple_experiment(
     decision: Decision = Decision.PENDING,
     report_path: str | Path | None = None,
     registry_path: str | Path | None = None,
+    study_id: str | None = None,
 ) -> ExperimentRecord:
     """Record a generic experiment without a full backtest result dict."""
     registry = ExperimentRegistry(registry_path or default_registry_path())
-    existing = list(registry.iter_records(name=name))
     metrics = dict(metrics)
     if "trials" not in metrics:
-        metrics["trials"] = len(existing) + 1
+        metrics["trials"] = (
+            registry.count_trials(study_id=study_id) + 1
+            if study_id is not None
+            else sum(1 for rec in registry.iter_records(name=name) if rec.correction_of is None) + 1
+        )
 
     if "n_observations" not in metrics and "returns" in metrics:
         metrics["n_observations"] = len(metrics["returns"])
@@ -180,10 +261,11 @@ def record_simple_experiment(
     record = ExperimentRecord(
         name=name,
         hypothesis=hypothesis,
-        parameters=parameters or {},
+        parameters=_safe_parameter_value(parameters or {}),
         metrics=metrics,
         decision=decision,
         report_path=str(report_path) if report_path is not None else None,
+        study_id=study_id,
     )
     record.end_time = _utc_now()
     record.metrics["deflated_sharpe"] = record.deflated_sharpe()

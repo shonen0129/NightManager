@@ -29,6 +29,7 @@ class ExecutionPlan:
     current_positions: tuple[tuple[str, int], ...] = ()
     target_net_exposure: float | None = None
     target_gross_exposure: float | None = None
+    input_version_digest: str | None = None
 
     @property
     def expected_order_count(self) -> int:
@@ -48,6 +49,7 @@ class ExecutionPlan:
             "current_positions": dict(self.current_positions),
             "target_net_exposure": self.target_net_exposure,
             "target_gross_exposure": self.target_gross_exposure,
+            "input_version_digest": self.input_version_digest,
             "expected_order_count": self.expected_order_count,
         }
 

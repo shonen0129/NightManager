@@ -18,7 +18,7 @@ from leadlag.config.schemas import AppConfig
 from leadlag.data.gap_store import GapStore
 from leadlag.domain.inputs import HistoricalInputs
 from leadlag.execution import var_history, var_inputs, var_worker
-from leadlag.execution.backtester import BacktestEngine
+from leadlag.execution.backtester import BacktestEngine, _decision_summary_with_audits
 from leadlag.models.ml_order_overlay import MLOrderOverlayModel, save_overlay_model
 from leadlag.utils.dataframe_fingerprint import dataframe_fingerprint
 
@@ -123,6 +123,113 @@ def test_var_backtest_receives_same_selected_overlay_object(tmp_path, monkeypatc
     )
     assert value.iloc[0] == 0.02
     assert captured == [model]
+
+
+def test_overlay_history_manifest_selects_only_post_training_versions(tmp_path):
+    root = tmp_path / "versions"
+    older = MLOrderOverlayModel(
+        lgbm=SimpleNamespace(marker="older"),
+        cont_cols=[],
+        target_std=1.0,
+        use_ticker=False,
+        use_classification=False,
+        per_ticker_interactions=False,
+    )
+    newer = MLOrderOverlayModel(
+        lgbm=SimpleNamespace(marker="newer"),
+        cont_cols=[],
+        target_std=1.0,
+        use_ticker=False,
+        use_classification=False,
+        per_ticker_interactions=False,
+    )
+    save_overlay_model(
+        older,
+        root,
+        training_metadata={
+            "metadata_status": "verified",
+            "train_start": "2015-01-05",
+            "train_end": "2020-12-31",
+            "data_hash": "older-data",
+            "config_hash": "config",
+        },
+    )
+    older_version = (root / "CURRENT").read_text(encoding="utf-8").strip()
+    save_overlay_model(
+        newer,
+        root,
+        training_metadata={
+            "metadata_status": "verified",
+            "train_start": "2015-01-05",
+            "train_end": "2021-01-01",
+            "data_hash": "newer-data",
+            "config_hash": "config",
+        },
+    )
+    newer_version = (root / "CURRENT").read_text(encoding="utf-8").strip()
+    (root / "HISTORY.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "segments": [
+                    {"start_date": "2021-01-01", "end_date": "2021-01-01", "version": older_version},
+                    {"start_date": "2021-01-02", "end_date": None, "version": newer_version},
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    active = var_history._load_overlay_version(root, newer_version)
+    dates = pd.DatetimeIndex(["2021-01-01", "2021-01-02"])
+
+    chunks, identity = var_history._resolve_overlay_history_chunks(dates, active, root)
+
+    assert [str(chunk_dates[0].date()) for chunk_dates, _model in chunks] == [
+        "2021-01-01",
+        "2021-01-02",
+    ]
+    assert chunks[0][1].metadata["artifact_version"] == older_version
+    assert chunks[1][1] is active
+    assert identity and older_version in identity and newer_version in identity
+
+
+def test_overlay_history_rejects_in_sample_dates_without_manifest(tmp_path):
+    model = SimpleNamespace(
+        metadata={"artifact_version": "future-fit", "train_end": "2024-12-31"}
+    )
+    with pytest.raises(ValueError, match="in-sample"):
+        var_history._resolve_overlay_history_chunks(
+            pd.DatetimeIndex(["2024-12-31"]), model, None
+        )
+
+
+def test_backtest_summary_keeps_numerical_leakage_and_fallback_statuses():
+    decision = SimpleNamespace(
+        summary={"overlay_applied": 1},
+        numerical={"status": "PASSED"},
+        leakage={"status": "PASSED"},
+        fallback={"gap_data_missing": False, "audit_failure": False},
+    )
+    summary = _decision_summary_with_audits(decision)
+    assert summary["overlay_applied"] == 1
+    assert summary["audit_status"] == {
+        "numerical": "PASSED",
+        "leakage": "PASSED",
+        "fallback": False,
+    }
+
+
+def test_historical_market_vol_is_scoped_to_requested_date():
+    dates = pd.DatetimeIndex(["2026-08-13", "2026-08-14"])
+    market_vol = pd.DataFrame({"1617.T": [0.01, 0.02]}, index=dates)
+    historical = HistoricalInputs(
+        pd.DataFrame({"value": [1.0, 2.0]}, index=dates),
+        market_vol_frame=market_vol,
+    )
+    selected = historical.market_vol_for(pd.Timestamp("2026-08-14"))
+    assert selected is not None
+    assert selected.index.tolist() == [pd.Timestamp("2026-08-14")]
+    assert selected.iloc[0, 0] == pytest.approx(0.02)
 
 
 def test_var_cache_hit_respects_total_deadline(tmp_path, monkeypatch):
@@ -258,6 +365,57 @@ def test_gap_snapshot_keeps_cache_input_immutable_after_writer_update(tmp_path):
         assert snapshot_fingerprint == var_inputs._file_manifest_fingerprint(snapshot_path)
     finally:
         temporary.cleanup()
+
+
+def test_cutoff_gap_snapshot_ignores_future_rows_and_diagnostics(tmp_path):
+    source = tmp_path / "gap.sqlite"
+    store = GapStore(source)
+    store.save(
+        "2026-08-13",
+        np.ones(17),
+        np.eye(17),
+        metadata={"sig_date": "2026-08-12", "version": "kept"},
+    )
+    store.save(
+        "2026-08-14",
+        np.ones(17) * 2.0,
+        np.eye(17),
+        metadata={"sig_date": "2026-08-13", "version": "future"},
+    )
+    diagnostics = source.parent / "full_history_diagnostics.csv"
+    pd.DataFrame(
+        {
+            "trade_date": ["2026-08-12", "2026-08-14"],
+            "pred_ir_gap_baseline_cost": [0.2, 0.9],
+        }
+    ).to_csv(diagnostics, index=False)
+
+    snapshot_a, fingerprint_a, owner_a = var_inputs._snapshot_gap_input(
+        source, max_trade_date="2026-08-13"
+    )
+    assert snapshot_a is not None and owner_a is not None
+    try:
+        assert GapStore(snapshot_a).exists("2026-08-13", "mu")
+        assert not GapStore(snapshot_a).exists("2026-08-14", "mu")
+        assert pd.read_csv(snapshot_a.parent / diagnostics.name)["trade_date"].tolist() == [
+            "2026-08-12"
+        ]
+        store.save(
+            "2026-08-15",
+            np.ones(17) * 3.0,
+            np.eye(17),
+            metadata={"sig_date": "2026-08-14", "version": "later"},
+        )
+        snapshot_b, fingerprint_b, owner_b = var_inputs._snapshot_gap_input(
+            source, max_trade_date="2026-08-13"
+        )
+        assert snapshot_b is not None and owner_b is not None
+        try:
+            assert fingerprint_a == fingerprint_b
+        finally:
+            owner_b.cleanup()
+    finally:
+        owner_a.cleanup()
 
 
 def test_gap_snapshot_respects_timeout_during_sqlite_lock(tmp_path):

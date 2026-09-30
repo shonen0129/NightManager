@@ -1,7 +1,7 @@
 #!/bin/bash
 # ============================================================
 # macOS用 V2発注自動化スクリプト（gap distribution + decision 統合）
-# 朝9:10実行: 立花API価格でgap行列生成 → 発注
+# 朝9:10実行: 立花API価格でgap行列生成 → decision（通常モードでは発注）
 # Production Residual-BLPX-RA v2 (mu_over_sigma + RuleD)
 # ============================================================
 set -euo pipefail
@@ -59,6 +59,34 @@ else
 fi
 cd "${PROJECT_DIR}"
 
+SHADOW_ONLY_ARG=""
+if [ "${LEADLAG_SHADOW_ONLY:-0}" = "1" ]; then
+    SHADOW_ONLY_ARG="--shadow-only"
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [INFO] shadow-only mode: no production portfolio outputs or orders" >> "${LOG_FILE}"
+fi
+
+# --- Read-only 09:10 market microstructure capture ---
+# This phase only calls Tachibana market-price/LOB queries and never submits
+# or cancels an order.  Set LEADLAG_CAPTURE_0910=0 to skip it.
+if [ "${LEADLAG_CAPTURE_0910:-1}" = "1" ]; then
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [0/2] 09:10 microstructure capture 開始" >> "${LOG_FILE}"
+    set +e
+    run_phase "microstructure_capture" "${LEADLAG_CAPTURE_PHASE_TIMEOUT_SECONDS:-120}" \
+        "${PYTHON_BIN}" tools/validation/collect_0910_microstructure.py \
+        --collect-live \
+        --capture-only \
+        --window-seconds "${LEADLAG_CAPTURE_WINDOW_SECONDS:-30}" \
+        --output-dir "${LEADLAG_CAPTURE_OUTPUT_DIR:-var/shadow_runs/ml_overlay_value/microstructure}" \
+        >> "${LOG_FILE}" 2>&1
+    CAPTURE_EXIT=$?
+    set -e
+    if [ ${CAPTURE_EXIT} -ne 0 ]; then
+        echo "[WARN] microstructure capture failed (exit=${CAPTURE_EXIT}); decision continues without changing order behavior." >> "${LOG_FILE}"
+    else
+        echo "[$(date '+%Y-%m-%d %H:%M:%S')] [0/2] 09:10 microstructure capture 完了" >> "${LOG_FILE}"
+    fi
+fi
+
 # --- Step 1: gap distribution（立花API価格注入） ---
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] [1/2] gap distribution 開始" >> "${LOG_FILE}"
 set +e
@@ -79,6 +107,8 @@ run_phase "decision" "${LEADLAG_DECISION_PHASE_TIMEOUT_SECONDS:-900}" \
     "${PYTHON_BIN}" -m leadlag.cli decision \
     --config configs/production/production.yaml \
     --live-dir var/live/production_residual_blpx \
+    --ml-overlay-shadow-dir var/shadow_runs/ml_overlay_value \
+    ${SHADOW_ONLY_ARG} \
     --api-enable \
     --capital-from-wallet \
     --text-output \

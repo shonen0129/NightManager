@@ -2,7 +2,7 @@
 
 V2 同期パス (ProductionV2Model) を本番正本とし、Next-Gen 非同期パイプライン・凸最適化は 2026-08-17 の ADR (docs/decisions/2026-08-17-p35-pipeline-canon.md) に基づき archive/legacy_src/ へ移設された。`PITDataLake` は `leadlag.data.pit_lake` の本番入力adapterとして保持し、`DecisionInputs`へ変換してモデルへ渡す。
 
-> **最終更新**: 2026-09-17
+> **最終更新**: 2026-09-29
 
 ## Overview
 
@@ -22,6 +22,14 @@ ML order overlay は、pickle の互換性を持つ fitted container だけを
 に分離し、本番 package から research を import しない。既存の import path は
 段階移行のための薄い compatibility export としてのみ残す。研究環境と artifact
 運用は [RESEARCH_ENV.md](RESEARCH_ENV.md) を参照する。
+
+推論出力は校正済み取引確率ではなく、long/short各側の相対配分倍率である。
+各側を既存の基準grossへ再正規化するため、ML overlay単独では総grossや取引可否を
+決めない。summaryの`p_trade_*`は過去run reader向け互換aliasとして残し、同じ値を
+`relative_allocation_multiplier_*`にも出す。実在庫・注文別の増分費用を検証できる正本が
+揃うまでは、ML trade gateは未評価と記録する。研究用`blpx_residual` targetは、方向付き
+実現リターンから同じ日のBLPX `mu_gap`予測を引いた誤差を学ぶ候補であり、本番artifactの
+targetを暗黙に変更しない。
 旧 module の学習関数名は production 側では fail-closed の移行案内を返し、研究 package を動的に読み込まない。
 
 **注意**: v1 fallback (Residual-BLPX) は2026-07-09に廃止されました。gap data欠損時はflat position (w_final=0) を返します。廃止理由は、v2でエラーが出る場合v1でも同様にエラーが出るため、循環依存の問題があったためです。v1 fallback関連コードは `git tag archive-2026-08` の `archive/deprecated_v1_fallback/` にアーカイブされています。
@@ -175,6 +183,7 @@ src/
 │   │   ├── portfolio.py     # ウェイト計算、Gross Exposure 調整
 │   │   ├── allocator.py     # 資金・ロット配分
 │   │   ├── risk.py          # VaR/ES 計算、リスクブリーチ判定
+│   │   ├── account_risk.py  # 照合済み実口座損益snapshotの検証・損失stop
 │   │   ├── market_calendar.py  # 営業日カレンダー・日付判定
 │   │   ├── macro.py         # マクロ因子の純粋なサプライズ・Factor-Specific Kappa 計算
 │   │   └── pnl.py           # weight-based BT PnL と FIFO fill/inventory accounting
@@ -212,6 +221,7 @@ src/
 │   │   ├── macro.py         # macro価格の取得・正規化・キャッシュ（S2a）
 │   │   ├── adr_features.py  # ADR特徴量artifactの読込・鮮度判定（S2a）
 │   │   ├── intraday_inputs.py # 5分足からの9:10入力抽出（S2a）
+│   │   ├── quote_snapshot.py # 09:10 broker bid/askの検証・日次不変snapshot
 │   │   ├── decision_cache.py # 日次判断・価格cache
 │   │   ├── market_data_cache.py # 市場履歴cacheの取得と鮮度検査
 │   │   ├── cache_store.py   # SQLite ベース汎用キャッシュストア
@@ -265,6 +275,7 @@ src/
 │       ├── formatter.py           # ログ・テキストフォーマット
 │       ├── metrics.py             # 指標計算、チャート描画
 │       ├── daily_pnl_report.py    # 実約定 close fill と残存建玉の円建て PnL 表示
+│       ├── ml_overlay_forward_evaluation.py # ML shadowとforward実現値の照合
 │       ├── results_format.py      # 結果フォルダ命名・マニフェスト出力
 │       ├── production_v2_writer.py  # v2本番実行結果ライター
 │       └── sprint2c_lob_report.py   # sprint2c LOBスリッページ分析レポート
@@ -318,6 +329,7 @@ ABC (abc.ABC)
 | `portfolio.py` | ウェイト計算、Gross Exposure 自動調整 |
 | `allocator.py` | 株数への変換（予算制約付き、1629.T 10株ロット対応） |
 | `risk.py` | VaR/ES 計算、リスクブリーチ判定 |
+| `account_risk.py` | cash・建玉・費用の照合完了を前提にした実口座日次/月次損失snapshotの検証。モデルreplay損益とは別のstop入力 |
 | `market_calendar.py` | 営業日カレンダー・日付判定（米国・日本市場休場日判定） |
 | `macro.py` | マクロ因子（USDJPY, CLF, TNX）のボラティリティ調整サプライズ計算、感度行列（`MACRO_SENS_MATRIX`）、Factor-Specific Kappa リスクスケーリング。ネットワーク・キャッシュI/Oは持たない |
 | `pnl.py` | weight-based BTの日次損益・費用計算と、観測/仮定FillをFIFO在庫へ評価する純粋な会計プリミティブ |
@@ -334,6 +346,13 @@ ABC (abc.ABC)
 旧DataFrame/snapshot入力をこの契約へ変換するため、ProductionRunner、BacktestEngine、
 日次bridge、V2 decisionの内部経路は複数の候補入力を再解釈しない。snapshotとPIT viewの
 配列・mappingは境界で所有コピーをread-only化し、履歴はrunごとに一度だけ所有する。
+actual-liveでは `quote_snapshot.py` の完全な09:10 quote snapshotを必須とし、そのIDと銘柄別
+受信時刻を既知入力fingerprintへ含める。古い価格cacheや前日終値で代替しない。加えて
+`account_risk.py` のprior-session実口座損益記録を読めない、またはcash・建玉・費用が未照合なら、
+新規リスクを止める（既存ポジションの縮小・決済は既存の制御に従う）。現状、このaccount-risk
+snapshotを生成する検証済みproducerは未整備なので、producerが用意されるまでactual-liveの
+新規建てはfail-closedとなる。運用契約と実装限界は
+[2026-09-29 decision](decisions/2026-09-29-frozen-0910-account-risk-forward-eval.md) を参照。
 
 ### 3. Data Layer (`data/`)
 市場データのライフサイクル全体を管理。
@@ -347,6 +366,7 @@ ABC (abc.ABC)
 | `macro.py` | macro価格の取得・列名正規化・timeout・キャッシュ。計算層へDataFrameを渡す入力adapter |
 | `adr_features.py` | ADR特徴量pickleの読込、`sig_date`除去、trade date欠損・鮮度の既存fallback判定 |
 | `intraday_inputs.py` | 5分足cacheから09:10 midpointと寄り→09:10 returnsを抽出し、target計算へ明示入力として渡す |
+| `quote_snapshot.py` | 立花の09:10 bid/askを銘柄別受信時刻・trade date・内容hashで検証し、最初の完全な日次snapshotを不変保存する。actual-live decisionとgap生成は同じsnapshot IDを参照する |
 | `market_data.py` | 寄付価格取得、ギャップ計算、価格検証 |
 | `gap_store.py` | gap行列と一括manifestのSQLite永続化。`save_horizon` / `load_horizon_bundle`で同一snapshotを扱う |
 | `schema.py` | `df_exec` の列ファミリ・型付き `ExecutionFrame` ラッパー（ADR-0001 PIT view と連携） |
@@ -455,6 +475,7 @@ LOB・スリッページ・執行制御関連モジュール。
 | `results_format.py` | 結果フォルダ命名・マニフェスト出力 |
 | `production_v2_writer.py` | v2本番実行結果ライター — 日次実行結果のファイル出力 |
 | `daily_pnl_report.py` | 確認済み実約定Fillと残存建玉の円建て実現/未実現PnLを表示 |
+| `ml_overlay_forward_evaluation.py` | ML有効/無効shadow、凍結09:10 quote target、実行照合結果を日付と入力digestで対応付け、欠損・曖昧行を保持して評価 |
 | `sprint2c_lob_report.py` | sprint2c LOBスリッページ分析レポート生成 |
 
 #### PnL accounting boundary (S6)
@@ -509,6 +530,8 @@ YAML の `__base__` 合成は `config/loader.py`、V2 の mapping 正規化は
 `config/schemas.py::parse_run_config` が担当します。broker/env を含む
 `execution/config.py::load_config_from_yaml` は `AppConfig` を構築する正規のアプリ境界として
 残し、下流から private 合成関数や設定型の再exportを呼びません。
+`strict=True` では未知のトップレベル項目と正規化対象セクションの未知項目を拒否します。
+明示されたYAMLパスが存在しない場合も既定値へ黙って切り替えず、読み込みエラーにします。
 
 本番・バックテスト・gap生成の BLPX/V2/overlay 構築は
 `runner/model_factory.py` に集約しています。gap生成は overlay を読み込まない
@@ -614,10 +637,15 @@ versioned artifactとして公開する。VaR/ESのreturn cacheはCURRENTが指�
 fingerprintし、inactive versionやstagingの作成では無効化しない。decision実行で
 overlayを選択した場合は、その同じ検証済みobjectをVaRのcache keyとrisk backtestへ
 渡し、途中のCURRENT切替で別versionの系列を同じkeyへ保存しない。
-2026-09-23時点の本番rootは `models/ml_order_overlay/production_20260923` であり、
-候補版 `20260922T011723828589Z-7e1a81ab2617` を `CURRENT` で選択する。昇格判断と
-数値ゲートのoperator overrideは [decision record](decisions/2026-09-23-candidate-artifact-promotion.md)
-へ記録する。
+本番rootは `models/ml_order_overlay/production_20260923`。2026-09-27に
+`CURRENT` を `20260926T192555935698Z-ee306a32f3ec` へ切り替えた。2025-12-30 を
+train-end とする version を再作成し、VaR 履歴では2025-12-30まで旧 version、翌日以降は
+新 versionを選ぶ。前向き評価とprovider `available_at`来歴の条件は未達で、今回も数値
+昇格ゲート合格とは扱わない。履歴生成後の250日VaR/ESは停止基準を超過し、発注停止を
+維持する。判断とrollback先は[decision record](decisions/2026-09-27-ml-overlay-var-history-cutoff.md)、
+artifact digest・監査・cache検証は[実行レポート](../reports/20260927_ml_overlay_var_history/report.md)
+および[公開記録](../models/ml_order_overlay/production_20260923/promotions/20260927_var_history_cutoff_rebuild.json)
+を参照する。従前のoperator-directed promotion記録も監査履歴として保持する。
 
 ---
 

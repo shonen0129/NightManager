@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 
 class UnknownConfigKeyError(ValueError):
-    """Raised when a YAML config contains an unrecognized top-level key."""
+    """Raised when a YAML config contains an unrecognized key."""
 
 
 # Known top-level YAML sections. Unknown sections trigger UnknownConfigKeyError
@@ -68,6 +68,87 @@ def _allowed_top_level_keys() -> frozenset[str]:
     blpx_flat = {f"blpx_{k}" for k in BLPXConfig.model_fields}
     costs_flat = set(CostConfig.model_fields)
     return _ALLOWED_TOP_LEVEL_KEYS | frozenset(v2_keys | blpx_flat | costs_flat)
+
+
+def _allowed_nested_config_keys() -> dict[str, set[str]]:
+    """Return recognized fields for config sections normalized below Pydantic."""
+    strategy_aliases = {
+        "name", "display_name", "short_name", "version", "type", "normalization",
+        "raw_pca", "residual_pca", "raw_blpx", "residual_blpx", "variant",
+    }
+    portfolio_aliases = {
+        "long_short_frac", "n_assets", "net_target", "gross_target", "net_exposure",
+        "gross_exposure", "gross", "net", "max_gross_exposure", "max_net_exposure",
+        "long_count", "short_count", "macro_kappa_enabled", "macro_kappas",
+        "macro_surprise_halflife_mean", "macro_surprise_halflife_vol",
+        "macro_direction_enabled",
+    }
+    return {
+        "risk": set(RiskConfig.model_fields),
+        "costs": set(CostConfig.model_fields),
+        "blpx": set(BLPXConfig.model_fields),
+        "ml_order_overlay": set(MLOrderOverlayConfig.model_fields),
+        "model": set(StrategyConfig.model_fields) | strategy_aliases,
+        "portfolio": set(StrategyConfig.model_fields) | portfolio_aliases,
+        "residualization": set(StrategyConfig.model_fields) | set(ProductionV2RunConfig.model_fields) | {
+            "enabled_for_p3", "shrinkage", "winsor_sigma", "method", "jp_market_proxy",
+            "lookahead_safe",
+        },
+        "output": {
+            "base_dir", "live_dir", "save_signals", "save_weights", "save_plots",
+            "run_audit", "save_pit_binning", "save_scores",
+        },
+        "execution": set(CostConfig.model_fields) | {
+            "split_delay_seconds", "order_timeout_seconds", "get_positions_timeout_seconds",
+            "execute_portfolio_timeout_seconds", "broker_request_timeout_seconds",
+        },
+        "gap_distribution": {"dir", "mu_file_pattern", "omega_file_pattern"},
+        "fallback": {
+            "fallback_on_gap_data_missing", "fallback_on_audit_failure",
+            "ondemand_fallback_enabled", "shadow_ondemand_validation",
+        },
+        "multi_horizon_blend": {
+            "enabled", "horizons", "weights", "mu_file_pattern_h", "omega_file_pattern_h",
+        },
+        "cs_feature_overlay": {"enabled", "weight", "rank_reversal_file_pattern"},
+        "ranking": {"mode", "sigma_floor"},
+        "gross_scaling": {
+            "baseline_gross", "pit_rolling_window", "tertile_low_pct", "tertile_high_pct",
+            "fallback_multiplier", "multipliers",
+        },
+        "features": {"fractional_diff", "us_residualization"},
+    }
+
+
+def _validate_strict_nested_keys(yaml_data: dict[str, Any]) -> None:
+    """Reject misspelled fields in the sections whose aliases are normalized."""
+    allowed_by_section = _allowed_nested_config_keys()
+    errors: list[str] = []
+    for section, allowed in allowed_by_section.items():
+        values = yaml_data.get(section)
+        if values is None:
+            continue
+        if not isinstance(values, dict):
+            errors.append(f"{section}: expected a mapping")
+            continue
+        unknown = set(values) - allowed
+        if unknown:
+            errors.extend(f"{section}.{key}" for key in sorted(unknown))
+
+    features = yaml_data.get("features")
+    if isinstance(features, dict) and isinstance(features.get("fractional_diff"), dict):
+        unknown = set(features["fractional_diff"]) - {
+            "enabled", "d", "threshold", "window", "normalize",
+        }
+        errors.extend(f"features.fractional_diff.{key}" for key in sorted(unknown))
+
+    gross_scaling = yaml_data.get("gross_scaling")
+    if isinstance(gross_scaling, dict) and isinstance(gross_scaling.get("multipliers"), dict):
+        unknown = set(gross_scaling["multipliers"]) - {"Low", "Medium", "High"}
+        errors.extend(f"gross_scaling.multipliers.{key}" for key in sorted(unknown))
+
+    if errors:
+        raise UnknownConfigKeyError(f"Unknown or malformed config fields: {errors}")
 
 
 # Load .env files from typical locations
@@ -110,8 +191,9 @@ def build_app_config_from_dict(yaml_data: dict[str, Any], strict: bool = False) 
 
     Args:
         yaml_data: Parsed YAML dict.
-        strict: If True, reject top-level keys not in the allowlist.
-            This catches typos in user-facing config files.
+        strict: If True, reject unknown top-level keys and unknown or malformed
+            fields in sections normalized by this module. This catches typos in
+            user-facing config files before defaults can hide them.
     """
     if strict:
         unknown = set(yaml_data.keys()) - _allowed_top_level_keys()
@@ -120,6 +202,7 @@ def build_app_config_from_dict(yaml_data: dict[str, Any], strict: bool = False) 
                 f"Unknown top-level config keys: {sorted(unknown)}. "
                 f"If these are intentional, run with strict=False."
             )
+        _validate_strict_nested_keys(yaml_data)
 
     # Extract AppConfig-level sections. V2 runtime parameters are normalized
     # through ``parse_run_config`` below, so legacy nested sections are only
@@ -193,7 +276,7 @@ def build_app_config_from_dict(yaml_data: dict[str, Any], strict: bool = False) 
     )
 
     # Load Tachibana config
-    tachi_url = os.environ.get("TACHIBANA_API_URL", "https://kabuka.e-shiten.jp/e_api_v4r9")
+    tachi_url = os.environ.get("TACHIBANA_API_URL", "https://kabuka.e-shiten.jp/e_api_v4r10")
     tachi_auth_id = os.environ.get("TACHIBANA_AUTH_ID", "")
     tachi_priv_key = os.environ.get("TACHIBANA_PRIVATE_KEY_PATH", "")
     tachi_sec_pw = os.environ.get("TACHIBANA_SECOND_PASSWORD", "")
@@ -262,7 +345,7 @@ def load_config_from_yaml(
     Args:
         yaml_path: Path to the configuration YAML file.
                    Defaults to project_root/configs/production/production.yaml if exists.
-        strict: If True, reject unrecognized top-level YAML keys.
+        strict: If True, reject unrecognized top-level and normalized section keys.
     """
     if yaml_path is None:
         default_yaml = Path(__file__).parent.parent.parent.parent / "configs" / "production" / "production.yaml"
@@ -270,7 +353,9 @@ def load_config_from_yaml(
             yaml_path = default_yaml
 
     yaml_data: dict[str, Any] = {}
-    if yaml_path and Path(yaml_path).exists():
+    if yaml_path is not None and not Path(yaml_path).is_file():
+        raise FileNotFoundError(f"Configuration file does not exist or is not a file: {yaml_path}")
+    if yaml_path is not None:
         logger.info("Loading configuration from %s", yaml_path)
         yaml_data = load_yaml_with_base(yaml_path)
     else:

@@ -105,6 +105,8 @@ def test_decision_manifest_captures_inputs_failure_reasons_and_code_state(tmp_pa
     assert manifest["input_version"]["digest"]
     assert manifest["decision"]["fallback_reasons"] == ["gap_data_missing"]
     assert manifest["code"]["dirty_diff_hash"]
+    assert len(manifest["decision"]["arrays"]["scores"]) == len(JP_TICKERS)
+    assert len(manifest["decision"]["arrays"]["Omega_gap"]) == len(JP_TICKERS)
 
     output_dir = tmp_path / "result"
     output_dir.mkdir()

@@ -10,6 +10,7 @@ from leadlag.core.correlation import (
     build_base_vectors,
     build_v3_static,
     compute_baseline_correlation,
+    compute_correlation,
 )
 from leadlag.core.pit import PITMatrixView
 from leadlag.core.signal import compute_signal
@@ -117,6 +118,65 @@ def test_baseline_correlation_ignores_post_baseline_dates():
     c_full_corr = compute_baseline_correlation(corrupted, date_index, ewma_half_life=45.0)
 
     np.testing.assert_allclose(c_full, c_full_corr, rtol=1e-12, atol=1e-12)
+
+
+@pytest.mark.unit
+@pytest.mark.property
+@pytest.mark.leak
+def test_baseline_correlation_uses_complete_rows_inside_fixed_window():
+    """Residual-beta warmup NaNs are excluded without moving the fixed prior window."""
+    n_us = 15
+    n_jp = 17
+    n_days = 2000
+    ewma_half_life = 45.0
+    rng = np.random.default_rng(20260924)
+    returns = rng.normal(0.0001, 0.015, (n_days, n_us + n_jp))
+    date_index = pd.date_range("2010-01-01", periods=n_days).values
+    baseline_mask = (date_index >= np.datetime64("2010-01-01")) & (
+        date_index <= np.datetime64("2014-12-31")
+    )
+    # Match the residual-beta warmup: the first 60 rows have no JP residuals.
+    returns[:60, n_us:] = np.nan
+
+    actual = compute_baseline_correlation(
+        returns,
+        date_index,
+        ewma_half_life=ewma_half_life,
+        cache={},
+    )
+    complete_baseline = returns[baseline_mask]
+    complete_baseline = complete_baseline[np.isfinite(complete_baseline).all(axis=1)]
+    expected = compute_correlation(
+        complete_baseline,
+        ewma_half_life=ewma_half_life,
+        use_cache=False,
+    )[2]
+
+    assert np.isfinite(actual).all()
+    np.testing.assert_allclose(actual, expected, rtol=1e-12, atol=1e-12)
+    assert np.min(np.linalg.eigvalsh(actual)) >= -1e-10
+
+    # Mutations outside the fixed baseline cannot affect the estimate.
+    corrupted_future = returns.copy()
+    corrupted_future[~baseline_mask] = np.inf
+    actual_future_corrupted = compute_baseline_correlation(
+        corrupted_future,
+        date_index,
+        ewma_half_life=ewma_half_life,
+        cache={},
+    )
+    np.testing.assert_allclose(actual, actual_future_corrupted, rtol=1e-12, atol=1e-12)
+
+
+@pytest.mark.unit
+@pytest.mark.property
+@pytest.mark.leak
+def test_baseline_correlation_rejects_window_without_complete_rows():
+    returns = np.full((100, 3), np.nan)
+    date_index = pd.date_range("2010-01-01", periods=100).values
+
+    with pytest.raises(ValueError, match="No complete finite rows found for baseline period"):
+        compute_baseline_correlation(returns, date_index, cache={})
 
 
 @pytest.mark.unit

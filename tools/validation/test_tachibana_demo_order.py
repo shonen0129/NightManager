@@ -60,7 +60,7 @@ def main():
         logger.error(f"Private key file not found at path: {key_path}")
         sys.exit(1)
 
-    api_url = os.environ.get("TACHIBANA_API_URL", "https://demo-kabuka.e-shiten.jp/e_api_v4r9")
+    api_url = os.environ.get("TACHIBANA_API_URL", "https://demo-kabuka.e-shiten.jp/e_api_v4r10")
     logger.info(f"Initializing TachibanaBrokerClient on {api_url}...")
     config = BrokerConfig(
         provider="tachibana",

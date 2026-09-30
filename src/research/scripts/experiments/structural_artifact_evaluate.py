@@ -188,18 +188,33 @@ def parity(frame, history, app, model_dir, decisions, evaluation_end):
         bt = BacktestEngine.run_v2_backtest(candidate_app, GAP, frame, str(date.date()),
                                            str(date.date()), historical_inputs=history)
         fast = decisions[date]
+        actual_scores = actual.scores_overlay if actual.scores_overlay is not None else actual.scores
+        fast_scores = fast.scores_overlay if fast.scores_overlay is not None else fast.scores
+        pit_equal = json.dumps(actual.pit_binning, sort_keys=True, default=str) == json.dumps(
+            fast.pit_binning, sort_keys=True, default=str
+        )
         comparison = {"date": str(date.date()), "price_sources": dict(snapshot.price_sources),
                       "live_bt_max_weight_error": float(np.max(np.abs(actual.w_final - bt["weights"].iloc[0].values))),
                       "live_collected_max_weight_error": float(np.max(np.abs(actual.w_final - fast.w_final))),
+                      "live_collected_max_score_error": float(np.max(np.abs(actual_scores - fast_scores))),
+                      "live_collected_max_mu_error": float(np.max(np.abs(actual.mu_gap - fast.mu_gap))),
+                      "live_collected_max_sigma_error": float(np.max(np.abs(actual.sigma_gap - fast.sigma_gap))),
+                      "live_collected_max_omega_error": float(np.max(np.abs(actual.Omega_gap - fast.Omega_gap))),
+                      "live_collected_pit_equal": pit_equal,
                       "gross": float(np.abs(actual.w_final).sum()), "fallback": actual.fallback,
                       "overlay_applied": actual.summary.get("overlay_applied", 0),
                       "numerical": actual.numerical["status"], "leakage": actual.leakage["status"]}
         assert comparison["live_bt_max_weight_error"] <= 1e-10, comparison
         assert comparison["live_collected_max_weight_error"] <= 1e-10, comparison
+        assert comparison["live_collected_max_score_error"] <= 1e-10, comparison
+        assert comparison["live_collected_max_mu_error"] <= 1e-10, comparison
+        assert comparison["live_collected_max_sigma_error"] <= 1e-10, comparison
+        assert comparison["live_collected_max_omega_error"] <= 1e-10, comparison
+        assert comparison["live_collected_pit_equal"], comparison
         assert comparison["gross"] > 0 and comparison["overlay_applied"] == 1, comparison
         assert comparison["numerical"] == "PASSED" and comparison["leakage"] == "PASSED", comparison
         output.append(comparison)
-        dump(WORK / "parity" / f"{date.date()}.pkl", {"live": actual, "backtest": bt})
+        dump(WORK / "parity" / f"{date.date()}.pkl", {"live": actual, "collected": fast, "backtest": bt})
     write_json(REPORT / "artifact_parity.json", output)
     return output
 
@@ -208,7 +223,19 @@ def main():
     logging.basicConfig(level=logging.ERROR)
     frame, history, config = resources()
     app = load_config_from_yaml(ROOT / "configs/production/production.yaml", strict=True)
-    assert config == app.v2, "Effective config changed after the input snapshot was fixed"
+    if config != app.v2:
+        # The production artifact pointer may advance after this fixed-input
+        # acceptance snapshot.  Reuse the current top-level config while
+        # restoring the snapshot's V2 fields; any difference beyond the
+        # artifact pointer remains a hard failure.
+        normalized_current = app.v2.model_copy(
+            deep=True,
+            update={"ml_overlay_model_dir": config.ml_overlay_model_dir},
+        )
+        assert config == normalized_current, (
+            "Effective V2 config changed beyond the production artifact pointer"
+        )
+        app = app.model_copy(deep=True, update={"v2": config})
     _, _, evaluation_end_index = BacktestEngine._resolve_sim_dates(frame, "2020-01-01", "latest", 0)
     evaluation_end = frame.index[evaluation_end_index]
     paths = [WORK / "collected" / f"chunk_{i}.pkl" for i in range(4)]

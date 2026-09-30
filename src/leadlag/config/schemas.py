@@ -232,7 +232,7 @@ class TachibanaApiConfig(BaseModel):
     """立花証券 API configuration."""
     model_config = {"frozen": True}
 
-    api_url: str = Field(default="https://kabuka.e-shiten.jp/e_api_v4r9", description="立花API ベース URL")
+    api_url: str = Field(default="https://kabuka.e-shiten.jp/e_api_v4r10", description="立花API ベース URL")
     auth_id: str = Field(default="", description="認証ID (sAuthId)")
     private_key_path: str = Field(default="", description="秘密鍵ファイルパス (.pem)")
     second_password: str = Field(default="", description="第二パスワード (取引パスワード)")
@@ -791,4 +791,3 @@ def parse_run_config(
     if not isinstance(cfg, dict):
         raise TypeError("V2 run config must be a mapping or ProductionV2RunConfig")
     return ProductionV2RunConfig(**_map_flat_to_nested(copy.deepcopy(cfg)))
-

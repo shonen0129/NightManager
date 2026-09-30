@@ -354,6 +354,7 @@ def build_execution_plan(
         current_positions=current,
         target_net_exposure=target_net,
         target_gross_exposure=target_gross,
+        input_version_digest=decision_df.attrs.get("input_version_digest"),
     )
 
 

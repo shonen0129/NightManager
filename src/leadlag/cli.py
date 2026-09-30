@@ -21,7 +21,11 @@ from leadlag.reporting.results_format import get_default_results_root
 logger = logging.getLogger(__name__)
 
 
-def _add_decision_args(parser: argparse.ArgumentParser) -> None:
+def _add_decision_args(
+    parser: argparse.ArgumentParser,
+    *,
+    include_shadow_only: bool = False,
+) -> None:
     """Add arguments for the decision (and daily) subcommand."""
     parser.add_argument(
         "--config",
@@ -34,6 +38,23 @@ def _add_decision_args(parser: argparse.ArgumentParser) -> None:
         help="Path to a SQLite GapStore or a directory with .npy gap files. "
              "Defaults to gap_input_dir in the YAML config.",
     )
+    parser.add_argument(
+        "--ml-overlay-shadow-dir",
+        default=None,
+        help=(
+            "Append paired ML-on/off production decisions for prospective shadow "
+            "evaluation. Requires real live prices; does not alter submitted weights."
+        ),
+    )
+    if include_shadow_only:
+        parser.add_argument(
+            "--shadow-only",
+            action="store_true",
+            help=(
+                "Generate paired ML-on/off decisions from live read-only market data, "
+                "then exit before production portfolio writes, position queries, or order submission."
+            ),
+        )
     parser.add_argument(
         "--live-dir",
         default="var/live/production_residual_blpx",
@@ -171,7 +192,7 @@ def setup_parser() -> argparse.ArgumentParser:
 
     # --- DECISION SUBCOMMAND ---
     decision_parser = subparsers.add_parser("decision", help="Run one-day V2 trade decision pipeline")
-    _add_decision_args(decision_parser)
+    _add_decision_args(decision_parser, include_shadow_only=True)
 
     # --- BACKTEST SUBCOMMAND ---
     backtest_parser = subparsers.add_parser("backtest", help="Run full V2 historical simulation")
@@ -307,6 +328,8 @@ def _handle_decision(args: argparse.Namespace) -> int:
         api_token=args.api_token,
         run_tag=args.run_tag,
         dry_run=args.dry_run,
+        ml_overlay_shadow_dir=args.ml_overlay_shadow_dir,
+        shadow_only=getattr(args, "shadow_only", False),
     )
     logger.info("V2 decision completed. Output: %s", result_path)
     return 0

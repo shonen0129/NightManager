@@ -97,6 +97,12 @@ def _max_timestamp(values: list[Any]) -> str | None:
 
 def _observed_at(inputs: DecisionInputs) -> dict[str, str]:
     observed: dict[str, str] = dict(inputs.known.observed_at)
+    observed.update(
+        {
+            f"price_observed_at[{ticker}]": timestamp
+            for ticker, timestamp in inputs.known.price_observed_at.items()
+        }
+    )
     observed.update(dict(inputs.historical.observed_at))
     return observed
 
@@ -189,6 +195,11 @@ def build_decision_manifest(
             "source": inputs.version.source,
         },
         "observed_at": observed,
+        "quote_snapshot": {
+            "snapshot_id": inputs.known.quote_snapshot_id,
+            "price_sources": _json_value(dict(inputs.known.price_sources)),
+            "price_observed_at": _json_value(dict(inputs.known.price_observed_at)),
+        },
         "code": _git_provenance(project_root()),
         "config": {
             "path": str(config_path),
@@ -218,10 +229,10 @@ def build_decision_manifest(
             if isinstance(result.diagnostics, Mapping)
             else None,
         },
-        "decision": {
-            "fallback": _json_value(result.fallback),
-            "fallback_reasons": sorted(str(key) for key, value in result.fallback.items() if value),
-            "pit_binning": _json_value(result.pit_binning),
+            "decision": {
+                "fallback": _json_value(result.fallback),
+                "fallback_reasons": sorted(str(key) for key, value in result.fallback.items() if value),
+                "pit_binning": _json_value(result.pit_binning),
             "audits": {
                 "leakage": _json_value(result.leakage),
                 "numerical": _json_value(result.numerical),
@@ -230,13 +241,20 @@ def build_decision_manifest(
             "diagnostics": _json_value(result.diagnostics),
             "summary": _json_value(result.summary),
             "model_net_exposure": float(np.sum(result.w_final)),
-            "model_gross_exposure": float(np.sum(np.abs(result.w_final))),
-            "weights": {
-                ticker: float(weight)
-                for ticker, weight in zip(inputs.known.ticker_order, result.w_final, strict=True)
+                "model_gross_exposure": float(np.sum(np.abs(result.w_final))),
+                "weights": {
+                    ticker: float(weight)
+                    for ticker, weight in zip(inputs.known.ticker_order, result.w_final, strict=True)
+                },
+                "arrays": {
+                    "scores": _json_value(result.scores_overlay if result.scores_overlay is not None else result.scores),
+                    "scores_base": _json_value(result.scores),
+                    "mu_gap": _json_value(result.mu_gap),
+                    "sigma_gap": _json_value(result.sigma_gap),
+                    "Omega_gap": _json_value(result.Omega_gap),
+                },
             },
-        },
-    }
+        }
 
 
 def update_decision_manifest(output_dir: str | Path, manifest: Mapping[str, Any]) -> str:

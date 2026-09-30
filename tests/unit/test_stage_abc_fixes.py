@@ -308,6 +308,7 @@ def test_cancelled_order_still_queries_accumulated_fill() -> None:
     rows = [{"order_id": "O-1", "status": "CANCELLED", "eigyou_day": "20260814"}]
     fetch_fill_prices(api, rows, wait_seconds=0.0)
     assert len(calls) == 1
+    assert calls[0][1] == "20260814"
     assert rows[0]["fill_quantity"] == 30
 
 
@@ -602,6 +603,38 @@ def test_overlay_loader_rejects_external_provenance_mismatch(tmp_path) -> None:
     metadata["train_end"] = "2020-12-31"
     metadata_path.write_text(json.dumps(metadata), encoding="utf-8")
     with pytest.raises(ValueError, match="field mismatch"):
+        load_overlay_model(tmp_path)
+
+
+def test_overlay_loader_rejects_target_contract_metadata_mismatch(tmp_path) -> None:
+    model = MLOrderOverlayModel(
+        lgbm=SimpleNamespace(marker="active"),
+        cont_cols=[],
+        target_std=1.0,
+        use_ticker=False,
+        use_classification=False,
+        per_ticker_interactions=False,
+    )
+    save_overlay_model(
+        model,
+        tmp_path,
+        training_metadata={
+            "metadata_status": "verified",
+            "train_start": "2015-01-05",
+            "train_end": "2026-08-13",
+            "data_hash": "data",
+            "config_hash": "config",
+            "target_type": "blpx_residual",
+            "baseline_residual_scale": 1.0,
+            "target_round_trip_cost_bps": 0.0,
+        },
+    )
+    active = (tmp_path / "CURRENT").read_text(encoding="utf-8").strip()
+    metadata_path = tmp_path / "versions" / active / "metadata.json"
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    metadata["target_type"] = "raw"
+    metadata_path.write_text(json.dumps(metadata), encoding="utf-8")
+    with pytest.raises(ValueError, match="target_type"):
         load_overlay_model(tmp_path)
 
 

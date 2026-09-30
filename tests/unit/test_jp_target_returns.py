@@ -14,6 +14,7 @@ import pandas as pd
 import pytest
 
 from leadlag.data.intraday_inputs import (
+    _normalize_bars_index,
     build_5m_910_prices,
     build_open_910_returns,
     compute_jp_target_returns,
@@ -258,6 +259,55 @@ class TestComputeJpTargetReturns:
 
 class TestBuild5m910Prices:
     """Smoke tests for build_5m_910_prices."""
+
+    @pytest.mark.parametrize(
+        ("trade_date", "raw_price_factor"),
+        [("2026-03-27", 500.0), ("2026-03-30", 1.0)],
+    )
+    def test_1629_split_adjustment_aligns_910_price_with_daily_open(
+        self, simple_df_exec, trade_date, raw_price_factor
+    ):
+        """Only pre-ex-date 1629 bars are divided by the 1:500 split factor."""
+        ticker = "1629.T"
+        date = pd.Timestamp(trade_date)
+        df_exec = simple_df_exec.iloc[[0]].copy()
+        df_exec.index = pd.DatetimeIndex([date])
+        df_exec.loc[date, f"jp_open_trade_{ticker}"] = 280.0
+
+        bars_index = pd.DatetimeIndex(
+            [date + pd.Timedelta(hours=9), date + pd.Timedelta(hours=9, minutes=10)]
+        )
+        bars = pd.DataFrame(
+            {
+                ("Open", ticker): [284.0, 289.0],
+                ("High", ticker): [285.0, 292.0],
+                ("Low", ticker): [283.0, 288.0],
+                ("Close", ticker): [284.0, 290.0],
+                ("Adj Close", ticker): [284.0, 290.0],
+                ("Volume", ticker): [1000.0, 1200.0],
+            },
+            index=bars_index,
+        )
+        for field in ("Open", "High", "Low", "Close", "Adj Close"):
+            bars[(field, ticker)] *= raw_price_factor
+        original_bars = bars.copy(deep=True)
+
+        normalized_bars = _normalize_bars_index(bars)
+        p_910 = build_5m_910_prices(df_exec, [ticker], df_5m=bars)
+        open_returns = build_open_910_returns(df_exec, [ticker], df_5m=bars)
+
+        for field in ("Open", "High", "Low", "Close", "Adj Close"):
+            np.testing.assert_allclose(
+                normalized_bars[(field, ticker)].to_numpy(),
+                bars[(field, ticker)].to_numpy() / raw_price_factor,
+            )
+        np.testing.assert_array_equal(
+            normalized_bars[("Volume", ticker)].to_numpy(),
+            bars[("Volume", ticker)].to_numpy(),
+        )
+        assert np.isclose(p_910.loc[date, ticker], 290.0)
+        assert np.isclose(open_returns.loc[date, ticker], 290.0 / 280.0 - 1.0)
+        pd.testing.assert_frame_equal(bars, original_bars)
 
     def test_empty_5m_cache_returns_all_nan(self, simple_df_exec, monkeypatch):
         """When 5m cache is empty, p_910_df is all NaN."""

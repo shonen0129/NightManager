@@ -128,6 +128,17 @@ def write_production_files(
     pd.DataFrame(score_rows).to_csv(live_dir / "production_scores.csv", index=False)
     logger.info("Written: production_scores.csv")
 
+    # 3b. production_risk_estimates.csv
+    # Keep the full covariance snapshot beside scores and weights so a
+    # same-day production replay can compare the actual Omega used by the
+    # decision path instead of inferring it from downstream weights.
+    pd.DataFrame(
+        decision.Omega_gap,
+        index=JP_TICKERS,
+        columns=JP_TICKERS,
+    ).to_csv(live_dir / "production_risk_estimates.csv")
+    logger.info("Written: production_risk_estimates.csv")
+
     # 4. production_summary.csv
     pd.DataFrame([decision.summary]).to_csv(live_dir / "production_summary.csv", index=False)
     logger.info("Written: production_summary.csv")

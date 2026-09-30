@@ -345,3 +345,19 @@ class TestSuccessCount:
         assert persisted["filled_orders_count"] == 0
         assert persisted["pending_orders_count"] == 1
         assert persisted["close_incomplete"] is True
+
+
+def test_close_result_record_preserves_broker_business_day() -> None:
+    from leadlag.core.types import OrderSide
+    from leadlag.execution.close import _close_result_record
+
+    result = OrderResult(
+        order_id="ORDER-1",
+        status=OrderStatus.SUBMITTED,
+        ticker="1617.T",
+        side=OrderSide.SELL,
+        quantity=1,
+        eigyou_day="20260924",
+    )
+
+    assert _close_result_record(result)["eigyou_day"] == "20260924"

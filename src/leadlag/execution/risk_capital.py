@@ -8,6 +8,7 @@ capital allocation from broker, pricing, output, and post-decision flow.
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -17,6 +18,7 @@ from leadlag.core import allocator as domain_allocator
 from leadlag.core.portfolio import adjust_gross_exposure, classify_actions
 from leadlag.core.risk import evaluate_risk_checks
 from leadlag.core.types import RiskConfig
+from leadlag.execution.account_risk import AccountRiskSnapshot, evaluate_account_loss
 
 logger = logging.getLogger(__name__)
 
@@ -46,11 +48,14 @@ def run_risk_checks(
     max_capital: float,
     hist_daily_returns: pd.Series,
     config: ProductionConfig,
+    actual_account_risk: AccountRiskSnapshot | None = None,
+    actual_account_risk_error: str | None = None,
+    require_actual_account_risk: bool = False,
 ) -> dict:
     """Run risk checks against the current decision and return a report dict."""
     weights = np.asarray(decision["weight"], dtype=float)
     risk_config = build_risk_config(config)
-    report = evaluate_risk_checks(
+    risk_result = evaluate_risk_checks(
         weights=weights,
         total_buy_allocated=total_buy_allocated,
         total_sell_allocated=total_sell_allocated,
@@ -58,22 +63,41 @@ def run_risk_checks(
         hist_daily_returns=hist_daily_returns,
         config=risk_config,
     )
-    return {
-        "target_net_exposure": report.target_net_exposure,
-        "target_gross_exposure": report.target_gross_exposure,
-        "allocated_net_ratio": report.allocated_net_ratio,
-        "allocated_gross_ratio": report.allocated_gross_ratio,
+    report: dict[str, Any] = {
+        "target_net_exposure": risk_result.target_net_exposure,
+        "target_gross_exposure": risk_result.target_gross_exposure,
+        "allocated_net_ratio": risk_result.allocated_net_ratio,
+        "allocated_gross_ratio": risk_result.allocated_gross_ratio,
         "var_es": {
-            "available": report.var_es.available,
-            "samples": report.var_es.samples,
-            "window": report.var_es.window,
-            "var_loss": report.var_es.var_loss,
-            "es_loss": report.var_es.es_loss,
+            "available": risk_result.var_es.available,
+            "samples": risk_result.var_es.samples,
+            "window": risk_result.var_es.window,
+            "var_loss": risk_result.var_es.var_loss,
+            "es_loss": risk_result.var_es.es_loss,
         },
-        "warning_breaches": report.warning_breaches,
-        "stop_breaches": report.stop_breaches,
-        "is_blocked": report.is_blocked,
+        "warning_breaches": list(risk_result.warning_breaches),
+        "stop_breaches": list(risk_result.stop_breaches),
+        "is_blocked": risk_result.is_blocked,
     }
+    if actual_account_risk is not None:
+        account_report = evaluate_account_loss(actual_account_risk, config)
+        report["actual_account_risk"] = account_report
+        report["warning_breaches"].extend(account_report["warnings"])
+        report["stop_breaches"].extend(account_report["stop_breaches"])
+        report["is_blocked"] = bool(report["stop_breaches"])
+    elif require_actual_account_risk:
+        reason = actual_account_risk_error or "no verified actual-account PnL snapshot was supplied"
+        report["actual_account_risk"] = {
+            "available": False,
+            "status": "unavailable",
+            "reason": reason,
+            "stop_breaches": ["ActualAccountRiskUnavailable: new risk is blocked"],
+        }
+        report["stop_breaches"].append("ActualAccountRiskUnavailable: new risk is blocked")
+        report["is_blocked"] = True
+    else:
+        report["actual_account_risk"] = {"available": False, "status": "not_required"}
+    return report
 
 
 def auto_adjust_gross_exposure(decision: dict, config: ProductionConfig) -> dict:

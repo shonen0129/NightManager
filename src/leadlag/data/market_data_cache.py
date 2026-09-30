@@ -33,6 +33,38 @@ _INTRADAY_KEY = "intraday_{interval}"
 _DF_EXEC_KEY = "df_exec"
 _DF_EXEC_META_KEY = "df_exec_meta"
 
+_INTRADAY_SPLIT_BASIS_ATTR = "leadlag_intraday_split_basis"
+_INTRADAY_SPLIT_BASIS_VERSION = "1629_20260330_500"
+
+
+def adjust_intraday_split_basis(df: pd.DataFrame) -> pd.DataFrame:
+    """Return 5m-style bars with 1629.T prices before its 1:500 split adjusted.
+
+    Yahoo intraday bars are fetched with ``auto_adjust=False`` while the daily
+    series is already split-adjusted. The official split was effective from
+    2026-03-30 (NEXT FUNDS notice: https://nextfunds.jp/news/2026/pd_260330a.html).
+    This read-time adjustment leaves the stored cache untouched; an attrs
+    marker prevents a second adjustment as bars pass through adapters.
+    """
+    bars = df.copy()
+    if bars.attrs.get(_INTRADAY_SPLIT_BASIS_ATTR) == _INTRADAY_SPLIT_BASIS_VERSION:
+        return bars
+    if not isinstance(bars.index, pd.DatetimeIndex):
+        bars.index = pd.DatetimeIndex(pd.to_datetime(bars.index))
+    index = bars.index
+    if index.tz is not None:
+        index = index.tz_convert("Asia/Tokyo").tz_localize(None)
+    pre_split = index.normalize() < pd.Timestamp("2026-03-30")
+    if pre_split.any():
+        for field in ("Open", "High", "Low", "Close", "Adj Close"):
+            column = (field, "1629.T")
+            if column in bars.columns:
+                bars.loc[pre_split, column] = (
+                    pd.to_numeric(bars.loc[pre_split, column], errors="coerce") / 500.0
+                )
+    bars.attrs[_INTRADAY_SPLIT_BASIS_ATTR] = _INTRADAY_SPLIT_BASIS_VERSION
+    return bars
+
 
 def _etf_store_path() -> Path:
     return market_data(_ETF_CACHE_FILENAME)
@@ -152,11 +184,22 @@ def load_jp_close_from_cache() -> pd.DataFrame:
     return data["jp_close"].copy()
 
 
-def load_intraday_cache(interval: str) -> pd.DataFrame | None:
-    """Load the intraday cache for a given interval ('1m' or '5m')."""
+def load_intraday_cache(
+    interval: str,
+    *,
+    adjust_split_basis: bool = True,
+) -> pd.DataFrame | None:
+    """Load intraday data; normalize split-affected 5m prices by default.
+
+    Set ``adjust_split_basis=False`` only when reading source bars for a cache
+    merge or an explicit raw-data inspection.
+    """
     store = SqliteCacheStore(_etf_store_path())
     key = _INTRADAY_KEY.format(interval=interval)
-    return store.get(key)
+    data = store.get(key)
+    if interval == "5m" and adjust_split_basis and isinstance(data, pd.DataFrame):
+        return adjust_intraday_split_basis(data)
+    return data
 
 
 def save_intraday_cache(data: pd.DataFrame, interval: str) -> None:
@@ -323,4 +366,3 @@ def load_df_exec_from_local_cache(max_stale_bdays: int | None = None) -> pd.Data
             "Local market-data cache not found/usable and no fallback is available. "
             "Prepare caches via the non-fast path before running fast mode."
         ) from e
-

@@ -29,6 +29,7 @@ from leadlag.core.macro import (
     compute_factor_kappa_scale,
     compute_macro_surprise,
 )
+from leadlag.data import macro as macro_data
 from leadlag.data.macro import clear_macro_cache, load_macro_prices
 
 # ---------------------------------------------------------------------------
@@ -211,9 +212,10 @@ def test_load_macro_prices_cache():
     clear_macro_cache()
 
 
-def test_load_macro_prices_timeout():
+def test_load_macro_prices_timeout(tmp_path, monkeypatch):
     """load_macro_prices should raise TimeoutError when yfinance hangs."""
     clear_macro_cache()
+    monkeypatch.setattr(macro_data, "_PERSISTED_MACRO_PATH", tmp_path / "missing.pkl")
 
     def hanging_download(*args, **kwargs):
         import time
@@ -223,6 +225,52 @@ def test_load_macro_prices_timeout():
         with pytest.raises(TimeoutError):
             load_macro_prices(start="2020-01-01", end="2020-02-20", timeout=0.5)
 
+    clear_macro_cache()
+
+
+def test_load_macro_prices_uses_fresh_persisted_snapshot_on_network_error(tmp_path, monkeypatch):
+    """Offline fallback is allowed only when the verified local snapshot covers the request."""
+    clear_macro_cache()
+    snapshot = tmp_path / "macro.pkl"
+    dates = pd.date_range("2020-01-01", periods=20, freq="B")
+    frame = pd.DataFrame(
+        np.random.default_rng(23).uniform(90, 110, (len(dates), N_MACRO)),
+        columns=MACRO_NAMES,
+        index=dates,
+    )
+    frame.to_pickle(snapshot)
+    monkeypatch.setattr(macro_data, "_PERSISTED_MACRO_PATH", snapshot)
+    monkeypatch.setattr(
+        macro_data,
+        "run_with_timeout",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("offline")),
+    )
+
+    result = load_macro_prices(start="2020-01-01", end="2020-01-28")
+
+    assert not result.empty
+    assert result.index.max() == pd.Timestamp("2020-01-27")
+    clear_macro_cache()
+
+
+def test_load_macro_prices_rejects_stale_persisted_snapshot(tmp_path, monkeypatch):
+    clear_macro_cache()
+    snapshot = tmp_path / "macro.pkl"
+    dates = pd.date_range("2020-01-01", periods=5, freq="B")
+    pd.DataFrame(
+        np.random.default_rng(24).uniform(90, 110, (len(dates), N_MACRO)),
+        columns=MACRO_NAMES,
+        index=dates,
+    ).to_pickle(snapshot)
+    monkeypatch.setattr(macro_data, "_PERSISTED_MACRO_PATH", snapshot)
+    monkeypatch.setattr(
+        macro_data,
+        "run_with_timeout",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("offline")),
+    )
+
+    with pytest.raises(RuntimeError, match="yfinance macro download failed"):
+        load_macro_prices(start="2020-01-01", end="2020-02-01")
     clear_macro_cache()
 
 

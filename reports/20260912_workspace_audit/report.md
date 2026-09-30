@@ -288,3 +288,20 @@ import-linterは既に機能しています。ただし「coreがbrokerをimport
 再現スクリプト、JSON、全体テスト・静的検証ログ、確認したソースのhashをこのディレクトリへ保存しました。既存のユーザー変更、進行中の研究、運用設定は保持しています。報告した22項目は確認範囲の指摘であり、全コードに他のバグがないという保証ではありません。実口座照合、外部サーバー・schedulerの現状、全歴史データの再構築、修正後の長期BT・新規性能実験は実施していません。
 
 本監査で最も優先すべきなのは、**収益を計算する仕組みと、その計算どおりの建玉を作る仕組みを一致させること**です。そこを完了させてから、取引コストの削減、持越しの分解、overlayの削減・再設計、新しいαの順で評価するのが妥当です。
+
+**2026-09-23 実施状況（順序1〜10）**
+
+| 順序 | 状態 | 根拠・次の条件 |
+|---|---|---|
+| 1 | 限定付き完了 | 同一snapshotのμ/Ω、scores/PIT、weights、監査結果は一致。[実施レポート](/Users/shonen/leadlag/reports/20260923_profitability_order_1/report.md) |
+| 2 | 未完了 | 9:10収集器・欠損管理・運用フックは実装済み。ただし真の9:10観測0件、時間外の保存観測4件。17銘柄の板と実現slippageの分布が揃うまで進めない。[実施レポート](/Users/shonen/leadlag/reports/20260923_profitability_order_2/report.md) |
+| 3 | 保留 | 順序2の実行可能価格・約定証拠待ち |
+| 4 | 保留 | 順序3のbaseline再評価待ち。単独実験は不採用で、本番設定・artifactは変更していない |
+| 5 | 診断完了・採否保留 | 368日OOSで日中/持越し/4費用、週末・連休・急変を分解。実約定・9:10価格不足のため経済的採用は保留。[実施レポート](/Users/shonen/leadlag/reports/20260923_profitability_order_5/report.md) |
+| 6 | 診断完了・削除案不採用 | MH/ML/macro/fracdiff/copula/CS/minvar/RuleDを各1回ablation。全削除案をRETAIN_COMPONENT、本番変更なし。[実施レポート](/Users/shonen/leadlag/reports/20260923_profitability_order_6/report.md) |
+| 7 | 診断完了・採用保留 | ML有効/無効を同一368日OOSで比較。net合計差は+0.043195だがnet Sharpeは5.163636対5.179883で改善せず、実費・実在庫・校正証拠も未取得。[実施レポート](/Users/shonen/leadlag/reports/20260923_profitability_order_7/report.md) |
+| 8 | モデル診断完了・容量採用保留 | model net/grossはPASS。集中・gap-beta proxy・5/10/20bps stressを算出したが、板厚・約定率・口数・実約定後exposureが未取得。[実施レポート](/Users/shonen/leadlag/reports/20260923_profitability_order_8/report.md) |
+| 9 | 前提ゲート待ち・未実施 | 新特徴量・universeの追加は行わず、独立OOSと実行可能baselineが揃うまで停止。[実施レポート](/Users/shonen/leadlag/reports/20260923_profitability_order_9/report.md) |
+| 10 | 一次検証・不採用 | `mu_gap`×注文差分で注文別ゲートを既知368日OOSに適用。12.5bps/sideでnet Sharpe -0.8783（同費用baseline 2.0919）、turnoverは1.2871→0.4905、費用は2.0747→1.5588。実約定コスト・独立holdoutは未検証。[実施レポート](/Users/shonen/leadlag/reports/20260923_profitability_order_10/report.md) |
+
+インストール済みlaunchdは旧plistで、`LEADLAG_CAPTURE_0910` が未設定です。リポジトリ側のtemplateと実行フックは更新しましたが、発注・本番設定変更を避けるため、インストール済み設定の更新は実施していません。従って順序2はコード実装だけで完了扱いにしていません。

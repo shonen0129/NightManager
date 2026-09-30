@@ -227,6 +227,7 @@ def _apply_overlay(
     snapshot: MarketSnapshot | None = None,
     adr_features: Any | None = None,
     allow_implicit_io: bool = True,
+    market_vol_frame: Any | None = None,
 ) -> PortfolioDecision:
     """Apply the ML order overlay if enabled and available.
 
@@ -251,5 +252,6 @@ def _apply_overlay(
         trade_date,
         snapshot=snapshot,
         adr_features=adr_features,
+        market_vol_frame=market_vol_frame,
         allow_implicit_io=allow_implicit_io,
     )

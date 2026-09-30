@@ -191,6 +191,25 @@ class BrokerClient(ABC):
             Dict mapping ticker → current price
         """
 
+    def fetch_market_quotes(
+        self,
+        tickers: list[str],
+        *,
+        observed_at: str | None = None,
+        allow_missing: bool = False,
+    ) -> list[dict[str, Any]]:
+        """Fetch timestamped quote/order-book snapshots when supported.
+
+        This optional, read-only interface is deliberately separate from
+        ``fetch_current_prices``: a last price is not a bid/ask or depth
+        observation.  Providers that cannot return a quote snapshot should
+        raise ``NotImplementedError`` rather than manufacturing a spread.
+        """
+        del tickers, observed_at, allow_missing
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not implement fetch_market_quotes"
+        )
+
     # -- Positions -----------------------------------------------------------
 
     @abstractmethod

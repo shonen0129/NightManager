@@ -9,6 +9,7 @@ Windows 用スクリプトは `archive/legacy_scripts/windows/` に保管して�
 |---|---|---|---|---|
 | `日米ラグ_AutoLogin` | 毎朝 7:00 | —（legacy archive） | — | kabuステーション自動ログイン |
 | `日米ラグ_DistributionDiagnostics` | 月〜土 8:15 | — | `run_distribution_diagnostics.sh` | 分布診断の事前計算 |
+| `日米ラグ_Microstructure0910` | 月〜金 9:10 | — | `run_0910_microstructure_capture.sh` | 読取専用の9:10気配・板保存（decisionとは独立） |
 | `日米ラグ_Decision` | 毎朝 9:10 | —（legacy archive） | `run_decision_v2.sh` | 売買判定 (`leadlag cli decision`) |
 | `日米ラグ_ClosePositions` | 毎日 14:50 | —（legacy archive） | `run_close_positions.sh` | 引け反対売買 (`leadlag cli close`) |
 | `日米ラグ_PnlReport` | 毎日 15:40 | — | `run_pnl_report.sh` | 未完了runの読取専用照合と引け損益レポート |
@@ -39,8 +40,18 @@ Windows側で別途設計してください。
 bash scripts/batch/setup_scheduler_macos.sh
 ```
 
-これで5つのタスク（market data update / distribution diagnostics / Decision / Close / P&L report）が launchd に登録されます。既存のplistはプロジェクトルートから生成し直されるため、作業ディレクトリを移動した後も古いパスを残しません。
+これで6つのタスク（market data update / distribution diagnostics / 9:10 microstructure capture / Decision / Close / P&L report）が launchd に登録されます。9:10収集は読取専用の別LaunchAgentで動き、decisionの失敗や長時間実行から独立します。既存のplistはプロジェクトルートから生成し直されるため、作業ディレクトリを移動した後も古いパスを残しません。
 旧コマンド `bash scripts/batch/install_launchd.sh` はこの手順へ委譲する互換入口です。
+
+収集ジョブだけを登録・更新する場合は次を使います。decision等の既存ジョブは再起動しません。
+
+```bash
+bash scripts/batch/install_0910_microstructure_capture.sh
+```
+
+ジョブは東証営業日の09:10に起動し、09:10:00〜09:10:30 JSTの応答だけを有効な観測として扱います。プロセス全体は65秒で停止し、同時起動はjob guardで防ぎます。開始時刻外や休場日は理由を保存し、読み取りAPIが失敗したときは観測期限内で1回再試行します。macOSがスリープ中またはログアウト中は予定時刻の取得を保証できません。ログイン状態とLaunchAgentの登録状態を確認してください。
+
+観測は `var/live/pipeline_data/microstructure_0910/quote_snapshots.jsonl` に追記され、実行結果は `capture_runs.jsonl` と日付別JSONに保存されます。各レコードでrequest開始・response受信時刻、対象銘柄数、二面気配数、完全な5段板数を確認します。ジョブの期限・終了結果は `var/logs/job_guard/microstructure_0910_YYYYMMDD.json` にあります。
 
 > [!WARNING]
 > プロジェクトディレクトリが iCloud 内にある場合、launchd からスクリプトにアクセスできません（`Operation not permitted`）。iCloud 外のディレクトリに移動してからセットアップしてください。
@@ -56,6 +67,7 @@ bash scripts/batch/run_close_positions.sh
 
 ```bash
 launchctl list | grep leadlag
+launchctl print gui/$(id -u)/com.leadlag.microstructure-0910
 ```
 
 #### タスクの削除
@@ -65,6 +77,7 @@ launchctl unload ~/Library/LaunchAgents/com.leadlag.decision.plist
 launchctl unload ~/Library/LaunchAgents/com.leadlag.close.plist
 launchctl unload ~/Library/LaunchAgents/com.leadlag.pnl_report.plist
 launchctl unload ~/Library/LaunchAgents/com.leadlag.update-market-data.plist
+launchctl bootout gui/$(id -u)/com.leadlag.microstructure-0910
 ```
 
 ## 動作確認
@@ -96,6 +109,7 @@ launchctl unload ~/Library/LaunchAgents/com.leadlag.update-market-data.plist
 launchctl unload ~/Library/LaunchAgents/com.leadlag.decision.plist
 launchctl unload ~/Library/LaunchAgents/com.leadlag.close.plist
 launchctl unload ~/Library/LaunchAgents/com.leadlag.pnl_report.plist
+launchctl unload ~/Library/LaunchAgents/com.leadlag.microstructure-0910.plist
 ```
 
 ## スクリプトのカスタマイズ

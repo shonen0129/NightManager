@@ -23,6 +23,7 @@ from leadlag.core.types import (
     OrderStatus,
     OrderType,
 )
+from leadlag.execution.microstructure.order_book_schema import from_api_price_response
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +71,7 @@ class TachibanaBrokerClient(BrokerClient):
         )
 
         return TachibanaApiConfig(
-            api_url=config.api_url or "https://kabuka.e-shiten.jp/e_api_v4r9",
+            api_url=config.api_url or "https://kabuka.e-shiten.jp/e_api_v4r10",
             auth_id=auth_id,
             private_key_path=private_key_path,
             second_password=second_password,
@@ -237,6 +238,47 @@ class TachibanaBrokerClient(BrokerClient):
     ) -> dict[str, float]:
         """Fetch current real-time prices for JP tickers (e.g. '1617.T')."""
         return self._fetch_prices(tickers, "pDPP", "current", allow_missing=allow_missing)
+
+    def fetch_market_quotes(
+        self,
+        tickers: list[str],
+        *,
+        observed_at: str | None = None,
+        allow_missing: bool = False,
+    ) -> list[dict[str, Any]]:
+        """Fetch read-only timestamped prices and five-level Tachibana LOB data."""
+        mapping = {ticker.replace(".T", ""): ticker for ticker in tickers}
+        raw_quotes = self._client.get_price(list(mapping))
+        quotes: list[dict[str, Any]] = []
+        seen: set[str] = set()
+        for raw_quote in raw_quotes:
+            code = str(raw_quote.get("sIssueCode", ""))
+            ticker = mapping.get(code)
+            if ticker is None:
+                continue
+            snapshot = from_api_price_response(raw_quote, timestamp=observed_at)
+            record = snapshot.to_dict()
+            record["ticker"] = ticker
+            record["observed_at"] = snapshot.timestamp
+            record["source"] = "tachibana:CLMMfdsGetMarketPrice"
+            quotes.append(record)
+            seen.add(ticker)
+
+        missing = [ticker for ticker in tickers if ticker not in seen]
+        if missing and not allow_missing:
+            raise ValueError(
+                f"Failed to fetch market quotes for {len(missing)} ticker(s): "
+                + ", ".join(missing)
+            )
+        return quotes
+
+    def fetch_market_price_history(self, tickers: list[str]) -> dict[str, list[dict[str, Any]]]:
+        """Fetch official daily market-history rows sequentially for JP tickers."""
+        histories: dict[str, list[dict[str, Any]]] = {}
+        for ticker in tickers:
+            issue_code = ticker.removesuffix(".T")
+            histories[ticker] = self._client.get_market_price_history(issue_code)
+        return histories
 
     def fetch_us_etf_returns(
         self,

@@ -173,6 +173,8 @@ class KnownMarketInputs:
     observed_at: Mapping[str, str] = field(default_factory=dict)
     source: str = "unknown"
     price_sources: Mapping[str, str] = field(default_factory=dict)
+    price_observed_at: Mapping[str, str] = field(default_factory=dict)
+    quote_snapshot_id: str | None = None
 
     def __post_init__(self) -> None:
         trade_date = _date(self.trade_date, "trade_date")
@@ -185,6 +187,9 @@ class KnownMarketInputs:
         for name, value in self.observed_at.items():
             if _timestamp(value, f"observed_at[{name}]") > as_of:
                 raise ValueError(f"observed_at[{name}] is later than as_of")
+        for ticker, value in self.price_observed_at.items():
+            if _timestamp(value, f"price_observed_at[{ticker}]") > as_of:
+                raise ValueError(f"price_observed_at[{ticker}] is later than as_of")
         sig_date = None if self.sig_date is None else _date(self.sig_date, "sig_date")
         if sig_date is not None and sig_date >= trade_date:
             raise ValueError("sig_date must be strictly earlier than trade_date")
@@ -212,6 +217,18 @@ class KnownMarketInputs:
         object.__setattr__(self, "adr_features", _readonly_mapping(self.adr_features, numeric=True))
         object.__setattr__(self, "observed_at", _readonly_mapping(self.observed_at, numeric=False))
         object.__setattr__(self, "price_sources", _readonly_mapping(self.price_sources, numeric=False))
+        object.__setattr__(self, "price_observed_at", _readonly_mapping(self.price_observed_at, numeric=False))
+        if self.quote_snapshot_id is not None:
+            snapshot_id = str(self.quote_snapshot_id).strip()
+            if not snapshot_id:
+                raise ValueError("quote_snapshot_id must be non-empty when supplied")
+            object.__setattr__(self, "quote_snapshot_id", snapshot_id)
+            missing_times = set(self.current_prices) - set(self.price_observed_at)
+            if missing_times:
+                raise ValueError(
+                    "quote snapshot prices require per-ticker availability timestamps: "
+                    f"{sorted(missing_times)}"
+                )
 
 
     @property
@@ -233,6 +250,8 @@ class KnownMarketInputs:
                 "observed_at": dict(self.observed_at),
                 "source": self.source,
                 "price_sources": dict(self.price_sources),
+                "price_observed_at": dict(self.price_observed_at),
+                "quote_snapshot_id": self.quote_snapshot_id,
             }
         )
 
@@ -259,6 +278,7 @@ class HistoricalInputs:
     _macro_prices: pd.DataFrame | None
     _adr_features: pd.DataFrame | None
     _rank_reversal_signals: pd.DataFrame | None
+    _market_vol: pd.DataFrame | None
     source: str
 
     def __init__(
@@ -277,6 +297,7 @@ class HistoricalInputs:
         macro_prices: pd.DataFrame | None = None,
         adr_features_frame: pd.DataFrame | None = None,
         rank_reversal_signals: pd.DataFrame | None = None,
+        market_vol_frame: pd.DataFrame | None = None,
         source: str = "unknown",
     ) -> None:
         if not isinstance(frame, pd.DataFrame) or frame.empty:
@@ -343,6 +364,7 @@ class HistoricalInputs:
         macro = _owned_frame(macro_prices, "macro_prices")
         adr = _owned_frame(adr_features_frame, "adr_features")
         rank_reversal = _owned_frame(rank_reversal_signals, "rank_reversal_signals")
+        market_vol = _owned_frame(market_vol_frame, "market_vol_frame")
         object.__setattr__(self, "_frame", owned)
         object.__setattr__(self, "horizon", int(horizon))
         object.__setattr__(self, "baseline_start", start)
@@ -364,6 +386,7 @@ class HistoricalInputs:
         object.__setattr__(self, "_macro_prices", macro)
         object.__setattr__(self, "_adr_features", adr)
         object.__setattr__(self, "_rank_reversal_signals", rank_reversal)
+        object.__setattr__(self, "_market_vol", market_vol)
         object.__setattr__(self, "source", str(source))
 
     @property
@@ -397,6 +420,24 @@ class HistoricalInputs:
     def rank_reversal_signals(self) -> pd.DataFrame | None:
         """Return the run-owned cross-sectional rank-reversal signal frame."""
         return self._copy_optional_frame(self._rank_reversal_signals)
+
+    def adr_features_for(self, as_of: Any) -> pd.DataFrame | None:
+        """Return one date-scoped ADR row without copying future observations."""
+        if self._adr_features is None:
+            return None
+        date = _date(as_of, "as_of")
+        if date not in self._adr_features.index:
+            return None
+        return self._adr_features.loc[[date]].copy(deep=False)
+
+    def market_vol_for(self, as_of: Any) -> pd.DataFrame | None:
+        """Return one precomputed, strictly historical overlay-volatility row."""
+        if self._market_vol is None:
+            return None
+        date = _date(as_of, "as_of")
+        if date not in self._market_vol.index:
+            return None
+        return self._market_vol.loc[[date]].copy(deep=False)
 
     def pit_ir_history_for(self, as_of: Any) -> np.ndarray | None:
         """Return the PIT history applicable to one execution date.
@@ -561,6 +602,7 @@ class HistoricalInputs:
                 "rank_reversal_signals": None
                 if self._rank_reversal_signals is None
                 else _frame_digest(self._rank_reversal_signals),
+                "market_vol_frame": None if self._market_vol is None else _frame_digest(self._market_vol),
                 "source": self.source,
             }
         )
@@ -621,7 +663,7 @@ class DecisionInputs:
     historical: HistoricalInputs
     gap_input_dir: Path | None = None
     use_file_cache: bool = True
-    schema_version: str = "decision-inputs-v1"
+    schema_version: str = "decision-inputs-v2"
 
     def __post_init__(self) -> None:
         if self.gap_input_dir is not None:
@@ -663,6 +705,8 @@ class DecisionInputs:
         use_file_cache: bool = True,
         source: str = "unknown",
         price_sources: Mapping[str, str] | None = None,
+        price_observed_at: Mapping[str, str] | None = None,
+        quote_snapshot_id: str | None = None,
         historical: HistoricalInputs | None = None,
         label_available_at: Mapping[str, str] | None = None,
         historical_observed_at: Mapping[str, str] | None = None,
@@ -688,6 +732,8 @@ class DecisionInputs:
             observed_at=observed_at or {},
             source=source,
             price_sources=price_sources or {},
+            price_observed_at=price_observed_at or {},
+            quote_snapshot_id=quote_snapshot_id,
         )
         return cls(
             known=known,

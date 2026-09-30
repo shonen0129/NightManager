@@ -356,6 +356,18 @@ class TachibanaClient:
         res = self._request("sUrlPrice", payload)
         return res.get("aCLMMfdsMarketPrice") or []
 
+    def get_market_price_history(self, ticker: str) -> list[dict[str, Any]]:
+        """Fetch the broker's daily OHLC history for one issue code."""
+        if not ticker or "," in ticker:
+            raise ValueError("market-price history accepts exactly one ticker")
+        payload = {
+            "sCLMID": "CLMMfdsGetMarketPriceHistory",
+            "sIssueCode": ticker,
+            "sSizyouC": "00",
+        }
+        res = self._request("sUrlPrice", payload)
+        return res.get("aCLMMfdsMarketPriceHistory") or []
+
     def send_order(
         self,
         ticker: str,

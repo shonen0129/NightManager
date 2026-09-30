@@ -1,4 +1,8 @@
 # 立花証券・ｅ支店・ＡＰＩ専用ページ（v4.9-000 at 2026.05.16）
+
+> **現行APIとの互換性に関する注意（2026-09-29）**
+> この文書の詳細な機能説明は v4r9 時点の保存版です。立花証券は v4r9 を 2026-09-27 に廃止し、現行版を v4r10 としています。v4r10 の最新仕様は[公式APIページ](https://www.e-shiten.jp/e_api/)および[現行JSON APIリファレンス](https://www.e-shiten.jp/e_api/mfds_json_api_ref_text.html)を参照してください。v4r10 では従来のマスタ情報ダウンロード・一括マスタ取得・ニュースヘッダー・ニュースボディの各IFが廃止されています。本プロジェクトの日次株価取得は `CLMMfdsGetMarketPrice` を使用し、公式v4r10リファレンスにも掲載されていることを確認しています。注文・口座照会を含む本番接続の稼働確認は別途必要です。
+
 立花証券・ｅ支店・ＡＰＩは無料で利用できる日本株 API です。取引や株価・ニュースの取得を高速に処理できます。
 
 ## e_api refference manual 目次
@@ -55,8 +59,10 @@
 ### 1. ｅ支店・ＡＰＩ専用ＵＲＬ
 | URL | 環境・バージョン |
 | ------ | ------ |
-| https://kabuka.e-shiten.jp/e_api_v4r9/ | （本番環境、新バージョン） |
-| https://demo-kabuka.e-shiten.jp/e_api_v4r9/ | （デモ環境、新バージョン） |
+| https://kabuka.e-shiten.jp/e_api_v4r10/ | （本番環境、現行バージョン） |
+| https://demo-kabuka.e-shiten.jp/e_api_v4r10/ | （デモ環境、現行バージョン） |
+| https://kabuka.e-shiten.jp/e_api_v4r9/ | （廃止済み。2026-09-27停止） |
+| https://demo-kabuka.e-shiten.jp/e_api_v4r9/ | （廃止済み。2026-09-27停止） |
 | https://kabuka.e-shiten.jp/e_api_v4r8/ | （本番環境、旧バージョン） |
 | https://demo-kabuka.e-shiten.jp/e_api_v4r8/ | （デモ環境、旧バージョン） |
 

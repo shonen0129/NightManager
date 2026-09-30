@@ -55,6 +55,9 @@ def _close_result_record(result: OrderResult) -> dict[str, Any]:
         "side": result.side.value,
         "quantity": result.quantity,
         "message": result.message,
+        # Tachibana's detail endpoint requires the business day returned by
+        # the submit response. Preserve it for later read-only reconciliation.
+        "eigyou_day": result.eigyou_day,
     }
 
 
@@ -361,6 +364,7 @@ def close_all_positions(
                     "side": result.side.value,
                     "quantity": result.quantity,
                     "message": result.message,
+                    "eigyou_day": result.eigyou_day,
                     "original_side": meta.get("original_side"),
                     "original_price": meta.get("original_price"),
                 }
@@ -430,6 +434,7 @@ def close_all_positions(
                             "side": result.side.value,
                             "quantity": result.quantity,
                             "message": result.message,
+                            "eigyou_day": result.eigyou_day,
                             "delayed": True,
                             "original_side": meta.get("original_side"),
                             "original_price": meta.get("original_price"),

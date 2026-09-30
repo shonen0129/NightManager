@@ -18,7 +18,9 @@ Flow:
 
 from __future__ import annotations
 
+import json
 import logging
+import os
 from pathlib import Path
 from typing import cast
 
@@ -35,9 +37,11 @@ from leadlag.data import adr_features as adr_data
 from leadlag.data import macro as macro_data
 from leadlag.data.intraday_inputs import build_open_910_returns
 from leadlag.data.pit_lake import MarketSnapshot, PITDataLake
+from leadlag.data.quote_snapshot import FrozenQuoteSnapshot, load_frozen_quote_snapshot
 from leadlag.data.rank_reversal import load_rank_reversal_frame
 from leadlag.data.tickers import JP_TICKERS, TOPIX_TICKER
 from leadlag.domain.inputs import HistoricalInputs
+from leadlag.execution.account_risk import AccountRiskSnapshot, AccountRiskSnapshotError
 from leadlag.execution.backtest import _load_df_exec
 from leadlag.execution.broker_ops import (
     build_api_client,
@@ -55,6 +59,7 @@ from leadlag.execution.runtime_manifest import (
 from leadlag.execution.state_store import ExecutionStateStore
 from leadlag.execution.var_history import get_hist_returns_for_risk as _get_hist_returns_for_risk
 from leadlag.models.v2.pit import load_pit_ir_history
+from leadlag.reporting.ml_overlay_shadow import append_ml_overlay_shadow
 from leadlag.reporting.production_v2_writer import write_production_files
 from leadlag.runner.production import ProductionRunner
 from leadlag.utils.timestamps import normalize_jst_date
@@ -215,6 +220,8 @@ def run_v2_decision(
     api_token: str | None = None,
     run_tag: str | None = None,
     dry_run: bool = False,
+    ml_overlay_shadow_dir: str | Path | None = None,
+    shadow_only: bool = False,
 ) -> str:
     """Run V2 production decision and optionally submit orders via broker API.
 
@@ -237,6 +244,10 @@ def run_v2_decision(
         dry_run: If True, calculate weights but do not write files or submit orders.
             Also forces ``api_dry_run=True`` when ``api_enable=True`` to avoid
             live API calls.
+        ml_overlay_shadow_dir: Optional append-only paired ML-on/off shadow output.
+            Recorded only when live 09:10 prices are enabled and not dry-run.
+        shadow_only: Return after recording paired decisions, before production
+            file writes, position queries, or order submission.
 
     Returns:
         Path to the decision output CSV, or a dry-run summary path.
@@ -279,6 +290,31 @@ def run_v2_decision(
         logger.warning("[DRY-RUN] Forcing api_dry_run=True to avoid live API calls.")
         api_dry_run = True
 
+    live_quote_snapshot: FrozenQuoteSnapshot | None = None
+    if api_enable and not api_dry_run and not dry_run:
+        quote_dir_value = os.environ.get("LEADLAG_CAPTURE_OUTPUT_DIR")
+        quote_dir = Path(quote_dir_value) if quote_dir_value else (
+            ROOT / "var/shadow_runs/ml_overlay_value/microstructure"
+        )
+        if not quote_dir.is_absolute():
+            quote_dir = ROOT / quote_dir
+        try:
+            live_quote_snapshot = load_frozen_quote_snapshot(
+                quote_dir,
+                trade_date=t_trade.strftime("%Y-%m-%d"),
+            )
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            raise RuntimeError(
+                "Live decision requires today's complete, frozen 09:10 bid/ask snapshot; "
+                f"no last-price or previous-close substitution is allowed ({exc})."
+            ) from exc
+        decision_as_of = live_quote_snapshot.as_of.tz_localize(None)
+        logger.info(
+            "Using frozen quote snapshot %s received at %s",
+            live_quote_snapshot.snapshot_id,
+            live_quote_snapshot.as_of.isoformat(),
+        )
+
     # Without a real price source the 1000 JPY dummy would create bogus gaps
     # and corrupt output files / ML overlay features. Force dry-run and use
     # previous closes as placeholders (gap = 0) for non-API execution.
@@ -288,6 +324,14 @@ def run_v2_decision(
             "files with dummy open prices."
         )
         dry_run = True
+
+    if shadow_only:
+        if ml_overlay_shadow_dir is None:
+            raise ValueError("--shadow-only requires --ml-overlay-shadow-dir")
+        if not api_enable or api_dry_run or dry_run:
+            raise ValueError("--shadow-only requires live read-only market data; dry-run is not allowed")
+        if not app_config.v2.ml_overlay_enabled:
+            raise ValueError("--shadow-only requires the production ML overlay to be enabled")
 
     # --- Step 1: Build df_exec (historical data + today's placeholders) ---
     logger.info("[1/5] Loading/building df_exec...")
@@ -304,31 +348,41 @@ def run_v2_decision(
                 api_dry_run=api_dry_run,
             )
 
-            trade_date_str = t_trade.strftime("%Y%m%d")
-            cached_prices = (
-                load_current_prices_cache(trade_date_str)
-                if app_config.broker_provider == "tachibana"
-                else None
-            )
-            if cached_prices is not None:
-                cached_jp, topix_current = cached_prices
-                current_prices = dict(cached_jp)
-                if topix_current is not None:
-                    current_prices[TOPIX_TICKER] = float(topix_current)
-                if _has_complete_current_prices(current_prices):
-                    logger.info("[2/5] Using cached 09:10 current prices.")
+            if live_quote_snapshot is not None:
+                current_prices = {
+                    ticker: float(live_quote_snapshot.prices[ticker])
+                    for ticker in JP_TICKERS
+                }
+                logger.info(
+                    "[2/5] Using frozen quote-mid prices from %s.",
+                    live_quote_snapshot.snapshot_id,
+                )
+            else:
+                trade_date_str = t_trade.strftime("%Y%m%d")
+                cached_prices = (
+                    load_current_prices_cache(trade_date_str)
+                    if app_config.broker_provider == "tachibana"
+                    else None
+                )
+                if cached_prices is not None:
+                    cached_jp, topix_current = cached_prices
+                    current_prices = dict(cached_jp)
+                    if topix_current is not None:
+                        current_prices[TOPIX_TICKER] = float(topix_current)
+                    if _has_complete_current_prices(current_prices):
+                        logger.info("[2/5] Using cached 09:10 current prices.")
+                    else:
+                        logger.info(
+                            "[2/5] Current-price cache incomplete or invalid; fetching from API..."
+                        )
+                        current_prices = _resolve_current_prices(
+                            app_config, api_client, jp_opens_csv, google_opens
+                        )
                 else:
-                    logger.info(
-                        "[2/5] Current-price cache incomplete or invalid; fetching from API..."
-                    )
+                    logger.info("[2/5] Fetching 09:10 current prices...")
                     current_prices = _resolve_current_prices(
                         app_config, api_client, jp_opens_csv, google_opens
                     )
-            else:
-                logger.info("[2/5] Fetching 09:10 current prices...")
-                current_prices = _resolve_current_prices(
-                    app_config, api_client, jp_opens_csv, google_opens
-                )
 
             if capital_from_wallet:
                 max_capital = resolve_wallet_capital(api_client)
@@ -385,19 +439,38 @@ def run_v2_decision(
         if p is not None and pc is not None and pc > 0.0:
             jp_gap_api[j] = p / pc - 1.0
 
+    topix_night_return = lake_snapshot.topix_night_return
+    if live_quote_snapshot is not None:
+        topix_prev_close = snapshot_prev_closes.get(TOPIX_TICKER)
+        topix_price = live_quote_snapshot.prices[TOPIX_TICKER]
+        if topix_prev_close is None or not np.isfinite(topix_prev_close) or topix_prev_close <= 0.0:
+            raise RuntimeError("Frozen quote snapshot cannot be paired with a valid prior TOPIX close")
+        topix_night_return = float(topix_price) / float(topix_prev_close) - 1.0
+
     snapshot = MarketSnapshot(
         as_of=lake_snapshot.as_of,
         trade_date=lake_snapshot.trade_date,
         us_returns=lake_snapshot.us_returns,
         jp_gap_returns=jp_gap_api,
         jp_betas=lake_snapshot.jp_betas,
-        topix_night_return=lake_snapshot.topix_night_return,
+        topix_night_return=topix_night_return,
         current_prices=api_current_prices,
         prev_closes=snapshot_prev_closes,
         price_sources={
-            ticker: "broker_current" if api_enable else "previous_close_placeholder"
+            ticker: (
+                "tachibana:CLMMfdsGetMarketPrice:quote_mid"
+                if live_quote_snapshot is not None
+                else "broker_current" if api_enable else "previous_close_placeholder"
+            )
             for ticker in api_current_prices
         },
+        price_observed_at=(
+            {ticker: live_quote_snapshot.observed_at[ticker] for ticker in JP_TICKERS}
+            if live_quote_snapshot is not None else {}
+        ),
+        quote_snapshot_id=(
+            live_quote_snapshot.snapshot_id if live_quote_snapshot is not None else None
+        ),
     )
 
     is_valid, snapshot_errors = snapshot.validate()
@@ -501,6 +574,53 @@ def run_v2_decision(
     )
     runner = ProductionRunner(app_config)
     result = runner.run(decision_inputs)
+    shadow_path: Path | None = None
+
+    if ml_overlay_shadow_dir is not None:
+        if api_enable and not api_dry_run and not dry_run:
+            overlay_model = getattr(runner.model, "_overlay_model", None)
+            overlay_metadata = getattr(overlay_model, "metadata", None)
+            try:
+                shadow_path = append_ml_overlay_shadow(
+                    app_config=app_config,
+                    decision_inputs=decision_inputs,
+                    ml_enabled_result=result,
+                    output_dir=ml_overlay_shadow_dir,
+                    overlay_metadata=overlay_metadata,
+                    capital_jpy=max_capital,
+                    raise_on_baseline_failure=shadow_only,
+                )
+                logger.info("Paired ML overlay shadow recorded: %s", shadow_path)
+            except Exception:
+                if shadow_only and api_client is not None:
+                    try:
+                        api_client.close()
+                    finally:
+                        api_client = None
+                logger.exception(
+                    "Paired ML overlay shadow failed; production decision is unchanged."
+                )
+                if shadow_only:
+                    raise
+        else:
+            logger.warning(
+                "ML overlay shadow skipped because the run has no verified live "
+                "09:10 price observation (API disabled or dry-run)."
+            )
+
+    if shadow_only:
+        if shadow_path is None:
+            if api_client is not None:
+                api_client.close()
+                api_client = None
+            raise RuntimeError("Shadow-only run completed without writing a paired shadow record")
+        if api_client is not None:
+            api_client.close()
+            api_client = None
+        logger.info(
+            "Shadow-only decision complete; no production portfolio outputs or orders were created."
+        )
+        return str(shadow_path)
 
     write_production_files(effective_trade_date, live_path, result, dry_run=dry_run)
 
@@ -537,6 +657,8 @@ def run_v2_decision(
 
         decision = {
             "trade_date": t_effective,
+            "input_version_digest": decision_inputs.version.digest,
+            "quote_snapshot_id": decision_inputs.known.quote_snapshot_id,
             "tickers": JP_TICKERS,
             "signal": scores,
             "weight": w_final,
@@ -596,6 +718,27 @@ def run_v2_decision(
         # a retry of an unresolved broker outcome.
         state_store = ExecutionStateStore(execution_state_path())
         account_key = f"{app_config.broker_provider}:default" if not api_dry_run else f"simulation:{output_dir}"
+        actual_account_risk: AccountRiskSnapshot | None = None
+        actual_account_risk_error: str | None = None
+        if live_quote_snapshot is not None:
+            account_risk_value = os.environ.get("LEADLAG_ACCOUNT_RISK_SNAPSHOT")
+            account_risk_path = (
+                Path(account_risk_value)
+                if account_risk_value
+                else ROOT / "var/live/pipeline_data/account_risk/latest.json"
+            )
+            if not account_risk_path.is_absolute():
+                account_risk_path = ROOT / account_risk_path
+            try:
+                actual_account_risk = AccountRiskSnapshot.load(
+                    account_risk_path,
+                    trade_date=t_effective.strftime("%Y-%m-%d"),
+                    decision_as_of=decision_as_of,
+                    account_key=account_key,
+                )
+            except AccountRiskSnapshotError as exc:
+                actual_account_risk_error = str(exc)
+                logger.error("Actual-account loss evidence unavailable: %s", exc)
         # Batch wrappers hold the same scope for the complete process group.
         # Avoid a nested self-conflict while retaining the in-process lease for
         # direct CLI invocations.
@@ -626,6 +769,9 @@ def run_v2_decision(
                 state_store=state_store,
                 account_key=account_key,
                 strategy_key="production_v2",
+                actual_account_risk=actual_account_risk,
+                actual_account_risk_error=actual_account_risk_error,
+                require_actual_account_risk=live_quote_snapshot is not None,
             )
 
         logger.info("V2 decision completed. Output: %s", out_path)

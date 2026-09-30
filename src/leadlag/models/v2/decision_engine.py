@@ -512,7 +512,16 @@ def _decide(
         df_exec,
         overlay_enabled,
         snapshot=snapshot,
-        adr_features=inputs.historical.adr_features if inputs is not None else None,
+        adr_features=(
+            inputs.historical.adr_features_for(trade_date)
+            if inputs is not None
+            else None
+        ),
+        market_vol_frame=(
+            inputs.historical.market_vol_for(trade_date)
+            if inputs is not None
+            else None
+        ),
         allow_implicit_io=allow_implicit_io,
     )
     if snapshot is not None and snapshot.price_sources:

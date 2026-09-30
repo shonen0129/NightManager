@@ -330,7 +330,7 @@ def test_decision_inputs_exposes_content_addressed_version() -> None:
     frame = pd.DataFrame({"x": [1.0]}, index=pd.to_datetime(["2026-09-16"]))
     inputs = DecisionInputs(known=_known(), historical=HistoricalInputs(frame, source="test"))
     assert inputs.trade_date == pd.Timestamp("2026-09-16")
-    assert inputs.version.schema_version == "decision-inputs-v1"
+    assert inputs.version.schema_version == "decision-inputs-v2"
     assert len(inputs.version.digest) == 64
 
 

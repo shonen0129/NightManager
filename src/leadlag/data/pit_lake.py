@@ -76,6 +76,8 @@ class MarketSnapshot:
     current_prices: Mapping[str, float]  # JP tickers -> 9:10 execution prices
     prev_closes: Mapping[str, float]  # JP tickers -> previous day close prices
     price_sources: Mapping[str, str] = field(default_factory=dict)
+    price_observed_at: Mapping[str, str] = field(default_factory=dict)
+    quote_snapshot_id: str | None = None
 
     def __post_init__(self) -> None:
         """Own and freeze arrays/mappings at the PIT boundary.
@@ -94,6 +96,7 @@ class MarketSnapshot:
         object.__setattr__(self, "prev_closes", MappingProxyType({str(k): float(v) for k, v in self.prev_closes.items()}))
         object.__setattr__(self, "topix_night_return", float(self.topix_night_return))
         object.__setattr__(self, "price_sources", MappingProxyType(dict(self.price_sources)))
+        object.__setattr__(self, "price_observed_at", MappingProxyType(dict(self.price_observed_at)))
 
     def to_known_inputs(
         self,
@@ -117,6 +120,8 @@ class MarketSnapshot:
             observed_at=observed_at or {},
             source=source,
             price_sources=self.price_sources,
+            price_observed_at=self.price_observed_at,
+            quote_snapshot_id=self.quote_snapshot_id,
         )
 
     def validate(self, max_abs_return: float = 0.20) -> tuple[bool, list[str]]:
@@ -437,6 +442,8 @@ class PITDataLake:
             price_sources=snap.price_sources if current_prices is None else {
                 ticker: "explicit_current_price" for ticker in current_prices
             },
+            price_observed_at=snap.price_observed_at if current_prices is None else {},
+            quote_snapshot_id=snap.quote_snapshot_id if current_prices is None else None,
             historical=historical,
             open_910_returns=open_910_returns,
             macro_prices=macro_prices,
@@ -460,6 +467,8 @@ class PITDataLake:
             "current_prices",
             "prev_closes",
             "price_sources",
+            "price_observed_at",
+            "quote_snapshot_id",
         }
         extra = set(vars(snap).keys()) - allowed
         if extra:

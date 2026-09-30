@@ -12,7 +12,7 @@ from typing import Any, cast
 import numpy as np
 import pandas as pd
 
-from leadlag.data.market_data_cache import load_intraday_cache
+from leadlag.data.market_data_cache import adjust_intraday_split_basis, load_intraday_cache
 from leadlag.data.tickers import JP_TICKERS
 from leadlag.utils.timestamps import (
     normalize_jst_date,
@@ -22,12 +22,15 @@ from leadlag.utils.timestamps import (
 
 
 def _normalize_bars_index(df_5m: pd.DataFrame) -> pd.DataFrame:
-    """Return 5-minute bars indexed by timezone-naive JST timestamps."""
+    """Return 5-minute bars indexed by timezone-naive JST timestamps.
+
+    Normalize known split-unadjusted 1629.T prices to the daily series basis.
+    """
     bars = df_5m.copy()
     if not isinstance(bars.index, pd.DatetimeIndex):
         bars.index = pd.to_datetime(bars.index)
     bars.index = pd.DatetimeIndex([normalize_jst_timestamp(value) for value in bars.index])
-    return bars
+    return adjust_intraday_split_basis(bars)
 
 
 def _execution_positions_by_jst_date(df_exec: pd.DataFrame) -> dict[pd.Timestamp, list[int]]:

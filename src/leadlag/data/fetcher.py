@@ -437,7 +437,7 @@ def update_intraday_cache(tickers: list[str] = JP_TICKERS) -> None:
                 new_data.index = new_data.index.tz_convert("Asia/Tokyo").tz_localize(None)
 
             # Load existing cache
-            existing_data = load_intraday_cache(interval)
+            existing_data = load_intraday_cache(interval, adjust_split_basis=False)
 
             if existing_data is not None and not existing_data.empty:
                 # new_data takes precedence for overlapping indices, and appends new ones

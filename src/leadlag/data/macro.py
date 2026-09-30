@@ -8,6 +8,7 @@ returned series.
 from __future__ import annotations
 
 from collections.abc import MutableMapping
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -18,6 +19,40 @@ from leadlag.utils.threading import run_with_timeout
 
 _MACRO_DOWNLOAD_TIMEOUT = 30.0
 _MACRO_PRICE_CACHE: dict[tuple[str | None, str | None, str], pd.DataFrame] = {}
+_PERSISTED_MACRO_PATH = Path(__file__).resolve().parents[3] / "var" / "market_data" / "macro_prices_verified.pkl"
+
+
+def _load_persisted_macro_prices(
+    start: str | None,
+    end: str | None,
+) -> pd.DataFrame | None:
+    """Load the last explicitly verified price snapshot when it covers the request."""
+    path = _PERSISTED_MACRO_PATH
+    if not path.is_file():
+        return None
+    frame = pd.read_pickle(path)
+    if not isinstance(frame, pd.DataFrame) or not set(MACRO_NAMES).issubset(frame.columns):
+        raise RuntimeError(f"Persisted macro snapshot has an invalid schema: {path}")
+    frame = frame.loc[:, MACRO_NAMES].copy()
+    index = pd.to_datetime(frame.index)
+    if index.tz is not None:
+        index = index.tz_convert("Asia/Tokyo").tz_localize(None)
+    frame.index = index.normalize()
+    frame = frame.sort_index()
+    if frame.index.has_duplicates or frame.empty or frame.isna().all().any():
+        raise RuntimeError(f"Persisted macro snapshot has invalid dates or values: {path}")
+    if start is not None:
+        frame = frame.loc[frame.index >= pd.Timestamp(start).normalize()]
+    if end is not None:
+        end_date = pd.Timestamp(end).normalize()
+        frame = frame.loc[frame.index < end_date]
+        # Permit at most two business days of publication lag (including a
+        # US-market holiday); older snapshots cannot silently stand in for a
+        # missing current market input.
+        minimum_latest = end_date - pd.offsets.BDay(2)
+        if frame.empty or frame.index.max() < minimum_latest:
+            return None
+    return frame
 
 
 def clear_macro_cache() -> None:
@@ -62,8 +97,16 @@ def load_macro_prices(
             label=f"yf.download(tickers={MACRO_TICKERS}, start={start}, end={end})",
         )
     except TimeoutError:
+        fallback = _load_persisted_macro_prices(start, end)
+        if fallback is not None:
+            active_cache[cache_key] = fallback.copy()
+            return fallback
         raise
     except Exception as exc:
+        fallback = _load_persisted_macro_prices(start, end)
+        if fallback is not None:
+            active_cache[cache_key] = fallback.copy()
+            return fallback
         raise RuntimeError(f"yfinance macro download failed: {exc}") from exc
 
     if isinstance(raw.columns, pd.MultiIndex):
@@ -88,6 +131,10 @@ def load_macro_prices(
     if close.isna().all().any():
         all_na = close.columns[close.isna().all()].tolist()
         returned = raw.columns.tolist() if hasattr(raw, "columns") else []
+        fallback = _load_persisted_macro_prices(start, end)
+        if fallback is not None:
+            active_cache[cache_key] = fallback.copy()
+            return fallback
         raise RuntimeError(
             f"Macro download missing or all-NaN tickers in {all_na}. "
             f"Requested {MACRO_TICKERS}; returned columns {returned}."

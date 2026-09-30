@@ -29,12 +29,27 @@ from leadlag.domain.inputs import DecisionInputs, HistoricalInputs
 from leadlag.domain.portfolio import PortfolioDecision
 from leadlag.execution.config import build_app_config_from_dict
 from leadlag.models.ml_order_overlay import MLOrderOverlayModel
+from leadlag.models.ml_overlay_features import _precompute_market_vol
 from leadlag.models.v2.pit import load_pit_ir_history
 from leadlag.reporting.metrics import compute_drawdown_series
 from leadlag.runner.model_factory import build_v2_model_bundle
 from leadlag.utils.dataframe_fingerprint import dataframe_fingerprint
 
 logger = logging.getLogger(__name__)
+
+
+def _decision_summary_with_audits(result: PortfolioDecision) -> dict[str, Any]:
+    """Retain each backtested decision's safety outcomes in the run artifact."""
+    summary = dict(result.summary)
+    summary["audit_status"] = {
+        "numerical": result.numerical.get("status"),
+        "leakage": result.leakage.get("status"),
+        "fallback": bool(
+            result.fallback.get("gap_data_missing")
+            or result.fallback.get("audit_failure")
+        ),
+    }
+    return summary
 
 
 class BacktestEngine:
@@ -467,6 +482,7 @@ class BacktestEngine:
                 open_910_returns=open_910_returns,
                 macro_prices=macro_prices,
                 adr_features_frame=adr_features,
+                market_vol_frame=_precompute_market_vol(df_exec) if overlay_enabled else None,
                 pit_ir_history=pit_ir_history,
                 pit_history_trade_dates=pit_history_trade_dates,
                 rank_reversal_signals=rank_reversal_signals,
@@ -528,7 +544,7 @@ class BacktestEngine:
                     result.fallback.get("gap_data_missing", False)
                     or result.fallback.get("audit_failure", False)
                 )
-                summary = result.summary
+                summary = _decision_summary_with_audits(result)
                 return i, w, fb, summary
             except (ValueError, RuntimeError, FileNotFoundError) as e:
                 logger.warning("[%s] V2 generation failed: %s — flat position", date_str, e)

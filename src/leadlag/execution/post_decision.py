@@ -18,6 +18,7 @@ import pandas as pd
 from leadlag.broker.base import BrokerClient
 from leadlag.config.schemas import StrategyConfig as ProductionConfig
 from leadlag.core import allocator as domain_allocator
+from leadlag.execution.account_risk import AccountRiskSnapshot
 from leadlag.execution.broker_ops import (
     OrderExecutionIncomplete,
     build_execution_plan,
@@ -98,6 +99,7 @@ def _prepare_decision_df(
     # Keep the trade date at the typed execution boundary without adding a
     # transient column to the public CSV schema.
     decision_df.attrs["trade_date"] = str(decision.get("trade_date", ""))
+    decision_df.attrs["input_version_digest"] = decision.get("input_version_digest")
 
     return decision_df, capital_alloc
 
@@ -151,6 +153,9 @@ def _run_risk_check_and_print(
     hist_returns: pd.Series,
     config: ProductionConfig,
     current_positions: dict[str, int] | None = None,
+    actual_account_risk: AccountRiskSnapshot | None = None,
+    actual_account_risk_error: str | None = None,
+    require_actual_account_risk: bool = False,
 ) -> dict:
     """Compute allocated totals, run risk checks, print the report, and return it."""
     buy_mask = decision_df["action"] == "BUY"
@@ -165,8 +170,12 @@ def _run_risk_check_and_print(
         max_capital=max_capital,
         hist_daily_returns=hist_returns,
         config=config,
+        actual_account_risk=actual_account_risk,
+        actual_account_risk_error=actual_account_risk_error,
+        require_actual_account_risk=require_actual_account_risk,
     )
     _print_risk_report(risk_report)
+    logger.info("Actual-account risk evidence: %s", risk_report.get("actual_account_risk"))
     if risk_report["is_blocked"]:
         # A risk stop must prevent new risk, but it must not prevent reducing
         # already confirmed exposure.  A reversal is not reduction-only: it
@@ -409,6 +418,9 @@ def execute_post_decision_flow(
     state_store: ExecutionStateStore | None = None,
     account_key: str = "default",
     strategy_key: str = "production_v2",
+    actual_account_risk: AccountRiskSnapshot | None = None,
+    actual_account_risk_error: str | None = None,
+    require_actual_account_risk: bool = False,
 ) -> str:
     """Execute post-decision flow (gross adjustment, risk check, capital allocation, order submission, and output writing).
 
@@ -432,6 +444,9 @@ def execute_post_decision_flow(
         hist_returns,
         config,
         current_positions=current_positions,
+        actual_account_risk=actual_account_risk,
+        actual_account_risk_error=actual_account_risk_error,
+        require_actual_account_risk=require_actual_account_risk,
     )
 
     out_path = _write_decision_output_and_submit(

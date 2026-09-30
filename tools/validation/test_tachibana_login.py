@@ -27,7 +27,7 @@ def main():
     auth_id = os.environ.get("TACHIBANA_AUTH_ID")
     key_path = os.environ.get("TACHIBANA_PRIVATE_KEY_PATH")
     password = os.environ.get("TACHIBANA_SECOND_PASSWORD")
-    api_url = os.environ.get("TACHIBANA_API_URL", "https://demo-kabuka.e-shiten.jp/e_api_v4r9")
+    api_url = os.environ.get("TACHIBANA_API_URL", "https://demo-kabuka.e-shiten.jp/e_api_v4r10")
 
     if not auth_id or not key_path or not password:
         logger.error("Missing required credentials in environment variables!")
