@@ -50,6 +50,9 @@ _OVERLAY_EMBEDDED_MATCH_FIELDS = (
     "per_ticker_interactions",
     "n_tickers",
     "p_trade_scale",
+    "target_type",
+    "baseline_residual_scale",
+    "target_round_trip_cost_bps",
 )
 
 

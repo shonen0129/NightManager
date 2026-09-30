@@ -1,0 +1,17 @@
+{
+  "final_candidate_loaded_by_production_runner": true,
+  "final_candidate_version": "20260926T182011981905Z-f8b4ec178e88",
+  "fold_candidate_version_used_for_valid_oos_dry_run": "20260926T181926302801Z-ed284f1b58b5",
+  "fold_train_end": "2019-12-20",
+  "dry_run_trade_date": "2020-01-06",
+  "overlay_applied": 1,
+  "numerical_audit": "PASSED",
+  "leakage_audit": "PASSED",
+  "fallback": {
+    "gap_data_missing": false
+  },
+  "api_enabled": false,
+  "broker_adapter_created": false,
+  "orders_sent": 0,
+  "production_current_changed": false
+}

@@ -1,0 +1,92 @@
+{
+  "status": "created_and_audited",
+  "trade_date": "2026-09-28",
+  "required_last_completed_date": "2026-09-25",
+  "var_window": 250,
+  "history_days": 269,
+  "history_start": "2025-07-29",
+  "history_end": "2026-09-25",
+  "df_exec_rows_in_run_owned_snapshot": 4160,
+  "df_exec_hash_in_run_owned_snapshot": "6b81e5ae4abd09578365618caf218e6375b863a9f6ecd18d7858c83b988166a5",
+  "cutoff_boundary": "2025-12-30 (last JP trading label date through requested 2025-12-31)",
+  "prior_artifact": {
+    "version": "20260922T011723828589Z-7e1a81ab2617",
+    "train_end": "2024-12-20",
+    "applied_days": 99
+  },
+  "cutoff_2025_artifact": {
+    "version": "20260926T192555935698Z-ee306a32f3ec",
+    "train_end": "2025-12-30",
+    "applied_days": 170
+  },
+  "overlay_applied_days": 244,
+  "overlay_skipped_days": 25,
+  "overlay_skipped_dates": [
+    "2026-08-18",
+    "2026-08-19",
+    "2026-08-20",
+    "2026-08-21",
+    "2026-08-24",
+    "2026-08-25",
+    "2026-08-26",
+    "2026-08-27",
+    "2026-08-28",
+    "2026-08-31",
+    "2026-09-01",
+    "2026-09-02",
+    "2026-09-03",
+    "2026-09-04",
+    "2026-09-07",
+    "2026-09-09",
+    "2026-09-10",
+    "2026-09-11",
+    "2026-09-14",
+    "2026-09-15",
+    "2026-09-16",
+    "2026-09-17",
+    "2026-09-18",
+    "2026-09-24",
+    "2026-09-25"
+  ],
+  "fallback_days": 0,
+  "numerical_audit": {
+    "passed": 269,
+    "failed": 0
+  },
+  "leakage_audit": {
+    "passed": 269,
+    "flat": 0,
+    "failed": 0
+  },
+  "model_weight_constraints": {
+    "max_gross": 2.0000000000000004,
+    "max_abs_net": 3.7470027081099033e-16
+  },
+  "effective_side_leverage": 1.5,
+  "var_es": {
+    "available": true,
+    "samples": 250,
+    "window": 250,
+    "var_loss": 0.030530434587604984,
+    "es_loss": 0.04590781976149557,
+    "var_quantile": -0.030530434587604984,
+    "tail_count": 3,
+    "var_method": "historical"
+  },
+  "daily_return_mean": 0.004451882958637868,
+  "daily_return_std": 0.016409289173131645,
+  "daily_return_min": -0.06249286176911676,
+  "daily_return_max": 0.09853686438711036,
+  "gross_cost_sums": {
+    "daily_slip_costs": 0.5819683815725265,
+    "daily_financing_costs": 0.028914811643835622,
+    "daily_borrow_costs": 0.008867208904109589,
+    "daily_reverse_costs": 0.056287500000000004,
+    "daily_costs": 0.6760379021204718
+  },
+  "gap_input_fingerprint": "c99ca4e8d8e0ad75",
+  "artifact_train_end_beyond_live_last_data": false,
+  "historical_provider_available_at_proven": false,
+  "result_path": "var/results/20260927_ml_overlay_var_history_2025/history/versioned_var_returns.pkl",
+  "production_pointer_changed": false
+}

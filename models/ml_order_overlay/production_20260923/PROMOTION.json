@@ -1,11 +1,41 @@
 {
-  "promotion_date": "2026-09-23",
-  "source_artifact": "var/results/20260922_production_acceptance/artifacts/evaluation_2025",
-  "source_current": "20260922T011723828589Z-7e1a81ab2617",
+  "decision": "published_by_user-directed_cutoff_rebuild_for_var_history",
+  "promotion_date_jst": "2026-09-27T05:01:47.088695+09:00",
+  "approval": "User instructed: recreate the new artifact using data through end-2025, then create history; prior session explicitly authorized production activation.",
+  "production_root": "models/ml_order_overlay/production_20260923",
+  "source_artifact_root": "var/results/20260927_ml_overlay_var_history_2025/artifact",
+  "active_version_before": "20260926T182011981905Z-f8b4ec178e88",
+  "active_version_after": "20260926T192555935698Z-ee306a32f3ec",
+  "rollback_version": "20260926T182011981905Z-f8b4ec178e88",
+  "model_sha256": "c1a5b9354dae4b6507b41453c3b1c6a90451a81bcf0d3bc78b07939f421cb1e9",
+  "original_promotion_gate_passed": false,
+  "operator_override": true,
+  "gate_status": {
+    "prospective_forward_labels_since_rebuild": 0,
+    "retrospective_post_cutoff_days": 170,
+    "retrospective_results_are_independent_oos": false,
+    "historical_provider_available_at_proven": false,
+    "numerical_promotion_criteria_pass": false,
+    "current_250d_var_breach": true,
+    "current_250d_es_breach": true
+  },
+  "production_orders_sent_during_promotion": 0,
+  "source_current": "20260926T182011981905Z-f8b4ec178e88",
   "published_root": "models/ml_order_overlay/production_20260923",
   "metadata_status": "verified",
-  "model_sha256": "df5bc337be0b999a84780943aaf2918fa8b775be7eb7e4357ccd37e0600aa85a",
-  "approval": "explicit user approval in current session",
   "numerical_promotion_criteria_pass": false,
-  "operator_override": true
+  "promotion_record": "models/ml_order_overlay/production_20260923/promotions/20260927_var_history_cutoff_rebuild.json",
+  "previous_promotion_record": "models/ml_order_overlay/production_20260923/promotions/20260923_prior_promotion.json",
+  "history_manifest": "models/ml_order_overlay/production_20260923/HISTORY.json",
+  "history_end": "2026-09-25",
+  "history_days": 269,
+  "risk_stop_after_history": {
+    "prospective_forward_labels_since_rebuild": 0,
+    "retrospective_post_cutoff_days": 170,
+    "retrospective_results_are_independent_oos": false,
+    "historical_provider_available_at_proven": false,
+    "numerical_promotion_criteria_pass": false,
+    "current_250d_var_breach": true,
+    "current_250d_es_breach": true
+  }
 }

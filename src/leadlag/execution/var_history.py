@@ -7,10 +7,13 @@ backtest only when a cached return series is not already available.
 
 from __future__ import annotations
 
+import json
 import logging
+import tempfile
 from pathlib import Path
 from typing import Any, cast
 
+import numpy as np
 import pandas as pd
 
 from leadlag.core.market_calendar import count_tse_bdays, previous_trading_day
@@ -24,6 +27,123 @@ from leadlag.utils.dataframe_fingerprint import dataframe_fingerprint
 from leadlag.utils.threading import run_with_timeout
 
 logger = logging.getLogger(__name__)
+
+
+def _load_overlay_version(artifact_root: Path, version: str) -> Any:
+    """Load and validate one immutable overlay version without changing CURRENT."""
+    from leadlag.models.ml_order_overlay import load_overlay_model
+
+    with tempfile.TemporaryDirectory(prefix="leadlag-overlay-history-") as temporary:
+        temp_root = Path(temporary)
+        (temp_root / "versions").symlink_to(artifact_root / "versions", target_is_directory=True)
+        (temp_root / "CURRENT").write_text(version + "\n", encoding="utf-8")
+        return load_overlay_model(temp_root)
+
+
+def _resolve_overlay_history_chunks(
+    sim_dates: pd.DatetimeIndex,
+    selected_overlay_model: Any | None,
+    artifact_root: Path | None,
+) -> tuple[list[tuple[pd.DatetimeIndex, Any | None]], str]:
+    """Resolve explicit date-to-artifact history while enforcing train cutoffs."""
+    if selected_overlay_model is None:
+        return [(sim_dates, None)], "none"
+
+    current_meta = getattr(selected_overlay_model, "metadata", {}) or {}
+    current_version = current_meta.get("artifact_version")
+    if artifact_root is None:
+        artifact_root = None
+    history_path = artifact_root / "HISTORY.json" if artifact_root is not None else None
+    manifest: dict[str, Any] | None = None
+    if history_path is not None and history_path.is_file():
+        manifest = json.loads(history_path.read_text(encoding="utf-8"))
+        if manifest.get("schema_version") != 1 or not isinstance(manifest.get("segments"), list):
+            raise ValueError(f"Invalid overlay history manifest: {history_path}")
+
+    model_by_version: dict[str, Any] = {}
+    if current_version:
+        model_by_version[str(current_version)] = selected_overlay_model
+
+    assigned: list[tuple[pd.Timestamp, str, Any]] = []
+    if manifest is None:
+        if "train_end" in current_meta:
+            train_end = pd.Timestamp(current_meta["train_end"]).normalize()
+            invalid_dates = [date for date in sim_dates if date.normalize() <= train_end]
+            if invalid_dates:
+                raise ValueError(
+                    f"Overlay {current_version or '<unknown>'} is in-sample through "
+                    f"{train_end.date()}; a date-versioned HISTORY.json is required "
+                    f"for {invalid_dates[0].date()}"
+                )
+        assigned = [(date, str(current_version or "selected"), selected_overlay_model) for date in sim_dates]
+    else:
+        assert history_path is not None and artifact_root is not None
+        normalized_segments: list[tuple[pd.Timestamp, pd.Timestamp | None, str]] = []
+        for item in manifest["segments"]:
+            if not isinstance(item, dict) or not item.get("version") or not item.get("start_date"):
+                raise ValueError(f"Invalid segment in overlay history manifest: {item!r}")
+            start = pd.Timestamp(item["start_date"]).normalize()
+            end = None if item.get("end_date") is None else pd.Timestamp(item["end_date"]).normalize()
+            if end is not None and end < start:
+                raise ValueError(f"Invalid overlay history interval: {item!r}")
+            normalized_segments.append((start, end, str(item["version"])))
+        normalized_segments.sort(key=lambda item: item[0])
+        for left, right in zip(normalized_segments, normalized_segments[1:]):
+            if left[1] is None or left[1] >= right[0]:
+                raise ValueError("Overlay history segments overlap or have an open-ended non-final range")
+
+        for date in sim_dates:
+            normalized_date = date.normalize()
+            matches = [
+                version
+                for start, end, version in normalized_segments
+                if start <= normalized_date and (end is None or normalized_date <= end)
+            ]
+            if len(matches) != 1:
+                raise ValueError(
+                    f"Overlay history does not map {normalized_date.date()} to exactly one artifact"
+                )
+            version = matches[0]
+            model = model_by_version.get(version)
+            if model is None:
+                model = _load_overlay_version(artifact_root, version)
+                model_by_version[version] = model
+            metadata = getattr(model, "metadata", {}) or {}
+            train_end_value = metadata.get("train_end")
+            if train_end_value is not None and normalized_date <= pd.Timestamp(train_end_value).normalize():
+                raise ValueError(
+                    f"Overlay {version} trained through {train_end_value} cannot be applied "
+                    f"to {normalized_date.date()}"
+                )
+            assigned.append((normalized_date, version, model))
+
+    grouped: list[tuple[pd.DatetimeIndex, Any | None]] = []
+    group_dates: list[pd.Timestamp] = []
+    group_version: str | None = None
+    group_model: Any | None = None
+    for date, version, model in assigned:
+        if group_version is not None and version != group_version:
+            grouped.append((pd.DatetimeIndex(group_dates), group_model))
+            group_dates = []
+        group_dates.append(date)
+        group_version, group_model = version, model
+    if group_dates:
+        grouped.append((pd.DatetimeIndex(group_dates), group_model))
+
+    identity_parts = []
+    for dates, model in grouped:
+        version = str((getattr(model, "metadata", {}) or {}).get("artifact_version", "selected"))
+        model_identity = var_inputs._overlay_model_fingerprint(model)
+        identity_parts.append(
+            {
+                "version": version,
+                "start_date": str(dates.min().date()),
+                "end_date": str(dates.max().date()),
+                "identity": model_identity,
+            }
+        )
+    composite_identity = json.dumps(identity_parts, sort_keys=True, separators=(",", ":"))
+    return grouped, composite_identity
 
 
 def _build_var_historical_inputs(
@@ -40,6 +160,7 @@ def _build_var_historical_inputs(
     from leadlag.data.rank_reversal import load_rank_reversal_frame
     from leadlag.data.tickers import JP_TICKERS
     from leadlag.domain.inputs import HistoricalInputs
+    from leadlag.models.ml_overlay_features import _precompute_market_vol
     from leadlag.models.v2.pit import load_pit_ir_history
 
     run_config = app_config.v2
@@ -107,6 +228,7 @@ def _build_var_historical_inputs(
         open_910_returns=open_910_returns,
         macro_prices=macro_prices,
         adr_features_frame=adr_features,
+        market_vol_frame=_precompute_market_vol(df_exec) if overlay_enabled else None,
         pit_ir_history=pit_ir_history,
         pit_history_trade_dates=pit_history_trade_dates,
         rank_reversal_signals=rank_reversal_signals,
@@ -203,6 +325,26 @@ def get_hist_returns_for_risk(
     if slippage_bps is not None:
         costs = app_config.v2.costs.model_copy(update={"slippage_bps_per_side": float(slippage_bps)})
         app_config = app_config.model_copy(update={"v2": app_config.v2.model_copy(update={"costs": costs})})
+    required_last = pd.Timestamp(previous_trading_day(trade_date.to_pydatetime())).normalize()
+    start_boundary = pd.Timestamp(start_date).normalize()
+    risk_window = int(app_config.risk.var_window)
+    history_dates = pd.DatetimeIndex(
+        df_exec.index[
+            (df_exec.index >= start_boundary)
+            & (df_exec.index <= required_last)
+            & (df_exec.index < pd.Timestamp(trade_date).normalize())
+        ]
+    )
+    if len(history_dates) > risk_window + 19:
+        history_dates = history_dates[-(risk_window + 19):]
+    if history_dates.empty:
+        logger.error("No completed TSE rows available for the VaR/ES history window.")
+        logger.warning("Returning empty historical return series so risk check blocks.")
+        return pd.Series(dtype=float)
+    history_start = str(history_dates.min().date())
+    # Keep the point-in-time frame through the last completed session only.
+    # Current/provisional rows cannot affect the signal, cache key or VaR series.
+    df_exec = df_exec.loc[df_exec.index <= required_last].copy()
     # Hash the validated, effective calculation settings used by this very run.
     effective_config = {"v2": app_config.v2.model_dump(mode="json"),
                         "strategy": app_config.strategy.model_dump(mode="json")}
@@ -219,6 +361,7 @@ def get_hist_returns_for_risk(
             lambda: var_inputs._snapshot_gap_input(
                 gap_path,
                 timeout=remaining_timeout(),
+                max_trade_date=required_last,
             ),
             "VaR/ES gap-input snapshot",
         )
@@ -252,19 +395,20 @@ def get_hist_returns_for_risk(
                     lambda: load_overlay_model(overlay_path),
                     "VaR/ES overlay load",
                 )
-        overlay_identity = timed_call(
-            lambda: var_inputs._overlay_model_fingerprint(selected_overlay_model),
-            "VaR/ES overlay fingerprint",
-        ) if selected_overlay_model is not None else "none"
-        sim_dates_for_inputs = pd.DatetimeIndex(
-            df_exec.index[df_exec.index >= pd.Timestamp(start_date)]
+        overlay_chunks, overlay_identity = timed_call(
+            lambda: _resolve_overlay_history_chunks(
+                history_dates,
+                selected_overlay_model,
+                overlay_path,
+            ),
+            "VaR/ES overlay history resolution",
         )
         historical_input_snapshot = timed_call(
             lambda: _build_var_historical_inputs(
                 df_exec,
                 app_config,
                 gap_snapshot_path,
-                sim_dates_for_inputs,
+                history_dates,
                 bool(configured_overlay),
             ),
             "VaR/ES run-input snapshot",
@@ -286,7 +430,7 @@ def get_hist_returns_for_risk(
         )
         cache_key = build_var_cache_key(
             effective_config=effective_config,
-            start_date=start_date,
+            start_date=history_start,
             slippage_bps=slippage_bps,
             df_exec_hash=df_exec_hash,
             code_hash=code_hash,
@@ -313,6 +457,12 @@ def get_hist_returns_for_risk(
         if cached is not None:
             hist_results = cached
             if not hist_results.empty:
+                if "daily_fallback" in hist_results and hist_results["daily_fallback"].astype(bool).any():
+                    logger.warning("Cached VaR returns contain fallback dates; recomputing.")
+                    hist_results = pd.DataFrame()
+                if hist_results.empty:
+                    cached = None
+            if cached is not None and not hist_results.empty:
                 cached_last = pd.to_datetime(hist_results.index.max()).normalize()
                 if not pd.isna(cached_last):
                     required_last = pd.Timestamp(
@@ -344,7 +494,10 @@ def get_hist_returns_for_risk(
             else:
                 logger.warning("Cached daily returns are empty; recomputing.")
 
-        logger.info("No return cache found; running V2 full backtest for VaR/ES...")
+        logger.info(
+            "No return cache found; replaying %d completed sessions for VaR/ES...",
+            len(history_dates),
+        )
         if gap_input_dir is None:
             gap_input_dir = app_config.gap_distribution_dir
         gap_dir = gap_snapshot_path
@@ -379,11 +532,68 @@ def get_hist_returns_for_risk(
         snapshot_owner = None
 
         def _run_backtest_for_risk() -> dict[str, Any]:
-            return cast(dict[str, Any], backtest_engine.run_v2_backtest(
-                cfg=app_config, gap_input_dir=gap_dir, df_exec=df_exec,
-                start_date=start_date, n_jobs=1, overlay_model=selected_overlay_model,
-                historical_inputs=historical_input_snapshot,
-            ))
+            chunks: list[dict[str, Any]] = []
+            audit_rows: list[dict[str, Any]] = []
+            for chunk_dates, chunk_overlay in overlay_chunks:
+                chunk_result = cast(dict[str, Any], backtest_engine.run_v2_backtest(
+                    cfg=app_config,
+                    gap_input_dir=gap_dir,
+                    df_exec=df_exec,
+                    start_date=str(chunk_dates.min().date()),
+                    end_date=str(chunk_dates.max().date()),
+                    n_jobs=4,
+                    overlay_model=chunk_overlay,
+                    historical_inputs=historical_input_snapshot,
+                ))
+                chunks.append(chunk_result)
+                summaries = chunk_result.get("v2_summaries")
+                if summaries is not None:
+                    if len(summaries) != len(chunk_dates):
+                        raise ValueError("VaR replay returned an incomplete decision summary set")
+                    for date, summary, is_fallback in zip(
+                        chunk_dates,
+                        summaries,
+                        chunk_result["daily_fallback"].to_numpy(dtype=bool),
+                    ):
+                        audit = summary.get("audit_status", {})
+                        audit_rows.append(
+                            {
+                                "trade_date": str(date.date()),
+                                "numerical": audit.get("numerical"),
+                                "leakage": audit.get("leakage"),
+                                "fallback": bool(is_fallback or audit.get("fallback", False)),
+                            }
+                        )
+            combined = pd.concat([chunk["daily_returns"] for chunk in chunks]).sort_index()
+            if not combined.index.equals(history_dates):
+                raise ValueError("Versioned VaR replay returned a different date set than requested")
+            if combined.isna().any() or not np.isfinite(combined.to_numpy(dtype=float)).all():
+                raise ValueError("Versioned VaR replay returned non-finite daily returns")
+            fallbacks = pd.concat(
+                [
+                    chunk.get(
+                        "daily_fallback",
+                        pd.Series(False, index=chunk["daily_returns"].index),
+                    )
+                    for chunk in chunks
+                ]
+            ).sort_index().astype(bool)
+            if fallbacks.any():
+                raise ValueError(
+                    f"VaR replay produced {int(fallbacks.sum())} fallback days; refusing to cache"
+                )
+            if audit_rows and len(audit_rows) != len(combined):
+                raise ValueError("VaR replay did not expose audit status for every decision date")
+            if any(
+                row["numerical"] != "PASSED" or row["leakage"] != "PASSED" or row["fallback"]
+                for row in audit_rows
+            ):
+                failed = [
+                    row for row in audit_rows
+                    if row["numerical"] != "PASSED" or row["leakage"] != "PASSED" or row["fallback"]
+                ]
+                raise ValueError(f"VaR replay contains an audit failure: {failed[:5]}")
+            return {"daily_returns": combined, "daily_fallback": fallbacks}
 
         try:
             out_res = var_worker.run_snapshot_worker(
@@ -405,7 +615,13 @@ def get_hist_returns_for_risk(
         _cleanup_snapshot()
         raise
     hist_results = pd.DataFrame(
-        {"daily_return": out_res["daily_returns"]},
+        {
+            "daily_return": out_res["daily_returns"],
+            "daily_fallback": out_res.get(
+                "daily_fallback",
+                pd.Series(False, index=out_res["daily_returns"].index),
+            ),
+        },
         index=out_res["daily_returns"].index,
     )
 

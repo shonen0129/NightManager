@@ -1,0 +1,47 @@
+{
+  "benchmark": {
+    "chunk": "benchmark",
+    "dates": 5,
+    "decisions": 5,
+    "training_rows": 85,
+    "training_dates": 5,
+    "elapsed_seconds": 3.9
+  },
+  "sample_decisions": [
+    {
+      "date": "2015-01-05",
+      "gap_data_missing": false,
+      "audit_failure": false,
+      "numerical": "PASSED",
+      "leakage": "PASSED"
+    },
+    {
+      "date": "2015-06-08",
+      "gap_data_missing": false,
+      "audit_failure": false,
+      "numerical": "PASSED",
+      "leakage": "PASSED"
+    },
+    {
+      "date": "2020-10-27",
+      "gap_data_missing": false,
+      "audit_failure": false,
+      "numerical": "PASSED",
+      "leakage": "PASSED"
+    },
+    {
+      "date": "2026-09-24",
+      "gap_data_missing": false,
+      "audit_failure": false,
+      "numerical": "PASSED",
+      "leakage": "PASSED"
+    },
+    {
+      "date": "2026-09-25",
+      "gap_data_missing": false,
+      "audit_failure": false,
+      "numerical": "PASSED",
+      "leakage": "PASSED"
+    }
+  ]
+}

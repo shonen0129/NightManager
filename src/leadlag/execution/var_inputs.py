@@ -8,8 +8,11 @@ import shutil
 import sqlite3
 import tempfile
 import time
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any
+
+import pandas as pd
 
 
 def _companion_history(path: Path) -> Path | None:
@@ -113,6 +116,115 @@ def _copy_directory_with_deadline(
     remaining()
 
 
+def _filter_gap_snapshot_after(
+    snapshot_path: Path,
+    max_trade_date: str | date | datetime | Any,
+    remaining: Any,
+) -> None:
+    """Remove future-dated gap rows from a private SQLite snapshot."""
+    cutoff = pd.Timestamp(max_trade_date).normalize().strftime("%Y-%m-%d")
+    with sqlite3.connect(str(snapshot_path), timeout=max(0.01, remaining() or 0.01)) as conn:
+        tables = {
+            row[0]
+            for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        }
+        if "gap_matrices" not in tables:
+            return
+        rows = conn.execute(
+            "SELECT cache_key FROM gap_matrices WHERE substr(trade_date, 1, 10) > ?",
+            (cutoff,),
+        ).fetchall()
+        conn.execute("BEGIN IMMEDIATE")
+        conn.execute(
+            "DELETE FROM gap_matrices WHERE substr(trade_date, 1, 10) > ?",
+            (cutoff,),
+        )
+        if "cache_store" in tables:
+            for (cache_key,) in rows:
+                remaining()
+                conn.execute("DELETE FROM cache_store WHERE key = ?", (cache_key,))
+    conn.commit()
+    remaining()
+
+
+def _cutoff_gap_snapshot_fingerprint(
+    snapshot_path: Path,
+    max_trade_date: str | date | datetime | Any,
+    remaining: Any,
+) -> str:
+    """Fingerprint only gap records and PIT diagnostics consumed by this replay."""
+    cutoff = pd.Timestamp(max_trade_date).normalize().strftime("%Y-%m-%d")
+    digest = hashlib.sha256()
+    with sqlite3.connect(str(snapshot_path), timeout=max(0.01, remaining() or 0.01)) as conn:
+        tables = {
+            row[0]
+            for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        }
+        if "gap_matrices" not in tables or "cache_store" not in tables:
+            return _file_manifest_fingerprint(snapshot_path)
+        rows = conn.execute(
+            """
+            SELECT trade_date, matrix_type, horizon, cache_key
+            FROM gap_matrices
+            WHERE substr(trade_date, 1, 10) <= ?
+            ORDER BY trade_date, matrix_type, horizon, cache_key
+            """,
+            (cutoff,),
+        ).fetchall()
+        for trade_date, matrix_type, horizon, cache_key in rows:
+            remaining()
+            cached = conn.execute(
+                "SELECT value FROM cache_store WHERE key = ?", (cache_key,)
+            ).fetchone()
+            if cached is None:
+                raise ValueError(f"Gap snapshot index points to a missing cache value: {cache_key}")
+            for value in (trade_date, matrix_type, horizon, cache_key):
+                digest.update(str(value).encode("utf-8"))
+                digest.update(b"\0")
+            digest.update(bytes(cached[0]))
+            digest.update(b"\0")
+    companion = _companion_history(snapshot_path)
+    if companion is not None:
+        remaining()
+        with companion.open("rb") as handle:
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                remaining()
+                digest.update(chunk)
+    remaining()
+    return digest.hexdigest()[:16]
+
+
+def _copy_companion_history(
+    source: Path,
+    target: Path,
+    *,
+    remaining: Any,
+    max_trade_date: str | date | datetime | Any | None,
+) -> None:
+    """Copy the PIT diagnostics companion, optionally ending at the risk cutoff."""
+    if max_trade_date is None:
+        _copy_file_with_deadline(source, target, remaining)
+        return
+    remaining()
+    frame = pd.read_csv(source)
+    if "trade_date" not in frame.columns:
+        raise ValueError(f"PIT diagnostics lacks trade_date: {source}")
+    cutoff = pd.Timestamp(max_trade_date).normalize()
+
+    def _normalize(value: Any) -> pd.Timestamp:
+        parsed = pd.Timestamp(value)
+        if parsed.tzinfo is not None:
+            parsed = parsed.tz_convert("Asia/Tokyo").tz_localize(None)
+        return parsed.normalize()
+
+    dates = frame["trade_date"].map(_normalize)
+    frame = frame.loc[dates <= cutoff].copy()
+    remaining()
+    target.parent.mkdir(parents=True, exist_ok=True)
+    frame.to_csv(target, index=False)
+    remaining()
+
+
 def _active_overlay_artifact_fingerprint(path: Path | None) -> str:
     """Fingerprint only the version selected by an overlay ``CURRENT`` pointer.
 
@@ -157,6 +269,7 @@ def _snapshot_gap_input(
     path: Path | None,
     *,
     timeout: float | None = None,
+    max_trade_date: str | date | datetime | Any | None = None,
 ) -> tuple[Path | None, str, tempfile.TemporaryDirectory[str] | None]:
     """Create one immutable gap-input snapshot and its cache identity.
 
@@ -210,6 +323,8 @@ def _snapshot_gap_input(
                 finally:
                     target.close()
                     source.close()
+                if max_trade_date is not None:
+                    _filter_gap_snapshot_after(snapshot_path, max_trade_date, remaining)
             elif path.is_dir():
                 snapshot_path = Path(temporary.name) / "gap"
                 _copy_directory_with_deadline(path, snapshot_path, remaining)
@@ -218,18 +333,30 @@ def _snapshot_gap_input(
                 _copy_file_with_deadline(path, snapshot_path, remaining)
             companion = _companion_history(path)
             if companion is not None:
-                _copy_file_with_deadline(
-                    companion, snapshot_path.parent / companion.name, remaining,
+                _copy_companion_history(
+                    companion,
+                    snapshot_path.parent / companion.name,
+                    remaining=remaining,
+                    max_trade_date=max_trade_date,
                 )
             remaining()
             after = _file_manifest_fingerprint(path, timeout=remaining())
             if before != after:
                 temporary.cleanup()
                 continue
-            snapshot_fingerprint = _file_manifest_fingerprint(
-                snapshot_path, timeout=remaining()
-            )
-            if path.is_dir() and snapshot_fingerprint != after:
+            if max_trade_date is not None and path.is_file() and path.suffix.lower() in {
+                ".sqlite", ".sqlite3", ".db"
+            }:
+                snapshot_fingerprint = _cutoff_gap_snapshot_fingerprint(
+                    snapshot_path,
+                    max_trade_date,
+                    remaining,
+                )
+            else:
+                snapshot_fingerprint = _file_manifest_fingerprint(
+                    snapshot_path, timeout=remaining()
+                )
+            if path.is_dir() and max_trade_date is None and snapshot_fingerprint != after:
                 # A directory copy may have crossed an atomic publication
                 # boundary even when the source is stable again by the final
                 # check.  Retry until the copied bytes match one source

@@ -1,0 +1,7 @@
+{
+  "source_report": "reports/20260927_ml_overlay_retrain",
+  "source_input_provenance_sha256": "4bb04d4471cc87a66a2d94006adf9cece7f06f56f46aed49d929ece89912ea22",
+  "source_reconciliation_sha256": "c64246b272bb4e5da66d6c5c564181ec390f4bb413c0408d1d598f69fa3bf964",
+  "historical_provider_available_at_proven": false,
+  "note": "Inputs are reused from the audited 2026-09-27 collection; this is provenance linkage, not new availability-time evidence."
+}

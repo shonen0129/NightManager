@@ -20,7 +20,7 @@ from leadlag.models.ml_overlay_artifact import _validate_overlay_provenance
 from leadlag.models.ml_overlay_features import (
     _build_ticker_features,
     _precompute_market_vol,
-    _predict_p_trade,
+    _predict_relative_allocation,
     _safe,
 )
 from leadlag.utils.timestamps import normalize_jst_date
@@ -36,6 +36,7 @@ def apply_overlay(
     snapshot: MarketSnapshot | None = None,
     adr_features: pd.DataFrame | None = None,
     allow_implicit_io: bool = True,
+    market_vol_frame: pd.DataFrame | None = None,
 ) -> PortfolioDecision:
     """Apply a fitted overlay while preserving V2 fallback and audit rules."""
     fallback = result.fallback
@@ -59,7 +60,7 @@ def apply_overlay(
         logger.warning("[%s] Trade date not in df_exec; skipping overlay.", trade_date)
         return result
 
-    market_vol = _precompute_market_vol(df_exec)
+    market_vol = market_vol_frame if market_vol_frame is not None else _precompute_market_vol(df_exec)
     adr_df = adr_features
     if any(column.startswith("adr_") for column in overlay_model.cont_cols):
         if adr_df is None and allow_implicit_io:
@@ -88,7 +89,9 @@ def apply_overlay(
         logger.warning("[%s] Feature build failed: %s; skipping overlay.", trade_date, exc)
         return result
 
-    p_trade = _safe(_predict_p_trade(features, overlay_model))
+    allocation_multiplier = _safe(
+        _predict_relative_allocation(features, overlay_model)
+    )
     multiplier = result.pit_binning["multiplier"]
     if multiplier < 1e-12:
         logger.warning(
@@ -100,7 +103,7 @@ def apply_overlay(
         return result
 
     w_pre = result.w_final / multiplier
-    w_scaled = _safe(w_pre) * p_trade
+    w_scaled = _safe(w_pre) * allocation_multiplier
     w_scaled[np.abs(w_scaled) < 1e-8] = 0.0
     baseline_gross = float(result.run_config.baseline_gross)
     long_mask = w_scaled > 0
@@ -116,7 +119,7 @@ def apply_overlay(
 
     w_final = w_scaled * multiplier
     w_final[np.abs(w_final) < 1e-8] = 0.0
-    score_adjusted = _safe(result.scores) * p_trade
+    score_adjusted = _safe(result.scores) * allocation_multiplier
     numerical = run_numerical_audit(w_final, score_adjusted, result.Omega_gap)
     if numerical["status"] == "FAILED":
         logger.warning("[%s] Overlay numerical audit failed; returning original V2 result.", trade_date)
@@ -133,8 +136,21 @@ def apply_overlay(
     summary.update(
         {
             "overlay_applied": 1,
-            "p_trade_mean": float(np.mean(p_trade)),
-            "p_trade_std": float(np.std(p_trade)),
+            "overlay_output_semantics": "relative_within_side_allocation_multiplier",
+            "relative_allocation_multiplier_mean": float(
+                np.mean(allocation_multiplier)
+            ),
+            "relative_allocation_multiplier_std": float(
+                np.std(allocation_multiplier)
+            ),
+            # Retain the old summary keys for saved-run readers. They are
+            # aliases, not calibrated trade probabilities.
+            "p_trade_mean": float(np.mean(allocation_multiplier)),
+            "p_trade_std": float(np.std(allocation_multiplier)),
+            "ml_trade_gate_applied": False,
+            "ml_trade_gate_status": (
+                "not_evaluated_missing_verified_inventory_and_incremental_cost"
+            ),
             "target_gross": gross,
             "expected_cost_bps": cost_bps,
             "predicted_portfolio_mean": p_mean,
@@ -143,10 +159,10 @@ def apply_overlay(
         }
     )
     logger.info(
-        "[%s] ML overlay applied. p_trade mean=%.4f std=%.4f gross=%.4f",
+        "[%s] ML overlay applied. relative allocation mean=%.4f std=%.4f gross=%.4f",
         trade_date,
-        float(np.mean(p_trade)),
-        float(np.std(p_trade)),
+        float(np.mean(allocation_multiplier)),
+        float(np.std(allocation_multiplier)),
         gross,
     )
     return replace(

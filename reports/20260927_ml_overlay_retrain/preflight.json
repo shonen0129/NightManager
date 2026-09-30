@@ -1,0 +1,45 @@
+{
+  "checked_at": "2026-09-27",
+  "status": "blocked_before_training",
+  "reason": "strict raw reconstruction failed on non-positive historical jp_open_trade values",
+  "raw_sources": {
+    "var/market_data/etf_prices.sqlite": {
+      "sha256": "b08510b61a1c0ab64cd4e8a3cfc4ef23e6b0fe3a85b07a9c6b8f3d9ca210ef5b",
+      "us_close": {"rows": 4460, "first": "2009-01-02", "last": "2026-09-25"},
+      "jp_close": {"rows": 4352, "first": "2009-01-05", "last": "2026-09-25"},
+      "jp_open": {"rows": 4352, "first": "2009-01-05", "last": "2026-09-25"}
+    },
+    "strict_validation": "failed",
+    "errors": [
+      "jp_open_trade non-positive for 1619.T on 2009-01-13",
+      "jp_open_trade non-positive for 1626.T on 2009-01-13"
+    ],
+    "var/market_data/df_exec.sqlite": {
+      "sha256": "062c742c2f398573f7bffb70854af138e9eacdfd3087b85bead3015806b6d8b1",
+      "observed_cache_end": "2026-09-28",
+      "cache_end_disposition": "future and provisional; excluded"
+    },
+    "accepted_snapshot_comparison": {
+      "snapshot": "var/results/20260922_production_acceptance/inputs/df_exec.pkl",
+      "snapshot_sha256": "d6a6750dddb1c47e7560e316ac8f16864d95d51bdea7ede15f6b8a665fb38805",
+      "comparison_window": "2015-01-05 through 2026-08-14",
+      "changed_numeric_cells": 5366,
+      "max_absolute_difference": 0.4326,
+      "provider_revision_lineage": "unresolved"
+    }
+  },
+  "training": {
+    "started": false,
+    "candidate_artifact_created": false,
+    "training_end_locked": false,
+    "candidate_root": "var/results/20260927_ml_overlay_retrain/artifact"
+  },
+  "production": {
+    "root": "models/ml_order_overlay/production_20260923",
+    "current": "20260922T011723828589Z-7e1a81ab2617",
+    "model_sha256": "df5bc337be0b999a84780943aaf2918fa8b775be7eb7e4357ccd37e0600aa85a",
+    "metadata_sha256": "294cd8a26e23693eddb09a8f989972d92284e028dc03eddb3287cbd799ba4131",
+    "changed": false
+  },
+  "external_actions": {"api": false, "orders": false, "settlement": false}
+}

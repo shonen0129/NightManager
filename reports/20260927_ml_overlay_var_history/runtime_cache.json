@@ -1,0 +1,31 @@
+{
+  "status": "prewarmed_and_cache_hit_verified",
+  "trade_date": "2026-09-28",
+  "input_df_exec_last": "2026-09-28",
+  "history_start": "2025-07-29",
+  "history_end": "2026-09-25",
+  "history_rows": 269,
+  "configured_var_window": 250,
+  "first_generation_seconds": 87.196,
+  "cache_hit_seconds": 2.254,
+  "overlay_artifact_version": "20260926T192555935698Z-ee306a32f3ec",
+  "overlay_train_end": "2025-12-30",
+  "var_es": {
+    "available": true,
+    "samples": 250,
+    "window": 250,
+    "var_loss": 0.030530434587604984,
+    "es_loss": 0.04590781976149557,
+    "var_quantile": -0.030530434587604984,
+    "tail_count": 3,
+    "var_method": "historical"
+  },
+  "configured_stops": {
+    "var_stop": 0.03,
+    "es_stop": 0.04
+  },
+  "var_stop_breached": true,
+  "es_stop_breached": true,
+  "orders_sent": 0,
+  "production_decision_or_broker_called": false
+}

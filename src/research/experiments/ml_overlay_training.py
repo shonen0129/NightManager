@@ -63,6 +63,27 @@ DEFAULT_LGBM_KWARGS: dict[str, Any] = {
     "verbosity": -1,
 }
 
+_SUPPORTED_TARGET_TYPES = frozenset(
+    {"raw", "residual", "residual_sign", "classification", "blpx_residual"}
+)
+
+
+def _validate_target_contract(target_type: str, baseline_residual_scale: float) -> float:
+    if not isinstance(target_type, str) or target_type not in _SUPPORTED_TARGET_TYPES:
+        choices = ", ".join(sorted(_SUPPORTED_TARGET_TYPES))
+        raise ValueError(f"Unsupported overlay target_type {target_type!r}; choose from {choices}")
+    try:
+        scale = float(baseline_residual_scale)
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise ValueError("baseline_residual_scale must be a finite number") from exc
+    if not np.isfinite(scale) or scale < 0.0:
+        raise ValueError("baseline_residual_scale must be finite and non-negative")
+    if target_type != "blpx_residual" and scale != 1.0:
+        raise ValueError(
+            "baseline_residual_scale only applies when target_type='blpx_residual'"
+        )
+    return scale
+
 
 def _normalize_training_frame(df_exec: pd.DataFrame) -> pd.DataFrame:
     """Own an execution frame whose date keys are on the JST contract."""
@@ -103,11 +124,15 @@ def _collect_training_data(
     per_ticker_interactions: bool = False,
     adr_df: pd.DataFrame | None = None,
     target_type: str = "raw",
+    baseline_residual_scale: float = 1.0,
     open_910_returns: pd.DataFrame | None = None,
     historical_inputs: HistoricalInputs | None = None,
     decision_model: ProductionV2Model | None = None,
 ) -> pd.DataFrame:
     """Collect point-in-time ticker rows from the canonical V2 decision path."""
+    baseline_residual_scale = _validate_target_contract(
+        target_type, baseline_residual_scale
+    )
     rows: list[dict[str, Any]] = []
     df_exec = _normalize_training_frame(df_exec)
     train_dates = _normalize_training_dates(train_dates)
@@ -213,6 +238,7 @@ def _collect_training_data(
                 "abs_score": abs(score),
                 "abs_gap": abs(gap),
                 "target": target,
+                "blpx_directional_expectation": side * mu_gap_value,
                 "adr_return": adr_return,
                 "adr_x_score": adr_return * score,
                 "adr_x_gap": adr_return * gap,
@@ -233,7 +259,17 @@ def _collect_training_data(
         return train_df
     y_raw = _safe(train_df["target"].to_numpy())
     x = _safe(train_df["score"].to_numpy())
-    if target_type == "residual":
+    if target_type == "blpx_residual":
+        baseline = train_df["blpx_directional_expectation"].to_numpy(dtype=float)
+        if not np.isfinite(baseline).all():
+            raise ValueError("BLPX residual baseline contains non-finite values")
+        # The row target initially contains the legacy flat 10 bps charge.
+        # Restore it here: this target learns forecast error relative to BLPX,
+        # while order-level costs belong in a separate trade-value decision.
+        train_df["target"] = (
+            y_raw + ROUND_TRIP_COST - baseline_residual_scale * baseline
+        )
+    elif target_type == "residual":
         b, a = np.polyfit(x, y_raw, 1) if np.var(x) > 1e-12 else (0.0, 0.0)
         train_df["target"] = y_raw - (a + b * x)
     elif target_type == "residual_sign":
@@ -298,8 +334,12 @@ def _train_overlay_model_impl(
     per_ticker_interactions: bool = False,
     p_trade_scale: float = 1.0,
     target_type: str = "raw",
+    baseline_residual_scale: float = 1.0,
 ) -> MLOrderOverlayModel:
     """Train, provenance-stamp, and publish an overlay artifact."""
+    baseline_residual_scale = _validate_target_contract(
+        target_type, baseline_residual_scale
+    )
     minimum_start = pd.Timestamp("2015-01-05")
     train_start_ts = normalize_jst_date(train_start)
     train_end_ts = normalize_jst_date(train_end)
@@ -393,6 +433,7 @@ def _train_overlay_model_impl(
         per_ticker_interactions=per_ticker_interactions,
         adr_df=adr_df,
         target_type=target_type,
+        baseline_residual_scale=baseline_residual_scale,
         open_910_returns=open_910_returns,
         historical_inputs=historical_inputs,
         decision_model=decision_model,
@@ -438,6 +479,11 @@ def _train_overlay_model_impl(
             "rank_reversal+pit_history"
         ),
         "code_revision": os.environ.get("GIT_COMMIT", "unknown"),
+        "target_type": target_type,
+        "baseline_residual_scale": baseline_residual_scale,
+        "target_round_trip_cost_bps": (
+            0.0 if target_type == "blpx_residual" else 2.0 * SLIPPAGE_BPS_PER_SIDE
+        ),
     }
     object.__setattr__(model, "metadata", training_metadata)
     save_overlay_model(model, Path(output_dir), training_metadata=training_metadata)
@@ -479,6 +525,7 @@ def train_overlay_model(
     per_ticker_interactions: bool = False,
     p_trade_scale: float = 1.0,
     target_type: str = "raw",
+    baseline_residual_scale: float = 1.0,
     registry_path: Path | None = None,
 ) -> MLOrderOverlayModel:
     """Train the overlay and record either completion or interruption."""
@@ -493,6 +540,7 @@ def train_overlay_model(
         "per_ticker_interactions": per_ticker_interactions,
         "p_trade_scale": p_trade_scale,
         "target_type": target_type,
+        "baseline_residual_scale": baseline_residual_scale,
     }
     try:
         model = _train_overlay_model_impl(
@@ -508,6 +556,7 @@ def train_overlay_model(
             per_ticker_interactions=per_ticker_interactions,
             p_trade_scale=p_trade_scale,
             target_type=target_type,
+            baseline_residual_scale=baseline_residual_scale,
         )
     except BaseException as exc:
         _record_training_event(

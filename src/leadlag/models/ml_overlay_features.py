@@ -161,8 +161,13 @@ def _build_ticker_features(
     return pd.DataFrame(records)
 
 
-def _predict_p_trade(features: pd.DataFrame, model: Any) -> np.ndarray:
-    """Predict the per-ticker trade multiplier from a fitted overlay."""
+def _predict_relative_allocation(features: pd.DataFrame, model: Any) -> np.ndarray:
+    """Return the overlay's per-ticker relative allocation multiplier.
+
+    This output is not a calibrated probability that a trade should be placed.
+    The inference layer normalizes it within each existing long/short side, so
+    it changes cross-sectional allocation but does not control total exposure.
+    """
     feature_cols = list(model.cont_cols) + (["ticker"] if model.use_ticker else [])
     x = features[feature_cols].copy()
     if model.use_ticker:
@@ -176,6 +181,11 @@ def _predict_p_trade(features: pd.DataFrame, model: Any) -> np.ndarray:
         prediction = model.lgbm.predict(x)
     scale = getattr(model, "p_trade_scale", 1.0)
     return _sigmoid(prediction, model.target_std) * scale
+
+
+def _predict_p_trade(features: pd.DataFrame, model: Any) -> np.ndarray:
+    """Compatibility alias for the legacy name; output is an allocation scale."""
+    return _predict_relative_allocation(features, model)
 
 
 def _recompute_w_pre(scores: np.ndarray, omega_gap: np.ndarray, run_cfg: Any) -> np.ndarray:
@@ -204,6 +214,7 @@ def _recompute_w_pre(scores: np.ndarray, omega_gap: np.ndarray, run_cfg: Any) ->
 
 __all__ = [
     "_build_ticker_features",
+    "_predict_relative_allocation",
     "_predict_p_trade",
     "_precompute_market_vol",
     "_recompute_w_pre",

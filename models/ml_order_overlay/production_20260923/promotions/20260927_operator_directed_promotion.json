@@ -1,0 +1,21 @@
+{
+  "decision": "promoted_by_explicit_user_instruction_with_original_gate_unmet",
+  "promotion_date_jst": "2026-09-27T03:41:40+09:00",
+  "approval": "explicit user instruction: \u672c\u756a\u306b\u5207\u308a\u66ff\u3048\u3066 (after gate status and risks were disclosed)",
+  "production_root": "models/ml_order_overlay/production_20260923",
+  "source_artifact_root": "var/results/20260927_ml_overlay_retrain/artifact",
+  "active_version_before": "20260922T011723828589Z-7e1a81ab2617",
+  "active_version_after": "20260926T182011981905Z-f8b4ec178e88",
+  "rollback_version": "20260922T011723828589Z-7e1a81ab2617",
+  "model_sha256": "616c8ba8564ece95398788450cdc50df0ce3f189c9eaebd53dd6142fd42fca8b",
+  "original_promotion_gate_passed": false,
+  "operator_override": true,
+  "gate_status": {
+    "forward_labeled_days": 0,
+    "required_forward_labeled_days": 250,
+    "historical_provider_available_at_proven": false,
+    "candidate_historical_max_drawdown_worse_in_all_five_folds": true,
+    "candidate_promotion_eligible": false
+  },
+  "production_orders_sent_during_promotion": 0
+}

@@ -66,6 +66,7 @@ from leadlag.models.ml_overlay_artifact import (  # noqa: E402
 from leadlag.models.ml_overlay_features import (  # noqa: E402
     _build_ticker_features,
     _precompute_market_vol,
+    _predict_relative_allocation,
     _predict_p_trade,
     _recompute_w_pre,
     _safe,
@@ -98,6 +99,7 @@ __all__ = [
     "TRADING_DAYS",
     "_build_ticker_features",
     "_normalize_overlay_date",
+    "_predict_relative_allocation",
     "_predict_p_trade",
     "_precompute_market_vol",
     "_recompute_w_pre",

@@ -1,0 +1,86 @@
+{
+  "chunks": [
+    {
+      "chunk": "0",
+      "dates": 696,
+      "decisions": 696,
+      "training_rows": 11832,
+      "training_dates": 696,
+      "elapsed_seconds": 498.6
+    },
+    {
+      "chunk": "1",
+      "dates": 696,
+      "decisions": 696,
+      "training_rows": 11832,
+      "training_dates": 696,
+      "elapsed_seconds": 601.8
+    },
+    {
+      "chunk": "2",
+      "dates": 696,
+      "decisions": 696,
+      "training_rows": 11832,
+      "training_dates": 696,
+      "elapsed_seconds": 632.6
+    },
+    {
+      "chunk": "3",
+      "dates": 696,
+      "decisions": 696,
+      "training_rows": 11832,
+      "training_dates": 696,
+      "elapsed_seconds": 731.3
+    }
+  ],
+  "requested_dates": 2784,
+  "decision_dates": 2784,
+  "training_dates": 2784,
+  "training_rows": 47328,
+  "excluded_dates_no_training_rows": [],
+  "rows_per_ticker": {
+    "1617.T": 2784,
+    "1618.T": 2784,
+    "1619.T": 2784,
+    "1620.T": 2784,
+    "1621.T": 2784,
+    "1622.T": 2784,
+    "1623.T": 2784,
+    "1624.T": 2784,
+    "1625.T": 2784,
+    "1626.T": 2784,
+    "1627.T": 2784,
+    "1628.T": 2784,
+    "1629.T": 2784,
+    "1630.T": 2784,
+    "1631.T": 2784,
+    "1632.T": 2784,
+    "1633.T": 2784
+  },
+  "fallback_or_audit_failures": {
+    "dates": []
+  },
+  "ticker_date_coverage": {
+    "1617.T": 1.0,
+    "1618.T": 1.0,
+    "1619.T": 1.0,
+    "1620.T": 1.0,
+    "1621.T": 1.0,
+    "1622.T": 1.0,
+    "1623.T": 1.0,
+    "1624.T": 1.0,
+    "1625.T": 1.0,
+    "1626.T": 1.0,
+    "1627.T": 1.0,
+    "1628.T": 1.0,
+    "1629.T": 1.0,
+    "1630.T": 1.0,
+    "1631.T": 1.0,
+    "1632.T": 1.0,
+    "1633.T": 1.0
+  },
+  "minimum_ticker_date_coverage": 1.0,
+  "maximum_ticker_date_coverage": 1.0,
+  "ticker_coverage_imbalance": 0.0,
+  "beta_masked_target_cell_count": 0
+}

@@ -1,0 +1,2425 @@
+{
+  "decisions": [
+    {
+      "trade_date": "2025-07-29",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0000000000000004,
+      "weight_net": 1.942890293094024e-16
+    },
+    {
+      "trade_date": "2025-07-30",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.9999999999999998,
+      "weight_net": -8.326672684688674e-17
+    },
+    {
+      "trade_date": "2025-07-31",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": -2.220446049250313e-16
+    },
+    {
+      "trade_date": "2025-08-01",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.9999999999999998,
+      "weight_net": -2.498001805406602e-16
+    },
+    {
+      "trade_date": "2025-08-04",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": -2.220446049250313e-16
+    },
+    {
+      "trade_date": "2025-08-05",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.4999999999999998,
+      "weight_net": 2.7755575615628914e-17
+    },
+    {
+      "trade_date": "2025-08-06",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": 0.0
+    },
+    {
+      "trade_date": "2025-08-07",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.9999999999999998,
+      "weight_net": 0.0
+    },
+    {
+      "trade_date": "2025-08-08",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": -5.551115123125783e-17
+    },
+    {
+      "trade_date": "2025-08-12",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0000000000000004,
+      "weight_net": -1.6653345369377348e-16
+    },
+    {
+      "trade_date": "2025-08-13",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": -1.6653345369377348e-16
+    },
+    {
+      "trade_date": "2025-08-14",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": 1.3877787807814457e-17
+    },
+    {
+      "trade_date": "2025-08-15",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": 9.71445146547012e-17
+    },
+    {
+      "trade_date": "2025-08-18",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": 1.1102230246251565e-16
+    },
+    {
+      "trade_date": "2025-08-19",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.4999999999999998,
+      "weight_net": 1.3877787807814457e-16
+    },
+    {
+      "trade_date": "2025-08-20",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": 0.0
+    },
+    {
+      "trade_date": "2025-08-21",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.4999999999999998,
+      "weight_net": -1.1102230246251565e-16
+    },
+    {
+      "trade_date": "2025-08-22",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": 1.1102230246251565e-16
+    },
+    {
+      "trade_date": "2025-08-25",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.9999999999999996,
+      "weight_net": 2.7755575615628914e-17
+    },
+    {
+      "trade_date": "2025-08-26",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5000000000000002,
+      "weight_net": 5.551115123125783e-17
+    },
+    {
+      "trade_date": "2025-08-27",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.4999999999999998,
+      "weight_net": -1.1102230246251565e-16
+    },
+    {
+      "trade_date": "2025-08-28",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": 4.163336342344337e-17
+    },
+    {
+      "trade_date": "2025-08-29",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": -1.3877787807814457e-16
+    },
+    {
+      "trade_date": "2025-09-01",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": -1.3877787807814457e-16
+    },
+    {
+      "trade_date": "2025-09-03",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": -5.551115123125783e-17
+    },
+    {
+      "trade_date": "2025-09-04",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.9999999999999996,
+      "weight_net": -8.326672684688674e-17
+    },
+    {
+      "trade_date": "2025-09-05",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": -1.1102230246251565e-16
+    },
+    {
+      "trade_date": "2025-09-08",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.4999999999999998,
+      "weight_net": 8.326672684688674e-17
+    },
+    {
+      "trade_date": "2025-09-09",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": -8.326672684688674e-17
+    },
+    {
+      "trade_date": "2025-09-10",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.4999999999999998,
+      "weight_net": -5.551115123125783e-17
+    },
+    {
+      "trade_date": "2025-09-11",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": -1.6653345369377348e-16
+    },
+    {
+      "trade_date": "2025-09-12",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5000000000000002,
+      "weight_net": 0.0
+    },
+    {
+      "trade_date": "2025-09-16",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": -2.498001805406602e-16
+    },
+    {
+      "trade_date": "2025-09-17",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": 1.942890293094024e-16
+    },
+    {
+      "trade_date": "2025-09-18",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": 0.0
+    },
+    {
+      "trade_date": "2025-09-19",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": -2.220446049250313e-16
+    },
+    {
+      "trade_date": "2025-09-22",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": 8.326672684688674e-17
+    },
+    {
+      "trade_date": "2025-09-24",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5000000000000002,
+      "weight_net": -1.3877787807814457e-16
+    },
+    {
+      "trade_date": "2025-09-25",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": -1.6653345369377348e-16
+    },
+    {
+      "trade_date": "2025-09-26",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": -5.551115123125783e-17
+    },
+    {
+      "trade_date": "2025-09-29",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": 0.0
+    },
+    {
+      "trade_date": "2025-09-30",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.4999999999999998,
+      "weight_net": 4.163336342344337e-17
+    },
+    {
+      "trade_date": "2025-10-01",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": 1.3877787807814457e-16
+    },
+    {
+      "trade_date": "2025-10-02",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": 1.1102230246251565e-16
+    },
+    {
+      "trade_date": "2025-10-03",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5000000000000002,
+      "weight_net": 8.326672684688674e-17
+    },
+    {
+      "trade_date": "2025-10-06",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": 0.0
+    },
+    {
+      "trade_date": "2025-10-07",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": 5.551115123125783e-17
+    },
+    {
+      "trade_date": "2025-10-08",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": -1.1102230246251565e-16
+    },
+    {
+      "trade_date": "2025-10-09",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0000000000000004,
+      "weight_net": 8.326672684688674e-17
+    },
+    {
+      "trade_date": "2025-10-10",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": 0.0
+    },
+    {
+      "trade_date": "2025-10-14",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": -2.7755575615628914e-17
+    },
+    {
+      "trade_date": "2025-10-15",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": 1.6653345369377348e-16
+    },
+    {
+      "trade_date": "2025-10-16",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.4999999999999998,
+      "weight_net": -2.7755575615628914e-17
+    },
+    {
+      "trade_date": "2025-10-17",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.4999999999999998,
+      "weight_net": 0.0
+    },
+    {
+      "trade_date": "2025-10-20",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": 4.163336342344337e-17
+    },
+    {
+      "trade_date": "2025-10-21",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": -1.6653345369377348e-16
+    },
+    {
+      "trade_date": "2025-10-22",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.4999999999999998,
+      "weight_net": 5.551115123125783e-17
+    },
+    {
+      "trade_date": "2025-10-23",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": 1.1102230246251565e-16
+    },
+    {
+      "trade_date": "2025-10-29",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": 8.326672684688674e-17
+    },
+    {
+      "trade_date": "2025-10-30",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": 0.0
+    },
+    {
+      "trade_date": "2025-10-31",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": 2.7755575615628914e-17
+    },
+    {
+      "trade_date": "2025-11-04",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": -1.6653345369377348e-16
+    },
+    {
+      "trade_date": "2025-11-05",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": -1.6653345369377348e-16
+    },
+    {
+      "trade_date": "2025-11-06",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5000000000000002,
+      "weight_net": -1.1102230246251565e-16
+    },
+    {
+      "trade_date": "2025-11-07",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.9999999999999998,
+      "weight_net": 5.551115123125783e-17
+    },
+    {
+      "trade_date": "2025-11-10",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": 8.326672684688674e-17
+    },
+    {
+      "trade_date": "2025-11-11",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.9999999999999996,
+      "weight_net": -2.0816681711721685e-16
+    },
+    {
+      "trade_date": "2025-11-12",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": -2.7755575615628914e-17
+    },
+    {
+      "trade_date": "2025-11-13",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": -1.6653345369377348e-16
+    },
+    {
+      "trade_date": "2025-11-14",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": 3.3306690738754696e-16
+    },
+    {
+      "trade_date": "2025-11-17",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": 2.0816681711721685e-16
+    },
+    {
+      "trade_date": "2025-11-18",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5000000000000002,
+      "weight_net": 2.7755575615628914e-17
+    },
+    {
+      "trade_date": "2025-11-19",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": 8.326672684688674e-17
+    },
+    {
+      "trade_date": "2025-11-20",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": -2.220446049250313e-16
+    },
+    {
+      "trade_date": "2025-11-21",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": -6.938893903907228e-17
+    },
+    {
+      "trade_date": "2025-11-25",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": 8.326672684688674e-17
+    },
+    {
+      "trade_date": "2025-11-26",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.9999999999999998,
+      "weight_net": 0.0
+    },
+    {
+      "trade_date": "2025-11-27",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": -4.163336342344337e-17
+    },
+    {
+      "trade_date": "2025-12-01",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": 1.1102230246251565e-16
+    },
+    {
+      "trade_date": "2025-12-02",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": -8.326672684688674e-17
+    },
+    {
+      "trade_date": "2025-12-03",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.4999999999999998,
+      "weight_net": -1.3877787807814457e-16
+    },
+    {
+      "trade_date": "2025-12-04",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.4999999999999998,
+      "weight_net": 5.551115123125783e-17
+    },
+    {
+      "trade_date": "2025-12-05",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": -5.551115123125783e-17
+    },
+    {
+      "trade_date": "2025-12-08",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": -1.1102230246251565e-16
+    },
+    {
+      "trade_date": "2025-12-09",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": -1.1102230246251565e-16
+    },
+    {
+      "trade_date": "2025-12-10",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.9999999999999998,
+      "weight_net": 3.3306690738754696e-16
+    },
+    {
+      "trade_date": "2025-12-11",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.9999999999999998,
+      "weight_net": 0.0
+    },
+    {
+      "trade_date": "2025-12-12",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5000000000000002,
+      "weight_net": -2.7755575615628914e-17
+    },
+    {
+      "trade_date": "2025-12-15",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": 2.7755575615628914e-17
+    },
+    {
+      "trade_date": "2025-12-16",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": 1.942890293094024e-16
+    },
+    {
+      "trade_date": "2025-12-17",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": -1.942890293094024e-16
+    },
+    {
+      "trade_date": "2025-12-18",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5000000000000002,
+      "weight_net": 6.938893903907228e-17
+    },
+    {
+      "trade_date": "2025-12-19",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": -1.8041124150158794e-16
+    },
+    {
+      "trade_date": "2025-12-22",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0000000000000004,
+      "weight_net": -2.220446049250313e-16
+    },
+    {
+      "trade_date": "2025-12-23",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0000000000000004,
+      "weight_net": 0.0
+    },
+    {
+      "trade_date": "2025-12-24",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.4999999999999998,
+      "weight_net": 8.326672684688674e-17
+    },
+    {
+      "trade_date": "2025-12-25",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": -4.163336342344337e-17
+    },
+    {
+      "trade_date": "2025-12-29",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": 2.220446049250313e-16
+    },
+    {
+      "trade_date": "2025-12-30",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": 1.1102230246251565e-16
+    },
+    {
+      "trade_date": "2026-01-05",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.9999999999999998,
+      "weight_net": 5.551115123125783e-17
+    },
+    {
+      "trade_date": "2026-01-06",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": 2.220446049250313e-16
+    },
+    {
+      "trade_date": "2026-01-07",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": -2.7755575615628914e-17
+    },
+    {
+      "trade_date": "2026-01-08",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": 0.0
+    },
+    {
+      "trade_date": "2026-01-09",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.9999999999999998,
+      "weight_net": -8.326672684688674e-17
+    },
+    {
+      "trade_date": "2026-01-13",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.9999999999999998,
+      "weight_net": 1.1102230246251565e-16
+    },
+    {
+      "trade_date": "2026-01-14",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": -1.1102230246251565e-16
+    },
+    {
+      "trade_date": "2026-01-15",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": -5.551115123125783e-17
+    },
+    {
+      "trade_date": "2026-01-16",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": -5.551115123125783e-17
+    },
+    {
+      "trade_date": "2026-01-19",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.9999999999999998,
+      "weight_net": 2.7755575615628914e-16
+    },
+    {
+      "trade_date": "2026-01-21",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": -1.1102230246251565e-16
+    },
+    {
+      "trade_date": "2026-01-22",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5000000000000002,
+      "weight_net": -5.551115123125783e-17
+    },
+    {
+      "trade_date": "2026-01-23",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0000000000000004,
+      "weight_net": 2.7755575615628914e-17
+    },
+    {
+      "trade_date": "2026-01-26",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.9999999999999996,
+      "weight_net": 0.0
+    },
+    {
+      "trade_date": "2026-01-27",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5000000000000002,
+      "weight_net": -4.163336342344337e-17
+    },
+    {
+      "trade_date": "2026-01-28",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": 1.1102230246251565e-16
+    },
+    {
+      "trade_date": "2026-01-29",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": -5.551115123125783e-17
+    },
+    {
+      "trade_date": "2026-01-30",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": 5.551115123125783e-17
+    },
+    {
+      "trade_date": "2026-02-02",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": -4.163336342344337e-17
+    },
+    {
+      "trade_date": "2026-02-03",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.9999999999999996,
+      "weight_net": 2.7755575615628914e-17
+    },
+    {
+      "trade_date": "2026-02-04",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": 1.1102230246251565e-16
+    },
+    {
+      "trade_date": "2026-02-05",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0000000000000004,
+      "weight_net": 1.6653345369377348e-16
+    },
+    {
+      "trade_date": "2026-02-06",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": -5.551115123125783e-17
+    },
+    {
+      "trade_date": "2026-02-09",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": -2.220446049250313e-16
+    },
+    {
+      "trade_date": "2026-02-10",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": 1.1102230246251565e-16
+    },
+    {
+      "trade_date": "2026-02-12",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": -1.1102230246251565e-16
+    },
+    {
+      "trade_date": "2026-02-13",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": -5.551115123125783e-17
+    },
+    {
+      "trade_date": "2026-02-16",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": -2.7755575615628914e-17
+    },
+    {
+      "trade_date": "2026-02-18",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": -8.326672684688674e-17
+    },
+    {
+      "trade_date": "2026-02-19",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": 8.326672684688674e-17
+    },
+    {
+      "trade_date": "2026-02-20",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.9999999999999998,
+      "weight_net": 0.0
+    },
+    {
+      "trade_date": "2026-02-24",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": -8.326672684688674e-17
+    },
+    {
+      "trade_date": "2026-02-25",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.9999999999999998,
+      "weight_net": -6.938893903907228e-17
+    },
+    {
+      "trade_date": "2026-02-26",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.9999999999999998,
+      "weight_net": -1.1102230246251565e-16
+    },
+    {
+      "trade_date": "2026-02-27",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": 0.0
+    },
+    {
+      "trade_date": "2026-03-02",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": 5.551115123125783e-17
+    },
+    {
+      "trade_date": "2026-03-03",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0000000000000004,
+      "weight_net": 0.0
+    },
+    {
+      "trade_date": "2026-03-04",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": 1.3877787807814457e-16
+    },
+    {
+      "trade_date": "2026-03-05",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": 0.0
+    },
+    {
+      "trade_date": "2026-03-06",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": 5.551115123125783e-17
+    },
+    {
+      "trade_date": "2026-03-09",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0000000000000004,
+      "weight_net": -5.551115123125783e-17
+    },
+    {
+      "trade_date": "2026-03-10",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": 0.0
+    },
+    {
+      "trade_date": "2026-03-11",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": 0.0
+    },
+    {
+      "trade_date": "2026-03-12",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": 8.326672684688674e-17
+    },
+    {
+      "trade_date": "2026-03-13",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.9999999999999998,
+      "weight_net": 0.0
+    },
+    {
+      "trade_date": "2026-03-16",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": 1.1102230246251565e-16
+    },
+    {
+      "trade_date": "2026-03-17",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": -2.220446049250313e-16
+    },
+    {
+      "trade_date": "2026-03-18",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": 0.0
+    },
+    {
+      "trade_date": "2026-03-19",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": -5.551115123125783e-17
+    },
+    {
+      "trade_date": "2026-03-23",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": 8.326672684688674e-17
+    },
+    {
+      "trade_date": "2026-03-24",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": -4.163336342344337e-17
+    },
+    {
+      "trade_date": "2026-03-25",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": 8.326672684688674e-17
+    },
+    {
+      "trade_date": "2026-03-26",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.9999999999999998,
+      "weight_net": 0.0
+    },
+    {
+      "trade_date": "2026-03-27",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": 2.220446049250313e-16
+    },
+    {
+      "trade_date": "2026-03-30",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": 2.7755575615628914e-17
+    },
+    {
+      "trade_date": "2026-03-31",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": 5.551115123125783e-17
+    },
+    {
+      "trade_date": "2026-04-01",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": -1.6653345369377348e-16
+    },
+    {
+      "trade_date": "2026-04-02",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.4999999999999998,
+      "weight_net": -1.1102230246251565e-16
+    },
+    {
+      "trade_date": "2026-04-03",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": -5.551115123125783e-17
+    },
+    {
+      "trade_date": "2026-04-07",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": 1.1102230246251565e-16
+    },
+    {
+      "trade_date": "2026-04-08",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": -9.71445146547012e-17
+    },
+    {
+      "trade_date": "2026-04-09",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": 9.71445146547012e-17
+    },
+    {
+      "trade_date": "2026-04-10",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": -1.1102230246251565e-16
+    },
+    {
+      "trade_date": "2026-04-13",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.9999999999999998,
+      "weight_net": 5.551115123125783e-17
+    },
+    {
+      "trade_date": "2026-04-14",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.9999999999999998,
+      "weight_net": 0.0
+    },
+    {
+      "trade_date": "2026-04-15",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": 8.326672684688674e-17
+    },
+    {
+      "trade_date": "2026-04-16",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.4999999999999998,
+      "weight_net": 5.551115123125783e-17
+    },
+    {
+      "trade_date": "2026-04-17",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": -5.551115123125783e-17
+    },
+    {
+      "trade_date": "2026-04-20",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": 5.551115123125783e-17
+    },
+    {
+      "trade_date": "2026-04-21",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": 1.6653345369377348e-16
+    },
+    {
+      "trade_date": "2026-04-22",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.4999999999999998,
+      "weight_net": 2.0816681711721685e-16
+    },
+    {
+      "trade_date": "2026-04-23",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": -2.0816681711721685e-16
+    },
+    {
+      "trade_date": "2026-04-24",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": -1.1102230246251565e-16
+    },
+    {
+      "trade_date": "2026-04-27",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": -1.1102230246251565e-16
+    },
+    {
+      "trade_date": "2026-04-28",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": -1.3877787807814457e-16
+    },
+    {
+      "trade_date": "2026-04-30",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": 0.0
+    },
+    {
+      "trade_date": "2026-05-01",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": -5.551115123125783e-17
+    },
+    {
+      "trade_date": "2026-05-07",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": 1.3877787807814457e-16
+    },
+    {
+      "trade_date": "2026-05-08",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5000000000000002,
+      "weight_net": 0.0
+    },
+    {
+      "trade_date": "2026-05-11",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": 1.1102230246251565e-16
+    },
+    {
+      "trade_date": "2026-05-12",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.9999999999999998,
+      "weight_net": 5.551115123125783e-17
+    },
+    {
+      "trade_date": "2026-05-13",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": -2.7755575615628914e-16
+    },
+    {
+      "trade_date": "2026-05-14",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0000000000000004,
+      "weight_net": 0.0
+    },
+    {
+      "trade_date": "2026-05-15",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": 1.1102230246251565e-16
+    },
+    {
+      "trade_date": "2026-05-18",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": 1.1102230246251565e-16
+    },
+    {
+      "trade_date": "2026-05-19",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": 1.3877787807814457e-16
+    },
+    {
+      "trade_date": "2026-05-20",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": -2.498001805406602e-16
+    },
+    {
+      "trade_date": "2026-05-21",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": 5.551115123125783e-17
+    },
+    {
+      "trade_date": "2026-05-22",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": 1.1102230246251565e-16
+    },
+    {
+      "trade_date": "2026-05-25",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": 3.0531133177191805e-16
+    },
+    {
+      "trade_date": "2026-05-27",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.9999999999999998,
+      "weight_net": -1.1102230246251565e-16
+    },
+    {
+      "trade_date": "2026-05-28",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": 0.0
+    },
+    {
+      "trade_date": "2026-05-29",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": 0.0
+    },
+    {
+      "trade_date": "2026-06-01",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": 0.0
+    },
+    {
+      "trade_date": "2026-06-02",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": 1.942890293094024e-16
+    },
+    {
+      "trade_date": "2026-06-03",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.9999999999999998,
+      "weight_net": -5.551115123125783e-17
+    },
+    {
+      "trade_date": "2026-06-04",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.9999999999999998,
+      "weight_net": 2.7755575615628914e-17
+    },
+    {
+      "trade_date": "2026-06-05",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.9999999999999998,
+      "weight_net": 8.326672684688674e-17
+    },
+    {
+      "trade_date": "2026-06-08",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": 8.326672684688674e-17
+    },
+    {
+      "trade_date": "2026-06-09",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.9999999999999996,
+      "weight_net": 5.551115123125783e-17
+    },
+    {
+      "trade_date": "2026-06-10",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": 5.551115123125783e-17
+    },
+    {
+      "trade_date": "2026-06-11",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": -1.3877787807814457e-16
+    },
+    {
+      "trade_date": "2026-06-12",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": 2.220446049250313e-16
+    },
+    {
+      "trade_date": "2026-06-15",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5000000000000002,
+      "weight_net": -2.7755575615628914e-17
+    },
+    {
+      "trade_date": "2026-06-16",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": -2.7755575615628914e-17
+    },
+    {
+      "trade_date": "2026-06-17",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": 1.1102230246251565e-16
+    },
+    {
+      "trade_date": "2026-06-18",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": 2.220446049250313e-16
+    },
+    {
+      "trade_date": "2026-06-19",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": -1.1102230246251565e-16
+    },
+    {
+      "trade_date": "2026-06-23",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": -1.1102230246251565e-16
+    },
+    {
+      "trade_date": "2026-06-24",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0000000000000004,
+      "weight_net": 2.7755575615628914e-17
+    },
+    {
+      "trade_date": "2026-06-25",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": 5.551115123125783e-17
+    },
+    {
+      "trade_date": "2026-06-26",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0000000000000004,
+      "weight_net": -1.942890293094024e-16
+    },
+    {
+      "trade_date": "2026-06-29",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.9999999999999998,
+      "weight_net": 0.0
+    },
+    {
+      "trade_date": "2026-06-30",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": -1.6653345369377348e-16
+    },
+    {
+      "trade_date": "2026-07-01",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": 5.551115123125783e-17
+    },
+    {
+      "trade_date": "2026-07-02",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": 3.3306690738754696e-16
+    },
+    {
+      "trade_date": "2026-07-03",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": -2.220446049250313e-16
+    },
+    {
+      "trade_date": "2026-07-07",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.9999999999999996,
+      "weight_net": -8.326672684688674e-17
+    },
+    {
+      "trade_date": "2026-07-08",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": -5.551115123125783e-17
+    },
+    {
+      "trade_date": "2026-07-09",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": 0.0
+    },
+    {
+      "trade_date": "2026-07-10",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": -1.8041124150158794e-16
+    },
+    {
+      "trade_date": "2026-07-13",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": -1.1102230246251565e-16
+    },
+    {
+      "trade_date": "2026-07-14",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": -1.6653345369377348e-16
+    },
+    {
+      "trade_date": "2026-07-15",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": 1.1102230246251565e-16
+    },
+    {
+      "trade_date": "2026-07-16",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5000000000000002,
+      "weight_net": -5.551115123125783e-17
+    },
+    {
+      "trade_date": "2026-07-17",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": 2.7755575615628914e-17
+    },
+    {
+      "trade_date": "2026-07-21",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": 2.220446049250313e-16
+    },
+    {
+      "trade_date": "2026-07-22",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": -1.6653345369377348e-16
+    },
+    {
+      "trade_date": "2026-07-23",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": 5.551115123125783e-17
+    },
+    {
+      "trade_date": "2026-07-24",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": 1.249000902703301e-16
+    },
+    {
+      "trade_date": "2026-07-27",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0000000000000004,
+      "weight_net": -2.7755575615628914e-17
+    },
+    {
+      "trade_date": "2026-07-28",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5000000000000002,
+      "weight_net": -1.1102230246251565e-16
+    },
+    {
+      "trade_date": "2026-07-29",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": 1.1102230246251565e-16
+    },
+    {
+      "trade_date": "2026-07-30",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0000000000000004,
+      "weight_net": 4.163336342344337e-17
+    },
+    {
+      "trade_date": "2026-07-31",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": 0.0
+    },
+    {
+      "trade_date": "2026-08-03",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": -5.551115123125783e-17
+    },
+    {
+      "trade_date": "2026-08-04",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": 1.1102230246251565e-16
+    },
+    {
+      "trade_date": "2026-08-05",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5000000000000002,
+      "weight_net": -8.326672684688674e-17
+    },
+    {
+      "trade_date": "2026-08-06",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.9999999999999998,
+      "weight_net": 1.3877787807814457e-16
+    },
+    {
+      "trade_date": "2026-08-07",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.9999999999999998,
+      "weight_net": 0.0
+    },
+    {
+      "trade_date": "2026-08-10",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": -2.7755575615628914e-17
+    },
+    {
+      "trade_date": "2026-08-12",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": 5.551115123125783e-17
+    },
+    {
+      "trade_date": "2026-08-13",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 2.0,
+      "weight_net": 0.0
+    },
+    {
+      "trade_date": "2026-08-14",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.5,
+      "weight_net": 1.6653345369377348e-16
+    },
+    {
+      "trade_date": "2026-08-17",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": true,
+      "weight_gross": 1.4999999999999998,
+      "weight_net": -1.3877787807814457e-16
+    },
+    {
+      "trade_date": "2026-08-18",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": false,
+      "weight_gross": 1.5,
+      "weight_net": 8.326672684688674e-17
+    },
+    {
+      "trade_date": "2026-08-19",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": false,
+      "weight_gross": 2.0,
+      "weight_net": -1.6653345369377348e-16
+    },
+    {
+      "trade_date": "2026-08-20",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": false,
+      "weight_gross": 2.0,
+      "weight_net": 1.1102230246251565e-16
+    },
+    {
+      "trade_date": "2026-08-21",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": false,
+      "weight_gross": 1.4999999999999998,
+      "weight_net": -4.163336342344337e-17
+    },
+    {
+      "trade_date": "2026-08-24",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": false,
+      "weight_gross": 2.0,
+      "weight_net": 0.0
+    },
+    {
+      "trade_date": "2026-08-25",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": false,
+      "weight_gross": 1.5,
+      "weight_net": 6.938893903907228e-17
+    },
+    {
+      "trade_date": "2026-08-26",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": false,
+      "weight_gross": 2.0,
+      "weight_net": -5.551115123125783e-17
+    },
+    {
+      "trade_date": "2026-08-27",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": false,
+      "weight_gross": 1.5,
+      "weight_net": -5.551115123125783e-17
+    },
+    {
+      "trade_date": "2026-08-28",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": false,
+      "weight_gross": 1.5,
+      "weight_net": 0.0
+    },
+    {
+      "trade_date": "2026-08-31",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": false,
+      "weight_gross": 2.0,
+      "weight_net": 1.1102230246251565e-16
+    },
+    {
+      "trade_date": "2026-09-01",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": false,
+      "weight_gross": 2.0,
+      "weight_net": -8.326672684688674e-17
+    },
+    {
+      "trade_date": "2026-09-02",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": false,
+      "weight_gross": 1.5,
+      "weight_net": 1.3877787807814457e-16
+    },
+    {
+      "trade_date": "2026-09-03",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": false,
+      "weight_gross": 2.0,
+      "weight_net": 1.6653345369377348e-16
+    },
+    {
+      "trade_date": "2026-09-04",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": false,
+      "weight_gross": 1.5,
+      "weight_net": 1.1102230246251565e-16
+    },
+    {
+      "trade_date": "2026-09-07",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": false,
+      "weight_gross": 1.5,
+      "weight_net": 0.0
+    },
+    {
+      "trade_date": "2026-09-09",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": false,
+      "weight_gross": 1.5,
+      "weight_net": 8.326672684688674e-17
+    },
+    {
+      "trade_date": "2026-09-10",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": false,
+      "weight_gross": 1.5,
+      "weight_net": -1.1102230246251565e-16
+    },
+    {
+      "trade_date": "2026-09-11",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": false,
+      "weight_gross": 2.0,
+      "weight_net": 1.1102230246251565e-16
+    },
+    {
+      "trade_date": "2026-09-14",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": false,
+      "weight_gross": 1.9999999999999998,
+      "weight_net": -1.6653345369377348e-16
+    },
+    {
+      "trade_date": "2026-09-15",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": false,
+      "weight_gross": 1.5,
+      "weight_net": -1.1102230246251565e-16
+    },
+    {
+      "trade_date": "2026-09-16",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": false,
+      "weight_gross": 2.0,
+      "weight_net": 2.220446049250313e-16
+    },
+    {
+      "trade_date": "2026-09-17",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": false,
+      "weight_gross": 2.0,
+      "weight_net": -5.551115123125783e-17
+    },
+    {
+      "trade_date": "2026-09-18",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": false,
+      "weight_gross": 2.0000000000000004,
+      "weight_net": 5.551115123125783e-17
+    },
+    {
+      "trade_date": "2026-09-24",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": false,
+      "weight_gross": 2.0,
+      "weight_net": 0.0
+    },
+    {
+      "trade_date": "2026-09-25",
+      "numerical": "PASSED",
+      "leakage": "PASSED",
+      "fallback": false,
+      "overlay_applied": false,
+      "weight_gross": 2.0,
+      "weight_net": -1.1102230246251565e-16
+    }
+  ]
+}

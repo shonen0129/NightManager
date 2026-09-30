@@ -1,0 +1,12 @@
+Command:
+  timeout -k 10s 5m .venv/bin/python /private/tmp/ml_retrain_preflight.py
+
+Raw frames read from var/market_data/etf_prices.sqlite:
+  us_close: rows=4460, first=2009-01-02, last=2026-09-25
+  jp_close: rows=4352, first=2009-01-05, last=2026-09-25
+  jp_open: rows=4352, first=2009-01-05, last=2026-09-25
+
+Strict reconstruction result:
+  DataValidationError: jp_open_trade non-positive for 1619.T on 2009-01-13;
+  jp_open_trade non-positive for 1626.T on 2009-01-13
+  exit status: 1

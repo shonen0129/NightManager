@@ -10,17 +10,20 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from leadlag.config.schemas import ProductionV2RunConfig
 from leadlag.data.adr_features import load_adr_features
-from leadlag.data.tickers import JP_TICKERS
+from leadlag.data.tickers import JP_TICKERS, US_TICKERS
 from leadlag.domain.portfolio import PortfolioDecision
 from leadlag.models.ml_order_overlay import (
     MLOrderOverlayModel,
     _build_ticker_features,
     _predict_p_trade,
+    _predict_relative_allocation,
     _safe,
     _sigmoid,
     apply_overlay,
 )
+from research.experiments import ml_overlay_training
 
 N_J = len(JP_TICKERS)
 
@@ -155,6 +158,7 @@ def test_predict_p_trade():
     )
     p_trade = _predict_p_trade(features, model)
     assert np.allclose(p_trade, [0.5, 0.5])
+    assert np.array_equal(_predict_relative_allocation(features, model), p_trade)
 
 
 def test_apply_overlay_adjusts_scores_and_weights():
@@ -201,9 +205,75 @@ def test_apply_overlay_adjusts_scores_and_weights():
     assert out.scores_overlay is not None
     assert np.allclose(out.scores_overlay, scores * 0.5, atol=1e-6)
     assert out.summary["overlay_applied"] == 1
+    assert (
+        out.summary["overlay_output_semantics"]
+        == "relative_within_side_allocation_multiplier"
+    )
+    assert out.summary["relative_allocation_multiplier_mean"] == pytest.approx(0.5)
+    assert out.summary["p_trade_mean"] == pytest.approx(0.5)
+    assert out.summary["ml_trade_gate_applied"] is False
+    assert "missing_verified_inventory" in out.summary["ml_trade_gate_status"]
     assert out.numerical["status"] == "PASSED"
     assert abs(float(np.sum(np.abs(out.w_final))) - 2.0) < 1e-6
     assert abs(float(np.sum(out.w_final))) < 1e-6
+    # A common multiplier is normalized away within each side; this overlay
+    # does not reduce total exposure or make a trade/no-trade decision.
+    assert np.allclose(out.w_final, result.w_final)
+
+
+@pytest.mark.parametrize(
+    ("baseline_residual_scale", "expected"),
+    [(0.8, 0.0176), (1.0, 0.017), (1.2, 0.0164)],
+)
+def test_training_collector_builds_blpx_residual_target(
+    tmp_path: Path, baseline_residual_scale: float, expected: float
+) -> None:
+    date = pd.Timestamp("2026-09-16")
+    columns: dict[str, list[float]] = {"topix_night_return": [0.0]}
+    columns.update({f"us_cc_{ticker}": [0.0] for ticker in US_TICKERS})
+    for ticker in JP_TICKERS:
+        columns[f"jp_gap_{ticker}"] = [0.0]
+        columns[f"jp_beta_{ticker}"] = [1.0]
+        columns[f"jp_open_trade_{ticker}"] = [100.0]
+        columns[f"jp_close_sig_{ticker}"] = [100.0]
+    frame = pd.DataFrame(columns, index=pd.DatetimeIndex([date]))
+    market_vol = pd.DataFrame(0.01, index=frame.index, columns=JP_TICKERS)
+    open_910 = pd.DataFrame(0.0, index=frame.index, columns=JP_TICKERS)
+
+    class FakeDecisionModel:
+        def decide(self, *, inputs, overlay_enabled, use_file_cache):
+            return SimpleNamespace(
+                fallback={},
+                scores=np.ones(len(JP_TICKERS)),
+                mu_gap=np.full(len(JP_TICKERS), 0.003),
+                sigma_gap=np.ones(len(JP_TICKERS)),
+            )
+
+    realized = np.full((1, len(JP_TICKERS)), 0.02)
+    result = ml_overlay_training._collect_training_data(
+        pd.DatetimeIndex([date]),
+        frame,
+        realized,
+        tmp_path,
+        ProductionV2RunConfig(),
+        market_vol,
+        target_type="blpx_residual",
+        baseline_residual_scale=baseline_residual_scale,
+        open_910_returns=open_910,
+        decision_model=FakeDecisionModel(),
+    )
+    assert len(result) == len(JP_TICKERS)
+    assert np.allclose(result["target"].to_numpy(), expected)
+
+
+def test_training_rejects_unknown_target_contract_before_data_collection() -> None:
+    with pytest.raises(ValueError, match="Unsupported overlay target_type"):
+        ml_overlay_training._validate_target_contract("raw-ish", 1.0)
+
+
+def test_training_rejects_residual_scale_outside_residual_target() -> None:
+    with pytest.raises(ValueError, match="only applies"):
+        ml_overlay_training._validate_target_contract("raw", 0.8)
 
 
 def test_apply_overlay_normalizes_training_end_in_jst():

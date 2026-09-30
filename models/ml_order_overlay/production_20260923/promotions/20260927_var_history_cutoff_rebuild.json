@@ -1,0 +1,42 @@
+{
+  "decision": "published_by_user-directed_cutoff_rebuild_for_var_history",
+  "promotion_date_jst": "2026-09-27T05:01:47.088695+09:00",
+  "approval": "User instructed: recreate the new artifact using data through end-2025, then create history; prior session explicitly authorized production activation.",
+  "production_root": "models/ml_order_overlay/production_20260923",
+  "source_artifact_root": "var/results/20260927_ml_overlay_var_history_2025/artifact",
+  "active_version_before": "20260926T182011981905Z-f8b4ec178e88",
+  "active_version_after": "20260926T192555935698Z-ee306a32f3ec",
+  "rollback_version": "20260926T182011981905Z-f8b4ec178e88",
+  "artifact_train_end": "2025-12-30",
+  "artifact_model_sha256": "c1a5b9354dae4b6507b41453c3b1c6a90451a81bcf0d3bc78b07939f421cb1e9",
+  "history_manifest": "models/ml_order_overlay/production_20260923/HISTORY.json",
+  "history_manifest_sha256": "6cd49c9db27d70a71da18ba8c7114824637a9f68d0921cd351f2b8492774176e",
+  "history_report": "reports/20260927_ml_overlay_var_history/history.json",
+  "history_return_artifact": "var/results/20260927_ml_overlay_var_history_2025/history/versioned_var_returns.pkl",
+  "history_days": 269,
+  "history_end": "2026-09-25",
+  "history_fallback_days": 0,
+  "history_numerical_audit": {
+    "passed": 269,
+    "failed": 0
+  },
+  "history_leakage_audit": {
+    "passed": 269,
+    "flat": 0,
+    "failed": 0
+  },
+  "original_promotion_gate_passed": false,
+  "operator_override": true,
+  "gate_status": {
+    "prospective_forward_labels_since_rebuild": 0,
+    "retrospective_post_cutoff_days": 170,
+    "retrospective_results_are_independent_oos": false,
+    "historical_provider_available_at_proven": false,
+    "numerical_promotion_criteria_pass": false,
+    "current_250d_var_breach": true,
+    "current_250d_es_breach": true
+  },
+  "production_runner_verified": true,
+  "broker_adapter_created": false,
+  "production_orders_sent": 0
+}

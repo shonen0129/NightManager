@@ -1,0 +1,354 @@
+{
+  "status": "promoted_by_explicit_user_instruction_original_gate_not_passed",
+  "decision_date_jst": "2026-09-27",
+  "production_switch": {
+    "changed": true,
+    "current_pointer": "20260926T182011981905Z-f8b4ec178e88",
+    "current_artifact_version": "20260926T182011981905Z-f8b4ec178e88",
+    "current_train_end": "2026-09-25",
+    "current_model_sha256": "616c8ba8564ece95398788450cdc50df0ce3f189c9eaebd53dd6142fd42fca8b",
+    "previous_artifact_version": "20260922T011723828589Z-7e1a81ab2617",
+    "rollback_version": "20260922T011723828589Z-7e1a81ab2617",
+    "production_root": "models/ml_order_overlay/production_20260923",
+    "production_config_path_changed": false
+  },
+  "candidate": {
+    "artifact_root": "var/results/20260927_ml_overlay_retrain/artifact",
+    "artifact_version": "20260926T182011981905Z-f8b4ec178e88",
+    "model_sha256": "616c8ba8564ece95398788450cdc50df0ce3f189c9eaebd53dd6142fd42fca8b",
+    "metadata_sha256": "33434a5d801fb21723803ac35d6bdda49ed71648dd8877d5e32b7e369ebefd32",
+    "train_start": "2015-01-05",
+    "train_end": "2026-09-25",
+    "training_rows": 47328,
+    "training_dates": 2784,
+    "ticker_coverage": {
+      "1617.T": 1.0,
+      "1618.T": 1.0,
+      "1619.T": 1.0,
+      "1620.T": 1.0,
+      "1621.T": 1.0,
+      "1622.T": 1.0,
+      "1623.T": 1.0,
+      "1624.T": 1.0,
+      "1625.T": 1.0,
+      "1626.T": 1.0,
+      "1627.T": 1.0,
+      "1628.T": 1.0,
+      "1629.T": 1.0,
+      "1630.T": 1.0,
+      "1631.T": 1.0,
+      "1632.T": 1.0,
+      "1633.T": 1.0
+    }
+  },
+  "data_rebuild": {
+    "raw_sqlite_sha256": "b08510b61a1c0ab64cd4e8a3cfc4ef23e6b0fe3a85b07a9c6b8f3d9ca210ef5b",
+    "reconciliation_sha256": "c64246b272bb4e5da66d6c5c564181ec390f4bb413c0408d1d598f69fa3bf964",
+    "df_exec_fingerprint": "ad47b9326a1f0c79b21ac10f254d622c4a0c930b4eea880f0f7cd69474c3555c",
+    "df_exec_rows": 4192,
+    "latest_confirmed_label_date": "2026-09-25",
+    "provisional_dates_excluded": [
+      "2026-09-28"
+    ],
+    "open_cells_restored": 59,
+    "close_cells_restored": 16,
+    "source_cells_excluded": 13,
+    "excluded_source_dates": [
+      "2009-01-13",
+      "2009-02-13",
+      "2009-07-02",
+      "2009-07-17",
+      "2009-09-07",
+      "2009-09-10",
+      "2009-09-17",
+      "2009-10-14"
+    ],
+    "post_2015_beta_cells_recovered": 896,
+    "target_cells_masked": 0,
+    "training_window_missing_target_cells": 0,
+    "retained_row_audit_failures": 0,
+    "post_2015_corrected_numeric_cells": 896,
+    "post_2015_changed_cells_are_only_recovered_betas": true,
+    "historical_provider_available_at_proven": false
+  },
+  "collection": {
+    "requested_dates": 2784,
+    "decision_dates": 2784,
+    "training_dates": 2784,
+    "training_rows": 47328,
+    "excluded_dates_no_training_rows": [],
+    "ticker_coverage_imbalance": 0.0,
+    "fallback_or_audit_failure_dates": [],
+    "decision_audit_counts": {
+      "numerical": {
+        "PASSED": 2784
+      },
+      "leakage": {
+        "PASSED": 2784
+      },
+      "fallback": {}
+    },
+    "on_demand_vs_file_cache_usage_rate": "not instrumented; unavailable"
+  },
+  "historical_walkforward": {
+    "independent_oos": false,
+    "comparison_baseline": "ML overlay disabled BLPX strategy; current active overlay excluded because it would use a future-trained artifact on 2020-2024",
+    "purge_trading_days": 5,
+    "candidate_parameterizations": 1,
+    "trial_count_before_run": 6,
+    "trial_count_after_candidate_record": 7,
+    "bootstrap_block_days": 20,
+    "bootstrap_samples": 1000,
+    "bootstrap_seed": 42,
+    "folds": [
+      {
+        "year": 2020,
+        "evaluation_days": 234,
+        "baseline_net_sharpe": 8.283699901665054,
+        "candidate_net_sharpe": 8.396867621261531,
+        "net_sharpe_delta": 0.11316771959647731,
+        "baseline_max_drawdown": -0.04840912984066581,
+        "candidate_max_drawdown": -0.05363673789420176,
+        "max_drawdown_delta": -0.005227608053535948,
+        "baseline_mean_daily_turnover_raw_weight_units": 1.4960409830179584,
+        "candidate_mean_daily_turnover_raw_weight_units": 1.5071931565943255,
+        "bootstrap_mean_daily_net_return_difference": 0.00026404004083324466,
+        "bootstrap_95ci": [
+          0.00015295634713891076,
+          0.00037205743840208744
+        ],
+        "candidate_costs": {
+          "slip": 0.571123369673504,
+          "financing": 0.027739726027397264,
+          "borrow": 0.008506849315068492,
+          "reverse": 0.05399999999999999
+        },
+        "candidate_total_cost_sum_fraction": 0.6613699450159696,
+        "max_abs_model_net": 3.885780586188048e-16,
+        "max_model_gross": 2.0000000000000004,
+        "max_abs_effective_net": 5.828670879282072e-16,
+        "max_effective_gross": 3.000000000000001,
+        "terminal_fallback_days": 0,
+        "overlay_applied_days": 234,
+        "all_zero_weight_days": 0,
+        "pit_multiplier_counts": {
+          "1.0": 234
+        },
+        "numerical_audit_counts": {
+          "PASSED": 234
+        },
+        "leakage_audit_counts": {
+          "PASSED": 234
+        }
+      },
+      {
+        "year": 2021,
+        "evaluation_days": 237,
+        "baseline_net_sharpe": 6.283796407915022,
+        "candidate_net_sharpe": 6.32707011221346,
+        "net_sharpe_delta": 0.043273704298437465,
+        "baseline_max_drawdown": -0.05790890898459955,
+        "candidate_max_drawdown": -0.06119129461736028,
+        "max_drawdown_delta": -0.0032823856327607315,
+        "baseline_mean_daily_turnover_raw_weight_units": 1.2773166407095666,
+        "candidate_mean_daily_turnover_raw_weight_units": 1.2894145941167967,
+        "bootstrap_mean_daily_net_return_difference": 0.00017767259514837733,
+        "bootstrap_95ci": [
+          8.98754783797899e-05,
+          0.0002691439784763236
+        ],
+        "candidate_costs": {
+          "slip": 0.4984537373825313,
+          "financing": 0.024252996575342474,
+          "borrow": 0.007437585616438357,
+          "reverse": 0.047212500000000004
+        },
+        "candidate_total_cost_sum_fraction": 0.5773568195743122,
+        "max_abs_model_net": 4.718447854656915e-16,
+        "max_model_gross": 2.0000000000000004,
+        "max_abs_effective_net": 7.077671781985373e-16,
+        "max_effective_gross": 3.000000000000001,
+        "terminal_fallback_days": 0,
+        "overlay_applied_days": 237,
+        "all_zero_weight_days": 0,
+        "pit_multiplier_counts": {
+          "1.0": 112,
+          "0.75": 125
+        },
+        "numerical_audit_counts": {
+          "PASSED": 237
+        },
+        "leakage_audit_counts": {
+          "PASSED": 237
+        }
+      },
+      {
+        "year": 2022,
+        "evaluation_days": 235,
+        "baseline_net_sharpe": 7.970778834395463,
+        "candidate_net_sharpe": 7.9139366800219895,
+        "net_sharpe_delta": -0.05684215437347362,
+        "baseline_max_drawdown": -0.04149335119733677,
+        "candidate_max_drawdown": -0.04213134785637762,
+        "max_drawdown_delta": -0.0006379966590408515,
+        "baseline_mean_daily_turnover_raw_weight_units": 1.2629523390249622,
+        "candidate_mean_daily_turnover_raw_weight_units": 1.2738039827834509,
+        "bootstrap_mean_daily_net_return_difference": 0.00017450475988693226,
+        "bootstrap_95ci": [
+          0.00010225829042803326,
+          0.000249778386966515
+        ],
+        "candidate_costs": {
+          "slip": 0.4896264483214181,
+          "financing": 0.023848458904109596,
+          "borrow": 0.007313527397260274,
+          "reverse": 0.04642500000000001
+        },
+        "candidate_total_cost_sum_fraction": 0.567213434622788,
+        "max_abs_model_net": 3.885780586188048e-16,
+        "max_model_gross": 2.0000000000000004,
+        "max_abs_effective_net": 5.828670879282072e-16,
+        "max_effective_gross": 3.000000000000001,
+        "terminal_fallback_days": 0,
+        "overlay_applied_days": 235,
+        "all_zero_weight_days": 0,
+        "pit_multiplier_counts": {
+          "1.0": 107,
+          "0.75": 128
+        },
+        "numerical_audit_counts": {
+          "PASSED": 235
+        },
+        "leakage_audit_counts": {
+          "PASSED": 235
+        }
+      },
+      {
+        "year": 2023,
+        "evaluation_days": 238,
+        "baseline_net_sharpe": 4.290034112506226,
+        "candidate_net_sharpe": 4.320351511952872,
+        "net_sharpe_delta": 0.030317399446645688,
+        "baseline_max_drawdown": -0.05108616959456913,
+        "candidate_max_drawdown": -0.05721423171634421,
+        "max_drawdown_delta": -0.00612806212177508,
+        "baseline_mean_daily_turnover_raw_weight_units": 1.254015850632592,
+        "candidate_mean_daily_turnover_raw_weight_units": 1.2661827616663601,
+        "bootstrap_mean_daily_net_return_difference": 0.00011945349987667172,
+        "bootstrap_95ci": [
+          3.7249524614419426e-05,
+          0.00021007045100457562
+        ],
+        "candidate_costs": {
+          "slip": 0.4944889108338516,
+          "financing": 0.024233732876712336,
+          "borrow": 0.007431678082191782,
+          "reverse": 0.04717500000000001
+        },
+        "candidate_total_cost_sum_fraction": 0.5733293217927556,
+        "max_abs_model_net": 4.163336342344337e-16,
+        "max_model_gross": 2.0000000000000004,
+        "max_abs_effective_net": 6.245004513516506e-16,
+        "max_effective_gross": 3.000000000000001,
+        "terminal_fallback_days": 0,
+        "overlay_applied_days": 238,
+        "all_zero_weight_days": 0,
+        "pit_multiplier_counts": {
+          "1.0": 114,
+          "0.75": 124
+        },
+        "numerical_audit_counts": {
+          "PASSED": 238
+        },
+        "leakage_audit_counts": {
+          "PASSED": 238
+        }
+      },
+      {
+        "year": 2024,
+        "evaluation_days": 236,
+        "baseline_net_sharpe": 6.872318170186168,
+        "candidate_net_sharpe": 6.883039510664635,
+        "net_sharpe_delta": 0.010721340478466956,
+        "baseline_max_drawdown": -0.07278284476245178,
+        "candidate_max_drawdown": -0.07457642375531204,
+        "max_drawdown_delta": -0.0017935789928602563,
+        "baseline_mean_daily_turnover_raw_weight_units": 1.2595056085003766,
+        "candidate_mean_daily_turnover_raw_weight_units": 1.2704784973349355,
+        "bootstrap_mean_daily_net_return_difference": 0.00018388975139879406,
+        "bootstrap_95ci": [
+          6.602813391782735e-05,
+          0.00032879351480169966
+        ],
+        "candidate_costs": {
+          "slip": 0.4945853567268982,
+          "financing": 0.0249464897260274,
+          "borrow": 0.007650256849315069,
+          "reverse": 0.0485625
+        },
+        "candidate_total_cost_sum_fraction": 0.5757446033022406,
+        "max_abs_model_net": 4.163336342344337e-16,
+        "max_model_gross": 2.0000000000000004,
+        "max_abs_effective_net": 6.245004513516506e-16,
+        "max_effective_gross": 3.000000000000001,
+        "terminal_fallback_days": 0,
+        "overlay_applied_days": 236,
+        "all_zero_weight_days": 0,
+        "pit_multiplier_counts": {
+          "1.0": 124,
+          "0.75": 112
+        },
+        "numerical_audit_counts": {
+          "PASSED": 236
+        },
+        "leakage_audit_counts": {
+          "PASSED": 236
+        }
+      }
+    ]
+  },
+  "forward_shadow": {
+    "candidate_vs_current_comparison_started": false,
+    "new_forward_label_days": 0,
+    "required_forward_label_days": 250
+  },
+  "promotion_blockers": [
+    "No new forward labels have accumulated since the candidate fit; 250 are required.",
+    "Historical provider available_at lineage remains unproven.",
+    "The historical diagnostic walk-forward is not independent OOS and showed worse max drawdown in all five folds."
+  ],
+  "production_dry_run": {
+    "final_candidate_loaded_by_production_runner": true,
+    "final_candidate_version": "20260926T182011981905Z-f8b4ec178e88",
+    "fold_candidate_version_used_for_valid_oos_dry_run": "20260926T181926302801Z-ed284f1b58b5",
+    "fold_train_end": "2019-12-20",
+    "dry_run_trade_date": "2020-01-06",
+    "overlay_applied": 1,
+    "numerical_audit": "PASSED",
+    "leakage_audit": "PASSED",
+    "fallback": {
+      "gap_data_missing": false
+    },
+    "api_enabled": false,
+    "broker_adapter_created": false,
+    "orders_sent": 0,
+    "production_current_changed": false
+  },
+  "promotion_override": {
+    "operator_override": true,
+    "explicit_user_instruction": "本番に切り替えて",
+    "instruction_date_jst": "2026-09-27",
+    "original_gate_passed": false,
+    "numerical_promotion_criteria_pass": false,
+    "forward_labeled_days": 0,
+    "required_forward_labeled_days": 250,
+    "historical_provider_available_at_proven": false,
+    "historical_max_drawdown_worse_in_all_five_folds": true,
+    "promotion_record": "models/ml_order_overlay/production_20260923/promotions/20260927_operator_directed_promotion.json",
+    "decision_record": "docs/decisions/2026-09-27-ml-overlay-operator-directed-promotion.md",
+    "post_switch_config_resolved_production_runner_load": "PASSED",
+    "post_switch_loaded_model_sha256": "616c8ba8564ece95398788450cdc50df0ce3f189c9eaebd53dd6142fd42fca8b",
+    "broker_adapter_created": false,
+    "orders_sent_during_promotion": 0
+  }
+}
