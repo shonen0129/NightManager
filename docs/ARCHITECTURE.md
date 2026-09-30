@@ -2,7 +2,7 @@
 
 V2 同期パス (ProductionV2Model) を本番正本とし、Next-Gen 非同期パイプライン・凸最適化は 2026-08-17 の ADR (docs/decisions/2026-08-17-p35-pipeline-canon.md) に基づき archive/legacy_src/ へ移設された。`PITDataLake` は `leadlag.data.pit_lake` の本番入力adapterとして保持し、`DecisionInputs`へ変換してモデルへ渡す。
 
-> **最終更新**: 2026-09-29
+> **最終更新**: 2026-09-30
 
 ## Overview
 
@@ -10,7 +10,7 @@ US ETF と TOPIX-17 セクター ETF のリードラグ相関を利用した、
 日次マーケットニュートラル戦略のプロダクションシステム。
 
 本番モデルは **Production Residual-BLPX-RA v2** （予測期待値を予測標準偏差で割ったリスク調整スコア $\mu_{\text{gap}} / \sigma_{\text{gap}}$ による銘柄選択と、予測 ex-ante IR の過去履歴に基づく動的グロス調整 RuleD を採用した、ギャップ調整予測分布ベースの最適化モデル）。
-旧本番の **Sector Relative Ensemble (PCA-Ensemble)** はベンチマーク用として維持される。
+旧本番の **Sector Relative Ensemble (PCA-Ensemble)** は本番経路から外れている。現行treeに稼働実装は含めない。
 
 ### ML overlay の責務境界
 
@@ -40,251 +40,58 @@ targetを暗黙に変更しない。
 
 ## Repository Root
 
-```
-pyproject.toml      # ビルド設定・依存関係・ruff/mypy/pytest 設定
-requirements.txt    # pip 互換依存一覧
-.env / .env.example # 環境変数テンプレート (BROKER_PROVIDER, API認証情報等)
-leadlag.code-workspace  # VS Code ワークスペース設定
-.agents/            # AIエージェントスキル定義 (skills/leadlag-fund-improvement/)
-archive-2026-08/    # 廃止済みコード保管庫（2026-08 時点の snapshot）
-archive/            # 廃止済みコード保管庫（現行：archive/legacy_src/、archive/experiments/ 等）
-docs/               # 運用方針書、モデル技術仕様書、日次運用手順書などの設計・運用ドキュメント群
-Papers/             # 原論文 (日米業種リードラグ.pdf / .md)
-configs/            # パラメータ設定ファイル (YAML) — configs/production/, configs/research/, configs/archive/
-src/                # Pythonソースコード正本 (PYTHONPATH の起点)
-tests/              # ユニットテスト・統合テスト群 (unit/, integration/, fixtures/)
-scripts/            # 本番・バッチ・テストスクリプト — scripts/batch/, scripts/test/
-tools/              # コマンドツール — tools/production/, tools/validation/, tools/research/
-kabu_auto_login/    # kabuステーション自動ログインユーティリティ (独立要件)
-var/                # 唯一の実行時出力木（results, artifacts, live, logs, shadow_runs, market_data）
-reports/            # sprint/phase 実験レポート群 (sprint0〜3b, phase3_walkforward)
-scratch/            # 一時分析スクリプト (gitignore対象、中身は archive-2026-08 に移動済み)
-creds/              # 認証情報ディレクトリ (gitignore対象)
-```
+The table records current tracked project paths. Runtime data and generated output are written below var/ and are not source paths.
+
+| Path | Purpose |
+|---|---|
+| pyproject.toml | Package metadata, dependencies, and Python tooling configuration |
+| uv.lock | Locked environment used by CI |
+| AGENTS.md | Project invariants and operating rules |
+| .github/workflows/ci.yml | Required CI workflow definition |
+| archive/ | Retired implementation and research history |
+| configs/production/production.yaml | Current inherited production configuration |
+| docs/ | Architecture, operations, decisions, and model specifications |
+| Papers/ | Reference papers |
+| reports/ | Experiment and acceptance evidence |
+| scripts/batch/ | Scheduled production and market-data entry points |
+| scripts/ci/ | CI validation and wheel checks |
+| scripts/run_tests_parallel.sh | Local partitioned test runner |
+| src/leadlag/ | Production strategy package |
+| src/research/ | Research-only package, excluded from the production wheel |
+| tests/ | Unit, integration, regression, research, and feature tests |
+| tools/production/ | Production support commands |
+| tools/research/ | Research and backtest commands |
+| tools/validation/ | Read-only validation and acceptance commands |
+| models/ml_order_overlay/production_20260923/ | Versioned production ML overlay artifact store |
+| kabu_auto_login/ | Separate kabu Station login utility |
+
+The CI documentation and current required checks are in [CI.md](CI.md). The file [scripts/ci/validate_docs.py](../scripts/ci/validate_docs.py) checks relative Markdown links and the current-path tables in this document against the repository tree.
+
+本番 `costs.side_leverage` は 1.30。モデル空間の `w_final` は net ±0.05 / gross ≤2.0 を維持し、side leverage 適用後の実効 gross 上限は2.60となる。VaR99 3.00%・ES99 4.00%の停止閾値は変更していない。選定根拠は[2026-09-30リスク低減評価](../reports/20260930_var_es_risk_reduction/report.md)。評価は2025-07-29〜2026-09-25の保存済み履歴に限られ、ES tailは3標本、実口座損益・実約定費用とは未照合のため、当日リスク判定の代替にはならない。
+
+## Current Code Layout
+
+| Path | Responsibility |
+|---|---|
+| src/leadlag/cli.py | CLI entry point for decision, backtest, close, and daily commands |
+| src/leadlag/models/production_v2.py | Production V2 model entry point |
+| src/leadlag/models/v2/ | V2 decision, distribution-source, fallback, overlay, and audit components |
+| src/leadlag/models/blpx/ | BLPX signal and prior construction |
+| src/leadlag/runner/model_factory.py | Shared production and backtest model construction |
+| src/leadlag/runner/production.py | ProductionRunner and daily decision composition |
+| src/leadlag/domain/ | Typed inputs, signals, distributions, and portfolio contracts |
+| src/leadlag/core/ | Pure risk, portfolio, signal, and market-calendar logic |
+| src/leadlag/data/ | Market data, point-in-time inputs, preprocessing, and caches |
+| src/leadlag/broker/ | Broker interfaces and Kabu/Tachibana adapters |
+| src/leadlag/execution/ | Risk gates, order lifecycle, reconciliation, backtests, and VaR history |
+| src/leadlag/compliance/ | Numerical and look-ahead audits |
+| src/leadlag/reporting/ | Daily PnL, forward evaluation, and report output |
+| src/research/experiments/ | Research-only model and experiment implementations |
+| src/research/scripts/experiments/ | Reproducible experiment entry points |
+
+`src/research/` is not imported by the production package. CI checks the built production wheel for research-package leakage.
 
 ---
-
-## scripts/ ディレクトリ構造
-
-```
-scripts/
-├── batch/               # バッチ実行・スケジューラ設定
-│   ├── com.leadlag.update-market-data.plist
-│   ├── com.leadlag.distribution-diagnostics.plist
-│   ├── com.leadlag.close.plist
-│   ├── com.leadlag.decision.plist
-│   ├── com.leadlag.pnl_report.plist
-│   ├── _update_market_data.py
-│   ├── run_close_positions.sh
-│   ├── run_distribution_diagnostics.sh
-│   ├── run_decision_v2.sh
-│   ├── run_pnl_report.sh
-│   ├── run_gap_distribution.sh
-│   ├── install_launchd.sh
-│   ├── update_market_data.sh
-│   └── setup_scheduler_macos.sh
-│
-└── run_tests_parallel.sh # 全テストの外側期限付き分割実行
-```
-
----
-
-## src/research/ ディレクトリ構造
-
-```
-src/research/            # 研究パッケージ（本番実行パスに含まれない）
-├── __init__.py
-├── backtest_common.py   # バックテスト共通ユーティリティ
-│
-├── diagnostics/         # モデル診断・sprint実験モジュール
-│   ├── __init__.py
-│   ├── sprint0.py             # sprint0 診断計算ロジック
-│   ├── sprint0_qa.py          # sprint0 QA診断
-│   └── sprint1_experiments.py # sprint1 実験ロジック
-│
-├── features/            # 実験用特徴量エンジニアリング
-│   ├── __init__.py
-│   ├── asset_exposures.py       # 資産エクスポージャー特徴量
-│   ├── feature_selection_fdr.py # FDRベース特徴量選択
-│   ├── hinge_features.py        # ヒンジ特徴量生成
-│   └── hinge_interactions.py    # ヒンジ交互作用特徴量生成
-│
-├── models/              # 実験用オーバーレイモデル
-│   ├── __init__.py
-│   ├── hinge_elasticnet_overlay.py       # Hinge + ElasticNet オーバーレイ
-│   ├── hinge_interaction_elasticnet.py   # Hinge交互作用 + ElasticNet
-│   ├── hinge_interaction_gbdt.py         # Hinge交互作用 + GBDT
-│   ├── hinge_interaction_overlay.py      # Hinge交互作用オーバーレイ
-│   ├── hinge_interaction_ridge.py        # Hinge交互作用 + Ridge
-│   ├── hinge_overlay.py                  # Hingeオーバーレイ
-│   └── hinge_ridge_overlay.py            # Hinge + Ridge オーバーレイ
-│
-├── reports/             # 実験レポート生成スクリプト
-│   ├── __init__.py
-│   ├── sprint3a_hinge_report.py        # sprint3a ヒンジ特徴量レポート
-│   └── sprint3b_hinge_interaction_report.py  # sprint3b ヒンジ交互作用レポート
-│
-├── scripts/             # 研究スクリプト（実行可能な研究スクリプト）
-    ├── macro/           # マクロ因子実験スクリプト
-    │   ├── analyze_gold_correlation.py
-    │   ├── analyze_steel_metal_factors.py
-    │   ├── compare_gold_factor_kappa.py
-    │   └── sensitivity_factor_kappa.py
-    │
-    ├── blpx/            # BLPX実験スクリプト
-    │   ├── compare_sensitivity_matrix.py
-    │   ├── compare_shrinkage_ab_backtest.py
-    │   ├── diagnose_shrinkage_attenuation.py
-    │   └── experiment_copula.py
-    │
-    ├── sprint/          # sprint実験スクリプト（sprint0-3b）
-    │   ├── finalize_sprint2_report.py
-    │   ├── run_sprint0_diagnostics.py
-    │   ├── run_sprint0_qa.py
-    │   ├── run_sprint1_aum1m_tachibana.py
-    │   ├── run_sprint1_experiments.py
-    │   ├── run_sprint2_cost_aware_aum1m.py
-    │   ├── run_sprint2b_qa.py
-    │   ├── run_sprint3a_hinge_features.py
-    │   └── run_sprint3b_hinge_interactions.py
-    │
-    ├── backtest/        # バックテスト実行スクリプト
-    │   ├── run_overnight_holding_backtest.py
-    │   ├── run_overnight_robustness_analysis.py
-    │   ├── run_production_backtest.py
-    │   └── run_selective_overnight_backtest.py
-    │
-    └── experiments/     # 実験スクリプト（旧 scripts/experiments 移設）
-        └── _template.py
-
-└── experiments/         # 実験用モジュール
-    └── ml_order_decision/
-        ├── __init__.py
-        ├── phase1.py
-        └── phase2.py
-
-```
-
----
-
-## src/ ディレクトリ構造
-
-```
-src/
-├── leadlag/                 # 戦略パッケージ正本
-│   ├── __init__.py
-│   ├── cli.py               # 統合 CLI エントリーポイント (subcommands: decision, backtest, close, daily)
-│   │
-│   ├── core/                # 純粋ドメインロジック (I/O-free)
-│   │   ├── types.py         # 型安全なドメインモデル（dataclass/Enum）
-│   │   ├── correlation.py   # 相関・縮約計算
-│   │   ├── signal.py        # シグナル生成
-│   │   ├── residualize.py   # TOPIX 残差化
-│   │   ├── portfolio.py     # ウェイト計算、Gross Exposure 調整
-│   │   ├── allocator.py     # 資金・ロット配分
-│   │   ├── risk.py          # VaR/ES 計算、リスクブリーチ判定
-│   │   ├── account_risk.py  # 照合済み実口座損益snapshotの検証・損失stop
-│   │   ├── market_calendar.py  # 営業日カレンダー・日付判定
-│   │   ├── macro.py         # マクロ因子の純粋なサプライズ・Factor-Specific Kappa 計算
-│   │   └── pnl.py           # weight-based BT PnL と FIFO fill/inventory accounting
-│   ├── domain/              # 実行層間で共有する型付き契約
-│   │   ├── distribution.py  # 分布結果・理由・source試行トレース（S3a正本）
-│   │   ├── inputs.py        # Known/Historical/Evaluation/DecisionInputs と入力版
-│   │   └── gap_bundle.py    # μ/Ω/metadata の一括公開manifest（S3c）
-│   │
-│   ├── config/              # 設定合成・スキーマ定義・バリデーション層
-│   │   ├── __init__.py
-│   │   ├── loader.py        # YAML __base__ 合成・循環参照検出（S1a正本）
-│   │   └── schemas.py       # Pydanticを用いた型安全な設定クラス（AppConfig, StrategyConfig等）
-│   │
-│   ├── compliance/          # 安全監査・法令遵守検証層
-│   │   ├── auditor.py       # ComplianceAuditor — 安全監査ロジックの実行
-│   │   └── v2_auditor.py    # v2モデル専用監査ロジック
-│   │
-│   ├── models/              # 本番モデルレイヤー（入力adapterを受け、broker/発注・実行I/Oを持たない）
-│   │   ├── production_v2.py               # ProductionV2Model (Residual-BLPX-RA v2) — 本番モデル
-│   │   ├── v2/                             # decision engine・distribution source・fallback・監査比較
-│   │   ├── blpx/                           # ProductionBLPXModel と信号/事前分布部品
-│   │   ├── signal_enhancement.py          # マルチホライズンブレンド・ランク反転オーバーレイ
-│   │   └── ml_order_overlay.py            # ML order overlay 補助モデル
-│   │
-│   ├── runner/              # 本番・BTで共有する依存部品の組立層
-│   │   ├── model_factory.py # V2のBLPX/decision/overlay構築の正本
-│   │   └── production.py    # ProductionRunner — 一日分の決定組立
-│   │
-│   ├── pipeline/            # 入口から分離した純粋計算・診断出力境界
-│   │   ├── gap_distribution.py # raw/gap μ・Ωの一日分計算（S3b）
-│   │   └── gap_reporting.py # gap診断DataFrame・CSV出力adapter（S3b）
-│   │
-│   ├── data/                # データアクセス・前処理・キャッシュ層
-│   │   ├── tickers.py       # ティッカー定義・変換ユーティリティ
-│   │   ├── macro.py         # macro価格の取得・正規化・キャッシュ（S2a）
-│   │   ├── adr_features.py  # ADR特徴量artifactの読込・鮮度判定（S2a）
-│   │   ├── intraday_inputs.py # 5分足からの9:10入力抽出（S2a）
-│   │   ├── quote_snapshot.py # 09:10 broker bid/askの検証・日次不変snapshot
-│   │   ├── decision_cache.py # 日次判断・価格cache
-│   │   ├── market_data_cache.py # 市場履歴cacheの取得と鮮度検査
-│   │   ├── cache_store.py   # SQLite ベース汎用キャッシュストア
-│   │   ├── backtest_store.py # バックテスト結果 SQLite 永続化
-│   │   ├── gap_store.py     # gap 行列と一括manifestのSQLite永続化（S3c）
-│   │   ├── fetcher.py       # データダウンロード (yfinance / ETFパッチ)
-│   │   ├── preprocessor.py  # データ前処理（df_exec 構築、日米session整列）
-│   │   └── market_data.py   # 寄付価格取得、ギャップ計算、価格検証
-│   │
-│   ├── broker/              # ブローカー抽象化レイヤー
-│   │   ├── base.py          # ABC クライアントインターフェース
-│   │   ├── dry_run.py       # ドライランシミュレータクライアント
-│   │   ├── factory.py       # ブローカー作成ファクトリ
-│   │   ├── kabu/            # kabuステーション API 接続
-│   │   │   ├── api.py       # 低レベル API クライアント
-│   │   │   └── client.py    # KabuBrokerClient アダプタ
-│   │   └── tachibana/       # 立花証券 e-Shiten API 接続
-│   │       ├── api.py       # 低レベル API クライアント (RSA暗号化/復号、セッション管理)
-│   │       └── client.py    # TachibanaBrokerClient アダプタ
-│   │
-│   ├── execution/           # 実行管理・ランナー層
-│   │   ├── config.py        # 設定ロード・Pydanticを用いた検証呼び出し
-│   │   ├── broker_ops.py    # BrokerClient 構築・ポジション/資本取得・発注
-│   │   ├── pricing.py       # 寄付価格・約定価格解決
-│   │   ├── risk_capital.py  # リスク設定・リスクチェック・gross 調整・資本配分
-│   │   ├── output_ops.py    # 出力ディレクトリ・決定 CSV・バックテストサマリー・スナップショット
-│   │   ├── post_decision.py # gross 調整→リスク→配分→発注→出力の一連フロー
-│   │   ├── decision.py      # generate_daily_decision_results()
-│   │   ├── close.py         # 反対売買・自動クローズランナー
-│   │   ├── backtest.py      # run_production() — バックテスト実行管理（CLI経由）
-│   │   ├── backtester.py    # BacktestEngine — 汎用バックテストシミュレータ本体
-│   │   ├── cost_calculator.py   # CostCalculator — 実コスト・スリッページ統合計算
-│   │   ├── var_cache.py         # VaR/ES cache identity と絶対期限budget（S3c）
-│   │   ├── var_inputs.py        # VaR入力fingerprint・gap/PIT履歴snapshot
-│   │   ├── var_worker.py        # worker終了までのsnapshot所有・期限付きcache保存
-│   │   ├── state_store.py       # 注文intent/観測/reconciliationと実行lease（S5a）
-│   │   ├── reconcile.py         # 保存済み注文IDと約定/建玉の読取専用復旧照合
-│   │   ├── job_guard.py         # batch期限・process group停止・lease（S5b）
-│   │   └── microstructure/      # LOB・スリッページ・執行制御サブパッケージ
-│   │       ├── __init__.py
-│   │       ├── order_book_schema.py       # OrderBookSnapshot データスキーマ・バリデーション
-│   │       ├── order_book_cost.py         # 板スプレッド・LOBスリッページ推定
-│   │       ├── slippage_model.py          # エントリ/エグジットコストモデル (CostSource enum)
-│   │       ├── execution_constraints.py   # 板ベース執行制約・空売り代替銘柄選択
-│   │       └── live_quote_logger.py       # リアルタイム板ログ記録
-│   │
-│   ├── monitoring/          # モデル健全性監視層（記録・監視用、ポジションサイズ制御には使用しない）
-│   │   └── health_score.py  # HealthScoreCalculator — IC減衰・グロス偏差・フォールバック率・シグナルドリフトの統合スコア
-│   │
-│   └── reporting/           # パフォーマンスレポート・出力フォーマット
-│       ├── formatter.py           # ログ・テキストフォーマット
-│       ├── metrics.py             # 指標計算、チャート描画
-│       ├── daily_pnl_report.py    # 実約定 close fill と残存建玉の円建て PnL 表示
-│       ├── ml_overlay_forward_evaluation.py # ML shadowとforward実現値の照合
-│       ├── results_format.py      # 結果フォルダ命名・マニフェスト出力
-│       ├── production_v2_writer.py  # v2本番実行結果ライター
-│       └── sprint2c_lob_report.py   # sprint2c LOBスリッページ分析レポート
-│
-└── research/             # 研究パッケージ (本番実行パスに含まれない) — 詳細は「src/research/ ディレクトリ構造」セクション参照
-```
-
----
-
 ## Architecture Layers
 
 ### 1. Models Layer (`models/`)
@@ -458,16 +265,7 @@ LOB・スリッページ・執行制御関連モジュール。
 | `auditor.py` | `ComplianceAuditor.run_audit()` — バックテストや実行結果に対する時系列・数式漏洩等の包括的な安全監査の実行 |
 | `v2_auditor.py` | v2モデル専用監査ロジック — ProductionV2Model の出力に対する個別検証 |
 
-### 7. Monitoring Layer (`monitoring/`)
-モデル健全性の定量的監視。**記録・監視専用**であり、ポジションサイズ制御には使用しない（常にフルポジションで運用）。
-
-| モジュール | 責務 |
-|---|---|
-| `health_score.py` | `HealthScoreCalculator` — IC減衰・グロス偏差・フォールバック率・シグナルドリフトの4成分を統合したモデル健全性スコア（0-100）を算出。ターンオーバー成分は日次全額決済運用のため除外。 |
-
-> **設計決定**: Health Score によるポジションサイズ動的調整をバックテストで検証した結果、Sharpe比率の改善は見られず、常にフルポジション（グロスエクスポージャー200%）での運用が最適であることを確認済み。Health Score はモデル健全性の記録・監視用としてのみ利用する。
-
-### 8. Reporting Layer (`reporting/`)
+### 7. Reporting Layer (`reporting/`)
 | モジュール | 責務 |
 |---|---|
 | `formatter.py` | ログ出力・テキスト注文フォーマット・リスクレポート |
@@ -502,7 +300,7 @@ day/night attribution is not lost when results are reloaded. `MetricsSpec`
 fixes evaluation frequency, annualisation, flat-day treatment, and return/cost
 units for reports.
 
-### 9. Research Package (`src/research/`)
+### 8. Research Package (`src/research/`)
 研究用モジュール群。本番実行パスには含まれない。`src/research/scripts/` から `from research...` として参照される。
 
 Gap 分布診断は、raw/preprocessed market data・TOPIX trade return・realtime とモデル共通入力の組立を `research/diagnostics/gap_inputs.py`、

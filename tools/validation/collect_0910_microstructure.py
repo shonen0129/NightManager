@@ -14,6 +14,7 @@ import argparse
 import json
 import os
 import plistlib
+import re
 import subprocess
 import time as time_module
 from datetime import datetime, time, timedelta
@@ -32,6 +33,22 @@ DEFAULT_OUTPUT = ROOT / "reports/20260923_profitability_order_2"
 JST = ZoneInfo("Asia/Tokyo")
 JP_TICKERS = [f"{code}.T" for code in range(1617, 1634)]
 CAPTURE_TICKERS = list(JP_TICKERS_WITH_TOPIX)
+_URL_QUERY_PATTERN = re.compile(r"(?P<url>https?://[^\s?]+)\?[^\s]+")
+
+
+def _safe_error_message(exc: Exception) -> str:
+    """Keep useful request errors while removing authentication query data."""
+    return _URL_QUERY_PATTERN.sub(r"\g<url>?[redacted]", str(exc))
+
+
+def _validated_api_url(api_url: str) -> str:
+    """Reject the retired API endpoint before any broker request is made."""
+    normalized = api_url.strip()
+    if "e_api_v4r9" in normalized.casefold():
+        raise ValueError(
+            "TACHIBANA_API_URL points to retired v4r9; configure the current v4r10 URL"
+        )
+    return normalized
 
 
 def _jst_now() -> datetime:
@@ -224,7 +241,7 @@ def _collect_live_quotes(
 
     config = BrokerConfig(
         provider="tachibana",
-        api_url=os.environ.get("TACHIBANA_API_URL", ""),
+        api_url=_validated_api_url(os.environ.get("TACHIBANA_API_URL", "")),
         api_token=os.environ.get("TACHIBANA_AUTH_ID", ""),
         api_password=os.environ.get("TACHIBANA_SECOND_PASSWORD", ""),
         request_timeout=int(os.environ.get("TACHIBANA_REQUEST_TIMEOUT", "15")),
@@ -407,7 +424,7 @@ def _run_capture_only(
                 "status": "ERROR",
                 "request_started_at": request_started_at.isoformat(),
                 "error_type": type(exc).__name__,
-                "error": str(exc),
+                "error": _safe_error_message(exc),
             }
             records.append(record)
             _append_jsonl(run_path, record)
@@ -617,7 +634,7 @@ def build_report(
             live = {
                 "status": "ERROR",
                 "error_type": type(exc).__name__,
-                "error": str(exc),
+                "error": _safe_error_message(exc),
                 "window_valid": in_window,
             }
 

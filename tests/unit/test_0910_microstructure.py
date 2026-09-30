@@ -5,6 +5,7 @@ import plistlib
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
+import pytest
 from tools.validation import collect_0910_microstructure as capture
 from tools.validation.collect_0910_microstructure import _load_stored_snapshot_summary
 
@@ -29,6 +30,14 @@ def _quote_rows(
         }
         for ticker in capture.CAPTURE_TICKERS
     ]
+
+
+def test_retired_tachibana_endpoint_is_rejected_before_request():
+    current = "https://kabuka.e-shiten.jp/e_api_v4r10/"
+    assert capture._validated_api_url(current) == current
+
+    with pytest.raises(ValueError, match="retired v4r9"):
+        capture._validated_api_url("https://kabuka.e-shiten.jp/e_api_v4r9/")
 
 
 def test_stored_snapshot_summary_preserves_true_0910_evidence(tmp_path):
@@ -157,7 +166,11 @@ def test_capture_only_retries_transient_api_error_inside_window(tmp_path, monkey
         nonlocal calls
         calls += 1
         if calls == 1:
-            raise TimeoutError("temporary network timeout")
+            raise RuntimeError(
+                "404 Client Error: Not Found for url: "
+                "https://kabuka.e-shiten.jp/e_api_v4r10/auth/?"
+                "%7B%22sAuthId%22%3A%22SensitiveLoginTokenXYZ%22%7D"
+            )
         return {
             "status": "OBSERVED",
             "request_started_at": started.isoformat(),
@@ -183,6 +196,8 @@ def test_capture_only_retries_transient_api_error_inside_window(tmp_path, monkey
     assert exit_code == 0
     assert calls == 2
     assert runs[0]["status"] == "ERROR"
+    assert "SensitiveLoginTokenXYZ" not in runs[0]["error"]
+    assert "[redacted]" in runs[0]["error"]
     assert runs[1]["status"] == "CAPTURED"
 
 
