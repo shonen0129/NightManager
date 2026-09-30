@@ -9,6 +9,7 @@ to know about the diagnostic command's orchestration.
 from __future__ import annotations
 
 import logging
+import math
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
@@ -32,6 +33,9 @@ def inject_tachibana_realtime_prices(
     raw_data: dict[str, Any],
     today: pd.Timestamp,
     api_client: Any | None = None,
+    frozen_prices: Mapping[str, float] | None = None,
+    quote_snapshot_id: str | None = None,
+    quote_observed_at: str | None = None,
 ) -> tuple[pd.DataFrame, Any]:
     """Inject or override today's row in df_exec using Tachibana API real-time prices.
 
@@ -61,14 +65,28 @@ def inject_tachibana_realtime_prices(
     from leadlag.execution.broker_ops import build_api_client
 
     # --- 1. Fetch current prices from Tachibana API ---
-    own_client = api_client is None
+    own_client = api_client is None and frozen_prices is None
     if own_client:
         api_client = build_api_client(api_url=None, api_token=None, api_dry_run=False)
-    if api_client is None:
+    if api_client is None and frozen_prices is None:
         raise RuntimeError("build_api_client returned None")
 
     tickers_to_fetch = JP_TICKERS + [TOPIX_TICKER]
-    current_prices = api_client.fetch_current_prices(tickers_to_fetch, allow_missing=True)
+    if frozen_prices is not None:
+        current_prices = {str(ticker): float(price) for ticker, price in frozen_prices.items()}
+        missing = sorted(set(tickers_to_fetch) - set(current_prices))
+        invalid = [
+            ticker for ticker in tickers_to_fetch
+            if ticker in current_prices
+            and (not math.isfinite(current_prices[ticker]) or current_prices[ticker] <= 0.0)
+        ]
+        if missing or invalid:
+            raise ValueError(
+                f"Frozen quote snapshot is incomplete or invalid: missing={missing}, invalid={invalid}"
+            )
+    else:
+        assert api_client is not None
+        current_prices = api_client.fetch_current_prices(tickers_to_fetch, allow_missing=True)
 
     if not current_prices:
         logger.error("Failed to fetch any prices from Tachibana API.")
@@ -82,11 +100,14 @@ def inject_tachibana_realtime_prices(
     logger.info(
         "Fetched %d/%d prices from Tachibana API.", len(current_prices), len(tickers_to_fetch)
     )
-    save_current_prices_cache(
-        {tk: price for tk, price in current_prices.items() if tk != TOPIX_TICKER},
-        current_prices.get(TOPIX_TICKER),
-        today.strftime("%Y%m%d"),
-    )
+    if frozen_prices is None:
+        save_current_prices_cache(
+            {tk: price for tk, price in current_prices.items() if tk != TOPIX_TICKER},
+            current_prices.get(TOPIX_TICKER),
+            today.strftime("%Y%m%d"),
+        )
+    elif quote_snapshot_id is None or quote_observed_at is None:
+        raise ValueError("Frozen quote prices require snapshot id and observed timestamp")
 
     # --- 2. Determine sig_date: most recent US trading day before today ---
     us_close = raw_data["us_close"].copy()
@@ -142,7 +163,6 @@ def inject_tachibana_realtime_prices(
         "sig_date": sig_date,
         "is_provisional": True,
     }
-
     for tk in JP_TICKERS:
         prev_close = float(jp_close.loc[prev_date, tk]) if tk in jp_close.columns else np.nan
         curr_price = current_prices.get(tk, np.nan)
@@ -208,6 +228,12 @@ def inject_tachibana_realtime_prices(
         df_exec = pd.concat([df_exec, new_row])
 
     df_exec = df_exec.sort_index()
+    if quote_snapshot_id is not None:
+        # DataFrame concat/sort may drop attrs, so attach the immutable input
+        # identity only after the complete daily row has been assembled.
+        df_exec.attrs["quote_snapshot_id"] = str(quote_snapshot_id)
+        df_exec.attrs["quote_snapshot_as_of"] = str(quote_observed_at)
+        df_exec.attrs["quote_snapshot_trade_date"] = today.strftime("%Y-%m-%d")
 
     logger.info(
         "Injected row for %s: sig_date=%s, topix_night=%.4f, %d gap returns computed.",

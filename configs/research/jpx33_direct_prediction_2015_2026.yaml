@@ -1,0 +1,45 @@
+experiment_id: 20260924_jpx33_direct_prediction
+purpose: >
+  Compare the production 17-ETF residual BLPX forecast with a 33-industry
+  residual BLPX forecast whose mean and covariance are mapped back to TOPIX-17.
+  This is a retrospective proxy diagnostic, not a production promotion test.
+
+inputs:
+  production_config: configs/production/production.yaml
+  industry_returns: var/research/subsector/cap_panel.parquet plus raw_ohlc/*.parquet
+  classification_snapshot: var/research/subsector/jpx_master/jpx_master.csv
+  industry_market_caps: configs/research/jpx33_yearend_market_cap_2014_2025.csv
+  industry_sensitivity_labels: configs/research/sensitivity_audit_jpx33_candidate_20260924.yaml
+  current_parent_sensitivity_labels: src/leadlag/data/tickers.py::SENSITIVITY_LABELS
+  target: daily open-to-close residual returns; 9:10 observations are unavailable for the 33 proxy baskets
+
+evaluation:
+  start_date: 2015-01-05
+  end_date: 2026-09-18
+  fixed_baseline_correlation: [2010-01-01, 2014-12-31]
+  residualization: trailing 60-session OLS beta against TOPIX open-to-close; current observation excluded
+  mapping: prior-calendar-year official JPX 33-industry total market-cap shares within TOPIX-17 parent
+  publication_timing: use year-2 cap snapshot on each year's first Japanese session; otherwise year-1
+  first_2015_session: excluded because the 2013 snapshot is unavailable
+  comparisons:
+    - current 17-ETF labels and direct 17-dimensional prediction
+    - 33-dimensional prediction with current 17 labels inherited by each child industry
+    - 33-dimensional prediction with the frozen user-proposed JPX33 labels
+  primary_metrics: [mean_daily_cross_sectional_rank_ic, mean_daily_mae, mean_daily_rmse]
+  bootstrap:
+    method: paired_non_circular_moving_block
+    block_length_sessions: 20
+    resamples: 5000
+    seed: 20260924
+  exploratory_accuracy_gate:
+    rank_ic_difference_ci95_lower_gt: 0
+    mean_mae_difference_lte: 0
+  portfolio_pnl_or_production_adoption: not_evaluated
+
+limitations:
+  - 33-industry returns use a selected current 494-stock universe and 2026-07-31 industry snapshot
+  - historical listing, TOPIX membership, and 33-industry classification histories are unavailable
+  - stock-level market-cap weights are approximate and use latest shares outstanding adjusted for splits
+  - JPX annual industry market-cap weights are not float-adjusted TOPIX-17 ETF holdings
+  - the full 2015-2026 period is already inspected and is not an untouched out-of-sample period
+  - targets are open-to-close proxies and do not validate the live 09:10-to-close execution target

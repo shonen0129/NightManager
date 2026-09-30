@@ -155,3 +155,57 @@ def test_registry_jsonl_roundtrip():
             raw = json.loads(line)
             assert raw["name"] == "roundtrip"
             assert raw["parameters"]["a"] == [1, 2, 3]
+
+
+def test_correction_is_append_only_and_current_view_hides_superseded_record():
+    reg = _temp_registry()
+    original = ExperimentRecord(
+        name="sensitivity_audit",
+        hypothesis="Corrected target definition.",
+        study_id="sensitivity-2026-forward",
+        metrics={"net_sharpe": 0.4, "trials": 3, "n_observations": 252},
+        report_path="reports/sensitivity/report.md",
+    )
+    reg.record(original)
+    correction = ExperimentRecord(
+        name="sensitivity_audit",
+        hypothesis="Corrected target definition; same experiment, corrected label.",
+        study_id="sensitivity-2026-forward",
+        metric_schema_version="daily-v2",
+        metrics={"net_sharpe": 0.2, "trials": 3, "n_observations": 252},
+        report_path="reports/sensitivity/corrected_report.md",
+    )
+
+    recorded = reg.record_correction(original.record_id, correction)
+
+    archived = list(reg)
+    current = list(reg.iter_current_records())
+    assert len(archived) == 2
+    assert len(current) == 1
+    assert current[0].record_id == recorded.record_id
+    assert current[0].correction_of == original.record_id
+    assert current[0].metric_schema_version == "daily-v2"
+    assert reg.count_trials(study_id="sensitivity-2026-forward") == 1
+    assert reg.decisions()[0]["report_path"] == "reports/sensitivity/corrected_report.md"
+
+
+def test_study_trial_count_inherits_id_from_correction_of_legacy_record():
+    reg = _temp_registry()
+    original = ExperimentRecord(
+        name="legacy_trial",
+        hypothesis="Original run without a study identifier.",
+        metrics={"rank_ic": {"mean_rank_ic": -0.5}},
+    )
+    reg.record(original)
+    correction = ExperimentRecord(
+        name=original.name,
+        hypothesis=original.hypothesis,
+        study_id="corrected-study",
+        metric_schema_version="rank-ic-v2",
+        metrics={"rank_ic_vs_backtest_target": {"mean_rank_ic": 0.2}},
+    )
+
+    reg.record_correction(original.record_id, correction)
+
+    assert reg.count_trials(study_id="corrected-study") == 1
+    assert reg.count_trials() == 1

@@ -13,6 +13,7 @@ References
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 from collections.abc import Iterable, Iterator
@@ -20,6 +21,7 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 import numpy as np
 from scipy import stats as sps
@@ -50,6 +52,11 @@ class ExperimentRecord:
         "decision",
         "report_path",
         "related_records",
+        "record_id",
+        "study_id",
+        "metric_schema_version",
+        "correction_of",
+        "supersedes",
     )
 
     def __init__(
@@ -64,6 +71,11 @@ class ExperimentRecord:
         decision: Decision = Decision.PENDING,
         report_path: str | None = None,
         related_records: list[str] | None = None,
+        record_id: str | None = None,
+        study_id: str | None = None,
+        metric_schema_version: str | None = None,
+        correction_of: str | None = None,
+        supersedes: list[str] | None = None,
     ) -> None:
         self.name = name
         self.hypothesis = hypothesis
@@ -74,6 +86,13 @@ class ExperimentRecord:
         self.decision = Decision(decision)
         self.report_path = report_path
         self.related_records = list(related_records) if related_records is not None else []
+        self.record_id = str(record_id or uuid4().hex)
+        self.study_id = None if study_id is None else str(study_id)
+        self.metric_schema_version = metric_schema_version or self.metrics.get(
+            "metric_schema_version"
+        )
+        self.correction_of = correction_of
+        self.supersedes = list(supersedes) if supersedes is not None else []
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -86,10 +105,18 @@ class ExperimentRecord:
             "decision": self.decision.value,
             "report_path": self.report_path,
             "related_records": self.related_records,
+            "record_id": self.record_id,
+            "study_id": self.study_id,
+            "metric_schema_version": self.metric_schema_version,
+            "correction_of": self.correction_of,
+            "supersedes": self.supersedes,
         }
 
     @classmethod
     def from_dict(cls, raw: dict[str, Any]) -> ExperimentRecord:
+        legacy_id = "legacy:" + hashlib.sha256(
+            json.dumps(raw, sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")
+        ).hexdigest()
         return cls(
             name=raw["name"],
             hypothesis=raw["hypothesis"],
@@ -100,6 +127,11 @@ class ExperimentRecord:
             decision=Decision(raw.get("decision", "pending")),
             report_path=raw.get("report_path"),
             related_records=raw.get("related_records", []),
+            record_id=raw.get("record_id") or legacy_id,
+            study_id=raw.get("study_id"),
+            metric_schema_version=raw.get("metric_schema_version"),
+            correction_of=raw.get("correction_of"),
+            supersedes=raw.get("supersedes", []),
         )
 
     def deflated_sharpe(self) -> float | None:
@@ -254,16 +286,68 @@ class ExperimentRegistry:
                 continue
             yield rec
 
-    def count_trials(self, since: datetime | None = None) -> int:
-        """Count records since a given UTC time."""
-        if since is None:
-            return sum(1 for _ in self)
-        return sum(1 for rec in self if rec.start_time >= since)
+    def record_correction(
+        self,
+        original_record_id: str,
+        corrected: ExperimentRecord,
+    ) -> ExperimentRecord:
+        """Append a correction while retaining the original record unchanged."""
+        original = next((rec for rec in self if rec.record_id == original_record_id), None)
+        if original is None:
+            raise KeyError(f"Unknown experiment record_id: {original_record_id}")
+        if corrected.record_id == original_record_id:
+            raise ValueError("A correction must have a new record_id")
+        payload = corrected.to_dict()
+        payload["correction_of"] = original_record_id
+        payload["supersedes"] = sorted(set(corrected.supersedes) | {original_record_id})
+        payload["related_records"] = sorted(
+            set(payload.get("related_records", [])) | {original_record_id}
+        )
+        correction = ExperimentRecord.from_dict(payload)
+        return self.record(correction)
+
+    def iter_current_records(self) -> Iterator[ExperimentRecord]:
+        """Iterate the latest non-superseded view without deleting history."""
+        records = list(self)
+        superseded = {
+            str(record_id)
+            for rec in records
+            for record_id in (rec.supersedes + ([rec.correction_of] if rec.correction_of else []))
+        }
+        return iter(rec for rec in records if rec.record_id not in superseded)
+
+    def count_trials(
+        self,
+        since: datetime | None = None,
+        *,
+        study_id: str | None = None,
+    ) -> int:
+        """Count original trial records, optionally within an explicit study."""
+        corrected_study_ids: dict[str, str] = {}
+        if study_id is not None:
+            for correction in self.iter_current_records():
+                if correction.study_id is None:
+                    continue
+                for record_id in correction.supersedes:
+                    corrected_study_ids[str(record_id)] = correction.study_id
+                if correction.correction_of is not None:
+                    corrected_study_ids[correction.correction_of] = correction.study_id
+        return sum(
+            1
+            for rec in self
+            if rec.correction_of is None
+            and (since is None or rec.start_time >= since)
+            and (
+                study_id is None
+                or rec.study_id == study_id
+                or corrected_study_ids.get(rec.record_id) == study_id
+            )
+        )
 
     def decisions(self) -> list[dict[str, Any]]:
         """Return a summary of adopted/rejected/pending records."""
         out: list[dict[str, Any]] = []
-        for rec in self:
+        for rec in self.iter_current_records():
             dsr = rec.deflated_sharpe()
             out.append(
                 {

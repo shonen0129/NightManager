@@ -1,0 +1,48 @@
+experiment_id: 20260924_sensitivity_audit_jpx33_candidate
+source: user-provided upper-model proposal
+decision_target: provisional research only; production sensitivity labels are unchanged
+sensitivity_grid: [-1.0, -0.6, -0.3, 0.0, 0.3, 0.6, 1.0]
+w6_interpretation: nominal-rate direction proposal; market, currency, tenor, level/change, surprise, and observation time are not defined
+industries:
+  columns: [name, w3, w4, w5, w6]
+  rows:
+    - [水産・農林業, -0.3, -0.3, -0.3, -0.3]
+    - [鉱業, 0.6, 0.3, 1.0, 0.0]
+    - [建設業, 0.3, 0.0, -0.3, -0.3]
+    - [食料品, -0.6, -0.6, -0.3, -0.3]
+    - [繊維製品, 0.3, 0.3, -0.3, 0.0]
+    - [パルプ・紙, 0.0, -0.3, -0.6, -0.3]
+    - [化学, 0.6, 0.6, -0.3, 0.0]
+    - [医薬品, -0.6, 0.3, 0.0, -0.3]
+    - [石油・石炭製品, 0.3, 0.0, 0.3, 0.0]
+    - [ゴム製品, 0.6, 0.6, -0.3, 0.0]
+    - [ガラス・土石製品, 0.6, 0.3, -0.6, -0.3]
+    - [鉄鋼, 1.0, 0.6, -0.6, 0.0]
+    - [非鉄金属, 1.0, 0.6, -0.6, 0.0]
+    - [金属製品, 0.6, 0.3, -0.3, -0.3]
+    - [機械, 1.0, 1.0, -0.3, -0.3]
+    - [電気機器, 1.0, 1.0, -0.3, -0.3]
+    - [輸送用機器, 1.0, 1.0, -0.3, -0.3]
+    - [精密機器, 0.6, 0.6, -0.3, -0.3]
+    - [その他製品, 0.3, 0.3, -0.3, 0.0]
+    - [電気・ガス業, -0.6, -1.0, -0.6, -0.6]
+    - [陸運業, -0.3, -0.3, -0.3, -0.3]
+    - [海運業, 1.0, 0.6, -0.3, -0.3]
+    - [空運業, 0.6, -0.6, -0.6, -0.3]
+    - [倉庫・運輸関連業, 0.3, 0.0, -0.3, -0.3]
+    - [情報・通信業, 0.0, 0.0, 0.0, -0.6]
+    - [卸売業, 0.3, 0.3, 0.6, 0.0]
+    - [小売業, -0.3, -0.6, -0.3, -0.3]
+    - [銀行業, 0.6, 0.0, 0.0, 1.0]
+    - ["証券、商品先物取引業", 0.6, 0.0, 0.0, 0.0]
+    - [保険業, 0.3, 0.3, 0.0, 0.6]
+    - [その他金融業, 0.3, 0.0, 0.0, 0.0]
+    - [不動産業, 0.3, 0.0, 0.0, -1.0]
+    - [サービス業, 0.0, 0.0, -0.3, 0.0]
+evaluation:
+  legacy_window: [2015-01-05, 2026-09-18]
+  interpretation: retrospective diagnostics only; this period has already been inspected
+  target_priority: 09:10-to-close using actual tradable quotes; local proxy coverage is sparse
+  fallback_target: open-to-close must be reported as a different target
+  point_in_time_weighting: prior-calendar-year JPX year-end industry market cap; defer annual update until the second JP trading session in January because JPX publishes after first business day 13:00
+  cap_proxy_limit: total industry market cap, not float-adjusted ETF holdings

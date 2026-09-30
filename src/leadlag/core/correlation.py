@@ -257,6 +257,12 @@ def compute_baseline_correlation(
     base_returns = all_returns[mask]
     if base_returns.shape[0] == 0:
         raise ValueError(f"No rows found for baseline period ({baseline_start} to {baseline_end})")
+    complete_rows = np.isfinite(base_returns).all(axis=1)
+    base_returns = base_returns[complete_rows]
+    if base_returns.shape[0] == 0:
+        raise ValueError(
+            f"No complete finite rows found for baseline period ({baseline_start} to {baseline_end})"
+        )
 
     active_cache = _BASELINE_CORR_CACHE if cache is None else cache
     cache_key = (ewma_half_life, baseline_start, baseline_end, base_returns.shape, hash(base_returns.tobytes()))

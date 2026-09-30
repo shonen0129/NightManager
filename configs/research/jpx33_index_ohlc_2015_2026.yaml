@@ -1,0 +1,47 @@
+experiment_id: 20260926_jpx33_index_ohlc
+purpose: >
+  Repeat the long-period direct 33-industry prediction diagnostic with user-supplied
+  33-industry index OHLC histories, using daily open-to-close returns.
+
+inputs:
+  production_config: configs/production/production.yaml
+  industry_ohlc_dir: data
+  industry_ohlc_pattern: "[0-9][0-9]_topix-*.csv"
+  industry_ohlc_columns:
+    date: Date
+    open: Open
+    close: Price
+  industry_file_order: numbered 01-33 CSVs mapped to frozen JPX33 label order
+  sensitivity_labels: configs/research/sensitivity_audit_jpx33_candidate_20260924.yaml
+  parent_mapping: configs/research/jpx33_sensitivity_prior_2017.yaml
+  annual_industry_market_caps: configs/research/jpx33_yearend_market_cap_2014_2025.csv
+
+evaluation:
+  start_date: "2015-01-05"
+  end_date: "2026-09-18"
+  target: TOPIX-17 ETF daily open-to-close return, residualized against TOPIX open-to-close
+  industry_returns: close / open - 1, residualized against TOPIX using strictly prior 60-session beta
+  fixed_baseline_correlation: ["2010-01-01", "2014-12-31"]
+  mapping: prior-calendar-year JPX total industry market-cap shares within each TOPIX-17 parent
+  first_session_rule: use year-2 market-cap snapshot on the first JP trading session; otherwise year-1
+  candidates:
+    - direct 33D prediction with existing TOPIX-17 sensitivity labels copied to child industries
+    - direct 33D prediction with the user-proposed JPX33 sensitivity labels
+  baseline: direct 17D prediction with current production labels
+  metrics: [mean_daily_cross_sectional_rank_ic, mean_daily_mae, mean_daily_rmse, sign_accuracy]
+  bootstrap:
+    method: paired_non_circular_moving_block
+    block_length_sessions: 20
+    resamples: 5000
+    seed: 20260926
+  exploratory_accuracy_gate:
+    rank_ic_difference_ci95_lower_gt: 0
+    mean_mae_difference_lte: 0
+
+limitations:
+  - retrospective period has already been inspected and is not untouched OOS
+  - data files are user-supplied; provider, series definitions, and redistribution license are not authenticated in the workspace
+  - 33-to-17 mapping uses total market-cap shares, not point-in-time float-adjusted ETF holdings
+  - open-to-close is a separate target from the production 09:10-to-close strategy
+  - portfolio construction, execution costs, and cost-adjusted PnL are not evaluated
+  - production code and configuration must remain unchanged

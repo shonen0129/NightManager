@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 import sys
 import warnings
 from concurrent.futures import ThreadPoolExecutor
@@ -39,6 +40,7 @@ from leadlag.data.intraday_inputs import (
 )
 from leadlag.data.market_data_cache import save_df_exec_to_local_cache
 from leadlag.data.pit_lake import PITDataLake
+from leadlag.data.quote_snapshot import FrozenQuoteSnapshot, load_frozen_quote_snapshot
 from leadlag.data.tickers import JP_TICKERS, TOPIX_TICKER
 from leadlag.execution.config import load_config_from_yaml
 from leadlag.models.signal_enhancement import apply_multi_horizon_blend, apply_rank_reversal_overlay
@@ -269,6 +271,9 @@ class GapDistContext:
     open_910_returns: pd.DataFrame | None = None
     historical_inputs: Any | None = None
     historical_inputs_by_horizon: dict[int, Any] = field(default_factory=dict)
+    quote_snapshot_id: str | None = None
+    quote_snapshot_trade_date: str | None = None
+    quote_snapshot_as_of: str | None = None
 
 
 @dataclass
@@ -532,6 +537,9 @@ def _process_date_impl(dt: pd.Timestamp, ctx: GapDistContext, acc: GapDistAccumu
     fro_ratio = frob_gap / frob_raw if frob_raw > 0 else 1.0
     mean_diag_ratio = float(np.mean(diag_gap / diag_raw))
 
+    quote_is_current_input = (
+        ctx.quote_snapshot_trade_date == date_str and ctx.quote_snapshot_id is not None
+    )
     bundle_metadata = {
         "sig_date": str(sig_date),
         "trade_date": date_str,
@@ -541,13 +549,21 @@ def _process_date_impl(dt: pd.Timestamp, ctx: GapDistContext, acc: GapDistAccumu
         "model_version": ctx.bundle_model_version,
         "config_version": ctx.bundle_config_version,
         "ticker_order": list(ctx.bundle_ticker_order),
-        "calculation_as_of": f"{date_str}T09:10:00+09:00",
+        "calculation_as_of": (
+            ctx.quote_snapshot_as_of
+            if quote_is_current_input
+            else f"{date_str}T09:10:00+09:00"
+        ),
         "label_available_at": "trade_date+15:30",
         "observed_at": (
             dict(ctx.historical_inputs.observed_at_for(dt))
             if ctx.historical_inputs is not None else None
         ),
-        "observed_at_source": "session_boundary_contract",
+        "observed_at_source": (
+            "frozen_broker_quote_snapshot" if quote_is_current_input
+            else "session_boundary_contract"
+        ),
+        "quote_snapshot_id": ctx.quote_snapshot_id if quote_is_current_input else None,
         "historical_inputs_fingerprint": (
             ctx.historical_inputs.fingerprint if ctx.historical_inputs is not None else None
         ),
@@ -1004,12 +1020,31 @@ def main():
     api_client = None
     opens_executor = None
     opens_future = None
+    quote_snapshot: FrozenQuoteSnapshot | None = None
     if str_to_bool(args.use_tachibana_prices):
         today = pd.Timestamp.now().tz_localize(None).normalize()
+        quote_dir_value = os.environ.get("LEADLAG_CAPTURE_OUTPUT_DIR")
+        quote_dir = Path(quote_dir_value) if quote_dir_value else (
+            ROOT / "var/shadow_runs/ml_overlay_value/microstructure"
+        )
+        if not quote_dir.is_absolute():
+            quote_dir = ROOT / quote_dir
+        quote_snapshot = load_frozen_quote_snapshot(
+            quote_dir,
+            trade_date=today.strftime("%Y-%m-%d"),
+        )
         from leadlag.execution.broker_ops import build_api_client
 
         api_client = build_api_client(api_url=None, api_token=None, api_dry_run=False)
-        df_exec, api_client = inject_tachibana_realtime_prices(df_exec, raw_data, today, api_client=api_client)
+        df_exec, api_client = inject_tachibana_realtime_prices(
+            df_exec,
+            raw_data,
+            today,
+            api_client=api_client,
+            frozen_prices=quote_snapshot.prices,
+            quote_snapshot_id=quote_snapshot.snapshot_id,
+            quote_observed_at=quote_snapshot.as_of.isoformat(),
+        )
 
         # Start open-price fetch in parallel with the main computation.
         # The decision step can then read these cached opens and skip an API call.
@@ -1184,6 +1219,13 @@ def main():
         open_910_returns=open_910_returns,
         historical_inputs=historical_inputs,
         historical_inputs_by_horizon=historical_inputs_by_horizon,
+        quote_snapshot_id=(None if quote_snapshot is None else quote_snapshot.snapshot_id),
+        quote_snapshot_trade_date=(
+            None if quote_snapshot is None else quote_snapshot.trade_date
+        ),
+        quote_snapshot_as_of=(
+            None if quote_snapshot is None else quote_snapshot.as_of.isoformat()
+        ),
     )
 
     def _process_date(dt):

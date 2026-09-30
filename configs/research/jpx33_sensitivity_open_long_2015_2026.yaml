@@ -1,0 +1,29 @@
+experiment_id: 20260924_jpx33_sensitivity_open_long
+base_industry_config: configs/research/jpx33_sensitivity_prior_2017.yaml
+
+evaluation:
+  target: one-day open-to-close return, residualized against TOPIX using strictly prior rolling betas
+  start_date: "2015-01-05"
+  end_date: "2026-09-18"
+  min_observed_etfs_per_date: 10
+  only_complete_confirmed_rows: true
+  primary_metric: mean daily cross-sectional Spearman rank IC of the residual return forecast
+  secondary_metrics:
+    - mean daily MAE and RMSE of residual return forecast
+    - annual mean daily Rank IC and forecast error
+  bootstrap:
+    method: non-circular moving_block_bootstrap
+    block_length_trading_dates: 20
+    resamples: 5000
+    seed: 20260923
+  acceptance:
+    min_paired_dates: 100
+    min_rank_ic_improvement: 0.02
+    rank_ic_difference_ci_lower_gt: 0.0
+    mean_absolute_error_difference_lte: 0.0
+    sensitivity_variant_min_rank_ic_difference: -0.01
+  sensitivity_variants:
+    - shift: one grid step toward zero
+      role: prespecified robustness diagnostic
+    - shift: one grid step away from zero
+      role: prespecified robustness diagnostic

@@ -1,0 +1,43 @@
+experiment_id: 20260926_jpx33_mapping_ablation
+purpose: >
+  Isolate the effect of the 33-to-17 output aggregation by holding the 33D
+  parent-label forecast fixed and changing only the aggregation weights.
+
+inputs:
+  prior_experiment: reports/20260926_jpx33_index_ohlc/report.md
+  production_config: configs/production/production.yaml
+  industry_ohlc_dir: data
+  parent_mapping: configs/research/jpx33_sensitivity_prior_2017.yaml
+  sensitivity_labels: configs/research/sensitivity_audit_jpx33_candidate_20260924.yaml
+  annual_industry_market_caps: configs/research/jpx33_yearend_market_cap_2014_2025.csv
+
+evaluation:
+  model: 33D residual BLPX with current TOPIX-17 labels copied to child industries
+  fixed_c_full_period: ["2010-01-01", "2014-12-31"]
+  mapping_fit_period: ["2010-01-01", "2014-12-31"]
+  evaluation_period: ["2015-01-06", "2026-09-18"]
+  target: TOPIX-17 ETF open-to-close residual returns
+  industry_returns: user-supplied 33-series close / open - 1, residualized against TOPIX
+  aggregation_candidates:
+    - prior-year annual total-industry-market-cap share within each TOPIX-17 parent (reference)
+    - fixed 2014 total-market-cap shares
+    - equal child-industry weights within each parent
+    - nonnegative simplex least-squares weights fit on 2010-2014 residual returns and frozen thereafter
+  primary_mapping_metrics: [mean_absolute_error_bps, mean_rmse_bps, per_parent_time_series_correlation]
+  forecast_metrics: [daily_cross_sectional_rank_ic, mae_bps, rmse_bps, sign_accuracy]
+  paired_bootstrap:
+    method: non_circular_moving_block
+    block_length_sessions: 20
+    resamples: 5000
+    seed: 20260926
+  diagnostic_gate:
+    mapping_error_delta_vs_annual_cap_ci95_upper_lt: 0
+    and_forecast_rank_ic_delta_vs_annual_cap_ci95_lower_gt: 0
+    and_forecast_mae_delta_vs_annual_cap_lte: 0
+
+limitations:
+  - historical period was previously inspected and is not untouched OOS
+  - the ETF open-to-close series and user-supplied industry CSV provider are not independently authenticated here
+  - fitted weights are diagnostic pseudo-OOS weights and are not eligible for production
+  - only predicted means and realized-return aggregation accuracy are scored; no portfolio PnL or transaction costs
+  - production code and configuration must remain unchanged

@@ -1,0 +1,85 @@
+experiment_id: 20260924_sensitivity_rate_prior_v2
+base_config: configs/production/production.yaml
+
+hypothesis: >-
+  The current w6 prior mixes inflation and rate exposure. Reweight w6 toward
+  direct nominal-rate-sensitive sectors (banks positive; real estate, utilities,
+  and long-duration growth negative) while leaving w3-w5 unchanged. A cleaner
+  qualitative prior may improve the full V2 portfolio, but values are not
+  estimated from the evaluation returns.
+
+evaluation:
+  start_date: "2015-01-05"
+  end_date: "2026-09-18"
+  target: "V2 09:10-to-close; use the production target fallback where 09:10 prices are unavailable"
+  include_flat_days: true
+  annualization_trading_days: 245
+  bootstrap:
+    method: non_circular_moving_block
+    block_length_trading_dates: 20
+    resamples: 5000
+    seed: 20260924
+  adoption_thresholds:
+    min_net_sharpe_improvement: 0.05
+    paired_net_return_ci_lower_gt: 0.0
+    max_drawdown_worsening_percentage_points: 1.0
+    max_turnover_increase_fraction: 0.10
+    fallback_rate_must_not_increase: true
+    model_gross_max: 2.0
+    model_abs_net_max: 0.05
+
+comparison:
+  base_config_is_resolved_from: configs/production/production.yaml
+  historical_ml_overlay_enabled: false
+  historical_ml_overlay_reason: >-
+    The configured artifact was trained through 2024-12-20 and has no
+    fold-specific artifacts for earlier dates; disable it across all paired
+    candidates to avoid applying a future-trained model in-sample.
+  cache_policy: >-
+    Bypass cached mu/Omega for every evaluation date and recompute via on-demand
+    BLPX, because cached distributions were generated with the current prior.
+    Preserve the gap store for PIT IR history and rank-reversal inputs.
+  run_jobs: 1
+  related_completed_sensitivity_trials_before_this_run: 2
+  current_candidate_configurations: 3
+  dsr_trial_count: 5
+
+w6_interpretation: "qualitative nominal interest-rate exposure prior; not a fitted regression beta"
+w6_candidate:
+  XLB: 0.3
+  XLC: -0.3
+  XLE: 0.0
+  XLF: 0.6
+  XLI: 0.0
+  XLK: -0.6
+  XLP: -0.3
+  XLRE: -1.0
+  XLU: -0.6
+  XLV: -0.3
+  XLY: -0.3
+  MTUM: 0.0
+  VLUE: 0.3
+  IUSG: -0.6
+  USMV: -0.3
+  1617.T: -0.3
+  1618.T: 0.0
+  1619.T: 0.0
+  1620.T: 0.0
+  1621.T: -0.3
+  1622.T: 0.0
+  1623.T: 0.0
+  1624.T: 0.0
+  1625.T: -0.6
+  1626.T: -0.6
+  1627.T: -0.6
+  1628.T: -0.3
+  1629.T: 0.0
+  1630.T: -0.3
+  1631.T: 1.0
+  1632.T: 0.3
+  1633.T: -1.0
+
+sensitivity_diagnostics:
+  attenuation: "move each non-zero w6 magnitude one adjacent grid step toward zero"
+  amplification: "move each non-zero w6 magnitude one adjacent grid step away from zero; clamp at 1.0"
+  grid: [-1.0, -0.6, -0.3, 0.0, 0.3, 0.6, 1.0]

@@ -14,8 +14,8 @@ import pandas as pd
 import yfinance as yf
 from scipy.optimize import minimize
 
-from leadlag.data.market_data_cache import load_intraday_cache
 from leadlag.data.intraday_inputs import compute_jp_target_returns
+from leadlag.data.market_data_cache import load_intraday_cache
 from leadlag.data.tickers import JP_TICKERS
 from research.diagnostics.sprint0 import find_latest_distribution_diagnostics
 
@@ -370,9 +370,12 @@ def run_sprint1_backtests(
 
                             # Strategy checks
                             if strat in ["scale_down", "skip_illiquid"]:
-                                ratios = np.where(caps > 0.0, np.abs(w_t_mat) / caps, np.where(w_t_mat != 0.0, np.inf, 0.0))
+                                ratios = np.zeros_like(w_t_mat)
+                                np.divide(np.abs(w_t_mat), caps, out=ratios, where=caps > 0.0)
+                                ratios[(caps <= 0.0) & (w_t_mat != 0.0)] = np.inf
                                 max_ratio = np.max(ratios, axis=1, keepdims=True)
-                                w_opt_mat = np.where(max_ratio > 1.0, w_t_mat / max_ratio, w_t_mat)
+                                w_opt_mat = w_t_mat.copy()
+                                np.divide(w_t_mat, max_ratio, out=w_opt_mat, where=max_ratio > 1.0)
                             elif strat == "clip_by_name":
                                 w_clipped = np.sign(w_t_mat) * np.minimum(np.abs(w_t_mat), caps)
                                 w_opt_mat = restore_dollar_neutrality_2d(w_clipped)
@@ -383,7 +386,8 @@ def run_sprint1_backtests(
 
                             # Calculate ADV trade statistics
                             trade_val = np.abs(w_opt_mat) * aum
-                            trade_adv_ratios = np.where(adv_t_mat > 0.0, trade_val / adv_t_mat, 0.0)
+                            trade_adv_ratios = np.zeros_like(trade_val)
+                            np.divide(trade_val, adv_t_mat, out=trade_adv_ratios, where=adv_t_mat > 0.0)
                             max_trade_adv_mat = np.max(trade_adv_ratios, axis=1)
                             avg_trade_adv_mat = np.mean(trade_adv_ratios, axis=1)
 

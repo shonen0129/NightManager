@@ -1,0 +1,91 @@
+{
+  "source_page": "https://www.jpx.co.jp/markets/statistics-equities/misc/07.html",
+  "universe_by_year": {
+    "2014": "TSE First Section",
+    "2015": "TSE First Section",
+    "2016": "TSE First Section",
+    "2017": "TSE First Section",
+    "2018": "TSE First Section",
+    "2019": "TSE First Section",
+    "2020": "TSE First Section",
+    "2021": "TSE First Section",
+    "2022": "TSE Prime",
+    "2023": "TSE Prime",
+    "2024": "TSE Prime",
+    "2025": "TSE Prime"
+  },
+  "files": {
+    "2014": {
+      "url": "https://www.jpx.co.jp/files/tse/english/market/data/geppo/b7gje6000002aeyz-att/04_jikaso1412.pdf",
+      "sha256": "385a5eecdfcd8626d9c20b91b9f31133c52a48d7aec5445ec3ec03b50c685fb1",
+      "bytes": 316952,
+      "pages": 1
+    },
+    "2015": {
+      "url": "https://www.jpx.co.jp/markets/statistics-equities/monthly/nlsgeu000001ekco-att/04_jikaso1512-.pdf",
+      "sha256": "72350b703bbb731735d3c17b74bc04644c8bb4cfa22ba3ebd5502959b6e9e03f",
+      "bytes": 317148,
+      "pages": 1
+    },
+    "2016": {
+      "url": "https://www.jpx.co.jp/markets/statistics-equities/monthly/nlsgeu00000280ko-att/04_jikaso1612.pdf",
+      "sha256": "afd0051ca452d99014fbf276142dfb52bac1a80b26591142d3e79f1fa63e94ae",
+      "bytes": 316859,
+      "pages": 1
+    },
+    "2017": {
+      "url": "https://www.jpx.co.jp/markets/statistics-equities/misc/nlsgeu000002vgd0-att/201712.pdf",
+      "sha256": "7b9c6b684eebdf008e77e650e574098e6bb6db9c08b1981342d9effcf7919d39",
+      "bytes": 405390,
+      "pages": 1
+    },
+    "2018": {
+      "url": "https://www.jpx.co.jp/markets/statistics-equities/monthly/nlsgeu000003s0x8-att/04_jikaso1812.pdf",
+      "sha256": "b054087d04a43a671cf8ab7467b4d701007a371e5abf661781f12de9a7f82f36",
+      "bytes": 111763,
+      "pages": 1
+    },
+    "2019": {
+      "url": "https://www.jpx.co.jp/markets/statistics-equities/monthly/nlsgeu000004idv9-att/04_jikaso1912.pdf",
+      "sha256": "c3a8efb47243138b474a894b8a0c510ab97646397032872dc2e7f35a578e9785",
+      "bytes": 112067,
+      "pages": 1
+    },
+    "2020": {
+      "url": "https://www.jpx.co.jp/markets/statistics-equities/monthly/nlsgeu0000059gjy-att/04_jikaso2012.pdf",
+      "sha256": "fc14ea2e063640da9f6f58d0cb3670ddb9864bdccb568090d9edc858d9bb72b8",
+      "bytes": 111711,
+      "pages": 1
+    },
+    "2021": {
+      "url": "https://www.jpx.co.jp/markets/statistics-equities/monthly/nlsgeu0000064mm8-att/04_jikaso2112.pdf",
+      "sha256": "ab65a0956b01bd384871b58d76a674c98e800c7a402a3b7f39b8f673d0bd7d78",
+      "bytes": 111670,
+      "pages": 1
+    },
+    "2022": {
+      "url": "https://www.jpx.co.jp/markets/statistics-equities/monthly/co3pgt0000006bvf-att/04_jikaso2212.pdf",
+      "sha256": "6871498902a20ebc6e942c5de4a9ab0d62e8ec1ea7c45c57373bca68baf4420d",
+      "bytes": 56650,
+      "pages": 1
+    },
+    "2023": {
+      "url": "https://www.jpx.co.jp/markets/statistics-equities/monthly/skc8fn0000000lj9-att/04_jikaso2312.pdf",
+      "sha256": "58196efa6efbc330a98bc933dcd41e596a4b34aa9b7b0df853ce2b0a7f54b8cc",
+      "bytes": 56776,
+      "pages": 1
+    },
+    "2024": {
+      "url": "https://www.jpx.co.jp/markets/statistics-equities/monthly/um3qrc000000hemx-att/04_jikaso2412.pdf",
+      "sha256": "74e304131cedcba10ec5fc3956b3e3da412f1d0b6bcbbf37d3ffe58e7c3d953c",
+      "bytes": 56800,
+      "pages": 1
+    },
+    "2025": {
+      "url": "https://www.jpx.co.jp/markets/statistics-equities/monthly/t13vrt000000h2iz-att/04_jikaso2512.pdf",
+      "sha256": "783f82c751015dcc81192a434d251ec5d685e4d9447f90739350239946a375b7",
+      "bytes": 57325,
+      "pages": 1
+    }
+  }
+}

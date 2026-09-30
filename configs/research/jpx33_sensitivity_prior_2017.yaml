@@ -1,0 +1,101 @@
+experiment_id: 20260924_jpx33_sensitivity_prior
+purpose: >
+  Translate ex-ante JPX 33-industry sensitivity scores into the existing
+  TOPIX-17 ETF labels using a fixed, pre-evaluation market-cap snapshot.
+  The BLPX target and output dimension remain the production 17 ETFs.
+
+provenance:
+  taxonomy: JPX 33 industry classifications mapped to TOPIX-17
+  taxonomy_source: https://www.jpx.co.jp/markets/indices/factsheets/files/000_fac2_sector.pdf
+  market_cap_as_of: "2017-12-29"
+  market_cap_unit: million_yen
+  market_cap_source: https://www.jpx.co.jp/markets/statistics-equities/misc/nlsgeu000002vgd0-att/201712.pdf
+  market_cap_universe: Tokyo Stock Exchange First Section
+
+sensitivity_grid:
+  values: [-1.0, -0.6, -0.3, 0.0, 0.3, 0.6, 1.0]
+  w3: cyclical_vs_defensive
+  w4: benefit_from_yen_depreciation
+  w5: benefit_from_higher_energy_prices
+  w6: benefit_from_higher_inflation_or_interest_rates
+  aggregation: market-cap-weighted arithmetic mean within each TOPIX-17 group
+  post_aggregation_quantization: none
+  jp_tickers:
+    食品: 1617.T
+    エネルギー資源: 1618.T
+    建設・資材: 1619.T
+    素材・化学: 1620.T
+    医薬品: 1621.T
+    自動車・輸送機: 1622.T
+    鉄鋼・非鉄: 1623.T
+    機械: 1624.T
+    電機・精密: 1625.T
+    情報通信・サービスその他: 1626.T
+    電力・ガス: 1627.T
+    運輸・物流: 1628.T
+    商社・卸売: 1629.T
+    小売: 1630.T
+    銀行: 1631.T
+    金融（除く銀行）: 1632.T
+    不動産: 1633.T
+
+industries:
+  columns: [name, topix17, market_cap, w3, w4, w5, w6]
+  rows:
+    - [水産・農林業, 食品, 698028, -0.3, -0.3, -0.3, -0.3]
+    - [鉱業, エネルギー資源, 2431370, 0.6, 0.3, 1.0, 0.6]
+    - [建設業, 建設・資材, 20383137, 0.3, 0.0, -0.3, 0.3]
+    - [食料品, 食品, 29102776, -0.6, -0.6, -0.3, -0.3]
+    - [繊維製品, 素材・化学, 4330021, 0.3, 0.3, -0.3, 0.0]
+    - [パルプ・紙, 素材・化学, 1854182, 0.0, 0.0, -0.6, 0.0]
+    - [化学, 素材・化学, 47057314, 0.6, 0.6, -0.3, 0.3]
+    - [医薬品, 医薬品, 30690692, -1.0, 0.3, 0.0, -0.3]
+    - [石油・石炭製品, エネルギー資源, 4596311, 0.3, -0.3, 1.0, 0.6]
+    - [ゴム製品, 自動車・輸送機, 6153509, 0.6, 0.6, -0.3, 0.3]
+    - [ガラス・土石製品, 建設・資材, 6611574, 0.6, 0.3, -0.6, 0.3]
+    - [鉄鋼, 鉄鋼・非鉄, 7743846, 1.0, 0.6, -0.6, 0.6]
+    - [非鉄金属, 鉄鋼・非鉄, 5999107, 0.6, 0.6, -0.3, 0.6]
+    - [金属製品, 建設・資材, 5080928, 0.6, 0.3, -0.3, 0.3]
+    - [機械, 機械, 35064260, 1.0, 1.0, -0.3, 0.3]
+    - [電気機器, 電機・精密, 86591873, 1.0, 1.0, -0.3, 0.3]
+    - [輸送用機器, 自動車・輸送機, 63809885, 1.0, 1.0, -0.3, 0.3]
+    - [精密機器, 電機・精密, 9386308, 0.6, 0.6, -0.3, 0.3]
+    - [その他製品, 情報通信・サービスその他, 13073507, 0.3, 0.3, -0.3, 0.3]
+    - [電気・ガス業, 電力・ガス, 8913874, -0.6, -1.0, -1.0, -0.6]
+    - [陸運業, 運輸・物流, 24633024, -0.3, -0.3, -0.3, 0.0]
+    - [海運業, 運輸・物流, 1372096, 1.0, 0.6, -0.6, 0.3]
+    - [空運業, 運輸・物流, 3238749, 0.3, -1.0, -1.0, -0.3]
+    - [倉庫・運輸関連業, 運輸・物流, 1504864, 0.0, -0.3, -0.3, 0.3]
+    - [情報・通信業, 情報通信・サービスその他, 62485615, 0.0, 0.3, 0.0, 0.3]
+    - [卸売業, 商社・卸売, 30814763, 0.3, 0.3, -0.3, 0.3]
+    - [小売業, 小売, 38031118, -0.3, -0.6, -0.3, -0.3]
+    - [銀行業, 銀行, 46976468, 0.6, 0.3, 0.0, 1.0]
+    - ["証券、商品先物取引業", 金融（除く銀行）, 5803862, 1.0, 0.3, 0.0, 0.3]
+    - [保険業, 金融（除く銀行）, 14530638, 0.3, 0.3, 0.0, 0.6]
+    - [その他金融業, 金融（除く銀行）, 8794090, 0.3, 0.3, 0.0, 0.6]
+    - [不動産業, 不動産, 14576733, 0.3, 0.0, 0.0, -0.6]
+    - [サービス業, 情報通信・サービスその他, 31864648, 0.0, 0.0, -0.3, 0.0]
+
+evaluation:
+  target: one-day 09:10-to-close return
+  start_date: "2026-03-03"
+  end_date: "2026-08-06"
+  min_observed_etfs_per_date: 10
+  only_observed_0910_target_cells: true
+  primary_metric: mean daily cross-sectional Spearman rank IC
+  secondary_metric: mean daily absolute error of one-day gap-adjusted mean forecast
+  bootstrap:
+    method: moving_block_bootstrap
+    block_length_trading_dates: 20
+    resamples: 5000
+    seed: 20260923
+  acceptance:
+    min_paired_dates: 100
+    min_rank_ic_improvement: 0.02
+    rank_ic_difference_ci_lower_gt: 0.0
+    mean_absolute_error_difference_lte: 0.0
+  sensitivity_variants:
+    - shift: one grid step toward zero
+      role: prespecified robustness diagnostic
+    - shift: one grid step away from zero
+      role: prespecified robustness diagnostic
