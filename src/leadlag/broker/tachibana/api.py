@@ -158,7 +158,22 @@ class TachibanaClient:
         for url_key in ["sUrlRequest", "sUrlMaster", "sUrlPrice", "sUrlEvent"]:
             encrypted_val = result.get(url_key)
             if not encrypted_val:
-                raise ValueError(f"Missing encrypted URL key '{url_key}' in login response.")
+                disclosure_flag = result.get("sKinsyouhouMidokuFlg")
+                if str(disclosure_flag) == "1":
+                    raise ValueError(
+                        "Tachibana API login succeeded but virtual URLs were not issued: "
+                        "sKinsyouhouMidokuFlg=1 (required disclosure documents are unread; "
+                        "review them in the standard e-Shiten website)."
+                    )
+                disclosure_status = (
+                    f" (sKinsyouhouMidokuFlg={disclosure_flag})"
+                    if disclosure_flag is not None
+                    else ""
+                )
+                raise ValueError(
+                    f"Missing encrypted URL key '{url_key}' in login response"
+                    f"{disclosure_status}."
+                )
             decrypted_val = self._decrypt_virtual_url(encrypted_val)
             self.decrypted_urls[url_key] = decrypted_val
 

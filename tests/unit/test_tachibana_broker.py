@@ -108,6 +108,33 @@ class TestTachibanaClient:
         assert "10001" in str(exc_info.value)
         assert client.logged_in is False
 
+    @pytest.mark.parametrize(
+        ("disclosure_flag", "expected_detail"),
+        [
+            ("1", "required disclosure documents are unread"),
+            ("0", "sKinsyouhouMidokuFlg=0"),
+        ],
+    )
+    @patch("requests.Session.get")
+    def test_login_missing_virtual_url_reports_disclosure_status(
+        self, mock_get, api_config, disclosure_flag, expected_detail
+    ):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "sResultCode": "0",
+            "sResultText": "",
+            "sKinsyouhouMidokuFlg": disclosure_flag,
+        }
+        mock_get.return_value = mock_response
+
+        client = TachibanaClient(api_config)
+        with pytest.raises(ValueError) as exc_info:
+            client.login()
+
+        assert expected_detail in str(exc_info.value)
+        assert client.logged_in is False
+
     @patch("requests.Session.get")
     def test_request_session_retry_on_timeout(self, mock_get, api_config):
         # 1st call returns session timeout, 2nd call (login) returns success, 3rd call (retry) returns success

@@ -54,6 +54,15 @@ def test_strict_accepts_production_yaml() -> None:
     assert cfg.risk is not None
 
 
+def test_production_side_leverage_is_reduced_without_loosening_risk_stops() -> None:
+    cfg = load_config_from_yaml("configs/production/production.yaml", strict=True)
+
+    assert cfg.v2.costs.side_leverage == pytest.approx(1.30)
+    assert cfg.risk.var_stop == pytest.approx(0.03)
+    assert cfg.risk.es_stop == pytest.approx(0.04)
+    assert cfg.risk.max_gross_exposure == pytest.approx(3.0)
+
+
 def test_explicit_missing_config_path_raises(tmp_path) -> None:
     with pytest.raises(FileNotFoundError, match="Configuration file"):
         load_config_from_yaml(tmp_path / "missing.yaml", strict=True)

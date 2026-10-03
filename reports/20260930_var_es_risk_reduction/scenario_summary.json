@@ -1,0 +1,625 @@
+{
+  "study_id": "var_es_side_leverage_20260930",
+  "hypothesis": "Reducing the existing side_leverage scales both modeled mark-to-market PnL and all four modeled costs linearly, lowering absolute VaR/ES while leaving audited model-space weights unchanged.",
+  "decision_rule": "Select the highest tested side_leverage that is strictly below both unchanged production VaR/ES stop limits and within the inherited effective-gross cap.",
+  "provenance": {
+    "source_return_artifact": "var/results/20260927_ml_overlay_var_history_2025/history/versioned_var_returns.pkl",
+    "source_report": "reports/20260927_ml_overlay_var_history/history.json",
+    "source_gap_input_fingerprint": "c99ca4e8d8e0ad75",
+    "df_exec_sha256": "6b81e5ae4abd09578365618caf218e6375b863a9f6ecd18d7858c83b988166a5",
+    "history_start": "2025-07-29",
+    "history_end": "2026-09-25",
+    "history_days": 269,
+    "risk_window_end": "2026-09-25",
+    "baseline_return_reproduction_max_abs_difference": 0.0,
+    "overlay_schedule": [
+      {
+        "start_date": "2024-12-21",
+        "end_date": "2025-12-30",
+        "version": "20260922T011723828589Z-7e1a81ab2617"
+      },
+      {
+        "start_date": "2025-12-31",
+        "end_date": null,
+        "version": "20260926T192555935698Z-ee306a32f3ec"
+      }
+    ],
+    "artifact_chunk_count": 2,
+    "historical_macro_provider_available_at_proven": false,
+    "production_side_leverage_at_replay": 1.3,
+    "replayed_baseline_side_leverage": 1.5,
+    "cost_assumptions": {
+      "slippage_bps_per_side": 5.0,
+      "buy_interest_annual": 0.025,
+      "borrow_fee_annual": 0.0115,
+      "reverse_fee_bps_daily": 2.0,
+      "overnight_alpha_long": 0.75,
+      "overnight_alpha_short": 0.5
+    },
+    "risk_thresholds_unchanged": {
+      "var_stop": 0.03,
+      "es_stop": 0.04,
+      "max_gross_exposure": 3.0,
+      "confidence": 0.99,
+      "window": 250
+    }
+  },
+  "scenarios": [
+    {
+      "observations": 269,
+      "start": "2025-07-29",
+      "end": "2026-09-25",
+      "net_compounded_return": 2.1875768118007857,
+      "net_sharpe_annualized_252": 4.306795395065009,
+      "maximum_drawdown": -0.33401002471579144,
+      "mean_daily_net_return": 0.004451882958637868,
+      "worst_daily_net_return": -0.06249286176911676,
+      "var_window": 250,
+      "var_confidence": 0.99,
+      "var_method": "historical",
+      "var99_loss": 0.030530434587604984,
+      "es99_loss": 0.04590781976149557,
+      "es_tail_count": 3,
+      "side_leverage": 1.5,
+      "model_weight_gross_max": 2.0000000000000004,
+      "model_weight_abs_net_max": 3.7470027081099033e-16,
+      "effective_gross_max": 3.000000000000001,
+      "effective_abs_net_max": 5.620504062164855e-16,
+      "mean_raw_turnover": 1.3153637212924914,
+      "mean_effective_turnover": 1.9730455819387371,
+      "costs_return_fraction": {
+        "slippage": 0.5819683815725265,
+        "financing": 0.028914811643835622,
+        "borrow": 0.008867208904109589,
+        "reverse": 0.056287500000000004,
+        "total": 0.6760379021204718
+      },
+      "daily_net_return_scale_verified": true,
+      "var_stop_pass": false,
+      "es_stop_pass": false,
+      "selected_for_production": false
+    },
+    {
+      "observations": 269,
+      "start": "2025-07-29",
+      "end": "2026-09-25",
+      "net_compounded_return": 1.7430654137570758,
+      "net_sharpe_annualized_252": 4.306795395065008,
+      "maximum_drawdown": -0.2955599490871387,
+      "mean_daily_net_return": 0.003858298564152818,
+      "worst_daily_net_return": -0.05416048019990119,
+      "var_window": 250,
+      "var_confidence": 0.99,
+      "var_method": "historical",
+      "var99_loss": 0.026459709975924322,
+      "es99_loss": 0.03978677712662949,
+      "es_tail_count": 3,
+      "side_leverage": 1.3,
+      "model_weight_gross_max": 2.0000000000000004,
+      "model_weight_abs_net_max": 3.7470027081099033e-16,
+      "effective_gross_max": 2.6000000000000005,
+      "effective_abs_net_max": 4.871103520542875e-16,
+      "mean_raw_turnover": 1.3153637212924914,
+      "mean_effective_turnover": 1.7099728376802388,
+      "costs_return_fraction": {
+        "slippage": 0.5043725973628563,
+        "financing": 0.02505950342465754,
+        "borrow": 0.007684914383561644,
+        "reverse": 0.0487825,
+        "total": 0.5858995151710756
+      },
+      "daily_net_return_scale_verified": true,
+      "var_stop_pass": true,
+      "es_stop_pass": true,
+      "selected_for_production": true
+    },
+    {
+      "observations": 269,
+      "start": "2025-07-29",
+      "end": "2026-09-25",
+      "net_compounded_return": 1.6414312250889003,
+      "net_sharpe_annualized_252": 4.306795395065009,
+      "maximum_drawdown": -0.2856715235353937,
+      "mean_daily_net_return": 0.0037099024655315557,
+      "worst_daily_net_return": -0.0520773848075973,
+      "var_window": 250,
+      "var_confidence": 0.99,
+      "var_method": "historical",
+      "var99_loss": 0.025442028823004156,
+      "es99_loss": 0.03825651646791297,
+      "es_tail_count": 3,
+      "side_leverage": 1.25,
+      "model_weight_gross_max": 2.0000000000000004,
+      "model_weight_abs_net_max": 3.7470027081099033e-16,
+      "effective_gross_max": 2.5000000000000004,
+      "effective_abs_net_max": 4.683753385137379e-16,
+      "mean_raw_turnover": 1.3153637212924914,
+      "mean_effective_turnover": 1.6442046516156141,
+      "costs_return_fraction": {
+        "slippage": 0.4849736513104388,
+        "financing": 0.02409567636986302,
+        "borrow": 0.007389340753424656,
+        "reverse": 0.04690625000000001,
+        "total": 0.5633649184337264
+      },
+      "daily_net_return_scale_verified": true,
+      "var_stop_pass": true,
+      "es_stop_pass": true,
+      "selected_for_production": false
+    }
+  ],
+  "baseline_attribution": {
+    "model_weight_gross_max": 2.0000000000000004,
+    "model_weight_abs_net_max": 3.7470027081099033e-16,
+    "effective_gross_max_at_1_50": 3.000000000000001,
+    "effective_gross_max_selected": 2.6000000000000005,
+    "side_pnl_return_fraction": {
+      "intraday_long": 0.7715006729272513,
+      "intraday_short": 1.1974178367634867,
+      "overnight_long": 0.420222288308708,
+      "overnight_short": -0.515546380005388
+    },
+    "overlay": {
+      "applied": {
+        "days": 244,
+        "sum_daily_net_returns": 0.9504181776800092,
+        "mean_daily_net_return": 0.0038951564659016774
+      },
+      "skipped": {
+        "days": 25,
+        "sum_daily_net_returns": 0.24713833819357706,
+        "mean_daily_net_return": 0.009885533527743082
+      }
+    },
+    "pit_multiplier_band_is_inferred_from_audited_weight_gross": true,
+    "realized_gap_quartiles_are_ex_post_diagnostic_only": [
+      {
+        "ex_post_gap_impact_quartile": 1,
+        "days": 67,
+        "mean_net_return": 0.006608347453022957,
+        "sum_net_return": 0.4427592793525381,
+        "mean_overnight_return": -0.00010423067458905482,
+        "sum_overnight_return": -0.006983455197466673
+      },
+      {
+        "ex_post_gap_impact_quartile": 2,
+        "days": 67,
+        "mean_net_return": 0.00275295555187136,
+        "sum_net_return": 0.1844480219753811,
+        "mean_overnight_return": 5.023044375433765e-05,
+        "sum_overnight_return": 0.0033654397315406224
+      },
+      {
+        "ex_post_gap_impact_quartile": 3,
+        "days": 67,
+        "mean_net_return": 0.003654996347181529,
+        "sum_net_return": 0.24488475526116243,
+        "mean_overnight_return": -0.0007807655338760512,
+        "sum_overnight_return": -0.05231129076969543
+      },
+      {
+        "ex_post_gap_impact_quartile": 4,
+        "days": 68,
+        "mean_net_return": 0.004786242048301539,
+        "sum_net_return": 0.3254644592845047,
+        "mean_overnight_return": -0.0005793350803096836,
+        "sum_overnight_return": -0.039394785461058485
+      }
+    ],
+    "ticker_gross_contributions": {
+      "1617.T": {
+        "intraday_gross_contribution": 0.15363081791453276,
+        "overnight_gross_contribution": 0.03211674512208566,
+        "combined_gross_contribution": 0.18574756303661843
+      },
+      "1618.T": {
+        "intraday_gross_contribution": 0.14853062240164416,
+        "overnight_gross_contribution": -0.0046448605767928815,
+        "combined_gross_contribution": 0.14388576182485127
+      },
+      "1619.T": {
+        "intraday_gross_contribution": 0.11974330117569999,
+        "overnight_gross_contribution": -0.010723456947782265,
+        "combined_gross_contribution": 0.10901984422791773
+      },
+      "1620.T": {
+        "intraday_gross_contribution": 0.17397847478442133,
+        "overnight_gross_contribution": -0.008563751058237565,
+        "combined_gross_contribution": 0.16541472372618377
+      },
+      "1621.T": {
+        "intraday_gross_contribution": 0.10180387841321151,
+        "overnight_gross_contribution": 0.033671080148529514,
+        "combined_gross_contribution": 0.13547495856174102
+      },
+      "1622.T": {
+        "intraday_gross_contribution": 0.09142424097777163,
+        "overnight_gross_contribution": -0.004373246390302805,
+        "combined_gross_contribution": 0.08705099458746883
+      },
+      "1623.T": {
+        "intraday_gross_contribution": -0.029075508594051336,
+        "overnight_gross_contribution": -0.003760878229387095,
+        "combined_gross_contribution": -0.03283638682343843
+      },
+      "1624.T": {
+        "intraday_gross_contribution": 0.16427675031232797,
+        "overnight_gross_contribution": 0.022238429261360465,
+        "combined_gross_contribution": 0.18651517957368843
+      },
+      "1625.T": {
+        "intraday_gross_contribution": 0.12165541606696428,
+        "overnight_gross_contribution": -0.07594220695551443,
+        "combined_gross_contribution": 0.045713209111449854
+      },
+      "1626.T": {
+        "intraday_gross_contribution": 0.0808293186003753,
+        "overnight_gross_contribution": -0.022207429480058404,
+        "combined_gross_contribution": 0.0586218891203169
+      },
+      "1627.T": {
+        "intraday_gross_contribution": 0.01066212300116913,
+        "overnight_gross_contribution": 0.048080475845100105,
+        "combined_gross_contribution": 0.058742598846269235
+      },
+      "1628.T": {
+        "intraday_gross_contribution": 0.08467257630597555,
+        "overnight_gross_contribution": -0.018321225704108046,
+        "combined_gross_contribution": 0.0663513506018675
+      },
+      "1629.T": {
+        "intraday_gross_contribution": 0.10315743067120958,
+        "overnight_gross_contribution": -0.037250372311672844,
+        "combined_gross_contribution": 0.06590705835953674
+      },
+      "1630.T": {
+        "intraday_gross_contribution": 0.15579442866088444,
+        "overnight_gross_contribution": -0.027067183971900194,
+        "combined_gross_contribution": 0.12872724468898425
+      },
+      "1631.T": {
+        "intraday_gross_contribution": 0.13180695275607357,
+        "overnight_gross_contribution": -0.011563305199899693,
+        "combined_gross_contribution": 0.12024364755617388
+      },
+      "1632.T": {
+        "intraday_gross_contribution": 0.21513178283973117,
+        "overnight_gross_contribution": -0.031886111512340345,
+        "combined_gross_contribution": 0.18324567132739084
+      },
+      "1633.T": {
+        "intraday_gross_contribution": 0.140895903402797,
+        "overnight_gross_contribution": 0.024873206264240905,
+        "combined_gross_contribution": 0.16576910966703792
+      }
+    },
+    "worst_five_days": [
+      {
+        "trade_date": "2026-07-30",
+        "net_return": -0.06249286176911676,
+        "gross_return": -0.060213057876269065,
+        "overnight_return": -0.04317621927329393,
+        "intraday_long_return": -0.006049045967520154,
+        "intraday_short_return": -0.010987792635454983,
+        "overnight_long_return": -0.008048562718891969,
+        "overnight_short_return": -0.03512765655440196,
+        "slippage_cost": 0.002029118961340848,
+        "financing_cost": 7.705479452054797e-05,
+        "borrow_cost": 2.3630136986301367e-05,
+        "reverse_cost": 0.00015000000000000001,
+        "raw_model_gross": 2.0,
+        "raw_model_net": 5.551115123125783e-17,
+        "pit_multiplier_inferred_from_weight_gross": 1.0,
+        "pit_multiplier_band": "full_multiplier_1.00",
+        "overlay_applied": true,
+        "realized_gap_impact_quartile_ex_post": 4,
+        "largest_ticker_contributions": [
+          {
+            "trade_date": "2026-07-30",
+            "ticker": "1625.T",
+            "side": "short",
+            "model_weight": -0.4095703408580311,
+            "intraday_gross_pnl": -0.006343131695484406,
+            "overnight_gross_pnl": -0.02041726524716009
+          },
+          {
+            "trade_date": "2026-07-30",
+            "ticker": "1623.T",
+            "side": "short",
+            "model_weight": -0.2343778687254437,
+            "intraday_gross_pnl": -0.0018476689542510144,
+            "overnight_gross_pnl": -0.011186504551119737
+          },
+          {
+            "trade_date": "2026-07-30",
+            "ticker": "1630.T",
+            "side": "long",
+            "model_weight": 0.223239840938825,
+            "intraday_gross_pnl": -0.0024084550662800816,
+            "overnight_gross_pnl": -0.004468769057939127
+          },
+          {
+            "trade_date": "2026-07-30",
+            "ticker": "1624.T",
+            "side": "short",
+            "model_weight": -0.2179579242063247,
+            "intraday_gross_pnl": -0.0029439437316746294,
+            "overnight_gross_pnl": -0.002957099188761659
+          },
+          {
+            "trade_date": "2026-07-30",
+            "ticker": "1628.T",
+            "side": "long",
+            "model_weight": 0.15263295453910342,
+            "intraday_gross_pnl": -0.0028747013859382843,
+            "overnight_gross_pnl": -0.002924251938972936
+          }
+        ]
+      },
+      {
+        "trade_date": "2026-06-23",
+        "net_return": -0.04370507485281962,
+        "gross_return": -0.041480578311331694,
+        "overnight_return": -0.005583162839834912,
+        "intraday_long_return": -0.05427831616980605,
+        "intraday_short_return": 0.018380900698309263,
+        "overnight_long_return": -0.005402684880896361,
+        "overnight_short_return": -0.0001804779589385508,
+        "slippage_cost": 0.0020364828428577897,
+        "financing_cost": 5.7791095890410964e-05,
+        "borrow_cost": 1.7722602739726027e-05,
+        "reverse_cost": 0.00011250000000000001,
+        "raw_model_gross": 1.5000000000000002,
+        "raw_model_net": -1.1102230246251565e-16,
+        "pit_multiplier_inferred_from_weight_gross": 0.7500000000000001,
+        "pit_multiplier_band": "low_multiplier_0.75",
+        "overlay_applied": true,
+        "realized_gap_impact_quartile_ex_post": 3,
+        "largest_ticker_contributions": [
+          {
+            "trade_date": "2026-06-23",
+            "ticker": "1623.T",
+            "side": "long",
+            "model_weight": 0.1985077170675542,
+            "intraday_gross_pnl": -0.03954219088834196,
+            "overnight_gross_pnl": -0.003632439215713155
+          },
+          {
+            "trade_date": "2026-06-23",
+            "ticker": "1619.T",
+            "side": "short",
+            "model_weight": -0.20657645617273562,
+            "intraday_gross_pnl": 0.011687352694492299,
+            "overnight_gross_pnl": 0.0013391137108684813
+          },
+          {
+            "trade_date": "2026-06-23",
+            "ticker": "1625.T",
+            "side": "long",
+            "model_weight": 0.10691849365911557,
+            "intraday_gross_pnl": -0.007739940452567629,
+            "overnight_gross_pnl": -0.0010078635815165145
+          },
+          {
+            "trade_date": "2026-06-23",
+            "ticker": "1624.T",
+            "side": "long",
+            "model_weight": 0.12038340013646145,
+            "intraday_gross_pnl": -0.006396234994657406,
+            "overnight_gross_pnl": -0.0018057510020469186
+          },
+          {
+            "trade_date": "2026-06-23",
+            "ticker": "1633.T",
+            "side": "short",
+            "model_weight": -0.11509051010531096,
+            "intraday_gross_pnl": 0.004923658186323471,
+            "overnight_gross_pnl": -0.0006511236810239236
+          }
+        ]
+      },
+      {
+        "trade_date": "2026-07-27",
+        "net_return": -0.03152552266255032,
+        "gross_return": -0.02925824339247646,
+        "overnight_return": -0.017476707051008847,
+        "intraday_long_return": 0.006067797325213702,
+        "intraday_short_return": -0.017849333666681316,
+        "overnight_long_return": -0.018529515277878637,
+        "overnight_short_return": 0.0010528082268697865,
+        "slippage_cost": 0.0020165943385670117,
+        "financing_cost": 7.705479452054796e-05,
+        "borrow_cost": 2.3630136986301367e-05,
+        "reverse_cost": 0.00015000000000000001,
+        "raw_model_gross": 2.0,
+        "raw_model_net": -2.7755575615628914e-17,
+        "pit_multiplier_inferred_from_weight_gross": 1.0,
+        "pit_multiplier_band": "full_multiplier_1.00",
+        "overlay_applied": true,
+        "realized_gap_impact_quartile_ex_post": 4,
+        "largest_ticker_contributions": [
+          {
+            "trade_date": "2026-07-27",
+            "ticker": "1623.T",
+            "side": "long",
+            "model_weight": 0.3836375080789271,
+            "intraday_gross_pnl": -0.002511254169804439,
+            "overnight_gross_pnl": -0.01256371594436445
+          },
+          {
+            "trade_date": "2026-07-27",
+            "ticker": "1622.T",
+            "side": "short",
+            "model_weight": -0.24747714227571918,
+            "intraday_gross_pnl": -0.0045558042604357495,
+            "overnight_gross_pnl": -0.0007591323382690591
+          },
+          {
+            "trade_date": "2026-07-27",
+            "ticker": "1628.T",
+            "side": "short",
+            "model_weight": -0.27583287047254623,
+            "intraday_gross_pnl": -0.0054617208025479844,
+            "overnight_gross_pnl": 0.0009929983337011719
+          },
+          {
+            "trade_date": "2026-07-27",
+            "ticker": "1626.T",
+            "side": "short",
+            "model_weight": -0.2432050964561298,
+            "intraday_gross_pnl": -0.004554919513650588,
+            "overnight_gross_pnl": 0.001104238386375927
+          },
+          {
+            "trade_date": "2026-07-27",
+            "ticker": "1633.T",
+            "side": "long",
+            "model_weight": 0.1088254448559938,
+            "intraday_gross_pnl": 0.0033125403702507408,
+            "overnight_gross_pnl": -0.000444854443258148
+          }
+        ]
+      },
+      {
+        "trade_date": "2026-05-13",
+        "net_return": -0.029494730672865968,
+        "gross_return": -0.026737479405109857,
+        "overnight_return": -0.0063307972619407165,
+        "intraday_long_return": 0.0003126856612907634,
+        "intraday_short_return": -0.020719367804459904,
+        "overnight_long_return": -0.0015049544386871762,
+        "overnight_short_return": -0.00482584282325354,
+        "slippage_cost": 0.0025065663362492606,
+        "financing_cost": 7.705479452054794e-05,
+        "borrow_cost": 2.3630136986301367e-05,
+        "reverse_cost": 0.00015000000000000001,
+        "raw_model_gross": 1.9999999999999998,
+        "raw_model_net": -1.6653345369377348e-16,
+        "pit_multiplier_inferred_from_weight_gross": 0.9999999999999999,
+        "pit_multiplier_band": "full_multiplier_1.00",
+        "overlay_applied": true,
+        "realized_gap_impact_quartile_ex_post": 3,
+        "largest_ticker_contributions": [
+          {
+            "trade_date": "2026-05-13",
+            "ticker": "1629.T",
+            "side": "short",
+            "model_weight": -0.37532343095786685,
+            "intraday_gross_pnl": -0.010846931427721312,
+            "overnight_gross_pnl": -0.0025427681478693504
+          },
+          {
+            "trade_date": "2026-05-13",
+            "ticker": "1622.T",
+            "side": "short",
+            "model_weight": -0.18223943776875265,
+            "intraday_gross_pnl": -0.004002818645317253,
+            "overnight_gross_pnl": -0.0007807913374037081
+          },
+          {
+            "trade_date": "2026-05-13",
+            "ticker": "1632.T",
+            "side": "short",
+            "model_weight": -0.23704986434293693,
+            "intraday_gross_pnl": -0.0023086333064588713,
+            "overnight_gross_pnl": -0.0014392099024109666
+          },
+          {
+            "trade_date": "2026-05-13",
+            "ticker": "1624.T",
+            "side": "short",
+            "model_weight": -0.09763081600705502,
+            "intraday_gross_pnl": -0.002790962146817814,
+            "overnight_gross_pnl": -0.00022563704687635623
+          },
+          {
+            "trade_date": "2026-05-13",
+            "ticker": "1621.T",
+            "side": "long",
+            "model_weight": 0.2936442768779605,
+            "intraday_gross_pnl": -0.00036288220078839446,
+            "overnight_gross_pnl": 0.002396997312905485
+          }
+        ]
+      },
+      {
+        "trade_date": "2026-05-19",
+        "net_return": -0.027857214732625698,
+        "gross_return": -0.02528849193052323,
+        "overnight_return": -0.01658990805749118,
+        "intraday_long_return": -0.009503471981398587,
+        "intraday_short_return": 0.0008048881083665358,
+        "overnight_long_return": -0.012450784846337094,
+        "overnight_short_return": -0.004139123211154089,
+        "slippage_cost": 0.002318037870595619,
+        "financing_cost": 7.705479452054796e-05,
+        "borrow_cost": 2.3630136986301364e-05,
+        "reverse_cost": 0.00015,
+        "raw_model_gross": 2.0,
+        "raw_model_net": 1.1102230246251565e-16,
+        "pit_multiplier_inferred_from_weight_gross": 1.0,
+        "pit_multiplier_band": "full_multiplier_1.00",
+        "overlay_applied": true,
+        "realized_gap_impact_quartile_ex_post": 4,
+        "largest_ticker_contributions": [
+          {
+            "trade_date": "2026-05-19",
+            "ticker": "1623.T",
+            "side": "long",
+            "model_weight": 0.26814855411557326,
+            "intraday_gross_pnl": -0.019462395056775505,
+            "overnight_gross_pnl": -0.014494249406320788
+          },
+          {
+            "trade_date": "2026-05-19",
+            "ticker": "1628.T",
+            "side": "long",
+            "model_weight": 0.24830141735314315,
+            "intraday_gross_pnl": 0.005689006220978955,
+            "overnight_gross_pnl": 0.0014446309542760422
+          },
+          {
+            "trade_date": "2026-05-19",
+            "ticker": "1624.T",
+            "side": "short",
+            "model_weight": -0.14073797178181685,
+            "intraday_gross_pnl": 0.003447816933749847,
+            "overnight_gross_pnl": 0.0017038495373101255
+          },
+          {
+            "trade_date": "2026-05-19",
+            "ticker": "1631.T",
+            "side": "short",
+            "model_weight": -0.3167887432093985,
+            "intraday_gross_pnl": -0.0016705917410142466,
+            "overnight_gross_pnl": -0.003196298978570173
+          },
+          {
+            "trade_date": "2026-05-19",
+            "ticker": "1632.T",
+            "side": "short",
+            "model_weight": -0.3242322940575914,
+            "intraday_gross_pnl": -0.0005971861997623503,
+            "overnight_gross_pnl": -0.0034594321293856083
+          }
+        ]
+      }
+    ],
+    "cost_component_return_fractions": {
+      "slippage": 0.5043725973628563,
+      "financing": 0.02505950342465754,
+      "borrow": 0.007684914383561644,
+      "reverse": 0.0487825,
+      "total": 0.5858995151710756
+    }
+  },
+  "limitations": [
+    "This is retrospective model PnL, not an actual-account statement or fill-cost reconciliation.",
+    "The ES99 tail contains only three observations; the unchanged production risk stop remains enabled and continues to fail closed if future evidence breaches it.",
+    "PIT multiplier bands are inferred from audited model-weight gross; the saved history did not retain exact per-day PIT-bin labels.",
+    "Gap-impact quartiles use realized overnight contribution after the outcome and are descriptive labels, not decision-time features.",
+    "The verified historical macro snapshot ends on 2026-09-25; this report reproduces that exact saved risk-evidence window and does not claim a newer live-input replay.",
+    "Modeled slippage, financing, borrow, and reverse costs are not fully matched against broker fills.",
+    "This historical result does not establish that the current live risk window passes or replace the daily fail-closed risk check."
+  ]
+}
