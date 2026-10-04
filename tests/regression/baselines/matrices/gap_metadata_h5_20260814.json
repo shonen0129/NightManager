@@ -5,7 +5,7 @@
   "source": "v20260813_regression_fixture",
   "input_version": "d9e387d7ae68302a048cb1854c3026c4671483727acced742ca51ce4c4a3f6f6",
   "model_version": "production_residual_blpx_v2",
-  "config_version": "51c6310eaa1fcbb6981f86bff36712e2371dd85fd4fde5c6b7b651d1e0bfe3b0",
+  "config_version": "529b1f24c12051760fbd669b9f43ebb5018fa145c7cd54c7a73d7ed37ae47fd5",
   "ticker_order": [
     "1617.T",
     "1618.T",

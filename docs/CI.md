@@ -52,3 +52,9 @@ uv run --locked python -m pytest tests/regression/test_v2_baseline.py
 
 長時間になるbuild・静的検査にも同じwatchdog等で全体期限を設定する。
 2026-09-18のローカル実ビルド・検査結果は[実装確認報告](../reports/20260917_structural_completion_review/report.md)を参照する。
+
+## main の required check
+
+Current workflow の表示名は `leadlag-ci`、required job/check 名は `quality-and-tests`（GitHub の branch protection 設定では `quality-and-tests`、workflow `leadlag-ci` として表示）です。main の branch protection または repository ruleset では、pull request を必須にし、このcheckの成功をmerge条件にします。direct pushとbypassは許可せず、administratorも例外にしません。
+
+`.github/workflows/ci.yml` のworkflow名または `quality-and-tests` job ID を変更する場合は、同じ変更でGitHub側required check selectorと本節を確認・更新します。設定後はGitHubのbranch protection/ruleset APIまたはSettings画面で、mainへの適用対象とrequired checkを読み取り確認します。ローカルのCI成功だけではGitHub側の保護設定を証明しません。

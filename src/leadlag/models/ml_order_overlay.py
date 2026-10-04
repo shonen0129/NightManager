@@ -66,8 +66,8 @@ from leadlag.models.ml_overlay_artifact import (  # noqa: E402
 from leadlag.models.ml_overlay_features import (  # noqa: E402
     _build_ticker_features,
     _precompute_market_vol,
-    _predict_relative_allocation,
     _predict_p_trade,
+    _predict_relative_allocation,
     _recompute_w_pre,
     _safe,
     _sigmoid,
