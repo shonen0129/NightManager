@@ -50,7 +50,7 @@ from leadlag.experiment_registry import (  # noqa: E402
     compute_deflated_sharpe,
 )
 from leadlag.features import fractional_diff as frac_diff_module  # noqa: E402
-from leadlag.models.production_v2 import ProductionV2Model  # noqa: E402
+from leadlag.models.production_v2 import ProductionV2Model
 from leadlag.models.v2 import gap_io  # noqa: E402
 from leadlag.models.v2.distribution_source import (  # noqa: E402
     FileCacheDistributionSource,
@@ -245,7 +245,7 @@ def _load_owned_inputs(
         rank_reversal_signals=rank_reversal,
         observed_at_by_date=observed_by_date,
     )
-    if dataframe_fingerprint(lake.df_exec) != dataframe_fingerprint(historical.to_frame()):
+    if dataframe_fingerprint(lake.history_frame()) != dataframe_fingerprint(historical.to_frame()):
         raise ValueError("Run-owned HistoricalInputs failed the df_exec identity check")
 
     finite_open_910 = np.isfinite(open_910.loc[eval_dates].to_numpy(dtype=float))

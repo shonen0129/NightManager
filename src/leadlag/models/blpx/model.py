@@ -9,7 +9,7 @@ import numpy as np
 
 from leadlag.core.macro import MACRO_SENS_MATRIX
 from leadlag.data.tickers import JP_TICKERS, US_TICKERS
-from leadlag.models.blp_base import _BLPBase
+from leadlag.models.blp_base import BLPModelBase
 from leadlag.models.blpx.blp_solver import (
     _apply_confidence_weighting,
     _build_blp_diagnostics,
@@ -35,7 +35,7 @@ from leadlag.models.blpx.signal_computer import compute_blp_signal
 logger = logging.getLogger("leadlag.models.blpx")
 
 
-class ProductionBLPXModel(BLPXPredictMixin, BLPXMetaMixin, _BLPBase):
+class ProductionBLPXModel(BLPXPredictMixin, BLPXMetaMixin, BLPModelBase):
     """Production BLPX model (migrated from research package)."""
 
     _config_sections = ["model", "ensemble", "portfolio", "costs", "residualization", "blpx"]
@@ -278,7 +278,7 @@ class ProductionBLPXModel(BLPXPredictMixin, BLPXMetaMixin, _BLPBase):
                         j_indices.append(JP_TICKERS.index(jp_tk))
                 self._sector_mapping_indices[u_idx] = j_indices
 
-        # Per-instance caches aggregated under the CacheManager from _BLPBase.
+        # Per-instance caches aggregated under the CacheManager from BLPModelBase.
         self._raw_pca_cache = self._cache_manager.namespace("raw_pca")
         self._residual_pca_cache = self._cache_manager.namespace("residual_pca")
         self._blp_corr_cache = self._cache_manager.namespace("blp_corr")

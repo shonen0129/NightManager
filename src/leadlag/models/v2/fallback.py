@@ -53,8 +53,7 @@ def _repair_and_adjust(
     if run_cfg.macro_kappa_enabled or run_cfg.macro_direction_enabled:
         try:
             # Typed decisions must supply the run-owned macro snapshot.  The
-            # compatibility path may still use the data adapter when called
-            # without a DecisionInputs contract.
+            # explicit research calls may opt into the data adapter.
             close_prices = macro_prices
             if close_prices is None and allow_implicit_io:
                 close_prices = macro_data.load_macro_prices(period="max", cache=cache)

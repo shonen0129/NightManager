@@ -30,17 +30,8 @@ JP_OPEN_PREFIX = "jp_open_trade_"
 JP_CLOSE_PREFIX = "jp_close_sig_"
 
 
-def _required_us_cols() -> list[str]:
-    return [f"{US_CC_PREFIX}{tk}" for tk in US_TICKERS]
 
 
-def _required_jp_cols() -> list[str]:
-    return (
-        [f"{JP_CC_PREFIX}{tk}" for tk in JP_TICKERS]
-        + [f"{JP_GAP_PREFIX}{tk}" for tk in JP_TICKERS]
-        + [f"{JP_OPEN_PREFIX}{tk}" for tk in JP_TICKERS]
-        + [f"{JP_CLOSE_PREFIX}{tk}" for tk in JP_TICKERS]
-    )
 
 
 def validate_raw_data_sources(data: dict[str, Any]) -> list[str]:

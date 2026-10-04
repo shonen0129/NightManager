@@ -7,7 +7,7 @@ US セクター ETF から JP TOPIX-17 セクター ETF の翌営業日 9:10→�
 Python 3.12 と uv を使い、lockfile に固定した開発・CI依存を導入します。
 
 ```bash
-uv sync --locked --extra dev --extra ci-ml
+uv sync --locked --extra dev --extra ml-overlay
 ```
 
 ## Daily operation

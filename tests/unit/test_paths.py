@@ -50,10 +50,15 @@ def test_subdir_with_parts() -> None:
     assert results("foo", "bar") == var_dir() / "results" / "foo" / "bar"
 
 
-def test_market_data_can_handle_legacy_root() -> None:
-    root = project_root()
-    legacy = root / "market_data"
-    canonical = var_dir() / "market_data"
-    # If the canonical exists or legacy does not, we should get canonical.
-    if canonical.exists() or not legacy.exists():
-        assert market_data() == canonical
+def test_market_data_uses_canonical_path_when_old_root_exists(tmp_path, monkeypatch) -> None:
+    import leadlag.config.paths as paths
+
+    old_root = tmp_path / "market_data"
+    old_root.mkdir()
+    monkeypatch.setattr(paths, "project_root", lambda: tmp_path)
+    monkeypatch.setattr(paths, "var_dir", lambda: tmp_path / "var")
+
+    canonical = tmp_path / "var" / "market_data"
+    assert market_data("prices.sqlite") == canonical / "prices.sqlite"
+    assert canonical.is_dir()
+    assert list(old_root.iterdir()) == []

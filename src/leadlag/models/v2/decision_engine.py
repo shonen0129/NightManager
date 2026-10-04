@@ -53,7 +53,7 @@ def _derive_signal_date(
     metadata = distribution_metadata
     if metadata is None and gap_input_dir is not None and is_gap_store_path(gap_input_dir):
         try:
-            _mu, _omega, metadata = GapStore(gap_input_dir).load_horizon(trade_date)
+            _mu, _omega, metadata, _manifest = GapStore(gap_input_dir).load_horizon_bundle(trade_date)
         except Exception as exc:  # pragma: no cover - defensive cache fallback
             logger.warning("[%s] Could not read gap bundle metadata: %s", trade_date, exc)
     if metadata:
@@ -67,7 +67,7 @@ def _derive_signal_date(
             signal_dates = [value for value in signal_dates if value is not None]
             if signal_dates:
                 # The full list is audited separately; this value is retained
-                # for the legacy single-date result field.
+                # as the representative single-date result field.
                 raw_signal_date = min(signal_dates)
         if raw_signal_date is not None:
             return str(normalize_jst_date(raw_signal_date).strftime("%Y-%m-%d"))
@@ -219,33 +219,6 @@ def generate_v2_production_portfolio_from_distribution(
     )
 
 
-def _file_cache_or_flat(
-    model: Any,
-    trade_date: str,
-    gap_input_dir: Path | None,
-) -> PortfolioDecision:
-    """Load pre-computed gap matrices or return a flat-position result.
-
-    This is the file-cache decision path; it does not use the on-demand
-    BLPX model.  It is now a thin wrapper around the ``FallbackPolicy``
-    chain for backward compatibility.
-    """
-    policy = FallbackPolicy.default(model, use_file_cache=True, gap_input_dir=gap_input_dir)
-    result = policy.resolve(trade_date)
-    if result.is_flat:
-        return cast(PortfolioDecision, result.flat_decision)
-    assert result.mu_gap is not None and result.Omega_gap is not None
-    return generate_v2_production_portfolio_from_distribution(
-        mu_gap=result.mu_gap,
-        omega_gap=result.Omega_gap,
-        trade_date=trade_date,
-        run_config=model.run_config,
-        df_exec=None,
-        gap_input_dir=gap_input_dir,
-        scores=None,
-        cache=model._macro_price_cache,
-        distribution_metadata=result.metadata,
-    )
 
 
 def _decide(
@@ -258,8 +231,7 @@ def _decide(
 ) -> PortfolioDecision:
     """Resolve one typed decision, or a cache-only request without market data.
 
-    Public legacy arguments are normalized by ProductionV2Model before this
-    internal boundary. There is no precedence among competing data sources.
+    Market inputs own the trade date, cache reference, and all acquired frames.
     """
     df_exec = None
     current_prices = None
@@ -269,13 +241,9 @@ def _decide(
     pit_ir_history = None
     pit_history_trade_dates = None
     rank_reversal_signal = None
-    # Public legacy arguments are normalized by ProductionV2Model through the
-    # adapter source below; preserve their historical adapter-owned PIT/macro
-    # reads.  Direct runner/backtest contracts must provide run-owned frames.
-    allow_implicit_io = inputs is None or (
-        inputs is not None
-        and inputs.known.source in {"public_model_adapter", "pit_lake"}
-    )
+    # Artifact replay reads the referenced cache. Typed market calculation uses
+    # only the frames acquired by its caller, regardless of source labels.
+    allow_implicit_io = inputs is None
     if inputs is not None:
         input_date = inputs.trade_date.strftime("%Y-%m-%d")
         if trade_date is not None and normalize_jst_date(trade_date) != inputs.trade_date:
@@ -425,11 +393,11 @@ def _decide(
         )
 
         # Every non-flat distribution must prove its signal date, including
-        # legacy ``.npy`` bundles. Retry an invalid file-cache result through
+        # stored ``.npy`` bundles. Retry an invalid file-cache result through
         # the permitted on-demand source before applying a provenance-specific
         # flat fallback. A normal portfolio must never be generated from an
         # unprovenanced matrix.
-        if not dist.is_flat:
+        if not (dist.status == DistributionStatus.FLAT):
             from leadlag.models.v2.distribution_source import (
                 FlatPositionSource,
                 _validate_distribution_metadata,
@@ -448,7 +416,7 @@ def _decide(
                     open_910_returns=open_910_returns,
                     allow_implicit_io=allow_implicit_io,
                 )
-                if not ondemand.is_flat:
+                if not (ondemand.status == DistributionStatus.FLAT):
                     validated_metadata, provenance_alerts = _validate_distribution_metadata(
                         ondemand.metadata, trade_date, 1
                     )
@@ -483,7 +451,7 @@ def _decide(
             if validated_metadata is not None:
                 dist = replace(dist, metadata=validated_metadata)
 
-        if dist.is_flat:
+        if (dist.status == DistributionStatus.FLAT):
             result = cast(PortfolioDecision, dist.flat_decision)
         else:
             assert dist.mu_gap is not None and dist.Omega_gap is not None

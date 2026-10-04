@@ -111,7 +111,7 @@ def run_self_tests() -> int:
                 "trade_date": dt,
                 "ticker": tk,
                 "weight": 0.2 if tk in JP_TICKERS[:5] else (-0.2 if tk in JP_TICKERS[-5:] else 0.0),
-                "ensemble_signal": 0.05
+                "score": 0.05
             })
 
     # Save mock weights
@@ -309,7 +309,7 @@ def main():
                     "trade_date": dt,
                     "ticker": tk,
                     "weight": float(row_weights.get(tk, 0.0)),
-                    "ensemble_signal": 0.05
+                    "score": 0.05
                 })
             pd.DataFrame(w_recs).to_csv(temp_prod_dir / "latest_weights.csv", index=False)
 

@@ -37,7 +37,7 @@ from leadlag.experiment_registry import (
     ExperimentRegistry,
     compute_deflated_sharpe,
 )
-from leadlag.models.ml_order_overlay import ROUND_TRIP_COST
+from research.experiments.ml_overlay_training import ROUND_TRIP_COST
 from leadlag.models.ml_overlay_artifact import load_overlay_model
 from leadlag.models.ml_overlay_features import _build_ticker_features, _precompute_market_vol
 from leadlag.reporting.metrics import MetricsSpec, calculate_metrics, compute_drawdown_series

@@ -85,8 +85,3 @@ def compute_borrow_bps_daily(annual_rate: float, days: int = 1) -> float:
     Formula: annual_rate / 365.0 * 10000.0 * days
     """
     return (annual_rate / 365.0) * 10000.0 * days
-
-
-def compute_reverse_fee_bps(bps_per_day: float, days: int = 1) -> float:
-    """Computes daily reverse stock lending fee (逆日歩) in bps."""
-    return bps_per_day * days

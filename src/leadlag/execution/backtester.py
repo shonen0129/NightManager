@@ -208,7 +208,7 @@ class BacktestEngine:
         )
 
         if historical_inputs is not None:
-            expected_frame = PITDataLake(df_exec).df_exec
+            expected_frame = PITDataLake(df_exec).history_frame()
             supplied_frame = historical_inputs.to_frame()
             if dataframe_fingerprint(expected_frame) != dataframe_fingerprint(supplied_frame):
                 raise ValueError(
@@ -337,48 +337,15 @@ class BacktestEngine:
         if env_slip is not None and slippage_bps is None:
             slippage_bps = float(env_slip)
 
-        # Prefer the V2 cost sub-model; fall back to the legacy StrategyConfig fields.
-        v2_costs = getattr(app_config.v2, "costs", None)
-        v2_costs = v2_costs or app_config.strategy
-        strategy = app_config.strategy
-
-        def _get(attr: str, prefer_v2: bool = True) -> Any:
-            if prefer_v2 and v2_costs is not None and hasattr(v2_costs, attr):
-                v = getattr(v2_costs, attr)
-                if v is not None:
-                    return v
-            if hasattr(strategy, attr):
-                return getattr(strategy, attr)
-            return None
-
-        def _resolve(override: Any, attr: str) -> Any:
-            if override is not None:
-                return override
-            v2_v = _get(attr)
-            if v2_v is not None:
-                return v2_v
-            return _get(attr, prefer_v2=False)
-
-        slip_bps = _resolve(slippage_bps, "slippage_bps_per_side")
-        if slip_bps is None:
-            slip_bps = _resolve(slippage_bps, "slippage_bps")
-        alpha_long = _resolve(overnight_alpha_long, "overnight_alpha_long")
-        alpha_short = _resolve(overnight_alpha_short, "overnight_alpha_short")
-        fin_annual = _resolve(buy_interest_annual, "buy_interest_annual")
-        borrow_annual = _resolve(borrow_fee_annual, "borrow_fee_annual")
-        rev_bps = _resolve(reverse_fee_bps, "reverse_fee_bps")
-
-        if side_leverage is None:
-            side_leverage = _resolve(None, "side_leverage")
-
+        costs = app_config.v2.costs
         return {
-            "slip_bps": slip_bps,
-            "alpha_long": alpha_long,
-            "alpha_short": alpha_short,
-            "fin_annual": fin_annual,
-            "borrow_annual": borrow_annual,
-            "rev_bps": rev_bps,
-            "side_leverage": side_leverage,
+            "slip_bps": costs.slippage_bps_per_side if slippage_bps is None else slippage_bps,
+            "alpha_long": costs.overnight_alpha_long if overnight_alpha_long is None else overnight_alpha_long,
+            "alpha_short": costs.overnight_alpha_short if overnight_alpha_short is None else overnight_alpha_short,
+            "fin_annual": costs.buy_interest_annual if buy_interest_annual is None else buy_interest_annual,
+            "borrow_annual": costs.borrow_fee_annual if borrow_fee_annual is None else borrow_fee_annual,
+            "rev_bps": costs.reverse_fee_bps if reverse_fee_bps is None else reverse_fee_bps,
+            "side_leverage": costs.side_leverage if side_leverage is None else side_leverage,
         }
 
     @staticmethod
@@ -524,11 +491,7 @@ class BacktestEngine:
                     gap_input_dir=effective_gap_dir,
                     use_file_cache=True,
                 )
-                result = v2_model.decide(
-                    inputs=decision_inputs,
-                    overlay_enabled=overlay_enabled,
-                    use_file_cache=True,
-                )
+                result = v2_model.decide(inputs=decision_inputs, overlay_enabled=overlay_enabled)
                 # Research drivers inject their fitted transform explicitly.
                 # A failed base decision must never be resurrected by an overlay.
                 if decision_transform is not None and not (

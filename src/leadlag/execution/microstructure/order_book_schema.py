@@ -39,30 +39,6 @@ class OrderBookSnapshot:
         return asdict(self)
 
 
-def validate_quote(snapshot: OrderBookSnapshot) -> bool:
-    """Validates the quote snapshot.
-
-    If lob_available is True, bid_price_1 and ask_price_1 must be present, positive,
-    and bid_price_1 < ask_price_1.
-    If lob_available is False, last_price must be present and positive.
-    """
-    if snapshot.lob_available:
-        if snapshot.bid_price_1 is None or snapshot.ask_price_1 is None:
-            logger.warning(f"LOB is enabled but bid/ask is missing for {snapshot.ticker}")
-            return False
-        if snapshot.bid_price_1 <= 0 or snapshot.ask_price_1 <= 0:
-            logger.warning(f"LOB is enabled but non-positive bid/ask for {snapshot.ticker}")
-            return False
-        if snapshot.bid_price_1 >= snapshot.ask_price_1:
-            logger.warning(f"Invalid spread: bid {snapshot.bid_price_1} >= ask {snapshot.ask_price_1} for {snapshot.ticker}")
-            return False
-    else:
-        if snapshot.last_price is None or snapshot.last_price <= 0:
-            logger.warning(f"LOB not available and missing/invalid last_price for {snapshot.ticker}")
-            return False
-    return True
-
-
 def from_api_price_response(api_item: dict[str, Any], timestamp: str | None = None) -> OrderBookSnapshot:
     """Creates an OrderBookSnapshot from Tachibana API get_price response item.
 
@@ -147,8 +123,3 @@ def from_api_price_response(api_item: dict[str, Any], timestamp: str | None = No
         lob_available=lob_available,
         cost_source=cost_source,
     )
-
-
-def to_parquet_record(snapshot: OrderBookSnapshot) -> dict[str, Any]:
-    """Converts snapshot to dict format matching the parquet schema requirements."""
-    return snapshot.to_dict()

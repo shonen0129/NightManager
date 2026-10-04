@@ -12,11 +12,8 @@ from leadlag.data.tickers import (
     JP_TICKERS,
     JP_TICKERS_WITH_TOPIX,
     N_JP,
-    N_JP_ASSETS,
     N_TOTAL,
-    N_TOTAL_ASSETS,
     N_US,
-    N_US_ASSETS,
     TOPIX_TICKER,
     US_TICKERS,
     is_jp_ticker,
@@ -77,14 +74,8 @@ class TestCountConstants:
     def test_n_total(self):
         assert N_TOTAL == 32
 
-    def test_n_us_alias(self):
-        assert N_US_ASSETS == N_US
 
-    def test_n_jp_alias(self):
-        assert N_JP_ASSETS == N_JP
 
-    def test_n_total_alias(self):
-        assert N_TOTAL_ASSETS == N_TOTAL
 
     def test_n_total_is_sum(self):
         assert N_TOTAL == N_US + N_JP

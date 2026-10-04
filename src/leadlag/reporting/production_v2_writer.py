@@ -17,17 +17,15 @@ from __future__ import annotations
 
 import json
 import logging
-from collections.abc import Mapping
 from datetime import datetime
 from pathlib import Path
-from typing import Any
 
 import numpy as np
 import pandas as pd
 
 from leadlag.data.tickers import JP_TICKERS
 from leadlag.domain.portfolio import PortfolioDecision
-from leadlag.models.production_v2 import VERSION
+from leadlag.models.v2 import VERSION
 
 logger = logging.getLogger(__name__)
 
@@ -37,33 +35,12 @@ def _is_fallback_triggered(fb: dict) -> bool:
     return bool(fb.get("gap_data_missing", False) or fb.get("audit_failure", False))
 
 
-def _coerce_decision(result: PortfolioDecision | Mapping[str, Any]) -> PortfolioDecision:
-    """Convert the legacy mapping at the writer boundary only."""
-    if isinstance(result, PortfolioDecision):
-        return result
-    return PortfolioDecision(
-        w_final=result["w_final"],
-        scores=result["scores"],
-        mu_gap=result["mu_gap"],
-        sigma_gap=result["sigma_gap"],
-        Omega_gap=result["Omega_gap"],
-        fallback=result["fallback"],
-        pit_binning=result["pit_binning"],
-        leakage=result["leakage"],
-        numerical=result["numerical"],
-        alerts=result["alerts"],
-        summary=result["summary"],
-        run_config=result["run_config"],
-        scores_overlay=result.get("scores_overlay"),
-        costs=result.get("costs"),
-        diagnostics=result.get("diagnostics"),
-    )
 
 
 def write_production_files(
     trade_date: str,
     live_dir: Path,
-    result: PortfolioDecision | Mapping[str, Any],
+    result: PortfolioDecision,
     dry_run: bool = False,
 ) -> None:
     """Write all production output files to *live_dir*.
@@ -74,7 +51,7 @@ def write_production_files(
         result: Return value of ``ProductionV2Model.decide()``.
         dry_run: When True, log a summary to stdout but do not write files.
     """
-    decision = _coerce_decision(result)
+    decision = result
     if dry_run:
         logger.info("[DRY-RUN] Would write files to: %s", live_dir)
         _print_dry_run_summary(trade_date, decision)
@@ -102,7 +79,6 @@ def write_production_files(
             "score": float(scores[j]),
             "mu_gap": float(mu_gap[j]),
             "sigma_gap": float(sigma_gap[j]),
-            "ensemble_signal": float(scores[j]),  # backward compat with shadow runner
             "gross_multiplier": float(pit["multiplier"]),
             "pit_bin": pit["assigned_bin"],
             "version": VERSION,

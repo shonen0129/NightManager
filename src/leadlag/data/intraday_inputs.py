@@ -92,7 +92,7 @@ def build_open_910_returns(
     The denominator is ``jp_open_trade_*`` when it is available.  This keeps
     the explicit return compatible with the open used to reconstruct close
     prices in :mod:`leadlag.core.target_returns`.  A valid 5-minute open is
-    retained as a compatibility fallback when the execution frame has no
+    used as the denominator when the execution frame has no
     daily-open column.  Missing bars, prices, and non-positive prices remain
     NaN so the target arithmetic can apply its existing open-to-close fallback.
     Returning a date-indexed frame makes the input explicit and keeps the
@@ -247,7 +247,7 @@ def has_valid_open_910_returns(
     proof that the 09:10 observation was supplied.  When ``required_index`` is
     supplied, only those decision dates are checked; historical rows may remain
     sparse because target arithmetic has an explicit per-cell fallback.  The
-    full ``df_exec`` index remains the default for compatibility callers.
+    full ``df_exec`` index is checked when no decision dates are supplied.
     """
     if not isinstance(open_910_returns, pd.DataFrame) or open_910_returns.empty:
         return False
@@ -287,7 +287,7 @@ def compute_jp_target_returns(
     """Delegate target arithmetic using explicit intraday inputs.
 
     ``open_910_returns`` is accepted from a run-owned snapshot.  When it is
-    omitted, this compatibility adapter may load the local 5-minute cache only
+    omitted, this input adapter may load the local 5-minute cache only
     when ``allow_implicit_io`` is true.  Strict typed-input paths fail closed
     instead of reopening a cache owned by another run.
     """

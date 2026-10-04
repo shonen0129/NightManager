@@ -7,7 +7,8 @@ import logging
 import numpy as np
 import pandas as pd
 
-from leadlag.core.types import RiskConfig, RiskReport, VarEsResult
+from leadlag.config.schemas import RiskConfig
+from leadlag.core.types import RiskReport, VarEsResult
 
 logger = logging.getLogger(__name__)
 

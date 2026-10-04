@@ -35,7 +35,7 @@ class UnknownConfigKeyError(ValueError):
 
 # Known top-level YAML sections. Unknown sections trigger UnknownConfigKeyError
 # in strict mode to catch typos early.
-# Nested section names are kept for backward compatibility; flat V2 keys are
+# YAML sections are normalized at this boundary; allowed flat V2 keys are
 # derived from the Pydantic schemas below.
 _ALLOWED_TOP_LEVEL_KEYS = frozenset({
     "model",
@@ -175,8 +175,7 @@ def _normalize_kabu_api_url(api_url: str) -> str:
 def _map_risk_section(risk_data: dict) -> dict:
     """YAML の risk セクションを RiskConfig キーにマッピングする（単一正本）.
 
-    strategy_kwargs と risk_kwargs の両方に同じマッピングが必要なケースで
-    このヘルパーを使うことで、変更箇所を 1 か所に集約する。
+    閾値は RiskConfig にだけ保持し、StrategyConfig へ複製しない。
     """
     defaults = RiskConfig().model_dump()
     return {k: risk_data.get(k, defaults[k]) for k in defaults}
@@ -205,7 +204,7 @@ def build_app_config_from_dict(yaml_data: dict[str, Any], strict: bool = False) 
         _validate_strict_nested_keys(yaml_data)
 
     # Extract AppConfig-level sections. V2 runtime parameters are normalized
-    # through ``parse_run_config`` below, so legacy nested sections are only
+    # through ``parse_run_config`` below, so the sections here are only
     # used for fields that live exclusively in ``StrategyConfig``.
     model_data = yaml_data.get("model", {})
     portfolio_data = yaml_data.get("portfolio", {})
@@ -235,7 +234,6 @@ def build_app_config_from_dict(yaml_data: dict[str, Any], strict: bool = False) 
         portfolio_data=portfolio_data,
         residualization_data=res_data,
         costs_data=costs_data,
-        risk_kwargs=risk_kwargs,
         start_date=yaml_data.get("start_date", "2015-01-05"),
         side_leverage=float(side_leverage_raw) if side_leverage_raw is not None else None,
         env_slippage_bps=float(os.environ["STRATEGY_SLIPPAGE_BPS"]) if "STRATEGY_SLIPPAGE_BPS" in os.environ else None,
@@ -308,15 +306,6 @@ def build_app_config_from_dict(yaml_data: dict[str, Any], strict: bool = False) 
 
     risk_cfg = RiskConfig(**risk_kwargs)
 
-    ml_overlay_data = yaml_data.get("ml_order_overlay", {})
-    ml_overlay_cfg = MLOrderOverlayConfig(
-        enabled=ml_overlay_data.get("enabled") if "enabled" in ml_overlay_data else v2_cfg.ml_overlay_enabled,
-        model_dir=ml_overlay_data.get("model_dir") if "model_dir" in ml_overlay_data else v2_cfg.ml_overlay_model_dir,
-        use_ticker=ml_overlay_data.get("use_ticker") if "use_ticker" in ml_overlay_data else v2_cfg.ml_overlay_use_ticker,
-        use_classification=ml_overlay_data.get("use_classification") if "use_classification" in ml_overlay_data else v2_cfg.ml_overlay_use_classification,
-        per_ticker_interactions=ml_overlay_data.get("per_ticker_interactions") if "per_ticker_interactions" in ml_overlay_data else v2_cfg.ml_overlay_per_ticker_interactions,
-    )
-
     gap_dir = (yaml_data.get("gap_distribution") or {}).get("dir")
     if gap_dir is None:
         gap_dir = str(v2_cfg.gap_input_dir or "")
@@ -327,7 +316,6 @@ def build_app_config_from_dict(yaml_data: dict[str, Any], strict: bool = False) 
         v2=v2_cfg,
         kabu=kabu_cfg,
         tachibana=tachi_cfg,
-        ml_order_overlay=ml_overlay_cfg,
         broker_provider=broker_provider,
         output_base_dir=output_data.get("base_dir", str(results("sector_relative_ensemble"))),
         output_live_dir=output_data.get("live_dir", str(live("sector_relative_ensemble"))),

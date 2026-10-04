@@ -15,7 +15,7 @@ while not (ROOT / "pyproject.toml").exists():
     ROOT = ROOT.parent
 sys.path.insert(0, str(ROOT / "src"))
 
-from leadlag.models.ml_order_overlay import load_overlay_model
+from leadlag.models.ml_overlay_artifact import load_overlay_model
 
 MODEL_DIRS = [
     ROOT / "models" / "ml_order_overlay" / "phase2_8",

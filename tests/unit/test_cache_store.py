@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from leadlag.data.cache_store import SqliteCacheStore
+from leadlag.data.cache_store import CacheStoreError, SqliteCacheStore
 
 
 @pytest.fixture
@@ -44,6 +44,25 @@ def test_pandas_roundtrip(store):
     store.set("df", df)
     loaded = store.get("df")
     pd.testing.assert_frame_equal(loaded, df)
+
+
+def test_invalid_payload_is_rejected_without_pickle_deserialization(store):
+    import pickle
+    import sqlite3
+
+    with sqlite3.connect(store.path) as connection:
+        connection.execute(
+            "INSERT INTO cache_store (key, value) VALUES (?, ?)",
+            ("old", pickle.dumps({"x": 1})),
+        )
+    with pytest.raises(CacheStoreError, match="Invalid JSON"):
+        store.get("old")
+
+
+@pytest.mark.parametrize("storage_format", ["pickle", "unknown", None])
+def test_dataframe_cache_rejects_unsupported_format(storage_format):
+    with pytest.raises(CacheStoreError, match="Unsupported DataFrame"):
+        SqliteCacheStore._record_to_df({"format": storage_format, "blob": ""})
 
 
 def test_meta(store):

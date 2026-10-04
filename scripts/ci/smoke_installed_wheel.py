@@ -26,7 +26,7 @@ def main() -> int:
     import leadlag.cli
     from leadlag.models.ml_order_overlay import MLOrderOverlayModel
     from leadlag.models.ml_overlay_artifact import load_overlay_model, save_overlay_model
-    from leadlag.models.ml_overlay_features import _predict_p_trade
+    from leadlag.models.ml_overlay_features import _predict_relative_allocation
 
     assert Path(leadlag.__file__).resolve().is_relative_to(installation)
     assert importlib.util.find_spec("research") is None
@@ -38,7 +38,7 @@ def main() -> int:
     features = pd.DataFrame({"score": [0.2, 0.8]})
     fitted = DummyRegressor(strategy="constant", constant=0.5).fit(features, [0, 1])
     model = MLOrderOverlayModel(fitted, ["score"], 1.0, False, False, False)
-    expected = _predict_p_trade(features, model)
+    expected = _predict_relative_allocation(features, model)
     with tempfile.TemporaryDirectory(prefix="leadlag-wheel-artifact-") as directory:
         artifact = Path(directory)
         save_overlay_model(model, artifact, training_metadata={
@@ -47,7 +47,7 @@ def main() -> int:
             "config_hash": "synthetic-wheel-smoke",
         })
         restored = load_overlay_model(artifact)
-        np.testing.assert_array_equal(_predict_p_trade(features, restored), expected)
+        np.testing.assert_array_equal(_predict_relative_allocation(features, restored), expected)
         assert type(restored).__module__ == "leadlag.models.ml_order_overlay"
     assert not any(key == "research" or key.startswith("research.") for key in sys.modules)
     print(json.dumps({"wheel_import": str(leadlag.__file__), "cli_help": "pass",

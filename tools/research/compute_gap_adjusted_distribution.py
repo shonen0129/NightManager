@@ -28,7 +28,7 @@ sys.path.insert(0, str(ROOT / "src"))
 from leadlag.broker.tachibana.session_cache import save_open_prices_cache
 from leadlag.core.portfolio import solve_baseline_style
 from leadlag.core.signal import build_weights_minvar
-from leadlag.data.decision_cache import save_decision_cache
+from leadlag.data.market_data_cache import save_df_exec_to_local_cache
 from leadlag.data.gap_store import GapStore
 from leadlag.data.horizon_returns import (
     compute_cumulative_returns as _shared_compute_cumulative_returns,
@@ -1251,7 +1251,7 @@ def main():
     if str_to_bool(args.use_tachibana_prices):
         try:
             save_df_exec_to_local_cache(df_exec)
-            save_decision_cache(df_exec)
+            save_df_exec_to_local_cache(df_exec)
             logger.info("Persisted Tachibana-injected df_exec to local cache.")
         except Exception as e:
             logger.warning("Failed to persist Tachibana-injected df_exec: %s", e)

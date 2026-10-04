@@ -398,7 +398,7 @@ def run_v2_decision(
     # --- Step 3: Build PIT data lake and the as-of market snapshot ---
     logger.info("[3/5] Building PIT data lake and as-of market snapshot...")
     lake = PITDataLake(df_exec)
-    if t_trade not in lake.df_exec.index:
+    if t_trade not in lake.history_frame().index:
         # A previous row is never a valid substitute for today's trade.  It
         # would combine yesterday's signal/gap with today's prices and could
         # replay an old order plan.  Fail closed for both dry-run and live
@@ -747,8 +747,7 @@ def run_v2_decision(
         )
         with lease_context:
             hist_returns = _get_hist_returns_for_risk(
-                strategy=None,
-                config=app_config.strategy,
+                    config=app_config.strategy,
                 output_root=output_root,
                 trade_date=t_effective,
                 config_path=config_path,
@@ -759,6 +758,7 @@ def run_v2_decision(
             out_path = execute_post_decision_flow(
                 decision=decision,
                 config=app_config.strategy,
+                risk_config=app_config.risk,
                 manual_opens=current_prices,
                 max_capital=max_capital,
                 hist_returns=hist_returns,

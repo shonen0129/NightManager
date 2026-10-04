@@ -7,7 +7,7 @@ scheduled training step, not part of the daily execution path.
 
 Example::
 
-    python tools/production/train_ml_order_overlay.py \
+    python tools/research/train_ml_order_overlay.py \
         --train-start 2015-01-05 \
         --train-end 2024-12-31 \
         --gap-input-dir var/results/gap_adjusted_distribution/20260615_004113 \

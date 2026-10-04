@@ -220,7 +220,7 @@ def run_v2_backtest(df_exec, cfg, gap_dir: Path, y_jp_target: np.ndarray, label:
         i = df_exec.index.get_indexer([dt])[0]
 
         try:
-            result = ProductionV2Model(parse_run_config(run_cfg)).decide(trade_date=date_str, gap_input_dir=gap_dir, overlay_enabled=False, use_file_cache=True)
+            result = ProductionV2Model(parse_run_config(run_cfg)).decide_from_cache(trade_date=date_str, gap_input_dir=gap_dir)
         except Exception as e:
             logger.warning(f"[{label}] Failed on {date_str}: {e}")
             daily_returns.append(0.0)

@@ -3,7 +3,7 @@
 Step 2: Extracts CommonInputs dataclass and build_common_inputs pure function.
 Step 3: Adds SignalComponent protocol, PCAComponent, and related infrastructure.
 
-The existing model methods remain as thin delegates to preserve backward compatibility.
+Models delegate common input preparation and signal components to this layer.
 """
 
 from __future__ import annotations
@@ -62,7 +62,7 @@ class CommonInputs:
     p4: P4Inputs | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert to dict format compatible with existing _prepare_common_inputs callers."""
+        """Return the shared input mapping consumed by the signal pipeline."""
         out = {
             "all_returns_raw": self.all_returns_raw,
             "c_full": self.c_full,

@@ -59,8 +59,6 @@ class DataProvider(ABC):
         ...
 
 
-class _DataProviderError(Exception):
-    """Base exception for data provider failures."""
 
 
 from leadlag.data.providers.tachibana_provider import TachibanaProvider  # noqa: E402

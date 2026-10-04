@@ -13,32 +13,13 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from leadlag.config.schemas import StrategyConfig as ProductionConfig
+from leadlag.config.schemas import RiskConfig
 from leadlag.core import allocator as domain_allocator
 from leadlag.core.portfolio import adjust_gross_exposure, classify_actions
 from leadlag.core.risk import evaluate_risk_checks
-from leadlag.core.types import RiskConfig
 from leadlag.execution.account_risk import AccountRiskSnapshot, evaluate_account_loss
 
 logger = logging.getLogger(__name__)
-
-
-def build_risk_config(config: ProductionConfig) -> RiskConfig:
-    """Build a ``RiskConfig`` from production strategy configuration."""
-    return RiskConfig(
-        var_confidence=config.var_confidence,
-        var_window=config.var_window,
-        var_method=config.var_method,
-        var_warning=config.var_warning,
-        var_stop=config.var_stop,
-        es_warning=config.es_warning,
-        es_stop=config.es_stop,
-        daily_loss_warning=config.daily_loss_warning,
-        daily_loss_stop=config.daily_loss_stop,
-        monthly_loss_stop=config.monthly_loss_stop,
-        max_net_exposure=config.max_net_exposure,
-        max_gross_exposure=config.max_gross_exposure,
-    )
 
 
 def run_risk_checks(
@@ -47,21 +28,20 @@ def run_risk_checks(
     total_sell_allocated: float,
     max_capital: float,
     hist_daily_returns: pd.Series,
-    config: ProductionConfig,
+    config: RiskConfig,
     actual_account_risk: AccountRiskSnapshot | None = None,
     actual_account_risk_error: str | None = None,
     require_actual_account_risk: bool = False,
 ) -> dict:
     """Run risk checks against the current decision and return a report dict."""
     weights = np.asarray(decision["weight"], dtype=float)
-    risk_config = build_risk_config(config)
     risk_result = evaluate_risk_checks(
         weights=weights,
         total_buy_allocated=total_buy_allocated,
         total_sell_allocated=total_sell_allocated,
         max_capital=max_capital,
         hist_daily_returns=hist_daily_returns,
-        config=risk_config,
+        config=config,
     )
     report: dict[str, Any] = {
         "target_net_exposure": risk_result.target_net_exposure,
@@ -100,7 +80,7 @@ def run_risk_checks(
     return report
 
 
-def auto_adjust_gross_exposure(decision: dict, config: ProductionConfig) -> dict:
+def auto_adjust_gross_exposure(decision: dict, config: RiskConfig) -> dict:
     """Scale weights down if gross exposure exceeds the configured limit.
 
     ``config.max_gross_exposure`` is interpreted in raw-weight units (before

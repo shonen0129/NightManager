@@ -25,8 +25,8 @@ import yfinance as yf
 
 from leadlag.config.paths import market_data
 from leadlag.data.market_data_cache import (
-    etf_pkl_path,
-    is_pkl_cache_valid,
+    etf_cache_path,
+    is_etf_cache_valid,
     load_raw_cache,
     save_raw_cache,
 )
@@ -336,17 +336,17 @@ def download_data(
     Returns:
         Dict with keys "us_close", "jp_close", "jp_open" (all DataFrames)
     """
-    pkl_path = etf_pkl_path()
-    os.makedirs(os.path.dirname(pkl_path), exist_ok=True)
+    cache_path = etf_cache_path()
+    os.makedirs(os.path.dirname(cache_path), exist_ok=True)
 
-    if not force and is_pkl_cache_valid(pkl_path):
+    if not force and is_etf_cache_valid(cache_path):
         logger.info("Loading data from cache (valid)")
         return load_raw_cache()
 
-    has_stale_cache = os.path.exists(pkl_path)
+    has_stale_cache = os.path.exists(cache_path)
     if has_stale_cache:
         try:
-            cache_mtime = os.path.getmtime(pkl_path)
+            cache_mtime = os.path.getmtime(cache_path)
             cache_age = datetime.fromtimestamp(cache_mtime)
             logger.info("Cache expired (last modified: %s), re-downloading...", cache_age)
         except OSError:
@@ -403,8 +403,8 @@ def download_data(
         return data
 
     except Exception:
-        if has_stale_cache and os.path.exists(pkl_path):
-            logger.warning("Download failed. Falling back to stale cache: %s", pkl_path)
+        if has_stale_cache and os.path.exists(cache_path):
+            logger.warning("Download failed. Falling back to stale cache: %s", cache_path)
             try:
                 return load_raw_cache()
             except Exception:

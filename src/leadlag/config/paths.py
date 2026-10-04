@@ -9,11 +9,8 @@ scattering described in ADR-0006.
 
 from __future__ import annotations
 
-import logging
 from functools import lru_cache
 from pathlib import Path
-
-logger = logging.getLogger(__name__)
 
 
 @lru_cache(maxsize=1)
@@ -72,24 +69,10 @@ def outputs(*parts: str | Path) -> Path:
 
 
 def market_data(*parts: str | Path) -> Path:
-    """Return a path under ``var/market_data/``.
-
-    Backward compatibility: if the canonical ``var/market_data/`` does not
-    exist yet but a legacy ``market_data/`` directory exists at the project
-    root, the legacy path is returned with a deprecation warning. This allows
-    ADR-0006 to be adopted without an immediate destructive data migration.
-    Run ``tools/migrate_outputs_to_var.py`` to move data permanently.
-    """
+    """Return a path under ``var/market_data/``, creating the directory."""
     canonical = _sub_dir("market_data")
-    root_legacy = project_root() / "market_data"
-    if canonical.exists() or not root_legacy.exists():
-        canonical.mkdir(parents=True, exist_ok=True)
-        return canonical / Path(*parts) if parts else canonical
-    logger.warning(
-        "Legacy market_data/ at project root is being used. "
-        "Run tools/migrate_outputs_to_var.py to move it under var/ market_data."
-    )
-    return root_legacy / Path(*parts) if parts else root_legacy
+    canonical.mkdir(parents=True, exist_ok=True)
+    return canonical / Path(*parts) if parts else canonical
 
 
 def experiments(*parts: str | Path) -> Path:

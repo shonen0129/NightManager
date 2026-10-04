@@ -2,7 +2,7 @@
 
 Provides date-aligned market snapshots and owned historical input contracts.
 Historical training windows are constrained by the model's as-of calculation
-view and audits; ``history_frame`` remains a full-history compatibility copy
+view and audits; ``history_frame`` returns an owned full-history copy
 for evaluation and offline inspection.
 """
 
@@ -204,14 +204,6 @@ class PITDataLake:
     def end_date(self) -> pd.Timestamp:
         return self._trade_dates[-1]
 
-    @property
-    def df_exec(self) -> pd.DataFrame:
-        """Return an isolated compatibility copy of the execution DataFrame.
-
-        New decision code uses ``build_decision_inputs``.  Returning a copy
-        here prevents legacy callers from mutating the lake's owned history.
-        """
-        return self._df.copy(deep=True)
 
     def history_frame(self) -> pd.DataFrame:
         """Return an isolated copy for callers outside the decision boundary."""
@@ -363,14 +355,14 @@ class PITDataLake:
 
         Explicit prices/gaps are accepted only at this adapter boundary.  The
         model receives the resulting ``DecisionInputs`` object and no longer
-        has to reconcile parallel legacy arguments.
+        has to reconcile parallel input arguments.
         """
         requested = pd.Timestamp(as_of)
         if requested.tzinfo is not None:
             requested = requested.tz_convert("Asia/Tokyo").tz_localize(None)
         requested_date = requested.normalize()
         date_only_request = requested == requested_date
-        # A date-only compatibility call still represents the standard 09:10
+        # A date-only call represents the standard 09:10
         # decision. Building its snapshot at midnight would mark 09:10
         # prices/gaps as known before they were observed.
         requested_cutoff = requested_date + pd.Timedelta(hours=9, minutes=10)
@@ -384,7 +376,7 @@ class PITDataLake:
         snapshot_date_ok = snapshot_as_of.normalize() == trade_date
         if requested_date != trade_date or not snapshot_date_ok:
             raise ValueError("snapshot date must match requested decision date")
-        # A date-only request is a compatibility form whose latest permitted
+        # A date-only request uses the default execution time. Its permitted
         # decision cutoff is the standard 09:10 JST boundary.  Once a caller
         # supplies an intraday timestamp, the snapshot must be from that exact
         # instant; accepting a same-date post-close snapshot here would expose

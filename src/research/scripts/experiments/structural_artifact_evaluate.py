@@ -20,7 +20,7 @@ from leadlag.domain.inputs import DecisionInputs
 from leadlag.execution.backtester import BacktestEngine
 from leadlag.execution.config import load_config_from_yaml
 from leadlag.experiment_registry import Decision, ExperimentRecord, ExperimentRegistry
-from leadlag.models.ml_order_overlay import DEFAULT_LGBM_KWARGS
+from research.experiments.ml_overlay_training import DEFAULT_LGBM_KWARGS
 from leadlag.models.ml_overlay_artifact import load_overlay_model, save_overlay_model
 from leadlag.models.ml_overlay_inference import apply_overlay
 from leadlag.runner.production import ProductionRunner

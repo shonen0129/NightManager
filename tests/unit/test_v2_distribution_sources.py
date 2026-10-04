@@ -11,7 +11,7 @@ import pytest
 from leadlag.config.schemas import ProductionV2RunConfig
 from leadlag.data.pit_lake import MarketSnapshot
 from leadlag.data.tickers import JP_TICKERS
-from leadlag.domain.distribution import DistributionReason
+from leadlag.domain.distribution import DistributionReason, DistributionStatus
 from leadlag.models.v2.distribution_source import (
     DistributionResult,
     DistributionSource,
@@ -39,7 +39,7 @@ def _make_dummy_result() -> DistributionResult:
         mu_gap=np.ones(n_j) * 0.01,
         Omega_gap=np.eye(n_j) * 0.001,
         source="dummy",
-        is_available=True,
+        status=DistributionStatus.READY, reason=DistributionReason.RESOLVED,
     )
 
 
@@ -62,7 +62,7 @@ class TestDistributionSourceInterface:
             horizon=1,
         )
 
-        assert result.is_flat is True
+        assert (result.status == DistributionStatus.FLAT) is True
         assert result.flat_decision is not None
         assert result.flat_decision.fallback["gap_data_missing"] is True
         assert np.allclose(result.flat_decision.w_final, 0.0)
@@ -79,7 +79,7 @@ class TestDistributionSourceInterface:
             horizon=1,
         )
 
-        assert result.is_available is False
+        assert (result.status in (DistributionStatus.READY, DistributionStatus.FLAT)) is False
         assert any("ondemand_fallback_enabled" in a for a in result.alerts or [])
 
     def test_on_demand_source_requires_blpx_model(self) -> None:
@@ -95,7 +95,7 @@ class TestDistributionSourceInterface:
             horizon=1,
         )
 
-        assert result.is_available is False
+        assert (result.status in (DistributionStatus.READY, DistributionStatus.FLAT)) is False
         assert any("blpx_model not available" in a for a in result.alerts or [])
 
     def test_file_cache_source_loads_precomputed_matrices(self, tmp_path: Path) -> None:
@@ -124,7 +124,7 @@ class TestDistributionSourceInterface:
         source = FileCacheDistributionSource(model)
         result = source.resolve(trade_date, df_exec=None, current_prices=None, horizon=1)
 
-        assert result.is_available is True
+        assert (result.status in (DistributionStatus.READY, DistributionStatus.FLAT)) is True
         assert result.source == "file_cache"
         assert np.allclose(result.mu_gap, mu)
         assert np.allclose(result.Omega_gap, omega)
@@ -146,7 +146,7 @@ class TestDistributionSourceInterface:
             trade_date, df_exec=None, current_prices=None, horizon=1
         )
 
-        assert result.is_available is False
+        assert (result.status in (DistributionStatus.READY, DistributionStatus.FLAT)) is False
         assert any("provenance metadata is missing" in alert for alert in result.alerts or [])
 
     def test_file_cache_source_validates_bundle_identity_against_inputs(self, tmp_path: Path) -> None:
@@ -178,7 +178,7 @@ class TestDistributionSourceInterface:
             current_prices=None,
             horizon=1,
         )
-        assert result.is_available is True
+        assert (result.status in (DistributionStatus.READY, DistributionStatus.FLAT)) is True
 
         changed = frame.copy()
         changed.loc[pd.Timestamp(trade_date), "feature"] = 2.0
@@ -188,7 +188,7 @@ class TestDistributionSourceInterface:
             current_prices=None,
             horizon=1,
         )
-        assert rejected.is_available is False
+        assert (rejected.status in (DistributionStatus.READY, DistributionStatus.FLAT)) is False
         assert any("input_version mismatch" in alert for alert in rejected.alerts or [])
 
     @pytest.mark.parametrize("horizon", [1, 3, 5])
@@ -234,7 +234,7 @@ class TestDistributionSourceInterface:
             allow_implicit_io=False,
         )
 
-        assert result.is_available is False
+        assert (result.status in (DistributionStatus.READY, DistributionStatus.FLAT)) is False
         assert result.reason == DistributionReason.INPUTS_MISSING
         assert any(
             f"strict h={horizon}" in alert and "explicit open_910_returns" in alert
@@ -271,13 +271,13 @@ class TestDistributionSourceInterface:
         )
 
         source = FileCacheDistributionSource(model)
-        assert source.resolve(
+        assert (source.resolve(
             trade_date,
             df_exec=frame,
             current_prices=None,
             horizon=1,
             open_910_returns=open_910,
-        ).is_available
+        ).status in (DistributionStatus.READY, DistributionStatus.FLAT))
 
         changed = open_910.copy()
         changed.iloc[0, 0] = 0.02
@@ -288,7 +288,7 @@ class TestDistributionSourceInterface:
             horizon=1,
             open_910_returns=changed,
         )
-        assert rejected.is_available is False
+        assert (rejected.status in (DistributionStatus.READY, DistributionStatus.FLAT)) is False
         assert any("open_910_version mismatch" in alert for alert in rejected.alerts or [])
 
     def test_file_cache_source_rejects_changed_snapshot_gap_inputs(self, tmp_path: Path) -> None:
@@ -330,9 +330,9 @@ class TestDistributionSourceInterface:
             metadata=metadata,
         )
         source = FileCacheDistributionSource(model)
-        assert source.resolve(
+        assert (source.resolve(
             trade_date, frame, None, snapshot=snapshot, horizon=1
-        ).is_available
+        ).status in (DistributionStatus.READY, DistributionStatus.FLAT))
 
         changed = MarketSnapshot(
             as_of=snapshot.as_of,
@@ -345,7 +345,7 @@ class TestDistributionSourceInterface:
             prev_closes=snapshot.prev_closes,
         )
         rejected = source.resolve(trade_date, frame, None, snapshot=changed, horizon=1)
-        assert not rejected.is_available
+        assert rejected.status not in (DistributionStatus.READY, DistributionStatus.FLAT)
         assert any("gap_inputs_version mismatch" in alert for alert in rejected.alerts or [])
 
     def test_file_cache_source_rejects_legacy_bundle_with_live_snapshot(self, tmp_path: Path) -> None:
@@ -384,7 +384,7 @@ class TestDistributionSourceInterface:
         rejected = FileCacheDistributionSource(model).resolve(
             trade_date, frame, None, snapshot=snapshot, horizon=1
         )
-        assert rejected.is_available is False
+        assert (rejected.status in (DistributionStatus.READY, DistributionStatus.FLAT)) is False
         assert rejected.reason == DistributionReason.PROVENANCE_REJECTED
         assert any("gap_inputs_version is missing" in alert for alert in rejected.alerts or [])
 
@@ -414,7 +414,7 @@ class TestDistributionSourceInterface:
             allow_implicit_io=False,
         )
 
-        assert result.is_available is False
+        assert (result.status in (DistributionStatus.READY, DistributionStatus.FLAT)) is False
         assert result.reason == DistributionReason.INPUTS_MISSING
         assert any("complete finite" in alert for alert in result.alerts or [])
 
@@ -424,7 +424,7 @@ class TestDistributionSourceInterface:
 
         result = source.resolve("2024-01-01", df_exec=None, current_prices=None, horizon=1)
 
-        assert result.is_available is False
+        assert (result.status in (DistributionStatus.READY, DistributionStatus.FLAT)) is False
 
 
 @pytest.mark.unit
@@ -451,22 +451,22 @@ class TestFallbackPolicy:
         class _AlwaysAvailable(DistributionSource):
             name = "always"
 
-            def resolve(self, trade_date, df_exec, current_prices, *, horizon=1, snapshot=None):
+            def resolve(self, trade_date, df_exec, current_prices, *, horizon=1, snapshot=None, open_910_returns=None, allow_implicit_io=True):
                 return DistributionResult(
                     mu_gap=np.ones(len(JP_TICKERS)) * 0.01,
                     Omega_gap=np.eye(len(JP_TICKERS)) * 0.001,
                     source=self.name,
-                    is_available=True,
+                    status=DistributionStatus.READY, reason=DistributionReason.RESOLVED,
                 )
 
         class _NeverAvailable(DistributionSource):
             name = "never"
 
-            def resolve(self, trade_date, df_exec, current_prices, *, horizon=1, snapshot=None):
+            def resolve(self, trade_date, df_exec, current_prices, *, horizon=1, snapshot=None, open_910_returns=None, allow_implicit_io=True):
                 return DistributionResult(
                     source=self.name,
                     alerts=["missing"],
-                    is_available=False,
+                    status=DistributionStatus.UNAVAILABLE, reason=DistributionReason.UNKNOWN,
                 )
 
         model = _MockModel()
@@ -479,7 +479,7 @@ class TestFallbackPolicy:
 
         result = policy.resolve("2024-01-01", df_exec=None, current_prices=None)
 
-        assert result.is_available is True
+        assert (result.status in (DistributionStatus.READY, DistributionStatus.FLAT)) is True
         assert result.source == "always"
         # Prior alert from the failed source should be preserved.
         assert "missing" in (result.alerts or [])
@@ -493,18 +493,18 @@ class TestFallbackPolicy:
 
         result = policy.resolve("2024-01-01", df_exec=None, current_prices=None)
 
-        assert result.is_flat is True
+        assert (result.status == DistributionStatus.FLAT) is True
         assert result.flat_decision.fallback["gap_data_missing"] is True
 
     def test_resolve_prior_alerts_propagated_to_flat(self) -> None:
         class _FailingSource(DistributionSource):
             name = "failing"
 
-            def resolve(self, trade_date, df_exec, current_prices, *, horizon=1, snapshot=None):
+            def resolve(self, trade_date, df_exec, current_prices, *, horizon=1, snapshot=None, open_910_returns=None, allow_implicit_io=True):
                 return DistributionResult(
                     source=self.name,
                     alerts=["file missing", "cache stale"],
-                    is_available=False,
+                    status=DistributionStatus.UNAVAILABLE, reason=DistributionReason.UNKNOWN,
                 )
 
         model = _MockModel()
@@ -516,7 +516,7 @@ class TestFallbackPolicy:
 
         result = policy.resolve("2024-01-01", df_exec=None, current_prices=None)
 
-        assert result.is_flat is True
+        assert (result.status == DistributionStatus.FLAT) is True
         # Flat source itself only logs a generic message, but prior alerts are now
         # part of the DistributionResult.  This verifies the propagation path.
         assert "file missing" in (result.alerts or [])
@@ -538,4 +538,4 @@ class TestFallbackPolicy:
             snapshot=None,
         )
 
-        assert result.is_flat is True
+        assert (result.status == DistributionStatus.FLAT) is True

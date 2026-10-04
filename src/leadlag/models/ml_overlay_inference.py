@@ -143,10 +143,6 @@ def apply_overlay(
             "relative_allocation_multiplier_std": float(
                 np.std(allocation_multiplier)
             ),
-            # Retain the old summary keys for saved-run readers. They are
-            # aliases, not calibrated trade probabilities.
-            "p_trade_mean": float(np.mean(allocation_multiplier)),
-            "p_trade_std": float(np.std(allocation_multiplier)),
             "ml_trade_gate_applied": False,
             "ml_trade_gate_status": (
                 "not_evaluated_missing_verified_inventory_and_incremental_cost"
@@ -187,7 +183,7 @@ def generate_v2_production_portfolio_with_overlay(
     # Lazy import avoids a production_v2 -> overlay -> production_v2 cycle.
     from leadlag.models.production_v2 import ProductionV2Model
 
-    result = ProductionV2Model(parse_run_config(run_cfg)).decide(trade_date=trade_date, gap_input_dir=gap_input_dir, overlay_enabled=False, use_file_cache=True)
+    result = ProductionV2Model(parse_run_config(run_cfg)).decide_from_cache(trade_date=trade_date, gap_input_dir=gap_input_dir)
     if overlay_model is None or df_exec is None:
         return result
     return apply_overlay(result, df_exec, overlay_model, trade_date)

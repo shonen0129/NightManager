@@ -1,28 +1,15 @@
 """Type-safe domain models for the lead-lag strategy.
 
-This module defines the core domain types (dataclasses / Enums).
-
-NOTE: ``StrategyConfig`` and ``RiskConfig`` were previously defined here as
-frozen dataclasses.  They have been migrated to ``leadlag.config.schemas``
-(Pydantic BaseModel) to enable field-level validation and a single source of
-truth.  The names are re-exported here for backward compatibility.
+This module defines trading types (dataclasses / Enums).
+Application configuration is defined in ``leadlag.config.schemas``.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
 from enum import StrEnum
 
 import numpy as np
-
-
-class TradeAction(StrEnum):
-    """Trade action enumeration."""
-
-    BUY = "BUY"
-    SELL = "SELL"
-    HOLD = "HOLD"
 
 
 class OrderSide(StrEnum):
@@ -49,65 +36,6 @@ class OrderStatus(StrEnum):
     PARTIALLY_FILLED = "PARTIALLY_FILLED"
     CANCELLED = "CANCELLED"
     FAILED = "FAILED"
-
-
-@dataclass(frozen=True)
-class TickerPosition:
-    """単一銘柄のポジション情報."""
-
-    ticker: str
-    open_price: float
-    signal: float
-    weight: float
-    action: TradeAction
-    allocated_amount: float
-    quantity: int
-
-    @property
-    def notional(self) -> float:
-        """取引金額."""
-        return self.open_price * self.quantity
-
-
-@dataclass(frozen=True)
-class TradeDecision:
-    """トレード意思決定の結果."""
-
-    trade_date: datetime
-    tickers: list[str]
-    signals: np.ndarray
-    raw_weights: np.ndarray
-    scale: float
-    weights: np.ndarray
-    actions: list[TradeAction]
-    sigma_s: float
-    dispersion_indicator: float
-    dispersion_metric: str
-
-    def to_positions(
-        self,
-        open_prices: dict[str, float] | None = None,
-        quantities: np.ndarray | None = None,
-        allocated_amounts: np.ndarray | None = None,
-    ) -> list[TickerPosition]:
-        """TickerPositionのリストに変換."""
-        positions = []
-        for i, ticker in enumerate(self.tickers):
-            price = open_prices.get(ticker, 0.0) if open_prices else 0.0
-            qty = int(quantities[i]) if quantities is not None else 0
-            alloc = float(allocated_amounts[i]) if allocated_amounts is not None else 0.0
-            positions.append(
-                TickerPosition(
-                    ticker=ticker,
-                    open_price=price,
-                    signal=float(self.signals[i]),
-                    weight=float(self.weights[i]),
-                    action=self.actions[i],
-                    allocated_amount=alloc,
-                    quantity=qty,
-                )
-            )
-        return positions
 
 
 @dataclass(frozen=True)
@@ -193,26 +121,3 @@ class OrderResult:
     margin_trade_type: int = 3
     message: str = ""
     eigyou_day: str = ""
-
-
-@dataclass(frozen=True)
-class BacktestResult:
-    """バックテスト結果."""
-
-    trade_dates: list[datetime]
-    daily_returns: np.ndarray
-    long_returns: np.ndarray
-    short_returns: np.ndarray
-    sigma_s: np.ndarray
-    dispersion_indicators: np.ndarray
-    scales: np.ndarray
-
-
-# ---------------------------------------------------------------------------
-# Backward-compatible re-exports from config.schemas
-# ---------------------------------------------------------------------------
-# StrategyConfig and RiskConfig have been migrated to Pydantic BaseModel
-# in leadlag.config.schemas for unified validation.  Import them from there
-# in new code.  The aliases below keep existing imports working.
-from leadlag.config.schemas import RiskConfig as RiskConfig  # noqa: F401, E402
-from leadlag.config.schemas import StrategyConfig as StrategyConfig  # noqa: F401, E402

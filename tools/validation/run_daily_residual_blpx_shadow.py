@@ -25,7 +25,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 from leadlag.data.tickers import JP_TICKERS
-from leadlag.models.production_v2 import load_pit_ir_history
+from leadlag.models.v2.pit import load_pit_ir_history
 
 logging.basicConfig(
     level=logging.INFO,
@@ -364,7 +364,7 @@ def generate_daily_shadow_portfolio(
                 if tk in JP_TICKERS:
                     idx = JP_TICKERS.index(tk)
                     w_base_final[idx] = float(row.get("weight", 0.0))
-                    sig_base_prod[idx] = float(row.get("ensemble_signal", 0.0))
+                    sig_base_prod[idx] = float(row["score"])
         else:
             alerts.append(f"Production weights trade_date mismatch in {prod_weights_file}. Reconstructing baseline.")
     else:

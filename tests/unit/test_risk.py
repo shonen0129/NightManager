@@ -11,8 +11,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from leadlag.config.schemas import RiskConfig
 from leadlag.core.risk import compute_var_es, evaluate_risk_checks
-from leadlag.core.types import RiskConfig
 
 # ---------------------------------------------------------------------------
 # compute_var_es

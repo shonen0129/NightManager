@@ -23,7 +23,7 @@ sys.path.insert(0, str(ROOT / "src"))
 from leadlag.config.schemas import ProductionV2RunConfig
 from leadlag.data.tickers import JP_TICKERS
 from leadlag.experiment_registry import Decision
-from leadlag.models.ml_order_overlay import DEFAULT_LGBM_KWARGS
+from research.experiments.ml_overlay_training import DEFAULT_LGBM_KWARGS
 from leadlag.models.ml_overlay_artifact import load_overlay_model, save_overlay_model
 from leadlag.utils.dataframe_fingerprint import dataframe_fingerprint
 from research.experiment_utils import record_simple_experiment

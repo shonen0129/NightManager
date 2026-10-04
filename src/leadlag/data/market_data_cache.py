@@ -115,15 +115,12 @@ def _check_df_exec_staleness(
         )
 
 
-def etf_pkl_path() -> str:
-    """Return the canonical SQLite path for the raw ETF OHLC cache.
-
-    The name is kept for backward compatibility; the file is a SQLite database.
-    """
+def etf_cache_path() -> str:
+    """Return the canonical SQLite path for the raw ETF OHLC cache."""
     return str(_etf_store_path())
 
 
-def is_pkl_cache_valid(cache_file: str | Path | None = None) -> bool:
+def is_etf_cache_valid(cache_file: str | Path | None = None) -> bool:
     """Return True if the raw ETF cache exists and is within TTL."""
     path = _resolve_store_path(cache_file, _ETF_CACHE_FILENAME)
     if not path.exists():
@@ -263,14 +260,6 @@ def save_df_exec_to_local_cache(df_exec: pd.DataFrame) -> None:
             "last_trade_date": last_trade_date_str,
         },
     )
-    # Keep the legacy decision cache in sync so callers using the old helpers
-    # can still hit a pre-built df_exec.
-    try:
-        from leadlag.data import decision_cache
-
-        decision_cache.save_decision_cache(df_exec)
-    except Exception as exc:
-        logger.warning("Failed to sync df_exec to decision cache: %s", exc)
     logger.info("df_exec cache saved: %s", store.path)
 
 
@@ -300,22 +289,10 @@ def load_df_exec_from_local_cache(max_stale_bdays: int | None = None) -> pd.Data
     except Exception as exc:
         logger.warning("[FAST MODE] df_exec cache not usable: %s", exc)
 
-    # 2. Fall back to the legacy decision cache.
-    try:
-        from leadlag.data import decision_cache
-
-        if decision_cache.is_decision_cache_valid():
-            logger.info("[FAST MODE] Loading execution data from decision cache...")
-            df_exec = decision_cache.load_decision_cache()
-            save_df_exec_to_local_cache(df_exec)
-            return _validate(df_exec, "decision cache")
-    except Exception as exc:
-        logger.warning("[FAST MODE] Decision cache not usable: %s", exc)
-
-    # 3. Build from raw ETF cache.
-    pkl_path = etf_pkl_path()
-    if Path(pkl_path).exists():
-        logger.info("[FAST MODE] Loading execution data from %s...", pkl_path)
+    # 2. Build from raw ETF cache.
+    cache_path = etf_cache_path()
+    if Path(cache_path).exists():
+        logger.info("[FAST MODE] Loading execution data from %s...", cache_path)
         try:
             from leadlag.data.preprocessor import preprocess_data
 
@@ -336,7 +313,7 @@ def load_df_exec_from_local_cache(max_stale_bdays: int | None = None) -> pd.Data
                 e,
             )
 
-    # 4. Stale fallback: only allowed when max_stale_bdays is None.
+    # 3. Stale fallback: only allowed when max_stale_bdays is None.
     if max_stale_bdays is not None:
         raise RuntimeError(
             "[FAST MODE] Could not load a fresh df_exec cache and rebuilding from raw "
@@ -353,16 +330,7 @@ def load_df_exec_from_local_cache(max_stale_bdays: int | None = None) -> pd.Data
     except Exception:
         pass
 
-    try:
-        from leadlag.data import decision_cache
-
-        df_exec = decision_cache.load_decision_cache()
-        logger.warning(
-            "[FAST MODE] Using existing decision cache as fallback; it may be stale."
-        )
-        return df_exec
-    except Exception as e:
-        raise RuntimeError(
-            "Local market-data cache not found/usable and no fallback is available. "
-            "Prepare caches via the non-fast path before running fast mode."
-        ) from e
+    raise RuntimeError(
+        "Local market-data cache not found/usable and no fallback is available. "
+        "Prepare caches via the non-fast path before running fast mode."
+    )

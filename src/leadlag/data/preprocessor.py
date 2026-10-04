@@ -155,7 +155,7 @@ def preprocess_data(
         beta_window: Rolling window for beta computation (default 60 days)
         beta_ewma_halflife: If set, use EWMA-weighted beta estimation with this
             half-life (in trading days). When None, falls back to equal-weight
-            rolling cov/var (legacy behavior).
+            rolling cov/var.
         beta_shrinkage: Bayesian shrinkage intensity toward 1.0 (0.0 = no shrink,
             1.0 = full shrink to 1.0). Applied after EWMA or rolling estimation.
         beta_winsor_sigma: If set, winsorize gap and TOPIX returns at this many
@@ -163,7 +163,7 @@ def preprocess_data(
             When None, no winsorization is applied.
         strict_validation: If True, raise ``DataValidationError`` as soon as a
             source-key check or an execution-record check fails. If False (the
-            default for backward compatibility), invalid records are skipped with
+            default), invalid records are skipped with
             a warning.
 
     Returns:

@@ -3,20 +3,16 @@
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 from typing import Any
 
 import numpy as np
 import pandas as pd
 
-from leadlag.config.schemas import ProductionV2RunConfig
 from leadlag.data.horizon_returns import compute_cumulative_returns
 from leadlag.data.pit_lake import MarketSnapshot
 from leadlag.data.tickers import JP_TICKERS
-from leadlag.data.validation import DataValidationError
-from leadlag.models.v2.audit_comparator import _run_safety_audits
+from leadlag.domain.distribution import DistributionReason, DistributionStatus
 from leadlag.pipeline.gap_distribution import compute_gap_distribution, select_gap_coefficients
-from leadlag.utils.gap_matrix_io import load_gap_matrices
 
 logger = logging.getLogger(__name__)
 
@@ -50,8 +46,8 @@ def _extract_gap_inputs(
 
     If ``snapshot`` is supplied, it is the single point-in-time source of truth
     and its ``jp_gap_returns``, ``jp_betas``, and ``topix_night_return`` are
-    used directly.  Otherwise the values are read from ``df_exec.loc[trade_date]``
-    for backward compatibility.
+    used directly. Offline distribution calculations may read the explicitly
+    supplied ``df_exec.loc[trade_date]`` instead.
 
     ``gap_override[j] = current_prices[ticker] / previous_close - 1``.
     Missing prices or previous closes are replaced with 0.0.
@@ -164,85 +160,6 @@ def _gap_alerts_fatal(gap_alerts: list[str]) -> bool:
     return False
 
 
-def _load_gap_or_flat(
-    gap_input_dir: Path | None,
-    run_cfg: ProductionV2RunConfig,
-    n_j: int,
-    date_str: str,
-) -> dict:
-    """Load gap matrices or return a flat-position result.
-    Returns a dict with keys:
-      - is_flat (bool): whether the flat fallback was triggered.
-      - result (PortfolioDecision | None): final decision when is_flat is True.
-      - mu_gap / Omega_gap: loaded matrices when is_flat is False.
-      - alerts (list[str]): alerts from this stage.
-    """
-    alerts: list[str] = []
-    gap_alerts: list[str] = []
-    fallback = {"gap_data_missing": False}
-    mu_gap: np.ndarray | None = None
-    Omega_gap: np.ndarray | None = None
-    if gap_input_dir is not None:
-        try:
-            mu_gap, Omega_gap, gap_alerts = load_gap_matrices(
-                gap_input_dir, date_str, strict=True
-            )
-        except DataValidationError as exc:
-            gap_alerts = [str(exc)]
-        alerts.extend(gap_alerts)
-    else:
-        alerts.append("--gap-input-dir not specified.")
-    if mu_gap is None or Omega_gap is None or _gap_alerts_fatal(gap_alerts):
-        fallback["gap_data_missing"] = True
-        logger.error(
-            "[%s] Gap data missing or invalid. "
-            "Returning flat position (w_final=0). No trading today.",
-            date_str,
-        )
-        alerts.append("Gap data missing or invalid. Flat position (w_final=0) returned.")
-        dummy_scores = np.zeros(n_j)
-        dummy_Omega = np.eye(n_j) * 0.01
-        pit_binning = {
-            "assigned_bin": "Medium",
-            "threshold_low": float("nan"),
-            "threshold_high": float("nan"),
-            "multiplier": run_cfg.fallback_multiplier,
-            "current_ir": 0.0,
-            "history_count": 0,
-            "fallback_flag": True,
-        }
-        from leadlag.models.v2 import VERSION
-        result = _run_safety_audits(
-            w_final=np.zeros(n_j),
-            scores=dummy_scores,
-            mu_gap=np.zeros(n_j),
-            Omega_gap=dummy_Omega,
-            sigma_gap=np.ones(n_j) * 0.1,
-            gap_input_dir=gap_input_dir,
-            date_str=date_str,
-            signal_date=date_str,
-            run_cfg=run_cfg,
-            fallback=fallback,
-            pit_binning=pit_binning,
-            alerts=alerts,
-            pit_history_trade_dates=None,
-            candidate="flat_position",
-            version=VERSION,
-        )
-        return {
-            "is_flat": True,
-            "result": result,
-            "mu_gap": None,
-            "Omega_gap": None,
-            "alerts": alerts,
-        }
-    return {
-        "is_flat": False,
-        "result": None,
-        "mu_gap": mu_gap,
-        "Omega_gap": Omega_gap,
-        "alerts": alerts,
-    }
 
 
 def _resolve_current_index(df_exec: pd.DataFrame, trade_date: str) -> int:
@@ -370,13 +287,13 @@ def compute_distribution(
     """
     if model._blpx_model is None:
         raise RuntimeError("compute_distribution requires a blpx_model")
-    from leadlag.domain.distribution import DistributionReason, DistributionResolutionError
+    from leadlag.domain.distribution import DistributionResolutionError
     from leadlag.models.v2.fallback_policy import FallbackPolicy
 
     result = FallbackPolicy.default(
         model, use_file_cache=use_file_cache, mu_pattern=mu_pattern, omega_pattern=omega_pattern,
     ).resolve(trade_date, df_exec, current_prices, horizon=horizon, snapshot=snapshot)
-    if result.mu_gap is None or result.Omega_gap is None or not result.is_available:
+    if result.status != DistributionStatus.READY or result.mu_gap is None or result.Omega_gap is None:
         raise DistributionResolutionError(
             result.reason or DistributionReason.POLICY_EXHAUSTED,
             "; ".join(result.alerts or []), attempts=result.attempts,

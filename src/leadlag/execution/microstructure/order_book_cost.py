@@ -125,14 +125,3 @@ def estimate_lob_slippage_bps(snapshot: OrderBookSnapshot, side: str, order_jpy:
 
     fill_price = estimate_market_order_fill_price(snapshot, side, order_jpy)
     return abs(fill_price - mid) / mid * 10000.0
-
-
-def compute_order_to_depth_ratio(snapshot: OrderBookSnapshot, side: str, order_jpy: float, n_levels: int = 5) -> float:
-    """Computes the ratio of the order JPY size to the total depth in JPY."""
-    if not snapshot.lob_available:
-        raise LobNotAvailable(f"LOB not available for {snapshot.ticker}")
-
-    depth = compute_depth_jpy(snapshot, side, n_levels)
-    if depth <= 0:
-        return float('inf')
-    return order_jpy / depth

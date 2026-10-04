@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 
 def _load_overlay_version(artifact_root: Path, version: str) -> Any:
     """Load and validate one immutable overlay version without changing CURRENT."""
-    from leadlag.models.ml_order_overlay import load_overlay_model
+    from leadlag.models.ml_overlay_artifact import load_overlay_model
 
     with tempfile.TemporaryDirectory(prefix="leadlag-overlay-history-") as temporary:
         temp_root = Path(temporary)
@@ -237,7 +237,6 @@ def _build_var_historical_inputs(
 
 
 def get_hist_returns_for_risk(
-    strategy: Any,
     config: Any,
     output_root: str,
     trade_date: pd.Timestamp,
@@ -248,8 +247,7 @@ def get_hist_returns_for_risk(
     """Efficiently get historical daily returns for VaR/ES risk checks.
 
     Uses an SQLite cache if available, otherwise runs the V2 full backtest and
-    caches the result. The ``strategy`` argument is kept for backward
-    compatibility but is no longer used.
+    caches the result.
     """
     cache_dir = Path(output_root) / ".cache"
     # A single deadline covers snapshot acquisition and the backtest.  The
@@ -389,7 +387,7 @@ def get_hist_returns_for_risk(
         selected_overlay_model = overlay_model
         if selected_overlay_model is None:
             if configured_overlay and overlay_path is not None:
-                from leadlag.models.ml_order_overlay import load_overlay_model
+                from leadlag.models.ml_overlay_artifact import load_overlay_model
 
                 selected_overlay_model = timed_call(
                     lambda: load_overlay_model(overlay_path),

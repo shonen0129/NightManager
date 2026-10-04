@@ -2,7 +2,7 @@
 
 The μ vector, Ω matrix, provenance metadata, and the horizon they describe
 form one publication unit.  This type is deliberately independent of the
-storage implementation so SQLite and the compatibility ``.npy`` store can
+storage implementation so SQLite and the ``.npy`` store can
 share the same version vocabulary.
 """
 
@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import math
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -85,9 +84,8 @@ def _ticker_order(metadata: Mapping[str, Any] | None) -> tuple[str, ...]:
 class GapBundleRef:
     """Immutable manifest for one μ/Ω/metadata publication.
 
-    ``format_version=1`` is retained for compatibility with manifests already
-    written by the workspace.  ``schema_version`` and the version fields are
-    additive, so an older reader can still use the three original digests.
+    ``format_version=1`` and ``schema_version=gap-bundle-v1`` identify the
+    current publication contract, including payload and provenance digests.
     ``horizon=None`` denotes the default h=1 bundle; an explicit integer is
     used for horizon-aware files.
     """
@@ -114,7 +112,7 @@ class GapBundleRef:
                 raise ValueError("horizon must be positive")
         if self.storage_format not in {"npy", "sqlite"}:
             raise ValueError("storage_format must be 'npy' or 'sqlite'")
-        if self.format_version not in {1, 2}:
+        if self.format_version != 1 or self.schema_version != "gap-bundle-v1":
             raise ValueError("unsupported bundle manifest")
         for field_name in ("mu_sha256", "omega_sha256"):
             value = getattr(self, field_name)
@@ -165,33 +163,32 @@ class GapBundleRef:
 
     @classmethod
     def from_dict(cls, raw: Mapping[str, Any]) -> GapBundleRef:
-        """Parse a manifest, accepting the pre-S3c three-digest format."""
+        """Parse the current complete manifest contract."""
 
         if not isinstance(raw, Mapping):
             raise ValueError("unsupported bundle manifest")
-        format_version = raw.get("format_version", 1)
+        if any(key not in raw for key in (
+            "format_version", "schema_version", "trade_date", "horizon",
+            "storage_format", "mu_sha256", "omega_sha256", "metadata_sha256",
+        )):
+            raise ValueError("incomplete bundle manifest")
+        format_version = raw["format_version"]
         if isinstance(format_version, bool) or not isinstance(format_version, int):
             raise ValueError("unsupported bundle manifest")
         horizon = raw.get("horizon")
-        if horizon in (None, -1):
-            horizon = None
-        elif isinstance(horizon, int) and not isinstance(horizon, bool):
-            pass
-        elif isinstance(horizon, float) and math.isfinite(horizon) and horizon.is_integer():
-            horizon = int(horizon)
-        else:
+        if horizon is not None and (isinstance(horizon, bool) or not isinstance(horizon, int)):
             raise ValueError("horizon must be an integer or None")
         ticker_order = raw.get("ticker_order", ())
         return cls(
             trade_date=str(raw.get("trade_date", "")),
             horizon=horizon,
-            storage_format=str(raw.get("storage_format", raw.get("storage", "npy"))),
+            storage_format=str(raw["storage_format"]),
             mu_sha256=str(raw.get("mu_sha256", "")),
             omega_sha256=str(raw.get("omega_sha256", "")),
             metadata_sha256=(
                 None if raw.get("metadata_sha256") is None else str(raw["metadata_sha256"])
             ),
-            schema_version=str(raw.get("schema_version", "gap-bundle-v1")),
+            schema_version=str(raw["schema_version"]),
             input_version=(None if raw.get("input_version") is None else str(raw["input_version"])),
             model_version=(None if raw.get("model_version") is None else str(raw["model_version"])),
             config_version=(None if raw.get("config_version") is None else str(raw["config_version"])),

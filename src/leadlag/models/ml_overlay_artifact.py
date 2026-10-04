@@ -221,8 +221,7 @@ def load_overlay_model(model_dir: Path) -> Any:
     model_bytes = model_path.read_bytes()
     model = pickle.loads(model_bytes)
 
-    # Import lazily so importing production inference never imports research or
-    # the compatibility facade while a pickle is being read.
+    # The fitted model contract has no training or inference imports.
     from leadlag.models.ml_order_overlay import MLOrderOverlayModel
 
     if not isinstance(model, MLOrderOverlayModel):

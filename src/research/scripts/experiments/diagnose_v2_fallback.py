@@ -35,7 +35,7 @@ def main() -> int:
     ]
 
     for date_str in dates:
-        res = ProductionV2Model(parse_run_config(app_config.v2)).decide(trade_date=date_str, gap_input_dir=gap_dir, overlay_enabled=False, use_file_cache=True)
+        res = ProductionV2Model(parse_run_config(app_config.v2)).decide_from_cache(trade_date=date_str, gap_input_dir=gap_dir)
         numerical = res["numerical"]
         print(
             f"{date_str}: fallback={res['fallback']} "

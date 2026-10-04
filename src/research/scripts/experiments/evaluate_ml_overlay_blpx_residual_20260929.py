@@ -28,7 +28,7 @@ from leadlag.config.schemas import ProductionV2RunConfig
 from leadlag.domain.inputs import HistoricalInputs
 from leadlag.execution.config import load_config_from_yaml
 from leadlag.experiment_registry import Decision, ExperimentRecord, ExperimentRegistry
-from leadlag.models.ml_order_overlay import DEFAULT_LGBM_KWARGS, ROUND_TRIP_COST
+from research.experiments.ml_overlay_training import DEFAULT_LGBM_KWARGS, ROUND_TRIP_COST
 from leadlag.models.ml_overlay_artifact import save_overlay_model
 from leadlag.utils.dataframe_fingerprint import dataframe_fingerprint
 from research.experiments.ml_overlay_training import _train_overlay_lgbm

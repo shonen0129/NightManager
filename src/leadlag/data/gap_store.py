@@ -12,9 +12,9 @@ Public API::
     from leadlag.data.gap_store import GapStore
     store = GapStore("var/market_data/gap_matrices.sqlite")
     store.save("2026-08-10", mu_gap, omega_gap, metadata={"sig_date": "2026-08-09"})
-    mu, omega, meta = store.load("2026-08-10")
+    mu, omega, meta, manifest = store.load_horizon_bundle("2026-08-10")
 
-The legacy ``put`` / ``get`` / ``exists`` methods remain available for
+``put`` / ``get`` / ``exists`` provide
 per-matrix-type storage (e.g. multi-horizon ``mu_gap_h3`` / ``omega_gap_h3``
 and ``rank_reversal`` signals).
 """
@@ -273,46 +273,6 @@ class GapStore:
                     f"Failed to atomically store distribution for {date_key}: {e}"
                 ) from e
 
-    def load(self, date: str) -> tuple[np.ndarray | None, np.ndarray | None, dict[str, Any] | None]:
-        """Load the ``mu_gap`` / ``omega_gap`` pair and metadata for *date*.
-
-        Returns ``(mu, omega, metadata)``.  Missing components are ``None``.
-        """
-        return self.load_horizon(date, horizon=None)
-
-    def load_horizon(
-        self,
-        date: str,
-        *,
-        horizon: int | None = None,
-    ) -> tuple[np.ndarray | None, np.ndarray | None, dict[str, Any] | None]:
-        """Load a complete μ/Ω/metadata bundle in one SQLite snapshot."""
-        date_key = _normalise_date(date)
-        horizon_key = self._horizon_key(horizon)
-        with self._connect() as conn:
-            conn.execute("BEGIN")
-            try:
-                rows = conn.execute(
-                    """
-                    SELECT matrix_type, cache_key FROM gap_matrices
-                    WHERE trade_date = ? AND horizon = ?
-                    AND matrix_type IN ('mu', 'omega', 'meta')
-                    """,
-                    (date_key, horizon_key),
-                ).fetchall()
-                keys = {str(kind): str(key) for kind, key in rows}
-                mu = self._cache._get_with_conn(conn, keys["mu"]) if "mu" in keys else None
-                omega = self._cache._get_with_conn(conn, keys["omega"]) if "omega" in keys else None
-                meta = self._cache._get_with_conn(conn, keys["meta"]) if "meta" in keys else None
-                conn.execute("COMMIT")
-            except Exception:
-                conn.execute("ROLLBACK")
-                raise
-        if meta is None:
-            meta = {}
-        if mu is None or omega is None:
-            return None, None, None
-        return cast(np.ndarray, mu), cast(np.ndarray, omega), cast(dict[str, Any], meta)
 
     def load_horizon_bundle(
         self,
@@ -327,9 +287,7 @@ class GapStore:
     ]:
         """Load μ/Ω/metadata and an optional manifest in one SQLite snapshot.
 
-        ``load_horizon`` remains the three-value compatibility API.  New cache
-        consumers can use this method to validate the publication identity
-        without opening separate SQLite transactions.
+        Consumers validate the publication identity from the same snapshot.
         """
         date_key = _normalise_date(date)
         horizon_key = self._horizon_key(horizon)
@@ -371,20 +329,6 @@ class GapStore:
             manifest,
         )
 
-    def latest_date(self) -> str | None:
-        """Return the most recent trade date with both ``mu`` and ``omega``."""
-        with self._connect() as conn:
-            row = conn.execute(
-                """
-                SELECT trade_date FROM gap_matrices
-                WHERE matrix_type IN ('mu', 'omega') AND horizon = -1
-                GROUP BY trade_date
-                HAVING COUNT(DISTINCT matrix_type) = 2
-                ORDER BY trade_date DESC
-                LIMIT 1
-                """
-            ).fetchone()
-        return row[0] if row else None
 
     def import_from_directory(
         self,

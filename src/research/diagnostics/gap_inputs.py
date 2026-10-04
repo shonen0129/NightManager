@@ -18,7 +18,7 @@ import numpy as np
 import pandas as pd
 
 from leadlag.broker.tachibana.session_cache import save_current_prices_cache
-from leadlag.data.decision_cache import is_decision_cache_valid, load_decision_cache
+from leadlag.data.market_data_cache import is_df_exec_cache_valid, load_df_exec_from_local_cache
 from leadlag.data.fetcher import download_data
 from leadlag.data.preprocessor import preprocess_data
 from leadlag.data.tickers import TOPIX_TICKER, US_TICKERS
@@ -372,8 +372,8 @@ def mask_future_jp_labels(
 def load_gap_execution_inputs(*, beta_window: int = 60) -> GapExecutionInputs:
     """Load raw market data and reuse the validated Step 1 decision cache."""
     raw_data = download_data(beta_window=beta_window)
-    if is_decision_cache_valid():
-        df_exec = load_decision_cache()
+    if is_df_exec_cache_valid():
+        df_exec = load_df_exec_from_local_cache()
     else:
         df_exec = preprocess_data(raw_data, beta_window=beta_window)
     return GapExecutionInputs(raw_data=raw_data, df_exec=df_exec)

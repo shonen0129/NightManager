@@ -2,8 +2,7 @@
 
 The decision engine historically accepted a dataframe, a point-in-time lake,
 an optional snapshot, and a separate price mapping.  Those values could
-silently disagree.  This module gives the engine one explicit contract while
-keeping the old arguments available at the outer compatibility boundary.
+silently disagree. This module gives the engine one explicit contract.
 """
 
 from __future__ import annotations
@@ -443,8 +442,8 @@ class HistoricalInputs:
         """Return the PIT history applicable to one execution date.
 
         Backtests may provide a date-keyed mapping so every decision uses the
-        history that was available before its own date.  Live and compatibility
-        callers continue to use one array for the supplied run snapshot.
+        history that was available before its own date. A single-date run uses
+        one array for the supplied snapshot.
         """
         if self.pit_ir_history is None:
             return None
@@ -508,22 +507,18 @@ class HistoricalInputs:
     def calculation_frame(self, as_of: Any | None = None) -> pd.DataFrame:
         """Return a calculation view cut at ``as_of``.
 
-        With no cutoff this retains the compatibility view used by offline
-        research callers.  Production decisions pass the known timestamp;
+        With no cutoff this returns the full offline research view.
+        Production decisions pass the known timestamp;
         rows after that trade date are removed and close-derived labels on the
-        current row are masked.  The masking uses pandas copy-on-write on
-        pandas 3 and an owned copy on older versions.
+        current row are masked. Pandas 3 copy-on-write isolates mutations.
         """
-        # pandas 3 guarantees Copy-on-Write, so a view is isolated on mutation
-        # without copying the full dataset on every backtest day. Older pandas
-        # remains supported using an owned copy.
         if as_of is None:
-            return self._frame.copy(deep=int(pd.__version__.split(".")[0]) < 3)
+            return self._frame.copy(deep=False)
         cutoff = _date(as_of, "as_of")
         if cutoff not in self._frame.index:
             raise ValueError(f"as_of {cutoff.date()} is not present in historical frame")
         cutoff_ts = _timestamp(as_of, "as_of")
-        frame = self._frame.loc[:cutoff].copy(deep=int(pd.__version__.split(".")[0]) < 3)
+        frame = self._frame.loc[:cutoff].copy(deep=False)
         # Explicit availability metadata overrides the standard JP-close
         # cutoff. Applying the default mask first would make an earlier
         # explicit availability impossible to express.

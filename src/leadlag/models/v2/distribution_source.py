@@ -77,7 +77,7 @@ class DistributionSource(ABC):
         """Try to acquire a distribution for *trade_date*.
 
         Returns a ``DistributionResult``.  If the source is unavailable,
-        ``result.is_available`` must be False so the policy can continue.
+        UNAVAILABLE and REJECTED results allow the policy to continue.
         """
 
 
@@ -157,8 +157,8 @@ def _validate_distribution_metadata(
 def _classify_cache_alerts(alerts: list[str]) -> tuple[DistributionStatus, DistributionReason]:
     """Translate cache-loader diagnostics into stable source-level reasons.
 
-    ``load_gap_bundle`` still exposes human-readable alerts for logs and
-    compatibility.  The fallback policy must consume this typed classification
+    ``load_gap_bundle`` exposes human-readable diagnostics for logs.
+    The fallback policy must consume this typed classification
     instead of inspecting those strings itself.
     """
     text = "; ".join(alerts).lower()
@@ -332,9 +332,9 @@ class FileCacheDistributionSource(DistributionSource):
                 horizon=horizon,
             )
 
-        # A live snapshot must be represented in the bundle identity.  Legacy
-        # bundles remain readable for snapshot-free historical compatibility,
-        # but they cannot be used when the caller supplies current PIT inputs.
+        # A live snapshot must be represented in the bundle identity.
+        # Artifact-only replay checks stored provenance; supplied current PIT
+        # inputs additionally require matching gap-input fingerprints.
         if expected_gap_identity is not None:
             if metadata is None or "gap_inputs_version" not in metadata:
                 return DistributionResult(
@@ -574,7 +574,7 @@ class FlatPositionSource(DistributionSource):
         """Build a terminal flat result while preserving the failure reason."""
         gap_input_dir = self.gap_input_dir
         return DistributionResult(
-            is_flat=True,
+
             flat_decision=self._build_flat(
                 trade_date,
                 gap_input_dir,
@@ -603,7 +603,7 @@ class FlatPositionSource(DistributionSource):
     ) -> DistributionResult:
         gap_input_dir = self.gap_input_dir
         return DistributionResult(
-            is_flat=True,
+
             flat_decision=self._build_flat(trade_date, gap_input_dir, []),
             source=self.name,
             alerts=[],

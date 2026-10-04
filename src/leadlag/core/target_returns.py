@@ -8,15 +8,15 @@ import numpy as np
 import pandas as pd
 
 
-def _compute_jp_target_returns_h1_legacy(
+def _compute_one_day_target_returns(
     df_exec: pd.DataFrame,
     jp_tickers: list[str],
     open_910_returns: pd.DataFrame | dict[pd.Timestamp, dict[str, float]] | None = None,
 ) -> np.ndarray:
-    """Legacy h=1 9:10-to-close target computation preserved for exact backward compat.
+    """Compute one-day targets directly from open-to-09:10 returns.
 
     The arithmetic is kept separate from cache access so callers can provide the
-    extracted values while retaining the exact historical definition.
+    extracted values while using the same return-based arithmetic.
     """
     jp_oc = df_exec[[f"jp_oc_{tk}" for tk in jp_tickers]].values
     y_jp_target = jp_oc.copy()
@@ -155,12 +155,11 @@ def compute_jp_target_returns(
         df_exec: Execution DataFrame with ``jp_oc_*`` and ``jp_open_trade_*``.
         jp_tickers: JP tickers to compute targets for.
         horizon: Number of trading days in the target window.  Defaults to 1,
-            which preserves the legacy h=1 definition for callers that do not
-            pass ``p_910_df``.
+            using explicit open-to-09:10 returns when prices are not supplied.
         p_910_df: Optional pre-built 9:10 midpoint prices (date × ticker).  When
             ``horizon > 1`` this is used to compute the start-day 9:10 price.  When
-            both ``horizon == 1`` and ``p_910_df is None``, the legacy h=1 path is
-            used to guarantee backward compatibility.
+            both ``horizon == 1`` and ``p_910_df is None``, the return-based
+            one-day calculation requires explicit ``open_910_returns``.
         open_910_returns: Explicit open-to-09:10 returns.  For ``horizon > 1``
             these reconstruct the start-day 9:10 price when ``p_910_df`` is
             missing or has a missing value.
@@ -170,7 +169,7 @@ def compute_jp_target_returns(
         rows are NaN for ``horizon > 1``.
     """
     if horizon == 1 and p_910_df is None:
-        return _compute_jp_target_returns_h1_legacy(
+        return _compute_one_day_target_returns(
             df_exec, jp_tickers, open_910_returns=open_910_returns
         )
     return _compute_jp_target_returns_h(

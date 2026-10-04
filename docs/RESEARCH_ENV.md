@@ -5,19 +5,19 @@ of the production `leadlag` wheel. Create the research environment from the
 repository root with the `research` extra:
 
 ```bash
-uv sync --extra research
+uv sync --locked --extra research
 ```
 
 The extra installs dependencies; it does not add `research` to the production
 wheel. Run research entry points from this checkout with `PYTHONPATH=src`.
 
-The production runtime keeps the `nonlinear` extra because LightGBM is needed
-to load and run an already trained overlay. Training remains an explicit
+The production runtime uses the `ml-overlay` extra for LightGBM inference.
+The `research` extra adds SHAP for research. Training remains an explicit
 research operation:
 
 ```bash
-PYTHONPATH=src .venv/bin/python reports/20260912_workspace_audit/watchdog.py 7200 \
-  .venv/bin/python tools/production/train_ml_order_overlay.py \
+PYTHONPATH=src timeout -k 10s 2h \
+  .venv/bin/python tools/research/train_ml_order_overlay.py \
   --train-start 2015-01-05 \
   --train-end 2024-12-31 \
   --gap-input-dir var/results/gap_adjusted_distribution/<run> \

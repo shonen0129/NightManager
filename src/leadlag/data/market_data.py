@@ -7,7 +7,7 @@ import logging
 import numpy as np
 import pandas as pd
 
-from leadlag.data.tickers import JP_TICKERS, TOPIX_TICKER, US_TICKERS
+from leadlag.data.tickers import JP_TICKERS, TOPIX_TICKER
 
 logger = logging.getLogger(__name__)
 
@@ -134,108 +134,3 @@ def validate_topix_open(manual_opens: dict[str, float]) -> float:
     if not np.isfinite(value) or value <= 0.0:
         raise ValueError(f"Invalid open price for {TOPIX_TICKER}: {value}")
     return value
-
-
-def normalize_to_tokyo_date(index: pd.Index) -> pd.DatetimeIndex:
-    """Consistently normalize a DatetimeIndex to Tokyo timezone date.
-
-    Args:
-        index: pd.DatetimeIndex or pd.Index of datetime-like objects
-
-    Returns:
-        pd.DatetimeIndex normalized to midnight, timezone-naive
-    """
-    idx = pd.to_datetime(index)
-    if idx.tz is None:
-        idx = idx.tz_localize("Asia/Tokyo")
-    else:
-        idx = idx.tz_convert("Asia/Tokyo")
-    return idx.tz_localize(None).normalize()
-
-
-def compute_gap_override(
-    data: dict, trade_date: pd.Timestamp, manual_opens: dict[str, float]
-) -> np.ndarray:
-    """Compute gap overrides from raw data dict (standard path)."""
-    jp_close = data["jp_close"].copy()
-    jp_close.index = normalize_to_tokyo_date(jp_close.index)
-    return compute_gap_from_jp_close(jp_close, trade_date, manual_opens)
-
-
-def compute_gap_from_jp_close(
-    jp_close: pd.DataFrame,
-    trade_date: pd.Timestamp,
-    manual_opens: dict[str, float],
-) -> np.ndarray:
-    """Compute gap override from a JP close DataFrame.
-
-    Used by both the standard path (data dict) and the fast path
-    (load_jp_close_from_cache) to share the same logic.
-    """
-    gaps = []
-    for tk in JP_TICKERS:
-        series = jp_close[tk].dropna()
-        prev = series[series.index < trade_date]
-        if len(prev) == 0:
-            raise ValueError(f"Previous close not found for {tk} before {trade_date.date()}")
-        prev_close = float(prev.iloc[-1])
-        open_price = float(manual_opens[tk])
-        if prev_close <= 0:
-            raise ValueError(f"Invalid previous close for {tk}: {prev_close}")
-        gaps.append(open_price / prev_close - 1.0)
-
-    return np.array(gaps, dtype=float)
-
-
-def compute_topix_night_override(
-    jp_close: pd.DataFrame,
-    trade_date: pd.Timestamp,
-    topix_open: float,
-    topix_ticker: str = TOPIX_TICKER,
-) -> float:
-    """Compute TOPIX night return from cached close and current open."""
-    jp_close = jp_close.copy()
-    jp_close.index = normalize_to_tokyo_date(jp_close.index)
-
-    if topix_ticker not in jp_close.columns:
-        raise ValueError(f"TOPIX proxy close not found: {topix_ticker}")
-
-    series = jp_close[topix_ticker].dropna()
-    prev = series[series.index < trade_date]
-    if len(prev) == 0:
-        raise ValueError(f"Previous close not found for {topix_ticker} before {trade_date.date()}")
-    prev_close = float(prev.iloc[-1])
-    if prev_close <= 0:
-        raise ValueError(f"Invalid previous close for {topix_ticker}: {prev_close}")
-    return float(topix_open) / prev_close - 1.0
-
-
-def validate_us_returns_map(us_returns: dict[str, float]) -> dict[str, float]:
-    """Validate and normalize US return map from API/cache."""
-    missing: list[str] = []
-    invalid: list[str] = []
-    normalized: dict[str, float] = {}
-
-    for tk in US_TICKERS:
-        if tk not in us_returns:
-            missing.append(tk)
-            continue
-        try:
-            value = float(us_returns[tk])
-        except (TypeError, ValueError):
-            invalid.append(tk)
-            continue
-        if not np.isfinite(value):
-            invalid.append(tk)
-            continue
-        normalized[tk] = value
-
-    if missing or invalid:
-        details = []
-        if missing:
-            details.append(f"missing={','.join(missing)}")
-        if invalid:
-            details.append(f"invalid={','.join(invalid)}")
-        raise ValueError("Incomplete US returns: " + " | ".join(details))
-
-    return normalized

@@ -7,23 +7,24 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
+from leadlag.data.tickers import JP_TICKERS
 from leadlag.domain.portfolio import PortfolioDecision
-from leadlag.reporting.production_v2_writer import _coerce_decision
+from leadlag.reporting.production_v2_writer import write_production_files
 
 
 def _decision() -> PortfolioDecision:
     return PortfolioDecision(
-        w_final=np.array([0.5, -0.5]),
+        w_final=np.array([0.5, -0.5] + [0.0] * (len(JP_TICKERS) - 2)),
         scores=np.array([1.0, -1.0]),
         mu_gap=np.zeros(2),
         sigma_gap=np.ones(2),
         Omega_gap=np.eye(2),
         fallback={"gap_data_missing": False, "audit_failure": False},
-        pit_binning={"multiplier": 1.0},
+        pit_binning={"multiplier": 1.0, "assigned_bin": "Medium"},
         leakage={"status": "PASSED"},
         numerical={"status": "PASSED"},
         alerts=[],
-        summary={},
+        summary={"target_gross": 1.0, "target_net": 0.0, "predicted_portfolio_ir": 0.0},
         run_config=SimpleNamespace(cost_bps_per_gross=10.0),
     )
 
@@ -31,29 +32,15 @@ def _decision() -> PortfolioDecision:
 def test_portfolio_decision_exposes_attributes_only() -> None:
     decision = _decision()
 
-    assert np.array_equal(decision.w_final, [0.5, -0.5])
+    assert np.array_equal(decision.w_final[:2], [0.5, -0.5])
     assert not hasattr(decision, "get")
     with pytest.raises(TypeError):
         decision["w_final"]  # type: ignore[index]
 
 
-def test_legacy_mapping_is_coerced_at_writer_boundary() -> None:
+def test_writer_reads_typed_decision_without_conversion(tmp_path, caplog) -> None:
     decision = _decision()
-    raw = {
-        "w_final": decision.w_final,
-        "scores": decision.scores,
-        "mu_gap": decision.mu_gap,
-        "sigma_gap": decision.sigma_gap,
-        "Omega_gap": decision.Omega_gap,
-        "fallback": decision.fallback,
-        "pit_binning": decision.pit_binning,
-        "leakage": decision.leakage,
-        "numerical": decision.numerical,
-        "alerts": decision.alerts,
-        "summary": decision.summary,
-        "run_config": decision.run_config,
-    }
-
-    coerced = _coerce_decision(raw)
-    assert isinstance(coerced, PortfolioDecision)
-    assert np.array_equal(coerced.w_final, decision.w_final)
+    with caplog.at_level("INFO"):
+        write_production_files("2026-10-02", tmp_path, decision, dry_run=True)
+    assert "DRY-RUN SUMMARY" in caplog.text
+    assert not list(tmp_path.iterdir())

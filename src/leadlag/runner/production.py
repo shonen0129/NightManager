@@ -42,8 +42,4 @@ class ProductionRunner:
             raise TypeError("ProductionRunner.run requires DecisionInputs")
         validate_production_decision_inputs(decision_inputs)
 
-        return self.model.decide(
-            inputs=decision_inputs,
-            overlay_enabled=self._overlay_enabled,
-            use_file_cache=decision_inputs.use_file_cache,
-        )
+        return self.model.decide(inputs=decision_inputs, overlay_enabled=self._overlay_enabled)

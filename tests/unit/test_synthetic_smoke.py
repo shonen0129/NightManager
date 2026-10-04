@@ -32,7 +32,7 @@ def test_production_v2_flat_fallback_smoke(residual_blpx_prod_config: dict):
     model = ProductionV2Model(cfg.v2)
     trade_date = "2025-12-30"
     # No gap matrices are provided, so the model should fall back to flat weights.
-    result = model.decide(trade_date, gap_input_dir=None)
+    result = model.decide_from_cache(trade_date=trade_date, gap_input_dir=None)
 
     w_final = result.w_final
     assert len(w_final) == len(JP_TICKERS)

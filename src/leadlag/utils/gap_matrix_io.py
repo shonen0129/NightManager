@@ -91,21 +91,6 @@ def _canonical_array_bytes(data: np.ndarray) -> bytes:
     return np.ascontiguousarray(np.asarray(data)).tobytes()
 
 
-def _bundle_provenance_error(
-    metadata: dict[str, Any] | None,
-    date_str: str,
-    horizon: int | None,
-) -> str | None:
-    """Return a provenance error for a bundle used by a decision path."""
-    _normalized, error = validate_distribution_provenance(
-        metadata,
-        date_str,
-        1 if horizon is None else horizon,
-        label="Gap bundle provenance",
-    )
-    return error
-
-
 def _atomic_write_bytes(path: Path, data: bytes) -> None:
     """Write one file atomically and fsync its contents before publication."""
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -184,43 +169,6 @@ def _try_load_gap_from_store(
     return arr, []
 
 
-def _try_save_gap_to_store(
-    gap_output_dir: Path,
-    date_str: str,
-    file_pattern: str,
-    pattern_kwargs: dict | None,
-    data: np.ndarray,
-) -> bool:
-    """Write a single matrix to a SQLite ``GapStore`` if *gap_output_dir* is one.
-
-    Returns True if the store path was used, False otherwise (caller should
-    fall back to ``.npy``).
-    """
-    if not is_gap_store_path(gap_output_dir):
-        return False
-
-    try:
-        store = GapStore(gap_output_dir)
-    except Exception as e:
-        logger.warning("GapStore open failed for %s: %s", gap_output_dir, e)
-        return False
-
-    matrix_type, horizon = _parse_pattern_to_matrix_type(file_pattern, pattern_kwargs)
-    if matrix_type is None:
-        logger.warning(
-            "Cannot map pattern %r to a GapStore matrix type; skipping store write",
-            file_pattern,
-        )
-        return False
-
-    try:
-        store.put(date_str, matrix_type, data, horizon=horizon)
-    except Exception as e:
-        logger.warning("Failed to write %s to GapStore: %s", file_pattern, e)
-        return False
-    return True
-
-
 def load_gap_npy(
     gap_input_dir: Path,
     date_str: str,
@@ -255,7 +203,7 @@ def load_gap_npy(
     if alerts:
         return None, alerts
 
-    # 2. Fall back to per-date .npy files (test / legacy compatibility).
+    # 2. Read the per-date .npy store.
     date_numeric = _format_gap_date(date_str)
     file_path = gap_input_dir / file_pattern.format(date=date_numeric, **pattern_kwargs)
 
@@ -275,45 +223,6 @@ def load_gap_npy(
         return None, [alert]
 
     return arr, []
-
-
-def save_gap_npy(
-    gap_output_dir: Path,
-    date_str: str,
-    data: np.ndarray,
-    file_pattern: str,
-    pattern_kwargs: dict | None = None,
-) -> bool:
-    """Save a single gap matrix to a ``.npy`` file or SQLite ``GapStore``.
-
-    Args:
-        gap_output_dir: Root directory for the output file, or a ``.sqlite``
-            gap store file.
-        date_str: Trade date in any format parseable by ``pd.to_datetime``.
-        data: Numpy array to store.
-        file_pattern: Path template with ``{date}`` placeholder and optional
-            additional named placeholders.
-        pattern_kwargs: Optional extra format arguments for *file_pattern*.
-
-    Returns:
-        True if the matrix was written successfully.
-    """
-    pattern_kwargs = pattern_kwargs or {}
-
-    # 1. Try SQLite gap store first (canonical sink).
-    if _try_save_gap_to_store(gap_output_dir, date_str, file_pattern, pattern_kwargs, data):
-        return True
-
-    # 2. Fall back to per-date .npy file (test / legacy compatibility).
-    date_numeric = _format_gap_date(date_str)
-    file_path = gap_output_dir / file_pattern.format(date=date_numeric, **pattern_kwargs)
-    try:
-        file_path.parent.mkdir(parents=True, exist_ok=True)
-        np.save(file_path, data)
-    except Exception as e:
-        logger.warning("Failed to save %s: %s", file_path, e)
-        return False
-    return True
 
 
 def load_gap_bundle(
@@ -502,7 +411,7 @@ def load_gap_bundle(
             if not bundle_valid:
                 # A pair whose commit marker or byte digests do not validate is
                 # not a distribution.  Returning either array would let
-                # compatibility callers pair a new μ with an old Ω (or use a
+                # single-matrix writers pair a new μ with an old Ω (or use a
                 # provenance-free generation) while only retaining a warning.
                 return None, None, None, alerts
         if require_metadata:
@@ -653,8 +562,7 @@ def save_gap_matrices(
 
     If *gap_output_dir* is a ``.sqlite`` file the matrices are written through
     :class:`GapStore`; otherwise per-date ``.npy`` files are written under the
-    supplied directory.  The ``latest/`` directory of ``.npy`` files is
-    preserved for backward compatibility.
+    supplied directory. Only the requested date publication is written.
 
     Args:
         gap_output_dir: Directory or SQLite gap store path.
@@ -749,7 +657,7 @@ def save_gap_matrices(
             return False
         return True
 
-    # 2. Fall back to per-date .npy files (test / legacy compatibility).
+    # 2. Read the per-date .npy store.
     date_numeric = _format_gap_date(date_str)
     mu_path = gap_output_dir / mu_pattern.format(date=date_numeric, **pattern_kwargs)
     omega_path = gap_output_dir / omega_pattern.format(date=date_numeric, **pattern_kwargs)

@@ -17,7 +17,6 @@ from leadlag.config.schemas import ProductionV2RunConfig
 from leadlag.data.tickers import JP_TICKERS, US_TICKERS
 from leadlag.domain.inputs import DecisionInputs
 from leadlag.models.ml_order_overlay import MLOrderOverlayModel
-from leadlag.models.ml_order_overlay import train_overlay_model as production_train
 from leadlag.models.ml_overlay_artifact import load_overlay_model, save_overlay_model
 from leadlag.models.ml_overlay_features import _build_ticker_features, overlay_continuous_columns
 from leadlag.models.ml_overlay_inference import apply_overlay
@@ -68,13 +67,10 @@ def test_production_overlay_import_does_not_load_research(tmp_path) -> None:
 
 
 def test_training_tool_points_at_research_entry() -> None:
-    source = (ROOT / "tools/production/train_ml_order_overlay.py").read_text(encoding="utf-8")
+    source = (ROOT / "tools/research/train_ml_order_overlay.py").read_text(encoding="utf-8")
     assert "from research.experiments.ml_overlay_training import train_overlay_model" in source
 
 
-def test_retired_production_training_name_fails_closed() -> None:
-    with pytest.raises(RuntimeError, match="research.experiments.ml_overlay_training"):
-        production_train()
 
 
 def test_production_package_discovery_excludes_research() -> None:
@@ -162,9 +158,9 @@ def test_training_collector_uses_typed_pit_inputs(tmp_path) -> None:
     seen: list[DecisionInputs] = []
 
     class FakeDecisionModel:
-        def decide(self, *, inputs, overlay_enabled, use_file_cache):
+        def decide(self, *, inputs, overlay_enabled):
             assert overlay_enabled is False
-            assert use_file_cache is True
+            assert inputs.use_file_cache is True
             assert isinstance(inputs, DecisionInputs)
             seen.append(inputs)
             return SimpleNamespace(
@@ -298,7 +294,7 @@ def test_training_collector_excludes_nonfinite_realized_targets(tmp_path) -> Non
     open_910 = pd.DataFrame(0.0, index=frame.index, columns=JP_TICKERS)
 
     class FakeDecisionModel:
-        def decide(self, *, inputs, overlay_enabled, use_file_cache):
+        def decide(self, *, inputs, overlay_enabled):
             return SimpleNamespace(
                 fallback={},
                 scores=np.ones(len(JP_TICKERS)),

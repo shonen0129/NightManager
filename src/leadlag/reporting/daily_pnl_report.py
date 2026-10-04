@@ -124,7 +124,7 @@ def load_close_artifacts(
 def compute_realized_pnl(close_results: Sequence[dict[str, Any]]) -> list[RealizedPnl]:
     """Compute realized P&L through the shared FIFO inventory ledger.
 
-    Close JSON is an outer compatibility format.  Each confirmed close row is
+    Close JSON is the persisted execution input.  Each confirmed close row is
     translated into an opening fill plus an observed closing fill and then
     matched by :class:`~leadlag.core.pnl.InventoryLedger`.  The observed fill
     price is used as-is; no backtest slippage assumption is applied here.
@@ -134,8 +134,7 @@ def compute_realized_pnl(close_results: Sequence[dict[str, Any]]) -> list[Realiz
         status = r.get("status")
         if status in ("FAILED", "SKIPPED", "SIMULATED"):
             continue
-        # Older close logs do not contain a trade_date.  Keep a stable
-        # compatibility date for the standalone report helper; production
+        # Undated standalone inputs use a stable accounting date; production
         # callers pass the date in the persisted execution row.
         accounting_date = r.get("trade_date") or r.get("executed_at") or "1970-01-01"
         closing_fill = fill_from_record(r, source="observed_fill", trade_date=accounting_date)
@@ -192,9 +191,8 @@ def compute_realized_pnl(close_results: Sequence[dict[str, Any]]) -> list[Realiz
 def compute_unrealized_pnl(position_snapshot: dict | None) -> float:
     """Mark residual positions through the shared inventory ledger.
 
-    Snapshots produced by older runs may lack entry/evaluation prices.  In
-    that case their explicitly reported total is retained as a compatibility
-    fallback, and the caller can still display the source in its artifacts.
+    When a snapshot lacks entry/evaluation prices, use its explicitly reported
+    total. The caller retains the source in its artifacts.
     """
     if not position_snapshot:
         return 0.0

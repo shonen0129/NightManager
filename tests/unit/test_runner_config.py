@@ -9,6 +9,7 @@ import dataclasses
 
 import pytest
 
+from leadlag.config.schemas import RiskConfig
 from leadlag.config.schemas import StrategyConfig as ProductionConfig
 
 
@@ -19,15 +20,15 @@ class TestProductionConfig:
         assert cfg.k > 0
 
     def test_default_max_gross_exposure(self):
-        cfg = ProductionConfig()
+        cfg = RiskConfig()
         assert cfg.max_gross_exposure == pytest.approx(2.0)
 
     def test_default_max_net_exposure(self):
-        cfg = ProductionConfig()
+        cfg = RiskConfig()
         assert cfg.max_net_exposure == pytest.approx(0.05)
 
     def test_default_var_confidence(self):
-        cfg = ProductionConfig()
+        cfg = RiskConfig()
         assert 0.9 < cfg.var_confidence <= 1.0
 
     def test_start_date_is_string(self):
@@ -53,7 +54,7 @@ class TestProductionConfig:
         assert cfg.start_date == "2018-01-01"
 
     def test_risk_thresholds_consistency(self):
-        cfg = ProductionConfig()
+        cfg = RiskConfig()
         # Warning should be lower than stop
         assert cfg.var_warning < cfg.var_stop
         assert cfg.es_warning < cfg.es_stop

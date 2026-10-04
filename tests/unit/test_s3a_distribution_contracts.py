@@ -36,7 +36,7 @@ def _ready_result(source: str = "cache") -> DistributionResult:
     )
 
 
-def test_distribution_result_keeps_legacy_fields_coherent() -> None:
+def test_distribution_result_has_explicit_state_and_attempt_trace() -> None:
     ready = _ready_result()
     unavailable = DistributionResult(
         source="cache",
@@ -50,19 +50,19 @@ def test_distribution_result_keeps_legacy_fields_coherent() -> None:
         reason=DistributionReason.FLAT_FALLBACK,
     )
 
-    assert ready.is_ready and ready.is_available and not ready.is_flat
+    assert ready.status == DistributionStatus.READY
     assert ready.horizon == 1
     assert ready.attempts[0].reason == DistributionReason.RESOLVED
-    assert not unavailable.is_available and not unavailable.is_flat
+    assert unavailable.status == DistributionStatus.UNAVAILABLE
     assert unavailable.reason == DistributionReason.CACHE_MISSING
-    assert flat.is_flat and flat.is_available and not flat.is_ready
+    assert flat.status == DistributionStatus.FLAT
 
 
 def test_fallback_policy_uses_typed_rejection_without_alert_text_heuristics() -> None:
     class _TypedFailure(DistributionSource):
         name = "typed_failure"
 
-        def resolve(self, trade_date, df_exec, current_prices, *, horizon=1, snapshot=None):
+        def resolve(self, trade_date, df_exec, current_prices, *, horizon=1, snapshot=None, open_910_returns=None, allow_implicit_io=True):
             return DistributionResult(
                 source=self.name,
                 alerts=["input was rejected by validator"],
@@ -74,7 +74,7 @@ def test_fallback_policy_uses_typed_rejection_without_alert_text_heuristics() ->
         FlatPositionSource(_MockModel())
     ).resolve("2024-01-01")
 
-    assert result.is_flat
+    assert (result.status == DistributionStatus.FLAT)
     assert result.flat_decision.fallback["audit_failure"] is True
     assert result.attempts[0].reason == DistributionReason.PROVENANCE_REJECTED
     assert result.attempts[-1].reason == DistributionReason.FLAT_FALLBACK
@@ -84,7 +84,7 @@ def test_fallback_policy_does_not_promote_alert_word_to_audit_failure() -> None:
     class _TextOnlyFailure(DistributionSource):
         name = "text_only_failure"
 
-        def resolve(self, trade_date, df_exec, current_prices, *, horizon=1, snapshot=None):
+        def resolve(self, trade_date, df_exec, current_prices, *, horizon=1, snapshot=None, open_910_returns=None, allow_implicit_io=True):
             return DistributionResult(
                 source=self.name,
                 alerts=["provenance-like text from an upstream log"],
@@ -97,7 +97,7 @@ def test_fallback_policy_does_not_promote_alert_word_to_audit_failure() -> None:
         "2024-01-01"
     )
 
-    assert result.is_flat
+    assert (result.status == DistributionStatus.FLAT)
     assert result.flat_decision.fallback.get("audit_failure", False) is False
 
 

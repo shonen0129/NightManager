@@ -53,14 +53,7 @@ def _capture_v2_snapshot(
 ) -> dict:
     app_config = load_config_from_yaml(config_path)
     model = ProductionV2Model(app_config.v2)
-    result = model.decide(
-        trade_date=trade_date,
-        gap_input_dir=gap_input_dir,
-        # The offline regression bundle is the source of truth for this
-        # snapshot. Passing the typed adapter would recompute a platform-
-        # sensitive frame fingerprint and can turn a valid legacy bundle into
-        # a flat fallback. Input identity is checked separately below.
-    )
+    result = model.decide_from_cache(trade_date=trade_date, gap_input_dir=gap_input_dir)
     return {
         "w_final": result.w_final.tolist(),
         "scores": result.scores.tolist(),

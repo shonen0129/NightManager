@@ -1,0 +1,56 @@
+{
+  "date": "2026-10-04",
+  "baseline_tests_passed": 967,
+  "final_tests": {
+    "passed": 972,
+    "parallel_passed": 971,
+    "serial_regression_passed": 1,
+    "warnings": 3,
+    "failures": 0,
+    "errors": 0
+  },
+  "target_contract_tests_passed": 127,
+  "ruff": "pass",
+  "mypy": {
+    "status": "pass",
+    "source_files": 152
+  },
+  "compileall": "pass",
+  "import_linter": {
+    "kept": 7,
+    "broken": 0
+  },
+  "lock": "pass (uv lock --check --offline)",
+  "wheel": {
+    "build": "pass",
+    "source_manifest_and_research_boundary": "pass",
+    "cli_help": "pass",
+    "artifact_roundtrip_inference": "pass"
+  },
+  "docs": {
+    "status": "pass",
+    "references_checked": 157
+  },
+  "diff_check": "pass",
+  "numerical_comparison": {
+    "cases": 32,
+    "seeds": 4,
+    "minvar_variants": 2,
+    "paths": [
+      "kernel",
+      "ml_overlay",
+      "typed_inputs_cache",
+      "offline_cache_replay"
+    ],
+    "equality": "exact (NaN equals NaN)",
+    "changes": 0,
+    "max_model_gross": 2.0000000000000004,
+    "max_abs_model_net": 3.0531133177191805e-16,
+    "overlay_applied_cases": 8
+  },
+  "limits": [
+    "synthetic comparison and fixed regression; no new performance evaluation",
+    "no live order or live acceptance",
+    "existing research-wide lint backlog outside maintained CI scope"
+  ]
+}

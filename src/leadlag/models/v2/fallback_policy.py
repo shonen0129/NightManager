@@ -57,7 +57,7 @@ class FallbackPolicy:
     ) -> DistributionResult:
         """Run the chain and return the first successful result.
 
-        If a source returns ``is_available=False`` the next source is tried.
+        UNAVAILABLE and REJECTED results advance to the next source.
         If no source can resolve, the terminal ``FlatPositionSource`` is used.
         """
         prior_alerts: list[str] = []
@@ -109,24 +109,20 @@ class FallbackPolicy:
                 )
                 logger.info("[%s] FallbackPolicy resolved via %s (flat).", trade_date, result.source)
                 return result
-            resolve_kwargs: dict[str, Any] = {"horizon": horizon, "snapshot": snapshot}
-            # Keep third-party/test DistributionSource implementations that
-            # predate the explicit snapshot fields source-compatible.  New
-            # typed paths opt in by supplying a frame or strict I/O mode.
-            if open_910_returns is not None:
-                resolve_kwargs["open_910_returns"] = open_910_returns
-            if not allow_implicit_io:
-                resolve_kwargs["allow_implicit_io"] = False
-            result = source.resolve(trade_date, df_exec, current_prices, **resolve_kwargs)
+            result = source.resolve(
+                trade_date, df_exec, current_prices, horizon=horizon,
+                snapshot=snapshot, open_910_returns=open_910_returns,
+                allow_implicit_io=allow_implicit_io,
+            )
             prior_attempts.extend(result.attempts)
-            if result.is_flat:
+            if (result.status == DistributionStatus.FLAT):
                 logger.info("[%s] FallbackPolicy resolved via %s (flat).", trade_date, result.source)
                 return replace(
                     result,
                     alerts=(result.alerts or []) + prior_alerts,
                     attempts=tuple(prior_attempts),
                 )
-            if result.is_available and result.mu_gap is not None and result.Omega_gap is not None:
+            if result.status == DistributionStatus.READY and result.mu_gap is not None and result.Omega_gap is not None:
                 logger.info("[%s] FallbackPolicy resolved via %s.", trade_date, result.source)
                 return replace(
                     result,
@@ -138,13 +134,10 @@ class FallbackPolicy:
 
         # Terminal flat guard — should only be reached if no FlatPositionSource was added.
         logger.error("[%s] FallbackPolicy exhausted with no resolution; forcing flat.", trade_date)
-        resolve_kwargs = {"horizon": horizon, "snapshot": snapshot}
-        if open_910_returns is not None:
-            resolve_kwargs["open_910_returns"] = open_910_returns
-        if not allow_implicit_io:
-            resolve_kwargs["allow_implicit_io"] = False
         flat_result = FlatPositionSource(self._model_from_sources()).resolve(
-            trade_date, df_exec, current_prices, **resolve_kwargs
+            trade_date, df_exec, current_prices, horizon=horizon,
+            snapshot=snapshot, open_910_returns=open_910_returns,
+            allow_implicit_io=allow_implicit_io,
         )
         return replace(
             flat_result,
@@ -172,8 +165,7 @@ class FallbackPolicy:
 
         ``use_file_cache=True`` prefers the Step 2 file cache; ``False``
         prefers on-demand but still falls back to the file cache and then
-        to a flat position, matching the legacy ``compute_distribution``
-        behavior used by shadow runs.
+        to a flat position for explicitly requested on-demand research runs.
         """
         chain = cls()
         file_source = FileCacheDistributionSource(model, gap_input_dir=gap_input_dir, mu_pattern=mu_pattern, omega_pattern=omega_pattern)

@@ -28,7 +28,7 @@ jobs:
           enable-cache: true
 
       - name: Install locked production, development, and CI ML dependencies
-        run: uv sync --locked --extra dev --extra ci-ml
+        run: uv sync --locked --extra dev --extra ml-overlay
 
       - name: Verify lockfile
         run: uv lock --check
@@ -43,7 +43,7 @@ jobs:
       # newly maintained training entry strict without making that backlog an
       # unbounded exemption for new production code.
       - name: Ruff current research training entry
-        run: uv run --locked ruff check src/research/experiments/ml_overlay_training.py
+        run: uv run --locked ruff check src/research/experiments/ml_overlay_training.py tools/research/train_ml_order_overlay.py
 
       - name: Mypy production package
         run: uv run --locked mypy --config-file pyproject.toml src/leadlag
@@ -55,6 +55,8 @@ jobs:
         run: >-
           uv run --locked python scripts/ci/validate_docs.py
           docs/ARCHITECTURE.md docs/CI.md docs/SCHEDULER_SETUP.md
+          README.md docs/refactor_roadmap.md docs/RESEARCH_ENV.md
+          docs/decisions/2026-10-04-kiss-canonical-apis.md
           docs/decisions/2026-09-15-structural-improvement-boundaries.md
           reports/20260915_structural_improvement/plan.md
 

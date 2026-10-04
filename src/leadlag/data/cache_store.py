@@ -18,7 +18,6 @@ import base64
 import io
 import json
 import logging
-import pickle
 import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -43,10 +42,8 @@ class SqliteCacheStore:
     primary-key on ``key``. SQLite's WAL mode is enabled so that readers do
     not block writers and the database remains resilient to process crashes.
 
-    DataFrames are serialized to a portable record (Parquet if pyarrow is
-    installed, otherwise a pickle-bytes wrapper) and then base64-encoded, so
-    the round-trip does not depend on DataFrame-specific pickle internals and
-    the top-level store is pure JSON.
+    DataFrames use Parquet records inside the JSON envelope. PyArrow is a
+    required project dependency, so there is one DataFrame storage format.
     """
 
     def __init__(self, path: str | Path, *, timeout: float = 30.0) -> None:
@@ -80,39 +77,25 @@ class SqliteCacheStore:
 
     @staticmethod
     def _df_to_record(df: pd.DataFrame) -> dict[str, Any]:
-        """Serialize a DataFrame to a portable record.
-
-        Uses Parquet when pyarrow is available; otherwise falls back to a
-        pickle-bytes wrapper. The binary blob is base64-encoded so the record
-        can be embedded in JSON.
-        """
+        """Serialize a DataFrame as a Parquet record in the JSON envelope."""
         buf = io.BytesIO()
-        try:
-            df.to_parquet(buf, engine="pyarrow", index=True)
-            blob = buf.getvalue()
-            fmt = "parquet"
-        except Exception:
-            buf = io.BytesIO()
-            df.to_pickle(buf)
-            blob = buf.getvalue()
-            fmt = "pickle"
+        df.to_parquet(buf, engine="pyarrow", index=True)
         return {
             "__df_record__": True,
-            "format": fmt,
-            "blob": base64.b64encode(blob).decode("ascii"),
+            "format": "parquet",
+            "blob": base64.b64encode(buf.getvalue()).decode("ascii"),
         }
 
     @staticmethod
     def _record_to_df(record: dict[str, Any]) -> pd.DataFrame:
         """Deserialize a record produced by :meth:`_df_to_record`."""
+        if record.get("format") != "parquet":
+            raise CacheStoreError("Unsupported DataFrame cache format")
         blob = record["blob"]
         if isinstance(blob, str):
             blob = base64.b64decode(blob.encode("ascii"))
         buf = io.BytesIO(blob)
-        fmt = record.get("format", "pickle")
-        if fmt == "parquet":
-            return pd.read_parquet(buf, engine="pyarrow")
-        return pd.read_pickle(buf)
+        return pd.read_parquet(buf, engine="pyarrow")
 
     @staticmethod
     def _index_to_record(index: pd.Index) -> dict[str, Any]:
@@ -306,16 +289,9 @@ class SqliteCacheStore:
             return default
         blob = row[0]
         try:
-            # New stores use JSON; old stores used pickle. Try JSON first, then
-            # pickle for backward compatibility.
             value = json.loads(blob.decode("utf-8"))
-        except (json.JSONDecodeError, UnicodeDecodeError):
-            try:
-                value = pickle.loads(blob)
-            except Exception as exc:
-                raise CacheStoreError(
-                    f"Failed to deserialize cache key {key!r}: {exc}"
-                ) from exc
+        except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+            raise CacheStoreError(f"Invalid JSON for cache key {key!r}: {exc}") from exc
         return self._restore_from_storage(value)
 
     def delete(self, key: str) -> bool:

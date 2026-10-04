@@ -24,6 +24,7 @@ def sprint_market_inputs(sample_df_exec, monkeypatch, tmp_path):
     bars.index = bars.index + pd.Timedelta(hours=9, minutes=10)
     diagnostics = tmp_path / "portfolio_gap_distribution_diagnostics.csv"
     pd.DataFrame({"trade_date": frame.index, "gross_exposure": 2.0,
+                  "pred_ir_gap_baseline_cost": np.random.default_rng(81).uniform(0.01, 0.2, len(frame)),
                   "pred_ir_gap_exante_cost": np.random.default_rng(81).uniform(0.01, 0.2, len(frame)),
                   "pit_bin": "Medium"}).to_csv(diagnostics, index=False)
 

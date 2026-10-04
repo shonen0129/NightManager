@@ -38,7 +38,7 @@ from leadlag.data.validation import validate_exec_record
 from leadlag.domain.inputs import DecisionInputs, HistoricalInputs
 from leadlag.execution.config import load_config_from_yaml
 from leadlag.experiment_registry import Decision
-from leadlag.models.ml_order_overlay import DEFAULT_LGBM_KWARGS
+from research.experiments.ml_overlay_training import DEFAULT_LGBM_KWARGS
 from leadlag.models.ml_overlay_artifact import load_overlay_model, save_overlay_model
 from leadlag.models.ml_overlay_features import _precompute_market_vol
 from leadlag.runner.production import ProductionRunner

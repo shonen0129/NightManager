@@ -35,9 +35,6 @@ class ExecutionPlan:
     def expected_order_count(self) -> int:
         return len(self.close_orders) + len(self.new_orders)
 
-    @property
-    def all_orders(self) -> tuple[OrderRequest, ...]:
-        return self.close_orders + self.new_orders
 
     def to_dict(self) -> dict[str, Any]:
         """Return the stable JSON-compatible representation used in logs."""
@@ -166,21 +163,6 @@ class ExecutionReport:
             if (fill := observation.to_fill(trade_date=trade_date)) is not None
         ]
         return tuple(fills)
-
-    def with_reconciliation_errors(self, errors: Sequence[str]) -> ExecutionReport:
-        """Return a copy with post-submission reconciliation errors attached."""
-        return ExecutionReport(
-            expected_orders=self.expected_orders,
-            accepted_orders=self.accepted_orders,
-            filled_orders=self.filled_orders,
-            partial_orders=self.partial_orders,
-            failed_orders=self.failed_orders,
-            unresolved_orders=self.unresolved_orders,
-            close_failed=self.close_failed,
-            recording_errors=self.recording_errors,
-            reconciliation_errors=tuple(errors),
-            observations=self.observations,
-        )
 
 
 def _order_to_dict(order: OrderRequest) -> dict[str, Any]:

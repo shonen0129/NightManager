@@ -9,7 +9,11 @@ from typing import Any
 import numpy as np
 
 from leadlag.data.pit_lake import MarketSnapshot
-from leadlag.domain.distribution import DistributionReason, DistributionResolutionError
+from leadlag.domain.distribution import (
+    DistributionReason,
+    DistributionResolutionError,
+    DistributionStatus,
+)
 from leadlag.domain.portfolio import PortfolioDecision
 from leadlag.models.signal_enhancement import apply_rank_reversal_overlay
 
@@ -50,25 +54,6 @@ def _apply_rank_reversal_overlay(
     return scores, alerts
 
 
-def _multi_horizon_scores(
-    model: Any,
-    trade_date: str,
-    df_exec: Any,
-    current_prices: dict[str, float],
-    use_file_cache: bool = True,
-    snapshot: MarketSnapshot | None = None,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Backward-compatible three-value wrapper around the provenance-aware blend."""
-    mu_gap, omega_gap, scores, _provenance = _multi_horizon_scores_with_metadata(
-        model,
-        trade_date=trade_date,
-        df_exec=df_exec,
-        current_prices=current_prices,
-        use_file_cache=use_file_cache,
-        snapshot=snapshot,
-        require_provenance=False,
-    )
-    return mu_gap, omega_gap, scores
 
 
 def _multi_horizon_scores_with_metadata(
@@ -114,9 +99,9 @@ def _multi_horizon_scores_with_metadata(
                 open_910_returns=open_910_returns,
                 allow_implicit_io=allow_implicit_io,
             )
-            if result.is_flat or not result.is_available or result.mu_gap is None or result.Omega_gap is None:
+            if result.status != DistributionStatus.READY or result.mu_gap is None or result.Omega_gap is None:
                 raise DistributionResolutionError(
-                    result.reason or DistributionReason.POLICY_EXHAUSTED,
+                    result.reason,
                     f"Multi-horizon distribution unavailable for h={h}: "
                     + "; ".join(result.alerts or []),
                     attempts=result.attempts,
@@ -144,8 +129,7 @@ def _multi_horizon_scores_with_metadata(
                         ondemand.metadata, trade_date, h
                     )
                     if (
-                        ondemand.is_available
-                        and not ondemand.is_flat
+                        ondemand.status == DistributionStatus.READY
                         and ondemand.mu_gap is not None
                         and ondemand.Omega_gap is not None
                         and not ondemand_alerts
@@ -180,7 +164,7 @@ def _multi_horizon_scores_with_metadata(
             )
             provenance["horizons"][str(int(h))] = {
                 "weight": float(w),
-                "source": "legacy_compute_distribution",
+                "source": "research_compute_distribution",
             }
         assert mu_h is not None and omega_h is not None
         sigma_h = np.sqrt(np.maximum(np.diag(omega_h), model.run_config.sigma_floor))
@@ -244,7 +228,7 @@ def _apply_overlay(
         logger.warning("[%s] Overlay requested but df_exec is None; skipping.", trade_date)
         return result
 
-    from leadlag.models.ml_order_overlay import apply_overlay
+    from leadlag.models.ml_overlay_inference import apply_overlay
     return apply_overlay(
         result,
         df_exec,

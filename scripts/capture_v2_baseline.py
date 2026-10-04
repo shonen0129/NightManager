@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from leadlag.data.pit_lake import PITDataLake
+
 import json
 import sys
 from pathlib import Path
@@ -59,12 +61,7 @@ def main() -> int:
     gap_input_dir = Path("var/live/pipeline_data/gap_adjusted_distribution/latest")
 
     current_prices = _build_current_prices_from_df_exec(df_exec, trade_date)
-    result = model.decide(
-        trade_date=trade_date,
-        gap_input_dir=gap_input_dir,
-        df_exec=df_exec,
-        current_prices=current_prices,
-    )
+    result = model.decide(inputs=PITDataLake(df_exec).build_decision_inputs(trade_date, current_prices=current_prices, gap_input_dir=gap_input_dir))
 
     baseline = {
         "w_final": result["w_final"].tolist(),

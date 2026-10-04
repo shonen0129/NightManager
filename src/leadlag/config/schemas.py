@@ -102,23 +102,7 @@ class StrategyConfig(BaseModel):
         description="信用取引のロング+ショート合計レバレッジ倍率（gross notional = weights × side_leverage）",
     )
 
-    # Production runner parameters (start_date + risk thresholds)
-    # NOTE: risk thresholds are duplicated here for backward compat with production runners
-    # that pass a single StrategyConfig to both strategy and risk layers.
-    # The canonical risk-only type is RiskConfig; use AppConfig.risk in new code.
     start_date: str = Field(default="2015-01-05", description="バックテスト開始日")
-    var_confidence: float = Field(default=0.99, ge=0.0, le=1.0, description="VaR 信頼水準")
-    var_window: int = Field(default=250, ge=1, description="VaR/ES 計算ウィンドウ (日数)")
-    var_method: str = Field(default="historical", description="VaR 計算手法: historical or cornish_fisher")
-    var_warning: float = Field(default=0.02, ge=0.0, le=1.0, description="VaR 警告閾値")
-    var_stop: float = Field(default=0.03, ge=0.0, le=1.0, description="VaR 停止閾値")
-    es_warning: float = Field(default=0.025, ge=0.0, le=1.0, description="ES 警告閾値")
-    es_stop: float = Field(default=0.04, ge=0.0, le=1.0, description="ES 停止閾値")
-    daily_loss_warning: float = Field(default=0.015, ge=0.0, le=1.0, description="日次損失警告閾値")
-    daily_loss_stop: float = Field(default=0.025, ge=0.0, le=1.0, description="日次損失停止閾値")
-    monthly_loss_stop: float = Field(default=0.05, ge=0.0, le=1.0, description="月次損失停止閾値")
-    max_net_exposure: float = Field(default=0.05, ge=0.0, le=1.0, description="最大ネット露出比率")
-    max_gross_exposure: float = Field(default=2.0, ge=0.0, description="最大グロス露出比率")
 
     @classmethod
     def from_v2(
@@ -129,7 +113,6 @@ class StrategyConfig(BaseModel):
         portfolio_data: dict[str, Any],
         residualization_data: dict[str, Any],
         costs_data: dict[str, Any],
-        risk_kwargs: dict[str, Any],
         start_date: str = "2015-01-05",
         side_leverage: float | None = None,
         env_slippage_bps: float | None = None,
@@ -185,7 +168,6 @@ class StrategyConfig(BaseModel):
             "copula_marginal_method": model_data.get("copula_marginal_method", "empirical"),
             "minvar_enabled": portfolio_data.get("minvar_enabled") if "minvar_enabled" in portfolio_data else blpx.minvar_enabled,
             "minvar_alpha": portfolio_data.get("minvar_alpha") if "minvar_alpha" in portfolio_data else blpx.minvar_alpha,
-            **risk_kwargs,
         }
 
         if env_slippage_bps is not None:
@@ -768,7 +750,6 @@ class AppConfig(BaseModel):
     )
     run_audit: bool = Field(default=True, description="実行後に ComplianceAuditor を走らせるか")
     gap_distribution_dir: str = Field(default="", description="gap 調整分布ディレクトリ（相対パス可）")
-    ml_order_overlay: MLOrderOverlayConfig = Field(default_factory=MLOrderOverlayConfig)
     v2: ProductionV2RunConfig = Field(
         default_factory=ProductionV2RunConfig,
         description="V2 本番ポートフォリオ生成パラメータ",
@@ -784,7 +765,7 @@ def parse_run_config(
 
     This is the canonical parser for callers that receive flat or nested YAML
     data.  Model modules consume the validated Pydantic object and do not
-    reinterpret legacy aliases themselves.
+    repeat YAML section precedence themselves.
     """
     if isinstance(cfg, ProductionV2RunConfig):
         return cfg

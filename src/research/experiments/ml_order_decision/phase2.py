@@ -135,7 +135,7 @@ def _train_overlay_lgbm(
     )
 
 
-def _predict_p_trade_lgbm(
+def _predict_relative_allocation_lgbm(
     features: pd.DataFrame,
     model: LightGBMModel,
 ) -> np.ndarray:
@@ -184,7 +184,7 @@ def make_overlay_generator_lgbm(
             per_ticker_interactions=per_ticker_interactions,
             vix_features=vix_features,
         )
-        p_trade = _predict_p_trade_lgbm(features, model)
+        p_trade = _predict_relative_allocation_lgbm(features, model)
 
         # Apply optional EMA smoothing
         if p_trade_ema_span and p_trade_ema_span > 0:

@@ -1,0 +1,39 @@
+{
+  "config": "configs/production/production.yaml (resolved strict=True)",
+  "side_leverage": 1.3,
+  "risk": {
+    "var_confidence": 0.99,
+    "var_window": 250,
+    "var_method": "historical",
+    "var_warning": 0.02,
+    "var_stop": 0.03,
+    "es_warning": 0.025,
+    "es_stop": 0.04,
+    "daily_loss_warning": 0.015,
+    "daily_loss_stop": 0.025,
+    "monthly_loss_stop": 0.05,
+    "max_net_exposure": 0.05,
+    "max_gross_exposure": 3.0
+  },
+  "fallback_on_audit_failure": true,
+  "ondemand_fallback_enabled": true,
+  "blpx_dimensions": [
+    15,
+    17
+  ],
+  "costs": {
+    "cost_bps_per_gross": 10.0,
+    "slippage_bps_per_side": 5.0,
+    "overnight_alpha_long": 0.75,
+    "overnight_alpha_short": 0.5,
+    "buy_interest_annual": 0.025,
+    "borrow_fee_annual": 0.0115,
+    "reverse_fee_bps": 2.0,
+    "side_leverage": 1.3
+  },
+  "comparison_model_gross": 2.0000000000000004,
+  "comparison_model_abs_net": 3.0531133177191805e-16,
+  "synthetic_effective_gross": 2.6000000000000005,
+  "synthetic_effective_abs_net": 3.885780586188048e-16,
+  "effective_within_risk_limits": true
+}

@@ -109,8 +109,8 @@ def all_expected_columns() -> list[str]:
 class ExecutionFrame:
     """A frozen, type-safe view over an execution DataFrame.
 
-    The underlying ``pd.DataFrame`` is exposed as ``.df`` for full
-    compatibility, but convenience accessors return the per-family numpy
+    The underlying ``pd.DataFrame`` is held in ``.df``; accessors return
+    the per-family numpy
     blocks that the signal pipeline consumes.  Missing columns raise
     ``KeyError`` at access time instead of silently propagating string typos.
     """

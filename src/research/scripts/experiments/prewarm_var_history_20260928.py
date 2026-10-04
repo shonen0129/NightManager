@@ -50,7 +50,6 @@ def prewarm() -> None:
     try:
         started = time.monotonic()
         first = var_history.get_hist_returns_for_risk(
-            strategy=None,
             config=app.strategy,
             output_root=str(results()),
             trade_date=trade_date,
@@ -61,7 +60,6 @@ def prewarm() -> None:
         replay_seconds = time.monotonic() - started
         cached_started = time.monotonic()
         second = var_history.get_hist_returns_for_risk(
-            strategy=None,
             config=app.strategy,
             output_root=str(results()),
             trade_date=trade_date,

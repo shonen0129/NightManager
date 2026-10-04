@@ -2,7 +2,7 @@
 
 V2 同期パス (ProductionV2Model) を本番正本とし、Next-Gen 非同期パイプライン・凸最適化は 2026-08-17 の ADR (docs/decisions/2026-08-17-p35-pipeline-canon.md) に基づき archive/legacy_src/ へ移設された。`PITDataLake` は `leadlag.data.pit_lake` の本番入力adapterとして保持し、`DecisionInputs`へ変換してモデルへ渡す。
 
-> **最終更新**: 2026-09-30
+> **最終更新**: 2026-10-04
 
 ## Overview
 
@@ -14,25 +14,24 @@ US ETF と TOPIX-17 セクター ETF のリードラグ相関を利用した、
 
 ### ML overlay の責務境界
 
-ML order overlay は、pickle の互換性を持つ fitted container だけを
+ML order overlay は、fitted container の正本を
 `leadlag.models.ml_order_overlay.MLOrderOverlayModel` に残す。特徴量計算は
 `ml_overlay_features.py`、検証済みの immutable artifact の保存・読込は
 `ml_overlay_artifact.py`、本番適用は `ml_overlay_inference.py` が正本である。
 学習・LightGBM の fit・学習データ収集は `research.experiments.ml_overlay_training`
-に分離し、本番 package から research を import しない。既存の import path は
-段階移行のための薄い compatibility export としてのみ残す。研究環境と artifact
+に分離し、本番 package から research を import しない。利用者は各責務のmoduleを直接importする。
+学習コマンドは `tools/research/train_ml_order_overlay.py` に置く。研究環境と artifact
 運用は [RESEARCH_ENV.md](RESEARCH_ENV.md) を参照する。
 
 推論出力は校正済み取引確率ではなく、long/short各側の相対配分倍率である。
 各側を既存の基準grossへ再正規化するため、ML overlay単独では総grossや取引可否を
-決めない。summaryの`p_trade_*`は過去run reader向け互換aliasとして残し、同じ値を
-`relative_allocation_multiplier_*`にも出す。実在庫・注文別の増分費用を検証できる正本が
+決めない。summaryは`relative_allocation_multiplier_*`で出力する。実在庫・注文別の増分費用を検証できる正本が
 揃うまでは、ML trade gateは未評価と記録する。研究用`blpx_residual` targetは、方向付き
 実現リターンから同じ日のBLPX `mu_gap`予測を引いた誤差を学ぶ候補であり、本番artifactの
 targetを暗黙に変更しない。
-旧 module の学習関数名は production 側では fail-closed の移行案内を返し、研究 package を動的に読み込まない。
+本番moduleは学習API、学習定数、他moduleの再公開を持たない。
 
-**注意**: v1 fallback (Residual-BLPX) は2026-07-09に廃止されました。gap data欠損時はflat position (w_final=0) を返します。廃止理由は、v2でエラーが出る場合v1でも同様にエラーが出るため、循環依存の問題があったためです。v1 fallback関連コードは `git tag archive-2026-08` の `archive/deprecated_v1_fallback/` にアーカイブされています。
+**フォールバック**: 当日cacheを優先し、欠損・不採用時は有効かつ入力が揃ったon-demand BLPXを試す。無効・入力不足・計算失敗時にflat position (`w_final=0`)を返す。PIT履歴不足の`fallback_multiplier`は、この終端flatと別の処理である。V1 fallbackは廃止済みで、本番経路へ戻さない。
 
 ### リファクタリング履歴
 
@@ -99,16 +98,18 @@ The CI documentation and current required checks are in [CI.md](CI.md). The file
 入力adapterは`data/`と`domain/inputs.py`で明示的に受け、broker・発注・実行I/Oは持たない。
 `HistoricalInputs`はas-of cutoffと09:10/macro/ADR/PIT/rank-reversalのrun-owned欄を持ち、strict typed
 decisionでは不足入力をモデル内部から再取得しない。close-derived labelはJP 15:30 JSTを
-availability cutoffとする。旧compatibility adapter、主要adapterの観測時刻充填、gap生成を含む
+availability cutoffとする。`ProductionV2Model.decide`は`DecisionInputs`だけを受け、source名に
+かかわらず暗黙I/Oを許可しない。`decide_from_cache`は保存済み分布の再生専用で、
+on-demandに必要な履歴入力やML overlayを持たない。主要adapterの観測時刻充填、gap生成を含む
 全入口の同一cutoffはS2/S3の残件である。VaR keyはeffective config・df_exec・code・overlay・gap
 bundleに加えて、同じVaR runへ渡す09:10/macro/ADR/PIT/rank-reversalの入力snapshot fingerprintを束ねる。
 
-**継承階層** (Phase 10 リファクタリング後):
+**現行の本番BLPXの構成**:
 ```
-ABC (abc.ABC)
-└── BaseModel (base.py)
-    └── _BLPBase (blp_base.py) — BLP系モデル共通メソッド
-        └── SectorRelativeEnsembleBLPEnhancedModel (sector_relative_ensemble_blp_enhanced.py)
+ProductionBLPXModel (models/blpx/model.py)
+├── BLPXPredictMixin (models/blpx/model_predict.py)
+├── BLPXMetaMixin (models/blpx/model_meta.py)
+└── BLPModelBase (models/blp_base.py)
 ```
 
 本番 V2 の正本は `ProductionV2Model` で、処理本体は `models/v2/` の decision engine、分布source、fallback、監査比較へ分割されている。
@@ -117,9 +118,9 @@ ABC (abc.ABC)
 
 | モジュール | 責務 |
 |---|---|
-| `production_v2.py` | `ProductionV2Model`の公開API。旧公開引数は入口で`DecisionInputs`へ一度だけ正規化し、分布・ランキング・RuleDを`models/v2/`へ委譲 |
+| `production_v2.py` | `ProductionV2Model`の型付き計算APIと保存済み分布の再生API。分布・ランキング・RuleDを`models/v2/`へ委譲 |
 | `signal_enhancement.py` | マルチホライズンブレンド (`apply_multi_horizon_blend`)・ランク反転オーバーレイ (`apply_rank_reversal_overlay`) — Phase 2A/2D 成果物 |
-| `ml_order_overlay.py` | ML order overlay 補助モデル |
+| `ml_order_overlay.py` | fitted estimator・特徴量契約・来歴を保持する `MLOrderOverlayModel` |
 | `blpx/` | `ProductionBLPXModel`、相関・事前分布・信号計算。旧root module `models/blpx.py` は撤去済み |
 
 
@@ -167,7 +168,7 @@ snapshotを生成する検証済みproducerは未整備なので、producerが�
 | モジュール | 責務 |
 |---|---|
 | `tickers.py` | US/JP ティッカー定義・変換ユーティリティの**単一正本** |
-| `decision_cache.py` / `market_data_cache.py` | 判断/価格cacheと市場履歴cacheの正本。旧`cache.py` shimは撤去済み |
+| `market_data_cache.py` | ETF価格・intraday・市場履歴cacheの正本。SQLiteストアを一度だけ読み書きする |
 | `fetcher.py` | yfinance ダウンロード、差分更新、1629.T NAVパッチ |
 | `preprocessor.py` | `df_exec` 構築（日次リターン整列、TOPIX beta計算） |
 | `macro.py` | macro価格の取得・列名正規化・timeout・キャッシュ。計算層へDataFrameを渡す入力adapter |
@@ -177,7 +178,7 @@ snapshotを生成する検証済みproducerは未整備なので、producerが�
 | `market_data.py` | 寄付価格取得、ギャップ計算、価格検証 |
 | `gap_store.py` | gap行列と一括manifestのSQLite永続化。`save_horizon` / `load_horizon_bundle`で同一snapshotを扱う |
 | `schema.py` | `df_exec` の列ファミリ・型付き `ExecutionFrame` ラッパー（ADR-0001 PIT view と連携） |
-| `pit_lake.py` | as-of snapshotの抽出と`DecisionInputs`の構築。旧`df_exec`引数は入口adapterでのみ扱う |
+| `pit_lake.py` | as-of snapshotの抽出と`DecisionInputs`の構築。全履歴の読出しは`history_frame()` |
 | `validation.py` | データ検証ゲート — raw data / exec record / gap 行列の構造的検証 |
 
 ### 4. Broker Layer (`broker/`)
@@ -206,7 +207,7 @@ kabuステーションや立花証券からの移行・別ブローカー追加�
 | `config.py` | YAML/env の設定パラメータロード・Pydanticスキーマによる検証 (デフォルト: `configs/production/production.yaml`) |
 | `broker_ops.py` | BrokerClient 構築・ポジション/資本取得・発注・1629.T 大口分割 |
 | `pricing.py` | 寄付価格・約定価格解決 |
-| `risk_capital.py` | リスク設定・リスクチェック・gross 調整・資本配分 |
+| `risk_capital.py` | `AppConfig.risk`を受けるリスクチェック・gross調整・資本配分 |
 | `output_ops.py` | 出力ディレクトリ・決定 CSV・バックテストサマリー・position/wallet スナップショット |
 | `post_decision.py` | gross 調整→リスク→配分→発注→出力の一連フロー |
 | `decision.py` | `generate_daily_decision_results()` |
@@ -223,7 +224,7 @@ kabuステーションや立花証券からの移行・別ブローカー追加�
 S4の意思決定・執行境界は、`leadlag.domain.portfolio.PortfolioDecision`（属性専用）から
 `execution.contracts.ExecutionPlan`、brokerの`OrderObservation`、`ExecutionReport`へ接続する。
 新規注文と引け決済のstatus pollは`execution.order_lifecycle.poll_order_statuses`を共有し、
-legacy mappingの受け入れはJSON/CSV/Markdown writerの`_coerce_decision`だけに限定する。
+JSON/CSV/Markdown writerも`PortfolioDecision`だけを受け、dictへの再変換を挟まない。
 `leadlag.execution.state_store.ExecutionStateStore`は、broker呼出前の注文意図、broker観測、
 reconciliation checkpointをSQLiteへ追記する。送信開始後にプロセスが停止したrunは
 `executing`または`reconciliation_required`として復旧候補に残り、同じ口座・戦略では日付・jobを
@@ -254,7 +255,6 @@ LOB・スリッページ・執行制御関連モジュール。
 | `order_book_schema.py` | `OrderBookSnapshot` データスキーマ・バリデーション・APIレスポンス変換 |
 | `order_book_cost.py` | 板スプレッド・LOBスリッページ推定・深度計算 |
 | `slippage_model.py` | エントリ/エグジットコストモデル (`CostSource` enum, `compute_entry_cost_bps`, `compute_exit_cost_bps`) |
-| `execution_constraints.py` | 板ベース執行制約・空売り代替銘柄選択 (`apply_hard_rules`, `ExecutionDecision`) |
 | `live_quote_logger.py` | リアルタイム板ログ記録ユーティリティ |
 
 ### 6. Compliance Layer (`compliance/`)
@@ -355,7 +355,8 @@ YAML の `__base__` 合成は `config/loader.py`、V2 の mapping 正規化は
 
 ### リスクロジックの一本化
 VaR/ES 計算・リスクチェック評価は `leadlag/core/risk.py` が正本。
-`leadlag/execution/risk_capital.py::run_risk_checks()` を呼び出す。
+`leadlag/execution/risk_capital.py::run_risk_checks()`へ`AppConfig.risk`を直接渡す。
+リスク閾値は`RiskConfig`が所有し、`StrategyConfig`へコピーしない。
 
 ### 結果出力ディレクトリ方針
 `var/results/YYYYMMDD_HHMMSS_<run_name>/` が実行時出力の一つの形態。
@@ -403,7 +404,7 @@ VaR/ES 計算・リスクチェック評価は `leadlag/core/risk.py` が正本�
 あることを確認し、来歴不正のcacheは同じhorizonのon-demandへ切り替える。
 結果は`leadlag.domain.distribution.DistributionResult`で返し、
 `DistributionStatus`・`DistributionReason`・`DistributionAttempt`がsourceの試行順と
-拒否理由の正本になる。従来の`is_available`・`is_flat`・alertは互換出力として残る。
+拒否理由の正本になる。状態は`status`一つで表し、alertは説明用とする。
 全horizonを解決できない場合は `fallback.audit_failure=true` のflatを返し、
 `diagnostics.distribution_provenance`と`distribution_resolution`へsource・来歴・拒否理由・試行を残す。
 

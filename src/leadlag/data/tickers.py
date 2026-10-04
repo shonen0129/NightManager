@@ -109,13 +109,6 @@ SENSITIVITY_LABELS: dict[str, dict[str, float]] = {
 }
 
 # ---------------------------------------------------------------------------
-# Backward-compatible aliases (used by config.py and legacy imports)
-# ---------------------------------------------------------------------------
-N_US_ASSETS: int = N_US
-N_JP_ASSETS: int = N_JP
-N_TOTAL_ASSETS: int = N_TOTAL
-
-# ---------------------------------------------------------------------------
 # Lot-size overrides (broker-specific: some ETFs trade in units > 1)
 # ---------------------------------------------------------------------------
 LOT_SIZES: dict[str, int] = {

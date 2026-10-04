@@ -14,15 +14,14 @@ from leadlag.config.schemas import ProductionV2RunConfig
 from leadlag.data.adr_features import load_adr_features
 from leadlag.data.tickers import JP_TICKERS, US_TICKERS
 from leadlag.domain.portfolio import PortfolioDecision
-from leadlag.models.ml_order_overlay import (
-    MLOrderOverlayModel,
+from leadlag.models.ml_order_overlay import MLOrderOverlayModel
+from leadlag.models.ml_overlay_features import (
     _build_ticker_features,
-    _predict_p_trade,
     _predict_relative_allocation,
     _safe,
     _sigmoid,
-    apply_overlay,
 )
+from leadlag.models.ml_overlay_inference import apply_overlay
 from research.experiments import ml_overlay_training
 
 N_J = len(JP_TICKERS)
@@ -131,7 +130,7 @@ def test_build_ticker_features_per_ticker_interactions():
         )
 
 
-def test_predict_p_trade():
+def test_predict_relative_allocation():
     features = pd.DataFrame(
         {
             "score": [1.0, -1.0],
@@ -156,7 +155,7 @@ def test_predict_p_trade():
         per_ticker_interactions=False,
         metadata=_verified_overlay_metadata(),
     )
-    p_trade = _predict_p_trade(features, model)
+    p_trade = _predict_relative_allocation(features, model)
     assert np.allclose(p_trade, [0.5, 0.5])
     assert np.array_equal(_predict_relative_allocation(features, model), p_trade)
 
@@ -210,7 +209,7 @@ def test_apply_overlay_adjusts_scores_and_weights():
         == "relative_within_side_allocation_multiplier"
     )
     assert out.summary["relative_allocation_multiplier_mean"] == pytest.approx(0.5)
-    assert out.summary["p_trade_mean"] == pytest.approx(0.5)
+    assert out.summary["relative_allocation_multiplier_mean"] == pytest.approx(0.5)
     assert out.summary["ml_trade_gate_applied"] is False
     assert "missing_verified_inventory" in out.summary["ml_trade_gate_status"]
     assert out.numerical["status"] == "PASSED"
@@ -241,7 +240,7 @@ def test_training_collector_builds_blpx_residual_target(
     open_910 = pd.DataFrame(0.0, index=frame.index, columns=JP_TICKERS)
 
     class FakeDecisionModel:
-        def decide(self, *, inputs, overlay_enabled, use_file_cache):
+        def decide(self, *, inputs, overlay_enabled):
             return SimpleNamespace(
                 fallback={},
                 scores=np.ones(len(JP_TICKERS)),

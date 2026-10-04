@@ -250,6 +250,9 @@ def test_shadow_only_returns_before_production_writes_positions_or_orders(monkey
         def __init__(self, df_exec) -> None:
             self.df_exec = df_exec
 
+        def history_frame(self):
+            return self.df_exec.copy()
+
         def get_snapshot(self, as_of):
             return SimpleNamespace(
                 as_of=as_of,

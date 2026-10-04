@@ -7,13 +7,14 @@ import pandas as pd
 
 from leadlag.broker.tachibana import session_cache
 from leadlag.broker.tachibana.api import TachibanaClient
-from leadlag.data import decision_cache as data_cache
+from leadlag.data import market_data_cache as data_cache
 from leadlag.execution import broker_ops
 
 
-def test_decision_cache_round_trip(tmp_path, monkeypatch):
-    path = tmp_path / "decision_cache.sqlite"
-    monkeypatch.setattr(data_cache, "decision_cache_path", lambda: str(path))
+def test_df_exec_cache_round_trip(tmp_path, monkeypatch):
+    path = tmp_path / "df_exec.sqlite"
+    monkeypatch.setattr(data_cache, "_df_exec_store_path", lambda: path)
+    monkeypatch.setattr(data_cache, "etf_cache_path", lambda: str(tmp_path / "raw.sqlite"))
     index = pd.DatetimeIndex(["2026-07-28"], name="trade_date")
     df_exec = pd.DataFrame(
         {
@@ -24,8 +25,12 @@ def test_decision_cache_round_trip(tmp_path, monkeypatch):
         index=index,
     )
 
-    data_cache.save_decision_cache(df_exec)
-    loaded = data_cache.load_decision_cache()
+    from leadlag.data.schema import all_expected_columns
+
+    missing = {column: 0.0 for column in all_expected_columns() if column not in df_exec}
+    df_exec = pd.concat([df_exec, pd.DataFrame(missing, index=index)], axis=1)
+    data_cache.save_df_exec_to_local_cache(df_exec)
+    loaded = data_cache.load_df_exec_from_local_cache()
 
     pd.testing.assert_frame_equal(loaded, df_exec)
 

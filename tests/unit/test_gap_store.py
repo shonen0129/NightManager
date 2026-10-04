@@ -58,7 +58,7 @@ def test_gap_store_horizon_bundle_is_atomic_and_preserves_metadata():
             horizon=3,
         )
 
-        loaded_mu, loaded_omega, metadata = store.load_horizon(
+        loaded_mu, loaded_omega, metadata, _manifest = store.load_horizon_bundle(
             "2026-08-10", horizon=3
         )
         assert loaded_mu is not None and loaded_omega is not None
@@ -133,7 +133,7 @@ def test_gap_store_import_from_directory():
         assert result["failed"] == 0
         assert result["total_candidates"] == 1
 
-        mu, omega, _ = store.load("2026-08-10")
+        mu, omega, _, _manifest = store.load_horizon_bundle("2026-08-10")
         assert mu is not None
         assert omega is not None
         assert isinstance(mu, np.ndarray)

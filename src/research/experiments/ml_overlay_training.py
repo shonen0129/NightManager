@@ -178,11 +178,7 @@ def _collect_training_data(
                 gap_input_dir=gap_input_dir,
                 use_file_cache=True,
             )
-            v2 = decision_model.decide(
-                inputs=inputs,
-                overlay_enabled=False,
-                use_file_cache=True,
-            )
+            v2 = decision_model.decide(inputs=inputs, overlay_enabled=False)
         except Exception as exc:
             logger.warning("[%s] Skipping V2 generation: %s", date_str, exc)
             continue

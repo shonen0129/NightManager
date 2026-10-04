@@ -94,21 +94,13 @@ def load_pit_ir_history(
         # naive JST dates and timezone-aware timestamps remain well-defined.
         df["trade_date"] = df["trade_date"].map(_normalize_diagnostic_trade_date)
 
-        # Prefer pred_ir_gap_baseline_cost (computed with same weight
-        # construction and cost formula as current_ir) over the legacy
-        # ex-ante series.
+        # History must use the same weights and cost formula as current_ir.
         cached_alerts = []
         ir_col = "pred_ir_gap_baseline_cost"
         if ir_col not in df.columns:
-            ir_col = "pred_ir_gap_exante_cost"
             cached_alerts.append(
-                "pred_ir_gap_baseline_cost not found in diagnostics CSV, falling back to "
-                "pred_ir_gap_exante_cost. Historical IR may be inconsistent with current_ir. "
-                "Regenerate diagnostics with updated compute_gap_adjusted_distribution.py."
-            )
-        if ir_col not in df.columns:
-            cached_alerts.append(
-                "No IR column found in diagnostics. PIT binning falls back to Medium/1.0."
+                "pred_ir_gap_baseline_cost missing in diagnostics. "
+                "PIT binning uses its configured insufficient-history fallback."
             )
         _DIAGNOSTICS_CACHE[cache_key] = (
             content_digest,

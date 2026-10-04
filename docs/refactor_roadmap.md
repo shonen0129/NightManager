@@ -1,6 +1,6 @@
 # Current Structure and Open Work
 
-この文書は現行の構造と作業backlogへの入口を示す。実装状態の正本は current main のコード、継承解決後の設定、受入レポートとする。過去のPhase一覧を現在の未完了作業として扱わない。
+この文書は現行の構造と作業backlogへの入口を示す。実装状態の正本はコード、継承解決後の設定、受入レポートとする。過去のPhase一覧を現在の未完了作業として扱わない。
 
 ## Current Architecture
 
@@ -9,19 +9,20 @@
 - 本番・バックテスト共通のモデル組立は `src/leadlag/runner/model_factory.py`。
 - CI は `.github/workflows/ci.yml`、現在のrequired checkと検査手順は [`docs/CI.md`](CI.md)。
 - 現行ディレクトリは [`docs/ARCHITECTURE.md`](ARCHITECTURE.md) を参照。
+- 後方互換層を持たないAPIの判断は [KISS設計のADR](decisions/2026-10-04-kiss-canonical-apis.md) を参照。
 
 ## Current Backlog
 
-プロジェクト全体の残件は [GitHub tracker #22](https://github.com/shonen0129/NightManager/issues/22) が正本。個別issueで範囲と完了条件を管理する。
+プロジェクト全体の作業は [GitHub tracker #22](https://github.com/shonen0129/NightManager/issues/22) が正本。状態・範囲・完了条件は各issueで管理し、この文書へ状態を複製しない。
 
-| Issue | Topic | Status |
-|---|---|---|
-| [#18](https://github.com/shonen0129/NightManager/issues/18) | main branch protection と required CI | Open |
-| [#21](https://github.com/shonen0129/NightManager/issues/21) | README・architecture・roadmapの現行化 | Open |
-| [#23](https://github.com/shonen0129/NightManager/issues/23) | ML overlay の事前登録済みforward評価 | Open |
-| [#24](https://github.com/shonen0129/NightManager/issues/24) | VaR/ES超過の原因分析とリスク低減 | Open |
-| [#25](https://github.com/shonen0129/NightManager/issues/25) | actual-account risk snapshot producer | Open |
-| [#27](https://github.com/shonen0129/NightManager/issues/27) | 実取引日の運用受入 | Open |
+| Issue | Topic |
+|---|---|
+| [#18](https://github.com/shonen0129/NightManager/issues/18) | main branch protection と required CI |
+| [#21](https://github.com/shonen0129/NightManager/issues/21) | README・architecture・roadmapの現行化 |
+| [#23](https://github.com/shonen0129/NightManager/issues/23) | ML overlay の事前登録済みforward評価 |
+| [#24](https://github.com/shonen0129/NightManager/issues/24) | VaR/ES超過の原因分析とリスク低減 |
+| [#25](https://github.com/shonen0129/NightManager/issues/25) | actual-account risk snapshot producer |
+| [#27](https://github.com/shonen0129/NightManager/issues/27) | 実取引日の運用受入 |
 
 ## Historical Roadmap
 

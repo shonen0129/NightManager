@@ -19,7 +19,8 @@ from leadlag.data.gap_store import GapStore
 from leadlag.domain.inputs import HistoricalInputs
 from leadlag.execution import var_history, var_inputs, var_worker
 from leadlag.execution.backtester import BacktestEngine, _decision_summary_with_audits
-from leadlag.models.ml_order_overlay import MLOrderOverlayModel, save_overlay_model
+from leadlag.models.ml_order_overlay import MLOrderOverlayModel
+from leadlag.models.ml_overlay_artifact import save_overlay_model
 from leadlag.utils.dataframe_fingerprint import dataframe_fingerprint
 
 
@@ -86,7 +87,6 @@ def test_var_cache_key_uses_selected_overlay_object(tmp_path, monkeypatch):
     monkeypatch.setattr(var_history.SqliteCacheStore, "get", cache_get)
     for model in (model_a, model_b):
         value = var_history.get_hist_returns_for_risk(
-            strategy=None,
             config=config,
             output_root=str(tmp_path),
             trade_date=pd.Timestamp("2026-08-14"),
@@ -115,7 +115,6 @@ def test_var_backtest_receives_same_selected_overlay_object(tmp_path, monkeypatc
 
     monkeypatch.setattr(BacktestEngine, "run_v2_backtest", fake_backtest)
     value = var_history.get_hist_returns_for_risk(
-        strategy=None,
         config=config,
         output_root=str(tmp_path),
         trade_date=pd.Timestamp("2026-08-14"),
@@ -252,7 +251,6 @@ def test_var_cache_hit_respects_total_deadline(tmp_path, monkeypatch):
     monkeypatch.setattr(var_history.SqliteCacheStore, "get", slow_get)
     started = time.monotonic()
     result = var_history.get_hist_returns_for_risk(
-        strategy=None,
         config=config,
         output_root=str(tmp_path),
         trade_date=pd.Timestamp("2026-08-14"),
@@ -288,7 +286,6 @@ def test_var_input_fingerprint_respects_total_deadline(tmp_path, monkeypatch):
 
     started = time.monotonic()
     result = var_history.get_hist_returns_for_risk(
-        strategy=None,
         config=config,
         output_root=str(tmp_path),
         trade_date=pd.Timestamp("2026-08-14"),
@@ -330,7 +327,6 @@ def test_var_late_cache_write_is_not_adopted(tmp_path, monkeypatch):
     )
 
     result = var_history.get_hist_returns_for_risk(
-        strategy=None,
         config=config,
         output_root=str(tmp_path),
         trade_date=pd.Timestamp("2026-08-14"),
@@ -359,7 +355,7 @@ def test_gap_snapshot_keeps_cache_input_immutable_after_writer_update(tmp_path):
             np.eye(n_j),
             metadata={"sig_date": "2026-08-12", "version": "B"},
         )
-        loaded_mu, _loaded_omega, metadata = GapStore(snapshot_path).load("2026-08-13")
+        loaded_mu, _loaded_omega, metadata, _manifest = GapStore(snapshot_path).load_horizon_bundle("2026-08-13")
         assert loaded_mu is not None and loaded_mu[0] == 1.0
         assert metadata == {"sig_date": "2026-08-12", "version": "A"}
         assert snapshot_fingerprint == var_inputs._file_manifest_fingerprint(snapshot_path)
@@ -480,7 +476,6 @@ def test_var_timeout_keeps_snapshot_until_worker_finishes(tmp_path, monkeypatch)
     monkeypatch.setattr(BacktestEngine, "run_v2_backtest", fake_backtest)
     assert started.is_set() is False
     result = var_history.get_hist_returns_for_risk(
-        strategy=None,
         config=config,
         output_root=str(tmp_path / "output"),
         trade_date=pd.Timestamp("2026-08-14"),

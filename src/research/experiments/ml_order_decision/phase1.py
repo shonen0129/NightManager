@@ -277,7 +277,7 @@ def _collect_training_data(
 
         date_str = date.strftime("%Y-%m-%d")
         try:
-            v2 = ProductionV2Model(parse_run_config(run_cfg)).decide(trade_date=date_str, gap_input_dir=gap_input_dir, overlay_enabled=False, use_file_cache=True)
+            v2 = ProductionV2Model(parse_run_config(run_cfg)).decide_from_cache(trade_date=date_str, gap_input_dir=gap_input_dir)
         except Exception as e:
             logger.warning("[%s] V2 generation failed: %s", date_str, e)
             continue
@@ -393,7 +393,7 @@ def _train_overlay(
     )
 
 
-def _predict_p_trade(
+def _predict_relative_allocation(
     features: pd.DataFrame,
     model: FitResult,
 ) -> np.ndarray:
@@ -422,7 +422,7 @@ def make_overlay_generator(
             df_exec, result, date, market_vol,
             per_ticker_interactions=model.per_ticker_interactions,
         )
-        p_trade = _predict_p_trade(features, model)
+        p_trade = _predict_relative_allocation(features, model)
         score_adjusted = result.scores * p_trade
 
         w_pre_overlay = _recompute_w_pre(

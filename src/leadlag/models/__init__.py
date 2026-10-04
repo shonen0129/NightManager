@@ -5,10 +5,8 @@ from __future__ import annotations
 from leadlag.config.schemas import parse_run_config
 from leadlag.models.blp_base import BLPModelBase
 from leadlag.models.blpx import ProductionBLPXModel
-from leadlag.models.production_v2 import (
-    ProductionV2Model,
-    generate_v2_production_portfolio_from_distribution,
-)
+from leadlag.models.production_v2 import ProductionV2Model
+from leadlag.models.v2.decision_engine import generate_v2_production_portfolio_from_distribution
 
 __all__ = [
     "BLPModelBase",

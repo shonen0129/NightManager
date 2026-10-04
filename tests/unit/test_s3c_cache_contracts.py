@@ -7,6 +7,7 @@ import time
 
 import numpy as np
 import pandas as pd
+import pytest
 
 from leadlag.data.gap_store import GapStore
 from leadlag.domain.gap_bundle import GapBundleRef
@@ -50,6 +51,22 @@ def test_gap_bundle_ref_round_trip_carries_versions() -> None:
         omega_sha256=ref.omega_sha256,
         metadata_sha256=ref.metadata_sha256,
     ) == []
+
+
+@pytest.mark.parametrize("mutation", [
+    {"storage_format": None}, {"format_version": 2}, {"horizon": -1},
+    {"horizon": 1.0}, {"schema_version": "old"},
+])
+def test_gap_bundle_ref_rejects_retired_or_incomplete_manifests(mutation) -> None:
+    ref = GapBundleRef.from_payload(
+        trade_date="2026-09-16", horizon=1, storage_format="sqlite",
+        mu_bytes=b"mu", omega_bytes=b"omega", metadata_bytes=None,
+    ).to_dict()
+    ref.update(mutation)
+    if ref["storage_format"] is None:
+        del ref["storage_format"]
+    with pytest.raises(ValueError):
+        GapBundleRef.from_dict(ref)
 
 
 def test_npy_bundle_manifest_exposes_horizon_and_versions(tmp_path) -> None:

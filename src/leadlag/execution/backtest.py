@@ -55,15 +55,11 @@ def _load_df_exec(app_config: AppConfig, data_source: str) -> pd.DataFrame:
     - ``cache``: load from local decision/etf cache if valid; otherwise fall
       back to ``download`` with a warning.
     """
-    # Prefer V2 residualization parameters; fall back to legacy strategy config.
     v2 = app_config.v2
-    legacy = app_config.strategy
-    beta_window = int(getattr(v2, "residualization_beta_window", legacy.beta_window))
-    beta_shrinkage = float(
-        getattr(v2, "residualization_beta_shrinkage", legacy.beta_shrinkage)
-    )
-    beta_winsor_sigma = getattr(v2, "residualization_beta_winsor_sigma", legacy.beta_winsor_sigma)
-    beta_ewma_halflife = legacy.beta_ewma_halflife
+    beta_window = v2.residualization_beta_window
+    beta_shrinkage = v2.residualization_beta_shrinkage
+    beta_winsor_sigma = v2.residualization_beta_winsor_sigma
+    beta_ewma_halflife = app_config.strategy.beta_ewma_halflife
 
     if data_source == "cache":
         try:

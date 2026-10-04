@@ -41,14 +41,8 @@ gmail = [
     "google-auth-httplib2>=0.2.0",
     "google-api-python-client>=2.80.0",
 ]
-nonlinear = [
-    "lightgbm>=4.0.0",
-    "shap>=0.46.0",
-    "scikit-learn>=1.4.0",
-]
-# Hosted production CI exercises the LightGBM-backed boundary tests without
-# pulling the research-only SHAP/llvmlite dependency chain.
-ci-ml = [
+# Production inference and CI need LightGBM, without research-only SHAP.
+ml-overlay = [
     "lightgbm>=4.0.0",
 ]
 # Research code is kept out of the production wheel.  Install this extra in a
@@ -56,10 +50,6 @@ ci-ml = [
 research = [
     "lightgbm>=4.0.0",
     "shap>=0.46.0",
-    "scikit-learn>=1.4.0",
-]
-calendar = [
-    "jpholiday>=0.1.10",
 ]
 dev = [
     "pytest>=8.0.0",
@@ -98,7 +88,7 @@ select = ["E", "F", "W", "I", "UP"]
 ignore = [
     "E501",   # line too long (handled by formatter)
     "E402",   # module level import not at top of file (allow sys.path.insert before import)
-    "UP007",  # use X | Y for union type hints (keep Optional for 3.11 compat)
+    "UP007",  # existing Optional annotations are accepted
 ]
 
 [tool.ruff.lint.isort]
@@ -203,7 +193,6 @@ forbidden_modules = [
     "leadlag.data.intraday_inputs",
     "leadlag.data.cache_store",
     "leadlag.data.market_data_cache",
-    "leadlag.data.decision_cache",
     "leadlag.data.gap_store",
     "leadlag.data.pit_lake",
     "leadlag.execution",

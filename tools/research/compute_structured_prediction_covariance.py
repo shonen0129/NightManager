@@ -31,7 +31,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 from leadlag.config.loader import load_yaml_with_base
-from leadlag.data.decision_cache import save_decision_cache
+from leadlag.data.market_data_cache import save_df_exec_to_local_cache
 from leadlag.data.fetcher import download_data
 from leadlag.data.preprocessor import preprocess_data
 from leadlag.data.tickers import JP_TICKERS, TOPIX_TICKER
@@ -228,7 +228,7 @@ def main():
 
     # Save preprocessed data for Step 2 (gap distribution)
     try:
-        save_decision_cache(df_exec)
+        save_df_exec_to_local_cache(df_exec)
     except Exception as e:
         logger.warning(f"Failed to save preprocessed data cache: {e}")
 

@@ -19,7 +19,8 @@ from pathlib import Path
 from leadlag.config.paths import project_root
 from leadlag.config.schemas import AppConfig, ProductionV2RunConfig
 from leadlag.models.blpx import ProductionBLPXModel
-from leadlag.models.ml_order_overlay import MLOrderOverlayModel, load_overlay_model
+from leadlag.models.ml_order_overlay import MLOrderOverlayModel
+from leadlag.models.ml_overlay_artifact import load_overlay_model
 from leadlag.models.production_v2 import ProductionV2Model
 
 __all__ = [
@@ -49,19 +50,6 @@ class V2ModelBundle:
     overlay_path: Path | None
 
 
-def _canonical_overlay_values(app_config: AppConfig) -> tuple[bool, str | Path | None]:
-    """Read overlay settings from the canonical V2 config.
-
-    The nested ``AppConfig.ml_order_overlay`` section is retained for older
-    configuration producers, but is not consulted here.  YAML compatibility is
-    resolved before ``AppConfig`` construction; the factory therefore has one
-    source of truth and does not repeat legacy key precedence.
-    """
-
-    run_cfg = app_config.v2
-    return bool(run_cfg.ml_overlay_enabled), run_cfg.ml_overlay_model_dir or None
-
-
 def resolve_overlay_settings(
     app_config: AppConfig,
     *,
@@ -75,7 +63,8 @@ def resolve_overlay_settings(
     for an explicit comparison without silently changing production behavior.
     """
 
-    enabled, configured_path = _canonical_overlay_values(app_config)
+    enabled = app_config.v2.ml_overlay_enabled
+    configured_path = app_config.v2.ml_overlay_model_dir or None
     selected = overlay_model_dir if overlay_model_dir is not None else configured_path
     if selected is None:
         return enabled, None

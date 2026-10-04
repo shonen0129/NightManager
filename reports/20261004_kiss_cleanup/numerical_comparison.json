@@ -1,0 +1,16 @@
+{
+  "cases": 32,
+  "seeds": 4,
+  "minvar_variants": 2,
+  "paths": [
+    "kernel",
+    "ml_overlay",
+    "typed_inputs_cache",
+    "offline_cache_replay"
+  ],
+  "equality": "exact (NaN equals NaN)",
+  "changes": 0,
+  "max_model_gross": 2.0000000000000004,
+  "max_abs_model_net": 3.0531133177191805e-16,
+  "overlay_applied_cases": 8
+}

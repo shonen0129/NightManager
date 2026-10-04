@@ -16,6 +16,7 @@ from pathlib import Path
 import pandas as pd
 
 from leadlag.broker.base import BrokerClient
+from leadlag.config.schemas import RiskConfig
 from leadlag.config.schemas import StrategyConfig as ProductionConfig
 from leadlag.core import allocator as domain_allocator
 from leadlag.execution.account_risk import AccountRiskSnapshot
@@ -57,13 +58,14 @@ def _prepare_decision_df(
     config: ProductionConfig,
     manual_opens: dict,
     max_capital: float,
+    risk_config: RiskConfig,
 ) -> tuple[pd.DataFrame, dict]:
     """Apply gross exposure adjustment, map actions, allocate, and build decision_df.
 
     Returns:
         (decision_df, capital_alloc)
     """
-    adjusted = auto_adjust_gross_exposure(decision, config)
+    adjusted = auto_adjust_gross_exposure(decision, risk_config)
     # Preserve the adjusted state in the same decision dict so downstream helpers see it.
     decision.update(adjusted)
 
@@ -81,7 +83,7 @@ def _prepare_decision_df(
         decision,
         manual_opens,
         max_capital,
-        max_net_exposure=config.max_net_exposure,
+        max_net_exposure=risk_config.max_net_exposure,
         side_leverage=getattr(config, "side_leverage", domain_allocator.DEFAULT_SIDE_LEVERAGE),
     )
 
@@ -151,7 +153,7 @@ def _run_risk_check_and_print(
     decision_df: pd.DataFrame,
     max_capital: float,
     hist_returns: pd.Series,
-    config: ProductionConfig,
+    config: RiskConfig,
     current_positions: dict[str, int] | None = None,
     actual_account_risk: AccountRiskSnapshot | None = None,
     actual_account_risk_error: str | None = None,
@@ -408,6 +410,7 @@ def _write_decision_output_and_submit(
 def execute_post_decision_flow(
     decision: dict,
     config: ProductionConfig,
+    risk_config: RiskConfig,
     manual_opens: dict,
     max_capital: float,
     hist_returns: pd.Series,
@@ -432,7 +435,7 @@ def execute_post_decision_flow(
         Path to the decision output CSV.
     """
     decision_df, capital_alloc = _prepare_decision_df(
-        decision, config, manual_opens, max_capital
+        decision, config, manual_opens, max_capital, risk_config
     )
 
     _log_decision_allocations(decision_df, capital_alloc, max_capital, decision)
@@ -442,7 +445,7 @@ def execute_post_decision_flow(
         decision_df,
         max_capital,
         hist_returns,
-        config,
+        risk_config,
         current_positions=current_positions,
         actual_account_risk=actual_account_risk,
         actual_account_risk_error=actual_account_risk_error,

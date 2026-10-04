@@ -37,10 +37,8 @@ sys.path.insert(0, str(ROOT / "src"))
 from leadlag.data.market_data_cache import load_df_exec_from_local_cache
 from leadlag.data.tickers import JP_TICKERS
 from leadlag.execution.config import load_config_from_yaml
-from leadlag.models.ml_order_overlay import (
-    generate_v2_production_portfolio_with_overlay,
-    load_overlay_model,
-)
+from leadlag.models.ml_overlay_inference import generate_v2_production_portfolio_with_overlay
+from leadlag.models.ml_overlay_artifact import load_overlay_model
 from leadlag.config.schemas import parse_run_config
 from leadlag.models.production_v2 import ProductionV2Model
 from research.experiment_registry import Decision
@@ -65,9 +63,6 @@ def parse_args() -> argparse.Namespace:
                    help="Apply ML order overlay if enabled in config (default: true)")
     p.add_argument("--clean", default="false", choices=["true", "false"],
                    help="Remove existing shadow root before running")
-    p.add_argument("--max-pit-history", type=int, default=0,
-                   help="Limit PIT IR history to the latest N rows (0=unlimited, default). "
-                        "This simulates live latest diagnostics history.")
     return p.parse_args()
 
 
@@ -217,8 +212,8 @@ def write_daily_files(
         "pit_multiplier": mult,
         "pit_history_count": pit.get("history_count", 0),
         "overlay_applied": int(summary.get("overlay_applied", 0)),
-        "p_trade_mean": summary.get("p_trade_mean", None),
-        "p_trade_std": summary.get("p_trade_std", None),
+        "relative_allocation_multiplier_mean": summary.get("relative_allocation_multiplier_mean", None),
+        "relative_allocation_multiplier_std": summary.get("relative_allocation_multiplier_std", None),
         "timestamp": datetime.now().isoformat(),
     }
     with open(output_dir / "run_config.json", "w") as f:
@@ -267,37 +262,6 @@ def build_shadow_run(args: argparse.Namespace) -> int:
         else:
             logger.warning("Overlay model dir not found: %s", model_path)
 
-    # Optimize _derive_signal_date to avoid per-call directory glob
-    # Precompute signal_date from the long panel (sig_date column)
-    import leadlag.models.production_v2 as pv2
-    sig_map = (
-        df_long.groupby("trade_date")["signal_date"]
-        .first()
-        .to_dict()
-    )
-    original_derive_signal_date = pv2._derive_signal_date
-
-    def fast_derive_signal_date(gap_input_dir: Path | None, trade_date: str) -> str:
-        if trade_date in sig_map:
-            return pd.to_datetime(sig_map[trade_date]).strftime("%Y-%m-%d")
-        return original_derive_signal_date(gap_input_dir, trade_date)
-
-    pv2._derive_signal_date = fast_derive_signal_date
-
-    # Optionally limit PIT history to simulate live latest diagnostics
-    if args.max_pit_history > 0:
-        original_load_pit_ir_history = pv2.load_pit_ir_history
-
-        def limited_load_pit_ir_history(gap_input_dir: Path, trade_date: str):
-            history_ir, alerts, history_trade_dates = original_load_pit_ir_history(gap_input_dir, trade_date)
-            if len(history_ir) > args.max_pit_history:
-                history_ir = history_ir[-args.max_pit_history:]
-                history_trade_dates = history_trade_dates[-args.max_pit_history:]
-                alerts.append(f"PIT history truncated to {args.max_pit_history} rows for live alignment")
-            return history_ir, alerts, history_trade_dates
-
-        pv2.load_pit_ir_history = limited_load_pit_ir_history
-
     # Build shadow portfolios day by day
     for i, trade_date in enumerate(dates, 1):
         try:
@@ -310,7 +274,7 @@ def build_shadow_run(args: argparse.Namespace) -> int:
                     overlay_model=overlay_model,
                 )
             else:
-                result = ProductionV2Model(parse_run_config(app_config.v2)).decide(trade_date=trade_date, gap_input_dir=gap_input_dir, overlay_enabled=False, use_file_cache=True)
+                result = ProductionV2Model(parse_run_config(app_config.v2)).decide_from_cache(trade_date=trade_date, gap_input_dir=gap_input_dir)
 
             out_dir = shadow_root / trade_date.replace("-", "")
             write_daily_files(trade_date, out_dir, result)
@@ -329,12 +293,11 @@ def build_shadow_run(args: argparse.Namespace) -> int:
 
     record_simple_experiment(
         name=Path(__file__).stem,
-        hypothesis="Build V2 production shadow run with overlay and optional PIT history limit.",
+        hypothesis="Build V2 production shadow run with overlay.",
         parameters=app_config.model_dump(),
         metrics={
             "n_dates": len(dates),
             "overlay_loaded": int(overlay_model is not None),
-            "max_pit_history": args.max_pit_history,
         },
         decision=Decision.PENDING,
     )

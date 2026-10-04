@@ -13,6 +13,7 @@ import pytest
 
 from leadlag.core.types import OrderResult, OrderSide, OrderStatus, OrderType
 from leadlag.data.gap_store import GapStore
+from leadlag.data.pit_lake import PITDataLake
 from leadlag.data.preprocessor import preprocess_data
 from leadlag.data.tickers import JP_TICKERS, TOPIX_TICKER, US_TICKERS
 from leadlag.domain.portfolio import PortfolioDecision
@@ -24,12 +25,9 @@ from leadlag.execution.broker_ops import (
 )
 from leadlag.execution.config import load_config_from_yaml
 from leadlag.execution.var_inputs import _active_overlay_artifact_fingerprint
-from leadlag.models.ml_order_overlay import (
-    MLOrderOverlayModel,
-    apply_overlay,
-    load_overlay_model,
-    save_overlay_model,
-)
+from leadlag.models.ml_order_overlay import MLOrderOverlayModel
+from leadlag.models.ml_overlay_artifact import load_overlay_model, save_overlay_model
+from leadlag.models.ml_overlay_inference import apply_overlay
 from leadlag.models.production_v2 import ProductionV2Model
 from leadlag.models.v2.decision_engine import _derive_signal_date
 from leadlag.models.v2.overlay_applier import _multi_horizon_scores_with_metadata
@@ -100,14 +98,19 @@ def test_multihorizon_future_provenance_flats_in_real_decide_path(tmp_path) -> N
         },
     )
     df_exec = pd.DataFrame(
-        {"sig_date": [pd.Timestamp("2026-08-13")]},
+        {
+            "sig_date": [pd.Timestamp("2026-08-13")],
+            **{f"jp_open_trade_{ticker}": [1000.0] for ticker in JP_TICKERS},
+        },
         index=pd.DatetimeIndex(["2026-08-14"]),
     )
-    identity = bundle_identity(df_exec, "2026-08-14", config=cfg)
+    open_910 = pd.DataFrame(0.0, index=df_exec.index, columns=JP_TICKERS)
+    identity = bundle_identity(df_exec, "2026-08-14", config=cfg, open_910_returns=open_910)
     h1_identity = bundle_identity(
         df_exec,
         "2026-08-14",
         config=cfg,
+        open_910_returns=open_910,
         gap_inputs=(
             np.zeros(len(JP_TICKERS)),
             np.zeros(len(JP_TICKERS)),
@@ -128,13 +131,7 @@ def test_multihorizon_future_provenance_flats_in_real_decide_path(tmp_path) -> N
             horizon=horizon,
         )
     model = ProductionV2Model(cfg, blpx_model=SimpleNamespace())
-    result = model.decide(
-        "2026-08-14",
-        gap_input_dir=tmp_path / "gap.sqlite",
-        df_exec=df_exec,
-        current_prices={ticker: 1000.0 for ticker in JP_TICKERS},
-        overlay_enabled=False,
-    )
+    result = model.decide(inputs=PITDataLake(df_exec).build_decision_inputs("2026-08-14", current_prices={ticker: 1000.0 for ticker in JP_TICKERS}, gap_input_dir=tmp_path / "gap.sqlite", open_910_returns=open_910), overlay_enabled=False)
     assert np.allclose(result.w_final, 0.0)
     assert result.fallback["audit_failure"] is True
     assert result.fallback["gap_data_missing"] is False
@@ -209,16 +206,14 @@ def test_single_horizon_future_provenance_does_not_reach_audit(tmp_path) -> None
         horizon=None,
     )
     model = ProductionV2Model(cfg, blpx_model=SimpleNamespace())
-    result = model.decide(
-        "2026-08-14",
-        gap_input_dir=tmp_path / "gap.sqlite",
-        df_exec=pd.DataFrame(
-            {"sig_date": [pd.Timestamp("2026-08-13")]},
+    frame = pd.DataFrame(
+            {
+                "sig_date": [pd.Timestamp("2026-08-13")],
+                **{f"jp_open_trade_{ticker}": [1000.0] for ticker in JP_TICKERS},
+            },
             index=pd.DatetimeIndex(["2026-08-14"]),
-        ),
-        current_prices={ticker: 1000.0 for ticker in JP_TICKERS},
-        overlay_enabled=False,
-    )
+        )
+    result = model.decide(inputs=PITDataLake(frame).build_decision_inputs("2026-08-14", current_prices={ticker: 1000.0 for ticker in JP_TICKERS}, gap_input_dir=tmp_path / "gap.sqlite", open_910_returns=pd.DataFrame(0.0, index=frame.index, columns=JP_TICKERS)), overlay_enabled=False)
     assert np.allclose(result.w_final, 0.0)
     assert result.fallback["audit_failure"] is True
 
@@ -241,13 +236,7 @@ def test_single_horizon_npy_without_metadata_flats_before_leakage_audit(tmp_path
     np.save(matrix_dir / "mu_gap_20260814.npy", np.ones(len(JP_TICKERS)))
     np.save(matrix_dir / "omega_gap_20260814.npy", np.eye(len(JP_TICKERS)))
 
-    result = ProductionV2Model(cfg).decide(
-        "2026-08-14",
-        gap_input_dir=tmp_path,
-        df_exec=None,
-        current_prices=None,
-        overlay_enabled=False,
-    )
+    result = ProductionV2Model(cfg).decide_from_cache("2026-08-14", tmp_path)
     assert np.allclose(result.w_final, 0.0)
     assert result.fallback["audit_failure"] is True
     assert result.diagnostics["distribution_provenance"]["status"] == "rejected"
@@ -498,7 +487,7 @@ def test_gap_metadata_is_used_for_leakage_signal_date(tmp_path) -> None:
 
 
 def test_overlay_publish_failure_keeps_previous_active_version(tmp_path, monkeypatch) -> None:
-    import leadlag.models.ml_order_overlay as overlay
+    import leadlag.models.ml_overlay_artifact as overlay
 
     old = MLOrderOverlayModel(
         lgbm=SimpleNamespace(marker="old"),

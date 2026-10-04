@@ -31,10 +31,9 @@ from leadlag.data.tickers import JP_TICKERS
 from leadlag.execution.backtester import BacktestEngine
 from leadlag.execution.config import load_config_from_yaml
 from leadlag.models.blpx import ProductionBLPXModel
-from leadlag.models.production_v2 import (
-    ProductionV2Model,
-    _build_current_prices_from_df_exec,
-)
+from leadlag.models.v2.gap_io import _compute_ondemand
+from leadlag.models.production_v2 import ProductionV2Model
+from leadlag.models.v2.gap_io import _build_current_prices_from_df_exec
 
 
 def run_convex_backtest(
@@ -84,7 +83,7 @@ def run_convex_backtest(
 
         # On-demand distribution
         try:
-            mu_gap, omega_gap = v2_model._compute_ondemand(
+            mu_gap, omega_gap = _compute_ondemand(v2_model,
                 trade_date=trade_date_str,
                 df_exec=df_exec,
                 current_prices=current_prices,

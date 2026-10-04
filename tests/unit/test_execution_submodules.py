@@ -12,46 +12,9 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from leadlag.config.schemas import StrategyConfig as ProductionConfig
-from leadlag.core.types import RiskConfig
+from leadlag.config.schemas import RiskConfig
 from leadlag.execution.output_ops import save_decision_output
-from leadlag.execution.risk_capital import auto_adjust_gross_exposure, build_risk_config
-
-# ---------------------------------------------------------------------------
-# build_risk_config
-# ---------------------------------------------------------------------------
-
-
-class TestBuildRiskConfig:
-    def test_returns_risk_config_type(self):
-        cfg = ProductionConfig()
-        risk = build_risk_config(cfg)
-        assert isinstance(risk, RiskConfig)
-
-    def test_var_confidence_matches(self):
-        cfg = ProductionConfig()
-        risk = build_risk_config(cfg)
-        assert risk.var_confidence == pytest.approx(cfg.var_confidence)
-
-    def test_max_gross_exposure_matches(self):
-        cfg = ProductionConfig()
-        risk = build_risk_config(cfg)
-        assert risk.max_gross_exposure == pytest.approx(cfg.max_gross_exposure)
-
-    def test_max_net_exposure_matches(self):
-        cfg = ProductionConfig()
-        risk = build_risk_config(cfg)
-        assert risk.max_net_exposure == pytest.approx(cfg.max_net_exposure)
-
-    def test_all_thresholds_transferred(self):
-        cfg = ProductionConfig()
-        risk = build_risk_config(cfg)
-        for attr in (
-            "var_warning", "var_stop", "es_warning", "es_stop",
-            "daily_loss_warning", "daily_loss_stop", "monthly_loss_stop",
-        ):
-            assert getattr(risk, attr) == pytest.approx(getattr(cfg, attr))
-
+from leadlag.execution.risk_capital import auto_adjust_gross_exposure
 
 # ---------------------------------------------------------------------------
 # auto_adjust_gross_exposure
@@ -74,7 +37,7 @@ class TestAutoAdjustGrossExposure:
         w[:7] = 0.1
         w[7:14] = -0.1
         decision = self._make_decision(w)
-        cfg = ProductionConfig()
+        cfg = RiskConfig()
         result = auto_adjust_gross_exposure(decision, cfg)
         assert result["gross_adjusted"] is False
 
@@ -83,7 +46,7 @@ class TestAutoAdjustGrossExposure:
         w[:7] = 0.3
         w[7:14] = -0.3   # gross = 4.2 > 2.0 (運用方針書§5.7 上限)
         decision = self._make_decision(w)
-        cfg = ProductionConfig()
+        cfg = RiskConfig()
         result = auto_adjust_gross_exposure(decision, cfg)
         assert result["gross_adjusted"] is True
         assert result["gross_after"] <= 2.0 + 1e-6
@@ -93,7 +56,7 @@ class TestAutoAdjustGrossExposure:
         w[:7] = 0.3
         w[7:14] = -0.3
         decision = self._make_decision(w)
-        cfg = ProductionConfig()
+        cfg = RiskConfig()
         result = auto_adjust_gross_exposure(decision, cfg)
         gross_after = result.get("gross_after", np.abs(result["weight"]).sum())
         assert gross_after == pytest.approx(cfg.max_gross_exposure, rel=1e-5)

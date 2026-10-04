@@ -112,20 +112,10 @@ def _add_decision_args(
         help="Simulate API calls without actually submitting orders.",
     )
     parser.add_argument(
-        "--auto-close",
-        action="store_true",
-        help="(Deprecated) Use the separate 'close' subcommand instead.",
-    )
-    parser.add_argument(
-        "--auto-close-time",
-        default="14:50",
-        help="(Deprecated) Time to auto-close positions (HH:MM format, default: 14:50).",
-    )
-    parser.add_argument(
         "--close-position-order",
         type=int,
         default=0,
-        help="(Deprecated) Close position order priority (0-7).",
+        help="Close position order priority (0-7) for the daily close phase.",
     )
     parser.add_argument(
         "--google-opens",
@@ -279,7 +269,7 @@ def setup_parser() -> argparse.ArgumentParser:
     )
     _add_decision_args(daily_parser)
     # Decision args already include output_root, run_tag, api_url, api_token,
-    # api_dry_run and close_position_order (latter is deprecated for decision).
+    # api_dry_run and close_position_order.
     # The daily dispatcher re-uses those values for the close phase as well.
     daily_parser.add_argument(
         "--decision-cutoff",
@@ -299,13 +289,6 @@ def setup_parser() -> argparse.ArgumentParser:
 
 def _handle_decision(args: argparse.Namespace) -> int:
     """Run the one-day trade decision pipeline."""
-    if args.auto_close:
-        logger.warning(
-            "--auto-close is deprecated and ignored inside the 'decision' subcommand. "
-            "Use the separate 'close' subcommand via launchd/cron (com.leadlag.close) instead. "
-            "Remove --auto-close from batch scripts to avoid this warning."
-        )
-
     if args.capital_from_wallet and not args.api_enable:
         raise ValueError("--capital-from-wallet requires --api-enable")
 

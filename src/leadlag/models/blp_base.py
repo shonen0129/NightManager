@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from leadlag.core.pipeline import PCAComponent
 
 
-class _BLPBase:
+class BLPModelBase:
     """Base class for BLPX production models."""
 
     def __init__(self, cfg: Any) -> None:
@@ -316,7 +316,3 @@ class _BLPBase:
         gap_coef = gap_open_coef_override if gap_open_coef_override is not None else getattr(self, "gap_open_coef", 0.7)
         beta_coef = topix_beta_coef_override if topix_beta_coef_override is not None else getattr(self, "topix_beta_coef", 0.6)
         return apply_gap_adjustment(r_hat_jp_cc, z_hat_j_t1, gap_override, betas_t, topix_night_t, gap_coef, beta_coef)
-
-
-# Backward-compatible alias for research models and historical references.
-BLPModelBase = _BLPBase

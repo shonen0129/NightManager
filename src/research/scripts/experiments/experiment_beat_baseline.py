@@ -23,10 +23,10 @@ from leadlag.data.tickers import JP_TICKERS
 from leadlag.execution.backtester import BacktestEngine
 from leadlag.execution.config import load_config_from_yaml
 from leadlag.models.blpx import ProductionBLPXModel
-from leadlag.models.production_v2 import (
-    ProductionV2Model,
-    _build_current_prices_from_df_exec,
-)
+from leadlag.models.v2.gap_io import _compute_ondemand
+from leadlag.models.v2.overlay_applier import _multi_horizon_scores_with_metadata
+from leadlag.models.production_v2 import ProductionV2Model
+from leadlag.models.v2.gap_io import _build_current_prices_from_df_exec
 from leadlag.models.signal_enhancement import apply_rank_reversal_overlay
 from leadlag.reporting.metrics import calculate_metrics
 
@@ -120,7 +120,7 @@ def run_experiment(df_exec: pd.DataFrame) -> dict:
         current_prices = _build_current_prices_from_df_exec(df_exec, trade_date_str)
 
         try:
-            mu1, om1 = v2_model._compute_ondemand(
+            mu1, om1 = _compute_ondemand(v2_model,
                 trade_date=trade_date_str,
                 df_exec=df_exec,
                 current_prices=current_prices,
@@ -134,7 +134,7 @@ def run_experiment(df_exec: pd.DataFrame) -> dict:
         score1 = mu1 / sig1
 
         try:
-            mu_mh, om_mh, score_mh = v2_model._multi_horizon_scores(
+            mu_mh, om_mh, score_mh, _provenance = _multi_horizon_scores_with_metadata(v2_model, require_provenance=False,
                 trade_date=trade_date_str,
                 df_exec=df_exec,
                 current_prices=current_prices,

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
@@ -334,8 +335,8 @@ def test_decision_inputs_exposes_content_addressed_version() -> None:
     assert len(inputs.version.digest) == 64
 
 
-def test_model_decision_trade_date_comparison_uses_jst(monkeypatch) -> None:
-    """An offset-aware date representing the same JST day must be accepted."""
+def test_model_decision_uses_contract_date(monkeypatch) -> None:
+    """The known-input contract owns the one decision date."""
     import leadlag.models.production_v2 as production_v2
 
     model = ProductionV2Model(ProductionV2RunConfig())
@@ -346,9 +347,56 @@ def test_model_decision_trade_date_comparison_uses_jst(monkeypatch) -> None:
             source="test",
         ),
     )
-    monkeypatch.setattr(production_v2, "_v2_decide", lambda *args, **kwargs: "accepted")
+    def capture_date(*args, **kwargs):
+        return kwargs["trade_date"]
 
-    assert model.decide(trade_date="2026-09-15 15:00+00:00", inputs=inputs) == "accepted"
+    monkeypatch.setattr(production_v2, "_v2_decide", capture_date)
+
+    assert model.decide(inputs=inputs) == "2026-09-16"
+
+
+@pytest.mark.parametrize("source", ["pit_lake", "public_model_adapter", "test"])
+def test_input_source_label_never_enables_implicit_io(source, tmp_path, monkeypatch) -> None:
+    """Provenance labels cannot bypass the owned-input boundary."""
+    import leadlag.models.v2.fallback as fallback
+    from leadlag.utils.gap_provenance import bundle_identity
+
+    frame = pd.DataFrame(
+        {"sig_date": [pd.Timestamp("2026-09-15")], **{
+            f"jp_open_trade_{ticker}": [1000.0] for ticker in JP_TICKERS
+        }},
+        index=pd.to_datetime(["2026-09-16"]),
+    )
+    open_910 = pd.DataFrame(0.0, index=frame.index, columns=JP_TICKERS)
+    cfg = ProductionV2RunConfig(macro_kappa_enabled=True, macro_direction_enabled=False)
+    inputs = PITDataLake(frame).build_decision_inputs(
+        "2026-09-16", current_prices={ticker: 1000.0 for ticker in JP_TICKERS},
+        gap_input_dir=tmp_path, open_910_returns=open_910,
+    )
+    inputs = replace(inputs, known=replace(inputs.known, source=source))
+    metadata = {
+        "sig_date": "2026-09-15", "trade_date": "2026-09-16", "horizon": 1,
+        **bundle_identity(
+            inputs.historical.calculation_frame(inputs.known.as_of), inputs.trade_date,
+            config=cfg, open_910_returns=open_910,
+            gap_inputs=(inputs.known.jp_gap_returns, inputs.known.jp_betas, inputs.known.topix_night_return),
+        ),
+    }
+    assert save_gap_matrices(tmp_path, "2026-09-16", np.linspace(-0.01, 0.01, 17), np.eye(17) * 0.01, metadata=metadata)
+    calls = []
+
+    def unexpected_io(*args, **kwargs):
+        calls.append((args, kwargs))
+        raise AssertionError("implicit source access")
+
+    monkeypatch.setattr(fallback.macro_data, "load_macro_prices", unexpected_io)
+    monkeypatch.setattr(fallback, "load_pit_ir_history", unexpected_io)
+    result = ProductionV2Model(cfg).decide(inputs, overlay_enabled=False)
+
+    assert calls == []
+    assert not result.fallback["gap_data_missing"]
+    assert np.isfinite(result.w_final).all()
+    assert any("explicit macro_prices" in alert for alert in result.alerts)
 
 
 def test_internal_decision_trade_date_comparison_uses_jst(monkeypatch) -> None:
@@ -520,9 +568,9 @@ def test_resolve_latest_trade_date_normalizes_aware_csv_value_to_jst(tmp_path: P
 def test_pit_lake_compatibility_frame_is_a_copy() -> None:
     frame = pd.DataFrame({"x": [1.0]}, index=pd.to_datetime(["2026-09-16"]))
     lake = PITDataLake(frame)
-    exposed = lake.df_exec
+    exposed = lake.history_frame()
     exposed.iloc[0, 0] = 99.0
-    assert lake.df_exec.iloc[0, 0] == 1.0
+    assert lake.history_frame().iloc[0, 0] == 1.0
 
 
 def test_v2_model_accepts_decision_inputs_contract(tmp_path) -> None:
@@ -566,7 +614,7 @@ def test_runner_can_be_constructed_from_one_contract() -> None:
     class CaptureModel:
         def decide(self, **kwargs):
             assert kwargs["inputs"] is inputs
-            assert kwargs["use_file_cache"] is False
+            assert kwargs["inputs"].use_file_cache is False
             return sentinel
 
     frame = pd.DataFrame({"x": [1.0]}, index=pd.to_datetime(["2026-09-16"]))

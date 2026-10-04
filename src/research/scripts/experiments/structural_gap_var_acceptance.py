@@ -1,6 +1,8 @@
 """Replay gap and VaR with frozen real inputs; broker operations are absent."""
 from __future__ import annotations
 
+from leadlag.domain.distribution import DistributionReason, DistributionStatus
+
 import argparse
 import json
 import logging
@@ -100,7 +102,7 @@ def gap():
             row = {"date": date_str, "horizon": h, "cache_status": cached.status.value,
                    "ondemand_status": computed.status.value, "cache_alerts": cached.alerts,
                    "ondemand_alerts": computed.alerts, "price_sources": dict(snapshot.price_sources)}
-            if cached.is_available and computed.is_available:
+            if (cached.status in (DistributionStatus.READY, DistributionStatus.FLAT)) and (computed.status in (DistributionStatus.READY, DistributionStatus.FLAT)):
                 row["mu_max_error"] = float(np.max(np.abs(cached.mu_gap - computed.mu_gap)))
                 row["omega_max_error"] = float(np.max(np.abs(cached.Omega_gap - computed.Omega_gap)))
             results.append(row)

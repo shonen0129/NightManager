@@ -126,15 +126,6 @@ def run_variant(name: str, cfg: dict, df_exec, use_spec_labels: bool = False) ->
         original_labels = apply_spec_labels()
 
     try:
-        # Clear caches to avoid contamination
-        from leadlag.core.correlation import _BASELINE_CORR_CACHE, _ROLLING_CORR_CACHE
-        _BASELINE_CORR_CACHE.clear()
-        _ROLLING_CORR_CACHE.clear()
-
-        # Also clear BLP cache
-        from research.models.sector_relative_ensemble_blp_enhanced import _BLP_CORR_CACHE
-        _BLP_CORR_CACHE.clear()
-
         model = SectorRelativeEnsembleBLPEnhancedModel(cfg)
 
         t0 = time.perf_counter()
