@@ -15,7 +15,7 @@ fi
 DATESTR=$(TZ=Asia/Tokyo /bin/date +%Y%m%d)
 STATE_DB="${PROJECT_DIR}/var/live/pipeline_data/execution/execution_state.sqlite"
 GUARD_LOG="${PROJECT_DIR}/var/logs/job_guard/microstructure_0910_${DATESTR}.json"
-OUTPUT_DIR="${LEADLAG_CAPTURE_OUTPUT_DIR:-${PROJECT_DIR}/var/live/pipeline_data/microstructure_0910}"
+OUTPUT_DIR="${LEADLAG_CAPTURE_OUTPUT_DIR:-${PROJECT_DIR}/var/shadow_runs/ml_overlay_value/microstructure}"
 REQUEST_TIMEOUT="${TACHIBANA_REQUEST_TIMEOUT:-8}"
 
 mkdir -p "${PROJECT_DIR}/var/logs/job_guard" "${OUTPUT_DIR}"
