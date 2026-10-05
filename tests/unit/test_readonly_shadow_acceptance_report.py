@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from datetime import UTC, datetime
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 
@@ -14,6 +15,14 @@ from tools.validation import build_readonly_shadow_acceptance_report as acceptan
 
 
 TRADE_DATE = "2026-09-29"
+
+
+def _risk_config() -> SimpleNamespace:
+    return SimpleNamespace(
+        daily_loss_warning=0.015,
+        daily_loss_stop=0.025,
+        monthly_loss_stop=0.05,
+    )
 
 
 def _quote_record() -> dict:
@@ -203,6 +212,7 @@ def test_valid_previous_session_risk_allows_stage1_pass(tmp_path):
         risk_path=risk_path,
         preflight_path=capture_dir / "preflight.json",
         job_log_dir=log_dir,
+        risk_config=_risk_config(),
         generated_at=datetime(2026, 9, 29, 1, 0, tzinfo=UTC),
     )
 
