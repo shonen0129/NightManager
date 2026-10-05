@@ -80,6 +80,11 @@ class TachibanaBrokerClient(BrokerClient):
             account_type=config.account_type,
         )
 
+    @property
+    def last_login_diagnostics(self) -> dict[str, Any] | None:
+        """Return the safe allowlisted diagnostics from the most recent login attempt."""
+        return self._client.last_login_diagnostics
+
     def close(self) -> None:
         self._client.close()
 
