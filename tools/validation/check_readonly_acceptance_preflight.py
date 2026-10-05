@@ -151,12 +151,29 @@ def build_preflight(
         }
 
     capture_output = _capture_output_path(source)
+    scheduler_registered = resolved_scheduler.get("status") == "REGISTERED"
+    scheduler_output_raw = resolved_scheduler.get("capture_output_dir")
+    scheduler_output_matches = True
+    if scheduler_registered:
+        if not isinstance(scheduler_output_raw, str) or not scheduler_output_raw.strip():
+            scheduler_output_matches = False
+        else:
+            scheduler_output = Path(scheduler_output_raw).expanduser()
+            if not scheduler_output.is_absolute():
+                scheduler_output = ROOT / scheduler_output
+            scheduler_output_matches = (
+                scheduler_output.resolve(strict=False) == capture_output
+            )
+
     checks = {
         "git_sha_present": bool(resolved_git.get("sha")),
         "git_clean": resolved_git.get("dirty") is False,
         "api_v4r10": api["valid"] is True,
         "capture_output_resolved": capture_output.is_absolute(),
-        "scheduler_registered": resolved_scheduler.get("status") == "REGISTERED",
+        "scheduler_registered": scheduler_registered,
+        "scheduler_capture_output_matches": scheduler_output_matches,
+        "shadow_only_enabled": source.get("LEADLAG_SHADOW_ONLY") == "1",
+        "capture_0910_enabled": source.get("LEADLAG_CAPTURE_0910", "1") != "0",
     }
     blocking = [name for name, passed in checks.items() if not passed]
 
