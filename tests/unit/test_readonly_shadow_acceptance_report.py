@@ -13,7 +13,6 @@ from leadlag.data.quote_snapshot import freeze_quote_snapshot, load_frozen_quote
 from leadlag.data.tickers import JP_TICKERS_WITH_TOPIX
 from leadlag.execution.account_risk import ACCOUNT_RISK_SCHEMA, REQUIRED_PNL_BASIS
 
-
 TRADE_DATE = "2026-09-29"
 
 
