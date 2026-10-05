@@ -84,6 +84,31 @@ def _write_json_atomic(path: Path, record: dict[str, Any]) -> None:
     os.replace(temporary, path)
 
 
+def _append_auth_diagnostics(
+    output_dir: Path,
+    *,
+    run_id: str,
+    attempt: int,
+    request_started_at: str,
+    capture_status: str,
+    diagnostics: dict[str, Any] | None,
+) -> None:
+    """Persist only the allowlisted login diagnostic payload for an attempt."""
+    if diagnostics is None:
+        return
+    _append_jsonl(
+        output_dir / "auth_diagnostics.jsonl",
+        {
+            "schema_version": "tachibana-login-diagnostics-v1",
+            "run_id": run_id,
+            "attempt": attempt,
+            "request_started_at": request_started_at,
+            "capture_status": capture_status,
+            "diagnostics": diagnostics,
+        },
+    )
+
+
 def _historical_proxy_coverage() -> dict[str, Any]:
     """Summarize local 5-minute proxy coverage without changing any cache."""
     from leadlag.data.intraday_inputs import build_5m_910_prices
@@ -249,6 +274,7 @@ def _collect_live_quotes(
     )
     client = TachibanaBrokerClient(config)
     request_started_at = observed_at
+    login_diagnostics: dict[str, Any] | None = None
     try:
         quotes = client.fetch_market_quotes(
             tickers,
@@ -256,6 +282,12 @@ def _collect_live_quotes(
             allow_missing=True,
         )
         response_received_at = _jst_now()
+        login_diagnostics = client.last_login_diagnostics
+    except Exception as exc:
+        login_diagnostics = client.last_login_diagnostics
+        if login_diagnostics is not None:
+            setattr(exc, "_tachibana_login_diagnostics", login_diagnostics)
+        raise
     finally:
         client.close()
 
@@ -343,6 +375,7 @@ def _collect_live_quotes(
         if row.get("quoted_spread_bps") is not None
     ]
     return {
+        "_login_diagnostics": login_diagnostics,
         "status": "OBSERVED",
         "request_started_at": request_started_at.isoformat(),
         "response_received_at": response_received_at.isoformat(),
@@ -418,6 +451,7 @@ def _run_capture_only(
         try:
             snapshot = _collect_live_quotes(CAPTURE_TICKERS, request_started_at)
         except Exception as exc:
+            login_diagnostics = getattr(exc, "_tachibana_login_diagnostics", None)
             record = {
                 "run_id": run_id,
                 "attempt": attempt,
@@ -426,6 +460,14 @@ def _run_capture_only(
                 "error_type": type(exc).__name__,
                 "error": _safe_error_message(exc),
             }
+            _append_auth_diagnostics(
+                output_dir,
+                run_id=run_id,
+                attempt=attempt,
+                request_started_at=request_started_at.isoformat(),
+                capture_status="ERROR",
+                diagnostics=login_diagnostics,
+            )
             records.append(record)
             _append_jsonl(run_path, record)
             if attempt < attempts:
@@ -437,6 +479,7 @@ def _run_capture_only(
                     continue
             break
 
+        login_diagnostics = snapshot.pop("_login_diagnostics", None)
         received_at = datetime.fromisoformat(snapshot["response_received_at"])
         window_valid = (
             request_started_at.date() == received_at.date()
@@ -472,6 +515,14 @@ def _run_capture_only(
             "full_five_level_depth_count": snapshot["full_five_level_depth_count"],
             "spread_bps_summary": snapshot["spread_bps_summary"],
         }
+        _append_auth_diagnostics(
+            output_dir,
+            run_id=run_id,
+            attempt=attempt,
+            request_started_at=snapshot["request_started_at"],
+            capture_status=capture_status,
+            diagnostics=login_diagnostics,
+        )
         records.append(record)
         _append_jsonl(run_path, record)
         if (
@@ -626,6 +677,9 @@ def build_report(
     else:
         try:
             live = _collect_live_quotes(CAPTURE_TICKERS, now)
+            auth_diagnostics = live.pop("_login_diagnostics", None)
+            if auth_diagnostics is not None:
+                live["auth_diagnostics"] = auth_diagnostics
             live["window_valid"] = in_window
             if not in_window:
                 live["status"] = "OBSERVED_OUTSIDE_0910_WINDOW"
