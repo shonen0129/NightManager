@@ -12,7 +12,6 @@ import argparse
 import hashlib
 import json
 import os
-import shutil
 import sqlite3
 import tempfile
 from collections.abc import Mapping, Sequence
@@ -27,7 +26,12 @@ from leadlag.core.market_calendar import previous_trading_day
 from leadlag.data.gap_store import GapStore
 from leadlag.data.quote_snapshot import load_frozen_quote_snapshot
 from leadlag.domain.gap_bundle import canonical_json_bytes, sha256_bytes
-from leadlag.execution.account_risk import AccountRiskSnapshot, AccountRiskSnapshotError
+from leadlag.execution.account_risk import (
+    AccountRiskSnapshot,
+    AccountRiskSnapshotError,
+    evaluate_account_loss,
+)
+from leadlag.execution.config import load_config_from_yaml
 
 ROOT = project_root()
 SCHEMA_VERSION = "readonly-shadow-acceptance-report-v1"
@@ -62,22 +66,58 @@ def _read_json(path: Path) -> dict[str, Any]:
     return raw
 
 
-def _check_preflight(path: Path) -> dict[str, Any]:
+def _check_preflight(
+    path: Path,
+    *,
+    trade_date: str,
+    capture_dir: Path,
+) -> dict[str, Any]:
     if not path.exists():
         return {"status": BLOCKED, "reason": "preflight_missing", "path": str(path)}
     try:
         payload = _read_json(path)
     except (OSError, ValueError, json.JSONDecodeError) as exc:
-        return {"status": FAIL, "reason": "preflight_unreadable", "error": str(exc), "path": str(path)}
+        return {
+            "status": FAIL,
+            "reason": "preflight_unreadable",
+            "error": str(exc),
+            "path": str(path),
+        }
+
+    checked_at = payload.get("checked_at")
+    try:
+        checked_date = datetime.fromisoformat(str(checked_at)).date().isoformat()
+    except ValueError:
+        checked_date = None
+    recorded_capture = payload.get("capture_output_dir")
+    capture_matches = (
+        isinstance(recorded_capture, str)
+        and _absolute(recorded_capture) == capture_dir.resolve(strict=False)
+    )
+    date_matches = checked_date == trade_date
     ready = payload.get("status") == "READY"
+    if not ready:
+        status = BLOCKED
+        reason = "preflight_blocked"
+    elif not date_matches:
+        status = BLOCKED
+        reason = "preflight_trade_date_mismatch"
+    elif not capture_matches:
+        status = BLOCKED
+        reason = "preflight_capture_output_mismatch"
+    else:
+        status = PASS
+        reason = None
     return {
-        "status": PASS if ready else BLOCKED,
-        "reason": None if ready else "preflight_blocked",
+        "status": status,
+        "reason": reason,
         "path": str(path),
-        "checked_at": payload.get("checked_at"),
+        "checked_at": checked_at,
+        "trade_date_matches": date_matches,
         "git": payload.get("git"),
         "api": payload.get("api"),
-        "capture_output_dir": payload.get("capture_output_dir"),
+        "capture_output_dir": recorded_capture,
+        "capture_output_matches": capture_matches,
         "mode": payload.get("mode"),
         "blocking_checks": payload.get("blocking_checks", []),
     }
@@ -326,6 +366,7 @@ def _check_risk(
     *,
     decision_as_of: str | None,
     account_key: str,
+    risk_config: Any | None,
 ) -> dict[str, Any]:
     if decision_as_of is None:
         return {"status": BLOCKED, "reason": "decision_cutoff_unavailable", "path": str(path)}
@@ -350,6 +391,14 @@ def _check_risk(
             "observed_through": snapshot.observed_through,
             "expected_observed_through": expected_previous,
         }
+    if risk_config is None:
+        return {
+            "status": BLOCKED,
+            "reason": "risk_config_unavailable",
+            "path": str(path),
+            "observed_through": snapshot.observed_through,
+        }
+    gate = evaluate_account_loss(snapshot, risk_config)
     return {
         "status": PASS,
         "path": str(path),
@@ -362,6 +411,13 @@ def _check_risk(
         "daily_return": snapshot.daily_return,
         "month_return": snapshot.month_return,
         "reconciliation_status": snapshot.reconciliation_status,
+        "gate": {
+            "daily_loss": gate["daily_loss"],
+            "monthly_loss": gate["monthly_loss"],
+            "warnings": gate["warnings"],
+            "stop_breaches": gate["stop_breaches"],
+            "is_blocked": gate["is_blocked"],
+        },
     }
 
 
@@ -385,10 +441,15 @@ def build_acceptance_report(
     preflight_path: Path,
     job_log_dir: Path,
     account_key: str = "tachibana:default",
+    risk_config: Any | None = None,
     generated_at: datetime | None = None,
 ) -> dict[str, Any]:
     date.fromisoformat(trade_date)
-    preflight = _check_preflight(preflight_path)
+    preflight = _check_preflight(
+        preflight_path,
+        trade_date=trade_date,
+        capture_dir=capture_dir,
+    )
     capture = _check_capture(capture_dir, trade_date)
     frozen = _check_frozen(capture_dir, trade_date, capture_status=str(capture["status"]))
     snapshot_id = frozen.get("snapshot_id") if frozen.get("status") == PASS else None
@@ -400,6 +461,7 @@ def build_acceptance_report(
         trade_date,
         decision_as_of=shadow.get("as_of") if shadow.get("status") == PASS else frozen.get("response_received_at"),
         account_key=account_key,
+        risk_config=risk_config,
     )
 
     market_components = [preflight, capture, frozen, gap, shadow, jobs]
@@ -513,6 +575,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--preflight", type=Path, default=None)
     parser.add_argument("--job-log-dir", type=Path, default=DEFAULT_JOB_LOG_DIR)
     parser.add_argument("--account-key", default="tachibana:default")
+    parser.add_argument(
+        "--config",
+        type=Path,
+        default=ROOT / "configs/production/production.yaml",
+    )
     parser.add_argument("--output-dir", type=Path, default=None)
     args = parser.parse_args(argv)
 
@@ -523,6 +590,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.output_dir is not None
         else ROOT / "reports" / f"{args.trade_date.replace('-', '')}_readonly_shadow_acceptance"
     )
+    app_config = load_config_from_yaml(_absolute(args.config), strict=True)
     report = build_acceptance_report(
         trade_date=args.trade_date,
         capture_dir=capture_dir,
@@ -532,6 +600,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         preflight_path=preflight_path,
         job_log_dir=_absolute(args.job_log_dir),
         account_key=args.account_key,
+        risk_config=app_config.risk,
     )
     output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "report.json").write_text(
