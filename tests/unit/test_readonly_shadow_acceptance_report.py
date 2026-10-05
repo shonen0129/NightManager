@@ -6,12 +6,12 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
+from tools.validation import build_readonly_shadow_acceptance_report as acceptance
 
 from leadlag.data.gap_store import GapStore
 from leadlag.data.quote_snapshot import freeze_quote_snapshot, load_frozen_quote_snapshot
 from leadlag.data.tickers import JP_TICKERS_WITH_TOPIX
 from leadlag.execution.account_risk import ACCOUNT_RISK_SCHEMA, REQUIRED_PNL_BASIS
-from tools.validation import build_readonly_shadow_acceptance_report as acceptance
 
 
 TRADE_DATE = "2026-09-29"
