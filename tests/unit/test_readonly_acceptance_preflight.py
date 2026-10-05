@@ -5,7 +5,6 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 import pytest
-
 from tools.validation import check_readonly_acceptance_preflight as preflight
 
 
