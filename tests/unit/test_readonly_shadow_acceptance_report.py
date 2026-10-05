@@ -88,6 +88,32 @@ def _write_common_artifacts(tmp_path: Path) -> tuple[Path, Path, Path, Path, Pat
         json.dumps({"run_id": "capture-1", "status": "CAPTURED", "attempts": [{"status": "CAPTURED"}]}),
         encoding="utf-8",
     )
+    url_states = {
+        key: {
+            "state": "nonempty",
+            "decrypt_attempted": True,
+            "decrypt_succeeded": True,
+        }
+        for key in ("sUrlRequest", "sUrlMaster", "sUrlPrice", "sUrlEvent")
+    }
+    auth_record = {
+        "schema_version": "tachibana-login-diagnostics-v1",
+        "run_id": "capture-1",
+        "attempt": 1,
+        "capture_status": "CAPTURED",
+        "diagnostics": {
+            "http_status": 200,
+            "response_parsed": True,
+            "sKinsyouhouMidokuFlg": {"state": "value", "type": "str", "value": "0"},
+            "virtual_urls": url_states,
+            "login_success": True,
+            "stopped_at": None,
+        },
+    }
+    (capture_dir / "auth_diagnostics.jsonl").write_text(
+        json.dumps(auth_record) + "\n",
+        encoding="utf-8",
+    )
     freeze_quote_snapshot(_quote_record(), capture_dir, trade_date=TRADE_DATE)
     frozen = load_frozen_quote_snapshot(capture_dir, trade_date=TRADE_DATE)
 
@@ -293,4 +319,23 @@ def test_preflight_must_be_from_same_trade_date_and_capture_path(tmp_path):
 
     assert report["checks"]["preflight"]["status"] == acceptance.BLOCKED
     assert report["checks"]["preflight"]["reason"] == "preflight_trade_date_mismatch"
+    assert report["market_to_shadow_status"] == acceptance.BLOCKED
+
+
+def test_missing_auth_diagnostics_blocks_market_acceptance(tmp_path):
+    capture_dir, gap_path, shadow_dir, risk_path, log_dir, _ = _write_common_artifacts(tmp_path)
+    (capture_dir / "auth_diagnostics.jsonl").unlink()
+
+    report = acceptance.build_acceptance_report(
+        trade_date=TRADE_DATE,
+        capture_dir=capture_dir,
+        gap_store=gap_path,
+        shadow_dir=shadow_dir,
+        risk_path=risk_path,
+        preflight_path=capture_dir / "preflight.json",
+        job_log_dir=log_dir,
+    )
+
+    assert report["checks"]["auth_diagnostics"]["status"] == acceptance.BLOCKED
+    assert report["checks"]["auth_diagnostics"]["reason"] == "auth_diagnostics_missing"
     assert report["market_to_shadow_status"] == acceptance.BLOCKED
