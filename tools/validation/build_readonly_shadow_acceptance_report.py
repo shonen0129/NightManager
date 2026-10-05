@@ -154,6 +154,88 @@ def _check_capture(capture_dir: Path, trade_date: str) -> dict[str, Any]:
     }
 
 
+def _check_auth_diagnostics(
+    capture_dir: Path,
+    *,
+    capture_run_id: str | None,
+    capture_status: str,
+) -> dict[str, Any]:
+    path = capture_dir / "auth_diagnostics.jsonl"
+    if capture_run_id is None:
+        return {"status": NOT_RUN, "reason": "capture_run_id_missing", "path": str(path)}
+    if not path.exists():
+        return {
+            "status": BLOCKED if capture_status == PASS else NOT_RUN,
+            "reason": "auth_diagnostics_missing",
+            "path": str(path),
+        }
+    try:
+        records = _read_jsonl(path)
+    except (OSError, ValueError) as exc:
+        return {
+            "status": FAIL,
+            "reason": "auth_diagnostics_unreadable",
+            "error": str(exc),
+            "path": str(path),
+        }
+    matching = [item for item in records if item.get("run_id") == capture_run_id]
+    if not matching:
+        return {
+            "status": BLOCKED if capture_status == PASS else NOT_RUN,
+            "reason": "auth_diagnostics_run_missing",
+            "path": str(path),
+            "run_id": capture_run_id,
+        }
+    record = matching[-1]
+    diagnostics = record.get("diagnostics")
+    if not isinstance(diagnostics, Mapping):
+        return {
+            "status": FAIL,
+            "reason": "auth_diagnostics_payload_missing",
+            "path": str(path),
+            "run_id": capture_run_id,
+        }
+    urls = diagnostics.get("virtual_urls")
+    urls_ready = isinstance(urls, Mapping) and all(
+        isinstance(urls.get(key), Mapping)
+        and urls[key].get("state") == "nonempty"
+        and urls[key].get("decrypt_attempted") is True
+        and urls[key].get("decrypt_succeeded") is True
+        for key in ("sUrlRequest", "sUrlMaster", "sUrlPrice", "sUrlEvent")
+    )
+    login_success = diagnostics.get("login_success") is True
+    response_parsed = diagnostics.get("response_parsed") is True
+    success = (
+        record.get("schema_version") == "tachibana-login-diagnostics-v1"
+        and login_success
+        and response_parsed
+        and urls_ready
+    )
+    return {
+        "status": PASS if success else FAIL,
+        "reason": None if success else "auth_diagnostics_not_successful",
+        "path": str(path),
+        "run_id": capture_run_id,
+        "attempt": record.get("attempt"),
+        "capture_status": record.get("capture_status"),
+        "http_status": diagnostics.get("http_status"),
+        "response_parsed": response_parsed,
+        "login_success": login_success,
+        "stopped_at": diagnostics.get("stopped_at"),
+        "disclosure": diagnostics.get("sKinsyouhouMidokuFlg"),
+        "virtual_url_states": {
+            key: {
+                "state": urls[key].get("state"),
+                "decrypt_attempted": urls[key].get("decrypt_attempted"),
+                "decrypt_succeeded": urls[key].get("decrypt_succeeded"),
+            }
+            for key in ("sUrlRequest", "sUrlMaster", "sUrlPrice", "sUrlEvent")
+        }
+        if isinstance(urls, Mapping) and urls_ready
+        else None,
+    }
+
+
 def _check_frozen(capture_dir: Path, trade_date: str, *, capture_status: str) -> dict[str, Any]:
     path = capture_dir / f"frozen_{trade_date.replace('-', '')}.json"
     if not path.exists():
@@ -452,6 +534,11 @@ def build_acceptance_report(
         capture_dir=capture_dir,
     )
     capture = _check_capture(capture_dir, trade_date)
+    auth = _check_auth_diagnostics(
+        capture_dir,
+        capture_run_id=capture.get("run_id"),
+        capture_status=str(capture["status"]),
+    )
     frozen = _check_frozen(capture_dir, trade_date, capture_status=str(capture["status"]))
     snapshot_id = frozen.get("snapshot_id") if frozen.get("status") == PASS else None
     gap = _check_gap(gap_store, trade_date, snapshot_id)
@@ -465,7 +552,7 @@ def build_acceptance_report(
         risk_config=risk_config,
     )
 
-    market_components = [preflight, capture, frozen, gap, shadow, jobs]
+    market_components = [preflight, capture, auth, frozen, gap, shadow, jobs]
     market_status = _combine([str(item["status"]) for item in market_components])
     propagation_ids = {
         "frozen": frozen.get("snapshot_id"),
@@ -508,6 +595,7 @@ def build_acceptance_report(
         "checks": {
             "preflight": preflight,
             "capture": capture,
+            "auth_diagnostics": auth,
             "frozen_snapshot": frozen,
             "gap": gap,
             "shadow": shadow,
@@ -523,6 +611,7 @@ def render_markdown(report: Mapping[str, Any]) -> str:
     rows = [
         ("preflight", checks["preflight"]["status"]),
         ("capture", checks["capture"]["status"]),
+        ("auth diagnostics", checks["auth_diagnostics"]["status"]),
         ("frozen snapshot", checks["frozen_snapshot"]["status"]),
         ("gap", checks["gap"]["status"]),
         ("paired shadow", checks["shadow"]["status"]),
