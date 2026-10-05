@@ -126,6 +126,32 @@ class TestTachibanaClient:
         assert "10001" in str(exc_info.value)
         assert client.logged_in is False
 
+    @patch("requests.Session.get")
+    def test_login_transport_failure_keeps_safe_unknown_diagnostics(self, mock_get, api_config):
+        mock_get.side_effect = RuntimeError("network unavailable")
+
+        client = TachibanaClient(api_config)
+        with pytest.raises(RuntimeError, match="network unavailable"):
+            client.login()
+
+        diagnostics = client.last_login_diagnostics
+        assert diagnostics is not None
+        assert diagnostics["http_status"] is None
+        assert diagnostics["response_parsed"] is False
+        assert diagnostics["sResultCode"]["state"] == "unknown"
+        assert diagnostics["sKinsyouhouMidokuFlg"]["state"] == "unknown"
+        assert diagnostics["stopped_at"] == "transport_or_parse"
+        assert all(
+            item["state"] == "unknown"
+            and item["decrypt_attempted"] is False
+            and item["decrypt_succeeded"] is False
+            for item in diagnostics["virtual_urls"].values()
+        )
+        serialized = json.dumps(diagnostics)
+        assert "test_auth_id" not in serialized
+        assert "test_second_password" not in serialized
+        assert "dummy_key.pem" not in serialized
+
     @pytest.mark.parametrize(
         ("disclosure_flag", "expected_detail"),
         [

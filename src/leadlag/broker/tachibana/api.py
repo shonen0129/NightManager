@@ -207,6 +207,12 @@ class TachibanaClient:
         json_str = json.dumps(payload, separators=(",", ":"))
         url = f"{self.config.api_url.rstrip('/')}/auth/?{urllib.parse.quote(json_str)}"
 
+        login_diagnostics = _build_login_diagnostics(
+            None,
+            http_status=None,
+            response_parsed=False,
+        )
+        self.last_login_diagnostics = login_diagnostics
         response = self.session.get(url, timeout=self.config.request_timeout)
         login_diagnostics = _build_login_diagnostics(
             None,
