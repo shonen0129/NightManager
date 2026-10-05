@@ -5,6 +5,7 @@ Unit tests for TachibanaClient and TachibanaBrokerClient.
 
 from __future__ import annotations
 
+import json
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -91,6 +92,23 @@ class TestTachibanaClient:
             assert client.decrypted_urls["sUrlPrice"] == "https://decrypted-encrypted_price_url.jp"
             assert client.p_no == 2
 
+            diagnostics = client.last_login_diagnostics
+            assert diagnostics is not None
+            assert diagnostics["response_parsed"] is True
+            assert diagnostics["p_errno"]["state"] == "absent"
+            assert diagnostics["sResultCode"]["value"] == "0"
+            assert diagnostics["login_success"] is True
+            assert all(
+                item["state"] == "nonempty"
+                and item["decrypt_attempted"] is True
+                and item["decrypt_succeeded"] is True
+                for item in diagnostics["virtual_urls"].values()
+            )
+            serialized = json.dumps(diagnostics)
+            assert "encrypted_request_url" not in serialized
+            assert "https://decrypted-" not in serialized
+            assert "test_auth_id" not in serialized
+
     @patch("requests.Session.get")
     def test_login_failure(self, mock_get, api_config):
         mock_response = MagicMock()
@@ -134,6 +152,15 @@ class TestTachibanaClient:
 
         assert expected_detail in str(exc_info.value)
         assert client.logged_in is False
+
+        diagnostics = client.last_login_diagnostics
+        assert diagnostics is not None
+        assert diagnostics["sKinsyouhouMidokuFlg"]["state"] == "value"
+        assert diagnostics["sKinsyouhouMidokuFlg"]["value"] == disclosure_flag
+        assert diagnostics["virtual_urls"]["sUrlRequest"]["state"] == "absent"
+        assert diagnostics["virtual_urls"]["sUrlRequest"]["decrypt_attempted"] is False
+        assert diagnostics["stopped_at"] == "missing_virtual_url:sUrlRequest"
+        assert "test_auth_id" not in json.dumps(diagnostics)
 
     @patch("requests.Session.get")
     def test_request_session_retry_on_timeout(self, mock_get, api_config):

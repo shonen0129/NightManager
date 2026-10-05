@@ -125,6 +125,21 @@ def test_capture_only_persists_request_and_response_times(tmp_path, monkeypatch)
             "source": "tachibana:CLMMfdsGetMarketPrice",
             "observed_count": len(capture.CAPTURE_TICKERS),
             "lob_count": len(capture.CAPTURE_TICKERS),
+            "_login_diagnostics": {
+                "http_status": 200,
+                "response_parsed": True,
+                "sResultCode": {"state": "value", "type": "str", "value": "0"},
+                "sKinsyouhouMidokuFlg": {"state": "value", "type": "str", "value": "0"},
+                "virtual_urls": {
+                    "sUrlRequest": {
+                        "state": "nonempty",
+                        "decrypt_attempted": True,
+                        "decrypt_succeeded": True,
+                    }
+                },
+                "login_success": True,
+                "stopped_at": None,
+            },
             "full_five_level_depth_count": 4,
             "spread_bps_summary": {"count": 15, "median": 18.0},
             "rows": _quote_rows(response_at.isoformat()),
@@ -143,6 +158,11 @@ def test_capture_only_persists_request_and_response_times(tmp_path, monkeypatch)
     assert daily["attempts"][0]["two_sided_quote_count"] == len(capture.CAPTURE_TICKERS)
     assert daily["attempts"][0]["full_five_level_depth_count"] == 4
     assert (tmp_path / "frozen_20260928.json").exists()
+
+    auth = json.loads((tmp_path / "auth_diagnostics.jsonl").read_text(encoding="utf-8"))
+    assert auth["schema_version"] == "tachibana-login-diagnostics-v1"
+    assert auth["capture_status"] == "CAPTURED"
+    assert auth["diagnostics"]["login_success"] is True
 
 
 def test_capture_only_retries_transient_api_error_inside_window(tmp_path, monkeypatch):
@@ -201,6 +221,46 @@ def test_capture_only_retries_transient_api_error_inside_window(tmp_path, monkey
     assert runs[1]["status"] == "CAPTURED"
 
 
+def test_capture_only_persists_failed_login_diagnostics(tmp_path, monkeypatch):
+    from leadlag.core import market_calendar
+
+    now = datetime(2026, 9, 28, 9, 10, 2, tzinfo=ZoneInfo("Asia/Tokyo"))
+    monkeypatch.setattr(market_calendar, "is_trading_day", lambda _day: True)
+    monkeypatch.setattr(capture, "_jst_now", lambda: now)
+
+    diagnostics = {
+        "http_status": 200,
+        "response_parsed": True,
+        "p_errno": {"state": "absent", "type": None, "value": None},
+        "sResultCode": {"state": "value", "type": "str", "value": "0"},
+        "sKinsyouhouMidokuFlg": {"state": "value", "type": "str", "value": "1"},
+        "virtual_urls": {
+            "sUrlRequest": {
+                "state": "empty",
+                "decrypt_attempted": False,
+                "decrypt_succeeded": False,
+            }
+        },
+        "login_success": False,
+        "stopped_at": "missing_virtual_url:sUrlRequest",
+    }
+
+    def fail_collect(*_args, **_kwargs):
+        exc = ValueError("missing virtual URL")
+        setattr(exc, "_tachibana_login_diagnostics", diagnostics)
+        raise exc
+
+    monkeypatch.setattr(capture, "_collect_live_quotes", fail_collect)
+
+    assert capture._run_capture_only(output_dir=tmp_path, attempts=1) == 1
+    auth = json.loads((tmp_path / "auth_diagnostics.jsonl").read_text(encoding="utf-8"))
+    assert auth["capture_status"] == "ERROR"
+    assert auth["diagnostics"]["sKinsyouhouMidokuFlg"]["value"] == "1"
+    assert auth["diagnostics"]["virtual_urls"]["sUrlRequest"]["state"] == "empty"
+    assert "sAuthId" not in json.dumps(auth)
+    assert "https://" not in json.dumps(auth)
+
+
 def test_independent_launchagent_runs_weekdays_at_0910_without_run_at_load():
     plist_path = capture.ROOT / "scripts/batch/com.leadlag.microstructure-0910.plist"
     with plist_path.open("rb") as handle:
@@ -215,4 +275,7 @@ def test_independent_launchagent_runs_weekdays_at_0910_without_run_at_load():
     assert config["KeepAlive"] is False
     assert config["ProgramArguments"][1].endswith(
         "/scripts/batch/run_0910_microstructure_capture.sh"
+    )
+    assert config["EnvironmentVariables"]["LEADLAG_CAPTURE_OUTPUT_DIR"].endswith(
+        "/var/shadow_runs/ml_overlay_value/microstructure"
     )
