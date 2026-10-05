@@ -42,7 +42,7 @@
         <key>TACHIBANA_REQUEST_TIMEOUT</key>
         <string>8</string>
         <key>LEADLAG_CAPTURE_OUTPUT_DIR</key>
-        <string>__PROJECT_DIR__/var/live/pipeline_data/microstructure_0910</string>
+        <string>__PROJECT_DIR__/var/shadow_runs/ml_overlay_value/microstructure</string>
     </dict>
 
     <key>ProcessType</key>
