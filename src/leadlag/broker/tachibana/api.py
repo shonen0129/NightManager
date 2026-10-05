@@ -208,27 +208,29 @@ class TachibanaClient:
         url = f"{self.config.api_url.rstrip('/')}/auth/?{urllib.parse.quote(json_str)}"
 
         response = self.session.get(url, timeout=self.config.request_timeout)
-        self.last_login_diagnostics = _build_login_diagnostics(
+        login_diagnostics = _build_login_diagnostics(
             None,
             http_status=response.status_code,
             response_parsed=False,
         )
+        self.last_login_diagnostics = login_diagnostics
         response.raise_for_status()
 
         try:
             result = cast(dict[str, Any], response.json())
         except Exception:
-            self.last_login_diagnostics["stopped_at"] = "response_parse"
+            login_diagnostics["stopped_at"] = "response_parse"
             raise
-        self.last_login_diagnostics = _build_login_diagnostics(
+        login_diagnostics = _build_login_diagnostics(
             result,
             http_status=response.status_code,
             response_parsed=True,
         )
+        self.last_login_diagnostics = login_diagnostics
         # Check gateway-level errors first (e.g. invalid auth_id)
         p_errno = result.get("p_errno", "0")
         if p_errno != "0":
-            self.last_login_diagnostics["stopped_at"] = "gateway_error"
+            login_diagnostics["stopped_at"] = "gateway_error"
             err_text = result.get("p_err", "Tachibana gateway error")
             raise TachibanaApiError(
                 f"Tachibana login failed (gateway code={p_errno}): {err_text}",
@@ -238,7 +240,7 @@ class TachibanaClient:
 
         result_code = result.get("sResultCode", "-1")
         if result_code != "0":
-            self.last_login_diagnostics["stopped_at"] = "result_code_error"
+            login_diagnostics["stopped_at"] = "result_code_error"
             err_text = result.get("sResultText", "Unknown login error")
             raise TachibanaApiError(
                 f"Tachibana login failed (code={result_code}): {err_text}",
@@ -250,9 +252,9 @@ class TachibanaClient:
         self.decrypted_urls = {}
         for url_key in _LOGIN_URL_KEYS:
             encrypted_val = result.get(url_key)
-            url_diagnostics = self.last_login_diagnostics["virtual_urls"][url_key]
+            url_diagnostics = login_diagnostics["virtual_urls"][url_key]
             if not encrypted_val:
-                self.last_login_diagnostics["stopped_at"] = f"missing_virtual_url:{url_key}"
+                login_diagnostics["stopped_at"] = f"missing_virtual_url:{url_key}"
                 disclosure_flag = result.get("sKinsyouhouMidokuFlg")
                 if str(disclosure_flag) == "1":
                     raise ValueError(
@@ -273,14 +275,14 @@ class TachibanaClient:
             try:
                 decrypted_val = self._decrypt_virtual_url(encrypted_val)
             except Exception:
-                self.last_login_diagnostics["stopped_at"] = f"decrypt_virtual_url:{url_key}"
+                login_diagnostics["stopped_at"] = f"decrypt_virtual_url:{url_key}"
                 raise
             url_diagnostics["decrypt_succeeded"] = True
             self.decrypted_urls[url_key] = decrypted_val
 
         self.logged_in = True
-        self.last_login_diagnostics["login_success"] = True
-        self.last_login_diagnostics["stopped_at"] = None
+        login_diagnostics["login_success"] = True
+        login_diagnostics["stopped_at"] = None
         logger.info("[TachibanaAPI] Login successful. Virtual URLs decrypted.")
 
     def logout(self) -> None:
