@@ -21,7 +21,7 @@ from typing import Any
 
 import numpy as np
 
-from leadlag.config.paths import gap_store_path, project_root
+from leadlag.config.paths import project_root
 from leadlag.core.market_calendar import previous_trading_day
 from leadlag.data.gap_store import GapStore
 from leadlag.data.quote_snapshot import load_frozen_quote_snapshot
@@ -36,6 +36,7 @@ from leadlag.execution.config import load_config_from_yaml
 ROOT = project_root()
 SCHEMA_VERSION = "readonly-shadow-acceptance-report-v1"
 DEFAULT_CAPTURE_DIR = ROOT / "var/shadow_runs/ml_overlay_value/microstructure"
+DEFAULT_GAP_STORE = ROOT / "var/live/pipeline_data/gap_adjusted_distribution/gap_store.sqlite"
 DEFAULT_SHADOW_DIR = ROOT / "var/shadow_runs/ml_overlay_value"
 DEFAULT_RISK_PATH = ROOT / "var/live/pipeline_data/account_risk/latest.json"
 DEFAULT_JOB_LOG_DIR = ROOT / "var/logs/job_guard"
@@ -569,7 +570,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     capture_default = os.environ.get("LEADLAG_CAPTURE_OUTPUT_DIR", str(DEFAULT_CAPTURE_DIR))
     risk_default = os.environ.get("LEADLAG_ACCOUNT_RISK_SNAPSHOT", str(DEFAULT_RISK_PATH))
     parser.add_argument("--capture-dir", type=Path, default=Path(capture_default))
-    parser.add_argument("--gap-store", type=Path, default=gap_store_path())
+    parser.add_argument("--gap-store", type=Path, default=DEFAULT_GAP_STORE)
     parser.add_argument("--shadow-dir", type=Path, default=DEFAULT_SHADOW_DIR)
     parser.add_argument("--risk-snapshot", type=Path, default=Path(risk_default))
     parser.add_argument("--preflight", type=Path, default=None)
