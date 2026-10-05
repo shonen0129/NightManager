@@ -258,7 +258,7 @@ def test_capture_only_persists_failed_login_diagnostics(tmp_path, monkeypatch):
     assert auth["diagnostics"]["sKinsyouhouMidokuFlg"]["value"] == "1"
     assert auth["diagnostics"]["virtual_urls"]["sUrlRequest"]["state"] == "empty"
     assert "sAuthId" not in json.dumps(auth)
-    assert "sUrlRequest":"" not in json.dumps(auth)
+    assert "https://" not in json.dumps(auth)
 
 
 def test_independent_launchagent_runs_weekdays_at_0910_without_run_at_load():
