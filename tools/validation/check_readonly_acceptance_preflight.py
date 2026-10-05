@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import plistlib
 import subprocess
 import urllib.parse
 from collections.abc import Mapping
@@ -16,15 +17,59 @@ from zoneinfo import ZoneInfo
 
 from dotenv import load_dotenv
 
-from tools.validation.collect_0910_microstructure import (
-    ROOT,
-    _inspect_installed_scheduler,
-    _validated_api_url,
-)
-
+ROOT = Path(__file__).resolve().parents[2]
 JST = ZoneInfo("Asia/Tokyo")
 SCHEMA_VERSION = "readonly-shadow-acceptance-preflight-v1"
 DEFAULT_CAPTURE_OUTPUT = ROOT / "var/shadow_runs/ml_overlay_value/microstructure"
+
+
+def _validated_api_url(api_url: str) -> str:
+    normalized = api_url.strip()
+    if "e_api_v4r9" in normalized.casefold():
+        raise ValueError(
+            "TACHIBANA_API_URL points to retired v4r9; configure the current v4r10 URL"
+        )
+    return normalized
+
+
+def _inspect_installed_scheduler() -> dict[str, Any]:
+    path = Path.home() / "Library/LaunchAgents/com.leadlag.microstructure-0910.plist"
+    if not path.exists():
+        return {
+            "status": "NOT_INSTALLED",
+            "path": str(path),
+            "label": "com.leadlag.microstructure-0910",
+        }
+    try:
+        with path.open("rb") as handle:
+            payload = plistlib.load(handle)
+        try:
+            registered = subprocess.run(
+                ["launchctl", "print", f"gui/{os.getuid()}/com.leadlag.microstructure-0910"],
+                capture_output=True,
+                check=False,
+                timeout=3,
+            ).returncode == 0
+        except (OSError, subprocess.TimeoutExpired):
+            registered = False
+        return {
+            "status": "REGISTERED" if registered else "PLIST_PRESENT_NOT_REGISTERED",
+            "path": str(path),
+            "label": payload.get("Label"),
+            "registered": registered,
+            "schedule": payload.get("StartCalendarInterval"),
+            "program": payload.get("ProgramArguments", []),
+            "capture_output_dir": payload.get("EnvironmentVariables", {}).get(
+                "LEADLAG_CAPTURE_OUTPUT_DIR"
+            ),
+        }
+    except (OSError, plistlib.InvalidFileException, ValueError) as exc:
+        return {
+            "status": "UNREADABLE",
+            "path": str(path),
+            "label": "com.leadlag.microstructure-0910",
+            "error": str(exc),
+        }
 
 
 def _run_git(*args: str) -> str:
