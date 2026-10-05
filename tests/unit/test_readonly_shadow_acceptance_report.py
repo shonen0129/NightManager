@@ -218,6 +218,7 @@ def test_valid_previous_session_risk_allows_stage1_pass(tmp_path):
 
     assert report["market_to_shadow_status"] == acceptance.PASS
     assert report["checks"]["account_risk"]["status"] == acceptance.PASS
+    assert report["checks"]["account_risk"]["gate"]["is_blocked"] is False
     assert report["risk_inclusive_stage1_status"] == acceptance.PASS
     assert report["issue_27_overall_status"] == acceptance.DEFERRED
 
@@ -271,3 +272,25 @@ def test_missing_shadow_only_flag_fails_job_mode_evidence(tmp_path):
     assert report["checks"]["jobs"]["status"] == acceptance.FAIL
     assert report["checks"]["jobs"]["reason"] == "decision_phase_not_shadow_only"
     assert report["market_to_shadow_status"] == acceptance.FAIL
+
+
+def test_preflight_must_be_from_same_trade_date_and_capture_path(tmp_path):
+    capture_dir, gap_path, shadow_dir, risk_path, log_dir, _ = _write_common_artifacts(tmp_path)
+    preflight_path = capture_dir / "preflight.json"
+    preflight = json.loads(preflight_path.read_text(encoding="utf-8"))
+    preflight["checked_at"] = "2026-09-28T08:45:00+09:00"
+    preflight_path.write_text(json.dumps(preflight), encoding="utf-8")
+
+    report = acceptance.build_acceptance_report(
+        trade_date=TRADE_DATE,
+        capture_dir=capture_dir,
+        gap_store=gap_path,
+        shadow_dir=shadow_dir,
+        risk_path=risk_path,
+        preflight_path=preflight_path,
+        job_log_dir=log_dir,
+    )
+
+    assert report["checks"]["preflight"]["status"] == acceptance.BLOCKED
+    assert report["checks"]["preflight"]["reason"] == "preflight_trade_date_mismatch"
+    assert report["market_to_shadow_status"] == acceptance.BLOCKED
