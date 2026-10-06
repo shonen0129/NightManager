@@ -7,7 +7,7 @@ runtime と開発用検査を同じ解決結果から構築する。CI は次を
    LightGBM境界テストだけを満たし、研究用の`research` extraに含まれる
    SHAP/llvmlite依存はHosted production CIの解決対象から外す。[研究環境手順](RESEARCH_ENV.md)
    で研究依存を分離する。
-2. `compileall`、Ruff、mypy、import-linter
+2. `compileall`、Ruff、mypy、import-linter、および `scripts/ci/check_operational_imports.py` によるscheduled Python batch入口のresearch import禁止。shellが起動する研究診断toolの分離は別の残件。
 3. architecture/ADR/plan の相対リンク検査
 4. production wheel のビルド、`research`混入検査、隔離インストール後のCLI・artifact推論
 5. `tests/` 全体（unit / integration / research / regression / features）。回帰baselineは

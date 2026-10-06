@@ -1,0 +1,12 @@
+{
+  "baseline": "fd82e99e",
+  "numeric_tolerance": 0,
+  "blpx_cases": 16,
+  "pnl_cases": 3,
+  "adr_observed_case": true,
+  "singular_and_nonfinite_cases": 4,
+  "research_diagnostic_key_change": {
+    "z_U": "z_U_t"
+  },
+  "nonfinite_fallback_corrections": 1
+}

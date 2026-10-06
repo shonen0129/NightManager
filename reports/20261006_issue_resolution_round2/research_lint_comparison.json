@@ -1,0 +1,128 @@
+[
+  {
+    "path": "src/research/backtest_v1.py",
+    "before": {},
+    "after": {},
+    "new_diagnostic_counts": {}
+  },
+  {
+    "path": "src/research/experiments/ml_overlay_training.py",
+    "before": {},
+    "after": {},
+    "new_diagnostic_counts": {}
+  },
+  {
+    "path": "src/research/models/sector_relative_ensemble_blp_enhanced.py",
+    "before": {},
+    "after": {},
+    "new_diagnostic_counts": {}
+  },
+  {
+    "path": "src/research/scripts/experiments/experiment_beat_baseline.py",
+    "before": {
+      "I001: Import block is un-sorted or un-formatted": 1
+    },
+    "after": {},
+    "new_diagnostic_counts": {}
+  },
+  {
+    "path": "src/research/scripts/experiments/experiment_convex_lambda_sweep.py",
+    "before": {
+      "I001: Import block is un-sorted or un-formatted": 1
+    },
+    "after": {},
+    "new_diagnostic_counts": {}
+  },
+  {
+    "path": "src/research/scripts/experiments/experiment_convex_max_weight_sweep.py",
+    "before": {
+      "I001: Import block is un-sorted or un-formatted": 1
+    },
+    "after": {},
+    "new_diagnostic_counts": {}
+  },
+  {
+    "path": "src/research/scripts/experiments/experiment_convex_score_formulation.py",
+    "before": {
+      "I001: Import block is un-sorted or un-formatted": 1
+    },
+    "after": {},
+    "new_diagnostic_counts": {}
+  },
+  {
+    "path": "src/research/scripts/experiments/experiment_convex_vs_baseline_backtest.py",
+    "before": {
+      "I001: Import block is un-sorted or un-formatted": 1
+    },
+    "after": {},
+    "new_diagnostic_counts": {}
+  },
+  {
+    "path": "src/research/scripts/experiments/experiment_dispersion_sizing.py",
+    "before": {
+      "I001: Import block is un-sorted or un-formatted": 1
+    },
+    "after": {},
+    "new_diagnostic_counts": {}
+  },
+  {
+    "path": "src/research/scripts/experiments/experiment_lgbm_calibration_20260923.py",
+    "before": {},
+    "after": {},
+    "new_diagnostic_counts": {}
+  },
+  {
+    "path": "src/research/scripts/experiments/experiment_lgbm_order_cost_20260923.py",
+    "before": {
+      "I001: Import block is un-sorted or un-formatted": 1
+    },
+    "after": {},
+    "new_diagnostic_counts": {}
+  },
+  {
+    "path": "src/research/scripts/experiments/experiment_lower_vol_higher_return.py",
+    "before": {},
+    "after": {},
+    "new_diagnostic_counts": {}
+  },
+  {
+    "path": "src/research/scripts/experiments/experiment_order_cost_gate_20260923.py",
+    "before": {
+      "F841: Local variable `previous_alpha` is assigned to but never used": 1,
+      "F541: f-string without any placeholders": 1
+    },
+    "after": {
+      "F841: Local variable `previous_alpha` is assigned to but never used": 1,
+      "F541: f-string without any placeholders": 1
+    },
+    "new_diagnostic_counts": {}
+  },
+  {
+    "path": "src/research/scripts/experiments/experiment_sparse_convex_optimizer.py",
+    "before": {
+      "I001: Import block is un-sorted or un-formatted": 1
+    },
+    "after": {},
+    "new_diagnostic_counts": {}
+  },
+  {
+    "path": "src/research/scripts/experiments/experiment_strict_lower_vol.py",
+    "before": {},
+    "after": {},
+    "new_diagnostic_counts": {}
+  },
+  {
+    "path": "src/research/scripts/experiments/experiment_turnover_aware_no_trade_20260923.py",
+    "before": {},
+    "after": {},
+    "new_diagnostic_counts": {}
+  },
+  {
+    "path": "src/research/scripts/experiments/structural_artifact_evaluate.py",
+    "before": {
+      "I001: Import block is un-sorted or un-formatted": 1
+    },
+    "after": {},
+    "new_diagnostic_counts": {}
+  }
+]

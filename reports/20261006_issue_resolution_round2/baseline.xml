@@ -1,0 +1,1 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="0" skipped="0" tests="1" time="0.706" timestamp="2026-10-06T13:10:34.810465+09:00" hostname="MasatoshinoMac-mini.local"><testcase classname="tests.regression.test_v2_baseline" name="test_v2_snapshot_matches_baseline" time="0.169" /></testsuite></testsuites>

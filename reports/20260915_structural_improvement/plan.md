@@ -437,7 +437,9 @@ decisionとcloseのbatch入口は同じlease scopeを使い、`run_decision_v2.s
 
 ## 10. S6 — 損益計算とレポートの責務を分ける
 
-対象: [BT損益](../../src/leadlag/execution/backtester.py)、[費用見積り](../../src/leadlag/execution/cost_calculator.py)、[日次実現PnL](../../src/leadlag/reporting/daily_pnl_report.py)、[共通指標](../../src/leadlag/reporting/metrics.py)、[研究共通処理](../../src/research/backtest_common.py)。
+対象（計画時点）: [BT損益](../../src/leadlag/execution/backtester.py)、費用見積り `src/leadlag/execution/cost_calculator.py`、[日次実現PnL](../../src/leadlag/reporting/daily_pnl_report.py)、[共通指標](../../src/leadlag/reporting/metrics.py)、[研究共通処理](../../src/research/backtest_common.py)。
+
+参照更新（2026-10-06）: 未使用CostCalculatorは撤去した。当時の計画内容は保持し、現行費用関数と撤去の判断は [追加ADR](../../docs/decisions/2026-10-06-adr-publication-and-shared-blpx.md) を参照する。
 
 ### 第1段階: 現在の数値を保って抽出
 

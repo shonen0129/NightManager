@@ -172,7 +172,8 @@ snapshotを生成する検証済みproducerは未整備なので、producerが�
 | `fetcher.py` | yfinance ダウンロード、差分更新、1629.T NAVパッチ |
 | `preprocessor.py` | `df_exec` 構築（日次リターン整列、TOPIX beta計算） |
 | `macro.py` | macro価格の取得・列名正規化・timeout・キャッシュ。計算層へDataFrameを渡す入力adapter |
-| `adr_features.py` | ADR特徴量pickleの読込、`sig_date`除去、trade date欠損・鮮度の既存fallback判定 |
+| `adr_features.py` | ADR ZIP bundleの原子的公開・hash/coverage/provenance検証、当日行欠損時のskip判定 |
+| `adr_producer.py` | Yahoo closeからADR特徴を生成する運用producer。取得欠損を維持し当日coverage不足では公開しない |
 | `intraday_inputs.py` | 5分足cacheから09:10 midpointと寄り→09:10 returnsを抽出し、target計算へ明示入力として渡す |
 | `quote_snapshot.py` | 立花の09:10 bid/askを銘柄別受信時刻・trade date・内容hashで検証し、最初の完全な日次snapshotを不変保存する。actual-live decisionとgap生成は同じsnapshot IDを参照する |
 | `market_data.py` | 寄付価格取得、ギャップ計算、価格検証 |
@@ -214,7 +215,6 @@ kabuステーションや立花証券からの移行・別ブローカー追加�
 | `close.py` | `close_all_positions()`とCLIの決済・照合。leaseを迂回する旧auto-close helperは撤去 |
 | `backtest.py` | `run_production()` — 生産バックテスト実行管理 |
 | `backtester.py` | `BacktestEngine` — 汎用的なバックテスト実行シミュレータ |
-| `cost_calculator.py` | `CostCalculator` — 板/フォールバック費用見積り（bps。`core.pnl`の日次return費用とは別契約） |
 | `var_cache.py` | `VaRCacheIdentity`でeffective config・入力版・overlay・gap bundleをcache keyへ束ね、`DeadlineBudget`で絶対期限を共有 |
 | `var_inputs.py` / `var_worker.py` | fingerprint・gap/PIT履歴snapshotの取得と、timeout後もworker終了まで保持する所有権・期限付き保存 |
 | `state_store.py` | SQLiteのrun/order intent/observation/reconciliation台帳と口座・戦略単位の実行lease |
@@ -293,8 +293,8 @@ partial closes and reversals, allocates entry/exit fees once, and marks open
 lots separately. Missing position prices retain the legacy reported total as
 a compatibility fallback rather than inventing a mark.
 
-The bps `execution.cost_calculator.CostBreakdown`, decimal-return
-`domain.portfolio.CostBreakdown`, and currency Fill fees expose explicit unit
+The used microstructure cost functions return bps; decimal-return
+`domain.portfolio.CostBreakdown` and currency Fill fees expose explicit unit
 labels. `BacktestResultStore.daily_pnl` also persists `overnight_return` so the
 day/night attribution is not lost when results are reloaded. `MetricsSpec`
 fixes evaluation frequency, annualisation, flat-day treatment, and return/cost
@@ -498,6 +498,8 @@ artifact・運用の最新受入状態は[実行報告](../reports/20260922_prod
 
 V2の期間入口は2015-01-05以降とsource期間の非空交差を検証する。`evaluation_period`に要求・実評価・sourceの期間を保存する。損益のentry-mark-v2契約と執行turnoverは `accounting_contract` で識別する。US pre-inception proxyは `data/tickers.py::US_INCEPTION_DATES` より前だけとし、各cellの `us_proxy_*` を残す。旧前処理cacheは契約version不一致で再利用せず、strict再構築へ進む。元データの品質異常を補間で隠さない。
 
-market-data updaterとdistribution diagnosticsは既存job guardの `live:production_v2` leaseと全体deadlineを共有し、各phaseにもdeadlineを設定する。通常のtest utilityは `execution.phase_deadline` を使い、reports内watchdogには依存しない。ADR運用producerのresearch依存・複数artifact publication、終端在庫、長期PnL再評価は残件として追跡する。
+market-data updaterとdistribution diagnosticsは既存job guardの `live:production_v2` leaseと全体deadlineを共有し、各phaseにもdeadlineを設定する。通常のtest utilityは `execution.phase_deadline` を使い、reports内watchdogには依存しない。ADR producerは `data.adr_producer` に分離し、`data/adr_features.zip` 内のpickle/CSV/manifestを一度のatomic replaceで公開する。旧pickleを読むfallbackは置かず、実ソースから再生成する。実運用での更新復旧、scheduled diagnosticsのresearch依存、終端在庫、長期PnL再評価は残件として追跡する。
 
-詳しくは [監査境界の設計判断](decisions/2026-10-06-audit-boundaries.md) と [issue対応結果](../reports/20261006_issue_resolution/report.md) を参照。
+BLPXの行列solve・PCA prior・Tikhonov・confidence・非対称solve・診断構築は `core/blpx_math.py` を本番/研究の共通正本とし、係数・次元を明示入力で受け取る。旧model helper再公開は撤去した。研究の診断キーも `z_U_t` に揃える。日次PnLは `core.pnl.simulate_daily_pnl`、gap読込は `utils.gap_matrix_io.load_gap_bundle` を直接使い、旧互換wrapperと未使用CostCalculatorは撤去した。
+
+詳しくは [監査境界の設計判断](decisions/2026-10-06-audit-boundaries.md)、[追加の設計判断](decisions/2026-10-06-adr-publication-and-shared-blpx.md)、[追加対応結果](../reports/20261006_issue_resolution_round2/report.md) を参照。
