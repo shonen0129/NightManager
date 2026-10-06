@@ -10,9 +10,10 @@ import copy
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from leadlag.config.paths import live, results
+from leadlag.data.tickers import JP_TICKERS
 
 
 class StrategyConfig(BaseModel):
@@ -593,6 +594,12 @@ class ProductionV2RunConfig(BaseModel):
     single source of truth for all v2 pipeline constants.
     """
     model_config = {"frozen": True, "extra": "forbid"}
+
+    @model_validator(mode="after")
+    def validate_basket_counts(self) -> ProductionV2RunConfig:
+        if self.long_count + self.short_count > len(JP_TICKERS):
+            raise ValueError("long_count + short_count must not exceed the JP universe")
+        return self
 
     # --- Portfolio construction ---
     long_count: int = Field(default=5, ge=1, description="ロング選択銘柄数")

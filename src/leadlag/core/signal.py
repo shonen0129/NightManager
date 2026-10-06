@@ -324,11 +324,10 @@ def _solve_minvar_sub(
 
 def build_weights_minvar(
     signal: np.ndarray,
-    q: float,
-    n_j: int,
+    long_idx: np.ndarray,
+    short_idx: np.ndarray,
     Sigma_YY: np.ndarray | None = None,
     alpha: float = 0.5,
-    enforce_sign: bool = False,
 ) -> np.ndarray:
     """Build portfolio weights using covariance-aware optimization.
 
@@ -337,17 +336,23 @@ def build_weights_minvar(
 
     Args:
         signal: (n_j,) signal array.
-        q: Fraction of assets for long/short.
-        n_j: Number of JP assets.
+        long_idx: Explicit, already selected long basket.
+        short_idx: Explicit, already selected short basket.
         Sigma_YY: (n_j, n_j) predicted covariance matrix. If None, falls back to signal weights.
         alpha: Blending parameter. 0=pure signal, 1=pure minvar.
-        enforce_sign: Whether to enforce signal direction.
 
     Returns:
         Weight array of shape (n_j,).
     """
+    n_j = len(signal)
     weights = np.zeros(n_j)
-    long_idx, short_idx = select_long_short_indices(signal, q, n_j, enforce_sign)
+    indices = np.concatenate((long_idx, short_idx))
+    if (indices.ndim != 1 or not np.issubdtype(indices.dtype, np.integer)
+            or np.any(indices < 0) or np.any(indices >= n_j)
+            or len(np.unique(indices)) != len(indices)):
+        raise ValueError("MinVar baskets must contain unique, disjoint in-range indices")
+    if Sigma_YY is not None and Sigma_YY.shape != (n_j, n_j):
+        raise ValueError("MinVar covariance must match the signal dimension")
 
     if len(long_idx) == 0 or len(short_idx) == 0:
         return weights

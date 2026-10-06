@@ -23,11 +23,10 @@ def test_build_weights_minvar_alpha_one_is_min_variance():
 
     w = build_weights_minvar(
         signal=signal,
-        q=0.5,
-        n_j=6,
+        long_idx=np.array([0, 1, 2]),
+        short_idx=np.array([3, 4, 5]),
         Sigma_YY=Sigma,
         alpha=1.0,
-        enforce_sign=False,
     )
 
     # Long basket (indices 0, 1, 2): weights ~ [1/1.4, 1/1.5, 1/1.5] / sum
@@ -47,11 +46,10 @@ def test_build_weights_minvar_alpha_zero_is_signal_proportional():
 
     w = build_weights_minvar(
         signal=signal,
-        q=0.5,
-        n_j=6,
+        long_idx=np.array([0, 1, 2]),
+        short_idx=np.array([3, 4, 5]),
         Sigma_YY=Sigma,
         alpha=0.0,
-        enforce_sign=False,
     )
 
     # Long basket raw = [1, 2, 3] (indices 0,1,2) -> normalized [1/6, 2/6, 3/6]
@@ -69,11 +67,10 @@ def test_build_weights_minvar_handles_singular_covariance():
 
     w = build_weights_minvar(
         signal=signal,
-        q=0.5,
-        n_j=6,
+        long_idx=np.array([0, 1, 2]),
+        short_idx=np.array([3, 4, 5]),
         Sigma_YY=Sigma,
         alpha=1.0,
-        enforce_sign=False,
     )
 
     # Fallback is the centered, non-negative signal weights (alpha=0 behavior).

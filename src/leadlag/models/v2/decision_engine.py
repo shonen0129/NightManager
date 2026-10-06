@@ -169,11 +169,10 @@ def generate_v2_production_portfolio_from_distribution(
     if run_config.minvar_enabled:
         w_minvar = build_weights_minvar(
             signal=scores,
-            q=float(run_config.long_count) / n_j,
-            n_j=n_j,
+            long_idx=long_idx,
+            short_idx=short_idx,
             Sigma_YY=omega_gap,
             alpha=run_config.minvar_alpha,
-            enforce_sign=False,
         )
         w_pre = w_minvar * (run_config.baseline_gross / 2.0)
         logger.info("[%s] MinVar weights applied: alpha=%.2f, gross=%.4f", date_str, run_config.minvar_alpha, float(np.sum(np.abs(w_pre))))

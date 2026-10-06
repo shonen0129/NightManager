@@ -105,13 +105,13 @@ class BaseModel(ABC):
 
         if getattr(self, "minvar_enabled", False) and Sigma_YY is not None:
             from leadlag.core.signal import build_weights_minvar
+            long_idx, short_idx = signals.select_long_short_indices(signal, q_val, self.n_j, False)
             return build_weights_minvar(
                 signal=signal,
-                q=q_val,
-                n_j=self.n_j,
+                long_idx=long_idx,
+                short_idx=short_idx,
                 Sigma_YY=Sigma_YY,
                 alpha=getattr(self, "minvar_alpha", 0.5),
-                enforce_sign=False,
             )
 
         return signals.build_weights(

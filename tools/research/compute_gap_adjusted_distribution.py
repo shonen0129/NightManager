@@ -873,11 +873,10 @@ def _process_date_impl(dt: pd.Timestamp, ctx: GapDistContext, acc: GapDistAccumu
     if ctx.bl_minvar_enabled:
         w_minvar_bl = build_weights_minvar(
             signal=scores_bl,
-            q=float(ctx.bl_long_count) / ctx.model.n_j,
-            n_j=ctx.model.n_j,
+            long_idx=long_idx_bl,
+            short_idx=short_idx_bl,
             Sigma_YY=Omega_gap,
             alpha=ctx.bl_minvar_alpha,
-            enforce_sign=False,
         )
         w_baseline = w_minvar_bl * (ctx.bl_baseline_gross / 2.0)
     else:

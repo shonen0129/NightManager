@@ -187,18 +187,16 @@ def _predict_relative_allocation(features: pd.DataFrame, model: Any) -> np.ndarr
 
 def _recompute_w_pre(scores: np.ndarray, omega_gap: np.ndarray, run_cfg: Any) -> np.ndarray:
     """Recompute pre-RuleD weights from adjusted scores using V2 rules."""
-    n_j = len(JP_TICKERS)
     sorted_idx = np.argsort(scores)
     short_idx = sorted_idx[: run_cfg.short_count]
     long_idx = sorted_idx[-run_cfg.long_count :]
     if run_cfg.minvar_enabled:
         w_minvar = build_weights_minvar(
             signal=scores,
-            q=float(run_cfg.long_count) / n_j,
-            n_j=n_j,
+            long_idx=long_idx,
+            short_idx=short_idx,
             Sigma_YY=omega_gap,
             alpha=run_cfg.minvar_alpha,
-            enforce_sign=False,
         )
         return cast(np.ndarray, w_minvar * (run_cfg.baseline_gross / 2.0))
     return solve_baseline_style(

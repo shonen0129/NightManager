@@ -4,11 +4,13 @@ import json
 import numpy as np
 import pandas as pd
 import pytest
-from leadlag.config.schemas import AppConfig, StrategyConfig
+from leadlag.config.schemas import AppConfig, ProductionV2RunConfig, StrategyConfig
 from leadlag.core.pnl import simulate_daily_pnl
+from leadlag.core.signal import build_weights_minvar
 from leadlag.execution.backtester import BacktestEngine
 from leadlag.execution.output_ops import save_summary_files
 from leadlag.experiment_registry import compute_deflated_sharpe
+from leadlag.models.v2.decision_engine import generate_v2_production_portfolio_from_distribution
 from leadlag.reporting.metrics import MetricsSpec, calculate_metrics
 from research.experiment_utils import record_backtest_experiment
 
@@ -58,6 +60,22 @@ def test_summary_dd_matches_metrics_for_initial_loss(tmp_path):
     summary = json.loads((tmp_path / 'run_summary.json').read_text())
     assert summary['max_drawdown'] == pytest.approx(metrics['MDD'])
     assert summary['max_drawdown'] == pytest.approx(-.1)
+
+
+def test_asymmetric_minvar_uses_selected_baskets_once():
+    cfg = ProductionV2RunConfig(long_count=5, short_count=3, minvar_enabled=True, minvar_alpha=.8)
+    result = generate_v2_production_portfolio_from_distribution(np.arange(-8., 9.) * .001, np.eye(17) * .0001, '2026-10-06', cfg, None, None, distribution_metadata={'sig_date': '2026-10-05'}, allow_implicit_io=False)
+    assert (result.w_final > 0).sum() == 5
+    assert (result.w_final < 0).sum() == 3
+    assert result.w_final.sum() == pytest.approx(0., abs=1e-12)
+    assert result.numerical['status'] == 'PASSED'
+
+
+def test_minvar_rejects_overlapping_indices_and_impossible_config():
+    with pytest.raises(ValueError, match='disjoint'):
+        build_weights_minvar(np.arange(6.), np.array([4, 5]), np.array([0, 5]))
+    with pytest.raises(ValueError, match='universe'):
+        ProductionV2RunConfig(long_count=10, short_count=8)
 
 
 @pytest.mark.parametrize('override', [{'n_observations': 1000}, {'returns': [.01, np.nan, -.01, .02]}, {'metric_status': 'invalid'}, {'net_sharpe': np.nan}, {'net_sharpe_frequency': 'monthly'}, {'trading_days_per_year': 0}, {'trials': 1.5}, {'trial_sharpe_variance': np.nan}, {'trial_sharpes': [np.inf] * 10}, {'trial_sharpes': [1., 2.]}])
