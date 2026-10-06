@@ -25,6 +25,7 @@ while not (ROOT / "pyproject.toml").exists():
     ROOT = ROOT.parent
 sys.path.insert(0, str(ROOT / "src"))
 
+from leadlag.core.pnl import simulate_daily_pnl
 from leadlag.data.adr_features import load_adr_features, validate_adr_features
 from leadlag.data.intraday_inputs import build_open_910_returns
 from leadlag.data.market_data_cache import load_df_exec_from_local_cache
@@ -37,11 +38,11 @@ from leadlag.experiment_registry import (
     ExperimentRegistry,
     compute_deflated_sharpe,
 )
-from research.experiments.ml_overlay_training import ROUND_TRIP_COST
 from leadlag.models.ml_overlay_artifact import load_overlay_model
 from leadlag.models.ml_overlay_features import _build_ticker_features, _precompute_market_vol
 from leadlag.reporting.metrics import MetricsSpec, calculate_metrics, compute_drawdown_series
 from leadlag.utils.timestamps import normalize_jst_date
+from research.experiments.ml_overlay_training import ROUND_TRIP_COST
 from research.experiments.order_economics import (
     OrderCostSchedule,
     expected_gross_returns_from_overlay,
@@ -396,7 +397,7 @@ def _simulate(
         open_910_returns=open_910,
     )
     params = _cost_params(app_config, bps_per_side)
-    pnl = BacktestEngine._simulate_daily_pnl(
+    pnl = simulate_daily_pnl(
         weights=weights.to_numpy(dtype=float),
         target_returns=targets,
         gap_returns=gaps,

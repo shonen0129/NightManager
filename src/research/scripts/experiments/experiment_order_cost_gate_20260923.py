@@ -28,6 +28,7 @@ while not (ROOT / "pyproject.toml").exists():
     ROOT = ROOT.parent
 sys.path.insert(0, str(ROOT / "src"))
 
+from leadlag.core.pnl import simulate_daily_pnl
 from leadlag.data.intraday_inputs import build_open_910_returns
 from leadlag.data.market_data_cache import load_df_exec_from_local_cache
 from leadlag.data.tickers import JP_TICKERS
@@ -344,7 +345,7 @@ def _simulate(
         open_910_returns=open_910,
     )
     params = _cost_params(app_config, bps_per_side)
-    pnl = BacktestEngine._simulate_daily_pnl(
+    pnl = simulate_daily_pnl(
         weights=weights.to_numpy(dtype=float),
         target_returns=targets,
         gap_returns=gaps,

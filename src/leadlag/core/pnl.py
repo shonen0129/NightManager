@@ -169,7 +169,7 @@ class UnrealizedPnlRecord:
 class DailyCostBreakdown:
     """One simulated day's costs in decimal return units.
 
-    This is deliberately distinct from ``execution.cost_calculator.CostBreakdown``
+    This is deliberately distinct from microstructure cost functions
     (basis points) and ``domain.portfolio.CostBreakdown`` (a decision-level
     decimal estimate).  The backtest's values are fractions of portfolio
     notional and are deducted from a return series.
@@ -442,7 +442,7 @@ def simulate_daily_pnl(
     """Run the existing daily weight-based backtest cost model.
 
     This is intentionally a direct extraction of the former
-    ``BacktestEngine._simulate_daily_pnl`` implementation.  Inputs are copied
+    ``simulate_daily_pnl`` implementation.  Inputs are copied
     at the boundary so the accounting loop cannot mutate caller-owned arrays.
     ``alpha_masks`` supplies per-asset carry fractions for research callers;
     when omitted, long/short fractions are selected from the weight sign.

@@ -14,18 +14,18 @@ from datetime import UTC, datetime
 import numpy as np
 import pandas as pd
 
+from leadlag.core.pnl import simulate_daily_pnl
 from leadlag.data.pit_lake import PITDataLake
 from leadlag.data.tickers import JP_TICKERS
 from leadlag.domain.inputs import DecisionInputs
 from leadlag.execution.backtester import BacktestEngine
 from leadlag.execution.config import load_config_from_yaml
 from leadlag.experiment_registry import Decision, ExperimentRecord, ExperimentRegistry
-from research.experiments.ml_overlay_training import DEFAULT_LGBM_KWARGS
 from leadlag.models.ml_overlay_artifact import load_overlay_model, save_overlay_model
 from leadlag.models.ml_overlay_inference import apply_overlay
 from leadlag.runner.production import ProductionRunner
 from leadlag.utils.dataframe_fingerprint import dataframe_fingerprint
-from research.experiments.ml_overlay_training import _train_overlay_lgbm
+from research.experiments.ml_overlay_training import DEFAULT_LGBM_KWARGS, _train_overlay_lgbm
 from research.scripts.experiments.structural_artifact_acceptance import (
     GAP,
     REPORT,
@@ -95,7 +95,7 @@ def simulate(frame, history, app, decisions, dates):
                  "error": "collector rejected decision; retained as flat"} for d in dates]
     target, gap = BacktestEngine._compute_target_and_gap_returns(
         frame, frame.index, dates, open_910_returns=history.open_910_returns)
-    pnl = BacktestEngine._simulate_daily_pnl(
+    pnl = simulate_daily_pnl(
         weights, target, gap, dates, costs["slip_bps"] / 10000,
         costs["fin_annual"] / 365, costs["borrow_annual"] / 365, costs["rev_bps"] / 10000,
         costs["alpha_long"], costs["alpha_short"], costs["side_leverage"],

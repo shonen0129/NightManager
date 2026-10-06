@@ -27,6 +27,7 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[4]
 sys.path.insert(0, str(ROOT / "src"))
 
+from leadlag.core.pnl import simulate_daily_pnl
 from leadlag.data.intraday_inputs import build_open_910_returns
 from leadlag.data.market_data_cache import load_df_exec_from_local_cache
 from leadlag.data.tickers import JP_TICKERS
@@ -158,7 +159,7 @@ def _simulate(weights: pd.DataFrame, df_exec: pd.DataFrame, app_config: Any) -> 
         df_exec, full_dates, dates, open_910_returns=open_910
     )
     params = BacktestEngine._resolve_v2_backtest_cost_params(app_config, *([None] * 7))
-    pnl = BacktestEngine._simulate_daily_pnl(
+    pnl = simulate_daily_pnl(
         weights=weights.to_numpy(dtype=float),
         target_returns=targets,
         gap_returns=gaps,

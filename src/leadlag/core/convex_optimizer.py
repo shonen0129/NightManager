@@ -90,7 +90,7 @@ def _compute_net_cost(
 ) -> float:
     """Estimate daily net cost (slippage + financing + borrow + reverse) in decimal.
 
-    Mirrors the cost decomposition in ``BacktestEngine._simulate_daily_pnl`` for
+    Mirrors the cost decomposition in ``simulate_daily_pnl`` for
     a one-day holding period.
     """
     financing_daily = config.buy_interest_annual / 365.0

@@ -2,39 +2,10 @@
 
 from __future__ import annotations
 
-import numpy as np
-import pandas as pd
 import pytest
 
-from leadlag.core.pnl import FeeAccrual, Fill, InventoryLedger, fill_from_record, simulate_daily_pnl
-from leadlag.execution.backtester import BacktestEngine
+from leadlag.core.pnl import FeeAccrual, Fill, InventoryLedger, fill_from_record
 from leadlag.reporting.daily_pnl_report import compute_unrealized_pnl
-
-
-def _simulation_kwargs() -> dict:
-    return {
-        "weights": np.array([[1.0, -0.5], [0.0, -0.25]]),
-        "target_returns": np.array([[0.01, -0.02], [0.0, 0.03]]),
-        "gap_returns": np.array([[0.0, 0.0], [0.005, -0.01]]),
-        "sim_dates": pd.DatetimeIndex(["2026-01-05", "2026-01-06"]),
-        "slip": 0.0005,
-        "financing_daily": 0.0001,
-        "borrow_daily": 0.0002,
-        "reverse_daily": 0.00005,
-        "alpha_long": 0.75,
-        "alpha_short": 0.5,
-        "side_leverage": 1.5,
-        "oc_returns": np.array([[0.008, -0.01], [0.001, 0.02]]),
-    }
-
-
-def test_backtest_adapter_matches_extracted_pnl_calculator() -> None:
-    kwargs = _simulation_kwargs()
-    extracted = simulate_daily_pnl(**kwargs)
-    adapter = BacktestEngine._simulate_daily_pnl(**kwargs)
-    assert extracted.keys() == adapter.keys()
-    for key in extracted:
-        np.testing.assert_allclose(extracted[key], adapter[key])
 
 
 def test_fifo_ledger_allocates_entry_and_exit_fees_once() -> None:

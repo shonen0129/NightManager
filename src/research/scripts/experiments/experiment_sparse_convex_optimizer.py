@@ -17,17 +17,17 @@ from leadlag.core.convex_optimizer import (
     ConvexOptimizerConfig,
     optimize_portfolio_convex,
 )
+from leadlag.core.pnl import simulate_daily_pnl
 from leadlag.core.portfolio import get_rolling_pit_bin
 from leadlag.data.market_data_cache import load_df_exec_from_local_cache
 from leadlag.data.tickers import JP_TICKERS
 from leadlag.execution.backtester import BacktestEngine
 from leadlag.execution.config import load_config_from_yaml
 from leadlag.models.blpx import ProductionBLPXModel
-from leadlag.models.v2.gap_io import _compute_ondemand
-from leadlag.models.v2.overlay_applier import _multi_horizon_scores_with_metadata
 from leadlag.models.production_v2 import ProductionV2Model
-from leadlag.models.v2.gap_io import _build_current_prices_from_df_exec
 from leadlag.models.signal_enhancement import apply_rank_reversal_overlay
+from leadlag.models.v2.gap_io import _build_current_prices_from_df_exec, _compute_ondemand
+from leadlag.models.v2.overlay_applier import _multi_horizon_scores_with_metadata
 from leadlag.reporting.metrics import calculate_metrics
 
 
@@ -164,7 +164,7 @@ def run_sparse_convex_sweep(df_exec: pd.DataFrame) -> dict:
             weights[t_idx] = w_out
             w_prev = w_out.copy()
 
-        pnl = BacktestEngine._simulate_daily_pnl(
+        pnl = simulate_daily_pnl(
             weights=weights,
             target_returns=y_jp_target_arr,
             gap_returns=gap_returns_arr,

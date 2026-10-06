@@ -132,38 +132,6 @@ class BacktestEngine:
         gap_returns_arr = gap_returns_df.loc[sim_dates_slice].values
         return y_jp_target_arr, gap_returns_arr
 
-    @classmethod
-    def _simulate_daily_pnl(
-        cls,
-        weights: np.ndarray,
-        target_returns: np.ndarray,
-        gap_returns: np.ndarray,
-        sim_dates: pd.DatetimeIndex,
-        slip: float,
-        financing_daily: float,
-        borrow_daily: float,
-        reverse_daily: float,
-        alpha_long: float,
-        alpha_short: float,
-        side_leverage: float = 1.0,
-        oc_returns: np.ndarray | None = None,
-    ) -> dict:
-        """Compatibility adapter for the pure daily P&L calculator."""
-        return simulate_daily_pnl(
-            weights=weights,
-            target_returns=target_returns,
-            gap_returns=gap_returns,
-            sim_dates=sim_dates,
-            slip=slip,
-            financing_daily=financing_daily,
-            borrow_daily=borrow_daily,
-            reverse_daily=reverse_daily,
-            alpha_long=alpha_long,
-            alpha_short=alpha_short,
-            side_leverage=side_leverage,
-            oc_returns=oc_returns,
-        )
-
     # ------------------------------------------------------------------
     # V2 backtest (ProductionV2 model — gap-adjusted distribution)
     # ------------------------------------------------------------------
@@ -314,7 +282,7 @@ class BacktestEngine:
         borrow_daily = borrow_annual / 365.0
         reverse_daily = rev_bps / 10000.0
 
-        pnl = cls._simulate_daily_pnl(
+        pnl = simulate_daily_pnl(
             weights=sre_weights,
             target_returns=y_jp_target_arr,
             gap_returns=gap_returns_arr,

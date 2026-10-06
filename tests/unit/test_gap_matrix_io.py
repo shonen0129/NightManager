@@ -11,7 +11,7 @@ import pytest
 from leadlag.data.gap_store import GapStore
 from leadlag.data.tickers import JP_TICKERS
 from leadlag.data.validation import DataValidationError
-from leadlag.utils.gap_matrix_io import load_gap_bundle, load_gap_matrices, save_gap_matrices
+from leadlag.utils.gap_matrix_io import load_gap_bundle, save_gap_matrices
 
 
 def _build_gap_store(tmpdir: Path, trade_date: str = "2026-01-01") -> Path:
@@ -25,7 +25,7 @@ def _build_gap_store(tmpdir: Path, trade_date: str = "2026-01-01") -> Path:
     return store_path
 
 
-def test_load_gap_matrices_nonstrict_returns_warnings_with_arrays():
+def test_load_gap_bundle_nonstrict_returns_warnings_with_arrays():
     """Non-strict mode must return the loaded arrays and the validation alerts."""
     n_j = len(JP_TICKERS)
     with tempfile.TemporaryDirectory() as tmp:
@@ -39,7 +39,7 @@ def test_load_gap_matrices_nonstrict_returns_warnings_with_arrays():
         omega[0, 1] = 1e-3
         store.save("2026-01-02", mu, omega)
 
-        mu_out, omega_out, alerts = load_gap_matrices(
+        mu_out, omega_out, _metadata, alerts = load_gap_bundle(
             store_path, "2026-01-02", strict=False, require_metadata=False
         )
         assert mu_out is not None
@@ -58,9 +58,7 @@ def test_load_gap_bundle_reads_mu_omega_metadata_from_one_store_snapshot():
             np.eye(n_j),
             metadata={"sig_date": "2026-01-01"},
         )
-        mu, omega, metadata, alerts = load_gap_bundle(
-            store_path, "2026-01-02", strict=True
-        )
+        mu, omega, metadata, alerts = load_gap_bundle(store_path, "2026-01-02", strict=True)
         assert mu is not None and omega is not None
         assert metadata == {"sig_date": "2026-01-01"}
         assert alerts == []
@@ -103,19 +101,21 @@ def test_npy_bundle_rejects_partial_republication_with_old_manifest(tmp_path: Pa
     assert any("consistency check failed" in alert for alert in alerts)
 
 
-def test_npy_bundle_without_commit_manifest_is_unusable_in_compat_loader(tmp_path: Path):
+def test_npy_bundle_without_commit_manifest_is_unusable_in_bundle_loader(tmp_path: Path):
     n_j = len(JP_TICKERS)
     matrix_dir = tmp_path / "matrices"
     matrix_dir.mkdir()
     np.save(matrix_dir / "mu_gap_20260102.npy", np.zeros(n_j))
     np.save(matrix_dir / "omega_gap_20260102.npy", np.eye(n_j))
 
-    mu, omega, alerts = load_gap_matrices(tmp_path, "2026-01-02", strict=False)
+    mu, omega, _metadata, alerts = load_gap_bundle(
+        tmp_path, "2026-01-02", strict=False, require_metadata=True
+    )
     assert mu is None and omega is None
     assert any(alert.startswith("[FATAL]") for alert in alerts)
 
 
-def test_compat_loader_rejects_future_provenance_by_default(tmp_path: Path):
+def test_bundle_loader_rejects_future_provenance_by_default(tmp_path: Path):
     n_j = len(JP_TICKERS)
     assert save_gap_matrices(
         tmp_path,
@@ -124,7 +124,9 @@ def test_compat_loader_rejects_future_provenance_by_default(tmp_path: Path):
         np.eye(n_j),
         metadata={"sig_date": "2026-01-03", "trade_date": "2026-01-02"},
     )
-    mu, omega, alerts = load_gap_matrices(tmp_path, "2026-01-02", strict=False)
+    mu, omega, _metadata, alerts = load_gap_bundle(
+        tmp_path, "2026-01-02", strict=False, require_metadata=True
+    )
     assert mu is None and omega is None
     assert any("not before" in alert for alert in alerts)
 
@@ -174,9 +176,7 @@ def test_npy_bundle_without_metadata_does_not_retain_previous_provenance(tmp_pat
         },
     ],
 )
-def test_compat_loader_rejects_conflicting_or_non_scalar_provenance(
-    tmp_path: Path, metadata: dict
-):
+def test_bundle_loader_rejects_conflicting_or_non_scalar_provenance(tmp_path: Path, metadata: dict):
     n_j = len(JP_TICKERS)
     assert save_gap_matrices(
         tmp_path,
@@ -186,7 +186,9 @@ def test_compat_loader_rejects_conflicting_or_non_scalar_provenance(
         metadata=metadata,
     )
 
-    mu, omega, alerts = load_gap_matrices(tmp_path, "2026-01-02", strict=False)
+    mu, omega, _metadata, alerts = load_gap_bundle(
+        tmp_path, "2026-01-02", strict=False, require_metadata=True
+    )
 
     assert mu is None and omega is None
     assert any(alert.startswith("[FATAL]") for alert in alerts)
@@ -205,12 +207,14 @@ def test_npy_bundle_normalizes_matching_signal_date_alias(tmp_path: Path):
         },
     )
 
-    mu, omega, alerts = load_gap_matrices(tmp_path, "2026-01-02", strict=False)
+    mu, omega, _metadata, alerts = load_gap_bundle(
+        tmp_path, "2026-01-02", strict=False, require_metadata=True
+    )
     assert mu is not None and omega is not None
     assert alerts == []
 
 
-def test_load_gap_matrices_strict_raises_on_asymmetric_omega():
+def test_load_gap_bundle_strict_raises_on_asymmetric_omega():
     n_j = len(JP_TICKERS)
     with tempfile.TemporaryDirectory() as tmp:
         d = Path(tmp)
@@ -223,16 +227,16 @@ def test_load_gap_matrices_strict_raises_on_asymmetric_omega():
         store.save("2026-01-02", mu, omega)
 
         with pytest.raises(DataValidationError):
-            load_gap_matrices(store_path, "2026-01-02", strict=True)
+            load_gap_bundle(store_path, "2026-01-02", strict=True, require_metadata=True)
 
 
-def test_load_gap_matrices_nonstrict_returns_none_for_missing_files():
+def test_load_gap_bundle_nonstrict_returns_none_for_missing_files():
     with tempfile.TemporaryDirectory() as tmp:
         d = Path(tmp)
         store_path = _build_gap_store(d)
 
-        mu_out, omega_out, alerts = load_gap_matrices(
-            store_path, "2026-01-03", strict=False
+        mu_out, omega_out, _metadata, alerts = load_gap_bundle(
+            store_path, "2026-01-03", strict=False, require_metadata=True
         )
         assert mu_out is None
         assert omega_out is None

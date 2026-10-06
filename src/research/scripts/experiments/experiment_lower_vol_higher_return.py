@@ -17,6 +17,7 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
+from leadlag.core.pnl import simulate_daily_pnl
 from leadlag.data.market_data_cache import load_df_exec_from_local_cache
 from leadlag.data.tickers import JP_TICKERS
 from leadlag.execution.backtester import BacktestEngine
@@ -119,7 +120,7 @@ def run_full_pipeline_test(df_exec: pd.DataFrame) -> dict:
     print("=" * 105)
 
     for name, w_mat in methods.items():
-        pnl = BacktestEngine._simulate_daily_pnl(
+        pnl = simulate_daily_pnl(
             weights=w_mat,
             target_returns=y_jp_target_arr,
             gap_returns=gap_returns_arr,

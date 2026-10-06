@@ -17,6 +17,7 @@ from typing import Any, cast
 import numpy as np
 import pandas as pd
 
+from leadlag.core.pnl import simulate_daily_pnl
 from leadlag.data.tickers import JP_TICKERS
 from leadlag.execution.backtester import BacktestEngine
 from research.models.base import BaseModel
@@ -256,7 +257,7 @@ def run_v1_backtest(
     sre_weights_arr = sre_weights_df.values
     y_jp_oc_arr = y_jp_oc_df.loc[sim_dates_slice].values
 
-    pnl = BacktestEngine._simulate_daily_pnl(
+    pnl = simulate_daily_pnl(
         weights=sre_weights_arr,
         target_returns=y_jp_target_arr,
         gap_returns=gap_returns_arr,

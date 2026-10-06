@@ -32,6 +32,7 @@ from experiment_lgbm_order_cost_20260923 import (  # noqa: E402
     _order_cost_gate,
 )
 
+from leadlag.core.pnl import simulate_daily_pnl
 from leadlag.data.intraday_inputs import build_open_910_returns  # noqa: E402
 from leadlag.data.tickers import JP_TICKERS  # noqa: E402
 from leadlag.execution.backtester import BacktestEngine  # noqa: E402
@@ -310,7 +311,7 @@ def _simulate(
         dates,
         open_910_returns=open_910,
     )
-    pnl = BacktestEngine._simulate_daily_pnl(
+    pnl = simulate_daily_pnl(
         weights=weights.loc[dates, JP_TICKERS].to_numpy(dtype=float),
         target_returns=targets,
         gap_returns=gaps,

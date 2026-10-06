@@ -449,42 +449,6 @@ def load_gap_bundle(
     return None, None, metadata, alerts
 
 
-def load_gap_matrices(
-    gap_input_dir: Path,
-    date_str: str,
-    mu_pattern: str = "matrices/mu_gap_{date}.npy",
-    omega_pattern: str = "matrices/omega_gap_{date}.npy",
-    pattern_kwargs: dict | None = None,
-    *,
-    strict: bool = False,
-    require_metadata: bool = True,
-    expected_identity: Mapping[str, Any] | None = None,
-    require_identity: bool = False,
-    n_j: int = len(JP_TICKERS),
-) -> tuple[np.ndarray | None, np.ndarray | None, list[str]]:
-    """Compatibility μ/Ω loader backed by :func:`load_gap_bundle`.
-
-    Provenance is required by default because this three-value API cannot
-    return metadata to a caller.  Set ``require_metadata=False`` only for
-    explicitly diagnostic, low-level matrix inspection.  ``expected_identity``
-    and ``require_identity`` apply the same bundle identity checks as
-    :func:`load_gap_bundle`.
-    """
-    mu_gap, Omega_gap, _metadata, alerts = load_gap_bundle(
-        gap_input_dir,
-        date_str,
-        mu_pattern=mu_pattern,
-        omega_pattern=omega_pattern,
-        pattern_kwargs=pattern_kwargs,
-        strict=strict,
-        require_metadata=require_metadata,
-        expected_identity=expected_identity,
-        require_identity=require_identity,
-        n_j=n_j,
-    )
-    return mu_gap, Omega_gap, alerts
-
-
 def load_gap_bundle_manifest(
     gap_input_dir: Path,
     date_str: str,

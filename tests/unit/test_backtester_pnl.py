@@ -5,12 +5,13 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+from leadlag.core.pnl import simulate_daily_pnl
 from leadlag.data.tickers import JP_TICKERS
 from leadlag.execution.backtester import BacktestEngine
 
 
 def test_flat_transition_charges_liquidation_slippage() -> None:
-    result = BacktestEngine._simulate_daily_pnl(
+    result = simulate_daily_pnl(
         weights=np.array([[1.0], [0.0]]),
         target_returns=np.zeros((2, 1)),
         gap_returns=np.zeros((2, 1)),
