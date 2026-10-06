@@ -1,0 +1,182 @@
+{
+  "checked_date": "2026-10-06 JST",
+  "repository": "shonen0129/NightManager",
+  "head": "b5b901e6d467fb000263f9178722e3954d652720",
+  "branch": {
+    "name": "main",
+    "protected": false,
+    "required_status_enforcement": "off",
+    "required_status_contexts": [],
+    "source": "https://api.github.com/repos/shonen0129/NightManager/branches/main"
+  },
+  "rulesets": [],
+  "tracker_url": "https://github.com/shonen0129/NightManager/issues/22",
+  "branch_issue": {
+    "url": "https://github.com/shonen0129/NightManager/issues/18",
+    "state": "open",
+    "title": "[P1] main branch protectionでCI required checksを強制する",
+    "body": "## 現状\n前回の「CIを導入する」という実装部分は完了している。\n\ncurrent main `5bfb55bf6347f8e9c2014e7827f1c02804448f58` には `.github/workflows/ci.yml` があり、以下を実行する:\n- `uv sync --locked --extra dev --extra ci-ml` / lockfile検証\n- compileall\n- Ruff（production/maintained paths）\n- mypy `src/leadlag`\n- import-linter\n- docs validation\n- production wheel build / research混入検査\n- isolated wheel smoke\n- regression baseline + full pytest\n\n2026-09-22のHosted CI受入でも全job成功が確認されている。\n\n一方、2026-09-30再確認時点で `main` branch は **protected=false**。\nしたがって残件は「CIを作ること」ではなく「CI成功をmain更新の必須条件としてGitHub側で強制すること」。\n\n## 対応\n- `main` にbranch protectionまたはrepository rulesetを設定\n- `quality-and-tests`（leadlag-ci）の成功をmerge条件にする\n- required check名とworkflow/job名の変更時に保護設定が無効化されない運用を文書化\n- direct push / bypassを許す主体がある場合は明示\n- protection設定を確認するread-only証跡を残す\n\n## 完了条件\n- GitHub API/UI上で `main` がprotected/ruleset対象であることを確認\n- CI失敗commit/PRをmainへ通常mergeできない\n- CI成功時のみ通常merge可能\n- `docs/CI.md` にrequired checksとGitHub側設定を記載\n\n## 完了済み部分\n旧issue本文にあったCI workflow作成、full tests、Ruff、mypy、import-linter、wheel/smokeは完了済み。"
+  },
+  "current_head_runs": {
+    "runs": [
+      {
+        "id": 37349218940,
+        "url": "https://github.com/shonen0129/NightManager/actions/runs/37349218940",
+        "name": "leadlag-ci",
+        "event": "push",
+        "status": "completed",
+        "conclusion": "success",
+        "head_sha": "b5b901e6d467fb000263f9178722e3954d652720",
+        "created_at": "2026-10-05T17:32:44Z"
+      }
+    ],
+    "count": 1
+  },
+  "jobs": {
+    "jobs": [
+      {
+        "id": 111895522202,
+        "name": "quality-and-tests",
+        "status": "completed",
+        "conclusion": "success",
+        "run_id": 37349218940,
+        "logs_url": null,
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 1
+          },
+          {
+            "name": "Check out repository",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 2
+          },
+          {
+            "name": "Set up Python 3.12",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 3
+          },
+          {
+            "name": "Set up uv",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 4
+          },
+          {
+            "name": "Install locked production, development, and CI ML dependencies",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 5
+          },
+          {
+            "name": "Verify lockfile",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 6
+          },
+          {
+            "name": "Compile all source and test trees",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 7
+          },
+          {
+            "name": "Ruff production and maintained tool paths",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 8
+          },
+          {
+            "name": "Ruff current research training entry",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 9
+          },
+          {
+            "name": "Mypy production package",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 10
+          },
+          {
+            "name": "Import architecture contracts",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 11
+          },
+          {
+            "name": "Validate architecture document links",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 12
+          },
+          {
+            "name": "Build production wheel",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 13
+          },
+          {
+            "name": "Verify wheel excludes research package",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 14
+          },
+          {
+            "name": "Smoke installed wheel and ML artifact inference",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 15
+          },
+          {
+            "name": "Run complete test suite",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 16
+          },
+          {
+            "name": "Upload wheel artifact",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 17
+          },
+          {
+            "name": "Upload structural comparison manifest",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 18
+          },
+          {
+            "name": "Post Set up uv",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 34
+          },
+          {
+            "name": "Post Set up Python 3.12",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 35
+          },
+          {
+            "name": "Post Check out repository",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 36
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 37
+          }
+        ]
+      }
+    ]
+  },
+  "calendar_source": "https://www.jpx.co.jp/faq/others_general.html"
+}

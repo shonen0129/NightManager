@@ -1,0 +1,20 @@
+[
+  {
+    "name": "lock_offline",
+    "command": [
+      "/opt/homebrew/bin/uv",
+      "lock",
+      "--check",
+      "--offline"
+    ],
+    "deadline_seconds": 120,
+    "exit": 0,
+    "timed_out": false,
+    "elapsed_seconds": 0.15
+  },
+  {
+    "name": "offline_wheel_build",
+    "exit": 1,
+    "error": "No module named 'build'"
+  }
+]

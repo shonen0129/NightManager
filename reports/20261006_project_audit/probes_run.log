@@ -1,0 +1,178 @@
+ADR feature row missing for trade_date=2026-10-06 00:00:00 (latest=2026-08-17 00:00:00); returning None.
+No static holiday table for year 2024. Install jpholiday or update market_calendar.py.
+No static holiday table for year 2028. Install jpholiday or update market_calendar.py.
+Keeping provisional row with non-positive open: ['jp_open_trade non-positive for 1617.T on 2026-09-08 00:00:00', 'jp_open_trade non-positive for 1618.T on 2026-09-08 00:00:00', 'jp_open_trade non-positive for 1619.T on 2026-09-08 00:00:00', 'jp_open_trade non-positive for 1620.T on 2026-09-08 00:00:00', 'jp_open_trade non-positive for 1621.T on 2026-09-08 00:00:00', 'jp_open_trade non-positive for 1622.T on 2026-09-08 00:00:00', 'jp_open_trade non-positive for 1623.T on 2026-09-08 00:00:00', 'jp_open_trade non-positive for 1624.T on 2026-09-08 00:00:00', 'jp_open_trade non-positive for 1625.T on 2026-09-08 00:00:00', 'jp_open_trade non-positive for 1626.T on 2026-09-08 00:00:00', 'jp_open_trade non-positive for 1627.T on 2026-09-08 00:00:00', 'jp_open_trade non-positive for 1628.T on 2026-09-08 00:00:00', 'jp_open_trade non-positive for 1629.T on 2026-09-08 00:00:00', 'jp_open_trade non-positive for 1630.T on 2026-09-08 00:00:00', 'jp_open_trade non-positive for 1631.T on 2026-09-08 00:00:00', 'jp_open_trade non-positive for 1632.T on 2026-09-08 00:00:00', 'jp_open_trade non-positive for 1633.T on 2026-09-08 00:00:00']
+{
+  "carry_open_to_910": {
+    "path": "BacktestEngine target/gap extraction -> simulate_daily_pnl",
+    "close_day1": 100,
+    "open_day2": 100,
+    "price_910_day2": 110,
+    "close_day2": 110,
+    "held_long_from_day1_to_day2_910": 1.0,
+    "flat_price_short_weight": -1.0,
+    "model_net": 0.0,
+    "model_gross": 2.0,
+    "computed_gross_returns": [
+      0.0,
+      0.0
+    ],
+    "held_inventory_return_until_910": 0.1
+  },
+  "turnover": {
+    "reported_turnover": [
+      0.5,
+      0.0
+    ],
+    "executed_one_way_volume_by_day": [
+      2.0,
+      2.0
+    ],
+    "slippage_costs": [
+      0.002,
+      0.002
+    ]
+  },
+  "terminal_inventory": {
+    "slippage_costs": [
+      0.001
+    ],
+    "cost_if_liquidated": 0.002,
+    "unreported_final_inventory": 1.0
+  },
+  "missing_flat_target": {
+    "evaluation_days": 2,
+    "pnl_non_finite_days": 1,
+    "metrics_after_dropna": {
+      "AR": 10.448183361474655,
+      "RISK": null,
+      "R/R": null,
+      "Sharpe": null,
+      "MDD": 0.0,
+      "Total Return": 0.010000000000000009
+    },
+    "finite_days_used": 1
+  },
+  "end_before_data": {
+    "requested_end": "2026-09-30",
+    "first_available": "2026-10-01",
+    "selected": [
+      "2026-10-01"
+    ]
+  },
+  "baseline_interval": {
+    "accepted_simulation_dates": [
+      "2010-01-04",
+      "2014-12-30"
+    ],
+    "required_minimum_start": "2015-01-05"
+  },
+  "minvar_counts": {
+    "requested_long": 5,
+    "requested_short": 3,
+    "actual_long": 5,
+    "actual_short": 5,
+    "summary": {
+      "trade_date": "2026-10-06",
+      "candidate": "primary_ruleD",
+      "version": "production_residual_blpx_v2",
+      "long_count": 5,
+      "short_count": 5,
+      "target_gross": 2.0,
+      "target_net": 1.1102230246251565e-16,
+      "gross_multiplier": 1.0,
+      "pit_bin": "Medium",
+      "pit_threshold_low": null,
+      "pit_threshold_high": null,
+      "predicted_portfolio_mean": 0.012666666666666666,
+      "predicted_portfolio_vol": 0.00649786289653931,
+      "predicted_portfolio_ir": 1.6415653633362464,
+      "expected_cost_bps": 20.0,
+      "herfindahl": 0.21111111111111114,
+      "fallback_triggered": 0
+    },
+    "numerical": {
+      "status": "PASSED",
+      "scores_finite": true,
+      "weights_finite": true,
+      "net_exposure_near_zero": true,
+      "net_exposure_value": 1.1102230246251565e-16,
+      "gross_exposure_value": 2.0,
+      "gross_exposure_within_limit": true,
+      "covariance_diag_nonneg": true,
+      "covariance_symmetric": true,
+      "covariance_symmetry_max_err": 0.0,
+      "covariance_psd": true,
+      "covariance_min_eigval": 0.0001
+    }
+  },
+  "dsr_inconsistent_count": {
+    "finite_returns": 4,
+    "dsr_T4": 0.0878260022427037,
+    "dsr_T1000": 0.9931641325559076,
+    "invalid_status_dsr": 0.9931641325559076
+  },
+  "monthly_annualization": {
+    "frequency_only": {
+      "AR": 5.177029036865656,
+      "RISK": 0.16291613384397127,
+      "R/R": 31.777264256858825,
+      "Sharpe": 11.278809266121016,
+      "MDD": -0.0050000000000000044,
+      "Total Return": 0.03017424499999999
+    },
+    "explicit_spec": {
+      "AR": 0.09328166338326915,
+      "RISK": 0.03605551275463996,
+      "R/R": 2.5871678491457537,
+      "Sharpe": 2.4961508830135193,
+      "MDD": -0.0050000000000000044,
+      "Total Return": 0.03017424499999999
+    }
+  },
+  "summary_mdd": {
+    "metrics_MDD": -0.09999999999999998,
+    "run_summary_max_drawdown": 0.0
+  },
+  "backtest_config_secrets": {
+    "synthetic_password_preserved": true,
+    "synthetic_token_preserved": true,
+    "synthetic_second_password_preserved": true
+  },
+  "auth_http_exception": {
+    "encoded_auth_id_present_in_exception": true,
+    "query_present_in_exception": true
+  },
+  "optional_volume": {
+    "input_ohlc_rows": 1,
+    "output_rows": 0
+  },
+  "intraday_at": {
+    "requested": "2026-10-01 09:10",
+    "returned": 200.0,
+    "price_at_requested_time": 100.0
+  },
+  "adr_local": {
+    "exists": true,
+    "latest": "2026-08-17 00:00:00",
+    "valid_for_20261006": false
+  },
+  "calendar_outside_static": {
+    "2024-12-31_is_trading": true,
+    "2028-01-03_is_trading": true
+  },
+  "post_inception_proxy": {
+    "missing_input_ticker": "XLC",
+    "missing_signal_date": "2026-09-02",
+    "output_trade_date": "2026-09-03",
+    "output_XLC_return": 0.010000000000000009,
+    "strict_validation_accepted": true,
+    "proxy_source_column_present": false
+  },
+  "installed_package_root": {
+    "simulation": "Execute the unchanged paths module at a conventional installed file location; no wheel installation",
+    "package_file": "/tmp/audit-venv/lib/python3.12/site-packages/leadlag/config/paths.py",
+    "resolved_runtime_root": "/private/tmp/audit-venv/lib/python3.12",
+    "checkout_root": "/Users/shonen/leadlag"
+  }
+}

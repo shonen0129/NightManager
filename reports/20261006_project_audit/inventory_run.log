@@ -1,0 +1,330 @@
+{
+  "git_head": "b5b901e6d467fb000263f9178722e3954d652720",
+  "python": "3.12.0 (main, Oct  2 2023, 20:56:14) [Clang 16.0.3 ]",
+  "source_counts": {
+    "src/leadlag": {
+      "files": 152,
+      "lines": 36806
+    },
+    "src/research": {
+      "files": 199,
+      "lines": 59107
+    },
+    "tests": {
+      "files": 111,
+      "lines": 18841
+    },
+    "scripts": {
+      "files": 11,
+      "lines": 816
+    },
+    "tools": {
+      "files": 26,
+      "lines": 11578
+    }
+  },
+  "largest_files": [
+    {
+      "path": "src/research/scripts/sprint/run_sprint3b_hinge_interactions.py",
+      "lines": 1985,
+      "classes": 0,
+      "functions": 33
+    },
+    {
+      "path": "src/research/scripts/sprint/run_sprint3a_hinge_features.py",
+      "lines": 1549,
+      "classes": 0,
+      "functions": 25
+    },
+    {
+      "path": "src/research/scripts/experiments/experiment_sensitivity_rate_prior_v2_20260924.py",
+      "lines": 1483,
+      "classes": 0,
+      "functions": 28
+    },
+    {
+      "path": "tools/validation/validate_distribution_prediction_step1.py",
+      "lines": 1428,
+      "classes": 0,
+      "functions": 11
+    },
+    {
+      "path": "tools/research/compute_gap_adjusted_distribution.py",
+      "lines": 1351,
+      "classes": 2,
+      "functions": 11
+    },
+    {
+      "path": "src/research/models/sector_relative_ensemble_blp_enhanced.py",
+      "lines": 1247,
+      "classes": 1,
+      "functions": 22
+    },
+    {
+      "path": "src/research/scripts/experiments/run_v2_backtest.py",
+      "lines": 1201,
+      "classes": 0,
+      "functions": 9
+    },
+    {
+      "path": "tools/validation/diagnose_us_vol_states.py",
+      "lines": 1148,
+      "classes": 0,
+      "functions": 17
+    },
+    {
+      "path": "tools/research/compute_structured_prediction_covariance.py",
+      "lines": 1088,
+      "classes": 0,
+      "functions": 5
+    },
+    {
+      "path": "src/leadlag/broker/kabu/api.py",
+      "lines": 1042,
+      "classes": 3,
+      "functions": 25
+    },
+    {
+      "path": "src/research/scripts/sprint/run_sprint1_aum1m_tachibana.py",
+      "lines": 1031,
+      "classes": 0,
+      "functions": 4
+    },
+    {
+      "path": "src/research/scripts/sprint/run_sprint2_cost_aware_aum1m.py",
+      "lines": 1030,
+      "classes": 0,
+      "functions": 8
+    },
+    {
+      "path": "tools/validation/run_daily_residual_blpx_shadow.py",
+      "lines": 949,
+      "classes": 0,
+      "functions": 15
+    },
+    {
+      "path": "src/research/scripts/experiments/experiment_sensitivity_pipeline_audit_20260924.py",
+      "lines": 945,
+      "classes": 0,
+      "functions": 18
+    },
+    {
+      "path": "src/research/scripts/experiments/retrain_ml_overlay_20260927.py",
+      "lines": 937,
+      "classes": 1,
+      "functions": 18
+    },
+    {
+      "path": "tools/validation/build_residual_blpx_shadow_run_package.py",
+      "lines": 915,
+      "classes": 0,
+      "functions": 5
+    },
+    {
+      "path": "src/research/scripts/experiments/experiment_jpx33_direct_prediction_20260924.py",
+      "lines": 902,
+      "classes": 0,
+      "functions": 15
+    },
+    {
+      "path": "src/research/scripts/experiments/experiment_lgbm_order_cost_20260923.py",
+      "lines": 899,
+      "classes": 0,
+      "functions": 14
+    },
+    {
+      "path": "tools/validation/collect_0910_microstructure.py",
+      "lines": 873,
+      "classes": 0,
+      "functions": 19
+    },
+    {
+      "path": "src/leadlag/execution/state_store.py",
+      "lines": 871,
+      "classes": 7,
+      "functions": 35
+    },
+    {
+      "path": "src/leadlag/execution/broker_ops.py",
+      "lines": 859,
+      "classes": 1,
+      "functions": 15
+    },
+    {
+      "path": "src/research/diagnostics/gap_outputs.py",
+      "lines": 839,
+      "classes": 0,
+      "functions": 4
+    },
+    {
+      "path": "src/research/scripts/sprint/run_sprint2b_qa.py",
+      "lines": 799,
+      "classes": 0,
+      "functions": 7
+    },
+    {
+      "path": "src/leadlag/core/pipeline.py",
+      "lines": 798,
+      "classes": 10,
+      "functions": 33
+    },
+    {
+      "path": "src/leadlag/execution/v2_bridge.py",
+      "lines": 785,
+      "classes": 0,
+      "functions": 7
+    },
+    {
+      "path": "tests/unit/test_stage_abc_fixes.py",
+      "lines": 781,
+      "classes": 3,
+      "functions": 32
+    },
+    {
+      "path": "src/leadlag/config/schemas.py",
+      "lines": 774,
+      "classes": 10,
+      "functions": 4
+    },
+    {
+      "path": "src/research/diagnostics/sprint1_experiments.py",
+      "lines": 773,
+      "classes": 0,
+      "functions": 10
+    },
+    {
+      "path": "src/research/scripts/experiments/experiment_order_cost_gate_20260923.py",
+      "lines": 762,
+      "classes": 0,
+      "functions": 13
+    },
+    {
+      "path": "src/leadlag/domain/inputs.py",
+      "lines": 757,
+      "classes": 6,
+      "functions": 43
+    },
+    {
+      "path": "src/research/scripts/experiments/experiment_lgbm_calibration_20260923.py",
+      "lines": 742,
+      "classes": 0,
+      "functions": 12
+    },
+    {
+      "path": "src/research/scripts/experiments/experiment_jpx33_sensitivity_prior_20260924.py",
+      "lines": 734,
+      "classes": 0,
+      "functions": 11
+    },
+    {
+      "path": "src/leadlag/utils/gap_matrix_io.py",
+      "lines": 717,
+      "classes": 0,
+      "functions": 14
+    },
+    {
+      "path": "src/leadlag/execution/close.py",
+      "lines": 711,
+      "classes": 0,
+      "functions": 5
+    },
+    {
+      "path": "tools/validation/build_readonly_shadow_acceptance_report.py",
+      "lines": 706,
+      "classes": 0,
+      "functions": 18
+    }
+  ],
+  "registry": {
+    "rows": 101,
+    "names": {
+      "ml_overlay_training": 7,
+      "20260922_structural_artifact_fixed_candidate": 1,
+      "20260923_turnover_aware_no_trade": 1,
+      "stage5_intraday_carry_decomposition_20260923": 3,
+      "stage6_ablation_ml_off_20260923": 2,
+      "stage6_ablation_mh_off_20260923": 2,
+      "stage6_ablation_macro_off_20260923": 2,
+      "stage6_ablation_fracdiff_off_20260923": 2,
+      "stage6_ablation_copula_off_20260923": 2,
+      "stage6_ablation_cs_off_20260923": 2,
+      "stage6_ablation_minvar_off_20260923": 2,
+      "stage6_ablation_rule_d_off_20260923": 2,
+      "stage7_ml_trade_value_20260923": 2,
+      "stage8_capacity_beta_20260923": 2,
+      "run_v2_backtest": 1,
+      "20260923_order_cost_gate_primary": 1,
+      "20260923_lgbm_order_cost_primary": 1,
+      "20260923_lgbm_expanding_affine_calibration_diagnostic": 1,
+      "20260924_jpx33_sensitivity_prior": 1,
+      "20260924_jpx33_sensitivity_open_long": 1,
+      "20260924_jpx33_sensitivity_open_long_correction_1": 1,
+      "20260924_sensitivity_rate_prior_v2_preflight_blocked": 1,
+      "20260924_sensitivity_rate_prior_v2_rate_prior": 1,
+      "20260924_sensitivity_rate_prior_v2_rate_prior_attenuated": 1,
+      "20260924_sensitivity_rate_prior_v2_rate_prior_amplified": 1,
+      "20260924_sensitivity_pipeline_audit_all_w3_w6_zero": 1,
+      "20260924_sensitivity_pipeline_audit_drop_w3": 1,
+      "20260924_sensitivity_pipeline_audit_drop_w4": 1,
+      "20260924_sensitivity_pipeline_audit_drop_w5": 1,
+      "20260924_sensitivity_pipeline_audit_drop_w6": 1,
+      "20260924_sensitivity_pipeline_audit_user_jpx33_pitcap_2025": 1,
+      "20260924_sensitivity_pipeline_audit_legacy_jpx33_pitcap_2025": 1,
+      "20260924_sensitivity_pipeline_audit_rate_w6_us_only": 1,
+      "20260924_sensitivity_pipeline_audit_rate_w6_jp_only": 1,
+      "20260924_sensitivity_pipeline_audit_rate_w6_both": 1,
+      "20260924_sensitivity_pipeline_audit_max_structural_one_cell_step": 1,
+      "20260924_sensitivity_pipeline_audit_jp_random_permutation_20260925": 1,
+      "20260924_sensitivity_pipeline_audit_jp_random_permutation_20260926": 1,
+      "20260924_sensitivity_pipeline_audit_jp_random_permutation_20260927": 1,
+      "20260924_sensitivity_pipeline_audit_jp_random_permutation_20260928": 1,
+      "20260924_sensitivity_pipeline_audit_jp_random_permutation_20260929": 1,
+      "20260924_jpx33_pitcap_correction_2015_2017_legacy_33_fixed_2017": 1,
+      "20260924_jpx33_pitcap_correction_2015_2017_legacy_33_pit_cap": 1,
+      "20260924_sensitivity_pipeline_audit_long_all_w3_w6_zero": 2,
+      "20260924_sensitivity_pipeline_audit_long_drop_w3": 2,
+      "20260924_sensitivity_pipeline_audit_long_drop_w4": 2,
+      "20260924_sensitivity_pipeline_audit_long_drop_w5": 2,
+      "20260924_sensitivity_pipeline_audit_long_drop_w6": 2,
+      "20260924_sensitivity_pipeline_audit_long_user_jpx33_pitcap_annual": 2,
+      "20260924_sensitivity_pipeline_audit_long_legacy_jpx33_pitcap_annual": 2,
+      "20260924_sensitivity_pipeline_audit_long_rate_w6_us_only": 2,
+      "20260924_sensitivity_pipeline_audit_long_rate_w6_jp_only": 2,
+      "20260924_sensitivity_pipeline_audit_long_rate_w6_both": 2,
+      "20260924_jpx33_direct_prediction_direct33_parent_labels": 1,
+      "20260924_jpx33_direct_prediction_direct33_user_labels": 1,
+      "20260926_jpx33_index_ohlc_direct33_parent_labels": 1,
+      "20260926_jpx33_index_ohlc_direct33_user_labels": 1,
+      "20260926_jpx33_mapping_ablation_fixed_2014_cap": 1,
+      "20260926_jpx33_mapping_ablation_equal_child": 1,
+      "20260926_jpx33_mapping_ablation_fit_2010_14_simplex": 1,
+      "ml_overlay_var_history_cutoff_2025": 1,
+      "ml_overlay_cost_sensitivity_20260927": 1,
+      "ml_overlay_paired_forward_shadow_20260927": 1,
+      "ml_overlay_versioned_paired_replay_269d": 1,
+      "ml_overlay_blpx_residual_target": 6,
+      "var_es_side_leverage_deleveraging_20260930": 3
+    },
+    "decisions": {
+      "pending": 88,
+      "rejected": 12,
+      "adopted": 1
+    },
+    "missing_study_id": 87,
+    "missing_record_id": 81,
+    "dsr_non_null": 20,
+    "trials_missing_or_one": 70,
+    "missing_report_paths": [],
+    "record_dates": {
+      "2026-09-19": 5,
+      "2026-09-22": 14,
+      "2026-09-23": 40,
+      "2026-09-24": 22,
+      "2026-09-26": 8,
+      "2026-09-27": 2,
+      "2026-09-28": 1,
+      "2026-09-29": 6,
+      "2026-09-30": 3
+    }
+  }
+}

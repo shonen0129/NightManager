@@ -1,0 +1,100 @@
+[
+  {
+    "name": "compileall",
+    "command": [
+      "/Users/shonen/leadlag/.venv/bin/python",
+      "-m",
+      "compileall",
+      "-q",
+      "src/leadlag",
+      "tests",
+      "tools",
+      "scripts",
+      "src/research"
+    ],
+    "deadline_seconds": 180,
+    "exit": 0,
+    "timed_out": false,
+    "elapsed_seconds": 0.72
+  },
+  {
+    "name": "ruff_ci",
+    "command": [
+      "/Users/shonen/leadlag/.venv/bin/ruff",
+      "check",
+      "src/leadlag",
+      "tests",
+      "tools/production",
+      "tools/validation",
+      "--output-format",
+      "json"
+    ],
+    "deadline_seconds": 180,
+    "exit": 0,
+    "timed_out": false,
+    "elapsed_seconds": 0.13
+  },
+  {
+    "name": "ruff_all",
+    "command": [
+      "/Users/shonen/leadlag/.venv/bin/ruff",
+      "check",
+      "src/leadlag",
+      "src/research",
+      "tests",
+      "tools",
+      "scripts",
+      "--output-format",
+      "json"
+    ],
+    "deadline_seconds": 180,
+    "exit": 1,
+    "timed_out": false,
+    "elapsed_seconds": 0.04
+  },
+  {
+    "name": "mypy",
+    "command": [
+      "/Users/shonen/leadlag/.venv/bin/python",
+      "-m",
+      "mypy",
+      "--config-file",
+      "pyproject.toml",
+      "src/leadlag"
+    ],
+    "deadline_seconds": 300,
+    "exit": 0,
+    "timed_out": false,
+    "elapsed_seconds": 0.57
+  },
+  {
+    "name": "import_linter",
+    "command": [
+      "/Users/shonen/leadlag/.venv/bin/lint-imports"
+    ],
+    "deadline_seconds": 180,
+    "exit": 0,
+    "timed_out": false,
+    "elapsed_seconds": 0.24
+  },
+  {
+    "name": "docs_ci",
+    "command": [
+      "/Users/shonen/leadlag/.venv/bin/python",
+      "scripts/ci/validate_docs.py",
+      "docs/ARCHITECTURE.md",
+      "docs/CI.md",
+      "docs/SCHEDULER_SETUP.md",
+      "README.md",
+      "docs/refactor_roadmap.md",
+      "docs/RESEARCH_ENV.md",
+      "docs/decisions/2026-10-04-kiss-canonical-apis.md",
+      "docs/decisions/2026-09-15-structural-improvement-boundaries.md",
+      "reports/20260915_structural_improvement/plan.md"
+    ],
+    "deadline_seconds": 120,
+    "exit": 0,
+    "timed_out": false,
+    "elapsed_seconds": 0.04
+  }
+]

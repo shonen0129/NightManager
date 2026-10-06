@@ -1,0 +1,539 @@
+[
+  {
+    "id": "F01",
+    "priority": "P1",
+    "kind": "確定",
+    "title": "持越し建玉の寄付→09:10リターンが消える",
+    "axis": "pnl_metrics_statistics",
+    "report_line": 88,
+    "source_references": [
+      {
+        "path": "src/leadlag/execution/backtester.py",
+        "line": 91
+      },
+      {
+        "path": "src/leadlag/core/pnl.py",
+        "line": 497
+      }
+    ]
+  },
+  {
+    "id": "F02",
+    "priority": "P1",
+    "kind": "確定",
+    "title": "backtest artifactとHTTP例外に認証情報が残る",
+    "axis": "credential_boundary",
+    "report_line": 100,
+    "source_references": [
+      {
+        "path": "src/leadlag/data/backtest_store.py",
+        "line": 189
+      },
+      {
+        "path": "src/leadlag/execution/backtest.py",
+        "line": 230
+      },
+      {
+        "path": "src/leadlag/broker/tachibana/api.py",
+        "line": 207
+      }
+    ]
+  },
+  {
+    "id": "F03",
+    "priority": "P1",
+    "kind": "現況",
+    "title": "09:10 captureの認証停止が継続",
+    "axis": "operations",
+    "report_line": 112,
+    "source_references": []
+  },
+  {
+    "id": "F04",
+    "priority": "P1",
+    "kind": "既知未完了",
+    "title": "実口座lossガードのproducerがない",
+    "axis": "operations",
+    "report_line": 122,
+    "source_references": [
+      {
+        "path": "src/leadlag/execution/account_risk.py",
+        "line": 14
+      }
+    ]
+  },
+  {
+    "id": "F05",
+    "priority": "P1",
+    "kind": "現況＋品質",
+    "title": "ADRが8/17で停止し、MLの非適用理由が結果に残らない",
+    "axis": "operations",
+    "report_line": 132,
+    "source_references": [
+      {
+        "path": "src/leadlag/data/adr_features.py",
+        "line": 50
+      },
+      {
+        "path": "src/leadlag/models/ml_overlay_inference.py",
+        "line": 65
+      },
+      {
+        "path": "scripts/batch/_update_market_data.py",
+        "line": 36
+      }
+    ]
+  },
+  {
+    "id": "F06",
+    "priority": "P2",
+    "kind": "確定",
+    "title": "非発注のscheduled pipelineに全体期限がない",
+    "axis": "operations",
+    "report_line": 142,
+    "source_references": [
+      {
+        "path": "scripts/batch/update_market_data.sh",
+        "line": 30
+      },
+      {
+        "path": "scripts/batch/run_distribution_diagnostics.sh",
+        "line": 42
+      },
+      {
+        "path": "scripts/run_full_backtest.sh",
+        "line": 8
+      }
+    ]
+  },
+  {
+    "id": "F07",
+    "priority": "P1",
+    "kind": "証拠不足",
+    "title": "主戦略と評価targetの大部分が一致しない",
+    "axis": "model_profitability_evidence",
+    "report_line": 154,
+    "source_references": [
+      {
+        "path": "src/leadlag/core/target_returns.py",
+        "line": 15
+      },
+      {
+        "path": "src/leadlag/data/intraday_inputs.py",
+        "line": 51
+      }
+    ]
+  },
+  {
+    "id": "F08",
+    "priority": "P1",
+    "kind": "証拠不足",
+    "title": "MLの限界利益が確立していない",
+    "axis": "model_profitability_evidence",
+    "report_line": 166,
+    "source_references": []
+  },
+  {
+    "id": "F09",
+    "priority": "P2",
+    "kind": "証拠不足",
+    "title": "コスト・容量・βの現実性を認定できない",
+    "axis": "model_profitability_evidence",
+    "report_line": 190,
+    "source_references": []
+  },
+  {
+    "id": "F10",
+    "priority": "P2",
+    "kind": "限界",
+    "title": "レバレッジ1.30のhistorical ES余裕は2.1bp",
+    "axis": "model_profitability_evidence",
+    "report_line": 204,
+    "source_references": []
+  },
+  {
+    "id": "F11",
+    "priority": "P2",
+    "kind": "確定契約欠陥",
+    "title": "baseline期間を評価入口で拒否しない",
+    "axis": "pnl_metrics_statistics",
+    "report_line": 216,
+    "source_references": [
+      {
+        "path": "src/leadlag/execution/backtester.py",
+        "line": 246
+      },
+      {
+        "path": "src/leadlag/core/pipeline.py",
+        "line": 347
+      },
+      {
+        "path": "src/leadlag/core/correlation.py",
+        "line": 236
+      }
+    ]
+  },
+  {
+    "id": "F12",
+    "priority": "P2",
+    "kind": "確定",
+    "title": "終了日がデータより前でも一日実行される",
+    "axis": "pnl_metrics_statistics",
+    "report_line": 226,
+    "source_references": [
+      {
+        "path": "src/leadlag/execution/backtester.py",
+        "line": 75
+      }
+    ]
+  },
+  {
+    "id": "F13",
+    "priority": "P2",
+    "kind": "確定",
+    "title": "月次frequencyの省略形が245年率になる",
+    "axis": "pnl_metrics_statistics",
+    "report_line": 234,
+    "source_references": [
+      {
+        "path": "src/leadlag/reporting/metrics.py",
+        "line": 105
+      }
+    ]
+  },
+  {
+    "id": "F14",
+    "priority": "P2",
+    "kind": "確定",
+    "title": "CLI summaryのDDだけ初期wealthを含まない",
+    "axis": "pnl_metrics_statistics",
+    "report_line": 242,
+    "source_references": [
+      {
+        "path": "src/leadlag/execution/output_ops.py",
+        "line": 68
+      },
+      {
+        "path": "src/leadlag/execution/backtest.py",
+        "line": 220
+      }
+    ]
+  },
+  {
+    "id": "F15",
+    "priority": "P2",
+    "kind": "確定",
+    "title": "MinVarはlong_countを両sideへ使う",
+    "axis": "pnl_metrics_statistics",
+    "report_line": 250,
+    "source_references": [
+      {
+        "path": "src/leadlag/models/v2/decision_engine.py",
+        "line": 168
+      },
+      {
+        "path": "src/leadlag/core/signal.py",
+        "line": 325
+      },
+      {
+        "path": "src/leadlag/config/schemas.py",
+        "line": 598
+      }
+    ]
+  },
+  {
+    "id": "F16",
+    "priority": "P2",
+    "kind": "確定契約欠陥",
+    "title": "DSRが無効/不整合標本を受理する",
+    "axis": "pnl_metrics_statistics",
+    "report_line": 258,
+    "source_references": [
+      {
+        "path": "src/leadlag/experiment_registry.py",
+        "line": 157
+      },
+      {
+        "path": "src/research/experiment_utils.py",
+        "line": 195
+      }
+    ]
+  },
+  {
+    "id": "F17",
+    "priority": "P2",
+    "kind": "確定契約欠陥",
+    "title": "欠損ターゲットの日が指標から消える",
+    "axis": "pnl_metrics_statistics",
+    "report_line": 268,
+    "source_references": [
+      {
+        "path": "src/leadlag/core/pnl.py",
+        "line": 497
+      },
+      {
+        "path": "src/leadlag/reporting/metrics.py",
+        "line": 102
+      }
+    ]
+  },
+  {
+    "id": "F18",
+    "priority": "P2",
+    "kind": "損益境界",
+    "title": "最終持越し在庫とsegment間の連続性が未定義",
+    "axis": "pnl_metrics_statistics",
+    "report_line": 276,
+    "source_references": [
+      {
+        "path": "src/leadlag/core/pnl.py",
+        "line": 508
+      }
+    ]
+  },
+  {
+    "id": "F19",
+    "priority": "P2",
+    "kind": "定義欠陥",
+    "title": "turnoverはinventory flowを表さない",
+    "axis": "pnl_metrics_statistics",
+    "report_line": 286,
+    "source_references": [
+      {
+        "path": "src/leadlag/core/pnl.py",
+        "line": 510
+      },
+      {
+        "path": "src/leadlag/execution/backtester.py",
+        "line": 573
+      }
+    ]
+  },
+  {
+    "id": "F20",
+    "priority": "P2",
+    "kind": "潜在API",
+    "title": "providerの時刻・欠損契約が破れている",
+    "axis": "provider_contract",
+    "report_line": 294,
+    "source_references": [
+      {
+        "path": "src/leadlag/data/providers/yfinance_provider.py",
+        "line": 86
+      },
+      {
+        "path": "src/leadlag/data/providers/tachibana_provider.py",
+        "line": 55
+      }
+    ]
+  },
+  {
+    "id": "F21",
+    "priority": "P2",
+    "kind": "潜在配布不具合",
+    "title": "source位置をruntime rootと同一視する",
+    "axis": "structure_quality",
+    "report_line": 304,
+    "source_references": [
+      {
+        "path": "src/leadlag/config/paths.py",
+        "line": 17
+      },
+      {
+        "path": "src/leadlag/data/adr_features.py",
+        "line": 18
+      },
+      {
+        "path": "src/leadlag/data/macro.py",
+        "line": 22
+      },
+      {
+        "path": "src/leadlag/runner/model_factory.py",
+        "line": 70
+      }
+    ]
+  },
+  {
+    "id": "F22",
+    "priority": "P2",
+    "kind": "構造境界",
+    "title": "scheduled updaterがresearchに直結",
+    "axis": "structure_quality",
+    "report_line": 314,
+    "source_references": [
+      {
+        "path": "scripts/batch/_update_market_data.py",
+        "line": 20
+      },
+      {
+        "path": "scripts/batch/run_distribution_diagnostics.sh",
+        "line": 42
+      }
+    ]
+  },
+  {
+    "id": "F23",
+    "priority": "P3",
+    "kind": "構造負債",
+    "title": "BLPXの本番/研究間で計算本体が重複",
+    "axis": "structure_quality",
+    "report_line": 324,
+    "source_references": [
+      {
+        "path": "src/leadlag/models/blpx/blp_solver.py",
+        "line": 125
+      },
+      {
+        "path": "src/research/models/sector_relative_ensemble_blp_enhanced.py",
+        "line": 514
+      }
+    ]
+  },
+  {
+    "id": "F24",
+    "priority": "P3",
+    "kind": "構造負債",
+    "title": "大きい関数が責務境界の調停を抱えている",
+    "axis": "structure_quality",
+    "report_line": 334,
+    "source_references": [
+      {
+        "path": "src/leadlag/execution/v2_bridge.py",
+        "line": 206
+      }
+    ]
+  },
+  {
+    "id": "F25",
+    "priority": "P3",
+    "kind": "構造負債",
+    "title": "未接続層と旧wrapper、reports内の実行依存",
+    "axis": "structure_quality",
+    "report_line": 342,
+    "source_references": [
+      {
+        "path": "src/leadlag/execution/cost_calculator.py",
+        "line": 88
+      },
+      {
+        "path": "src/leadlag/core/convex_optimizer.py",
+        "line": 120
+      },
+      {
+        "path": "src/leadlag/utils/gap_matrix_io.py",
+        "line": 452
+      },
+      {
+        "path": "src/leadlag/models/ml_overlay_inference.py",
+        "line": 173
+      },
+      {
+        "path": "src/leadlag/execution/backtester.py",
+        "line": 116
+      },
+      {
+        "path": "scripts/run_tests_parallel.sh",
+        "line": 19
+      }
+    ]
+  },
+  {
+    "id": "F26",
+    "priority": "P2",
+    "kind": "確定",
+    "title": "運用手順と現行保有/監査の意味が違う",
+    "axis": "operational_document",
+    "report_line": 354,
+    "source_references": [
+      {
+        "path": "docs/日次運用手順書.md",
+        "line": 78
+      },
+      {
+        "path": "docs/モデル技術仕様書.md",
+        "line": 360
+      }
+    ]
+  },
+  {
+    "id": "F27",
+    "priority": "P3",
+    "kind": "ハーネス負債",
+    "title": "SkillとIDE workflowの意味が古い",
+    "axis": "harness",
+    "report_line": 364,
+    "source_references": [
+      {
+        "path": ".agents/skills/leak-audit/SKILL.md",
+        "line": 30
+      },
+      {
+        "path": ".agents/skills/experiment-design/SKILL.md",
+        "line": 30
+      },
+      {
+        "path": ".devin/skills/prod-backtest-consistency/SKILL.md",
+        "line": 20
+      },
+      {
+        "path": ".windsurf/workflows/run-tests.md",
+        "line": 19
+      },
+      {
+        "path": ".windsurf/workflows/walkforward-validation.md",
+        "line": 35
+      }
+    ]
+  },
+  {
+    "id": "F28",
+    "priority": "P2",
+    "kind": "統計governance不足",
+    "title": "探索全体を1つの試行数として追えない",
+    "axis": "experiment_governance",
+    "report_line": 380,
+    "source_references": [
+      {
+        "path": "src/research/experiment_utils.py",
+        "line": 202
+      }
+    ]
+  },
+  {
+    "id": "F29",
+    "priority": "P1",
+    "kind": "現況",
+    "title": "mainの必須CIをGitHub側で強制していない",
+    "axis": "repository_governance",
+    "report_line": 392,
+    "source_references": []
+  },
+  {
+    "id": "F30",
+    "priority": "P2",
+    "kind": "確定品質欠陥",
+    "title": "US欠損proxyが上場前に限定されない",
+    "axis": "data_quality",
+    "report_line": 400,
+    "source_references": [
+      {
+        "path": "src/leadlag/data/preprocessor.py",
+        "line": 243
+      }
+    ]
+  },
+  {
+    "id": "F31",
+    "priority": "P2",
+    "kind": "確定境界",
+    "title": "年表外のJPX年末年始休場をtradingと返す",
+    "axis": "calendar",
+    "report_line": 410,
+    "source_references": [
+      {
+        "path": "src/leadlag/core/market_calendar.py",
+        "line": 127
+      }
+    ]
+  }
+]

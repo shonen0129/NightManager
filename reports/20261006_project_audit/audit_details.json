@@ -1,0 +1,288 @@
+{
+  "executed_test_counts": {
+    "regression": 1,
+    "research": 14,
+    "features": 27,
+    "unit": 852,
+    "integration": 90
+  },
+  "regression_test_modules": [
+    "tests/regression/test_v2_baseline.py"
+  ],
+  "harness_files": [
+    {
+      "path": "AGENTS.md",
+      "lines": 97
+    },
+    {
+      "path": ".agents/skills/leadlag-fund-improvement/SKILL.md",
+      "lines": 29
+    },
+    {
+      "path": ".agents/skills/backtest-report/SKILL.md",
+      "lines": 37
+    },
+    {
+      "path": ".agents/skills/hang-prevention/SKILL.md",
+      "lines": 30
+    },
+    {
+      "path": ".agents/skills/code-review/SKILL.md",
+      "lines": 37
+    },
+    {
+      "path": ".agents/skills/debugging/SKILL.md",
+      "lines": 35
+    },
+    {
+      "path": ".agents/skills/test-gen/SKILL.md",
+      "lines": 30
+    },
+    {
+      "path": ".agents/skills/experiment-design/SKILL.md",
+      "lines": 33
+    },
+    {
+      "path": ".agents/skills/edge-case-finder/SKILL.md",
+      "lines": 31
+    },
+    {
+      "path": ".agents/skills/leak-audit/SKILL.md",
+      "lines": 38
+    },
+    {
+      "path": ".agents/skills/refactor/SKILL.md",
+      "lines": 27
+    },
+    {
+      "path": ".agents/skills/debugging/references/metrics-and-trace.md",
+      "lines": 19
+    },
+    {
+      "path": ".agents/skills/debugging/references/flat-and-pit.md",
+      "lines": 18
+    },
+    {
+      "path": ".agents/skills/debugging/references/data-and-cache.md",
+      "lines": 16
+    },
+    {
+      "path": ".devin/skills/prod-backtest-consistency/SKILL.md",
+      "lines": 278
+    },
+    {
+      "path": ".windsurf/plans/model_improvement_plan.md",
+      "lines": 253
+    },
+    {
+      "path": ".windsurf/workflows/run-tests.md",
+      "lines": 50
+    },
+    {
+      "path": ".windsurf/workflows/syntax-check.md",
+      "lines": 28
+    },
+    {
+      "path": ".windsurf/workflows/daily-production.md",
+      "lines": 43
+    },
+    {
+      "path": ".windsurf/workflows/shadow-monitor.md",
+      "lines": 44
+    },
+    {
+      "path": ".windsurf/workflows/backtest.md",
+      "lines": 44
+    },
+    {
+      "path": ".windsurf/workflows/walkforward-validation.md",
+      "lines": 35
+    }
+  ],
+  "harness_missing_literal_paths": [
+    {
+      "file": ".agents/skills/debugging/references/data-and-cache.md",
+      "line": 14,
+      "reference": "src/leadlag/data/decision_cache.py"
+    },
+    {
+      "file": ".devin/skills/prod-backtest-consistency/SKILL.md",
+      "line": 20,
+      "reference": "scripts/experiments/run_v2_backtest_exact_production.py"
+    },
+    {
+      "file": ".devin/skills/prod-backtest-consistency/SKILL.md",
+      "line": 21,
+      "reference": "scripts/experiments/build_v2_production_shadow_run.py"
+    },
+    {
+      "file": ".devin/skills/prod-backtest-consistency/SKILL.md",
+      "line": 192,
+      "reference": "scripts/experiments/"
+    },
+    {
+      "file": ".devin/skills/prod-backtest-consistency/SKILL.md",
+      "line": 201,
+      "reference": "scripts/experiments/run_v2_backtest_exact_production.py"
+    },
+    {
+      "file": ".devin/skills/prod-backtest-consistency/SKILL.md",
+      "line": 202,
+      "reference": "scripts/experiments/run_live_aligned_v2_backtest.py"
+    },
+    {
+      "file": ".devin/skills/prod-backtest-consistency/SKILL.md",
+      "line": 203,
+      "reference": "scripts/experiments/run_v2_backtest_theoretical_5m.py"
+    },
+    {
+      "file": ".devin/skills/prod-backtest-consistency/SKILL.md",
+      "line": 204,
+      "reference": "scripts/experiments/run_v2_backtest_pessimistic.py"
+    },
+    {
+      "file": ".devin/skills/prod-backtest-consistency/SKILL.md",
+      "line": 205,
+      "reference": "scripts/experiments/analyze_v2_bt_vs_actual.py"
+    },
+    {
+      "file": ".devin/skills/prod-backtest-consistency/SKILL.md",
+      "line": 206,
+      "reference": "scripts/experiments/build_v2_production_shadow_run.py"
+    },
+    {
+      "file": ".devin/skills/prod-backtest-consistency/SKILL.md",
+      "line": 208,
+      "reference": "scripts/experiments/overnight_sensitivity_v2.py"
+    },
+    {
+      "file": ".devin/skills/prod-backtest-consistency/SKILL.md",
+      "line": 209,
+      "reference": "scripts/experiments/update_5m_cache.py"
+    },
+    {
+      "file": ".devin/skills/prod-backtest-consistency/SKILL.md",
+      "line": 210,
+      "reference": "scripts/experiments/check_5m_cache.py"
+    },
+    {
+      "file": ".windsurf/plans/model_improvement_plan.md",
+      "line": 54,
+      "reference": "scripts/experiment_blpx_parameter_optimization.py"
+    },
+    {
+      "file": ".windsurf/plans/model_improvement_plan.md",
+      "line": 55,
+      "reference": "scripts/experiment_parameter_sensitivity.py"
+    },
+    {
+      "file": ".windsurf/plans/model_improvement_plan.md",
+      "line": 74,
+      "reference": "configs/production.yaml"
+    },
+    {
+      "file": ".windsurf/plans/model_improvement_plan.md",
+      "line": 95,
+      "reference": "configs/production.yaml"
+    },
+    {
+      "file": ".windsurf/plans/model_improvement_plan.md",
+      "line": 112,
+      "reference": "scripts/experiment_sector_prior_optimization.py"
+    },
+    {
+      "file": ".windsurf/plans/model_improvement_plan.md",
+      "line": 134,
+      "reference": "configs/production.yaml"
+    },
+    {
+      "file": ".windsurf/plans/model_improvement_plan.md",
+      "line": 150,
+      "reference": "configs/production.yaml"
+    },
+    {
+      "file": ".windsurf/plans/model_improvement_plan.md",
+      "line": 152,
+      "reference": "scripts/experiment_regime_adaptive.py"
+    },
+    {
+      "file": ".windsurf/plans/model_improvement_plan.md",
+      "line": 170,
+      "reference": "scripts/experiment_sprint3c_extended_overlay.py"
+    },
+    {
+      "file": ".windsurf/plans/model_improvement_plan.md",
+      "line": 187,
+      "reference": "src/experiments/features/cross_sectional.py"
+    },
+    {
+      "file": ".windsurf/plans/model_improvement_plan.md",
+      "line": 218,
+      "reference": "configs/production.yaml"
+    },
+    {
+      "file": ".windsurf/plans/model_improvement_plan.md",
+      "line": 219,
+      "reference": "configs/production_v2_primary_ruleD.yaml"
+    }
+  ],
+  "manifest_files": 681,
+  "shell_deadline_markers": [
+    {
+      "path": "scripts/run_tests_unit_only.sh",
+      "deadline_marker_present": false
+    },
+    {
+      "path": "scripts/run_full_backtest.sh",
+      "deadline_marker_present": false
+    },
+    {
+      "path": "scripts/run_tests_parallel.sh",
+      "deadline_marker_present": true
+    },
+    {
+      "path": "scripts/batch/install_0910_microstructure_capture.sh",
+      "deadline_marker_present": false
+    },
+    {
+      "path": "scripts/batch/run_decision_v2.sh",
+      "deadline_marker_present": true
+    },
+    {
+      "path": "scripts/batch/setup_scheduler_macos.sh",
+      "deadline_marker_present": false
+    },
+    {
+      "path": "scripts/batch/run_0910_microstructure_capture.sh",
+      "deadline_marker_present": true
+    },
+    {
+      "path": "scripts/batch/update_market_data.sh",
+      "deadline_marker_present": false
+    },
+    {
+      "path": "scripts/batch/install_launchd.sh",
+      "deadline_marker_present": false
+    },
+    {
+      "path": "scripts/batch/run_pnl_report.sh",
+      "deadline_marker_present": true
+    },
+    {
+      "path": "scripts/batch/run_close_positions.sh",
+      "deadline_marker_present": true
+    },
+    {
+      "path": "scripts/batch/run_gap_distribution.sh",
+      "deadline_marker_present": true
+    },
+    {
+      "path": "scripts/batch/run_distribution_diagnostics.sh",
+      "deadline_marker_present": false
+    }
+  ],
+  "production_ast": {
+    "files": 152,
+    "long_functions": 54
+  }
+}

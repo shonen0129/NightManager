@@ -1,0 +1,11 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.12.0, pytest-9.1.1, pluggy-1.6.0
+rootdir: /Users/shonen/leadlag
+configfile: pyproject.toml
+plugins: cov-7.1.0, xdist-3.8.0
+collected 1 item
+
+tests/regression/test_v2_baseline.py .                                   [100%]
+
+- generated xml file: /Users/shonen/leadlag/reports/20261006_project_audit/baseline.xml -
+============================== 1 passed in 2.50s ===============================

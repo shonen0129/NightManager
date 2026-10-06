@@ -1,0 +1,119 @@
+{
+  "repository": "shonen0129/NightManager",
+  "findings": 31,
+  "new_issues": 17,
+  "existing_comments": 4,
+  "tracker": 22,
+  "readback_checks": [
+    {
+      "number": 33,
+      "kind": "issue",
+      "ok": true
+    },
+    {
+      "number": 34,
+      "kind": "issue",
+      "ok": true
+    },
+    {
+      "number": 35,
+      "kind": "issue",
+      "ok": true
+    },
+    {
+      "number": 36,
+      "kind": "issue",
+      "ok": true
+    },
+    {
+      "number": 37,
+      "kind": "issue",
+      "ok": true
+    },
+    {
+      "number": 38,
+      "kind": "issue",
+      "ok": true
+    },
+    {
+      "number": 39,
+      "kind": "issue",
+      "ok": true
+    },
+    {
+      "number": 40,
+      "kind": "issue",
+      "ok": true
+    },
+    {
+      "number": 41,
+      "kind": "issue",
+      "ok": true
+    },
+    {
+      "number": 42,
+      "kind": "issue",
+      "ok": true
+    },
+    {
+      "number": 43,
+      "kind": "issue",
+      "ok": true
+    },
+    {
+      "number": 44,
+      "kind": "issue",
+      "ok": true
+    },
+    {
+      "number": 45,
+      "kind": "issue",
+      "ok": true
+    },
+    {
+      "number": 46,
+      "kind": "issue",
+      "ok": true
+    },
+    {
+      "number": 47,
+      "kind": "issue",
+      "ok": true
+    },
+    {
+      "number": 48,
+      "kind": "issue",
+      "ok": true
+    },
+    {
+      "number": 49,
+      "kind": "issue",
+      "ok": true
+    },
+    {
+      "number": 27,
+      "kind": "comment",
+      "ok": true
+    },
+    {
+      "number": 25,
+      "kind": "comment",
+      "ok": true
+    },
+    {
+      "number": 23,
+      "kind": "comment",
+      "ok": true
+    },
+    {
+      "number": 18,
+      "kind": "comment",
+      "ok": true
+    },
+    {
+      "number": 22,
+      "kind": "tracker",
+      "ok": true
+    }
+  ]
+}

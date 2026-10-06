@@ -1,0 +1,35 @@
+[
+  {
+    "name": "pytest_baseline",
+    "command": [
+      "/Users/shonen/leadlag/.venv/bin/python",
+      "-m",
+      "pytest",
+      "tests/regression/test_v2_baseline.py",
+      "-q",
+      "--junitxml=/Users/shonen/leadlag/reports/20261006_project_audit/baseline.xml"
+    ],
+    "deadline_seconds": 300,
+    "exit": 0,
+    "timed_out": false,
+    "elapsed_seconds": 4.25
+  },
+  {
+    "name": "pytest_full",
+    "command": [
+      "/Users/shonen/leadlag/.venv/bin/python",
+      "-m",
+      "pytest",
+      "tests",
+      "--ignore=tests/regression/test_v2_baseline.py",
+      "-n",
+      "4",
+      "-q",
+      "--junitxml=/Users/shonen/leadlag/reports/20261006_project_audit/tests.xml"
+    ],
+    "deadline_seconds": 2400,
+    "exit": 0,
+    "timed_out": false,
+    "elapsed_seconds": 60.84
+  }
+]

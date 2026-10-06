@@ -1,0 +1,35 @@
+{
+  "tracked_manifest_files": 681,
+  "changed_or_missing_tracked_files": [],
+  "findings": 31,
+  "priority_counts": {
+    "P0": 0,
+    "P1": 8,
+    "P2": 19,
+    "P3": 4
+  },
+  "invalid_line_references": [],
+  "probe_categories": 18,
+  "strict_json_files": 11,
+  "docs_validation": {
+    "exit": 0,
+    "output": "documentation references verified: 56"
+  },
+  "scheduler_snapshot": [
+    {
+      "label": "com.leadlag.microstructure-0910",
+      "query_exit": 0,
+      "state": "not running",
+      "runs": "7",
+      "last exit code": "1"
+    },
+    {
+      "label": "com.leadlag.update-market-data",
+      "query_exit": 0,
+      "state": "not running",
+      "runs": "10",
+      "last exit code": "1"
+    }
+  ],
+  "git_status": "?? reports/20261006_project_audit/\n"
+}

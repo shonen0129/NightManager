@@ -1,0 +1,38 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.12.0, pytest-9.1.1, pluggy-1.6.0
+rootdir: /Users/shonen/leadlag
+configfile: pyproject.toml
+plugins: cov-7.1.0, xdist-3.8.0
+created: 4/4 workers
+4 workers [983 items]
+
+........................................................................ [  7%]
+........................................................................ [ 14%]
+........................................................................ [ 21%]
+........................................................................ [ 29%]
+........................................................................ [ 36%]
+........................................................................ [ 43%]
+........................................................................ [ 51%]
+........................................................................ [ 58%]
+........................................................................ [ 65%]
+........................................................................ [ 73%]
+........................................................................ [ 80%]
+........................................................................ [ 87%]
+........................................................................ [ 95%]
+...............................................                          [100%]
+=============================== warnings summary ===============================
+tests/unit/test_gap_ondemand_horizon.py::test_ondemand_horizon_uses_cumulative_gap_and_overnight_inputs
+  /Users/shonen/leadlag/tests/unit/test_gap_ondemand_horizon.py:25: PerformanceWarning: DataFrame is highly fragmented.  This is usually the result of calling `frame.insert` many times, which has poor performance.  Consider joining all columns at once using pd.concat(axis=1) instead. To get a de-fragmented frame, use `newframe = frame.copy()`
+    frame["topix_night_return"] = [0.001, 0.002, 0.003]
+
+tests/unit/test_stage_abc_followup_fixes.py::test_var_backtest_receives_same_selected_overlay_object
+  /Users/shonen/.local/share/uv/python/cpython-3.12.0-macos-aarch64-none/lib/python3.12/multiprocessing/popen_fork.py:66: DeprecationWarning: This process (pid=31209) is multi-threaded, use of fork() may lead to deadlocks in the child.
+    self.pid = os.fork()
+
+tests/research/test_sprint0_qa.py::test_sprint0_qa_subset
+  /Users/shonen/leadlag/src/research/diagnostics/sprint0_qa.py:240: ConstantInputWarning: An input array is constant; the correlation coefficient is not defined.
+    rank_ic, _ = stats.spearmanr(s_t, r_tk)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+- generated xml file: /Users/shonen/leadlag/reports/20261006_project_audit/tests.xml -
+================== 983 passed, 3 warnings in 60.50s (0:01:00) ==================

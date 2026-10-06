@@ -1,0 +1,27 @@
+
+╔══╗─────────▶╔╗ ╔╗      ╔╗◀───┐
+╚╣╠╝◀─────┐  ╔╝╚╗║║────▶╔╝╚╗   │
+ ║║   ╔══╦══╦╩╗╔╝║║  ╔╦═╩╗╔╝╔═╦══╗
+ ║║╔══╣╔╗║╔╗║╔╣║ ║║ ╔╬╣╔╗║║ ║│║╔═╝
+╔╣╠╣║║║╚╝║╚╝║║║╚╗║╚═╝║║║║║╚╗║═╣║
+╚══╩╩╩╣╔═╩══╩╝╚═╝╚═══╩╩╝╚╩═╩╩═╩╝
+  └──▶║║                    ▲ 
+      ╚╝────────────────────┘
+
+
+---------
+Contracts
+---------
+
+Analyzed 191 files, 536 dependencies.
+-------------------------------------
+
+data does not depend on higher layers KEPT
+core does not do broker/CLI/execution I/O KEPT
+domain is a pure layer without execution or CLI KEPT
+models do not depend on execution or CLI KEPT
+production does not depend on research KEPT
+pure calculation modules do not depend on I/O adapters KEPT
+domain does not depend on application configuration KEPT
+
+Contracts: 7 kept, 0 broken.

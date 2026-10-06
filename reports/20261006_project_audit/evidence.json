@@ -1,0 +1,1115 @@
+{
+  "ruff": {
+    "total": 122,
+    "codes": {
+      "I001": 64,
+      "UP015": 25,
+      "F401": 21,
+      "F841": 5,
+      "UP017": 2,
+      "F541": 3,
+      "F811": 2
+    },
+    "trees": {
+      "scripts": 1,
+      "src": 118,
+      "tools": 3
+    },
+    "undefined_names": []
+  },
+  "exact_ast_clones": [
+    [
+      {
+        "path": "src/leadlag/broker/base.py",
+        "name": "fetch_open_prices",
+        "line": 147,
+        "lines": 15,
+        "branches": 0
+      },
+      {
+        "path": "src/leadlag/broker/base.py",
+        "name": "fetch_us_etf_returns",
+        "line": 164,
+        "lines": 12,
+        "branches": 0
+      },
+      {
+        "path": "src/leadlag/broker/base.py",
+        "name": "fetch_current_prices",
+        "line": 178,
+        "lines": 15,
+        "branches": 0
+      },
+      {
+        "path": "src/leadlag/broker/base.py",
+        "name": "get_positions",
+        "line": 216,
+        "lines": 12,
+        "branches": 0
+      },
+      {
+        "path": "src/leadlag/broker/base.py",
+        "name": "submit_order",
+        "line": 232,
+        "lines": 17,
+        "branches": 0
+      },
+      {
+        "path": "src/leadlag/models/v2/distribution_source.py",
+        "name": "resolve",
+        "line": 66,
+        "lines": 16,
+        "branches": 0
+      }
+    ],
+    [
+      {
+        "path": "src/leadlag/models/blp_base.py",
+        "name": "_compute_pca_signal",
+        "line": 235,
+        "lines": 26,
+        "branches": 0
+      },
+      {
+        "path": "src/research/models/blp_base.py",
+        "name": "_compute_pca_signal",
+        "line": 103,
+        "lines": 26,
+        "branches": 0
+      }
+    ],
+    [
+      {
+        "path": "src/leadlag/models/blp_base.py",
+        "name": "compute_production_signal",
+        "line": 262,
+        "lines": 14,
+        "branches": 0
+      },
+      {
+        "path": "src/research/models/blp_base.py",
+        "name": "compute_production_signal",
+        "line": 130,
+        "lines": 16,
+        "branches": 0
+      }
+    ],
+    [
+      {
+        "path": "src/leadlag/models/blp_base.py",
+        "name": "compute_residual_signal",
+        "line": 277,
+        "lines": 14,
+        "branches": 0
+      },
+      {
+        "path": "src/research/models/blp_base.py",
+        "name": "compute_residual_signal",
+        "line": 147,
+        "lines": 16,
+        "branches": 0
+      }
+    ],
+    [
+      {
+        "path": "src/leadlag/models/blpx/blp_solver.py",
+        "name": "_compute_pca_prior",
+        "line": 87,
+        "lines": 36,
+        "branches": 1
+      },
+      {
+        "path": "src/research/models/sector_relative_ensemble_blp_enhanced.py",
+        "name": "_compute_pca_prior",
+        "line": 484,
+        "lines": 29,
+        "branches": 1
+      }
+    ],
+    [
+      {
+        "path": "src/leadlag/models/blpx/blp_solver.py",
+        "name": "_solve_tikhonov",
+        "line": 125,
+        "lines": 41,
+        "branches": 5
+      },
+      {
+        "path": "src/research/models/sector_relative_ensemble_blp_enhanced.py",
+        "name": "_solve_tikhonov",
+        "line": 514,
+        "lines": 41,
+        "branches": 5
+      }
+    ],
+    [
+      {
+        "path": "src/leadlag/models/blpx/blp_solver.py",
+        "name": "_apply_confidence_weighting",
+        "line": 168,
+        "lines": 26,
+        "branches": 1
+      },
+      {
+        "path": "src/research/models/sector_relative_ensemble_blp_enhanced.py",
+        "name": "_apply_confidence_weighting",
+        "line": 557,
+        "lines": 26,
+        "branches": 1
+      }
+    ],
+    [
+      {
+        "path": "src/leadlag/models/blpx/model_meta.py",
+        "name": "_solve_asymmetric_blp",
+        "line": 182,
+        "lines": 33,
+        "branches": 0
+      },
+      {
+        "path": "src/research/models/sector_relative_ensemble_blp_enhanced.py",
+        "name": "_solve_asymmetric_blp",
+        "line": 695,
+        "lines": 33,
+        "branches": 0
+      }
+    ],
+    [
+      {
+        "path": "src/leadlag/models/blpx/model_predict.py",
+        "name": "_raw_pca_fn",
+        "line": 140,
+        "lines": 19,
+        "branches": 2
+      },
+      {
+        "path": "src/research/models/sector_relative_ensemble_blp_enhanced.py",
+        "name": "_raw_pca_fn",
+        "line": 1130,
+        "lines": 12,
+        "branches": 2
+      }
+    ],
+    [
+      {
+        "path": "src/leadlag/models/blpx/model_predict.py",
+        "name": "_residual_pca_fn",
+        "line": 160,
+        "lines": 19,
+        "branches": 2
+      },
+      {
+        "path": "src/research/models/sector_relative_ensemble_blp_enhanced.py",
+        "name": "_residual_pca_fn",
+        "line": 1143,
+        "lines": 12,
+        "branches": 2
+      }
+    ],
+    [
+      {
+        "path": "src/leadlag/models/blpx/model_predict.py",
+        "name": "_raw_blpx_fn",
+        "line": 180,
+        "lines": 19,
+        "branches": 4
+      },
+      {
+        "path": "src/research/models/sector_relative_ensemble_blp_enhanced.py",
+        "name": "_raw_blpx_fn",
+        "line": 1156,
+        "lines": 14,
+        "branches": 4
+      }
+    ],
+    [
+      {
+        "path": "src/leadlag/models/blpx/model_predict.py",
+        "name": "_residual_blpx_fn",
+        "line": 200,
+        "lines": 22,
+        "branches": 5
+      },
+      {
+        "path": "src/research/models/sector_relative_ensemble_blp_enhanced.py",
+        "name": "_residual_blpx_fn",
+        "line": 1171,
+        "lines": 17,
+        "branches": 5
+      }
+    ],
+    [
+      {
+        "path": "src/leadlag/models/blpx/prior_builder.py",
+        "name": "_build_sector_prior",
+        "line": 17,
+        "lines": 24,
+        "branches": 6
+      },
+      {
+        "path": "src/research/models/sector_relative_ensemble_blp_enhanced.py",
+        "name": "_build_sector_prior",
+        "line": 224,
+        "lines": 24,
+        "branches": 6
+      }
+    ],
+    [
+      {
+        "path": "src/leadlag/models/blpx/prior_builder.py",
+        "name": "_get_sector_prior",
+        "line": 108,
+        "lines": 49,
+        "branches": 12
+      },
+      {
+        "path": "src/research/models/sector_relative_ensemble_blp_enhanced.py",
+        "name": "_get_sector_prior",
+        "line": 305,
+        "lines": 49,
+        "branches": 12
+      }
+    ],
+    [
+      {
+        "path": "src/leadlag/models/blpx/signal_computer.py",
+        "name": "compute_blp_signal",
+        "line": 41,
+        "lines": 144,
+        "branches": 7
+      },
+      {
+        "path": "src/research/models/sector_relative_ensemble_blp_enhanced.py",
+        "name": "compute_blp_signal",
+        "line": 729,
+        "lines": 139,
+        "branches": 7
+      }
+    ],
+    [
+      {
+        "path": "src/research/models/hinge_interaction_elasticnet.py",
+        "name": "_predict_model",
+        "line": 90,
+        "lines": 12,
+        "branches": 2
+      },
+      {
+        "path": "src/research/models/hinge_interaction_ridge.py",
+        "name": "_predict_model",
+        "line": 81,
+        "lines": 13,
+        "branches": 2
+      }
+    ],
+    [
+      {
+        "path": "src/research/scripts/experiments/build_subsector_df_exec.py",
+        "name": "_reconstruct_prices",
+        "line": 34,
+        "lines": 16,
+        "branches": 2
+      },
+      {
+        "path": "src/research/scripts/experiments/build_subsector_df_exec_expanded.py",
+        "name": "_reconstruct_prices",
+        "line": 30,
+        "lines": 14,
+        "branches": 2
+      }
+    ],
+    [
+      {
+        "path": "src/research/scripts/experiments/experiment_a7_walkforward_dsr.py",
+        "name": "compute_deflated_sharpe",
+        "line": 92,
+        "lines": 47,
+        "branches": 2
+      },
+      {
+        "path": "src/research/scripts/experiments/experiment_ml_order_decision_phase2_5_walkforward.py",
+        "name": "compute_deflated_sharpe",
+        "line": 45,
+        "lines": 23,
+        "branches": 2
+      },
+      {
+        "path": "src/research/scripts/experiments/experiment_ml_order_decision_phase2_walkforward.py",
+        "name": "compute_deflated_sharpe",
+        "line": 55,
+        "lines": 26,
+        "branches": 2
+      },
+      {
+        "path": "src/research/scripts/experiments/experiment_ml_order_vix_walkforward.py",
+        "name": "compute_deflated_sharpe",
+        "line": 48,
+        "lines": 23,
+        "branches": 2
+      }
+    ],
+    [
+      {
+        "path": "src/research/scripts/experiments/experiment_beat_baseline.py",
+        "name": "solve_power_scaled_baseline",
+        "line": 34,
+        "lines": 29,
+        "branches": 2
+      },
+      {
+        "path": "src/research/scripts/experiments/experiment_dispersion_sizing.py",
+        "name": "solve_power_scaled_baseline",
+        "line": 33,
+        "lines": 26,
+        "branches": 2
+      }
+    ],
+    [
+      {
+        "path": "src/research/scripts/experiments/experiment_lgbm_calibration_20260923.py",
+        "name": "_jsonable",
+        "line": 83,
+        "lines": 12,
+        "branches": 5
+      },
+      {
+        "path": "src/research/scripts/experiments/experiment_lgbm_order_cost_20260923.py",
+        "name": "_jsonable",
+        "line": 495,
+        "lines": 12,
+        "branches": 5
+      },
+      {
+        "path": "src/research/scripts/experiments/experiment_order_cost_gate_20260923.py",
+        "name": "_jsonable",
+        "line": 443,
+        "lines": 12,
+        "branches": 5
+      }
+    ],
+    [
+      {
+        "path": "src/research/scripts/experiments/experiment_lgbm_order_cost_20260923.py",
+        "name": "_load_baseline",
+        "line": 95,
+        "lines": 15,
+        "branches": 2
+      },
+      {
+        "path": "src/research/scripts/experiments/experiment_order_cost_gate_20260923.py",
+        "name": "_load_baseline",
+        "line": 79,
+        "lines": 15,
+        "branches": 2
+      }
+    ],
+    [
+      {
+        "path": "src/research/scripts/experiments/experiment_lgbm_order_cost_20260923.py",
+        "name": "_simulate",
+        "line": 383,
+        "lines": 44,
+        "branches": 1
+      },
+      {
+        "path": "src/research/scripts/experiments/experiment_order_cost_gate_20260923.py",
+        "name": "_simulate",
+        "line": 331,
+        "lines": 44,
+        "branches": 1
+      }
+    ],
+    [
+      {
+        "path": "src/research/scripts/experiments/experiment_lgbm_order_cost_20260923.py",
+        "name": "_metrics",
+        "line": 429,
+        "lines": 43,
+        "branches": 0
+      },
+      {
+        "path": "src/research/scripts/experiments/experiment_order_cost_gate_20260923.py",
+        "name": "_metrics",
+        "line": 377,
+        "lines": 43,
+        "branches": 0
+      }
+    ],
+    [
+      {
+        "path": "src/research/scripts/experiments/experiment_lgbm_order_cost_20260923.py",
+        "name": "_paired_bootstrap_delta",
+        "line": 474,
+        "lines": 19,
+        "branches": 1
+      },
+      {
+        "path": "src/research/scripts/experiments/experiment_order_cost_gate_20260923.py",
+        "name": "_paired_bootstrap_delta",
+        "line": 422,
+        "lines": 19,
+        "branches": 1
+      }
+    ],
+    [
+      {
+        "path": "src/research/scripts/experiments/run_subsector_ic.py",
+        "name": "_set_jp_universe",
+        "line": 47,
+        "lines": 25,
+        "branches": 5
+      },
+      {
+        "path": "src/research/scripts/experiments/run_subsector_ic_expanded.py",
+        "name": "_set_jp_universe",
+        "line": 44,
+        "lines": 25,
+        "branches": 5
+      }
+    ],
+    [
+      {
+        "path": "src/research/scripts/experiments/run_subsector_ic.py",
+        "name": "_prepare_common_inputs_sub",
+        "line": 74,
+        "lines": 49,
+        "branches": 2
+      },
+      {
+        "path": "src/research/scripts/experiments/run_subsector_ic_expanded.py",
+        "name": "_prepare_common_inputs_sub",
+        "line": 71,
+        "lines": 49,
+        "branches": 2
+      }
+    ],
+    [
+      {
+        "path": "src/research/scripts/sprint/run_sprint1_aum1m_tachibana.py",
+        "name": "restore_neutral_rescale",
+        "line": 60,
+        "lines": 15,
+        "branches": 1
+      },
+      {
+        "path": "src/research/scripts/sprint/run_sprint2_cost_aware_aum1m.py",
+        "name": "restore_dollar_neutrality",
+        "line": 61,
+        "lines": 15,
+        "branches": 1
+      },
+      {
+        "path": "src/research/scripts/sprint/run_sprint2b_qa.py",
+        "name": "restore_dollar_neutrality",
+        "line": 49,
+        "lines": 12,
+        "branches": 1
+      }
+    ],
+    [
+      {
+        "path": "src/research/scripts/sprint/run_sprint2_cost_aware_aum1m.py",
+        "name": "solve_mvo",
+        "line": 78,
+        "lines": 81,
+        "branches": 10
+      },
+      {
+        "path": "src/research/scripts/sprint/run_sprint2b_qa.py",
+        "name": "solve_mvo",
+        "line": 62,
+        "lines": 75,
+        "branches": 10
+      }
+    ],
+    [
+      {
+        "path": "src/research/scripts/sprint/run_sprint2_cost_aware_aum1m.py",
+        "name": "obj_fun",
+        "line": 99,
+        "lines": 15,
+        "branches": 3
+      },
+      {
+        "path": "src/research/scripts/sprint/run_sprint2b_qa.py",
+        "name": "obj_fun",
+        "line": 82,
+        "lines": 14,
+        "branches": 3
+      }
+    ],
+    [
+      {
+        "path": "src/research/scripts/sprint/run_sprint2_cost_aware_aum1m.py",
+        "name": "obj_jac",
+        "line": 115,
+        "lines": 18,
+        "branches": 3
+      },
+      {
+        "path": "src/research/scripts/sprint/run_sprint2b_qa.py",
+        "name": "obj_jac",
+        "line": 97,
+        "lines": 15,
+        "branches": 3
+      }
+    ],
+    [
+      {
+        "path": "src/research/scripts/sprint/run_sprint3a_hinge_features.py",
+        "name": "restore_dollar_neutrality",
+        "line": 143,
+        "lines": 13,
+        "branches": 1
+      },
+      {
+        "path": "src/research/scripts/sprint/run_sprint3b_hinge_interactions.py",
+        "name": "restore_dollar_neutrality",
+        "line": 175,
+        "lines": 12,
+        "branches": 1
+      }
+    ],
+    [
+      {
+        "path": "src/research/scripts/sprint/run_sprint3a_hinge_features.py",
+        "name": "compute_net_score_ranking_weights",
+        "line": 158,
+        "lines": 43,
+        "branches": 3
+      },
+      {
+        "path": "src/research/scripts/sprint/run_sprint3b_hinge_interactions.py",
+        "name": "compute_net_score_ranking_weights",
+        "line": 189,
+        "lines": 41,
+        "branches": 3
+      }
+    ],
+    [
+      {
+        "path": "tests/regression/test_v2_baseline.py",
+        "name": "_build_current_prices_from_df_exec",
+        "line": 20,
+        "lines": 27,
+        "branches": 5
+      },
+      {
+        "path": "scripts/capture_v2_baseline.py",
+        "name": "_build_current_prices_from_df_exec",
+        "line": 22,
+        "lines": 25,
+        "branches": 5
+      }
+    ]
+  ],
+  "largest_production_functions": [
+    {
+      "path": "src/leadlag/execution/v2_bridge.py",
+      "line": 206,
+      "name": "run_v2_decision",
+      "lines": 580,
+      "branches": 65
+    },
+    {
+      "path": "src/leadlag/execution/close.py",
+      "line": 88,
+      "name": "close_all_positions",
+      "lines": 458,
+      "branches": 34
+    },
+    {
+      "path": "src/leadlag/data/preprocessor.py",
+      "line": 136,
+      "name": "preprocess_data",
+      "lines": 438,
+      "branches": 64
+    },
+    {
+      "path": "src/leadlag/execution/var_history.py",
+      "line": 239,
+      "name": "get_hist_returns_for_risk",
+      "lines": 407,
+      "branches": 43
+    },
+    {
+      "path": "src/leadlag/execution/broker_ops.py",
+      "line": 553,
+      "name": "submit_orders_via_api",
+      "lines": 307,
+      "branches": 22
+    },
+    {
+      "path": "src/leadlag/models/v2/decision_engine.py",
+      "line": 224,
+      "name": "_decide",
+      "lines": 277,
+      "branches": 24
+    },
+    {
+      "path": "src/leadlag/models/blpx/model_predict.py",
+      "line": 29,
+      "name": "predict_signals",
+      "lines": 264,
+      "branches": 24
+    },
+    {
+      "path": "src/leadlag/compliance/auditor.py",
+      "line": 70,
+      "name": "run_audit",
+      "lines": 251,
+      "branches": 26
+    },
+    {
+      "path": "src/leadlag/core/convex_optimizer.py",
+      "line": 120,
+      "name": "optimize_portfolio_convex",
+      "lines": 250,
+      "branches": 15
+    },
+    {
+      "path": "src/leadlag/utils/gap_matrix_io.py",
+      "line": 228,
+      "name": "load_gap_bundle",
+      "lines": 222,
+      "branches": 33
+    },
+    {
+      "path": "src/leadlag/core/allocator.py",
+      "line": 19,
+      "name": "allocate_capital",
+      "lines": 214,
+      "branches": 40
+    },
+    {
+      "path": "src/leadlag/models/v2/distribution_source.py",
+      "line": 192,
+      "name": "resolve",
+      "lines": 210,
+      "branches": 17
+    },
+    {
+      "path": "src/leadlag/models/blpx/model.py",
+      "line": 82,
+      "name": "__init__",
+      "lines": 204,
+      "branches": 20
+    },
+    {
+      "path": "src/leadlag/execution/backtester.py",
+      "line": 352,
+      "name": "_generate_v2_weights",
+      "lines": 199,
+      "branches": 23
+    },
+    {
+      "path": "src/leadlag/reporting/ml_overlay_forward_evaluation.py",
+      "line": 123,
+      "name": "evaluate_ml_overlay_forward",
+      "lines": 190,
+      "branches": 23
+    },
+    {
+      "path": "src/leadlag/config/schemas.py",
+      "line": 398,
+      "name": "_map_flat_to_nested",
+      "lines": 189,
+      "branches": 35
+    },
+    {
+      "path": "src/leadlag/execution/post_decision.py",
+      "line": 220,
+      "name": "_write_decision_output_and_submit",
+      "lines": 188,
+      "branches": 24
+    },
+    {
+      "path": "src/leadlag/utils/gap_matrix_io.py",
+      "line": 551,
+      "name": "save_gap_matrices",
+      "lines": 167,
+      "branches": 15
+    },
+    {
+      "path": "src/leadlag/execution/backtester.py",
+      "line": 154,
+      "name": "run_v2_backtest",
+      "lines": 167,
+      "branches": 6
+    },
+    {
+      "path": "src/leadlag/execution/close.py",
+      "line": 548,
+      "name": "run_close_positions_mode",
+      "lines": 164,
+      "branches": 18
+    }
+  ],
+  "long_production_function_count": 54,
+  "harness_refs": [
+    {
+      "path": ".agents/skills/debugging/references/data-and-cache.md",
+      "line": 14,
+      "missing": "src/leadlag/data/decision_cache.py"
+    }
+  ],
+  "capture_records": [
+    {
+      "path": "var/shadow_runs/ml_overlay_value/microstructure/capture_20260928.json",
+      "status": "FAILED",
+      "attempt_count": 2,
+      "error_types": [
+        "HTTPError"
+      ],
+      "disclosure_unread_flag_observed": false
+    },
+    {
+      "path": "var/shadow_runs/ml_overlay_value/microstructure/capture_20260929.json",
+      "status": "FAILED",
+      "attempt_count": 2,
+      "error_types": [
+        "HTTPError"
+      ],
+      "disclosure_unread_flag_observed": false
+    },
+    {
+      "path": "var/shadow_runs/ml_overlay_value/microstructure/capture_20260930.json",
+      "status": "FAILED",
+      "attempt_count": 2,
+      "error_types": [
+        "HTTPError"
+      ],
+      "disclosure_unread_flag_observed": false
+    },
+    {
+      "path": "var/shadow_runs/ml_overlay_value/microstructure/capture_20261001.json",
+      "status": "FAILED",
+      "attempt_count": 2,
+      "error_types": [
+        "ValueError"
+      ],
+      "disclosure_unread_flag_observed": false
+    },
+    {
+      "path": "var/shadow_runs/ml_overlay_value/microstructure/capture_20261002.json",
+      "status": "FAILED",
+      "attempt_count": 2,
+      "error_types": [
+        "ValueError"
+      ],
+      "disclosure_unread_flag_observed": false
+    },
+    {
+      "path": "var/shadow_runs/ml_overlay_value/microstructure/capture_20261005.json",
+      "status": "FAILED",
+      "attempt_count": 2,
+      "error_types": [
+        "ValueError"
+      ],
+      "disclosure_unread_flag_observed": true
+    }
+  ],
+  "forward_files": {
+    "daily.jsonl": {
+      "exists": false,
+      "lines": 0
+    },
+    "outcomes.jsonl": {
+      "exists": false,
+      "lines": 0
+    }
+  },
+  "frozen_quotes": 0,
+  "account_risk_producer": {
+    "snapshot_exists": false
+  },
+  "overlay_metadata": {
+    "CURRENT": "20260926T192555935698Z-ee306a32f3ec",
+    "cont_cols": [
+      "sigma_gap",
+      "gap_idio",
+      "topix_night",
+      "market_vol_20d",
+      "abs_score",
+      "abs_gap",
+      "adr_return",
+      "adr_x_score",
+      "adr_x_gap",
+      "adr_x_gap_idio",
+      "adr_x_mu_gap",
+      "abs_adr",
+      "ticker_1617.T_score",
+      "ticker_1617.T_gap",
+      "ticker_1617.T_score_x_gap",
+      "ticker_1618.T_score",
+      "ticker_1618.T_gap",
+      "ticker_1618.T_score_x_gap",
+      "ticker_1619.T_score",
+      "ticker_1619.T_gap",
+      "ticker_1619.T_score_x_gap",
+      "ticker_1620.T_score",
+      "ticker_1620.T_gap",
+      "ticker_1620.T_score_x_gap",
+      "ticker_1621.T_score",
+      "ticker_1621.T_gap",
+      "ticker_1621.T_score_x_gap",
+      "ticker_1622.T_score",
+      "ticker_1622.T_gap",
+      "ticker_1622.T_score_x_gap",
+      "ticker_1623.T_score",
+      "ticker_1623.T_gap",
+      "ticker_1623.T_score_x_gap",
+      "ticker_1624.T_score",
+      "ticker_1624.T_gap",
+      "ticker_1624.T_score_x_gap",
+      "ticker_1625.T_score",
+      "ticker_1625.T_gap",
+      "ticker_1625.T_score_x_gap",
+      "ticker_1626.T_score",
+      "ticker_1626.T_gap",
+      "ticker_1626.T_score_x_gap",
+      "ticker_1627.T_score",
+      "ticker_1627.T_gap",
+      "ticker_1627.T_score_x_gap",
+      "ticker_1628.T_score",
+      "ticker_1628.T_gap",
+      "ticker_1628.T_score_x_gap",
+      "ticker_1629.T_score",
+      "ticker_1629.T_gap",
+      "ticker_1629.T_score_x_gap",
+      "ticker_1630.T_score",
+      "ticker_1630.T_gap",
+      "ticker_1630.T_score_x_gap",
+      "ticker_1631.T_score",
+      "ticker_1631.T_gap",
+      "ticker_1631.T_score_x_gap",
+      "ticker_1632.T_score",
+      "ticker_1632.T_gap",
+      "ticker_1632.T_score_x_gap",
+      "ticker_1633.T_score",
+      "ticker_1633.T_gap",
+      "ticker_1633.T_score_x_gap"
+    ],
+    "target_std": 0.010331184239521764,
+    "use_ticker": true,
+    "use_classification": false,
+    "per_ticker_interactions": true,
+    "n_tickers": 17,
+    "p_trade_scale": 1.0,
+    "metadata_version": 2,
+    "metadata_status": "verified",
+    "train_start": "2015-01-05",
+    "train_end": "2025-12-30",
+    "label_asof_end": "2025-12-30",
+    "data_hash": "ca506341850a21333f5f80433d876a8074a727a025cc918969ef5aabd6f09637",
+    "config_hash": "ab47dd1a4310f59dc9c842ca9bcee745c17072eaa897e079339e008b8c22dcf3",
+    "training_frame_hash": "a51ec5ba7506417706b50fb42ccb41fd957c3b33f5b8b16e1a9ce1b93827022d",
+    "source_artifact_version": "20260926T182011981905Z-f8b4ec178e88",
+    "source_input_provenance_sha256": "0842a5026e91ef780b1cb4ee15d9db25c905d617df03f6bdbe654cc3fbda865d",
+    "source_reconciliation_sha256": "c64246b272bb4e5da66d6c5c564181ec390f4bb413c0408d1d598f69fa3bf964",
+    "cutoff_input_df_exec_hash": "ca506341850a21333f5f80433d876a8074a727a025cc918969ef5aabd6f09637",
+    "open_910_hash": "93f7dcb766c04ad6f00ff9c956766ac109a63896db28c83f2bb8f47dd2483a9d",
+    "macro_prices_hash": "fd8181c5600de623c61bc86e9d239fbe80db22cc2bf1f8fe485baa86588bb1f3",
+    "adr_features_hash": "185554e59d88e7526d71c27362a84aed8c0353c17f2d6c736fcf741177ff24f6",
+    "rank_reversal_hash": "61af5a7931aece7af5d673ba4787e5311c9ca2c5b9a3d391286373540f707c73",
+    "historical_provider_available_at_proven": false,
+    "availability_evidence": "session convention only; historical provider timestamps are unavailable",
+    "requested_training_cutoff": "2025-12-31",
+    "training_rows": 44438,
+    "training_dates": 2614,
+    "rows_per_ticker": {
+      "1617.T": 2614,
+      "1618.T": 2614,
+      "1619.T": 2614,
+      "1620.T": 2614,
+      "1621.T": 2614,
+      "1622.T": 2614,
+      "1623.T": 2614,
+      "1624.T": 2614,
+      "1625.T": 2614,
+      "1626.T": 2614,
+      "1627.T": 2614,
+      "1628.T": 2614,
+      "1629.T": 2614,
+      "1630.T": 2614,
+      "1631.T": 2614,
+      "1632.T": 2614,
+      "1633.T": 2614
+    },
+    "ticker_date_coverage": {
+      "1617.T": 1.0,
+      "1618.T": 1.0,
+      "1619.T": 1.0,
+      "1620.T": 1.0,
+      "1621.T": 1.0,
+      "1622.T": 1.0,
+      "1623.T": 1.0,
+      "1624.T": 1.0,
+      "1625.T": 1.0,
+      "1626.T": 1.0,
+      "1627.T": 1.0,
+      "1628.T": 1.0,
+      "1629.T": 1.0,
+      "1630.T": 1.0,
+      "1631.T": 1.0,
+      "1632.T": 1.0,
+      "1633.T": 1.0
+    },
+    "ticker_coverage_imbalance": 0.0,
+    "candidate_parameterizations": 1,
+    "seed": 42,
+    "target_type": "raw",
+    "round_trip_cost_bps": 10.0,
+    "lgbm_kwargs": {
+      "n_estimators": 100,
+      "max_depth": 3,
+      "num_leaves": 20,
+      "learning_rate": 0.05,
+      "min_child_samples": 300,
+      "reg_alpha": 0.5,
+      "reg_lambda": 1.0,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "random_state": 42,
+      "n_jobs": -1,
+      "verbosity": -1
+    },
+    "training_frame_first": "2009-01-07",
+    "training_frame_last": "2025-12-30",
+    "promotion_eligible": false,
+    "promotion_blockers": [
+      "historical provider available_at remains unverified",
+      "2026 post-cutoff history is retrospective and is not a new prospective 250-day gate"
+    ],
+    "artifact_version": "20260926T192555935698Z-ee306a32f3ec",
+    "model_sha256": "c1a5b9354dae4b6507b41453c3b1c6a90451a81bcf0d3bc78b07939f421cb1e9"
+  },
+  "sqlite": {
+    "var/live/pipeline_data/gap_adjusted_distribution/gap_store.sqlite": {
+      "cache_store": {
+        "columns": [
+          "key",
+          "value",
+          "updated_at"
+        ],
+        "rows": 90
+      },
+      "gap_matrices": {
+        "columns": [
+          "trade_date",
+          "matrix_type",
+          "horizon",
+          "cache_key",
+          "created_at"
+        ],
+        "rows": 90,
+        "trade_date_range": [
+          "2026-08-07",
+          "2026-09-25"
+        ]
+      }
+    },
+    "var/live/pipeline_data/execution/execution_state.sqlite": {
+      "execution_runs": {
+        "columns": [
+          "run_id",
+          "job_key",
+          "account_key",
+          "strategy_key",
+          "trade_date",
+          "job_type",
+          "decision_id",
+          "status",
+          "attempt_id",
+          "created_at",
+          "updated_at",
+          "last_error",
+          "metadata_json"
+        ],
+        "rows": 0,
+        "trade_date_range": [
+          null,
+          null
+        ],
+        "status": {}
+      },
+      "order_intents": {
+        "columns": [
+          "intent_id",
+          "run_id",
+          "ordinal",
+          "purpose",
+          "ticker",
+          "side",
+          "quantity",
+          "is_close",
+          "payload_json",
+          "broker_order_id",
+          "latest_status",
+          "created_at",
+          "updated_at"
+        ],
+        "rows": 0
+      },
+      "order_observations": {
+        "columns": [
+          "observation_id",
+          "observation_key",
+          "run_id",
+          "intent_id",
+          "broker_order_id",
+          "ticker",
+          "status",
+          "requested_quantity",
+          "filled_quantity",
+          "remaining_quantity",
+          "observed_at",
+          "raw_reference",
+          "side",
+          "fill_price",
+          "fee",
+          "fill_id",
+          "fill_source"
+        ],
+        "rows": 0,
+        "status": {}
+      },
+      "sqlite_sequence": {
+        "columns": [
+          "name",
+          "seq"
+        ],
+        "rows": 0
+      },
+      "execution_leases": {
+        "columns": [
+          "scope",
+          "owner",
+          "acquired_at",
+          "expires_at",
+          "metadata_json"
+        ],
+        "rows": 0
+      },
+      "execution_reconciliations": {
+        "columns": [
+          "reconciliation_id",
+          "run_id",
+          "checked_at",
+          "outcome",
+          "errors_json",
+          "references_json"
+        ],
+        "rows": 0
+      },
+      "execution_schema": {
+        "columns": [
+          "singleton",
+          "schema_version",
+          "updated_at"
+        ],
+        "rows": 1
+      }
+    }
+  }
+}
