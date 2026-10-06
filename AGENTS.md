@@ -83,7 +83,7 @@
 ## 検証と完了報告
 
 - コード変更時は対象の回帰テストを実行後、`tests/` 全体を検証する。例: `python3 -m pytest tests/ -n auto`（pytest-xdist が必要）。直列なら `-n auto` を外す。pytest-timeout が利用可能なら `--timeout=300` 等を追加できるが、いずれも外側にプロセス全体の停止期限を設ける。
-- `bash scripts/run_tests_parallel.sh` は既存の分割実行手段（ログ `/tmp/pytest_parallel/`）。現在は unit / integration / research を対象とするため、全テスト扱いする前に `tests/regression/` 等の未収録分も確認・実行する。所要時間やワーカー数は環境に合わせる。
+- `bash scripts/run_tests_parallel.sh` は既存の分割実行手段（ログ `/tmp/pytest_parallel/`）。現在は unit / integration / research / features と固定regressionを対象とする。全テスト扱いする前に追加directory・regressionが手動の分割列挙から漏れていないか確認する。所要時間やワーカー数は環境に合わせる。
 - コード変更時の構文確認: `python3 -m compileall src/leadlag tests tools scripts src/research`。lint / 型チェックは `pyproject.toml` と既存 CI の設定に従い、新規エラーを残さない。文書・Skill のみなら構造・参照先・意味の整合を検証する。必要な検証が通った後の再実行は、新しい変更・失敗・未解決の懸念がある場合に限る。
 - リファクタリングや Phase の進捗・完了を扱う場合は `docs/refactor_roadmap.md` と対象 ADR を照合する。`rg -n '\[ \]|未完了|部分完了' docs/refactor_roadmap.md` で確認し、チェックボックスがないことを全項目完了と解釈しない。ADR の accepted も実装完了を意味しない。
 - 依頼範囲の実装・文書・設定・運用手順を揃えて完了を報告する。Phase 全体の完了は、その Phase の要件を全て検証できた場合のみ宣言する。範囲外の未了は別記する。

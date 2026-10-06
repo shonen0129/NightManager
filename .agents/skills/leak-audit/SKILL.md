@@ -27,7 +27,7 @@ description: 時系列計算・PIT・監査・フォールバックの変更検�
 2. 相関・beta・PIT 閾値・macro surprise・copula・学習済み overlay の実際のデータ窓を追跡する。2010–2014 の事前分布と評価期間の混入を調べる。
 3. 予測時点で未知の当日ターゲット・未来行を摂動しても当日出力が変わらないことを確認する。当日既知の US リターンや gap はこの摂動対象から区別する。
 4. cache と on-demand の日付・モデル設定・銘柄順・入力期間を照合する。前日 cache の流用を検出し、on-demand の成功・無効・入力不足・例外を別々に検証する。
-5. 数値監査失敗時のフラット化と、リーク監査失敗時の下流処理を別々に追う。現行 `_run_safety_audits` は数値 FAILED + `fallback_on_audit_failure=true` でフラット化する。リーク FAILED も同じ条件で自動フラット化すると仮定しない。
+5. 数値監査失敗時のフラット化と、リーク監査失敗時の下流処理を別々に追う。現行 `_run_safety_audits` は数値 FAILED とリーク FAILED のそれぞれの経路で、`fallback_on_audit_failure=true` のときフラット化する。両経路のfallback理由・alerts・下流gateを個別に確認する。
 6. フラットになっても scores / 共分散の不正は残り得るため、再監査結果・alerts・実際の発注停止を確認する。`FLAT` は非稼働の状態であり、通常計算の全監査 PASS として数えない。
 7. モデルウェイトと実効レバレッジの制約、gross − costs = net を照合する。汎用監査の許容誤差や既定値を本番リスク上限に置き換えない。
 

@@ -80,7 +80,7 @@ def test_unverified_environment_marker_cannot_bypass_live_lease(tmp_path, monkey
             execution_lease(store, metadata={})
 
 
-@pytest.mark.parametrize("batch", ["run_decision_v2.sh", "run_gap_distribution.sh", "run_close_positions.sh", "run_pnl_report.sh"])
+@pytest.mark.parametrize("batch", ["run_decision_v2.sh", "run_gap_distribution.sh", "run_close_positions.sh", "run_pnl_report.sh", "update_market_data.sh", "run_distribution_diagnostics.sh"])
 @pytest.mark.parametrize("nested", [False, True])
 def test_batch_entry_reuses_parent_lease_or_acquires_its_own(tmp_path, monkeypatch, batch, nested):
     """Exercise the real shell guard prefix, replacing only its live payload."""

@@ -12,6 +12,23 @@ set -euo pipefail
 PROJECT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
 LOG_DIR="${PROJECT_DIR}/var/logs"
 
+if [ -z "${LEADLAG_LEASE_OWNER:-}" ]; then
+    if [ -f "${PROJECT_DIR}/.venv/bin/python" ]; then
+        GUARD_PYTHON="${PROJECT_DIR}/.venv/bin/python"
+    else
+        GUARD_PYTHON="$(command -v python3)"
+    fi
+    DATESTR=$(date +%Y%m%d)
+    exec env PYTHONPATH="${PROJECT_DIR}/src" \
+        "${GUARD_PYTHON}" -m leadlag.execution.job_guard \
+        --scope "live:production_v2" \
+        --timeout "${LEADLAG_DIAGNOSTICS_TIMEOUT_SECONDS:-3600}" \
+        --grace "${LEADLAG_JOB_GRACE_SECONDS:-10}" \
+        --state-db "${PROJECT_DIR}/var/live/pipeline_data/execution/execution_state.sqlite" \
+        --guard-log "${PROJECT_DIR}/var/logs/job_guard/diagnostics_${DATESTR}.json" \
+        -- bash "$0" "$@"
+fi
+
 mkdir -p "${LOG_DIR}"
 DATESTR=$(date +%Y%m%d)
 LOG_FILE="${LOG_DIR}/distribution_diagnostics_${DATESTR}.log"
@@ -32,12 +49,23 @@ cd "${PROJECT_DIR}"
 PIPELINE_DIR="${PROJECT_DIR}/var/live/pipeline_data"
 TODAY="$(date +%Y-%m-%d)"
 
+run_phase() {
+    local label="$1"
+    local budget="$2"
+    shift 2
+    PYTHONPATH=src "${PYTHON_BIN}" -m leadlag.execution.phase_deadline \
+        --label "${label}" --timeout "${budget}" \
+        --grace "${LEADLAG_JOB_GRACE_SECONDS:-10}" \
+        --log "${PROJECT_DIR}/var/logs/job_guard/${label}_${DATESTR}.json" \
+        -- "$@"
+}
+
 # ---------------------------------------------------------------------------
 # Step 1a: distribution_diagnostics
 # ---------------------------------------------------------------------------
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] === Step 1a: distribution_diagnostics ===" >> "${LOG_FILE}"
 set +e
-PYTHONPATH=src "${PYTHON_BIN}" tools/research/compute_structured_prediction_covariance.py \
+run_phase distribution_diagnostics "${LEADLAG_DISTRIBUTION_DIAGNOSTICS_PHASE_SECONDS:-2400}" "${PYTHON_BIN}" tools/research/compute_structured_prediction_covariance.py \
     --config configs/production/production.yaml \
     --model production_residual_blpx \
     --start "2020-01-01" \
@@ -88,7 +116,7 @@ fi
 # ---------------------------------------------------------------------------
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] === Step 1b: distribution_validation ===" >> "${LOG_FILE}"
 set +e
-PYTHONPATH=src "${PYTHON_BIN}" tools/validation/validate_distribution_prediction_step1.py \
+run_phase distribution_validation "${LEADLAG_DISTRIBUTION_VALIDATION_PHASE_SECONDS:-600}" "${PYTHON_BIN}" tools/validation/validate_distribution_prediction_step1.py \
     --input-dir "${LATEST_DIAG_DIR}" \
     --output-dir var/live/pipeline_data/distribution_validation \
     --start "2020-01-01" \
@@ -115,7 +143,7 @@ fi
 # ---------------------------------------------------------------------------
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] === Step 1c: vol_state_diagnostics ===" >> "${LOG_FILE}"
 set +e
-PYTHONPATH=src "${PYTHON_BIN}" tools/validation/diagnose_us_vol_states.py \
+run_phase vol_state_diagnostics "${LEADLAG_VOL_STATE_DIAGNOSTICS_PHASE_SECONDS:-600}" "${PYTHON_BIN}" tools/validation/diagnose_us_vol_states.py \
     --config configs/production/production.yaml \
     --model production_residual_blpx \
     --start "2020-01-01" \

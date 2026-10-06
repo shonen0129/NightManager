@@ -32,4 +32,4 @@ python3 -m leadlag.cli backtest --config configs/production/production.yaml --st
 
 - このリポジトリには過去の実験config・スクリプトが大量にあり、同一ヒストリー上での反復選択が既に多い
 - 「Sharpe改善なし」の結論も価値がある — 不採用実験も必ずレポート化して二重検証を防ぐ
-- 不採用実験の記録は SKILL.md の「不採用実験の記録」セクションに追記すること
+- 不採用実験は `reports/<作業名>/` と `docs/experiment_graveyard.md` に記録する。Skillへ成績・完了履歴を蓄積しない

@@ -16,8 +16,9 @@ else
     PYTHON_BIN="python3"
 fi
 
-EXTRA_ARGS="$@"
-
-exec "$PYTHON_BIN" -m pytest tests/unit tests/features \
+exec env PYTHONPATH=src "$PYTHON_BIN" -m leadlag.execution.phase_deadline \
+    --label unit_tests --timeout "${LEADLAG_UNIT_TEST_TIMEOUT_SECONDS:-600}" \
+    --grace 10 --log /tmp/pytest_unit_guard.json -- \
+    "$PYTHON_BIN" -m pytest tests/unit tests/features \
     -m "unit and not slow and not integration" \
-    -q -n auto $EXTRA_ARGS
+    -q -n auto "$@"

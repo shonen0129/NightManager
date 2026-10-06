@@ -1,50 +1,19 @@
 ---
-description: pytest でユニットテスト・統合テストを実行し、リーク監査・コンプライアンスを確認する
+description: 正本の検証規約に沿って全テストを実行する
 ---
 
 # テスト実行
 
-コード変更後にテストを必ず通す。特にリーク防止・コンプライアンス監査は最優先。
+実行規約・対象範囲・完了判定は [AGENTS.md](../../AGENTS.md) と [test-gen Skill](../../.agents/skills/test-gen/SKILL.md) に従う。`.venv`を使い、プロセス全体のdeadlineを設定する。
 
-## 手順
+対象回帰を通した後、以下のCIと同じ全体検証を行う。
 
-// turbo
-1. 全テスト実行（並列・推奨、約8分）:
-
-```
-bash scripts/run_tests_parallel.sh
-```
-
-7プロセス並行実行: 重いテスト4つ（sprint0_diagnostics, sprint0_qa, sprint1::backtest, sprint1::calibration）を各1プロセスに分散し、残りをpytest-xdistで並列化。ログは `/tmp/pytest_parallel/` に出力。
-
-2. 全テスト実行（直列・非推奨、約32分）:
-
-```
-python3 -m pytest tests/ -v
+```bash
+timeout -k 10s 300s .venv/bin/python -m pytest tests/regression/test_v2_baseline.py
+timeout -k 30s 1800s .venv/bin/python -m pytest tests --ignore=tests/regression/test_v2_baseline.py -n 4
+timeout -k 10s 120s .venv/bin/python -m compileall -q src/leadlag tests tools scripts src/research
 ```
 
-3. 個別実行（必要に応じて）:
+macOSでtimeoutがなければ [hang-prevention Skill](../../.agents/skills/hang-prevention/SKILL.md) のprocess-group guardを使う。既存の `bash scripts/run_tests_parallel.sh` は10プロセスでunit/integration/research/featuresと固定regressionを分割し、全体deadlineと `/tmp/pytest_parallel/` ログを持つ。新しいtest directoryやregression追加時に手動列挙の漏れを確認する。
 
-```
-# リーク監査テスト
-python3 -m pytest tests/integration/test_leakage_audit.py -v
-
-# 本番モデル統合テスト
-python3 -m pytest tests/integration/test_production_residual_blpx.py -v
-
-# バックテスターテスト
-python3 -m pytest tests/unit/test_backtester_910.py -v
-```
-
-4. 構文チェック（CLIスタック防止）:
-
-```
-python3 _check_syntax.py
-```
-
-## 注意事項
-
-- unit + integration の全テストが通ることを確認（並列実行時は `/tmp/pytest_parallel/` の全ログで failed=0 を確認）
-- テストを弱めたり削除したりしない
-- `ComplianceAuditor` の監査項目（`check_pit_binning_lookahead`, `check_residualization_leakage` 等）を無効化しない
-- `python3 -c "..."` はスタックしやすいので避け、スクリプト経由で実行すること
+失敗・未実行をPASSにせず、テスト・監査のassertionを弱めない。

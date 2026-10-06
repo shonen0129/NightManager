@@ -5,7 +5,10 @@ set -euo pipefail
 PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$PROJECT_ROOT"
 
-.venv/bin/python3 -m leadlag.cli backtest \
+PYTHONPATH=src .venv/bin/python -m leadlag.execution.phase_deadline \
+  --label full_backtest --timeout "${LEADLAG_BACKTEST_TIMEOUT_SECONDS:-7200}" \
+  --grace 10 --log /tmp/full_backtest_guard.json -- \
+  .venv/bin/python -m leadlag.cli backtest \
   --config configs/production/production.yaml \
   --start-date 2015-01-05 \
   --end-date 2026-08-13 \

@@ -16,8 +16,9 @@ fi
 # Bound the entire parallel run and all pytest-xdist workers with a process-
 # group watchdog. Set the guard flag in the child so it does not wrap itself.
 if [ "${LEADLAG_TEST_RUNNER_GUARDED:-0}" != "1" ]; then
-    exec "$PYTHON_BIN" reports/20260912_workspace_audit/watchdog.py \
-        "${LEADLAG_TEST_SUITE_TIMEOUT_SECONDS:-1800}" \
+    exec env PYTHONPATH="$PROJECT_ROOT/src" "$PYTHON_BIN" -m leadlag.execution.phase_deadline \
+        --label parallel_tests --timeout "${LEADLAG_TEST_SUITE_TIMEOUT_SECONDS:-1800}" \
+        --grace 10 --log /tmp/pytest_parallel_guard.json -- \
         env LEADLAG_TEST_RUNNER_GUARDED=1 bash "$0" "$@"
 fi
 
