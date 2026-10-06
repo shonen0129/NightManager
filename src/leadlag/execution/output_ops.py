@@ -19,6 +19,7 @@ import pandas as pd
 
 from leadlag.broker.base import BrokerClient
 from leadlag.config.schemas import StrategyConfig as ProductionConfig
+from leadlag.reporting.metrics import compute_drawdown_series
 from leadlag.reporting.results_format import create_results_output_dir
 
 logger = logging.getLogger(__name__)
@@ -66,7 +67,7 @@ def save_summary_files(
     pd.DataFrame([metrics]).to_csv(metrics_path, index=False, encoding="utf-8-sig")
 
     wealth = (1.0 + results["daily_return"]).cumprod()
-    drawdown = wealth / wealth.cummax() - 1.0
+    drawdown = compute_drawdown_series(results["daily_return"])
     cfg_dict = config.model_dump()
 
     summary = {

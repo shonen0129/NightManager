@@ -140,10 +140,9 @@ class ExperimentRecord:
 
 
 def _moments(returns: np.ndarray) -> tuple[float, float, float]:
-    """Return (mean, skewness, excess_kurtosis) of a return series."""
+    """Return (mean, skewness, Pearson kurtosis) of a return series."""
     r = np.asarray(returns, dtype=float)
-    r = r[np.isfinite(r)]
-    if len(r) < 4:
+    if r.ndim != 1 or not np.isfinite(r).all() or len(r) < 4:
         raise ValueError("At least 4 finite returns are required for moments")
     mu = np.mean(r)
     sigma = np.std(r, ddof=1)
@@ -175,34 +174,48 @@ def compute_deflated_sharpe(metrics: dict[str, Any]) -> float | None:
     sr = metrics.get("net_sharpe")
     n = metrics.get("trials")
     t = metrics.get("n_observations")
-    if sr is None or n is None or t is None:
+    if sr is None or n is None or t is None or metrics.get("metric_status", "valid") != "valid":
+        return None
+    if metrics.get("metric_schema_version", "daily-v1") != "daily-v1":
         return None
     # Returns and ``n_observations`` are daily by contract.  Registry records
     # store the selected Sharpe annualized; convert it before applying the
     # finite-sample/non-normality correction.
     sharpe_frequency = str(metrics.get("net_sharpe_frequency", "annual")).lower()
-    annual_factor = float(metrics.get("trading_days_per_year", 245.0))
-    sr = float(sr)
+    if sharpe_frequency not in {"annual", "annualized", "yearly", "daily"}:
+        return None
+    try:
+        annual_factor = float(metrics.get("trading_days_per_year", 245.0))
+        sr = float(sr)
+        if not np.isfinite([annual_factor, sr, float(n), float(t)]).all():
+            return None
+        if annual_factor <= 0 or isinstance(n, bool) or isinstance(t, bool):
+            return None
+        if float(n) != int(n) or float(t) != int(t):
+            return None
+        n, t = int(n), int(t)
+    except (TypeError, ValueError, OverflowError):
+        return None
     if sharpe_frequency in {"annual", "annualized", "yearly"}:
         sr /= np.sqrt(annual_factor)
-    n = int(n)
-    t = int(t)
     if n <= 0 or t <= 1:
         return None
 
     returns = metrics.get("returns")
     if returns is not None:
         try:
-            _, skew, kurt = _moments(np.asarray(returns, dtype=float))
-        except ValueError as exc:
-            logger.warning("Could not compute return moments for DSR: %s", exc)
-            skew, kurt = 0.0, 3.0
+            return_arr = np.asarray(returns, dtype=float)
+            if return_arr.ndim != 1 or len(return_arr) != t:
+                return None
+            _, skew, kurt = _moments(return_arr)
+        except (TypeError, ValueError):
+            return None
     else:
         skew, kurt = 0.0, 3.0
 
     # Variance of the Sharpe estimate, accounting for non-normality.
     denom = 1.0 - skew * sr + ((kurt - 1.0) / 4.0) * (sr ** 2)
-    if denom <= 0:
+    if not np.isfinite(denom) or denom <= 0:
         return None
     sr_std = np.sqrt(denom / (t - 1))
     if sr_std <= 1e-16:
@@ -214,19 +227,29 @@ def compute_deflated_sharpe(metrics: dict[str, Any]) -> float | None:
     variance_frequency = str(
         metrics.get("trial_sharpe_variance_frequency", sharpe_frequency)
     ).lower()
+    if variance_frequency not in {"annual", "annualized", "yearly", "daily"}:
+        return None
     if explicit_v is not None:
-        var = float(explicit_v)
+        try:
+            var = float(explicit_v)
+        except (TypeError, ValueError):
+            return None
         if variance_frequency in {"annual", "annualized", "yearly"}:
             var /= annual_factor
-    elif trial_sharpes is not None and len(trial_sharpes) >= 2:
-        trial_arr = np.asarray(trial_sharpes, dtype=float)
+    elif trial_sharpes is not None:
+        try:
+            trial_arr = np.asarray(trial_sharpes, dtype=float)
+        except (TypeError, ValueError):
+            return None
+        if trial_arr.ndim != 1 or len(trial_arr) != n or len(trial_arr) < 2 or not np.isfinite(trial_arr).all():
+            return None
         if sharpe_frequency in {"annual", "annualized", "yearly"}:
             trial_arr = trial_arr / np.sqrt(annual_factor)
         var = float(np.var(trial_arr, ddof=1))
     else:
         # Fallback: variance of a single Sharpe under the null.
         var = 1.0 / (t - 1)
-    if var <= 0:
+    if not np.isfinite(var) or var <= 0:
         return None
 
     # Expected maximum Sharpe under the null after N trials.

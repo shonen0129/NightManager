@@ -113,7 +113,7 @@ def test_deflated_sharpe_trials_penalty():
         "net_sharpe": 1.0,
         "n_observations": 1000,
         "returns": returns.tolist(),
-        "trial_sharpes": np.linspace(-0.5, 0.5, 10).tolist(),
+        "trial_sharpe_variance": float(np.var(np.linspace(-0.5, 0.5, 10), ddof=1)),
     }
     dsr_10 = compute_deflated_sharpe({**base, "trials": 10})
     dsr_1000 = compute_deflated_sharpe({**base, "trials": 1000})

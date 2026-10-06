@@ -26,8 +26,8 @@ description: シグナル・モデル・パラメータの性能比較実験を�
 
 1. 研究用の独立した設定コピーと再現可能なスクリプトを作る。V2 の引数例は `src/research/scripts/experiments/_template.py` を参照できるが、gap パスと集計定義は有効設定・AGENTS.md に合わせる。
 2. 境界条件・非リークを検証してから、期限付きで V2 バックテストと OOS 検証を実行する。
-3. 試した設定ごとに `ExperimentRecord` / `ExperimentRegistry` を記録する。研究側の窓口は `src/research/experiment_registry.py`、補助関数は `src/research/experiment_utils.py::record_backtest_experiment`。自動集計がフラット日を除いていないか確認し、必要なら全評価日から算出した指標を `extra_metrics` に明示する。
-   同 helper は `trials` を同名レコード数で上書きする。累積試行数を正しく残す必要がある場合は `ExperimentRecord` / `ExperimentRegistry` へ直接記録し、helper の DSR を無条件に採用しない。
+3. 試した設定ごとに `ExperimentRecord` / `ExperimentRegistry` を記録する。研究側の窓口は `src/research/experiment_registry.py`、補助関数は `src/research/experiment_utils.py::record_backtest_experiment`。helperのcomputed metricsは全評価日を含め、`extra_metrics`で上書きしない。年率係数は `MetricsSpec` で明示する。
+   helperは明示した `trials` を保持する。省略時は `study_id` の非訂正試行数+1、study未指定なら同名の非訂正レコード数+1を使う。探索family全体の未登録試行も確認して明示trialsへ含め、helperの件数だけで探索履歴を保証しない。DSRは無効status・非有限returns・観測数不一致を拒否する。
 4. `backtest-report` で仮説・設定差分・期間・データ版・実行コマンド・全試行・統計手法・結果・判定を残す。証拠不足は保留とする。
 5. 不採用索引を `docs/experiment_graveyard.md` に追記する。再現用コード・設定・成果物参照は保持し、不要な中間データの整理は別途その範囲が明確な場合に行う。本番への実験フックは依頼範囲の自分の変更を特定して戻し、他の作業を巻き戻さない。
 6. 研究上の採用後、本番昇格が依頼範囲なら `leadlag-fund-improvement` の shadow・昇格手順へ進む。

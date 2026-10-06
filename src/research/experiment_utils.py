@@ -112,6 +112,8 @@ def _extract_metrics(
         spec = metrics_spec or MetricsSpec()
         if spec.frequency != "daily":
             raise ValueError("experiment registry metrics require daily-frequency returns")
+        if not spec.include_flat_days:
+            raise ValueError("experiment registry metrics must include all evaluation days")
         metrics["metric_schema_version"] = "daily-v1"
         metrics["net_sharpe_frequency"] = "annual"
         metrics["trading_days_per_year"] = int(spec.annualization_periods)
@@ -194,6 +196,17 @@ def record_backtest_experiment(
         )
     metrics = _extract_metrics(results, metrics_spec=metrics_spec)
     if extra_metrics:
+        conflicts = set(metrics).intersection(extra_metrics)
+        # Annualisation is an input to MetricsSpec above, never an override.
+        if "trading_days_per_year" in conflicts and metrics["trading_days_per_year"] == extra_metrics["trading_days_per_year"]:
+            conflicts.remove("trading_days_per_year")
+        protected = {"net_sharpe", "n_observations", "metric_status", "metric_schema_version",
+                     "returns", "n_observations_expected", "missing_return_count", "net_sharpe_frequency",
+                     "max_dd", "total_return", "deflated_sharpe"}
+        if results is not None:
+            conflicts |= protected.intersection(extra_metrics)
+        if conflicts:
+            raise ValueError(f"extra_metrics cannot override computed metrics: {sorted(conflicts)}")
         metrics.update(extra_metrics)
 
     # Preserve an explicit count when the experiment belongs to a wider study

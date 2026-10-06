@@ -7,6 +7,7 @@ artifacts.
 
 from __future__ import annotations
 
+import json
 import logging
 from pathlib import Path
 from typing import Any
@@ -95,6 +96,15 @@ def _save_detailed_backtest_results(results: dict[str, Any], output_dir: Path) -
     _save_series("equity_curve", results.get("equity_curve"))
     _save_series("drawdown", results.get("drawdown"))
     _save_series("daily_turnover", results.get("daily_turnover"))
+    _save_series("daily_target_weight_turnover", results.get("daily_target_weight_turnover"))
+    _save_series("daily_execution_volume", results.get("daily_execution_volume"))
+    _save_series("daily_effective_gross_exps", results.get("daily_effective_gross_exps"))
+    _save_series("daily_overnight_returns", results.get("daily_overnight_returns"))
+    if "accounting_contract" in results:
+        (output_dir / "accounting_contract.json").write_text(
+            json.dumps(results["accounting_contract"], ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
     _save_series("daily_gross_exps", results.get("daily_gross_exps"))
     _save_series("daily_costs", results.get("daily_costs"))
     _save_series("daily_slip_costs", results.get("daily_slip_costs"))

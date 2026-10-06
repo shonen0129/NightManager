@@ -65,18 +65,26 @@ class BacktestEngine:
         """Resolve simulation start/end indices and the full date index."""
         T = len(df_exec)
         sim_dates = cast(pd.DatetimeIndex, df_exec.index)
+        if not isinstance(sim_dates, pd.DatetimeIndex) or T == 0:
+            raise ValueError("backtest requires a non-empty DatetimeIndex")
+        if sim_dates.hasnans or not sim_dates.is_monotonic_increasing or not sim_dates.is_unique:
+            raise ValueError("backtest dates must be unique, sorted, and non-NaT")
 
         start_dt = pd.to_datetime(start_date)
+        if pd.isna(start_dt):
+            raise ValueError("start_date must be a valid date")
         start_idx = max(int(sim_dates.searchsorted(start_dt)), min_start_idx)
 
         if end_date != "latest":
             end_dt = pd.to_datetime(end_date)
+            if pd.isna(end_dt) or end_dt < start_dt:
+                raise ValueError("end_date must be valid and on or after start_date")
             # searchsorted(..., side="right") gives the first index *after* end_dt;
             # subtract 1 to get the last trading day on or before end_dt. This
             # prevents a non-trading end_date from leaking the following business
             # day into the simulation.
             end_idx = int(sim_dates.searchsorted(end_dt, side="right")) - 1
-            end_idx = max(0, min(end_idx, T - 1))
+            end_idx = min(end_idx, T - 1)
         else:
             end_idx = T - 1
 
@@ -85,6 +93,8 @@ class BacktestEngine:
             while end_idx >= start_idx and bool(df_exec["is_provisional"].iloc[end_idx]):
                 end_idx -= 1
 
+        if start_idx > end_idx:
+            raise ValueError("requested backtest period has no completed data")
         return sim_dates, start_idx, end_idx
 
     @staticmethod
@@ -94,7 +104,11 @@ class BacktestEngine:
         sim_dates_slice: pd.DatetimeIndex,
         open_910_returns: pd.DataFrame | None = None,
     ) -> tuple[np.ndarray, np.ndarray]:
-        """Compute 9:10-to-close target returns and overnight gap returns."""
+        """Compute matched entry-to-close and previous-close-to-entry returns.
+
+        Entry is 09:10 when measured, otherwise the explicit open proxy used
+        by the target. Carry and intraday P&L therefore meet at one mark.
+        """
         y_jp_target = compute_jp_target_returns(
             df_exec,
             JP_TICKERS,
@@ -111,6 +125,10 @@ class BacktestEngine:
         else:
             gap_returns_df = pd.DataFrame(0.0, index=sim_dates, columns=JP_TICKERS)
 
+        if open_910_returns is not None:
+            measured = open_910_returns.reindex(index=sim_dates, columns=JP_TICKERS)
+            entry_move = measured.where(np.isfinite(measured), 0.0)
+            gap_returns_df = (1.0 + gap_returns_df) * (1.0 + entry_move) - 1.0
         gap_returns_arr = gap_returns_df.loc[sim_dates_slice].values
         return y_jp_target_arr, gap_returns_arr
 
@@ -243,6 +261,8 @@ class BacktestEngine:
             f"side_leverage={side_leverage}"
         )
 
+        if pd.to_datetime(start_date) < pd.Timestamp("2015-01-05"):
+            raise ValueError("V2 evaluation must start on or after 2015-01-05, outside the prior period")
         sim_dates, start_idx, end_idx = cls._resolve_sim_dates(df_exec, start_date, end_date, 0)
         sim_dates_slice = cast(pd.DatetimeIndex, sim_dates[start_idx : end_idx + 1])
 
@@ -308,7 +328,7 @@ class BacktestEngine:
             side_leverage=side_leverage,
         )
 
-        return cls._assemble_v2_results(
+        results = cls._assemble_v2_results(
             pnl,
             sre_weights_df,
             fallback_flags,
@@ -318,6 +338,15 @@ class BacktestEngine:
             alpha_short,
             side_leverage,
         )
+        results["evaluation_period"] = {
+            "requested_start": start_date,
+            "requested_end": end_date,
+            "actual_start": str(sim_dates_slice[0].date()),
+            "actual_end": str(sim_dates_slice[-1].date()),
+            "source_start": str(sim_dates[0].date()),
+            "source_end": str(sim_dates[-1].date()),
+        }
+        return results
 
     @staticmethod
     def _resolve_v2_backtest_cost_params(
@@ -571,6 +600,8 @@ class BacktestEngine:
         daily_overnight_returns = pd.Series(pnl["overnight_returns"], index=sim_dates_slice)
         daily_gross_exps = pd.Series(pnl["gross_exps"], index=sim_dates_slice)
         daily_turnover = pd.Series(pnl["turnover"], index=sim_dates_slice)
+        daily_target_weight_turnover = pd.Series(pnl["target_weight_turnover"], index=sim_dates_slice)
+        daily_execution_volume = pd.Series(pnl["execution_volume"], index=sim_dates_slice)
         daily_fallback = pd.Series(fallback_flags, index=sim_dates_slice)
 
         wealth = (1.0 + daily_returns_net).cumprod()
@@ -594,7 +625,18 @@ class BacktestEngine:
             "daily_reverse_costs": daily_reverse_costs,
             "daily_overnight_returns": daily_overnight_returns,
             "daily_gross_exps": daily_gross_exps,
+            "daily_effective_gross_exps": daily_gross_exps * side_leverage,
             "daily_turnover": daily_turnover,
+            "daily_target_weight_turnover": daily_target_weight_turnover,
+            "daily_execution_volume": daily_execution_volume,
+            "accounting_contract": {
+                "version": "entry-mark-v2",
+                "carry_interval": "previous_close_to_current_entry",
+                "carry_attribution": "outgoing_trade_date",
+                "entry_proxy": "09:10_when_measured_else_open",
+                "turnover": "effective_opening_plus_closing_notional_divided_by_two",
+                "target_weight_turnover": "model_target_weight_change_L1_divided_by_two",
+            },
             "daily_fallback": daily_fallback,
             "overnight_alpha_long": alpha_long,
             "overnight_alpha_short": alpha_short,

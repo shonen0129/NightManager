@@ -36,8 +36,8 @@ class MetricsSpec:
     def __post_init__(self) -> None:
         if self.frequency not in {"daily", "monthly"}:
             raise ValueError("frequency must be 'daily' or 'monthly'")
-        if int(self.annualization_periods) <= 0:
-            raise ValueError("annualization_periods must be positive")
+        if not np.isfinite(self.annualization_periods) or int(self.annualization_periods) != self.annualization_periods or int(self.annualization_periods) <= 0:
+            raise ValueError("annualization_periods must be a positive integer")
         if self.frequency == "monthly" and self.annualization_periods != 12:
             raise ValueError("monthly MetricsSpec requires annualization_periods=12")
 
@@ -60,7 +60,7 @@ def compute_drawdown_series(daily_returns: pd.Series) -> pd.Series:
 
 def _extract_monthly_returns(daily_returns: pd.Series) -> pd.Series | None:
     """Aggregate daily returns into monthly returns when a datetime index is available."""
-    series = pd.Series(daily_returns).dropna()
+    series = pd.Series(daily_returns)
     if len(series) == 0:
         return None
 
@@ -99,24 +99,27 @@ def calculate_metrics(
             raise ValueError("frequency and spec.frequency disagree")
         effective_frequency: str = spec.frequency
         periods_per_year = spec.annualization_periods
-        daily_series = pd.Series(daily_returns).dropna().astype(float)
-        if not spec.include_flat_days:
-            daily_series = daily_series.loc[~np.isclose(daily_series, 0.0)]
     else:
         effective_frequency = frequency
-        periods_per_year = TRADING_DAYS_PER_YEAR
-        daily_series = pd.Series(daily_returns).dropna().astype(float)
+        periods_per_year = 12 if frequency == "monthly" else TRADING_DAYS_PER_YEAR
+    daily_series = pd.Series(daily_returns).astype(float)
+    if not np.isfinite(daily_series.to_numpy()).all():
+        raise ValueError("metrics require finite returns for every evaluation day")
+    if spec is not None and not spec.include_flat_days:
+        daily_series = daily_series.loc[~np.isclose(daily_series, 0.0)]
+    if effective_frequency not in {"daily", "monthly"}:
+        raise ValueError("frequency must be 'daily' or 'monthly'")
     t_daily = len(daily_series)
     if t_daily == 0:
         return {}
 
-    if effective_frequency not in {"daily", "monthly"}:
-        raise ValueError("frequency must be 'daily' or 'monthly'")
     monthly_returns = (
         _extract_monthly_returns(daily_series)
         if effective_frequency == "monthly"
         else None
     )
+    if effective_frequency == "monthly" and monthly_returns is None:
+        raise ValueError("monthly aggregation requires a date index")
 
     if monthly_returns is not None and len(monthly_returns) > 0:
         t_months = len(monthly_returns)

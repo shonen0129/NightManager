@@ -485,6 +485,8 @@ def simulate_daily_pnl(
         "overnight_returns": [],
         "gross_exps": [],
         "turnover": [],
+        "target_weight_turnover": [],
+        "execution_volume": [],
     }
     if oc_returns is not None:
         result["gross_returns_oc"] = []
@@ -494,7 +496,9 @@ def simulate_daily_pnl(
         w_t = weights_arr[i]
         r_target_t = target_arr[i]
         days_held = held_days[i]
-        gross_ret = side_leverage * float(np.sum(w_t * r_target_t))
+        # Missing labels on zero inventory cannot change price P&L. Preserve
+        # missing active labels so consumers reject an incomplete evaluation.
+        gross_ret = side_leverage * float(np.sum(w_t * np.where(w_t != 0, r_target_t, 0.0)))
         gross_exp = float(np.sum(np.abs(w_t)))
         alpha_mask = (
             alpha_masks_arr[i]
@@ -506,11 +510,14 @@ def simulate_daily_pnl(
             alpha_masks_arr is None and (alpha_long > 0 or alpha_short > 0)
         )
         if carry_enabled and i < n_sim_days - 1:
-            overnight_ret = side_leverage * float(np.sum(alpha_mask * w_t * gap_arr[i + 1]))
-        turnover = float(np.sum(np.abs(w_t - w_prev)) / 2.0)
+            carry = alpha_mask * w_t
+            overnight_ret = side_leverage * float(np.sum(carry * np.where(carry != 0, gap_arr[i + 1], 0.0)))
+        target_weight_turnover = float(np.sum(np.abs(w_t - w_prev)) / 2.0)
         held_t = alpha_mask * w_t
         opening_trade = np.sum(np.abs(w_t - held_prev))
         close_trade = np.sum(np.abs(w_t - held_t))
+        execution_volume = side_leverage * float(opening_trade + close_trade)
+        turnover = execution_volume / 2.0
         slip_cost = side_leverage * slip * (opening_trade + close_trade)
         held_long = float(np.sum(alpha_mask * np.maximum(w_t, 0.0)))
         held_short = float(np.sum(alpha_mask * np.maximum(-w_t, 0.0)))
@@ -536,9 +543,11 @@ def simulate_daily_pnl(
         result["overnight_returns"].append(overnight_ret)
         result["gross_exps"].append(gross_exp)
         result["turnover"].append(turnover)
+        result["target_weight_turnover"].append(target_weight_turnover)
+        result["execution_volume"].append(execution_volume)
 
         if oc_returns is not None:
-            gross_ret_oc = side_leverage * float(np.sum(w_t * np.asarray(oc_returns)[i]))
+            gross_ret_oc = side_leverage * float(np.sum(w_t * np.where(w_t != 0, np.asarray(oc_returns)[i], 0.0)))
             result["gross_returns_oc"].append(gross_ret_oc)
             result["net_returns_oc"].append(gross_ret_oc - cost)
         w_prev = w_t.copy()

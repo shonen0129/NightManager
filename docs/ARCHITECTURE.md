@@ -491,3 +491,7 @@ artifact・運用の最新受入状態は[実行報告](../reports/20260922_prod
 | [CI.md](CI.md) | lock固定、静的検査、import契約、wheel分離、全体テストのCIゲート |
 | [api/kabu_STATION_API.yaml](api/kabu_STATION_API.yaml) | kabuステーション API 仕様書 (OpenAPI/Swagger) |
 | [api/立花証券API.md](api/立花証券API.md) | 立花証券 e-Shiten API 仕様書 |
+
+## 監査境界修正（2026-10-06）
+
+V2の期間入口は2015-01-05以降とsource期間の非空交差を検証する。`evaluation_period`に要求・実評価・sourceの期間を保存する。損益のentry-mark-v2契約と執行turnoverは `accounting_contract` で識別する。

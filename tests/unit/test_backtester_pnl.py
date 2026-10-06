@@ -46,4 +46,4 @@ def test_backtest_target_uses_run_owned_open_910_returns() -> None:
     )
 
     np.testing.assert_allclose(target, (1.20 / 1.10) - 1.0)
-    np.testing.assert_allclose(gap, 0.0)
+    np.testing.assert_allclose(gap, 0.10)

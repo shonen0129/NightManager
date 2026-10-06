@@ -35,3 +35,9 @@ def test_metrics_spec_makes_flat_day_treatment_explicit() -> None:
 def test_metrics_spec_rejects_monthly_non_monthly_annualization() -> None:
     with pytest.raises(ValueError, match="monthly"):
         MetricsSpec(frequency="monthly", annualization_periods=245)
+
+
+@pytest.mark.parametrize('periods', [0, -1, 1.5, np.nan, np.inf])
+def test_metrics_spec_rejects_invalid_annualization(periods):
+    with pytest.raises(ValueError, match='positive integer'):
+        MetricsSpec(annualization_periods=periods)
