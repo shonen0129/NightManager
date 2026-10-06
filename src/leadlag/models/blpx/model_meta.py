@@ -179,39 +179,6 @@ def _estimate_asymmetric_covariance(
     return C_YX_pos, C_YX_neg, C_XX, C_YY
 
 
-def _solve_asymmetric_blp(
-    self: ProductionBLPXModel,
-    C_YX_pos: np.ndarray,
-    C_YX_neg: np.ndarray,
-    C_XX: np.ndarray,
-    C_YY: np.ndarray,
-    B_pca: np.ndarray,
-    M_sector: np.ndarray,
-    B_blp: np.ndarray | None = None,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """Solve BLP coefficients separately for positive and negative regimes.
-
-    Returns:
-        B_pos_struct, B_neg_struct, inv_A_avg, Sigma_YX_reg_avg
-    """
-    Sigma_XX_reg = (1.0 - self.alpha_xx) * C_XX + self.alpha_xx * np.eye(self.n_u)
-    Sigma_YX_reg_pos = (1.0 - self.alpha_yx) * C_YX_pos
-    Sigma_YX_reg_neg = (1.0 - self.alpha_yx) * C_YX_neg
-    (1.0 - self.alpha_yy) * C_YY + self.alpha_yy * np.eye(self.n_j)
-
-    diag_mean = float(np.mean(np.diag(Sigma_XX_reg)))
-
-    B_pos_struct, inv_A_pos = self._solve_tikhonov(
-        Sigma_XX_reg, Sigma_YX_reg_pos, B_pca, M_sector, diag_mean, B_blp
-    )
-    B_neg_struct, inv_A_neg = self._solve_tikhonov(
-        Sigma_XX_reg, Sigma_YX_reg_neg, B_pca, M_sector, diag_mean, B_blp
-    )
-
-    inv_A_avg = 0.5 * (inv_A_pos + inv_A_neg)
-    Sigma_YX_reg_avg = 0.5 * (Sigma_YX_reg_pos + Sigma_YX_reg_neg)
-
-    return B_pos_struct, B_neg_struct, inv_A_avg, Sigma_YX_reg_avg
 
 
 def _load_vix_series(self: ProductionBLPXModel, df_exec: pd.DataFrame) -> pd.Series | None:
@@ -281,6 +248,5 @@ class BLPXMetaMixin:
     combine_signals = combine_signals
     _predict_meta_weight = _predict_meta_weight
     _estimate_asymmetric_covariance = _estimate_asymmetric_covariance
-    _solve_asymmetric_blp = _solve_asymmetric_blp
     _load_vix_series = _load_vix_series
     _prepare_macro_confidence = _prepare_macro_confidence

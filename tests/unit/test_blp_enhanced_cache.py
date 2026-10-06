@@ -16,6 +16,7 @@ import pandas as pd
 import pytest
 
 import leadlag.core.correlation as corr_mod
+from leadlag.core.blpx_math import compute_pca_prior
 from leadlag.data.tickers import SENSITIVITY_LABELS
 from research.models.sector_relative_ensemble_blp_enhanced import (
     SectorRelativeEnsembleBLPEnhancedModel,
@@ -89,7 +90,18 @@ class TestPcaPriorDerivedDimensions:
         n = model.n_u + model.n_j
         corr, v0_static, c_full = self._valid_inputs(model, n)
 
-        b_pca = model._compute_pca_prior(corr, v0_static, c_full)
+        b_pca = compute_pca_prior(
+            corr,
+            v0_static,
+            c_full,
+            k=model.k,
+            lambda_lw=model.lambda_lw,
+            lambda_reg=model.lambda_reg,
+            lw_target=model.lw_target,
+            n_j=model.n_j,
+            n_u=model.n_u,
+            min_raw_weight=getattr(model, 'min_raw_weight', 0.0),
+        )
 
         assert b_pca.shape == (model.n_j, model.n_u)
         assert np.any(b_pca != 0.0)
@@ -99,10 +111,32 @@ class TestPcaPriorDerivedDimensions:
         n = model.n_u + model.n_j
         corr, v0_static, c_full = self._valid_inputs(model, n)
 
-        b_pca = model._compute_pca_prior(corr, v0_static[:-1], c_full)
+        b_pca = compute_pca_prior(
+            corr,
+            v0_static[:-1],
+            c_full,
+            k=model.k,
+            lambda_lw=model.lambda_lw,
+            lambda_reg=model.lambda_reg,
+            lw_target=model.lw_target,
+            n_j=model.n_j,
+            n_u=model.n_u,
+            min_raw_weight=getattr(model, 'min_raw_weight', 0.0),
+        )
         assert np.all(b_pca == 0.0)
 
-        b_pca = model._compute_pca_prior(np.eye(n - 1), v0_static, c_full)
+        b_pca = compute_pca_prior(
+            np.eye(n - 1),
+            v0_static,
+            c_full,
+            k=model.k,
+            lambda_lw=model.lambda_lw,
+            lambda_reg=model.lambda_reg,
+            lw_target=model.lw_target,
+            n_j=model.n_j,
+            n_u=model.n_u,
+            min_raw_weight=getattr(model, 'min_raw_weight', 0.0),
+        )
         assert np.all(b_pca == 0.0)
 
 

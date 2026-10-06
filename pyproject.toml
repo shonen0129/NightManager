@@ -181,6 +181,7 @@ forbidden_modules = ["research"]
 name = "pure calculation modules do not depend on I/O adapters"
 type = "forbidden"
 source_modules = [
+    "leadlag.core.blpx_math",
     "leadlag.core.gap_adjustment",
     "leadlag.core.macro",
     "leadlag.core.target_returns",
@@ -190,6 +191,7 @@ forbidden_modules = [
     "leadlag.data.fetcher",
     "leadlag.data.macro",
     "leadlag.data.adr_features",
+    "leadlag.data.adr_producer",
     "leadlag.data.intraday_inputs",
     "leadlag.data.cache_store",
     "leadlag.data.market_data_cache",

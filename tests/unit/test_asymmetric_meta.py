@@ -7,6 +7,7 @@ import copy
 import numpy as np
 import pytest
 
+from leadlag.core.blpx_math import solve_asymmetric_blp
 from leadlag.data.tickers import JP_TICKERS, US_TICKERS
 from research.models.sector_relative_ensemble_blp_enhanced import (
     SectorRelativeEnsembleBLPEnhancedModel,
@@ -108,8 +109,22 @@ def test_solve_asymmetric_blp(base_config):
     B_pca = np.zeros((n_j, n_u))
     M_sector = np.zeros((n_j, n_u))
 
-    B_pos, B_neg, inv_A, Sigma_YX = model._solve_asymmetric_blp(
-        C_YX_pos, C_YX_neg, C_XX, C_YY, B_pca, M_sector
+    B_pos, B_neg, inv_A, Sigma_YX = solve_asymmetric_blp(
+        C_YX_pos,
+        C_YX_neg,
+        C_XX,
+        C_YY,
+        B_pca,
+        M_sector,
+        alpha_xx=model.alpha_xx,
+        alpha_yx=model.alpha_yx,
+        alpha_yy=model.alpha_yy,
+        frobenius_scale_priors=model.frobenius_scale_priors,
+        lambda_pca=model.lambda_pca,
+        lambda_sector=model.lambda_sector,
+        n_j=model.n_j,
+        n_u=model.n_u,
+        rho=model.rho,
     )
     assert B_pos.shape == (n_j, n_u)
     assert B_neg.shape == (n_j, n_u)

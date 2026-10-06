@@ -10,14 +10,6 @@ import numpy as np
 from leadlag.core.macro import MACRO_SENS_MATRIX
 from leadlag.data.tickers import JP_TICKERS, US_TICKERS
 from leadlag.models.blp_base import BLPModelBase
-from leadlag.models.blpx.blp_solver import (
-    _apply_confidence_weighting,
-    _build_blp_diagnostics,
-    _compute_pca_prior,
-    _safe_solve_inv,
-    _solve_blp_coefficients,
-    _solve_tikhonov,
-)
 from leadlag.models.blpx.correlation import (
     _estimate_correlation,
     _prepare_window_returns,
@@ -70,12 +62,6 @@ class ProductionBLPXModel(BLPXPredictMixin, BLPXMetaMixin, BLPModelBase):
     _get_sector_prior = _get_sector_prior
     _prepare_window_returns = _prepare_window_returns
     _estimate_correlation = _estimate_correlation
-    _safe_solve_inv = staticmethod(_safe_solve_inv)
-    _solve_blp_coefficients = _solve_blp_coefficients
-    _compute_pca_prior = _compute_pca_prior
-    _solve_tikhonov = _solve_tikhonov
-    _apply_confidence_weighting = staticmethod(_apply_confidence_weighting)
-    _build_blp_diagnostics = staticmethod(_build_blp_diagnostics)
     compute_blp_signal = compute_blp_signal
     _SECTOR_MAPPING_STRUCTURE = _SECTOR_MAPPING_STRUCTURE
 

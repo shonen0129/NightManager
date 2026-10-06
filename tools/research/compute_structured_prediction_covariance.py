@@ -373,7 +373,6 @@ def main():
         Sigma_XY = Sigma_YX.T
         Sigma_YY = residual_blpx_res["Sigma_YY"]
         B_struct = residual_blpx_res["B_struct"]
-        residual_blpx_res["z_U"]
         pred_var_vec = residual_blpx_res["pred_var_vec"]
         sigma_Y_denorm = residual_blpx_res["sigma_Y_denorm"]
 

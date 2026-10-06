@@ -7,35 +7,19 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-from leadlag.models.blpx.blp_solver import (
-    _apply_confidence_weighting,
-    _build_blp_diagnostics,
-    _compute_pca_prior,
-    _safe_solve_inv,
-    _solve_blp_coefficients,
-    _solve_tikhonov,
-)
-from leadlag.models.blpx.correlation import (
-    _estimate_correlation,
-    _prepare_window_returns,
+from leadlag.core.blpx_math import (
+    apply_confidence_weighting,
+    build_blp_diagnostics,
+    compute_pca_prior,
+    solve_asymmetric_blp,
+    solve_blp_coefficients,
+    solve_tikhonov,
 )
 
 if TYPE_CHECKING:
     from leadlag.models.blpx.model import ProductionBLPXModel
 
 logger = logging.getLogger("leadlag.models.blpx")
-
-__all__ = [
-    "_apply_confidence_weighting",
-    "_build_blp_diagnostics",
-    "_compute_pca_prior",
-    "_estimate_correlation",
-    "_prepare_window_returns",
-    "_safe_solve_inv",
-    "_solve_blp_coefficients",
-    "_solve_tikhonov",
-    "compute_blp_signal",
-]
 
 
 def compute_blp_signal(
@@ -66,15 +50,45 @@ def compute_blp_signal(
 
     # 3. Solve BLP coefficients
     B_blp, Sigma_XX_reg, Sigma_YX_reg, Sigma_YY_reg, cond_num, pinv_fallback = (
-        self._solve_blp_coefficients(corr)
+        solve_blp_coefficients(
+            corr,
+            alpha_xx=self.alpha_xx,
+            alpha_yx=self.alpha_yx,
+            alpha_yy=self.alpha_yy,
+            n_j=self.n_j,
+            n_u=self.n_u,
+            rank=self.rank,
+            rho=self.rho,
+        )
     )
 
     # 4. Structured shrinkage: PCA prior + sector prior + Tikhonov
-    B_pca = self._compute_pca_prior(corr, v0_static, c_full)
+    B_pca = compute_pca_prior(
+        corr,
+        v0_static,
+        c_full,
+        k=self.k,
+        lambda_lw=self.lambda_lw,
+        lambda_reg=self.lambda_reg,
+        lw_target=self.lw_target,
+        n_j=self.n_j,
+        n_u=self.n_u,
+        min_raw_weight=getattr(self, 'min_raw_weight', 0.0),
+    )
     M_sector = self._get_sector_prior(current_index, all_returns, corr, B_blp)
     diag_mean = float(np.mean(np.diag(Sigma_XX_reg)))
-    B_struct, inv_A_tikh = self._solve_tikhonov(
-        Sigma_XX_reg, Sigma_YX_reg, B_pca, M_sector, diag_mean, B_blp
+    B_struct, inv_A_tikh = solve_tikhonov(
+        Sigma_XX_reg,
+        Sigma_YX_reg,
+        B_pca,
+        M_sector,
+        diag_mean,
+        B_blp,
+        frobenius_scale_priors=self.frobenius_scale_priors,
+        lambda_pca=self.lambda_pca,
+        lambda_sector=self.lambda_sector,
+        n_u=self.n_u,
+        rho=self.rho,
     )
 
     # 5. Predict standardized JP returns
@@ -92,8 +106,23 @@ def compute_blp_signal(
 
     if self.asymmetry_mode == "covariance":
         C_YX_pos, C_YX_neg, C_XX, C_YY = self._estimate_asymmetric_covariance(window_returns, corr)
-        B_pos_struct, B_neg_struct, inv_A_tikh, Sigma_YX_reg = self._solve_asymmetric_blp(
-            C_YX_pos, C_YX_neg, C_XX, C_YY, B_pca, M_sector, B_blp
+        B_pos_struct, B_neg_struct, inv_A_tikh, Sigma_YX_reg = solve_asymmetric_blp(
+            C_YX_pos,
+            C_YX_neg,
+            C_XX,
+            C_YY,
+            B_pca,
+            M_sector,
+            B_blp,
+            alpha_xx=self.alpha_xx,
+            alpha_yx=self.alpha_yx,
+            alpha_yy=self.alpha_yy,
+            frobenius_scale_priors=self.frobenius_scale_priors,
+            lambda_pca=self.lambda_pca,
+            lambda_sector=self.lambda_sector,
+            n_j=self.n_j,
+            n_u=self.n_u,
+            rho=self.rho,
         )
         z_hat_j_t1 = B_pos_struct @ z_U_pos + B_neg_struct @ z_U_neg_scaled
         B_struct_diag = 0.5 * (B_pos_struct + B_neg_struct)
@@ -105,9 +134,7 @@ def compute_blp_signal(
     z_hat_j_t1 = np.nan_to_num(z_hat_j_t1, nan=0.0, posinf=0.0, neginf=0.0)
 
     # 6. Confidence weighting
-    z_hat_j_t1, pred_var, num_floored = self._apply_confidence_weighting(
-        z_hat_j_t1, Sigma_YY_reg, Sigma_YX_reg, inv_A_tikh, self.beta_conf
-    )
+    z_hat_j_t1, pred_var, num_floored = apply_confidence_weighting(z_hat_j_t1, Sigma_YY_reg, Sigma_YX_reg, inv_A_tikh, self.beta_conf)
 
     # 7. Denormalize and apply gap adjustment
     r_hat_jp_cc = self._denormalize_signal(
@@ -156,7 +183,7 @@ def compute_blp_signal(
     C_YY = corr[self.n_u :, self.n_u :]
     A = Sigma_XX_reg + self.rho * diag_mean * np.eye(self.n_u)
 
-    return self._build_blp_diagnostics(
+    return build_blp_diagnostics(
         signal=signal,
         z_hat_j_t1=z_hat_j_t1,
         cond_num=cond_num,
