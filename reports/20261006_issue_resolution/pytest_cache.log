@@ -1,0 +1,11 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.12.0, pytest-9.1.1, pluggy-1.6.0
+rootdir: /Users/shonen/leadlag
+configfile: pyproject.toml
+plugins: cov-7.1.0, xdist-3.8.0
+collected 13 items
+
+tests/unit/test_market_data_cache.py ....                                [ 30%]
+tests/unit/test_experiment_utils.py .........                            [100%]
+
+============================= 13 passed in 12.64s ==============================

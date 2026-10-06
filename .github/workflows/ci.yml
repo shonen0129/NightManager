@@ -55,8 +55,10 @@ jobs:
         run: >-
           uv run --locked python scripts/ci/validate_docs.py
           docs/ARCHITECTURE.md docs/CI.md docs/SCHEDULER_SETUP.md
+          docs/日次運用手順書.md docs/モデル技術仕様書.md
           README.md docs/refactor_roadmap.md docs/RESEARCH_ENV.md
           docs/decisions/2026-10-04-kiss-canonical-apis.md
+          docs/decisions/2026-10-06-audit-boundaries.md
           docs/decisions/2026-09-15-structural-improvement-boundaries.md
           reports/20260915_structural_improvement/plan.md
 

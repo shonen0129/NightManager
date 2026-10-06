@@ -1,0 +1,76 @@
+{
+  "date_jst": "2026-10-06",
+  "baseline_head": "b5b901e6d467fb000263f9178722e3954d652720",
+  "worktree_changes": "uncommitted local implementation and documents",
+  "issues_local_main_defect_fixed": [
+    36,
+    38,
+    39,
+    40,
+    42,
+    43,
+    48,
+    49
+  ],
+  "issues_partial": [
+    33,
+    34,
+    35,
+    41,
+    46,
+    47
+  ],
+  "issues_unresolved": [
+    37,
+    44,
+    45,
+    27,
+    25,
+    23,
+    18
+  ],
+  "pytest": {
+    "baseline_passed": 1,
+    "full_except_baseline_passed": 1041,
+    "total_passed": 1042,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "warnings": 3,
+    "seconds_full_except_baseline": 93.17,
+    "workers": 4,
+    "whole_process_deadline_seconds": 1800
+  },
+  "targeted_checks": {
+    "related_initial_passed": 171,
+    "cache_registry_passed": 13,
+    "final_boundaries_passed": 56
+  },
+  "checks": {
+    "ruff": "PASS",
+    "mypy": "PASS (152 production files)",
+    "compileall": "PASS (5 required trees)",
+    "import_contracts": "PASS (7)",
+    "shell_syntax": "PASS (5 changed entry scripts)",
+    "docs": "PASS (160 references)",
+    "wheel_manifest": "PASS (157 files)",
+    "isolated_wheel_smoke": "PASS"
+  },
+  "wheel_build_method": "cached setuptools/wheel imported read-only; isolated temporary project copy; no dependencies installed",
+  "side_effects": {
+    "broker_network": false,
+    "orders": false,
+    "scheduler_registration": false,
+    "production_config_modified": false,
+    "live_data_rewritten": false,
+    "github_mutated": false
+  },
+  "limits": [
+    "No corrected long-period backtest or rolling VaR/ES replay",
+    "No terminal quantity/cash accounting or continuous artifact replay",
+    "No historical secret scrub or credential invalidation confirmation",
+    "No ADR network recovery or atomic producer publication",
+    "No account-risk producer or forward gate acceptance",
+    "No GitHub branch protection changes"
+  ]
+}

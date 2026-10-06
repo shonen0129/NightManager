@@ -1,0 +1,541 @@
+/Users/shonen/.cache/uv/archive-v0/UpXOmh0lWrFe4WG_/setuptools/config/_apply_pyprojecttoml.py:82: SetuptoolsDeprecationWarning: `project.license` as a TOML table is deprecated
+!!
+
+        ********************************************************************************
+        Please use a simple string containing a SPDX expression for `project.license`. You can also use `project.license-files`. (Both options available on setuptools>=77.0.0).
+
+        By 2027-Feb-18, you need to update your project and remove deprecated calls
+        or your builds will no longer be supported.
+
+        See https://packaging.python.org/en/latest/guides/writing-pyproject-toml/#license for details.
+        ********************************************************************************
+
+!!
+  corresp(dist, value, root_dir)
+running bdist_wheel
+running build
+running build_py
+creating build/lib/leadlag
+copying src/leadlag/experiment_registry.py -> build/lib/leadlag
+copying src/leadlag/__init__.py -> build/lib/leadlag
+copying src/leadlag/cli.py -> build/lib/leadlag
+creating build/lib/leadlag/pipeline
+copying src/leadlag/pipeline/__init__.py -> build/lib/leadlag/pipeline
+copying src/leadlag/pipeline/gap_distribution.py -> build/lib/leadlag/pipeline
+copying src/leadlag/pipeline/compute_omega_struct.py -> build/lib/leadlag/pipeline
+copying src/leadlag/pipeline/gap_reporting.py -> build/lib/leadlag/pipeline
+creating build/lib/leadlag/reporting
+copying src/leadlag/reporting/production_v2_writer.py -> build/lib/leadlag/reporting
+copying src/leadlag/reporting/gmail_sender.py -> build/lib/leadlag/reporting
+copying src/leadlag/reporting/metrics.py -> build/lib/leadlag/reporting
+copying src/leadlag/reporting/formatter.py -> build/lib/leadlag/reporting
+copying src/leadlag/reporting/daily_pnl_report.py -> build/lib/leadlag/reporting
+copying src/leadlag/reporting/__init__.py -> build/lib/leadlag/reporting
+copying src/leadlag/reporting/ml_overlay_shadow.py -> build/lib/leadlag/reporting
+copying src/leadlag/reporting/ml_overlay_forward_schema.py -> build/lib/leadlag/reporting
+copying src/leadlag/reporting/ml_overlay_forward_evaluation.py -> build/lib/leadlag/reporting
+copying src/leadlag/reporting/ml_overlay_forward_outcome.py -> build/lib/leadlag/reporting
+copying src/leadlag/reporting/results_format.py -> build/lib/leadlag/reporting
+creating build/lib/leadlag/broker
+copying src/leadlag/broker/dry_run.py -> build/lib/leadlag/broker
+copying src/leadlag/broker/__init__.py -> build/lib/leadlag/broker
+copying src/leadlag/broker/factory.py -> build/lib/leadlag/broker
+copying src/leadlag/broker/base.py -> build/lib/leadlag/broker
+creating build/lib/leadlag/core
+copying src/leadlag/core/target_returns.py -> build/lib/leadlag/core
+copying src/leadlag/core/signal.py -> build/lib/leadlag/core
+copying src/leadlag/core/market_calendar.py -> build/lib/leadlag/core
+copying src/leadlag/core/__init__.py -> build/lib/leadlag/core
+copying src/leadlag/core/timeouts.py -> build/lib/leadlag/core
+copying src/leadlag/core/types.py -> build/lib/leadlag/core
+copying src/leadlag/core/pipeline.py -> build/lib/leadlag/core
+copying src/leadlag/core/residualize.py -> build/lib/leadlag/core
+copying src/leadlag/core/pipeline_blpx.py -> build/lib/leadlag/core
+copying src/leadlag/core/risk.py -> build/lib/leadlag/core
+copying src/leadlag/core/gap_adjustment.py -> build/lib/leadlag/core
+copying src/leadlag/core/pit.py -> build/lib/leadlag/core
+copying src/leadlag/core/correlation.py -> build/lib/leadlag/core
+copying src/leadlag/core/portfolio.py -> build/lib/leadlag/core
+copying src/leadlag/core/macro.py -> build/lib/leadlag/core
+copying src/leadlag/core/convex_optimizer.py -> build/lib/leadlag/core
+copying src/leadlag/core/allocator.py -> build/lib/leadlag/core
+copying src/leadlag/core/pnl.py -> build/lib/leadlag/core
+creating build/lib/leadlag/config
+copying src/leadlag/config/paths.py -> build/lib/leadlag/config
+copying src/leadlag/config/__init__.py -> build/lib/leadlag/config
+copying src/leadlag/config/frozen.py -> build/lib/leadlag/config
+copying src/leadlag/config/schemas.py -> build/lib/leadlag/config
+copying src/leadlag/config/loader.py -> build/lib/leadlag/config
+creating build/lib/leadlag/runner
+copying src/leadlag/runner/__init__.py -> build/lib/leadlag/runner
+copying src/leadlag/runner/model_factory.py -> build/lib/leadlag/runner
+copying src/leadlag/runner/production.py -> build/lib/leadlag/runner
+creating build/lib/leadlag/features
+copying src/leadlag/features/__init__.py -> build/lib/leadlag/features
+copying src/leadlag/features/fractional_diff.py -> build/lib/leadlag/features
+creating build/lib/leadlag/utils
+copying src/leadlag/utils/cache_manager.py -> build/lib/leadlag/utils
+copying src/leadlag/utils/timestamps.py -> build/lib/leadlag/utils
+copying src/leadlag/utils/dataframe_fingerprint.py -> build/lib/leadlag/utils
+copying src/leadlag/utils/__init__.py -> build/lib/leadlag/utils
+copying src/leadlag/utils/threading.py -> build/lib/leadlag/utils
+copying src/leadlag/utils/distribution_provenance.py -> build/lib/leadlag/utils
+copying src/leadlag/utils/gap_matrix_io.py -> build/lib/leadlag/utils
+copying src/leadlag/utils/gap_provenance.py -> build/lib/leadlag/utils
+creating build/lib/leadlag/models
+copying src/leadlag/models/ml_overlay_features.py -> build/lib/leadlag/models
+copying src/leadlag/models/signal_enhancement.py -> build/lib/leadlag/models
+copying src/leadlag/models/production_v2.py -> build/lib/leadlag/models
+copying src/leadlag/models/ml_overlay_artifact.py -> build/lib/leadlag/models
+copying src/leadlag/models/__init__.py -> build/lib/leadlag/models
+copying src/leadlag/models/ml_order_overlay.py -> build/lib/leadlag/models
+copying src/leadlag/models/ml_overlay_inference.py -> build/lib/leadlag/models
+copying src/leadlag/models/blp_base.py -> build/lib/leadlag/models
+creating build/lib/leadlag/compliance
+copying src/leadlag/compliance/v2_auditor.py -> build/lib/leadlag/compliance
+copying src/leadlag/compliance/auditor.py -> build/lib/leadlag/compliance
+creating build/lib/leadlag/execution
+copying src/leadlag/execution/phase_deadline.py -> build/lib/leadlag/execution
+copying src/leadlag/execution/gap_store_check.py -> build/lib/leadlag/execution
+copying src/leadlag/execution/v2_bridge.py -> build/lib/leadlag/execution
+copying src/leadlag/execution/state_store.py -> build/lib/leadlag/execution
+copying src/leadlag/execution/risk_capital.py -> build/lib/leadlag/execution
+copying src/leadlag/execution/post_decision.py -> build/lib/leadlag/execution
+copying src/leadlag/execution/config.py -> build/lib/leadlag/execution
+copying src/leadlag/execution/close.py -> build/lib/leadlag/execution
+copying src/leadlag/execution/account_risk.py -> build/lib/leadlag/execution
+copying src/leadlag/execution/var_inputs.py -> build/lib/leadlag/execution
+copying src/leadlag/execution/cost_calculator.py -> build/lib/leadlag/execution
+copying src/leadlag/execution/__init__.py -> build/lib/leadlag/execution
+copying src/leadlag/execution/job_guard.py -> build/lib/leadlag/execution
+copying src/leadlag/execution/decision.py -> build/lib/leadlag/execution
+copying src/leadlag/execution/runtime_manifest.py -> build/lib/leadlag/execution
+copying src/leadlag/execution/self_test.py -> build/lib/leadlag/execution
+copying src/leadlag/execution/broker_ops.py -> build/lib/leadlag/execution
+copying src/leadlag/execution/backtester.py -> build/lib/leadlag/execution
+copying src/leadlag/execution/var_worker.py -> build/lib/leadlag/execution
+copying src/leadlag/execution/var_history.py -> build/lib/leadlag/execution
+copying src/leadlag/execution/pricing.py -> build/lib/leadlag/execution
+copying src/leadlag/execution/contracts.py -> build/lib/leadlag/execution
+copying src/leadlag/execution/order_lifecycle.py -> build/lib/leadlag/execution
+copying src/leadlag/execution/var_cache.py -> build/lib/leadlag/execution
+copying src/leadlag/execution/backtest.py -> build/lib/leadlag/execution
+copying src/leadlag/execution/reconcile.py -> build/lib/leadlag/execution
+copying src/leadlag/execution/output_ops.py -> build/lib/leadlag/execution
+creating build/lib/leadlag/monitoring
+copying src/leadlag/monitoring/__init__.py -> build/lib/leadlag/monitoring
+creating build/lib/leadlag/data
+copying src/leadlag/data/cache_store.py -> build/lib/leadlag/data
+copying src/leadlag/data/intraday_inputs.py -> build/lib/leadlag/data
+copying src/leadlag/data/tickers.py -> build/lib/leadlag/data
+copying src/leadlag/data/adr_features.py -> build/lib/leadlag/data
+copying src/leadlag/data/gap_store.py -> build/lib/leadlag/data
+copying src/leadlag/data/__init__.py -> build/lib/leadlag/data
+copying src/leadlag/data/preprocessor.py -> build/lib/leadlag/data
+copying src/leadlag/data/backtest_store.py -> build/lib/leadlag/data
+copying src/leadlag/data/market_data_cache.py -> build/lib/leadlag/data
+copying src/leadlag/data/pit_lake.py -> build/lib/leadlag/data
+copying src/leadlag/data/rank_reversal.py -> build/lib/leadlag/data
+copying src/leadlag/data/market_data.py -> build/lib/leadlag/data
+copying src/leadlag/data/horizon_returns.py -> build/lib/leadlag/data
+copying src/leadlag/data/macro.py -> build/lib/leadlag/data
+copying src/leadlag/data/quote_snapshot.py -> build/lib/leadlag/data
+copying src/leadlag/data/fetcher.py -> build/lib/leadlag/data
+copying src/leadlag/data/schema.py -> build/lib/leadlag/data
+copying src/leadlag/data/validation.py -> build/lib/leadlag/data
+creating build/lib/leadlag/domain
+copying src/leadlag/domain/signal.py -> build/lib/leadlag/domain
+copying src/leadlag/domain/market.py -> build/lib/leadlag/domain
+copying src/leadlag/domain/__init__.py -> build/lib/leadlag/domain
+copying src/leadlag/domain/distribution.py -> build/lib/leadlag/domain
+copying src/leadlag/domain/inputs.py -> build/lib/leadlag/domain
+copying src/leadlag/domain/gap_bundle.py -> build/lib/leadlag/domain
+copying src/leadlag/domain/portfolio.py -> build/lib/leadlag/domain
+creating build/lib/leadlag/broker/tachibana
+copying src/leadlag/broker/tachibana/client.py -> build/lib/leadlag/broker/tachibana
+copying src/leadlag/broker/tachibana/__init__.py -> build/lib/leadlag/broker/tachibana
+copying src/leadlag/broker/tachibana/api.py -> build/lib/leadlag/broker/tachibana
+copying src/leadlag/broker/tachibana/session_cache.py -> build/lib/leadlag/broker/tachibana
+creating build/lib/leadlag/broker/kabu
+copying src/leadlag/broker/kabu/client.py -> build/lib/leadlag/broker/kabu
+copying src/leadlag/broker/kabu/__init__.py -> build/lib/leadlag/broker/kabu
+copying src/leadlag/broker/kabu/api.py -> build/lib/leadlag/broker/kabu
+creating build/lib/leadlag/models/v2
+copying src/leadlag/models/v2/fallback_policy.py -> build/lib/leadlag/models/v2
+copying src/leadlag/models/v2/__init__.py -> build/lib/leadlag/models/v2
+copying src/leadlag/models/v2/decision_engine.py -> build/lib/leadlag/models/v2
+copying src/leadlag/models/v2/overlay_applier.py -> build/lib/leadlag/models/v2
+copying src/leadlag/models/v2/distribution_source.py -> build/lib/leadlag/models/v2
+copying src/leadlag/models/v2/pit.py -> build/lib/leadlag/models/v2
+copying src/leadlag/models/v2/gap_io.py -> build/lib/leadlag/models/v2
+copying src/leadlag/models/v2/fallback.py -> build/lib/leadlag/models/v2
+copying src/leadlag/models/v2/audit_comparator.py -> build/lib/leadlag/models/v2
+creating build/lib/leadlag/models/blpx
+copying src/leadlag/models/blpx/__init__.py -> build/lib/leadlag/models/blpx
+copying src/leadlag/models/blpx/prior_builder.py -> build/lib/leadlag/models/blpx
+copying src/leadlag/models/blpx/model.py -> build/lib/leadlag/models/blpx
+copying src/leadlag/models/blpx/model_meta.py -> build/lib/leadlag/models/blpx
+copying src/leadlag/models/blpx/blp_solver.py -> build/lib/leadlag/models/blpx
+copying src/leadlag/models/blpx/model_predict.py -> build/lib/leadlag/models/blpx
+copying src/leadlag/models/blpx/correlation.py -> build/lib/leadlag/models/blpx
+copying src/leadlag/models/blpx/signal_computer.py -> build/lib/leadlag/models/blpx
+creating build/lib/leadlag/execution/microstructure
+copying src/leadlag/execution/microstructure/slippage_model.py -> build/lib/leadlag/execution/microstructure
+copying src/leadlag/execution/microstructure/order_book_schema.py -> build/lib/leadlag/execution/microstructure
+copying src/leadlag/execution/microstructure/__init__.py -> build/lib/leadlag/execution/microstructure
+copying src/leadlag/execution/microstructure/order_book_cost.py -> build/lib/leadlag/execution/microstructure
+creating build/lib/leadlag/data/providers
+copying src/leadlag/data/providers/yfinance_provider.py -> build/lib/leadlag/data/providers
+copying src/leadlag/data/providers/__init__.py -> build/lib/leadlag/data/providers
+copying src/leadlag/data/providers/tachibana_provider.py -> build/lib/leadlag/data/providers
+running egg_info
+creating src/leadlag.egg-info
+writing src/leadlag.egg-info/PKG-INFO
+writing dependency_links to src/leadlag.egg-info/dependency_links.txt
+writing entry points to src/leadlag.egg-info/entry_points.txt
+writing requirements to src/leadlag.egg-info/requires.txt
+writing top-level names to src/leadlag.egg-info/top_level.txt
+writing manifest file 'src/leadlag.egg-info/SOURCES.txt'
+reading manifest file 'src/leadlag.egg-info/SOURCES.txt'
+writing manifest file 'src/leadlag.egg-info/SOURCES.txt'
+installing to build/bdist.macosx-11.0-arm64/wheel
+running install
+running install_lib
+creating build/bdist.macosx-11.0-arm64/wheel
+creating build/bdist.macosx-11.0-arm64/wheel/leadlag
+copying build/lib/leadlag/experiment_registry.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag
+creating build/bdist.macosx-11.0-arm64/wheel/leadlag/pipeline
+copying build/lib/leadlag/pipeline/__init__.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/pipeline
+copying build/lib/leadlag/pipeline/gap_distribution.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/pipeline
+copying build/lib/leadlag/pipeline/compute_omega_struct.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/pipeline
+copying build/lib/leadlag/pipeline/gap_reporting.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/pipeline
+creating build/bdist.macosx-11.0-arm64/wheel/leadlag/reporting
+copying build/lib/leadlag/reporting/production_v2_writer.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/reporting
+copying build/lib/leadlag/reporting/gmail_sender.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/reporting
+copying build/lib/leadlag/reporting/metrics.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/reporting
+copying build/lib/leadlag/reporting/formatter.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/reporting
+copying build/lib/leadlag/reporting/daily_pnl_report.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/reporting
+copying build/lib/leadlag/reporting/__init__.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/reporting
+copying build/lib/leadlag/reporting/ml_overlay_shadow.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/reporting
+copying build/lib/leadlag/reporting/ml_overlay_forward_schema.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/reporting
+copying build/lib/leadlag/reporting/ml_overlay_forward_evaluation.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/reporting
+copying build/lib/leadlag/reporting/ml_overlay_forward_outcome.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/reporting
+copying build/lib/leadlag/reporting/results_format.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/reporting
+creating build/bdist.macosx-11.0-arm64/wheel/leadlag/broker
+copying build/lib/leadlag/broker/dry_run.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/broker
+creating build/bdist.macosx-11.0-arm64/wheel/leadlag/broker/tachibana
+copying build/lib/leadlag/broker/tachibana/client.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/broker/tachibana
+copying build/lib/leadlag/broker/tachibana/__init__.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/broker/tachibana
+copying build/lib/leadlag/broker/tachibana/api.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/broker/tachibana
+copying build/lib/leadlag/broker/tachibana/session_cache.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/broker/tachibana
+copying build/lib/leadlag/broker/__init__.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/broker
+copying build/lib/leadlag/broker/factory.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/broker
+copying build/lib/leadlag/broker/base.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/broker
+creating build/bdist.macosx-11.0-arm64/wheel/leadlag/broker/kabu
+copying build/lib/leadlag/broker/kabu/client.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/broker/kabu
+copying build/lib/leadlag/broker/kabu/__init__.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/broker/kabu
+copying build/lib/leadlag/broker/kabu/api.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/broker/kabu
+creating build/bdist.macosx-11.0-arm64/wheel/leadlag/core
+copying build/lib/leadlag/core/target_returns.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/core
+copying build/lib/leadlag/core/signal.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/core
+copying build/lib/leadlag/core/market_calendar.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/core
+copying build/lib/leadlag/core/__init__.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/core
+copying build/lib/leadlag/core/timeouts.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/core
+copying build/lib/leadlag/core/types.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/core
+copying build/lib/leadlag/core/pipeline.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/core
+copying build/lib/leadlag/core/residualize.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/core
+copying build/lib/leadlag/core/pipeline_blpx.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/core
+copying build/lib/leadlag/core/risk.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/core
+copying build/lib/leadlag/core/gap_adjustment.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/core
+copying build/lib/leadlag/core/pit.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/core
+copying build/lib/leadlag/core/correlation.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/core
+copying build/lib/leadlag/core/portfolio.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/core
+copying build/lib/leadlag/core/macro.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/core
+copying build/lib/leadlag/core/convex_optimizer.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/core
+copying build/lib/leadlag/core/allocator.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/core
+copying build/lib/leadlag/core/pnl.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/core
+creating build/bdist.macosx-11.0-arm64/wheel/leadlag/config
+copying build/lib/leadlag/config/paths.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/config
+copying build/lib/leadlag/config/__init__.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/config
+copying build/lib/leadlag/config/frozen.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/config
+copying build/lib/leadlag/config/schemas.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/config
+copying build/lib/leadlag/config/loader.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/config
+creating build/bdist.macosx-11.0-arm64/wheel/leadlag/runner
+copying build/lib/leadlag/runner/__init__.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/runner
+copying build/lib/leadlag/runner/model_factory.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/runner
+copying build/lib/leadlag/runner/production.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/runner
+creating build/bdist.macosx-11.0-arm64/wheel/leadlag/features
+copying build/lib/leadlag/features/__init__.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/features
+copying build/lib/leadlag/features/fractional_diff.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/features
+copying build/lib/leadlag/__init__.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag
+creating build/bdist.macosx-11.0-arm64/wheel/leadlag/utils
+copying build/lib/leadlag/utils/cache_manager.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/utils
+copying build/lib/leadlag/utils/timestamps.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/utils
+copying build/lib/leadlag/utils/dataframe_fingerprint.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/utils
+copying build/lib/leadlag/utils/__init__.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/utils
+copying build/lib/leadlag/utils/threading.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/utils
+copying build/lib/leadlag/utils/distribution_provenance.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/utils
+copying build/lib/leadlag/utils/gap_matrix_io.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/utils
+copying build/lib/leadlag/utils/gap_provenance.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/utils
+creating build/bdist.macosx-11.0-arm64/wheel/leadlag/models
+copying build/lib/leadlag/models/ml_overlay_features.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/models
+copying build/lib/leadlag/models/signal_enhancement.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/models
+copying build/lib/leadlag/models/production_v2.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/models
+copying build/lib/leadlag/models/ml_overlay_artifact.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/models
+copying build/lib/leadlag/models/__init__.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/models
+creating build/bdist.macosx-11.0-arm64/wheel/leadlag/models/v2
+copying build/lib/leadlag/models/v2/fallback_policy.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/models/v2
+copying build/lib/leadlag/models/v2/__init__.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/models/v2
+copying build/lib/leadlag/models/v2/decision_engine.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/models/v2
+copying build/lib/leadlag/models/v2/overlay_applier.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/models/v2
+copying build/lib/leadlag/models/v2/distribution_source.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/models/v2
+copying build/lib/leadlag/models/v2/pit.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/models/v2
+copying build/lib/leadlag/models/v2/gap_io.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/models/v2
+copying build/lib/leadlag/models/v2/fallback.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/models/v2
+copying build/lib/leadlag/models/v2/audit_comparator.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/models/v2
+copying build/lib/leadlag/models/ml_order_overlay.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/models
+creating build/bdist.macosx-11.0-arm64/wheel/leadlag/models/blpx
+copying build/lib/leadlag/models/blpx/__init__.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/models/blpx
+copying build/lib/leadlag/models/blpx/prior_builder.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/models/blpx
+copying build/lib/leadlag/models/blpx/model.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/models/blpx
+copying build/lib/leadlag/models/blpx/model_meta.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/models/blpx
+copying build/lib/leadlag/models/blpx/blp_solver.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/models/blpx
+copying build/lib/leadlag/models/blpx/model_predict.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/models/blpx
+copying build/lib/leadlag/models/blpx/correlation.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/models/blpx
+copying build/lib/leadlag/models/blpx/signal_computer.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/models/blpx
+copying build/lib/leadlag/models/ml_overlay_inference.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/models
+copying build/lib/leadlag/models/blp_base.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/models
+creating build/bdist.macosx-11.0-arm64/wheel/leadlag/compliance
+copying build/lib/leadlag/compliance/v2_auditor.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/compliance
+copying build/lib/leadlag/compliance/auditor.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/compliance
+copying build/lib/leadlag/cli.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag
+creating build/bdist.macosx-11.0-arm64/wheel/leadlag/execution
+copying build/lib/leadlag/execution/phase_deadline.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/execution
+copying build/lib/leadlag/execution/gap_store_check.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/execution
+copying build/lib/leadlag/execution/v2_bridge.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/execution
+copying build/lib/leadlag/execution/state_store.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/execution
+creating build/bdist.macosx-11.0-arm64/wheel/leadlag/execution/microstructure
+copying build/lib/leadlag/execution/microstructure/slippage_model.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/execution/microstructure
+copying build/lib/leadlag/execution/microstructure/order_book_schema.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/execution/microstructure
+copying build/lib/leadlag/execution/microstructure/__init__.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/execution/microstructure
+copying build/lib/leadlag/execution/microstructure/order_book_cost.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/execution/microstructure
+copying build/lib/leadlag/execution/risk_capital.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/execution
+copying build/lib/leadlag/execution/post_decision.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/execution
+copying build/lib/leadlag/execution/config.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/execution
+copying build/lib/leadlag/execution/close.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/execution
+copying build/lib/leadlag/execution/account_risk.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/execution
+copying build/lib/leadlag/execution/var_inputs.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/execution
+copying build/lib/leadlag/execution/cost_calculator.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/execution
+copying build/lib/leadlag/execution/__init__.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/execution
+copying build/lib/leadlag/execution/job_guard.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/execution
+copying build/lib/leadlag/execution/decision.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/execution
+copying build/lib/leadlag/execution/runtime_manifest.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/execution
+copying build/lib/leadlag/execution/self_test.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/execution
+copying build/lib/leadlag/execution/broker_ops.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/execution
+copying build/lib/leadlag/execution/backtester.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/execution
+copying build/lib/leadlag/execution/var_worker.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/execution
+copying build/lib/leadlag/execution/var_history.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/execution
+copying build/lib/leadlag/execution/pricing.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/execution
+copying build/lib/leadlag/execution/contracts.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/execution
+copying build/lib/leadlag/execution/order_lifecycle.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/execution
+copying build/lib/leadlag/execution/var_cache.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/execution
+copying build/lib/leadlag/execution/backtest.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/execution
+copying build/lib/leadlag/execution/reconcile.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/execution
+copying build/lib/leadlag/execution/output_ops.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/execution
+creating build/bdist.macosx-11.0-arm64/wheel/leadlag/monitoring
+copying build/lib/leadlag/monitoring/__init__.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/monitoring
+creating build/bdist.macosx-11.0-arm64/wheel/leadlag/data
+copying build/lib/leadlag/data/cache_store.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/data
+copying build/lib/leadlag/data/intraday_inputs.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/data
+copying build/lib/leadlag/data/tickers.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/data
+copying build/lib/leadlag/data/adr_features.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/data
+creating build/bdist.macosx-11.0-arm64/wheel/leadlag/data/providers
+copying build/lib/leadlag/data/providers/yfinance_provider.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/data/providers
+copying build/lib/leadlag/data/providers/__init__.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/data/providers
+copying build/lib/leadlag/data/providers/tachibana_provider.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/data/providers
+copying build/lib/leadlag/data/gap_store.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/data
+copying build/lib/leadlag/data/__init__.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/data
+copying build/lib/leadlag/data/preprocessor.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/data
+copying build/lib/leadlag/data/backtest_store.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/data
+copying build/lib/leadlag/data/market_data_cache.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/data
+copying build/lib/leadlag/data/pit_lake.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/data
+copying build/lib/leadlag/data/rank_reversal.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/data
+copying build/lib/leadlag/data/market_data.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/data
+copying build/lib/leadlag/data/horizon_returns.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/data
+copying build/lib/leadlag/data/macro.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/data
+copying build/lib/leadlag/data/quote_snapshot.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/data
+copying build/lib/leadlag/data/fetcher.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/data
+copying build/lib/leadlag/data/schema.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/data
+copying build/lib/leadlag/data/validation.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/data
+creating build/bdist.macosx-11.0-arm64/wheel/leadlag/domain
+copying build/lib/leadlag/domain/signal.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/domain
+copying build/lib/leadlag/domain/market.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/domain
+copying build/lib/leadlag/domain/__init__.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/domain
+copying build/lib/leadlag/domain/distribution.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/domain
+copying build/lib/leadlag/domain/inputs.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/domain
+copying build/lib/leadlag/domain/gap_bundle.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/domain
+copying build/lib/leadlag/domain/portfolio.py -> build/bdist.macosx-11.0-arm64/wheel/./leadlag/domain
+running install_egg_info
+Copying src/leadlag.egg-info to build/bdist.macosx-11.0-arm64/wheel/./leadlag-2.1.0-py3.12.egg-info
+running install_scripts
+creating build/bdist.macosx-11.0-arm64/wheel/leadlag-2.1.0.dist-info/WHEEL
+creating '/tmp/leadlag-audit-wheel/.tmp-hd1vvdk7/leadlag-2.1.0-py3-none-any.whl' and adding 'build/bdist.macosx-11.0-arm64/wheel' to it
+adding 'leadlag/__init__.py'
+adding 'leadlag/cli.py'
+adding 'leadlag/experiment_registry.py'
+adding 'leadlag/broker/__init__.py'
+adding 'leadlag/broker/base.py'
+adding 'leadlag/broker/dry_run.py'
+adding 'leadlag/broker/factory.py'
+adding 'leadlag/broker/kabu/__init__.py'
+adding 'leadlag/broker/kabu/api.py'
+adding 'leadlag/broker/kabu/client.py'
+adding 'leadlag/broker/tachibana/__init__.py'
+adding 'leadlag/broker/tachibana/api.py'
+adding 'leadlag/broker/tachibana/client.py'
+adding 'leadlag/broker/tachibana/session_cache.py'
+adding 'leadlag/compliance/auditor.py'
+adding 'leadlag/compliance/v2_auditor.py'
+adding 'leadlag/config/__init__.py'
+adding 'leadlag/config/frozen.py'
+adding 'leadlag/config/loader.py'
+adding 'leadlag/config/paths.py'
+adding 'leadlag/config/schemas.py'
+adding 'leadlag/core/__init__.py'
+adding 'leadlag/core/allocator.py'
+adding 'leadlag/core/convex_optimizer.py'
+adding 'leadlag/core/correlation.py'
+adding 'leadlag/core/gap_adjustment.py'
+adding 'leadlag/core/macro.py'
+adding 'leadlag/core/market_calendar.py'
+adding 'leadlag/core/pipeline.py'
+adding 'leadlag/core/pipeline_blpx.py'
+adding 'leadlag/core/pit.py'
+adding 'leadlag/core/pnl.py'
+adding 'leadlag/core/portfolio.py'
+adding 'leadlag/core/residualize.py'
+adding 'leadlag/core/risk.py'
+adding 'leadlag/core/signal.py'
+adding 'leadlag/core/target_returns.py'
+adding 'leadlag/core/timeouts.py'
+adding 'leadlag/core/types.py'
+adding 'leadlag/data/__init__.py'
+adding 'leadlag/data/adr_features.py'
+adding 'leadlag/data/backtest_store.py'
+adding 'leadlag/data/cache_store.py'
+adding 'leadlag/data/fetcher.py'
+adding 'leadlag/data/gap_store.py'
+adding 'leadlag/data/horizon_returns.py'
+adding 'leadlag/data/intraday_inputs.py'
+adding 'leadlag/data/macro.py'
+adding 'leadlag/data/market_data.py'
+adding 'leadlag/data/market_data_cache.py'
+adding 'leadlag/data/pit_lake.py'
+adding 'leadlag/data/preprocessor.py'
+adding 'leadlag/data/quote_snapshot.py'
+adding 'leadlag/data/rank_reversal.py'
+adding 'leadlag/data/schema.py'
+adding 'leadlag/data/tickers.py'
+adding 'leadlag/data/validation.py'
+adding 'leadlag/data/providers/__init__.py'
+adding 'leadlag/data/providers/tachibana_provider.py'
+adding 'leadlag/data/providers/yfinance_provider.py'
+adding 'leadlag/domain/__init__.py'
+adding 'leadlag/domain/distribution.py'
+adding 'leadlag/domain/gap_bundle.py'
+adding 'leadlag/domain/inputs.py'
+adding 'leadlag/domain/market.py'
+adding 'leadlag/domain/portfolio.py'
+adding 'leadlag/domain/signal.py'
+adding 'leadlag/execution/__init__.py'
+adding 'leadlag/execution/account_risk.py'
+adding 'leadlag/execution/backtest.py'
+adding 'leadlag/execution/backtester.py'
+adding 'leadlag/execution/broker_ops.py'
+adding 'leadlag/execution/close.py'
+adding 'leadlag/execution/config.py'
+adding 'leadlag/execution/contracts.py'
+adding 'leadlag/execution/cost_calculator.py'
+adding 'leadlag/execution/decision.py'
+adding 'leadlag/execution/gap_store_check.py'
+adding 'leadlag/execution/job_guard.py'
+adding 'leadlag/execution/order_lifecycle.py'
+adding 'leadlag/execution/output_ops.py'
+adding 'leadlag/execution/phase_deadline.py'
+adding 'leadlag/execution/post_decision.py'
+adding 'leadlag/execution/pricing.py'
+adding 'leadlag/execution/reconcile.py'
+adding 'leadlag/execution/risk_capital.py'
+adding 'leadlag/execution/runtime_manifest.py'
+adding 'leadlag/execution/self_test.py'
+adding 'leadlag/execution/state_store.py'
+adding 'leadlag/execution/v2_bridge.py'
+adding 'leadlag/execution/var_cache.py'
+adding 'leadlag/execution/var_history.py'
+adding 'leadlag/execution/var_inputs.py'
+adding 'leadlag/execution/var_worker.py'
+adding 'leadlag/execution/microstructure/__init__.py'
+adding 'leadlag/execution/microstructure/order_book_cost.py'
+adding 'leadlag/execution/microstructure/order_book_schema.py'
+adding 'leadlag/execution/microstructure/slippage_model.py'
+adding 'leadlag/features/__init__.py'
+adding 'leadlag/features/fractional_diff.py'
+adding 'leadlag/models/__init__.py'
+adding 'leadlag/models/blp_base.py'
+adding 'leadlag/models/ml_order_overlay.py'
+adding 'leadlag/models/ml_overlay_artifact.py'
+adding 'leadlag/models/ml_overlay_features.py'
+adding 'leadlag/models/ml_overlay_inference.py'
+adding 'leadlag/models/production_v2.py'
+adding 'leadlag/models/signal_enhancement.py'
+adding 'leadlag/models/blpx/__init__.py'
+adding 'leadlag/models/blpx/blp_solver.py'
+adding 'leadlag/models/blpx/correlation.py'
+adding 'leadlag/models/blpx/model.py'
+adding 'leadlag/models/blpx/model_meta.py'
+adding 'leadlag/models/blpx/model_predict.py'
+adding 'leadlag/models/blpx/prior_builder.py'
+adding 'leadlag/models/blpx/signal_computer.py'
+adding 'leadlag/models/v2/__init__.py'
+adding 'leadlag/models/v2/audit_comparator.py'
+adding 'leadlag/models/v2/decision_engine.py'
+adding 'leadlag/models/v2/distribution_source.py'
+adding 'leadlag/models/v2/fallback.py'
+adding 'leadlag/models/v2/fallback_policy.py'
+adding 'leadlag/models/v2/gap_io.py'
+adding 'leadlag/models/v2/overlay_applier.py'
+adding 'leadlag/models/v2/pit.py'
+adding 'leadlag/monitoring/__init__.py'
+adding 'leadlag/pipeline/__init__.py'
+adding 'leadlag/pipeline/compute_omega_struct.py'
+adding 'leadlag/pipeline/gap_distribution.py'
+adding 'leadlag/pipeline/gap_reporting.py'
+adding 'leadlag/reporting/__init__.py'
+adding 'leadlag/reporting/daily_pnl_report.py'
+adding 'leadlag/reporting/formatter.py'
+adding 'leadlag/reporting/gmail_sender.py'
+adding 'leadlag/reporting/metrics.py'
+adding 'leadlag/reporting/ml_overlay_forward_evaluation.py'
+adding 'leadlag/reporting/ml_overlay_forward_outcome.py'
+adding 'leadlag/reporting/ml_overlay_forward_schema.py'
+adding 'leadlag/reporting/ml_overlay_shadow.py'
+adding 'leadlag/reporting/production_v2_writer.py'
+adding 'leadlag/reporting/results_format.py'
+adding 'leadlag/runner/__init__.py'
+adding 'leadlag/runner/model_factory.py'
+adding 'leadlag/runner/production.py'
+adding 'leadlag/utils/__init__.py'
+adding 'leadlag/utils/cache_manager.py'
+adding 'leadlag/utils/dataframe_fingerprint.py'
+adding 'leadlag/utils/distribution_provenance.py'
+adding 'leadlag/utils/gap_matrix_io.py'
+adding 'leadlag/utils/gap_provenance.py'
+adding 'leadlag/utils/threading.py'
+adding 'leadlag/utils/timestamps.py'
+adding 'leadlag-2.1.0.dist-info/METADATA'
+adding 'leadlag-2.1.0.dist-info/WHEEL'
+adding 'leadlag-2.1.0.dist-info/entry_points.txt'
+adding 'leadlag-2.1.0.dist-info/top_level.txt'
+adding 'leadlag-2.1.0.dist-info/RECORD'
+removing build/bdist.macosx-11.0-arm64/wheel
+/tmp/leadlag-audit-wheel/leadlag-2.1.0-py3-none-any.whl

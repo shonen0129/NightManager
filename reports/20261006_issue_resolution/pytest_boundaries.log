@@ -1,0 +1,12 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.12.0, pytest-9.1.1, pluggy-1.6.0
+rootdir: /Users/shonen/leadlag
+configfile: pyproject.toml
+plugins: cov-7.1.0, xdist-3.8.0
+collected 56 items
+
+tests/unit/test_project_audit_regressions.py ........................... [ 48%]
+....................                                                     [ 83%]
+tests/unit/test_metrics.py .........                                     [100%]
+
+============================= 56 passed in 13.62s ==============================

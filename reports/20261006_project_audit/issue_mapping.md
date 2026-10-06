@@ -27,3 +27,9 @@
 | F29 | [#18（既存へ追記）](https://github.com/shonen0129/NightManager/issues/18#issuecomment-6007173778) | P1 |
 
 各issueに根拠・再現・影響・完了条件を記載。旧issueの元の完了範囲は維持。依存関係と優先順は親trackerに記載。
+
+
+## 2026-10-06 ローカル修正の到達点
+
+[修正結果・issue別の残件](../20261006_issue_resolution/report.md) と [検証概要](../20261006_issue_resolution/verification.json) を追加した。
+#36/#38/#39/#40/#42/#43/#48/#49 の主不具合をローカルで修正。#33/#34/#35/#41/#46/#47 は部分対応として追跡する。GitHub issueのclose・本番受入は実施していない。

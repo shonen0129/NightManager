@@ -1,0 +1,24 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.12.0, pytest-9.1.1, pluggy-1.6.0
+rootdir: /Users/shonen/leadlag
+configfile: pyproject.toml
+plugins: cov-7.1.0, xdist-3.8.0
+collected 171 items
+
+tests/unit/test_project_audit_regressions.py ........................... [ 15%]
+....................                                                     [ 27%]
+tests/unit/test_job_guard.py ...................                         [ 38%]
+tests/unit/test_paths.py .......                                         [ 42%]
+tests/unit/test_backtester_pnl.py ..                                     [ 43%]
+tests/unit/test_pnl_ledger.py ..........                                 [ 49%]
+tests/unit/test_preprocessor.py .......                                  [ 53%]
+tests/unit/test_ml_order_overlay.py ....................                 [ 65%]
+tests/unit/test_metrics.py ....                                          [ 67%]
+tests/unit/test_signal.py ...                                            [ 69%]
+tests/unit/test_experiment_registry.py .........                         [ 74%]
+tests/unit/test_experiment_utils.py .........                            [ 80%]
+tests/unit/test_tachibana_broker.py ............................         [ 96%]
+tests/unit/test_data_provider.py ....                                    [ 98%]
+tests/unit/test_backtest_store.py ..                                     [100%]
+
+============================= 171 passed in 21.84s =============================

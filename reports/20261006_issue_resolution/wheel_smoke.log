@@ -1,0 +1,20 @@
+2026-10-06 12:35:15 [INFO] leadlag.models.ml_order_overlay: Overlay model saved to /var/folders/tr/lj1npbw51t90q2m3m78__3040000gn/T/leadlag-wheel-artifact-jtqxormj
+2026-10-06 12:35:15 [INFO] leadlag.models.ml_order_overlay: Overlay model loaded from /var/folders/tr/lj1npbw51t90q2m3m78__3040000gn/T/leadlag-wheel-artifact-jtqxormj
+usage: smoke_installed_wheel.py [-h]
+                                {decision,backtest,daily,close,self-test} ...
+
+CLI tool for the lead-lag market-neutral trading strategy.
+
+positional arguments:
+  {decision,backtest,daily,close,self-test}
+                        Subcommand to run
+    decision            Run one-day V2 trade decision pipeline
+    backtest            Run full V2 historical simulation
+    daily               Run the appropriate daily operation (decision in
+                        morning, close in afternoon)
+    close               Run end-of-day position closing logic
+    self-test           Run CLI production self-tests and exit
+
+options:
+  -h, --help            show this help message and exit
+{"wheel_import": "/private/tmp/leadlag-audit-installed/leadlag/__init__.py", "cli_help": "pass", "artifact_roundtrip_inference": "pass", "research_import": "absent"}

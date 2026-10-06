@@ -24,3 +24,7 @@ proxy境界は保守的にfund inceptionを用い、初回上場後の不定なC
 - XLRE: 2015-10-07。[State Street XLRE](https://www.ssga.com/us/en/individual/etfs/state-street-real-estate-select-sector-spdr-etf-xlre)
 - MTUM/VLUE: 2013-04-16、USMV: 2011-10-18。[iShares product list](https://www.ishares.com/us/literature/brochure/ishares-product-list-en-us.pdf)、[VLUE](https://www.ishares.com/us/products/251616/VL)
 - 年始3日間と12/31は休業。[JPX FAQ](https://www.jpx.co.jp/faq/others_general.html)
+
+## 検証と残件
+
+[対応結果・検証証跡](../../reports/20261006_issue_resolution/report.md)を参照。モデル重み、固定prior、既存の厳しい監査閾値、当日cache→on-demand→flat、actual-liveのrisk/reconciliation gateを緩和しない。研究成績の採否・本番反映・broker操作の受入は別の判断である。
