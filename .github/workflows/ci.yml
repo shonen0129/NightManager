@@ -51,6 +51,9 @@ jobs:
       - name: Import architecture contracts
         run: uv run --locked lint-imports
 
+      - name: Scheduled Python producer import boundary
+        run: uv run --locked python scripts/ci/check_operational_imports.py
+
       - name: Validate architecture document links
         run: >-
           uv run --locked python scripts/ci/validate_docs.py
@@ -59,6 +62,7 @@ jobs:
           README.md docs/refactor_roadmap.md docs/RESEARCH_ENV.md
           docs/decisions/2026-10-04-kiss-canonical-apis.md
           docs/decisions/2026-10-06-audit-boundaries.md
+          docs/decisions/2026-10-06-adr-publication-and-shared-blpx.md
           docs/decisions/2026-09-15-structural-improvement-boundaries.md
           reports/20260915_structural_improvement/plan.md
 

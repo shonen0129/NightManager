@@ -184,3 +184,26 @@ def is_jp_ticker(ticker: str) -> bool:
 def is_us_ticker(ticker: str) -> bool:
     """Return True if *ticker* is a US ETF."""
     return ticker.upper() in US_TICKERS
+
+
+# ADR observations augment ML inputs; they do not change the 15/17 ETF universe.
+ADR_SECTOR_MAP: dict[str, list[str]] = {
+    "1617.T": [],
+    "1618.T": [],
+    "1619.T": [],
+    "1620.T": [],
+    "1621.T": ["TAK"],
+    "1622.T": ["TM", "HMC"],
+    "1623.T": [],
+    "1624.T": ["KMTUY"],
+    "1625.T": ["SONY", "KYOCY"],
+    "1626.T": ["SFTBY", "NTDOY"],
+    "1627.T": [],
+    "1628.T": [],
+    "1629.T": ["MITSY"],
+    "1630.T": [],
+    "1631.T": ["MUFG", "MFG", "SMFG"],
+    "1632.T": ["NMR", "IX"],
+    "1633.T": [],
+}
+ADR_TICKERS = sorted({ticker for tickers in ADR_SECTOR_MAP.values() for ticker in tickers})

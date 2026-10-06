@@ -11,8 +11,8 @@ import pandas as pd
 import pytest
 
 from leadlag.config.schemas import ProductionV2RunConfig
-from leadlag.data.adr_features import load_adr_features
-from leadlag.data.tickers import JP_TICKERS, US_TICKERS
+from leadlag.data.adr_features import load_adr_features, publish_adr_features
+from leadlag.data.tickers import ADR_SECTOR_MAP, JP_TICKERS, US_TICKERS
 from leadlag.domain.portfolio import PortfolioDecision
 from leadlag.models.ml_order_overlay import MLOrderOverlayModel
 from leadlag.models.ml_overlay_features import (
@@ -333,50 +333,62 @@ def test_apply_overlay_skips_when_date_missing():
 
 def test_load_adr_features_staleness(tmp_path: Path):
     """Stale or missing-row ADR features should be rejected."""
-    p = tmp_path / "adr_features.pkl"
+    p = tmp_path / "adr_features.zip"
     df = pd.DataFrame(
-        {"adr_1617.T": [0.1, 0.2, 0.3]},
+        {"adr_1621.T": [0.1, 0.2, 0.3]},
         index=pd.to_datetime(["2026-08-06", "2026-08-07", "2026-08-12"]),
     )
-    df.to_pickle(p)
-    # 2026-08-12 + 3 business days = 2026-08-17, so 2026-08-18 is stale.
-    out = load_adr_features(p, trade_date="2026-08-18", max_stale_bdays=3)
+    for ticker in JP_TICKERS:
+        df[f"adr_{ticker}"] = df["adr_1621.T"] if ADR_SECTOR_MAP[ticker] else 0.0
+        df[f"coverage_{ticker}"] = int(bool(ADR_SECTOR_MAP[ticker]))
+    df["sig_date"] = pd.DatetimeIndex(df.index) - pd.Timedelta(days=1)
+    publish_adr_features(df, p, required_trade_date=df.index[-1])
+    # No row for the required date: yesterday cannot be reused.
+    out = load_adr_features(p, trade_date="2026-08-18")
     assert out is None
 
     # Trade date absent from the ADR index should be rejected.
-    out = load_adr_features(p, trade_date="2026-08-13", max_stale_bdays=3)
+    out = load_adr_features(p, trade_date="2026-08-13")
     assert out is None
 
-    # Within the stale window and present in the index should load successfully.
-    out = load_adr_features(p, trade_date="2026-08-12", max_stale_bdays=3)
+    # The exact required date with complete coverage should load successfully.
+    out = load_adr_features(p, trade_date="2026-08-12")
     assert out is not None
     assert out.index[-1] == pd.Timestamp("2026-08-12")
 
 
 def test_load_adr_features_normalizes_timezone_aware_index(tmp_path: Path):
     """An offset-aware row is matched by its JST trade date."""
-    p = tmp_path / "adr_features_timezone.pkl"
+    p = tmp_path / "adr_features_timezone.zip"
     df = pd.DataFrame(
-        {"adr_1617.T": [0.1]},
+        {"adr_1621.T": [0.1]},
         index=pd.DatetimeIndex(["2025-06-01T15:00:00+00:00"]),
     )
-    df.to_pickle(p)
+    for ticker in JP_TICKERS:
+        df[f"adr_{ticker}"] = df["adr_1621.T"] if ADR_SECTOR_MAP[ticker] else 0.0
+        df[f"coverage_{ticker}"] = int(bool(ADR_SECTOR_MAP[ticker]))
+    df["sig_date"] = pd.DatetimeIndex(df.index) - pd.Timedelta(days=1)
+    publish_adr_features(df, p, required_trade_date=df.index[-1])
 
     out = load_adr_features(p, trade_date="2025-06-01T15:00:00+00:00")
 
     assert out is not None
     assert out.index.tolist() == [pd.Timestamp("2025-06-02")]
-    assert out.loc[pd.Timestamp("2025-06-02"), "adr_1617.T"] == pytest.approx(0.1)
+    assert out.loc[pd.Timestamp("2025-06-02"), "adr_1621.T"] == pytest.approx(0.1)
 
 
 def test_load_adr_features_normalizes_full_timezone_aware_artifact(tmp_path: Path):
     """Full-frame consumers receive the same JST date keys as inference."""
-    p = tmp_path / "adr_features_full_timezone.pkl"
+    p = tmp_path / "adr_features_full_timezone.zip"
     df = pd.DataFrame(
-        {"adr_1617.T": [0.1]},
+        {"adr_1621.T": [0.1]},
         index=pd.DatetimeIndex(["2025-06-01T15:00:00+00:00"]),
     )
-    df.to_pickle(p)
+    for ticker in JP_TICKERS:
+        df[f"adr_{ticker}"] = df["adr_1621.T"] if ADR_SECTOR_MAP[ticker] else 0.0
+        df[f"coverage_{ticker}"] = int(bool(ADR_SECTOR_MAP[ticker]))
+    df["sig_date"] = pd.DatetimeIndex(df.index) - pd.Timedelta(days=1)
+    publish_adr_features(df, p, required_trade_date=df.index[-1])
 
     out = load_adr_features(p)
 

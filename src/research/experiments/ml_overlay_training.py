@@ -24,6 +24,7 @@ from leadlag.data.adr_features import (
     DEFAULT_ADR_FEATURES_PATH,
     load_adr_features,
     normalize_adr_features,
+    validate_adr_features,
 )
 from leadlag.data.intraday_inputs import build_open_910_returns, compute_jp_target_returns
 from leadlag.data.pit_lake import PITDataLake
@@ -150,6 +151,9 @@ def _collect_training_data(
     lake = PITDataLake(df_exec)
     for date in train_dates:
         date_str = date.strftime("%Y-%m-%d")
+        if adr_df is not None and validate_adr_features(adr_df, date) is None:
+            logger.warning("[%s] Skipping training date: ADR observations are incomplete", date_str)
+            continue
         try:
             decision_as_of = date + pd.Timedelta(hours=9, minutes=10)
             snapshot = (
