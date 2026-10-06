@@ -28,6 +28,14 @@ from leadlag.utils.timestamps import normalize_jst_date
 logger = logging.getLogger("leadlag.models.ml_order_overlay")
 
 
+def _overlay_skipped(result: PortfolioDecision, reason: str, *, rejected: bool = False) -> PortfolioDecision:
+    summary = dict(result.summary)
+    summary.update({"overlay_enabled": True, "overlay_applied": 0,
+                    "overlay_status": "rejected" if rejected else "skipped",
+                    "overlay_reason": reason})
+    return replace(result, summary=summary)
+
+
 def apply_overlay(
     result: PortfolioDecision,
     df_exec: pd.DataFrame,
@@ -42,7 +50,7 @@ def apply_overlay(
     fallback = result.fallback
     if fallback.get("gap_data_missing", False) or fallback.get("audit_failure", False):
         logger.info("[%s] V2 fallback active; skipping overlay.", trade_date)
-        return result
+        return _overlay_skipped(result, "v2_fallback")
 
     metadata = _validate_overlay_provenance(
         getattr(overlay_model, "metadata", {}) or {},
@@ -58,7 +66,7 @@ def apply_overlay(
 
     if date not in df_exec.index:
         logger.warning("[%s] Trade date not in df_exec; skipping overlay.", trade_date)
-        return result
+        return _overlay_skipped(result, "trade_date_missing")
 
     market_vol = market_vol_frame if market_vol_frame is not None else _precompute_market_vol(df_exec)
     adr_df = adr_features
@@ -67,11 +75,11 @@ def apply_overlay(
             adr_df = load_adr_features()
         elif adr_df is None:
             logger.warning("[%s] ADR features were not supplied in the decision snapshot; skipping overlay", trade_date)
-            return result
+            return _overlay_skipped(result, "adr_not_supplied")
         adr_df = validate_adr_features(adr_df, date)
         if adr_df is None:
             logger.warning("[%s] ADR features are unavailable for the trade date; skipping overlay", trade_date)
-            return result
+            return _overlay_skipped(result, "adr_unavailable_for_trade_date")
         if adr_df is not None:
             logger.debug("[%s] Loaded ADR features for overlay application", trade_date)
 
@@ -87,7 +95,7 @@ def apply_overlay(
         )
     except Exception as exc:
         logger.warning("[%s] Feature build failed: %s; skipping overlay.", trade_date, exc)
-        return result
+        return _overlay_skipped(result, "feature_build_failed")
 
     allocation_multiplier = _safe(
         _predict_relative_allocation(features, overlay_model)
@@ -100,7 +108,7 @@ def apply_overlay(
             trade_date,
             float(multiplier),
         )
-        return result
+        return _overlay_skipped(result, "zero_pit_multiplier")
 
     w_pre = result.w_final / multiplier
     w_scaled = _safe(w_pre) * allocation_multiplier
@@ -115,7 +123,7 @@ def apply_overlay(
         w_scaled[short_mask] *= (-baseline_gross / 2.0) / short_sum
     else:
         logger.warning("[%s] Overlay collapsed one side; returning original V2 result.", trade_date)
-        return result
+        return _overlay_skipped(result, "collapsed_side", rejected=True)
 
     w_final = w_scaled * multiplier
     w_final[np.abs(w_final) < 1e-8] = 0.0
@@ -123,7 +131,7 @@ def apply_overlay(
     numerical = run_numerical_audit(w_final, score_adjusted, result.Omega_gap)
     if numerical["status"] == "FAILED":
         logger.warning("[%s] Overlay numerical audit failed; returning original V2 result.", trade_date)
-        return result
+        return _overlay_skipped(result, "numerical_audit_failed", rejected=True)
 
     summary = dict(result.summary)
     run_cfg = result.run_config
@@ -136,6 +144,10 @@ def apply_overlay(
     summary.update(
         {
             "overlay_applied": 1,
+            "overlay_enabled": True,
+            "overlay_status": "applied",
+            "overlay_reason": None,
+            "overlay_adr_trade_date": str(date.date()) if adr_df is not None else None,
             "overlay_output_semantics": "relative_within_side_allocation_multiplier",
             "relative_allocation_multiplier_mean": float(
                 np.mean(allocation_multiplier)

@@ -306,7 +306,10 @@ def test_apply_overlay_skips_when_fallback_active():
         per_ticker_interactions=False,
     )
     out = apply_overlay(result, df_exec, model, "2023-03-27")
-    assert out is result
+    np.testing.assert_array_equal(out.w_final, result.w_final)
+    assert out.summary["overlay_applied"] == 0
+    assert out.summary["overlay_status"] in {"skipped", "rejected"}
+    assert out.summary["overlay_reason"]
 
 
 def test_apply_overlay_skips_when_date_missing():
@@ -322,7 +325,10 @@ def test_apply_overlay_skips_when_date_missing():
         metadata=_verified_overlay_metadata(),
     )
     out = apply_overlay(result, df_exec, model, "2023-03-28")
-    assert out is result
+    np.testing.assert_array_equal(out.w_final, result.w_final)
+    assert out.summary["overlay_applied"] == 0
+    assert out.summary["overlay_status"] in {"skipped", "rejected"}
+    assert out.summary["overlay_reason"]
 
 
 def test_load_adr_features_staleness(tmp_path: Path):
@@ -401,7 +407,10 @@ def test_apply_overlay_rejects_missing_adr_date_for_full_run_snapshot(tmp_path: 
         result, df_exec, model, str(trade_date.date()),
         adr_features=adr, allow_implicit_io=False,
     )
-    assert out is result
+    np.testing.assert_array_equal(out.w_final, result.w_final)
+    assert out.summary["overlay_applied"] == 0
+    assert out.summary["overlay_status"] in {"skipped", "rejected"}
+    assert out.summary["overlay_reason"]
 
 
 def test_apply_overlay_skips_empty_adr_snapshot():
@@ -429,7 +438,10 @@ def test_apply_overlay_skips_empty_adr_snapshot():
         allow_implicit_io=False,
     )
 
-    assert out is result
+    np.testing.assert_array_equal(out.w_final, result.w_final)
+    assert out.summary["overlay_applied"] == 0
+    assert out.summary["overlay_status"] in {"skipped", "rejected"}
+    assert out.summary["overlay_reason"]
 
 
 def test_build_ticker_features_logs_adr_missing(caplog):
@@ -494,4 +506,7 @@ def test_apply_overlay_falls_back_on_numerical_audit_failure():
         metadata=_verified_overlay_metadata(),
     )
     out = apply_overlay(result, df_exec, model, trade_date)
-    assert out is result
+    np.testing.assert_array_equal(out.w_final, result.w_final)
+    assert out.summary["overlay_applied"] == 0
+    assert out.summary["overlay_status"] in {"skipped", "rejected"}
+    assert out.summary["overlay_reason"]
