@@ -29,7 +29,7 @@ import pandas as pd
 
 from leadlag.broker.base import BrokerClient
 from leadlag.broker.tachibana.session_cache import load_current_prices_cache
-from leadlag.config.paths import execution_state_path
+from leadlag.config.paths import execution_state_path, project_root
 from leadlag.config.paths import live as live_path
 from leadlag.config.paths import results as results_path
 from leadlag.config.schemas import AppConfig
@@ -252,7 +252,7 @@ def run_v2_decision(
     Returns:
         Path to the decision output CSV, or a dry-run summary path.
     """
-    ROOT = Path(__file__).resolve().parents[3]
+    ROOT = project_root()
 
     # Resolve config
     config_path = Path(config_path)

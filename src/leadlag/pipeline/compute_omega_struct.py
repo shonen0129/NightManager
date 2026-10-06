@@ -29,9 +29,9 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-# Resolve project root. This file lives at src/leadlag/pipeline/compute_omega_struct.py,
-# so three parents up is the repository root.
-ROOT = Path(__file__).resolve().parents[3]
+from leadlag.config.paths import project_root
+
+ROOT = project_root()
 
 # Ensure src/ is importable when the script is invoked directly.
 if str(ROOT / "src") not in sys.path:

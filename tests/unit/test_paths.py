@@ -62,3 +62,25 @@ def test_market_data_uses_canonical_path_when_old_root_exists(tmp_path, monkeypa
     assert market_data("prices.sqlite") == canonical / "prices.sqlite"
     assert canonical.is_dir()
     assert list(old_root.iterdir()) == []
+
+
+def test_installed_paths_require_explicit_deployment_root(tmp_path, monkeypatch):
+    """Evaluate the real path module as if imported from a wheel."""
+    import pytest
+
+    from leadlag.config import paths
+
+    source = paths.__file__
+    namespace = {'__file__': str(tmp_path / 'lib/python3.12/site-packages/leadlag/config/paths.py')}
+    from pathlib import Path
+    exec(compile(Path(source).read_text(), source, 'exec'), namespace)
+    resolve = namespace['project_root']
+    monkeypatch.delenv('LEADLAG_RUNTIME_ROOT', raising=False)
+    with pytest.raises(RuntimeError, match='LEADLAG_RUNTIME_ROOT'):
+        resolve()
+    monkeypatch.setenv('LEADLAG_RUNTIME_ROOT', 'relative')
+    with pytest.raises(ValueError, match='absolute'):
+        resolve()
+    monkeypatch.setenv('LEADLAG_RUNTIME_ROOT', str(tmp_path))
+    assert resolve() == tmp_path.resolve()
+    assert namespace['results']('run') == tmp_path.resolve() / 'var/results/run'

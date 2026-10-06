@@ -9,18 +9,30 @@ scattering described in ADR-0006.
 
 from __future__ import annotations
 
+import os
 from functools import lru_cache
 from pathlib import Path
 
 
 @lru_cache(maxsize=1)
 def project_root() -> Path:
-    """Return the project root directory resolved from this source file.
+    """Resolve the deployment root, independently of installed package location.
 
-    ``src/leadlag/config/paths.py`` -> ``src/leadlag`` -> ``src`` -> root.
-    This is independent of the current working directory.
+    Installed wheels require LEADLAG_RUNTIME_ROOT. A source checkout defaults
+    to its own root; no unrelated directory is searched for runtime inputs.
+    Set the environment once, before importing the application.
     """
-    return Path(__file__).resolve().parents[3]
+    configured = os.environ.get("LEADLAG_RUNTIME_ROOT")
+    if configured is not None:
+        root = Path(configured).expanduser()
+        if not root.is_absolute() or not root.is_dir():
+            raise ValueError("LEADLAG_RUNTIME_ROOT must be an existing absolute directory")
+        return root.resolve()
+    source = Path(__file__).resolve()
+    root = source.parents[3]
+    if source.parent.parent.parent.name == "src" and (root / "pyproject.toml").is_file():
+        return root
+    raise RuntimeError("Installed leadlag requires LEADLAG_RUNTIME_ROOT")
 
 
 @lru_cache(maxsize=1)

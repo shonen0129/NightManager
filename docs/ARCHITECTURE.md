@@ -494,4 +494,6 @@ artifact・運用の最新受入状態は[実行報告](../reports/20260922_prod
 
 ## 監査境界修正（2026-10-06）
 
+`config/paths.py::project_root` はdeployment data rootを解決する。checkoutは自身のルートを既定とし、installed wheelはimport前に絶対パスの `LEADLAG_RUNTIME_ROOT` を必須とする。ADR、macro、相対model path、varを同一rootへ揃え、コードfingerprintはpackage位置を使う。旧rootの探索fallbackは置かない。
+
 V2の期間入口は2015-01-05以降とsource期間の非空交差を検証する。`evaluation_period`に要求・実評価・sourceの期間を保存する。損益のentry-mark-v2契約と執行turnoverは `accounting_contract` で識別する。US pre-inception proxyは `data/tickers.py::US_INCEPTION_DATES` より前だけとし、各cellの `us_proxy_*` を残す。旧前処理cacheは契約version不一致で再利用せず、strict再構築へ進む。元データの品質異常を補間で隠さない。

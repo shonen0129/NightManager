@@ -11,12 +11,13 @@ from pathlib import Path
 
 import pandas as pd
 
+from leadlag.config.paths import project_root
 from leadlag.utils.timestamps import normalize_jst_date, normalize_jst_index
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_ADR_FEATURES_PATH = (
-    Path(__file__).resolve().parents[3] / "data" / "adr_features.pkl"
+    project_root() / "data" / "adr_features.pkl"
 )
 
 

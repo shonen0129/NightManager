@@ -16,6 +16,7 @@ from typing import Any, cast
 import numpy as np
 import pandas as pd
 
+from leadlag.config.paths import project_root as resolve_project_root
 from leadlag.core.market_calendar import count_tse_bdays, previous_trading_day
 from leadlag.data.cache_store import SqliteCacheStore
 from leadlag.data.market_data_cache import load_df_exec_from_local_cache
@@ -302,7 +303,7 @@ def get_hist_returns_for_risk(
     # Resolve the canonical inherited config before consulting the cache.  A
     # VaR series is only reusable for the same effective config and cost
     # override; the old fixed key silently reused returns from another run.
-    project_root = Path(__file__).resolve().parents[3]
+    project_root = resolve_project_root()
     if config_path is None:
         resolved_cfg_path = project_root / "configs" / "production" / "production.yaml"
     else:
@@ -421,7 +422,7 @@ def get_hist_returns_for_risk(
         )
         code_hash = timed_call(
             lambda: var_inputs._file_manifest_fingerprint(
-                project_root / "src" / "leadlag",
+                Path(__file__).resolve().parents[1],
                 timeout=remaining_timeout(),
             ),
             "VaR/ES code fingerprint",

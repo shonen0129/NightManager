@@ -8,18 +8,18 @@ returned series.
 from __future__ import annotations
 
 from collections.abc import MutableMapping
-from pathlib import Path
 from typing import Any
 
 import numpy as np
 import pandas as pd
 
+from leadlag.config.paths import project_root
 from leadlag.core.macro import MACRO_NAMES, MACRO_TICKERS
 from leadlag.utils.threading import run_with_timeout
 
 _MACRO_DOWNLOAD_TIMEOUT = 30.0
 _MACRO_PRICE_CACHE: dict[tuple[str | None, str | None, str], pd.DataFrame] = {}
-_PERSISTED_MACRO_PATH = Path(__file__).resolve().parents[3] / "var" / "market_data" / "macro_prices_verified.pkl"
+_PERSISTED_MACRO_PATH = project_root() / "var" / "market_data" / "macro_prices_verified.pkl"
 
 
 def _load_persisted_macro_prices(

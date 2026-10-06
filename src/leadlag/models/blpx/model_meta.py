@@ -221,9 +221,9 @@ def _load_vix_series(self: ProductionBLPXModel, df_exec: pd.DataFrame) -> pd.Ser
         return None
 
     vix_series = None
-    from pathlib import Path
+    from leadlag.config.paths import market_data
 
-    macro_path = Path(__file__).resolve().parents[3] / "market_data" / "macro_data.pkl"
+    macro_path = market_data("macro_data.pkl")
     if macro_path.exists():
         try:
             macro_df = pd.read_pickle(macro_path)

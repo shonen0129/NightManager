@@ -11,6 +11,7 @@ Status: accepted（下記実装境界のみ。関連issue全体の完了を意�
 - MinVarは選択済みのlong/short indicesを受け取り、basketを再選択しない。各sideの銘柄数・重複・範囲を検査する。すべての本番/研究呼び出し元を正規APIへ更新し、旧q引数adapterは残さない。
 - DSRはmetric status、日次schema、finite returnsとT、frequency、正の年率係数、整数trial数、finite varianceを検査する。trial Sharpe配列はN件を要求する。系列不足・定数系列を無条件の正規分布momentsへ置き換えない。computed metricsを追加metricで上書きしない。未登録の過去探索familyを復元したことにはならない。
 - backtestの設定保存はbroker設定を含まないallowlistと非秘密設定のSHA-256を使用する。Tachibana HTTP/transport/JSON parse例外はURL、raw response、raw server error textを含まないAPI例外へ変換し、unsafe causeをtracebackへ出さない。過去保存済み資格の失効確認・履歴scrubは別途管理する。
+- package code位置とruntime data rootを分ける。installed wheelはimport前の `LEADLAG_RUNTIME_ROOT` を必須とし、source checkoutだけ自身のrootを既定にする。ADR、macro、相対model path、varを同じrootへ解決する。VaRのcode fingerprintはpackage位置を使う。
 - US proxyは `tickers.US_INCEPTION_DATES` より前の欠損cellにのみ使用し、`us_proxy_*` provenanceを残す。後の欠損はstrict拒否、非strictでは警告して該当recordを拒否する。旧前処理cacheはcontract versionで拒否し、strict再構築へ進む。raw/live入力をこの作業で書き換えない。
 - JPXの恒常的な年末年始休業日をstatic年表から分離する。未知年の国民の祝日は引き続きjpholiday/staticの更新に依存する。
 
