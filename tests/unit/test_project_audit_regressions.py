@@ -1,15 +1,29 @@
 """Offline regressions for the concrete boundaries found by the October audit."""
 from __future__ import annotations
+
 import json
+import sqlite3
+import traceback
 from datetime import date
 from unittest.mock import patch
+
 import numpy as np
 import pandas as pd
 import pytest
-from leadlag.config.schemas import AppConfig, ProductionV2RunConfig, StrategyConfig
+import requests
+
+from leadlag.broker.tachibana.api import TachibanaApiError, TachibanaClient
+from leadlag.config.schemas import (
+    AppConfig,
+    KabuApiConfig,
+    ProductionV2RunConfig,
+    StrategyConfig,
+    TachibanaApiConfig,
+)
 from leadlag.core.market_calendar import is_trading_day, next_trading_day, previous_trading_day
 from leadlag.core.pnl import simulate_daily_pnl
 from leadlag.core.signal import build_weights_minvar
+from leadlag.data.backtest_store import BacktestResultStore, _safe_config
 from leadlag.data.providers import YFinanceProvider
 from leadlag.execution.backtester import BacktestEngine
 from leadlag.execution.output_ops import save_summary_files
@@ -94,6 +108,50 @@ def test_extra_metrics_cannot_replace_computed_or_invalid_values(tmp_path, extra
     with pytest.raises(ValueError, match='cannot override'):
         record_backtest_experiment('audit', 'contract', None, results={'daily_returns': pd.Series([.01, np.nan])}, extra_metrics=extra, registry_path=tmp_path / 'registry.jsonl')
     assert not (tmp_path / 'registry.jsonl').exists()
+
+
+def test_sqlite_config_contains_only_allowlisted_non_secret_settings(tmp_path):
+    config = AppConfig(kabu=KabuApiConfig(api_password='SECRET_PASSWORD', api_token='SECRET_TOKEN'), tachibana=TachibanaApiConfig(auth_id='SECRET_AUTH', second_password='SECRET_SECOND'))
+    store = BacktestResultStore(tmp_path / 'results.sqlite')
+    run_id = store.save_run({'daily_returns': pd.Series([0.], index=pd.DatetimeIndex(['2026-10-01']))}, config=config)
+    with sqlite3.connect(store.path) as conn:
+        encoded = conn.execute('SELECT config_json FROM run_info WHERE run_id=?', (run_id,)).fetchone()[0]
+    assert 'SECRET_' not in encoded
+    saved = json.loads(encoded)
+    assert 'kabu' not in saved and 'tachibana' not in saved
+    assert len(saved.pop('config_hash')) == 64
+    assert AppConfig(**saved).v2 == config.v2
+    changed_secret = config.model_copy(update={'tachibana': TachibanaApiConfig(auth_id='DIFFERENT')})
+    assert _safe_config(config)['config_hash'] == _safe_config(changed_secret)['config_hash']
+
+
+@pytest.mark.parametrize('endpoint', ['login', 'order', 'health', 'retry'])
+def test_broker_http_errors_exclude_secret_urls_even_in_traceback(endpoint):
+    client = TachibanaClient(TachibanaApiConfig(auth_id='SYNTHETIC_SECRET'))
+    response = requests.Response()
+    response.status_code = 404
+    response.url = 'https://invalid/session-secret/?SYNTHETIC_SECRET'
+    if endpoint != 'login':
+        client.logged_in = True
+        client.decrypted_urls = {'sUrlRequest': response.url}
+    payload = {'sCLMID': 'CLMTest', 'password': 'SYNTHETIC_SECRET'}
+    expired = requests.Response()
+    expired.status_code = 200
+    expired._content = b'{"sResultCode":"10099"}'
+    with patch.object(client.session, 'get', side_effect=[expired, response] if endpoint == 'retry' else [response]), patch.object(client, 'login', return_value=None) if endpoint == 'retry' else patch.object(client, 'save_session', return_value=None):
+        try:
+            if endpoint == 'login':
+                client.login()
+            else:
+                client._request('sUrlRequest', payload)
+        except TachibanaApiError as exc:
+            encoded = ''.join(traceback.format_exception(exc))
+            assert 'SYNTHETIC_SECRET' not in encoded
+            assert 'session-secret' not in encoded
+            assert not hasattr(exc, 'response')
+        else:
+            pytest.fail('transport error did not propagate')
+    client.session.close()
 
 
 def test_provider_keeps_ohlc_without_optional_volume_and_avoids_future_bar():

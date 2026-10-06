@@ -15,6 +15,7 @@ Public API::
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import sqlite3
@@ -25,6 +26,7 @@ from typing import Any, cast
 
 import pandas as pd
 
+from leadlag.config.schemas import AppConfig
 from leadlag.data.cache_store import SqliteCacheStore
 
 logger = logging.getLogger(__name__)
@@ -354,7 +356,17 @@ def _safe_config(config: Any) -> Any:
     if config is None:
         return None
     if hasattr(config, "model_dump"):
-        return config.model_dump()
-    if hasattr(config, "__dict__"):
-        return config.__dict__
-    return config
+        config = config.model_dump(mode="json")
+    if not isinstance(config, dict):
+        raise TypeError("backtest config must be an AppConfig or mapping")
+    # Parse only the reproducible, non-broker sections. Unknown top-level
+    # fields and entire broker configs never cross the artifact boundary.
+    allowed = {
+        "strategy", "risk", "v2", "broker_provider", "run_audit",
+        "gap_distribution_dir", "output_base_dir", "output_live_dir",
+    }
+    snapshot = AppConfig(**{key: value for key, value in config.items() if key in allowed})
+    safe = snapshot.model_dump(mode="json", include=allowed)
+    canonical = json.dumps(safe, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    safe["config_hash"] = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+    return safe

@@ -108,8 +108,9 @@ class TachibanaApiError(Exception):
         result_code: str | None = None,
     ):
         self.endpoint = endpoint
-        self.result_code = result_code
-        super().__init__(message)
+        self.result_code = str(result_code) if result_code is not None and str(result_code).isdigit() else None
+        suffix = f" (code={self.result_code})" if self.result_code is not None else ""
+        super().__init__(message + suffix)
 
 
 class TachibanaClient:
@@ -191,6 +192,25 @@ class TachibanaClient:
 
         raise ValueError("Failed to decrypt virtual URL using all known RSA padding/hash algorithms.")
 
+    def _get_response(self, url: str, endpoint: str) -> requests.Response:
+        """Discard transport exceptions containing credential-bearing URLs."""
+        try:
+            response = self.session.get(url, timeout=self.config.request_timeout)
+            response.raise_for_status()
+        except requests.RequestException:
+            raise TachibanaApiError("Tachibana transport request failed", endpoint=endpoint) from None
+        return response
+
+    @staticmethod
+    def _parse_response(response: requests.Response, endpoint: str) -> dict[str, Any]:
+        try:
+            result = response.json()
+            if not isinstance(result, dict):
+                raise ValueError("expected object")
+        except (ValueError, requests.RequestException):
+            raise TachibanaApiError("Tachibana response parse failed", endpoint=endpoint) from None
+        return cast(dict[str, Any], result)
+
     def login(self) -> None:
         """Authenticate and decrypt session virtual URLs."""
         logger.info("[TachibanaAPI] Authenticating via PKI login...")
@@ -213,17 +233,20 @@ class TachibanaClient:
             response_parsed=False,
         )
         self.last_login_diagnostics = login_diagnostics
-        response = self.session.get(url, timeout=self.config.request_timeout)
+        try:
+            response = self._get_response(url, "/auth/login")
+        except TachibanaApiError:
+            login_diagnostics["stopped_at"] = "transport"
+            raise
         login_diagnostics = _build_login_diagnostics(
             None,
             http_status=response.status_code,
             response_parsed=False,
         )
         self.last_login_diagnostics = login_diagnostics
-        response.raise_for_status()
 
         try:
-            result = cast(dict[str, Any], response.json())
+            result = self._parse_response(response, "/auth/login")
         except Exception:
             login_diagnostics["stopped_at"] = "response_parse"
             raise
@@ -237,9 +260,8 @@ class TachibanaClient:
         p_errno = result.get("p_errno", "0")
         if p_errno != "0":
             login_diagnostics["stopped_at"] = "gateway_error"
-            err_text = result.get("p_err", "Tachibana gateway error")
             raise TachibanaApiError(
-                f"Tachibana login failed (gateway code={p_errno}): {err_text}",
+                "Tachibana login failed: gateway error",
                 endpoint="/auth/login",
                 result_code=p_errno,
             )
@@ -247,9 +269,8 @@ class TachibanaClient:
         result_code = result.get("sResultCode", "-1")
         if result_code != "0":
             login_diagnostics["stopped_at"] = "result_code_error"
-            err_text = result.get("sResultText", "Unknown login error")
             raise TachibanaApiError(
-                f"Tachibana login failed (code={result_code}): {err_text}",
+                "Tachibana login failed: result code error",
                 endpoint="/auth/login",
                 result_code=result_code,
             )
@@ -309,8 +330,7 @@ class TachibanaClient:
         url = f"{self.config.api_url.rstrip('/')}/auth/?{urllib.parse.quote(json_str)}"
 
         try:
-            response = self.session.get(url, timeout=self.config.request_timeout)
-            response.raise_for_status()
+            self._get_response(url, "/auth/logout")
             logger.info("[TachibanaAPI] Logout successful")
         except Exception as e:
             logger.warning("[TachibanaAPI] Logout request failed: %s", e)
@@ -382,16 +402,14 @@ class TachibanaClient:
         json_str = json.dumps(payload, separators=(",", ":"))
         full_url = f"{virtual_url.rstrip('/')}/?{urllib.parse.quote(json_str)}"
 
-        response = self.session.get(full_url, timeout=self.config.request_timeout)
-        response.raise_for_status()
-        result = cast(dict[str, Any], response.json())
+        response = self._get_response(full_url, url_key)
+        result = self._parse_response(response, url_key)
 
         # Check gateway-level errors first
         p_errno = result.get("p_errno", "0")
         if p_errno != "0":
-            err_text = result.get("p_err", "Tachibana gateway error")
             raise TachibanaApiError(
-                f"Tachibana request failed (gateway code={p_errno}): {err_text}",
+                "Tachibana request failed: gateway error",
                 endpoint=payload.get("sCLMID"),
                 result_code=p_errno,
             )
@@ -408,16 +426,14 @@ class TachibanaClient:
             new_virtual_url = self.decrypted_urls[url_key]
             new_json_str = json.dumps(payload, separators=(",", ":"))
             new_full_url = f"{new_virtual_url.rstrip('/')}/?{urllib.parse.quote(new_json_str)}"
-            response = self.session.get(new_full_url, timeout=self.config.request_timeout)
-            response.raise_for_status()
-            result = cast(dict[str, Any], response.json())
+            response = self._get_response(new_full_url, url_key)
+            result = self._parse_response(response, url_key)
 
             # Check gateway-level errors on retry
             p_errno = result.get("p_errno", "0")
             if p_errno != "0":
-                err_text = result.get("p_err", "Tachibana gateway error")
                 raise TachibanaApiError(
-                    f"Tachibana request failed (gateway code={p_errno}): {err_text}",
+                    "Tachibana request failed: gateway error",
                     endpoint=payload.get("sCLMID"),
                     result_code=p_errno,
                 )
@@ -425,9 +441,8 @@ class TachibanaClient:
         # Generic error check (if sResultCode present and not 0)
         final_result_code = result.get("sResultCode", "0")
         if final_result_code != "0":
-            err_text = result.get("sResultText", "Tachibana business logic error")
             raise TachibanaApiError(
-                f"Tachibana request error (sCLMID={payload.get('sCLMID')}, code={final_result_code}): {err_text}",
+                "Tachibana request failed: business logic error",
                 endpoint=payload.get("sCLMID"),
                 result_code=final_result_code,
             )
