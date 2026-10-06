@@ -52,10 +52,9 @@ class TestTachibanaProvider:
         client.fetch_open_prices.return_value = {"1617.T": 100.0, "1321.T": 200.0}
         provider = TachibanaProvider(client=client)
         at = datetime(2025, 1, 6, 9, 10)
-        result = provider.fetch_intraday_quote(["1617.T", "1321.T"], at)
-
-        assert result == {"1617.T": 100.0, "1321.T": 200.0}
-        client.fetch_open_prices.assert_called_once_with(["1617.T", "1321.T"], allow_missing=True)
+        with pytest.raises(NotImplementedError, match="requested time"):
+            provider.fetch_intraday_quote(["1617.T", "1321.T"], at)
+        client.fetch_open_prices.assert_not_called()
 
     def test_fetch_daily_ohlc_not_supported(self) -> None:
         provider = TachibanaProvider(client=MagicMock())

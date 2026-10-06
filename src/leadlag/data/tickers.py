@@ -36,6 +36,18 @@ US_TICKERS: list[str] = [
     "USMV",  # 15 Min Vol
 ]
 
+# Fund inception dates for the limited-history ETFs. CC returns
+# before these dates are explicitly synthetic; missing later prices must
+# never be replaced by these research priors. Sources: issuer fund pages and
+# Nasdaq listing circular (linked in ADR 2026-10-06-audit-boundaries).
+US_INCEPTION_DATES: dict[str, str] = {
+    "XLC": "2018-06-18",
+    "XLRE": "2015-10-07",
+    "MTUM": "2013-04-16",
+    "VLUE": "2013-04-16",
+    "USMV": "2011-10-18",
+}
+
 # ---------------------------------------------------------------------------
 # JP ETF universe — NEXT FUNDS TOPIX-17 series (trade target, N_JP = 17)
 # Using yfinance format ("XXXX.T"). Order matches §3.2 of 運用方針書.

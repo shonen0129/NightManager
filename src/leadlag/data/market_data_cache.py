@@ -32,6 +32,7 @@ _ETF_META_KEY = "raw_ohlc_meta"
 _INTRADAY_KEY = "intraday_{interval}"
 _DF_EXEC_KEY = "df_exec"
 _DF_EXEC_META_KEY = "df_exec_meta"
+_DF_EXEC_CONTRACT_VERSION = "pre-inception-proxy-v2"
 
 _INTRADAY_SPLIT_BASIS_ATTR = "leadlag_intraday_split_basis"
 _INTRADAY_SPLIT_BASIS_VERSION = "1629_20260330_500"
@@ -214,6 +215,8 @@ def is_df_exec_cache_valid() -> bool:
         return False
 
     meta = store.get(_DF_EXEC_META_KEY)
+    if (meta or {}).get("contract_version") != _DF_EXEC_CONTRACT_VERSION:
+        return False
     columns = set((meta or {}).get("columns", []))
     if not _required_df_exec_columns().issubset(columns):
         return False
@@ -254,6 +257,7 @@ def save_df_exec_to_local_cache(df_exec: pd.DataFrame) -> None:
     store.set(
         _DF_EXEC_META_KEY,
         {
+            "contract_version": _DF_EXEC_CONTRACT_VERSION,
             "columns": list(df_exec.columns),
             "n_rows": len(df_exec),
             "updated_at": datetime.now(UTC).replace(tzinfo=None).isoformat(),
@@ -323,6 +327,9 @@ def load_df_exec_from_local_cache(max_stale_bdays: int | None = None) -> pd.Data
 
     try:
         store = SqliteCacheStore(_df_exec_store_path())
+        meta = store.get(_DF_EXEC_META_KEY) or {}
+        if meta.get("contract_version") != _DF_EXEC_CONTRACT_VERSION:
+            raise RuntimeError("df_exec fallback uses an obsolete preprocessing contract")
         df_exec = store.get(_DF_EXEC_KEY)
         if df_exec is not None:
             logger.warning("[FAST MODE] Using existing df_exec cache as fallback; it may be stale.")

@@ -20,7 +20,7 @@ import numpy as np
 import pandas as pd
 
 from leadlag.core.market_calendar import is_trading_day, next_trading_day
-from leadlag.data.tickers import JP_TICKERS, TOPIX_TICKER, US_TICKERS
+from leadlag.data.tickers import JP_TICKERS, TOPIX_TICKER, US_INCEPTION_DATES, US_TICKERS
 from leadlag.data.validation import (
     DataValidationError,
     validate_exec_record,
@@ -239,26 +239,16 @@ def preprocess_data(
     ret_us_cc = ret_us_cc.replace([np.inf, -np.inf], np.nan)
     ret_jp_cc = ret_jp_cc.replace([np.inf, -np.inf], np.nan)
 
-    # Proxy returns for ETFs with limited history
-    if "XLC" in ret_us_cc.columns and ret_us_cc["XLC"].isna().any():
-        logger.info("Proxying XLC returns with average of XLK and XLY")
-        ret_us_cc["XLC"] = ret_us_cc["XLC"].fillna((ret_us_cc["XLK"] + ret_us_cc["XLY"]) / 2)
-    if "XLRE" in ret_us_cc.columns and ret_us_cc["XLRE"].isna().any():
-        logger.info("Proxying XLRE returns with XLF")
-        ret_us_cc["XLRE"] = ret_us_cc["XLRE"].fillna(ret_us_cc["XLF"])
-    if (
-        "MTUM" in ret_us_cc.columns
-        and "IUSG" in ret_us_cc.columns
-        and ret_us_cc["MTUM"].isna().any()
-    ):
-        logger.info("Proxying MTUM returns with IUSG")
-        ret_us_cc["MTUM"] = ret_us_cc["MTUM"].fillna(ret_us_cc["IUSG"])
-    if "VLUE" in ret_us_cc.columns and ret_us_cc["VLUE"].isna().any():
-        logger.info("Proxying VLUE returns with XLF")
-        ret_us_cc["VLUE"] = ret_us_cc["VLUE"].fillna(ret_us_cc["XLF"])
-    if "USMV" in ret_us_cc.columns and ret_us_cc["USMV"].isna().any():
-        logger.info("Proxying USMV returns with average of XLP and XLV")
-        ret_us_cc["USMV"] = ret_us_cc["USMV"].fillna((ret_us_cc["XLP"] + ret_us_cc["XLV"]) / 2)
+    # Synthetic prior inputs are allowed strictly before fund inception.
+    # Track each substituted cell; later outages remain quality failures.
+    proxy_sources = {"XLC": ("XLK", "XLY"), "XLRE": ("XLF",),
+                     "MTUM": ("IUSG",), "VLUE": ("XLF",), "USMV": ("XLP", "XLV")}
+    proxy_used = pd.DataFrame(False, index=ret_us_cc.index, columns=list(proxy_sources))
+    for ticker, sources in proxy_sources.items():
+        mask = ret_us_cc[ticker].isna() & (ret_us_cc.index < pd.Timestamp(US_INCEPTION_DATES[ticker]))
+        proxy = ret_us_cc[list(sources)].mean(axis=1, skipna=False)
+        proxy_used[ticker] = mask & proxy.notna()
+        ret_us_cc.loc[mask, ticker] = proxy.loc[mask]
 
     # Map each joint date T to the next JP trading day (trade_date)
     trade_targets: dict = {}
@@ -354,6 +344,17 @@ def preprocess_data(
         trade_date = trade_targets[sig_date]
 
         r_us = ret_us_cc.loc[sig_date]
+        post_inception_missing = [ticker for ticker in US_INCEPTION_DATES
+                                  if sig_date >= pd.Timestamp(US_INCEPTION_DATES[ticker])
+                                  and pd.isna(r_us[ticker])]
+        # The very first pct_change row is normal warm-up. Once a prior
+        # source row exists, a partial listed-ETF outage must not be imputed.
+        if post_inception_missing and sig_date != ret_us_cc.index[0]:
+            message = f"Post-inception US return missing for {post_inception_missing} at {sig_date}"
+            if strict_validation:
+                raise DataValidationError(message)
+            logger.warning("%s; rejecting trade_date=%s", message, trade_date)
+            continue
         jp_dates_on_or_before = jp_valid_dates[jp_valid_dates <= sig_date]
         if len(jp_dates_on_or_before) == 0:
             # No JP close is available for the first US observation; this is a
@@ -486,6 +487,8 @@ def preprocess_data(
         record: dict = {"trade_date": trade_date, "sig_date": sig_date, "is_provisional": is_provisional}
         for tk in US_TICKERS:
             record[f"us_cc_{tk}"] = r_us[tk]
+            if tk in proxy_sources:
+                record[f"us_proxy_{tk}"] = bool(proxy_used.loc[sig_date, tk])
         for tk in JP_TICKERS:
             record[f"jp_cc_{tk}"] = r_jp[tk]
             record[f"jp_oc_{tk}"] = r_oc[tk]

@@ -1,12 +1,16 @@
 """Offline regressions for the concrete boundaries found by the October audit."""
 from __future__ import annotations
 import json
+from datetime import date
+from unittest.mock import patch
 import numpy as np
 import pandas as pd
 import pytest
 from leadlag.config.schemas import AppConfig, ProductionV2RunConfig, StrategyConfig
+from leadlag.core.market_calendar import is_trading_day, next_trading_day, previous_trading_day
 from leadlag.core.pnl import simulate_daily_pnl
 from leadlag.core.signal import build_weights_minvar
+from leadlag.data.providers import YFinanceProvider
 from leadlag.execution.backtester import BacktestEngine
 from leadlag.execution.output_ops import save_summary_files
 from leadlag.experiment_registry import compute_deflated_sharpe
@@ -92,6 +96,28 @@ def test_extra_metrics_cannot_replace_computed_or_invalid_values(tmp_path, extra
     assert not (tmp_path / 'registry.jsonl').exists()
 
 
+def test_provider_keeps_ohlc_without_optional_volume_and_avoids_future_bar():
+    daily = pd.DataFrame({'Open': [100.], 'High': [110.], 'Low': [90.], 'Close': [105.]}, index=pd.DatetimeIndex(['2026-10-01']))
+    provider = YFinanceProvider(download_fn=lambda *args: daily)
+    assert len(provider.fetch_daily_ohlc(['TEST'], date(2026, 10, 1), date(2026, 10, 2))['TEST']) == 1
+    history = pd.DataFrame({'Close': [100., 110., 200.]}, index=pd.DatetimeIndex(['2026-10-01 09:09', '2026-10-01 09:10', '2026-10-01 15:00'], tz='Asia/Tokyo'))
+    with patch('leadlag.data.providers.yfinance_provider.yf.Ticker') as ticker:
+        ticker.return_value.history.return_value = history
+        assert provider.fetch_intraday_quote(['TEST'], pd.Timestamp('2026-10-01 09:10')) == {'TEST': 100.}
+        assert provider.fetch_intraday_quote(['TEST'], pd.Timestamp('2026-09-30 20:10', tz='America/New_York')) == {'TEST': 100.}
+        assert provider.fetch_intraday_quote(['TEST'], pd.Timestamp('2026-09-30 09:10')) == {}
+
+
+@pytest.mark.parametrize('day', [date(2024, 12, 31), date(2028, 1, 3), date(2029, 1, 2)])
+def test_exchange_closures_apply_outside_static_years(day):
+    assert not is_trading_day(day)
+
+
+def test_year_boundary_sessions_skip_exchange_closures():
+    assert previous_trading_day(date(2028, 1, 4)) == date(2027, 12, 30)
+    assert next_trading_day(date(2027, 12, 30)) == date(2028, 1, 4)
+
+
 @pytest.mark.parametrize('side,gap,morning', [(1., 0., .1), (-1., 0., -.1), (1., .1, -.1)])
 def test_carry_reaches_next_entry_including_gap_and_morning(side, gap, morning):
     from leadlag.data.tickers import JP_TICKERS
@@ -118,3 +144,31 @@ def test_turnover_is_effective_inventory_flow_and_cost_matches_volume():
     assert pnl['turnover'] == [1.3, 1.3]
     assert pnl['target_weight_turnover'] == [.5, 0.]
     np.testing.assert_allclose(pnl['slip_costs'], np.array(pnl['execution_volume']) * .001)
+
+
+def test_listed_us_missing_prices_are_rejected_not_proxied():
+    from leadlag.data.preprocessor import preprocess_data
+    from leadlag.data.tickers import JP_TICKERS, TOPIX_TICKER, US_TICKERS
+    from leadlag.data.validation import DataValidationError
+
+    dates = pd.bdate_range('2026-09-01', periods=5)
+    raw = {'us_close': pd.DataFrame({tk: np.arange(5) + 100. for tk in [*US_TICKERS, 'SPY']}, index=dates), 'jp_close': pd.DataFrame({tk: np.arange(5) + 101. for tk in [*JP_TICKERS, TOPIX_TICKER]}, index=dates), 'jp_open': pd.DataFrame({tk: np.arange(5) + 100. for tk in [*JP_TICKERS, TOPIX_TICKER]}, index=dates)}
+    raw['us_close'].loc[dates[1], 'XLC'] = np.nan
+    with pytest.raises(DataValidationError, match='Post-inception'):
+        preprocess_data(raw, strict_validation=True)
+    frame = preprocess_data(raw)
+    assert dates[2] not in frame.index
+    assert dates[3] not in frame.index
+
+
+def test_pre_inception_proxy_keeps_per_cell_provenance():
+    from leadlag.data.preprocessor import preprocess_data
+    from leadlag.data.tickers import JP_TICKERS, TOPIX_TICKER, US_TICKERS
+
+    dates = pd.bdate_range('2010-01-04', periods=5)
+    raw = {'us_close': pd.DataFrame({tk: np.arange(5) + 100. for tk in [*US_TICKERS, 'SPY']}, index=dates), 'jp_close': pd.DataFrame({tk: np.arange(5) + 101. for tk in [*JP_TICKERS, TOPIX_TICKER]}, index=dates), 'jp_open': pd.DataFrame({tk: np.arange(5) + 100. for tk in [*JP_TICKERS, TOPIX_TICKER]}, index=dates)}
+    raw['us_close']['XLC'] = np.nan
+    frame = preprocess_data(raw, strict_validation=True)
+    assert frame['us_proxy_XLC'].all()
+    assert np.isfinite(frame['us_cc_XLC']).all()
+    assert not frame['us_proxy_XLRE'].any()

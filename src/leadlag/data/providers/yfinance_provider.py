@@ -82,7 +82,7 @@ class YFinanceProvider(DataProvider):
                     "volume": raw.get("Volume", np.nan),
                 })
             df.index = pd.to_datetime(df.index).tz_localize(None).normalize()
-            df = df.dropna()
+            df = df.dropna(subset=["open", "high", "low", "close"])
             result[tk] = df
         return result
 
@@ -98,9 +98,22 @@ class YFinanceProvider(DataProvider):
         (``TachibanaProvider``/``KabuProvider``) for live 09:10 quotes.
         """
         result: dict[str, float] = {}
+        timestamp = pd.Timestamp(at)
+        if pd.isna(timestamp):
+            raise ValueError("quote time must be valid")
+        if timestamp.tzinfo is None:
+            timestamp = timestamp.tz_localize("Asia/Tokyo")
+        timestamp = timestamp.tz_convert("Asia/Tokyo")
         for tk in tickers:
             try:
                 hist = yf.Ticker(tk).history(period="1d", interval="1m")
+                index = pd.DatetimeIndex(hist.index)
+                if index.tz is None:
+                    index = index.tz_localize("Asia/Tokyo")
+                # Minute Close is available only after the bar has completed.
+                local_index = index.tz_convert(timestamp.tz)
+                hist = hist.loc[(local_index.normalize() == timestamp.normalize())
+                                & (local_index + pd.Timedelta(minutes=1) <= timestamp)].sort_index()
                 if not hist.empty:
                     price = float(hist["Close"].iloc[-1])
                     if np.isfinite(price):

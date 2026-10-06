@@ -76,3 +76,18 @@ def test_load_intraday_cache_adjusts_1629_prices_without_rewriting_raw_cache(
     assert adjusted.loc[index[0], ("Volume", "1629.T")] == 22.0
     assert p_910.loc[index[0].normalize(), "1629.T"] == 284.0
     pd.testing.assert_frame_equal(raw_read, raw_bars)
+
+
+def test_obsolete_proxy_cache_cannot_bypass_rebuild_via_stale_fallback(tmp_path, monkeypatch):
+    from leadlag.data.cache_store import SqliteCacheStore
+
+    cache_path = tmp_path / 'df_exec.sqlite'
+    monkeypatch.setattr(market_data_cache, '_df_exec_store_path', lambda: cache_path)
+    monkeypatch.setattr(market_data_cache, '_etf_store_path', lambda: tmp_path / 'absent.sqlite')
+    frame = pd.DataFrame({'topix_night_return': [0.]}, index=pd.DatetimeIndex(['2026-10-01']))
+    store = SqliteCacheStore(cache_path)
+    store.set('df_exec', frame)
+    store.set('df_exec_meta', {'columns': list(frame.columns)})
+    assert not market_data_cache.is_df_exec_cache_valid()
+    with pytest.raises(RuntimeError, match='no fallback'):
+        market_data_cache.load_df_exec_from_local_cache()

@@ -7,23 +7,13 @@ testable without a live Tachibana connection.
 
 from __future__ import annotations
 
-import logging
-from datetime import date, datetime, time
+from datetime import date
 from typing import Any
 
 import pandas as pd
 
 from leadlag.broker.base import BrokerClient
 from leadlag.data.providers import DataProvider
-
-logger = logging.getLogger(__name__)
-
-
-def _is_market_open(target: datetime | date) -> bool:
-    """Return True if the target time is after the JP morning open."""
-    if isinstance(target, datetime):
-        return target.time() >= time(9, 0)
-    return True
 
 
 class TachibanaProvider(DataProvider):
@@ -57,21 +47,8 @@ class TachibanaProvider(DataProvider):
         tickers: list[str],
         at: Any,
     ) -> dict[str, float]:
-        """Return opening prices for ``tickers`` at the requested time.
-
-        The broker ``fetch_open_prices`` call returns the exchange-issued
-        opening price (pDPP) when called after market open.
-        """
-        if self._client is None:
-            raise RuntimeError("TachibanaProvider requires a BrokerClient")
-        if not _is_market_open(at):
-            logger.warning(
-                "Requested quote before JP market open (09:00). "
-                "Prices may be stale or unavailable."
-            )
-        try:
-            prices = self._client.fetch_open_prices(tickers, allow_missing=True)
-            return {tk: float(p) for tk, p in prices.items()}
-        except Exception as e:
-            logger.error("TachibanaProvider failed to fetch quotes: %s", e)
-            raise
+        """Reject unsupported timestamp-specific retrieval without broker I/O."""
+        raise NotImplementedError(
+            "TachibanaProvider cannot reconstruct quotes at a requested time. "
+            "Use the frozen timestamped market snapshot capture."
+        )

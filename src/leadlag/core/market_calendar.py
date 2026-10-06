@@ -144,6 +144,11 @@ def is_trading_day(d: date | datetime | None = None) -> bool:
     if _is_weekend(d):
         return False
 
+    # JPX exchange closures apply in every year, independently of national
+    # holidays and the bounded static calendar.
+    if (d.month, d.day) in {(1, 1), (1, 2), (1, 3), (12, 31)}:
+        return False
+
     # jpholiday covers public holidays; the static table covers JPX-specific
     # market closures that are not public holidays (e.g. 12/31, 1/2, 1/3) and
     # the exact JPX calendar for the years it includes. Use both sources.
