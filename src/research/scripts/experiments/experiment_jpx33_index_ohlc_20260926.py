@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import copy
 import hashlib
 import json
 import logging
@@ -22,6 +21,7 @@ sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "src/research/scripts/experiments"))
 
 import experiment_jpx33_direct_prediction_20260924 as prior  # noqa: E402
+
 from leadlag.core.correlation import compute_baseline_correlation  # noqa: E402
 from leadlag.core.residualize import compute_rolling_ols_betas  # noqa: E402
 from leadlag.data.market_data_cache import load_df_exec_from_local_cache  # noqa: E402
@@ -145,7 +145,6 @@ def _load_index_ohlc(
     missing_eval = [str(date.date()) for date in eval_dates[~eval_complete.to_numpy()]]
     missing_baseline = [str(date.date()) for date in baseline_dates[~baseline_complete.to_numpy()]]
 
-    market_set = set(market_dates)
     raw_dates = set(panel.index)
     next_session_matches = 0
     previous_session_matches = 0
@@ -532,7 +531,7 @@ def main() -> None:
     report_lines.extend([
         "", "## データ確認", "",
         f"- CSVは33ファイル、各{int(data_quality['rows'].min())}〜{int(data_quality['rows'].max())}行。対象期間の33系列完全一致日数は{date_alignment['complete_33_series_evaluation_sessions']}/{date_alignment['evaluation_market_sessions']}営業日。",
-        f"- 2010〜2014年の固定基準期間は33系列の日付・値が揃う1184日。60日TOPIXベータ残差化後、c_fullに使えた完全行は1124日。",
+        "- 2010〜2014年の固定基準期間は33系列の日付・値が揃う1184日。60日TOPIXベータ残差化後、c_fullに使えた完全行は1124日。",
         f"- 日付完全一致={date_alignment['exact_common_source_dates']}。土日ラベルの対象期間行={date_alignment['evaluation_weekend_labeled_rows_by_file_total'] if 'evaluation_weekend_labeled_rows_by_file_total' in date_alignment else int(data_quality['evaluation_weekend_labeled_rows'].sum())}。カレンダーずれを補正せず、元日付でdf_execの日本営業日に照合した。",
         "- ファイルの提供元情報がなく、列名・ファイル名からの取得元推定は未確認。出所・利用権とJPX公式系列との一致は認証できていないため、結果は提供CSVベースの診断とする。",
         f"- 年次総時価総額の写像と実ETF始値→終値の同日相関中央値={mapping_corr.median():.3f}、最小={mapping_corr.min():.3f}。値は33→17写像品質の補助診断で、予測精度指標とは別。",

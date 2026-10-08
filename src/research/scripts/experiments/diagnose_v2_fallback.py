@@ -17,8 +17,8 @@ while not (ROOT / "pyproject.toml").exists():
     ROOT = ROOT.parent
 sys.path.insert(0, str(ROOT / "src"))
 
-from leadlag.execution.config import load_config_from_yaml
 from leadlag.config.schemas import parse_run_config
+from leadlag.execution.config import load_config_from_yaml
 from leadlag.models.production_v2 import ProductionV2Model
 from research.experiment_registry import Decision
 from research.experiment_utils import record_simple_experiment

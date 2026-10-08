@@ -31,12 +31,11 @@ sys.path.insert(0, str(ROOT / "tools" / "production"))
 
 from compute_gap_adjusted_distribution import compute_cumulative_returns
 
-from leadlag.config.schemas import ProductionV2RunConfig
+from leadlag.config.schemas import ProductionV2RunConfig, parse_run_config
 from leadlag.data.fetcher import download_data
 from leadlag.data.intraday_inputs import compute_jp_target_returns
 from leadlag.data.preprocessor import preprocess_data
 from leadlag.data.tickers import JP_TICKERS, TOPIX_TICKER
-from leadlag.config.schemas import parse_run_config
 from leadlag.models.production_v2 import ProductionV2Model
 from research.models.sector_relative_ensemble_blp_enhanced import (
     _BLP_CORR_CACHE,

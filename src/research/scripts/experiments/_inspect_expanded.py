@@ -2,7 +2,6 @@
 """Inspect existing expanded subsector data assets."""
 from __future__ import annotations
 
-import json
 import sys
 from pathlib import Path
 
@@ -34,7 +33,7 @@ def main() -> int:
 
     # expanded mapping
     mpath = ROOT / "configs" / "research" / "subsector_mapping_expanded.yaml"
-    with open(mpath, "r", encoding="utf-8") as f:
+    with open(mpath, encoding="utf-8") as f:
         m = yaml.safe_load(f)
     print("mapping meta:", m.get("meta"))
     print("stock_mapping length:", len(m["stock_mapping"]))

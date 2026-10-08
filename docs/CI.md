@@ -18,10 +18,9 @@ S0で固定したコード版・入力fingerprint・回帰基準は、CIの構�
 数値比較を実行したことにはならない。モデル挙動を変更するPRでは、別コード版による
 before/after数値diffを追加し、比較機能・入力・除外条件を明示する。
 
-研究ツリー全体には過去からの Ruff backlog があるため、CI の厳格な対象は
-production と保守対象の研究学習入口に限定する。既存 backlog を理由に
-production の新規エラーを免除しない。研究コードを変更するPRでは、変更対象を
-個別に Ruff へ追加し、既存エラーと新規エラーを分けて記録する。
+Ruff の対象は `src/leadlag tests tools/production tools/validation` と
+`src/research tools/research`。研究ツリーの既存 backlog を整理したため、学習入口だけの
+個別検査から両研究ツリー全体へゲートを拡大する。新規エラーの免除は追加しない。
 
 wheel検査は `scripts/ci/verify_wheel.py` が行う。本番CLIで使う推論依存は
 production側に残し、学習・実験用の `src/research/` はwheelへ含めない。さらにsource配下の
@@ -43,6 +42,7 @@ uv sync --locked --extra dev --extra ml-overlay
 uv lock --check
 uv run --locked python -m compileall -q src/leadlag tests tools scripts src/research
 uv run --locked ruff check src/leadlag tests tools/production tools/validation
+uv run --locked ruff check src/research tools/research
 uv run --locked mypy --config-file pyproject.toml src/leadlag
 uv run --locked lint-imports
 uv run --locked python -m pytest tests/regression/test_v2_baseline.py
@@ -58,5 +58,11 @@ uv run --locked python -m pytest tests/regression/test_v2_baseline.py
 Current workflow の表示名は `leadlag-ci`、required job/check 名は `quality-and-tests`（GitHub の branch protection 設定では `quality-and-tests`、workflow `leadlag-ci` として表示）です。main の branch protection または repository ruleset では、pull request を必須にし、このcheckの成功をmerge条件にします。direct pushとbypassは許可せず、administratorも例外にしません。
 
 `.github/workflows/ci.yml` のworkflow名または `quality-and-tests` job ID を変更する場合は、同じ変更でGitHub側required check selectorと本節を確認・更新します。設定後はGitHubのbranch protection/ruleset APIまたはSettings画面で、mainへの適用対象とrequired checkを読み取り確認します。ローカルのCI成功だけではGitHub側の保護設定を証明しません。
+
+2026-10-08 の [main branch API](https://api.github.com/repos/shonen0129/NightManager/branches/main)
+で `protected=true`、`quality-and-tests` 必須、`enforcement_level=everyone`、
+check の `app_id=15368`（GitHub Actions）を確認した。管理設定はユーザーが実施した。
+このbranch APIの応答はPR必須・strict・bypass対象の全設定を列挙しないため、
+これらはSettings画面でも確認する。
 
 wheel smokeはtemporaryなdeployment rootを `LEADLAG_RUNTIME_ROOT` に指定し、installed packageのcode位置から独立したADR/macro/相対model/varの解決を検査する。運用配置ではimport前に同変数へ既存の絶対directoryを指定し、そのroot配下へconfig/model/dataを配置する。詳しくは [runtime境界ADR](decisions/2026-10-06-audit-boundaries.md) を参照。

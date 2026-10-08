@@ -89,7 +89,6 @@ def main() -> int:
     # Compute jp_cc, jp_oc, jp_gap, jp_open_trade, jp_close_sig, jp_beta
     records: list[dict] = []
     subsectors = list(oc.columns)
-    n_sub = len(subsectors)
     close_sub_filled = close_sub.ffill().fillna(1.0)
     open_sub_filled = open_sub.ffill().fillna(1.0)
 

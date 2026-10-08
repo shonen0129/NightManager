@@ -28,7 +28,6 @@ sys.path.insert(0, str(ROOT / "src"))
 from leadlag.broker.tachibana.session_cache import save_open_prices_cache
 from leadlag.core.portfolio import solve_baseline_style
 from leadlag.core.signal import build_weights_minvar
-from leadlag.data.market_data_cache import save_df_exec_to_local_cache
 from leadlag.data.gap_store import GapStore
 from leadlag.data.horizon_returns import (
     compute_cumulative_returns as _shared_compute_cumulative_returns,

@@ -33,9 +33,9 @@ import yaml
 from scipy import stats
 
 from leadlag.core.pnl import simulate_daily_pnl
-from leadlag.data.market_data_cache import load_df_exec_from_local_cache
 from leadlag.data.fetcher import download_data
 from leadlag.data.intraday_inputs import compute_jp_target_returns
+from leadlag.data.market_data_cache import load_df_exec_from_local_cache
 from leadlag.data.preprocessor import preprocess_data
 from leadlag.data.tickers import JP_TICKERS
 from leadlag.reporting.metrics import calculate_metrics

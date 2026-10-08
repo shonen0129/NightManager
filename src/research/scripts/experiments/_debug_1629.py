@@ -6,7 +6,7 @@ import pandas as pd
 import yaml
 
 ROOT = Path(__file__).resolve().parents[4]
-with open(ROOT / "configs" / "research" / "subsector_mapping_generated.yaml", "r", encoding="utf-8") as f:
+with open(ROOT / "configs" / "research" / "subsector_mapping_generated.yaml", encoding="utf-8") as f:
     mapping = yaml.safe_load(f)
 cap = pd.read_parquet(ROOT / "var" / "research" / "subsector" / "cap_panel.parquet")
 

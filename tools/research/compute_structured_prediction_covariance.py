@@ -31,8 +31,8 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 from leadlag.config.loader import load_yaml_with_base
-from leadlag.data.market_data_cache import save_df_exec_to_local_cache
 from leadlag.data.fetcher import download_data
+from leadlag.data.market_data_cache import save_df_exec_to_local_cache
 from leadlag.data.preprocessor import preprocess_data
 from leadlag.data.tickers import JP_TICKERS, TOPIX_TICKER
 from research.backtest_v1 import run_v1_backtest

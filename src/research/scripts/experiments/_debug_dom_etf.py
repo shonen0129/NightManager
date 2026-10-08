@@ -1,16 +1,15 @@
 #!/usr/bin/env python3
 """Debug dom_etf mapping."""
-from pathlib import Path
 import sys
+from pathlib import Path
 
 import numpy as np
-import pandas as pd
 import yaml
 
 ROOT = Path(__file__).resolve().parents[4]
 sys.path.insert(0, str(ROOT / "src"))
 
-with open(ROOT / "configs" / "research" / "subsector_aggregation_vw.yaml", "r", encoding="utf-8") as f:
+with open(ROOT / "configs" / "research" / "subsector_aggregation_vw.yaml", encoding="utf-8") as f:
     agg = yaml.safe_load(f)
 A = np.array(agg["aggregation_matrix_A"]["data"])
 rows = agg["aggregation_matrix_A"]["rows"]

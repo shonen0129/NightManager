@@ -1,8 +1,6 @@
 """Replay gap and VaR with frozen real inputs; broker operations are absent."""
 from __future__ import annotations
 
-from leadlag.domain.distribution import DistributionReason, DistributionStatus
-
 import argparse
 import json
 import logging
@@ -18,6 +16,7 @@ from leadlag.data.horizon_returns import compute_cumulative_returns
 from leadlag.data.intraday_inputs import compute_jp_target_returns
 from leadlag.data.pit_lake import PITDataLake
 from leadlag.data.tickers import JP_TICKERS
+from leadlag.domain.distribution import DistributionStatus
 from leadlag.execution import var_history
 from leadlag.execution.config import load_config_from_yaml
 from leadlag.models.ml_overlay_artifact import load_overlay_model

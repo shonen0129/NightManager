@@ -6,11 +6,11 @@ utility and does not add a runtime dependency to the production package.
 """
 from __future__ import annotations
 
+import json
+import re
 from hashlib import sha256
 from html.parser import HTMLParser
-import json
 from pathlib import Path
-import re
 from urllib.request import urlopen, urlretrieve
 
 import pandas as pd

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Debug quality validation - column matching."""
-from pathlib import Path
 import sys
+from pathlib import Path
+
 import pandas as pd
-import numpy as np
 import yaml
 
 ROOT = Path(__file__).resolve().parents[4]
@@ -16,7 +16,7 @@ data = download_data(start_date="2009-01-01", end_date="2026-12-31", force=False
 df_exec = preprocess_data(data)
 panel = pd.read_parquet(ROOT / "var" / "research" / "subsector" / "panel_subsector_oc_vw.parquet")
 
-with open(ROOT / "configs" / "research" / "subsector_aggregation_vw.yaml", "r", encoding="utf-8") as f:
+with open(ROOT / "configs" / "research" / "subsector_aggregation_vw.yaml", encoding="utf-8") as f:
     agg = yaml.safe_load(f)
 cols = agg["aggregation_matrix_A"]["cols"]
 print("panel columns count:", len(panel.columns))

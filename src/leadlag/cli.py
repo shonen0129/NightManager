@@ -14,9 +14,8 @@ import logging
 import sys
 from collections.abc import Sequence
 
-import pandas as pd
-
 from leadlag.reporting.results_format import get_default_results_root
+from leadlag.utils.timestamps import jst_now, jst_today
 
 logger = logging.getLogger(__name__)
 
@@ -383,7 +382,7 @@ def _handle_daily(args: argparse.Namespace) -> int:
     """
     from datetime import datetime
 
-    now = datetime.now().time()
+    now = jst_now().time()
     try:
         hour, minute = args.decision_cutoff.split(":")
         cutoff = datetime.strptime(f"{hour}:{minute}", "%H:%M").time()
@@ -421,7 +420,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     ):
         from leadlag.core.market_calendar import is_market_closed
 
-        check_date = pd.Timestamp.now().date()
+        check_date = jst_today()
         if is_market_closed(check_date):
             holiday_name = None
             try:

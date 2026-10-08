@@ -2,11 +2,23 @@
 
 from __future__ import annotations
 
+from datetime import date, datetime
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 
 JST = "Asia/Tokyo"
+
+
+def jst_now() -> datetime:
+    """Return the current aware market time independently of the host TZ."""
+    return datetime.now(ZoneInfo(JST))
+
+
+def jst_today() -> date:
+    """Return today's date on the Japanese market clock."""
+    return jst_now().date()
 
 
 def normalize_jst_timestamp(value: Any) -> pd.Timestamp:
@@ -39,4 +51,11 @@ def normalize_jst_index(index: pd.Index) -> pd.DatetimeIndex:
     return pd.DatetimeIndex([normalize_jst_date(value) for value in index])
 
 
-__all__ = ["JST", "normalize_jst_date", "normalize_jst_index", "normalize_jst_timestamp"]
+__all__ = [
+    "JST",
+    "jst_now",
+    "jst_today",
+    "normalize_jst_date",
+    "normalize_jst_index",
+    "normalize_jst_timestamp",
+]

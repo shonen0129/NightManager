@@ -2,7 +2,6 @@
 """Extract subsector details including tickers and sensitivity labels for analysis."""
 from __future__ import annotations
 
-import json
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -13,11 +12,11 @@ ROOT = Path(__file__).resolve().parents[4]
 sys.path.insert(0, str(ROOT / "src"))
 
 # Load subsector mapping
-with open(ROOT / "configs" / "research" / "subsector_mapping_generated.yaml", "r", encoding="utf-8") as f:
+with open(ROOT / "configs" / "research" / "subsector_mapping_generated.yaml", encoding="utf-8") as f:
     mapping = yaml.safe_load(f)
 
 # Load sensitivity labels
-with open(ROOT / "configs" / "research" / "subsector_sensitivity_labels_heuristic.yaml", "r", encoding="utf-8") as f:
+with open(ROOT / "configs" / "research" / "subsector_sensitivity_labels_heuristic.yaml", encoding="utf-8") as f:
     heuristic_labels = yaml.safe_load(f)["sensitivity_labels"]
 
 # Group tickers by subsector

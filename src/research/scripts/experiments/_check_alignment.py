@@ -14,7 +14,7 @@ sys.path.insert(0, str(ROOT / "src"))
 
 def main() -> int:
     oc = pd.read_parquet(ROOT / "var" / "research" / "subsector" / "panel_subsector_oc_expanded_vw.parquet")
-    with open(ROOT / "configs" / "research" / "subsector_mapping_expanded.yaml", "r", encoding="utf-8") as f:
+    with open(ROOT / "configs" / "research" / "subsector_mapping_expanded.yaml", encoding="utf-8") as f:
         m = yaml.safe_load(f)
     cols = m["aggregation_matrix_A"]["cols"]
     print(f"panel columns: {len(oc.columns)}")

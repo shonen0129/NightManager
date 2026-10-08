@@ -10,11 +10,11 @@ import json
 import logging
 import sys
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pandas as pd
 import yaml
-from typing import Any
 
 ROOT = Path(__file__).resolve().parents[4]
 sys.path.insert(0, str(ROOT / "src"))
@@ -29,13 +29,13 @@ _ORIGINAL_JP_TICKERS = [
 _subsector_oc = pd.read_parquet(ROOT / "var" / "research" / "subsector" / "panel_subsector_oc_vw.parquet")
 SUBSECTOR_NAMES = [str(c) for c in _subsector_oc.columns]
 
-import leadlag.data.tickers as _tickers
-import leadlag.data.preprocessor as _preprocessor
-import leadlag.data.intraday_inputs as _intraday_inputs
-import leadlag.core.pipeline as _pipeline
 import leadlag.core.correlation as _correlation
-import leadlag.models.blpx.prior_builder as _prior_builder
+import leadlag.core.pipeline as _pipeline
+import leadlag.data.intraday_inputs as _intraday_inputs
+import leadlag.data.preprocessor as _preprocessor
+import leadlag.data.tickers as _tickers
 import leadlag.models.blpx.model_predict as _model_predict
+import leadlag.models.blpx.prior_builder as _prior_builder
 
 
 def _set_jp_universe(names: list[str], is_subsector: bool = False) -> None:
@@ -49,7 +49,7 @@ def _set_jp_universe(names: list[str], is_subsector: bool = False) -> None:
     _model_predict.JP_TICKERS = names
     if is_subsector:
         # Load heuristic sensitivity labels
-        with open(ROOT / "configs" / "research" / "subsector_sensitivity_labels_heuristic.yaml", "r", encoding="utf-8") as f:
+        with open(ROOT / "configs" / "research" / "subsector_sensitivity_labels_heuristic.yaml", encoding="utf-8") as f:
             config = yaml.safe_load(f)
             heuristic_labels = config["sensitivity_labels"]
 
@@ -126,7 +126,7 @@ def _prepare_common_inputs_sub(
 
 _ORIGINAL_SECTOR_MAP_FOR_RESTORE = dict(_prior_builder._SECTOR_MAPPING_STRUCTURE)
 
-with open(ROOT / "configs" / "research" / "subsector_aggregation_vw.yaml", "r", encoding="utf-8") as f:
+with open(ROOT / "configs" / "research" / "subsector_aggregation_vw.yaml", encoding="utf-8") as f:
     _agg = yaml.safe_load(f)
 A = np.array(_agg["aggregation_matrix_A"]["data"])
 ETF_ROWS = _agg["aggregation_matrix_A"]["rows"]
@@ -161,11 +161,10 @@ for us_tk, etfs in _ORIGINAL_SECTOR_MAP.items():
     _SUBSECTOR_SECTOR_MAP[us_tk] = subs
 
 from leadlag.config.schemas import BLPXConfig
-from leadlag.models.blpx.model import ProductionBLPXModel
-
 from leadlag.data.fetcher import download_data
 from leadlag.data.preprocessor import preprocess_data
 from leadlag.data.tickers import JP_TICKERS, US_TICKERS
+from leadlag.models.blpx.model import ProductionBLPXModel
 
 logging.basicConfig(
     level=logging.INFO,

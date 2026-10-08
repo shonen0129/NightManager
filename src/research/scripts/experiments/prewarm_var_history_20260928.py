@@ -17,8 +17,8 @@ sys.path.insert(0, str(ROOT / "src"))
 from leadlag.config.paths import results
 from leadlag.core.risk import compute_var_es
 from leadlag.data.market_data_cache import load_df_exec_from_local_cache
-from leadlag.execution.config import load_config_from_yaml
 from leadlag.execution import var_history
+from leadlag.execution.config import load_config_from_yaml
 from leadlag.models.ml_overlay_artifact import load_overlay_model
 
 PRODUCTION_ROOT = ROOT / "models/ml_order_overlay/production_20260923"

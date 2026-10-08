@@ -25,14 +25,23 @@ ROOT = Path(__file__).resolve().parents[4]
 sys.path.insert(0, str(ROOT / "src"))
 
 from leadlag.core.correlation import build_v3_static  # noqa: E402
-from leadlag.data.intraday_inputs import build_open_910_returns, compute_jp_target_returns  # noqa: E402
-from leadlag.data.market_data_cache import load_df_exec_from_local_cache, load_intraday_cache  # noqa: E402
+from leadlag.data.intraday_inputs import (  # noqa: E402
+    build_open_910_returns,
+    compute_jp_target_returns,
+)
+from leadlag.data.market_data_cache import (  # noqa: E402
+    load_df_exec_from_local_cache,
+    load_intraday_cache,
+)
 from leadlag.data.pit_lake import PITDataLake  # noqa: E402
 from leadlag.data.tickers import JP_TICKERS, N_JP, N_US, SENSITIVITY_LABELS  # noqa: E402
 from leadlag.execution.config import load_config_from_yaml  # noqa: E402
 from leadlag.experiment_registry import Decision, ExperimentRecord, ExperimentRegistry  # noqa: E402
 from leadlag.models.blpx.model import ProductionBLPXModel  # noqa: E402
-from leadlag.pipeline.gap_distribution import compute_gap_distribution, select_gap_coefficients  # noqa: E402
+from leadlag.pipeline.gap_distribution import (  # noqa: E402
+    compute_gap_distribution,
+    select_gap_coefficients,
+)
 from leadlag.utils.dataframe_fingerprint import dataframe_fingerprint  # noqa: E402
 
 CONFIG_PATH = ROOT / "configs/research/jpx33_sensitivity_prior_2017.yaml"

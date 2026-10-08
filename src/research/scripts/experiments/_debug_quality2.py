@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 """Debug quality validation - index alignment."""
-from pathlib import Path
 import sys
+from pathlib import Path
+
 import pandas as pd
-import numpy as np
-import yaml
 
 ROOT = Path(__file__).resolve().parents[4]
 sys.path.insert(0, str(ROOT / "src"))

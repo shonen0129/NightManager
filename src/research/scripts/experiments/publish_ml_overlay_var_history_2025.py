@@ -10,7 +10,6 @@ import sys
 import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
 from zoneinfo import ZoneInfo
 
 ROOT = Path(__file__).resolve().parents[4]

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Debug _rho function."""
-from pathlib import Path
 import sys
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -11,6 +11,7 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from leadlag.data.fetcher import download_data
 from leadlag.data.preprocessor import preprocess_data
+
 
 def _rho(a, b):
     df = pd.DataFrame({"a": a, "b": b}).dropna()

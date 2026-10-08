@@ -2,7 +2,6 @@
 """Build aggregation matrix for 98 subsectors to 17 TOPIX ETFs."""
 from __future__ import annotations
 
-import json
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -15,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[4]
 sys.path.insert(0, str(ROOT / "src"))
 
 # Load 98 subsector configuration
-with open(ROOT / "configs" / "research" / "subsector_98_config.yaml", "r", encoding="utf-8") as f:
+with open(ROOT / "configs" / "research" / "subsector_98_config.yaml", encoding="utf-8") as f:
     subsector_config = yaml.safe_load(f)
 
 # Load JPX master data to get TOPIX17 ETF mapping
