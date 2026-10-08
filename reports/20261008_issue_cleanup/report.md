@@ -39,7 +39,7 @@ safe fix後はF841=5だけ。最終はlockfileのRuff 0.16.2でも0件。
   4 worker、外側deadline 1,800秒、約150秒。全directoryをpytestで収集し、同じ1,144件を確認。
 - compileall: 必須5 tree成功。Ruff: production/tests/maintained tools/両研究ツリー成功。
 - import-linter: 7契約成功。scheduled Python import境界: 2入口成功。
-- 変更文書のリンク検査: 10参照成功。
+- 変更文書と本reportのリンク検査: 11参照成功。
 - wheel build / 157-module manifest / research除外 / isolated smoke:
   runtime root、CLI、ML artifact推論、ADR roundtrip、shared BLPXの確認に成功。
 
@@ -55,6 +55,8 @@ lockfile版の検証ツールを導入した。global環境へ依存は追加し
 ユーザーが設定。2026-10-08のbranch APIで `main protected=true`、required check
 `quality-and-tests`、`enforcement_level=everyone`、GitHub Actions `app_id=15368`を確認した。
 接続GitHub Appにはadministration権限がなく、詳細protection APIは403。
-branch APIで列挙されないPR必須・strict・bypass設定はSettingsの確認と区別する。
+branch APIで列挙されないPR必須・strict・bypass設定はユーザーがSettings画面で確認。
+PR必須・up-to-date・bypass禁止がON、approval要求がOFF、bypass対象なしとして
+保存済みとの回答を受けた。APIの観測とユーザーによる画面確認を区別して記録する。
 
 production設定・モデルartifact・live cache・scheduler・発注は変更していない。

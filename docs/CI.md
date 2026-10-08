@@ -62,7 +62,8 @@ Current workflow の表示名は `leadlag-ci`、required job/check 名は `quali
 2026-10-08 の [main branch API](https://api.github.com/repos/shonen0129/NightManager/branches/main)
 で `protected=true`、`quality-and-tests` 必須、`enforcement_level=everyone`、
 check の `app_id=15368`（GitHub Actions）を確認した。管理設定はユーザーが実施した。
-このbranch APIの応答はPR必須・strict・bypass対象の全設定を列挙しないため、
-これらはSettings画面でも確認する。
+このbranch APIの応答はPR必須・strict・bypass対象の全設定を列挙しない。
+同日にユーザーがSettings画面でPR必須・up-to-date・bypass禁止がON、
+approval要求がOFF、bypass対象なしとして保存済みであることを確認した。
 
 wheel smokeはtemporaryなdeployment rootを `LEADLAG_RUNTIME_ROOT` に指定し、installed packageのcode位置から独立したADR/macro/相対model/varの解決を検査する。運用配置ではimport前に同変数へ既存の絶対directoryを指定し、そのroot配下へconfig/model/dataを配置する。詳しくは [runtime境界ADR](decisions/2026-10-06-audit-boundaries.md) を参照。
