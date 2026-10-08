@@ -26,3 +26,4 @@ See [0000-adr-template.md](0000-adr-template.md).
 - [VaR入力指紋を既存の全体期限に含める（提案）](2026-09-22-var-input-fingerprint-deadline.md)
 - [9:10価格の選択と本番artifact受入](2026-09-22-execution-price-and-artifact-acceptance.md)
 - [候補artifactの本番昇格（operator override）](2026-09-23-candidate-artifact-promotion.md)
+- [日次実行・close・前処理・VaRの責務境界](2026-10-08-issue-45-run-boundaries.md)

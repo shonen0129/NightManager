@@ -21,8 +21,11 @@ from __future__ import annotations
 import json
 import logging
 import os
+from collections.abc import Mapping
+from dataclasses import dataclass
 from pathlib import Path
-from typing import cast
+from types import MappingProxyType
+from typing import Literal, cast
 
 import numpy as np
 import pandas as pd
@@ -40,8 +43,12 @@ from leadlag.data.pit_lake import MarketSnapshot, PITDataLake
 from leadlag.data.quote_snapshot import FrozenQuoteSnapshot, load_frozen_quote_snapshot
 from leadlag.data.rank_reversal import load_rank_reversal_frame
 from leadlag.data.tickers import JP_TICKERS, TOPIX_TICKER
-from leadlag.domain.inputs import HistoricalInputs
-from leadlag.execution.account_risk import AccountRiskSnapshot, AccountRiskSnapshotError
+from leadlag.domain.inputs import DecisionInputs, HistoricalInputs
+from leadlag.execution.account_risk import (
+    AccountRiskPreflight,
+    AccountRiskSnapshot,
+    AccountRiskSnapshotError,
+)
 from leadlag.execution.backtest import _load_df_exec
 from leadlag.execution.broker_ops import (
     build_api_client,
@@ -65,6 +72,38 @@ from leadlag.runner.production import ProductionRunner
 from leadlag.utils.timestamps import normalize_jst_date
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class CurrentPricePreflight:
+    """Selected, run-owned price input before it is paired with prior closes."""
+
+    prices: Mapping[str, float]
+    source: Literal["frozen_quote", "broker_current", "previous_close_placeholder"]
+    frozen_snapshot: FrozenQuoteSnapshot | None = None
+
+    def __post_init__(self) -> None:
+        if (self.source == "frozen_quote") != (self.frozen_snapshot is not None):
+            raise ValueError("frozen quote source and snapshot must be supplied together")
+        object.__setattr__(self, "prices", MappingProxyType(dict(self.prices)))
+
+
+@dataclass(frozen=True)
+class QuotePreflight:
+    """Validated price and market snapshot contract for one decision run."""
+
+    current_prices: Mapping[str, float]
+    data_lake: PITDataLake
+    market_snapshot: MarketSnapshot
+    decision_as_of: pd.Timestamp
+    price_input: CurrentPricePreflight
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "current_prices", MappingProxyType(dict(self.current_prices)))
+
+    @property
+    def requires_actual_account_risk(self) -> bool:
+        return self.price_input.frozen_snapshot is not None
 
 
 def _decision_as_of(trade_date: pd.Timestamp | str) -> pd.Timestamp:
@@ -203,6 +242,306 @@ def _has_complete_current_prices(prices: dict[str, float]) -> bool:
     return True
 
 
+def _resolve_current_price_preflight(
+    app_config: AppConfig,
+    api_client: BrokerClient | None,
+    trade_date: pd.Timestamp,
+    live_quote_snapshot: FrozenQuoteSnapshot | None,
+    *,
+    api_enable: bool,
+    jp_opens_csv: str | None,
+    google_opens: bool,
+) -> CurrentPricePreflight:
+    """Choose one current-price source without reinterpreting it downstream."""
+    if live_quote_snapshot is not None:
+        logger.info(
+            "[2/5] Using frozen quote-mid prices from %s.",
+            live_quote_snapshot.snapshot_id,
+        )
+        return CurrentPricePreflight(
+            prices={
+                ticker: float(live_quote_snapshot.prices[ticker])
+                for ticker in JP_TICKERS
+            },
+            source="frozen_quote",
+            frozen_snapshot=live_quote_snapshot,
+        )
+
+    if not api_enable:
+        return CurrentPricePreflight(prices={}, source="previous_close_placeholder")
+    if api_client is None:
+        raise ValueError("An API client is required for broker current prices")
+
+    trade_date_str = trade_date.strftime("%Y%m%d")
+    cached_prices = (
+        load_current_prices_cache(trade_date_str)
+        if app_config.broker_provider == "tachibana"
+        else None
+    )
+    current_prices: dict[str, float] = {}
+    if cached_prices is not None:
+        cached_jp, topix_current = cached_prices
+        current_prices = dict(cached_jp)
+        if topix_current is not None:
+            current_prices[TOPIX_TICKER] = float(topix_current)
+        if _has_complete_current_prices(current_prices):
+            logger.info("[2/5] Using cached 09:10 current prices.")
+        else:
+            logger.info(
+                "[2/5] Current-price cache incomplete or invalid; fetching from API..."
+            )
+            current_prices = _resolve_current_prices(
+                app_config, api_client, jp_opens_csv, google_opens
+            )
+    else:
+        logger.info("[2/5] Fetching 09:10 current prices...")
+        current_prices = _resolve_current_prices(
+            app_config, api_client, jp_opens_csv, google_opens
+        )
+    return CurrentPricePreflight(prices=current_prices, source="broker_current")
+
+
+def _build_quote_preflight(
+    df_exec: pd.DataFrame,
+    trade_date: pd.Timestamp,
+    trade_date_text: str,
+    decision_as_of: pd.Timestamp,
+    price_input: CurrentPricePreflight,
+    *,
+    api_enable: bool,
+    api_client: BrokerClient | None,
+) -> QuotePreflight:
+    """Pair selected prices with the same-day PIT close and validate once."""
+    lake = PITDataLake(df_exec)
+    if trade_date not in lake.history_frame().index:
+        # A previous row is never a valid substitute for today's trade.  It
+        # would combine yesterday's signal/gap with today's prices and could
+        # replay an old order plan.  Fail closed for both dry-run and live
+        # paths; callers can explicitly request a historical date instead.
+        raise RuntimeError(
+            f"Requested trade_date {trade_date_text} is not available in df_exec; "
+            "refusing stale PIT fallback."
+        )
+
+    lake_snapshot = lake.get_snapshot(decision_as_of)
+    snapshot_prev_closes = lake_snapshot.prev_closes
+    current_prices = dict(price_input.prices)
+    if not api_enable:
+        # A no-API decision uses prior closes only as zero-gap placeholders.
+        current_prices = {
+            ticker: float(snapshot_prev_closes[ticker])
+            for ticker in JP_TICKERS
+            if ticker in snapshot_prev_closes
+            and np.isfinite(snapshot_prev_closes[ticker])
+            and snapshot_prev_closes[ticker] > 0.0
+        }
+
+    api_current_prices: dict[str, float] = {
+        ticker: float(current_prices[ticker])
+        for ticker in JP_TICKERS
+        if ticker in current_prices
+        and np.isfinite(current_prices[ticker])
+        and current_prices[ticker] > 0.0
+    }
+    jp_gap_api = np.zeros(len(JP_TICKERS), dtype=float)
+    for index, ticker in enumerate(JP_TICKERS):
+        price = api_current_prices.get(ticker)
+        prior_close = snapshot_prev_closes.get(ticker)
+        if price is not None and prior_close is not None and prior_close > 0.0:
+            jp_gap_api[index] = price / prior_close - 1.0
+
+    topix_night_return = lake_snapshot.topix_night_return
+    if price_input.frozen_snapshot is not None:
+        topix_prev_close = snapshot_prev_closes.get(TOPIX_TICKER)
+        topix_price = price_input.frozen_snapshot.prices[TOPIX_TICKER]
+        if (
+            topix_prev_close is None
+            or not np.isfinite(topix_prev_close)
+            or topix_prev_close <= 0.0
+        ):
+            raise RuntimeError(
+                "Frozen quote snapshot cannot be paired with a valid prior TOPIX close"
+            )
+        topix_night_return = float(topix_price) / float(topix_prev_close) - 1.0
+
+    frozen_snapshot = price_input.frozen_snapshot
+    snapshot = MarketSnapshot(
+        as_of=lake_snapshot.as_of,
+        trade_date=lake_snapshot.trade_date,
+        us_returns=lake_snapshot.us_returns,
+        jp_gap_returns=jp_gap_api,
+        jp_betas=lake_snapshot.jp_betas,
+        topix_night_return=topix_night_return,
+        current_prices=api_current_prices,
+        prev_closes=snapshot_prev_closes,
+        price_sources={
+            ticker: (
+                "tachibana:CLMMfdsGetMarketPrice:quote_mid"
+                if frozen_snapshot is not None
+                else "broker_current" if api_enable else "previous_close_placeholder"
+            )
+            for ticker in api_current_prices
+        },
+        price_observed_at=(
+            {ticker: frozen_snapshot.observed_at[ticker] for ticker in JP_TICKERS}
+            if frozen_snapshot is not None
+            else {}
+        ),
+        quote_snapshot_id=(
+            frozen_snapshot.snapshot_id if frozen_snapshot is not None else None
+        ),
+    )
+    is_valid, snapshot_errors = snapshot.validate()
+    if not is_valid:
+        logger.error("MarketSnapshot validation failed: %s", snapshot_errors)
+        if api_client is not None:
+            try:
+                api_client.close()
+            except Exception:
+                pass
+        raise RuntimeError(
+            f"MarketSnapshot validation failed: {snapshot_errors}. "
+            "Aborting to avoid trading on bogus data."
+        )
+
+    return QuotePreflight(
+        current_prices=current_prices,
+        data_lake=lake,
+        market_snapshot=snapshot,
+        decision_as_of=decision_as_of,
+        price_input=price_input,
+    )
+
+
+def _preflight_account_risk(
+    project_root_path: Path,
+    trade_date: pd.Timestamp,
+    account_key: str,
+    quote_preflight: QuotePreflight,
+) -> AccountRiskPreflight:
+    """Load the required live account evidence as one explicit typed result."""
+    if not quote_preflight.requires_actual_account_risk:
+        return AccountRiskPreflight.not_required()
+
+    configured_path = os.environ.get("LEADLAG_ACCOUNT_RISK_SNAPSHOT")
+    snapshot_path = (
+        Path(configured_path)
+        if configured_path
+        else project_root_path / "var/live/pipeline_data/account_risk/latest.json"
+    )
+    if not snapshot_path.is_absolute():
+        snapshot_path = project_root_path / snapshot_path
+    try:
+        snapshot = AccountRiskSnapshot.load(
+            snapshot_path,
+            trade_date=trade_date.strftime("%Y-%m-%d"),
+            decision_as_of=quote_preflight.decision_as_of,
+            account_key=account_key,
+        )
+    except AccountRiskSnapshotError as exc:
+        logger.error("Actual-account loss evidence unavailable: %s", exc)
+        return AccountRiskPreflight.unavailable(exc)
+    return AccountRiskPreflight.verified(snapshot)
+
+
+def _build_run_owned_decision_inputs(
+    app_config: AppConfig,
+    df_exec: pd.DataFrame,
+    trade_date: pd.Timestamp,
+    trade_date_text: str,
+    gap_dir: Path | None,
+    quote_preflight: QuotePreflight,
+) -> DecisionInputs:
+    """Load date-bounded history and bind it to the validated quote snapshot."""
+    effective_trade_date = trade_date_text
+    open_910_returns = build_open_910_returns(df_exec, JP_TICKERS)
+    macro_prices = None
+    if app_config.v2.macro_kappa_enabled or app_config.v2.macro_direction_enabled:
+        try:
+            macro_prices = macro_data.load_macro_prices(
+                start=df_exec.index.min().strftime("%Y-%m-%d"),
+                end=(df_exec.index.max() + pd.Timedelta(days=1)).strftime("%Y-%m-%d"),
+                period="max",
+            )
+            # Keep provider rows bounded by the run's decision date.
+            macro_prices = macro_prices.loc[macro_prices.index <= effective_trade_date].copy()
+        except Exception as exc:
+            logger.warning("Failed to load run-owned macro prices: %s", exc)
+
+    adr_features = None
+    if app_config.v2.ml_overlay_enabled:
+        try:
+            # Keep the complete run-owned artifact; the overlay applies its
+            # own date and staleness validation symmetrically with backtests.
+            adr_features = adr_data.load_adr_features()
+            if adr_features is not None:
+                adr_features = adr_features.loc[
+                    adr_features.index <= effective_trade_date
+                ].copy()
+        except Exception as exc:
+            logger.warning("Failed to load run-owned ADR features: %s", exc)
+
+    pit_ir_history = None
+    pit_history_trade_dates = None
+    if gap_dir is not None:
+        pit_ir_history, _pit_alerts, pit_history_trade_dates = load_pit_ir_history(
+            gap_dir, trade_date_text
+        )
+    rank_reversal_signals = None
+    if app_config.v2.cs_overlay_enabled:
+        rank_reversal_signals = load_rank_reversal_frame(
+            gap_dir,
+            [trade_date],
+            file_pattern=app_config.v2.cs_rank_reversal_file_pattern,
+        )
+
+    historical_observed_at_by_date = {
+        normalize_jst_date(date).strftime("%Y-%m-%d"): {
+            "open_910_returns": f"{normalize_jst_date(date).date()} 09:10",
+            "macro_prices": f"{normalize_jst_date(date).date()} 09:00",
+            "adr_features": f"{normalize_jst_date(date).date()} 09:00",
+            "rank_reversal_signals": f"{normalize_jst_date(date).date()} 09:00",
+            "pit_ir_history": f"{normalize_jst_date(date).date()} 09:10",
+        }
+        for date in df_exec.index
+    }
+    historical_inputs = HistoricalInputs(
+        df_exec,
+        source="v2_bridge_live",
+        open_910_returns=open_910_returns,
+        macro_prices=macro_prices,
+        adr_features_frame=adr_features,
+        pit_ir_history=pit_ir_history,
+        pit_history_trade_dates=pit_history_trade_dates,
+        rank_reversal_signals=rank_reversal_signals,
+        observed_at={
+            "open_910_returns": f"{effective_trade_date} 09:10",
+            "macro_prices": f"{effective_trade_date} 09:00",
+            "adr_features": f"{effective_trade_date} 09:00",
+            "rank_reversal_signals": f"{effective_trade_date} 09:00",
+            "pit_ir_history": f"{effective_trade_date} 09:10",
+        },
+        observed_at_by_date=historical_observed_at_by_date,
+    )
+    snapshot = quote_preflight.market_snapshot
+    return quote_preflight.data_lake.build_decision_inputs(
+        quote_preflight.decision_as_of,
+        snapshot=snapshot,
+        gap_input_dir=gap_dir,
+        use_file_cache=True,
+        source="v2_bridge_live",
+        historical=historical_inputs,
+        observed_at={
+            "us_returns": f"{effective_trade_date} 09:00",
+            "jp_gap_returns": f"{effective_trade_date} 09:10",
+            "jp_betas": f"{effective_trade_date} 09:10",
+            "topix_night_return": f"{effective_trade_date} 09:10",
+            "current_prices": f"{effective_trade_date} 09:10",
+            "prev_closes": f"{effective_trade_date} 09:10",
+        },
+    )
+
+
 def run_v2_decision(
     config_path: str | Path,
     gap_input_dir: str | Path | None = None,
@@ -337,9 +676,8 @@ def run_v2_decision(
     logger.info("[1/5] Loading/building df_exec...")
     df_exec = _load_df_exec(app_config, data_source="cache")
 
-    # --- Step 2: Fetch JP open prices ---
-    api_client = None
-    current_prices: dict[str, float] = {}
+    # --- Step 2: Select price evidence and build the typed quote preflight ---
+    api_client: BrokerClient | None = None
     try:
         if api_enable:
             api_client = build_api_client(
@@ -347,230 +685,51 @@ def run_v2_decision(
                 api_token=api_token,
                 api_dry_run=api_dry_run,
             )
-
-            if live_quote_snapshot is not None:
-                current_prices = {
-                    ticker: float(live_quote_snapshot.prices[ticker])
-                    for ticker in JP_TICKERS
-                }
-                logger.info(
-                    "[2/5] Using frozen quote-mid prices from %s.",
-                    live_quote_snapshot.snapshot_id,
-                )
-            else:
-                trade_date_str = t_trade.strftime("%Y%m%d")
-                cached_prices = (
-                    load_current_prices_cache(trade_date_str)
-                    if app_config.broker_provider == "tachibana"
-                    else None
-                )
-                if cached_prices is not None:
-                    cached_jp, topix_current = cached_prices
-                    current_prices = dict(cached_jp)
-                    if topix_current is not None:
-                        current_prices[TOPIX_TICKER] = float(topix_current)
-                    if _has_complete_current_prices(current_prices):
-                        logger.info("[2/5] Using cached 09:10 current prices.")
-                    else:
-                        logger.info(
-                            "[2/5] Current-price cache incomplete or invalid; fetching from API..."
-                        )
-                        current_prices = _resolve_current_prices(
-                            app_config, api_client, jp_opens_csv, google_opens
-                        )
-                else:
-                    logger.info("[2/5] Fetching 09:10 current prices...")
-                    current_prices = _resolve_current_prices(
-                        app_config, api_client, jp_opens_csv, google_opens
-                    )
-
-            if capital_from_wallet:
-                max_capital = resolve_wallet_capital(api_client)
-                logger.info("[CAPITAL] Using wallet balance: %s JPY", f"{max_capital:,.0f}")
         else:
-            logger.info("[2/5] API disabled. Will use previous closes as placeholder open prices.")
+            logger.info(
+                "[2/5] API disabled. Will use previous closes as placeholder open prices."
+            )
+
+        price_input = _resolve_current_price_preflight(
+            app_config,
+            api_client,
+            t_trade,
+            live_quote_snapshot,
+            api_enable=api_enable,
+            jp_opens_csv=jp_opens_csv,
+            google_opens=google_opens,
+        )
+        if capital_from_wallet and api_client is not None:
+            max_capital = resolve_wallet_capital(api_client)
+            logger.info("[CAPITAL] Using wallet balance: %s JPY", f"{max_capital:,.0f}")
     except Exception as e:
         logger.error("[2/5] Failed to fetch opens: %s", e)
         if api_client is not None:
             api_client.close()
         raise
 
-    # --- Step 3: Build PIT data lake and the as-of market snapshot ---
     logger.info("[3/5] Building PIT data lake and as-of market snapshot...")
-    lake = PITDataLake(df_exec)
-    if t_trade not in lake.history_frame().index:
-        # A previous row is never a valid substitute for today's trade.  It
-        # would combine yesterday's signal/gap with today's prices and could
-        # replay an old order plan.  Fail closed for both dry-run and live
-        # paths; callers can explicitly request a historical date instead.
-        raise RuntimeError(
-            f"Requested trade_date {trade_date} is not available in df_exec; "
-            "refusing stale PIT fallback."
-        )
-
-    lake_snapshot = lake.get_snapshot(decision_as_of)
+    quote_preflight = _build_quote_preflight(
+        df_exec,
+        t_trade,
+        trade_date,
+        decision_as_of,
+        price_input,
+        api_enable=api_enable,
+        api_client=api_client,
+    )
     effective_trade_date = trade_date
     t_effective = t_trade
-    snapshot_prev_closes = lake_snapshot.prev_closes
-
-    # If the API was disabled, fall back to previous closes as placeholders.
-    # This produces zero gap and avoids the dangerous 1000 JPY dummy that would
-    # otherwise leak into the ML overlay and on-demand BLPX recomputation.
-    if not api_enable:
-        current_prices = {
-            tk: float(snapshot_prev_closes[tk])
-            for tk in JP_TICKERS
-            if tk in snapshot_prev_closes
-            and np.isfinite(snapshot_prev_closes[tk])
-            and snapshot_prev_closes[tk] > 0.0
-        }
-
-    # Recompute the 9:10 gap returns using the live/cached current prices so
-    # the MarketSnapshot is the single source of truth for this trade date.
-    api_current_prices: dict[str, float] = {
-        tk: float(current_prices[tk])
-        for tk in JP_TICKERS
-        if tk in current_prices and np.isfinite(current_prices[tk]) and current_prices[tk] > 0.0
-    }
-    jp_gap_api = np.zeros(len(JP_TICKERS), dtype=float)
-    for j, tk in enumerate(JP_TICKERS):
-        p = api_current_prices.get(tk)
-        pc = snapshot_prev_closes.get(tk)
-        if p is not None and pc is not None and pc > 0.0:
-            jp_gap_api[j] = p / pc - 1.0
-
-    topix_night_return = lake_snapshot.topix_night_return
-    if live_quote_snapshot is not None:
-        topix_prev_close = snapshot_prev_closes.get(TOPIX_TICKER)
-        topix_price = live_quote_snapshot.prices[TOPIX_TICKER]
-        if topix_prev_close is None or not np.isfinite(topix_prev_close) or topix_prev_close <= 0.0:
-            raise RuntimeError("Frozen quote snapshot cannot be paired with a valid prior TOPIX close")
-        topix_night_return = float(topix_price) / float(topix_prev_close) - 1.0
-
-    snapshot = MarketSnapshot(
-        as_of=lake_snapshot.as_of,
-        trade_date=lake_snapshot.trade_date,
-        us_returns=lake_snapshot.us_returns,
-        jp_gap_returns=jp_gap_api,
-        jp_betas=lake_snapshot.jp_betas,
-        topix_night_return=topix_night_return,
-        current_prices=api_current_prices,
-        prev_closes=snapshot_prev_closes,
-        price_sources={
-            ticker: (
-                "tachibana:CLMMfdsGetMarketPrice:quote_mid"
-                if live_quote_snapshot is not None
-                else "broker_current" if api_enable else "previous_close_placeholder"
-            )
-            for ticker in api_current_prices
-        },
-        price_observed_at=(
-            {ticker: live_quote_snapshot.observed_at[ticker] for ticker in JP_TICKERS}
-            if live_quote_snapshot is not None else {}
-        ),
-        quote_snapshot_id=(
-            live_quote_snapshot.snapshot_id if live_quote_snapshot is not None else None
-        ),
-    )
-
-    is_valid, snapshot_errors = snapshot.validate()
-    if not is_valid:
-        logger.error("MarketSnapshot validation failed: %s", snapshot_errors)
-        if api_client is not None:
-            try:
-                api_client.close()
-            except Exception:
-                pass
-        raise RuntimeError(
-            f"MarketSnapshot validation failed: {snapshot_errors}. "
-            "Aborting to avoid trading on bogus data."
-        )
 
     # --- Step 4: Generate V2 portfolio ---
     logger.info("[4/5] Generating V2 production portfolio...")
-    open_910_returns = build_open_910_returns(df_exec, JP_TICKERS)
-    macro_prices = None
-    if app_config.v2.macro_kappa_enabled or app_config.v2.macro_direction_enabled:
-        try:
-            macro_prices = macro_data.load_macro_prices(
-                start=df_exec.index.min().strftime("%Y-%m-%d"),
-                end=(df_exec.index.max() + pd.Timedelta(days=1)).strftime("%Y-%m-%d"),
-                period="max",
-            )
-            # The live snapshot is bounded by the decision date.  Keeping a
-            # later provider row in the owned frame would make provenance
-            # impossible to audit after a cache refresh.
-            macro_prices = macro_prices.loc[macro_prices.index <= effective_trade_date].copy()
-        except Exception as exc:
-            logger.warning("Failed to load run-owned macro prices: %s", exc)
-
-    adr_features = None
-    if app_config.v2.ml_overlay_enabled:
-        try:
-            # Keep the complete run-owned artifact.  The overlay applies the
-            # adapter's date/staleness validation symmetrically with backtests.
-            adr_features = adr_data.load_adr_features()
-            if adr_features is not None:
-                adr_features = adr_features.loc[adr_features.index <= effective_trade_date].copy()
-        except Exception as exc:
-            logger.warning("Failed to load run-owned ADR features: %s", exc)
-
-    pit_ir_history = None
-    pit_history_trade_dates = None
-    if gap_dir is not None:
-        pit_ir_history, _pit_alerts, pit_history_trade_dates = load_pit_ir_history(
-            gap_dir, trade_date
-        )
-    rank_reversal_signals = None
-    if app_config.v2.cs_overlay_enabled:
-        rank_reversal_signals = load_rank_reversal_frame(
-            gap_dir,
-            [t_trade],
-            file_pattern=app_config.v2.cs_rank_reversal_file_pattern,
-        )
-    historical_observed_at_by_date = {
-        normalize_jst_date(dt).strftime("%Y-%m-%d"): {
-            "open_910_returns": f"{normalize_jst_date(dt).date()} 09:10",
-            "macro_prices": f"{normalize_jst_date(dt).date()} 09:00",
-            "adr_features": f"{normalize_jst_date(dt).date()} 09:00",
-            "rank_reversal_signals": f"{normalize_jst_date(dt).date()} 09:00",
-            "pit_ir_history": f"{normalize_jst_date(dt).date()} 09:10",
-        }
-        for dt in df_exec.index
-    }
-    historical_inputs = HistoricalInputs(
+    decision_inputs = _build_run_owned_decision_inputs(
+        app_config,
         df_exec,
-        source="v2_bridge_live",
-        open_910_returns=open_910_returns,
-        macro_prices=macro_prices,
-        adr_features_frame=adr_features,
-        pit_ir_history=pit_ir_history,
-        pit_history_trade_dates=pit_history_trade_dates,
-        rank_reversal_signals=rank_reversal_signals,
-        observed_at={
-            "open_910_returns": f"{effective_trade_date} 09:10",
-            "macro_prices": f"{effective_trade_date} 09:00",
-            "adr_features": f"{effective_trade_date} 09:00",
-            "rank_reversal_signals": f"{effective_trade_date} 09:00",
-            "pit_ir_history": f"{effective_trade_date} 09:10",
-        },
-        observed_at_by_date=historical_observed_at_by_date,
-    )
-    decision_inputs = lake.build_decision_inputs(
-        decision_as_of,
-        snapshot=snapshot,
-        gap_input_dir=gap_dir,
-        use_file_cache=True,
-        source="v2_bridge_live",
-        historical=historical_inputs,
-        observed_at={
-            "us_returns": f"{effective_trade_date} 09:00",
-            "jp_gap_returns": f"{effective_trade_date} 09:10",
-            "jp_betas": f"{effective_trade_date} 09:10",
-            "topix_night_return": f"{effective_trade_date} 09:10",
-            "current_prices": f"{effective_trade_date} 09:10",
-            "prev_closes": f"{effective_trade_date} 09:10",
-        },
+        t_trade,
+        effective_trade_date,
+        gap_dir,
+        quote_preflight,
     )
     runner = ProductionRunner(app_config)
     result = runner.run(decision_inputs)
@@ -718,27 +877,9 @@ def run_v2_decision(
         # a retry of an unresolved broker outcome.
         state_store = ExecutionStateStore(execution_state_path())
         account_key = f"{app_config.broker_provider}:default" if not api_dry_run else f"simulation:{output_dir}"
-        actual_account_risk: AccountRiskSnapshot | None = None
-        actual_account_risk_error: str | None = None
-        if live_quote_snapshot is not None:
-            account_risk_value = os.environ.get("LEADLAG_ACCOUNT_RISK_SNAPSHOT")
-            account_risk_path = (
-                Path(account_risk_value)
-                if account_risk_value
-                else ROOT / "var/live/pipeline_data/account_risk/latest.json"
-            )
-            if not account_risk_path.is_absolute():
-                account_risk_path = ROOT / account_risk_path
-            try:
-                actual_account_risk = AccountRiskSnapshot.load(
-                    account_risk_path,
-                    trade_date=t_effective.strftime("%Y-%m-%d"),
-                    decision_as_of=decision_as_of,
-                    account_key=account_key,
-                )
-            except AccountRiskSnapshotError as exc:
-                actual_account_risk_error = str(exc)
-                logger.error("Actual-account loss evidence unavailable: %s", exc)
+        account_risk_preflight = _preflight_account_risk(
+            ROOT, t_effective, account_key, quote_preflight
+        )
         # Batch wrappers hold the same scope for the complete process group.
         # Avoid a nested self-conflict while retaining the in-process lease for
         # direct CLI invocations.
@@ -759,7 +900,7 @@ def run_v2_decision(
                 decision=decision,
                 config=app_config.strategy,
                 risk_config=app_config.risk,
-                manual_opens=current_prices,
+                manual_opens=dict(quote_preflight.current_prices),
                 max_capital=max_capital,
                 hist_returns=hist_returns,
                 output_dir=output_dir,
@@ -769,9 +910,7 @@ def run_v2_decision(
                 state_store=state_store,
                 account_key=account_key,
                 strategy_key="production_v2",
-                actual_account_risk=actual_account_risk,
-                actual_account_risk_error=actual_account_risk_error,
-                require_actual_account_risk=live_quote_snapshot is not None,
+                account_risk_preflight=account_risk_preflight,
             )
 
         logger.info("V2 decision completed. Output: %s", out_path)

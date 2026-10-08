@@ -17,7 +17,7 @@ from leadlag.config.schemas import RiskConfig
 from leadlag.core import allocator as domain_allocator
 from leadlag.core.portfolio import adjust_gross_exposure, classify_actions
 from leadlag.core.risk import evaluate_risk_checks
-from leadlag.execution.account_risk import AccountRiskSnapshot, evaluate_account_loss
+from leadlag.execution.account_risk import AccountRiskPreflight, evaluate_account_loss
 
 logger = logging.getLogger(__name__)
 
@@ -29,9 +29,7 @@ def run_risk_checks(
     max_capital: float,
     hist_daily_returns: pd.Series,
     config: RiskConfig,
-    actual_account_risk: AccountRiskSnapshot | None = None,
-    actual_account_risk_error: str | None = None,
-    require_actual_account_risk: bool = False,
+    account_risk_preflight: AccountRiskPreflight | None = None,
 ) -> dict:
     """Run risk checks against the current decision and return a report dict."""
     weights = np.asarray(decision["weight"], dtype=float)
@@ -59,14 +57,19 @@ def run_risk_checks(
         "stop_breaches": list(risk_result.stop_breaches),
         "is_blocked": risk_result.is_blocked,
     }
-    if actual_account_risk is not None:
-        account_report = evaluate_account_loss(actual_account_risk, config)
+    preflight = account_risk_preflight or AccountRiskPreflight.not_required()
+    if preflight.snapshot is not None:
+        account_report = evaluate_account_loss(preflight.snapshot, config)
         report["actual_account_risk"] = account_report
         report["warning_breaches"].extend(account_report["warnings"])
         report["stop_breaches"].extend(account_report["stop_breaches"])
         report["is_blocked"] = bool(report["stop_breaches"])
-    elif require_actual_account_risk:
-        reason = actual_account_risk_error or "no verified actual-account PnL snapshot was supplied"
+    elif preflight.required:
+        reason = (
+            str(preflight.error)
+            if preflight.error is not None
+            else "no verified actual-account PnL snapshot was supplied"
+        )
         report["actual_account_risk"] = {
             "available": False,
             "status": "unavailable",

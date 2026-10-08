@@ -14,6 +14,7 @@ The output DataFrame ``df_exec``:
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from typing import cast
 
 import numpy as np
@@ -28,6 +29,29 @@ from leadlag.data.validation import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class PreprocessorInputs:
+    """Aligned run-owned market data shared by record validation and output."""
+
+    us_c: pd.DataFrame
+    jp_c: pd.DataFrame
+    jp_o: pd.DataFrame
+    topix_close: pd.Series | None
+    topix_open: pd.Series | None
+    jp_valid_dates: pd.DatetimeIndex
+    signal_dates: pd.DatetimeIndex
+    ret_us_cc: pd.DataFrame
+    ret_jp_cc: pd.DataFrame
+    ret_jp_oc: pd.DataFrame
+    ret_jp_gap: pd.DataFrame
+    proxy_sources: dict[str, tuple[str, ...]]
+    proxy_used: pd.DataFrame
+    trade_targets: dict[pd.Timestamp, pd.Timestamp]
+    last_joint: pd.Timestamp | None
+    topix_night: pd.Series | None
+    beta_df: pd.DataFrame | None
 
 
 def _winsorize_rolling(
@@ -173,6 +197,30 @@ def preprocess_data(
         DataValidationError: When ``strict_validation=True`` and data quality
             invariants are violated.
     """
+    inputs = _prepare_preprocessor_inputs(
+        data,
+        beta_window=beta_window,
+        beta_ewma_halflife=beta_ewma_halflife,
+        beta_shrinkage=beta_shrinkage,
+        beta_winsor_sigma=beta_winsor_sigma,
+        strict_validation=strict_validation,
+    )
+    records = _build_execution_records(inputs, strict_validation=strict_validation)
+    df_exec = pd.DataFrame(records).set_index("trade_date").sort_index()
+    logger.info("Total valid trading days constructed: %d", len(df_exec))
+    return _append_market_diagnostics(df_exec, inputs)
+
+
+def _prepare_preprocessor_inputs(
+    data: dict,
+    *,
+    beta_window: int,
+    beta_ewma_halflife: float | None,
+    beta_shrinkage: float,
+    beta_winsor_sigma: float | None,
+    strict_validation: bool,
+) -> PreprocessorInputs:
+    """Validate and calculate historical return, calendar, and beta inputs."""
     raw_alerts = validate_raw_data_sources(data)
     if raw_alerts and strict_validation:
         raise DataValidationError("; ".join(raw_alerts))
@@ -272,8 +320,8 @@ def preprocess_data(
     # project the next business day as a provisional trade_date. This keeps the
     # Step 1 panel fresh and lets compute_gap_adjusted_distribution overwrite the
     # placeholder gap values with Tachibana 9:10 prices.
-    if len(signal_dates) > 0:
-        last_joint = signal_dates[-1]
+    last_joint = signal_dates[-1] if len(signal_dates) > 0 else None
+    if last_joint is not None:
         if last_joint not in trade_targets:
             # If the raw JP row exists but its close is not published yet,
             # retain that row as the provisional execution date (the common
@@ -336,7 +384,46 @@ def preprocess_data(
         if beta_shrinkage > 0.0:
             beta_df = _apply_beta_shrinkage(beta_df, beta_shrinkage)
 
-    # Build execution records
+
+    return PreprocessorInputs(
+        us_c=us_c,
+        jp_c=jp_c,
+        jp_o=jp_o,
+        topix_close=topix_close,
+        topix_open=topix_open,
+        jp_valid_dates=jp_valid_dates,
+        signal_dates=signal_dates,
+        ret_us_cc=ret_us_cc,
+        ret_jp_cc=ret_jp_cc,
+        ret_jp_oc=ret_jp_oc,
+        ret_jp_gap=ret_jp_gap,
+        proxy_sources=proxy_sources,
+        proxy_used=proxy_used,
+        trade_targets=trade_targets,
+        last_joint=last_joint,
+        topix_night=topix_night,
+        beta_df=beta_df,
+    )
+
+
+def _build_execution_records(
+    inputs: PreprocessorInputs, *, strict_validation: bool
+) -> list[dict[str, object]]:
+    """Map signal dates to validated execution records in stable date order."""
+    jp_c = inputs.jp_c
+    jp_o = inputs.jp_o
+    jp_valid_dates = inputs.jp_valid_dates
+    signal_dates = inputs.signal_dates
+    ret_us_cc = inputs.ret_us_cc
+    ret_jp_cc = inputs.ret_jp_cc
+    ret_jp_oc = inputs.ret_jp_oc
+    ret_jp_gap = inputs.ret_jp_gap
+    proxy_sources = inputs.proxy_sources
+    proxy_used = inputs.proxy_used
+    trade_targets = inputs.trade_targets
+    last_joint = inputs.last_joint
+    topix_open = inputs.topix_open
+    topix_close = inputs.topix_close
     records: list[dict[str, object]] = []
     for sig_date in signal_dates:
         if sig_date not in trade_targets:
@@ -545,9 +632,17 @@ def preprocess_data(
 
         records.append(record)
 
-    df_exec = pd.DataFrame(records).set_index("trade_date").sort_index()
-    logger.info("Total valid trading days constructed: %d", len(df_exec))
+    return records
 
+
+def _append_market_diagnostics(
+    df_exec: pd.DataFrame, inputs: PreprocessorInputs
+) -> pd.DataFrame:
+    """Attach TOPIX returns and strictly historical rolling JP betas."""
+    topix_night = inputs.topix_night
+    topix_close = inputs.topix_close
+    topix_open = inputs.topix_open
+    beta_df = inputs.beta_df
     # Append TOPIX night return
     df_exec["topix_night_return"] = np.nan
     if topix_night is not None:
@@ -574,8 +669,6 @@ def preprocess_data(
             df_exec[beta_col] = np.nan
 
     return df_exec
-
-
 def compute_us_residualized_returns(
     us_returns: np.ndarray,
     spy_returns: np.ndarray,

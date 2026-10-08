@@ -14,10 +14,12 @@ import logging
 import math
 import os
 import time as time_module
-from collections.abc import Sequence
+from collections.abc import Callable, Mapping, Sequence
 from contextlib import ExitStack
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any
 
 from leadlag.broker.base import BrokerClient
@@ -44,6 +46,387 @@ from leadlag.execution.runtime_manifest import update_execution_manifest
 from leadlag.execution.state_store import ExecutionRun, ExecutionStateStore
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class CloseOrderPlan:
+    """Validated, run-owned close intent before any broker side effect."""
+
+    execution_plan: ExecutionPlan
+    order_metadata: tuple[dict[str, Any], ...]
+    order_requests: tuple[OrderRequest, ...]
+    held_overnight: tuple[dict[str, Any], ...]
+    metadata_by_ticker: Mapping[str, dict[str, Any]]
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self, "metadata_by_ticker", MappingProxyType(dict(self.metadata_by_ticker))
+        )
+
+
+def _build_close_order_plan(
+    positions: Sequence[Any],
+    *,
+    overnight_alpha_long: float,
+    overnight_alpha_short: float,
+) -> CloseOrderPlan:
+    """Calculate close quantities and durable intent without contacting a broker."""
+    close_order_meta: list[dict[str, Any]] = []
+    close_order_requests: list[OrderRequest] = []
+    held_overnight_meta: list[dict[str, Any]] = []
+    for position in positions:
+        if position.quantity <= 0:
+            continue
+
+        alpha = overnight_alpha_long if position.side == "BUY" else overnight_alpha_short
+        close_fraction = 1.0 - alpha
+        lot_size = lot_size_for(position.ticker)
+        hold_qty_target = position.quantity * alpha
+        hold_qty = min(
+            position.quantity,
+            math.floor(hold_qty_target / lot_size + 0.5) * lot_size,
+        )
+        close_qty = position.quantity - hold_qty
+        close_qty = math.floor(close_qty / lot_size) * lot_size
+        close_qty = max(0, min(close_qty, position.quantity))
+        hold_qty = position.quantity - close_qty
+
+        if hold_qty > 0:
+            held_overnight_meta.append(
+                {
+                    "ticker": position.ticker,
+                    "side": position.side,
+                    "hold_quantity": hold_qty,
+                    "alpha": alpha,
+                }
+            )
+            logger.info(
+                "  Overnight hold: %s %s x%d (alpha=%.2f, held=%.0f%%)",
+                position.ticker,
+                position.side,
+                hold_qty,
+                alpha,
+                alpha * 100,
+            )
+
+        if close_qty <= 0:
+            logger.info(
+                "  Skipping close for %s %s: close_qty=0 (alpha=%.2f)",
+                position.ticker,
+                position.side,
+                alpha,
+            )
+            continue
+
+        close_side_str = "SELL" if position.side == "BUY" else "BUY"
+        close_side = OrderSide.SELL if position.side == "BUY" else OrderSide.BUY
+        close_order_meta.append(
+            {
+                "ticker": position.ticker,
+                "exchange": position.exchange or 27,
+                "side": close_side_str,
+                "quantity": close_qty,
+                "margin_trade_type": position.margin_trade_type,
+                "account_type": position.account_type,
+                "order_type": "CLO",
+                "original_side": position.side,
+                "original_price": position.price,
+            }
+        )
+        close_order_requests.append(
+            OrderRequest(
+                ticker=position.ticker,
+                side=close_side,
+                quantity=close_qty,
+                order_type=OrderType.CLOSE,
+                margin_trade_type=position.margin_trade_type,
+                account_type=position.account_type,
+            )
+        )
+        logger.info(
+            "  Position to close: %s %s x%d/%d → %s (引成（後場）, close=%.0f%%)",
+            position.ticker,
+            position.side,
+            close_qty,
+            position.quantity,
+            close_side_str,
+            close_fraction * 100,
+        )
+
+    metadata_by_ticker = {item["ticker"]: item for item in close_order_meta}
+    starting_positions: dict[str, int] = {}
+    for position in positions:
+        signed_quantity = int(position.quantity) * (1 if position.side == "BUY" else -1)
+        starting_positions[position.ticker] = (
+            starting_positions.get(position.ticker, 0) + signed_quantity
+        )
+    execution_plan = ExecutionPlan(
+        decision_id=build_decision_id(
+            datetime.now().date().isoformat(), close_order_requests, ()
+        ),
+        trade_date=datetime.now().date().isoformat(),
+        close_orders=tuple(close_order_requests),
+        new_orders=(),
+        current_positions=tuple(sorted(starting_positions.items())),
+    )
+    return CloseOrderPlan(
+        execution_plan=execution_plan,
+        order_metadata=tuple(close_order_meta),
+        order_requests=tuple(close_order_requests),
+        held_overnight=tuple(held_overnight_meta),
+        metadata_by_ticker=metadata_by_ticker,
+    )
+
+
+def _submit_close_order_batches(
+    api_client: BrokerClient,
+    order_plan: CloseOrderPlan,
+    *,
+    dry_run: bool,
+    close_position_order: int,
+    persist_submitted_observations: Callable[[Sequence[OrderResult]], None],
+) -> list[dict[str, Any]]:
+    """Submit close batches and wait in the same order as the close contract."""
+    close_results: list[dict[str, Any]] = []
+    if dry_run:
+        logger.info("[DRY RUN MODE] Simulating position close (no actual orders sent)...")
+        for meta in order_plan.order_metadata:
+            clean = meta["ticker"].replace(".T", "")
+            simulated = {
+                "order_id": f"SIM-CLOSE-{datetime.now().strftime('%Y%m%d%H%M%S')}-{clean}",
+                "status": "SIMULATED",
+                "ticker": meta["ticker"],
+                "side": meta["side"],
+                "quantity": meta["quantity"],
+                "original_side": meta["original_side"],
+                "original_price": meta["original_price"],
+            }
+            logger.info(
+                "  [SIMULATED CLOSE] %s: %d shares (%s → %s)",
+                meta["ticker"],
+                meta["quantity"],
+                meta["original_side"],
+                meta["side"],
+            )
+            close_results.append(simulated)
+        return close_results
+
+    immediate_close, delayed_close = split_large_orders(order_plan.order_requests)
+    immediate_requests = list(immediate_close)
+    logger.info("[LIVE MODE] Submitting %d position close orders...", len(immediate_requests))
+    first_results = api_client.submit_orders_batch(
+        immediate_requests,
+        delay_ms=250,
+        is_close=True,
+        close_position_order=close_position_order,
+    )
+    persist_submitted_observations(first_results)
+    for result in first_results:
+        logger.info(
+            "  [CLOSE SUBMITTED] %s: %d shares (Order ID: %s)",
+            result.ticker,
+            result.quantity,
+            result.order_id,
+        )
+        meta = order_plan.metadata_by_ticker.get(result.ticker, {})
+        close_results.append(
+            {
+                "order_id": result.order_id,
+                "status": result.status.value,
+                "ticker": result.ticker,
+                "side": result.side.value,
+                "quantity": result.quantity,
+                "message": result.message,
+                "eigyou_day": result.eigyou_day,
+                "original_side": meta.get("original_side"),
+                "original_price": meta.get("original_price"),
+            }
+        )
+
+    # The delayed batch is considered only after the first batch is polled.
+    _wait_for_close_fills_sync(api_client, close_results)
+    first_batch_failed = any(
+        result.get("status") in {
+            OrderStatus.FAILED.value,
+            OrderStatus.PARTIALLY_FILLED.value,
+        }
+        for result in close_results
+        if not result.get("delayed")
+    )
+    if delayed_close:
+        if first_batch_failed:
+            logger.warning(
+                "[DELAYED CLOSE] Skipping %d delayed close order(s) — first batch had failures",
+                len(delayed_close),
+            )
+            for request in delayed_close:
+                meta = order_plan.metadata_by_ticker.get(request.ticker, {})
+                close_results.append(
+                    {
+                        "order_id": "",
+                        "status": "SKIPPED",
+                        "ticker": request.ticker,
+                        "side": request.side.value,
+                        "quantity": request.quantity,
+                        "message": "Skipped due to first batch failure",
+                        "delayed": True,
+                        "original_side": meta.get("original_side"),
+                        "original_price": meta.get("original_price"),
+                    }
+                )
+        else:
+            delayed_requests = list(delayed_close)
+            logger.info(
+                "[DELAYED CLOSE] Waiting %d seconds before submitting %d delayed close order(s)...",
+                SPLIT_DELAY_SECONDS,
+                len(delayed_requests),
+            )
+            time_module.sleep(SPLIT_DELAY_SECONDS)
+            logger.info(
+                "[DELAYED CLOSE] Submitting %d delayed close orders...",
+                len(delayed_requests),
+            )
+            delayed_results = api_client.submit_orders_batch(
+                delayed_requests,
+                delay_ms=250,
+                is_close=True,
+                close_position_order=close_position_order,
+            )
+            persist_submitted_observations(delayed_results)
+            for result in delayed_results:
+                logger.info(
+                    "  [DELAYED CLOSE SUBMITTED] %s: %d shares (Order ID: %s)",
+                    result.ticker,
+                    result.quantity,
+                    result.order_id,
+                )
+                meta = order_plan.metadata_by_ticker.get(result.ticker, {})
+                close_results.append(
+                    {
+                        "order_id": result.order_id,
+                        "status": result.status.value,
+                        "ticker": result.ticker,
+                        "side": result.side.value,
+                        "quantity": result.quantity,
+                        "message": result.message,
+                        "eigyou_day": result.eigyou_day,
+                        "delayed": True,
+                        "original_side": meta.get("original_side"),
+                        "original_price": meta.get("original_price"),
+                    }
+                )
+            _wait_for_close_fills_sync(api_client, close_results)
+    return close_results
+
+
+def _reconcile_close_run(
+    api_client: BrokerClient,
+    summary: dict[str, Any],
+    execution_plan: ExecutionPlan,
+    output_dir: str | Path,
+    *,
+    dry_run: bool,
+    state_store: ExecutionStateStore | None,
+    execution_run: ExecutionRun | None,
+) -> dict[str, Any]:
+    """Collect fills, persist reconciliation state, and publish close results."""
+    close_results = summary["close_results"]
+    if not dry_run and close_results:
+        from leadlag.broker.dry_run import DryRunBrokerClient
+
+        if not isinstance(api_client, DryRunBrokerClient):
+            try:
+                fetch_fill_prices(api_client, close_results, wait_seconds=5.0)
+            except Exception as exc:  # noqa: BLE001
+                summary.setdefault("reconciliation_errors", []).append(f"fill_prices: {exc}")
+                logger.exception("Failed to fetch close fill prices")
+
+    terminal_successes = {OrderStatus.FILLED.value, OrderStatus.SIMULATED.value}
+    success_count = sum(
+        1 for result in close_results if result.get("status") in terminal_successes
+    )
+    partial_count = sum(
+        1
+        for result in close_results
+        if result.get("status") == OrderStatus.PARTIALLY_FILLED.value
+    )
+    pending_count = sum(
+        1
+        for result in close_results
+        if result.get("status")
+        in {OrderStatus.SUBMITTED.value, OrderStatus.PARTIALLY_FILLED.value}
+    )
+    failed_count = sum(
+        1
+        for result in close_results
+        if result.get("status")
+        in {OrderStatus.FAILED.value, OrderStatus.CANCELLED.value, "SKIPPED"}
+    )
+    summary["filled_orders_count"] = success_count
+    summary["partial_orders_count"] = partial_count
+    summary["pending_orders_count"] = pending_count
+    summary["failed_orders_count"] = failed_count
+    summary["close_incomplete"] = any(
+        result.get("status") not in terminal_successes for result in close_results
+    ) or bool(summary.get("reconciliation_errors"))
+    summary["execution_report"] = report_from_records(
+        close_results,
+        expected_orders=len(close_results),
+        reconciliation_errors=summary.get("reconciliation_errors", []),
+    ).to_dict()
+
+    if state_store is not None and execution_run is not None:
+        try:
+            state_store.record_result_set(execution_run.run_id, execution_plan, close_results)
+            state_store.record_reconciliation(
+                execution_run.run_id,
+                outcome="incomplete" if summary["close_incomplete"] else "pending",
+                errors=summary.get("reconciliation_errors", []),
+                references={"close_execution_log": str(Path(output_dir) / "close_execution_log.json")},
+            )
+            if summary["close_incomplete"]:
+                state_store.mark_reconciliation_required(
+                    execution_run.run_id,
+                    error=(
+                        f"filled={success_count}/{len(close_results)}; "
+                        f"pending={pending_count}; failed={failed_count}"
+                    ),
+                )
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("[CLOSE] Durable state update failed")
+            summary.setdefault("reconciliation_errors", []).append(f"state_store: {exc}")
+            try:
+                state_store.mark_reconciliation_required(execution_run.run_id, error=str(exc))
+            except Exception:
+                logger.exception("[CLOSE] Could not mark run reconciliation_required")
+
+    if summary.get("reconciliation_errors"):
+        summary["close_incomplete"] = True
+        summary["execution_report"] = report_from_records(
+            close_results,
+            expected_orders=execution_plan.expected_order_count,
+            reconciliation_errors=summary["reconciliation_errors"],
+        ).to_dict()
+
+    log_path = os.path.join(output_dir, "close_execution_log.json")
+    with open(log_path, "w", encoding="utf-8") as handle:
+        json.dump(summary, handle, ensure_ascii=False, indent=2)
+    logger.info("Close execution log saved: %s", log_path)
+
+    total_close_orders = len(close_results)
+    if summary["close_incomplete"]:
+        logger.error(
+            "Position close incomplete: filled=%d/%d, pending=%d, failed=%d",
+            success_count,
+            total_close_orders,
+            pending_count,
+            failed_count,
+        )
+    else:
+        logger.info(
+            "Position close completed: %d/%d orders filled", success_count, total_close_orders
+        )
+    return summary
 
 
 def _close_result_record(result: OrderResult) -> dict[str, Any]:
@@ -174,105 +557,14 @@ def close_all_positions(
             json.dump(empty_summary, handle, ensure_ascii=False, indent=2)
         return empty_summary
 
-    # Build close-order metadata and OrderRequest list
-    # Apply overnight holding ratios: only close (1 - alpha) fraction at 引け
-    close_order_meta: list[dict[str, Any]] = []
-    close_order_requests: list[OrderRequest] = []
-    held_overnight_meta: list[dict[str, Any]] = []
-    for pos in positions:
-        if pos.quantity <= 0:
-            continue
-
-        # Determine alpha based on position side
-        alpha = overnight_alpha_long if pos.side == "BUY" else overnight_alpha_short
-        close_fraction = 1.0 - alpha
-        lot_size = lot_size_for(pos.ticker)
-
-        # Round target hold quantity to lot size, then derive close quantity.
-        # This keeps the actual overnight holding ratio as close to alpha as possible
-        # and avoids the old rounding approach drifting from the configured alpha.
-        hold_qty_target = pos.quantity * alpha
-        hold_qty = min(
-            pos.quantity,
-            math.floor(hold_qty_target / lot_size + 0.5) * lot_size,
-        )
-        close_qty = pos.quantity - hold_qty
-
-        # Close quantity must be a lot multiple; floor any residual caused by
-        # the position not being on a lot boundary.  The residual is held.
-        close_qty = math.floor(close_qty / lot_size) * lot_size
-        close_qty = max(0, min(close_qty, pos.quantity))
-        hold_qty = pos.quantity - close_qty
-
-        if hold_qty > 0:
-            held_overnight_meta.append({
-                "ticker": pos.ticker,
-                "side": pos.side,
-                "hold_quantity": hold_qty,
-                "alpha": alpha,
-            })
-            logger.info(
-                "  Overnight hold: %s %s x%d (alpha=%.2f, held=%.0f%%)",
-                pos.ticker, pos.side, hold_qty, alpha, alpha * 100,
-            )
-
-        if close_qty <= 0:
-            logger.info(
-                "  Skipping close for %s %s: close_qty=0 (alpha=%.2f)",
-                pos.ticker, pos.side, alpha,
-            )
-            continue
-
-        close_side_str = "SELL" if pos.side == "BUY" else "BUY"
-        close_side = OrderSide.SELL if pos.side == "BUY" else OrderSide.BUY
-        close_order_meta.append(
-            {
-                "ticker": pos.ticker,
-                "exchange": pos.exchange or 27,
-                "side": close_side_str,
-                "quantity": close_qty,
-                "margin_trade_type": pos.margin_trade_type,
-                "account_type": pos.account_type,
-                "order_type": "CLO",
-                "original_side": pos.side,
-                "original_price": pos.price,
-            }
-        )
-        close_order_requests.append(
-            OrderRequest(
-                ticker=pos.ticker,
-                side=close_side,
-                quantity=close_qty,
-                order_type=OrderType.CLOSE,
-                margin_trade_type=pos.margin_trade_type,
-                account_type=pos.account_type,
-            )
-        )
-        logger.info(
-            "  Position to close: %s %s x%d/%d → %s (引成（後場）, close=%.0f%%)",
-            pos.ticker,
-            pos.side,
-            close_qty,
-            pos.quantity,
-            close_side_str,
-            close_fraction * 100,
-        )
-
-    close_meta_by_ticker = {m["ticker"]: m for m in close_order_meta}
-
-    starting_positions: dict[str, int] = {}
-    for position in positions:
-        signed_quantity = int(position.quantity) * (1 if position.side == "BUY" else -1)
-        starting_positions[position.ticker] = starting_positions.get(position.ticker, 0) + signed_quantity
-    close_plan = ExecutionPlan(
-        decision_id=build_decision_id(
-            datetime.now().date().isoformat(), close_order_requests, ()
-        ),
-        trade_date=datetime.now().date().isoformat(),
-        close_orders=tuple(close_order_requests),
-        new_orders=(),
-        current_positions=tuple(sorted(starting_positions.items())),
+    # This calculation phase has no broker or persistence side effects.
+    order_plan = _build_close_order_plan(
+        positions,
+        overnight_alpha_long=overnight_alpha_long,
+        overnight_alpha_short=overnight_alpha_short,
     )
+    close_plan = order_plan.execution_plan
+    close_order_requests = order_plan.order_requests
     execution_run: ExecutionRun | None = None
     if state_store is not None and close_plan.expected_order_count:
         execution_run = state_store.prepare_run(
@@ -294,7 +586,7 @@ def close_all_positions(
         "close_orders_count": len(close_order_requests),
         "overnight_alpha_long": overnight_alpha_long,
         "overnight_alpha_short": overnight_alpha_short,
-        "held_overnight": held_overnight_meta,
+        "held_overnight": list(order_plan.held_overnight),
         "close_results": [],
     }
     if execution_run is not None:
@@ -311,238 +603,23 @@ def close_all_positions(
         # submitted. The executing run remains a recovery candidate.
         state_store.record_result_set(execution_run.run_id, close_plan, observed_records)
 
-    if dry_run:
-        logger.info("[DRY RUN MODE] Simulating position close (no actual orders sent)...")
-        for meta in close_order_meta:
-            clean = meta["ticker"].replace(".T", "")
-            simulated = {
-                "order_id": f"SIM-CLOSE-{datetime.now().strftime('%Y%m%d%H%M%S')}-{clean}",
-                "status": "SIMULATED",
-                "ticker": meta["ticker"],
-                "side": meta["side"],
-                "quantity": meta["quantity"],
-                "original_side": meta["original_side"],
-                "original_price": meta["original_price"],
-            }
-            logger.info(
-                "  [SIMULATED CLOSE] %s: %d shares (%s → %s)",
-                meta["ticker"],
-                meta["quantity"],
-                meta["original_side"],
-                meta["side"],
-            )
-            summary["close_results"].append(simulated)
-    else:
-        # Split large 1629.T close orders into immediate + delayed batches
-        # close_order_requests already contains OrderRequest objects with metadata
-        immediate_close, delayed_close = split_large_orders(close_order_requests)
-
-        immediate_requests = list(immediate_close)
-
-        logger.info("[LIVE MODE] Submitting %d position close orders...", len(immediate_requests))
-        close_results = api_client.submit_orders_batch(
-            immediate_requests,
-            delay_ms=250,
-            is_close=True,
-            close_position_order=close_position_order,
-        )
-        persist_submitted_observations(close_results)
-        first_batch_failed = False
-        for result in close_results:
-            logger.info(
-                "  [CLOSE SUBMITTED] %s: %d shares (Order ID: %s)",
-                result.ticker,
-                result.quantity,
-                result.order_id,
-            )
-            meta = close_meta_by_ticker.get(result.ticker, {})
-            summary["close_results"].append(
-                {
-                    "order_id": result.order_id,
-                    "status": result.status.value,
-                    "ticker": result.ticker,
-                    "side": result.side.value,
-                    "quantity": result.quantity,
-                    "message": result.message,
-                    "eigyou_day": result.eigyou_day,
-                    "original_side": meta.get("original_side"),
-                    "original_price": meta.get("original_price"),
-                }
-            )
-            if result.status == OrderStatus.FAILED:
-                first_batch_failed = True
-
-        # Wait for close fills before deciding whether to proceed.
-        _wait_for_close_fills_sync(api_client, summary["close_results"])
-        first_batch_failed = any(
-            r.get("status") in {
-                OrderStatus.FAILED.value,
-                OrderStatus.PARTIALLY_FILLED.value,
-            }
-            for r in summary["close_results"]
-            if not r.get("delayed")
-        )
-
-        # Delayed close batch (1629.T second half)
-        if delayed_close:
-            if first_batch_failed:
-                logger.warning(
-                    "[DELAYED CLOSE] Skipping %d delayed close order(s) — first batch had failures",
-                    len(delayed_close),
-                )
-                for req in delayed_close:
-                    meta = close_meta_by_ticker.get(req.ticker, {})
-                    summary["close_results"].append({
-                        "order_id": "",
-                        "status": "SKIPPED",
-                        "ticker": req.ticker,
-                        "side": req.side.value,
-                        "quantity": req.quantity,
-                        "message": "Skipped due to first batch failure",
-                        "delayed": True,
-                        "original_side": meta.get("original_side"),
-                        "original_price": meta.get("original_price"),
-                    })
-            else:
-                delayed_requests = list(delayed_close)
-                logger.info(
-                    "[DELAYED CLOSE] Waiting %d seconds before submitting %d delayed close order(s)...",
-                    SPLIT_DELAY_SECONDS, len(delayed_requests),
-                )
-                time_module.sleep(SPLIT_DELAY_SECONDS)
-                logger.info("[DELAYED CLOSE] Submitting %d delayed close orders...", len(delayed_requests))
-                delayed_results = api_client.submit_orders_batch(
-                    delayed_requests,
-                    delay_ms=250,
-                    is_close=True,
-                    close_position_order=close_position_order,
-                )
-                persist_submitted_observations(delayed_results)
-                for result in delayed_results:
-                    logger.info(
-                        "  [DELAYED CLOSE SUBMITTED] %s: %d shares (Order ID: %s)",
-                        result.ticker,
-                        result.quantity,
-                        result.order_id,
-                    )
-                    meta = close_meta_by_ticker.get(result.ticker, {})
-                    summary["close_results"].append(
-                        {
-                            "order_id": result.order_id,
-                            "status": result.status.value,
-                            "ticker": result.ticker,
-                            "side": result.side.value,
-                            "quantity": result.quantity,
-                            "message": result.message,
-                            "eigyou_day": result.eigyou_day,
-                            "delayed": True,
-                            "original_side": meta.get("original_side"),
-                            "original_price": meta.get("original_price"),
-                        }
-                    )
-
-                # Wait for delayed close fills as well.
-                _wait_for_close_fills_sync(api_client, summary["close_results"])
-
-    # Fetch fill prices for close orders (約定価格取得)
-    if not dry_run and summary["close_results"]:
-        from leadlag.broker.dry_run import DryRunBrokerClient
-        if not isinstance(api_client, DryRunBrokerClient):
-            try:
-                fetch_fill_prices(api_client, summary["close_results"], wait_seconds=5.0)
-            except Exception as exc:  # noqa: BLE001
-                summary.setdefault("reconciliation_errors", []).append(f"fill_prices: {exc}")
-                logger.exception("Failed to fetch close fill prices")
-
-    terminal_successes = {OrderStatus.FILLED.value, OrderStatus.SIMULATED.value}
-    success_count = sum(
-        1 for r in summary["close_results"]
-        if r.get("status") in terminal_successes
+    summary["close_results"] = _submit_close_order_batches(
+        api_client,
+        order_plan,
+        dry_run=dry_run,
+        close_position_order=close_position_order,
+        persist_submitted_observations=persist_submitted_observations,
     )
-    partial_count = sum(
-        1 for r in summary["close_results"]
-        if r.get("status") == OrderStatus.PARTIALLY_FILLED.value
+
+    return _reconcile_close_run(
+        api_client,
+        summary,
+        close_plan,
+        output_dir,
+        dry_run=dry_run,
+        state_store=state_store,
+        execution_run=execution_run,
     )
-    pending_count = sum(
-        1 for r in summary["close_results"]
-        if r.get("status") in {
-            OrderStatus.SUBMITTED.value,
-            OrderStatus.PARTIALLY_FILLED.value,
-        }
-    )
-    failed_count = sum(
-        1 for r in summary["close_results"]
-        if r.get("status") in {
-            OrderStatus.FAILED.value,
-            OrderStatus.CANCELLED.value,
-            "SKIPPED",
-        }
-    )
-    summary["filled_orders_count"] = success_count
-    summary["partial_orders_count"] = partial_count
-    summary["pending_orders_count"] = pending_count
-    summary["failed_orders_count"] = failed_count
-    summary["close_incomplete"] = any(
-        r.get("status") not in terminal_successes
-        for r in summary["close_results"]
-    ) or bool(summary.get("reconciliation_errors"))
-    summary["execution_report"] = report_from_records(
-        summary["close_results"],
-        expected_orders=len(summary["close_results"]),
-        reconciliation_errors=summary.get("reconciliation_errors", []),
-    ).to_dict()
-
-    if state_store is not None and execution_run is not None:
-        try:
-            state_store.record_result_set(
-                execution_run.run_id, close_plan, summary["close_results"]
-            )
-            state_store.record_reconciliation(
-                execution_run.run_id,
-                outcome="incomplete" if summary["close_incomplete"] else "pending",
-                errors=summary.get("reconciliation_errors", []),
-                references={"close_execution_log": str(Path(output_dir) / "close_execution_log.json")},
-            )
-            if summary["close_incomplete"]:
-                state_store.mark_reconciliation_required(
-                    execution_run.run_id,
-                    error=(
-                        f"filled={success_count}/{len(summary['close_results'])}; "
-                        f"pending={pending_count}; failed={failed_count}"
-                    ),
-                )
-        except Exception as exc:  # noqa: BLE001
-            logger.exception("[CLOSE] Durable state update failed")
-            summary.setdefault("reconciliation_errors", []).append(f"state_store: {exc}")
-            try:
-                state_store.mark_reconciliation_required(execution_run.run_id, error=str(exc))
-            except Exception:
-                logger.exception("[CLOSE] Could not mark run reconciliation_required")
-
-    if summary.get("reconciliation_errors"):
-        summary["close_incomplete"] = True
-        summary["execution_report"] = report_from_records(
-            summary["close_results"], expected_orders=close_plan.expected_order_count,
-            reconciliation_errors=summary["reconciliation_errors"],
-        ).to_dict()
-
-    log_path = os.path.join(output_dir, "close_execution_log.json")
-    with open(log_path, "w", encoding="utf-8") as f:
-        json.dump(summary, f, ensure_ascii=False, indent=2)
-    logger.info("Close execution log saved: %s", log_path)
-
-    total_close_orders = len(summary["close_results"])
-    if summary["close_incomplete"]:
-        logger.error(
-            "Position close incomplete: filled=%d/%d, pending=%d, failed=%d",
-            success_count,
-            total_close_orders,
-            pending_count,
-            failed_count,
-        )
-    else:
-        logger.info("Position close completed: %d/%d orders filled", success_count, total_close_orders)
-    return summary
 
 
 def run_close_positions_mode(
