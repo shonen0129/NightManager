@@ -75,7 +75,7 @@ def _safe_parameter_value(value: Any, key: object | None = None) -> Any:
     return value
 
 
-def _safe_app_parameters(app_config: AppConfig | dict[str, Any] | None) -> dict[str, Any]:
+def research_parameters(app_config: AppConfig | dict[str, Any] | None) -> dict[str, Any]:
     """Return research-relevant settings without broker credentials."""
     if isinstance(app_config, AppConfig):
         return {
@@ -117,6 +117,9 @@ def _extract_metrics(
         metrics["metric_schema_version"] = "daily-v1"
         metrics["net_sharpe_frequency"] = "annual"
         metrics["trading_days_per_year"] = int(spec.annualization_periods)
+        metrics["include_flat_days"] = True
+        if returns.ndim != 1:
+            raise ValueError("experiment registry requires one-dimensional daily returns")
         if not np.isfinite(returns).all():
             metrics["metric_status"] = "invalid_non_finite_returns"
             metrics["n_observations_expected"] = int(len(returns))
@@ -124,13 +127,17 @@ def _extract_metrics(
             metrics["returns"] = [float(value) if np.isfinite(value) else None for value in returns]
         else:
             metrics["metric_status"] = "valid"
-            summary = calculate_metrics(pd.Series(daily_returns), spec=spec)
+            summary = calculate_metrics(pd.Series(daily_returns), spec=spec) if len(returns) else {}
             metrics["net_sharpe"] = (
-                float(summary["Sharpe"]) if np.isfinite(summary.get("Sharpe", np.nan)) else None
+                float(summary.get("Sharpe", np.nan))
+                if np.isfinite(summary.get("Sharpe", np.nan))
+                else None
             )
             metrics["n_observations"] = int(len(returns))
-            metrics["max_dd"] = float(summary["MDD"])
-            metrics["total_return"] = float(summary["Total Return"])
+            metrics["max_dd"] = float(summary["MDD"]) if "MDD" in summary else None
+            metrics["total_return"] = (
+                float(summary["Total Return"]) if "Total Return" in summary else None
+            )
             metrics["returns"] = returns.tolist()
 
     if isinstance(turnover, (pd.Series, np.ndarray)):
@@ -151,6 +158,41 @@ def _extract_metrics(
     return metrics
 
 
+def _set_trial_scope(
+    registry: ExperimentRegistry,
+    metrics: dict[str, Any],
+    name: str,
+    study_id: str | None,
+    trial_id: str | None,
+) -> None:
+    if trial_id is not None:
+        started = registry.get_trial(trial_id)
+        if started["study_id"] != study_id or started["candidate_id"] != name:
+            raise ValueError("Trial identity does not match its start event")
+        study = registry.get_study(str(study_id))
+        spec = study["protocol"]["metrics_spec"]
+        if metrics.get("returns") is not None and (
+            metrics.get("metric_schema_version") != "daily-v1"
+            or metrics.get("trading_days_per_year") != spec["annualization_periods"]
+            or metrics.get("include_flat_days") is not True
+        ):
+            raise ValueError("Metrics disagree with the frozen study specification")
+        count = registry.count_trials(study_id=study_id) + study["historical_trials_lower_bound"]
+        if "trials" in metrics and metrics["trials"] != count:
+            raise ValueError("Explicit trials disagree with the study ledger")
+        metrics["trials"] = count
+        metrics["trial_count_status"] = "complete" if study["history_complete"] else "lower_bound"
+    else:
+        if "trials" not in metrics:
+            metrics["trials"] = (
+                registry.count_trials(study_id=study_id) + 1
+                if study_id
+                else sum(rec.correction_of is None for rec in registry.iter_records(name=name)) + 1
+            )
+        # Post-hoc records are useful evidence, but do not prove complete search history.
+        metrics["trial_count_status"] = "lower_bound"
+
+
 def record_backtest_experiment(
     name: str,
     hypothesis: str,
@@ -164,6 +206,8 @@ def record_backtest_experiment(
     registry_path: str | Path | None = None,
     metrics_spec: MetricsSpec | None = None,
     study_id: str | None = None,
+    trial_id: str | None = None,
+    trial_status: str = "completed",
 ) -> ExperimentRecord:
     """Record a backtest experiment to the registry.
 
@@ -181,43 +225,42 @@ def record_backtest_experiment(
         registry_path: Override the default ``var/experiments/registry.jsonl``.
         metrics_spec: Daily return definition. Defaults to the shared 245-day
             annualization and includes flat days.
-        study_id: Stable grouping for trials that share one hypothesis family.
+        study_id: Stable hypothesis family, preregistered via register_study.
+        trial_id: Start event persisted before execution. Without it, counts are lower bounds.
+        trial_status: completed, failed or aborted. Failed attempts still count.
 
     Returns:
         The recorded ``ExperimentRecord``.
     """
     registry = ExperimentRegistry(registry_path or default_registry_path())
-    params = _safe_app_parameters(app_config)
+    params = research_parameters(app_config)
 
-    if metrics_spec is None and extra_metrics and "trading_days_per_year" in extra_metrics:
-        metrics_spec = MetricsSpec(
-            annualization_periods=int(extra_metrics["trading_days_per_year"]),
-            include_flat_days=bool(extra_metrics.get("include_flat_days", True)),
-        )
     metrics = _extract_metrics(results, metrics_spec=metrics_spec)
     if extra_metrics:
-        conflicts = set(metrics).intersection(extra_metrics)
-        # Annualisation is an input to MetricsSpec above, never an override.
-        if "trading_days_per_year" in conflicts and metrics["trading_days_per_year"] == extra_metrics["trading_days_per_year"]:
-            conflicts.remove("trading_days_per_year")
-        protected = {"net_sharpe", "n_observations", "metric_status", "metric_schema_version",
-                     "returns", "n_observations_expected", "missing_return_count", "net_sharpe_frequency",
-                     "max_dd", "total_return", "deflated_sharpe"}
-        if results is not None:
-            conflicts |= protected.intersection(extra_metrics)
+        protected = {
+            "net_sharpe",
+            "n_observations",
+            "metric_status",
+            "metric_schema_version",
+            "returns",
+            "n_observations_expected",
+            "missing_return_count",
+            "net_sharpe_frequency",
+            "max_dd",
+            "total_return",
+            "deflated_sharpe",
+            "turnover",
+            "avg_gross",
+            "fallback_rate",
+            "trading_days_per_year",
+            "include_flat_days",
+            "trial_count_status",
+        }
+        conflicts = set(metrics).intersection(extra_metrics) | protected.intersection(extra_metrics)
         if conflicts:
             raise ValueError(f"extra_metrics cannot override computed metrics: {sorted(conflicts)}")
         metrics.update(extra_metrics)
-
-    # Preserve an explicit count when the experiment belongs to a wider study
-    # or when the caller has already tallied related trials. Otherwise, use
-    # the number of prior records with this name as a conservative proxy.
-    if "trials" not in metrics:
-        metrics["trials"] = (
-            registry.count_trials(study_id=study_id) + 1
-            if study_id is not None
-            else sum(1 for rec in registry.iter_records(name=name) if rec.correction_of is None) + 1
-        )
+    _set_trial_scope(registry, metrics, name, study_id, trial_id)
 
     if reason:
         metrics["reason"] = reason
@@ -234,6 +277,8 @@ def record_backtest_experiment(
         decision=decision,
         report_path=str(report_path) if report_path is not None else None,
         study_id=study_id,
+        trial_id=trial_id,
+        trial_status=trial_status,
     )
     record.end_time = _utc_now()
     record.metrics["deflated_sharpe"] = record.deflated_sharpe()
@@ -257,16 +302,13 @@ def record_simple_experiment(
     report_path: str | Path | None = None,
     registry_path: str | Path | None = None,
     study_id: str | None = None,
+    trial_id: str | None = None,
+    trial_status: str = "completed",
 ) -> ExperimentRecord:
     """Record a generic experiment without a full backtest result dict."""
     registry = ExperimentRegistry(registry_path or default_registry_path())
     metrics = dict(metrics)
-    if "trials" not in metrics:
-        metrics["trials"] = (
-            registry.count_trials(study_id=study_id) + 1
-            if study_id is not None
-            else sum(1 for rec in registry.iter_records(name=name) if rec.correction_of is None) + 1
-        )
+    _set_trial_scope(registry, metrics, name, study_id, trial_id)
 
     if "n_observations" not in metrics and "returns" in metrics:
         metrics["n_observations"] = len(metrics["returns"])
@@ -279,6 +321,8 @@ def record_simple_experiment(
         decision=decision,
         report_path=str(report_path) if report_path is not None else None,
         study_id=study_id,
+        trial_id=trial_id,
+        trial_status=trial_status,
     )
     record.end_time = _utc_now()
     record.metrics["deflated_sharpe"] = record.deflated_sharpe()

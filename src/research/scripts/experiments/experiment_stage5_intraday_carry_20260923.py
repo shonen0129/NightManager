@@ -306,8 +306,6 @@ def main() -> None:
         extra_metrics={
             "stage": 5,
             "summary": summary,
-            "net_sharpe_frequency": "annual",
-            "trading_days_per_year": int(ANNUALIZATION_DAYS),
         },
         decision=Decision.PENDING,
         reason="Diagnostic only; true 09:10 execution evidence from stage 2 is still incomplete.",
