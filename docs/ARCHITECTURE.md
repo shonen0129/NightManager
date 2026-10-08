@@ -500,6 +500,6 @@ V2の期間入口は2015-01-05以降とsource期間の非空交差を検証す�
 
 market-data updaterとdistribution diagnosticsは既存job guardの `live:production_v2` leaseと全体deadlineを共有し、各phaseにもdeadlineを設定する。通常のtest utilityは `execution.phase_deadline` を使い、reports内watchdogには依存しない。ADR producerは `data.adr_producer` に分離し、`data/adr_features.zip` 内のpickle/CSV/manifestを一度のatomic replaceで公開する。旧pickleを読むfallbackは置かず、実ソースから再生成する。実運用での更新復旧、scheduled diagnosticsのresearch依存、終端在庫、長期PnL再評価は残件として追跡する。
 
-BLPXの行列solve・PCA prior・Tikhonov・confidence・非対称solve・診断構築は `core/blpx_math.py` を本番/研究の共通正本とし、係数・次元を明示入力で受け取る。旧model helper再公開は撤去した。研究の診断キーも `z_U_t` に揃える。日次PnLは `core.pnl.simulate_daily_pnl`、gap読込は `utils.gap_matrix_io.load_gap_bundle` を直接使い、旧互換wrapperと未使用CostCalculatorは撤去した。
+BLPXの係数solve、固定/rolling sector prior、PCA prior、Tikhonov、confidence weighting、signal変換、非対称solve、診断構築は `core/blpx_math.py` を本番/研究の共通正本とし、係数・行列・次元を明示入力で受け取る。共通のUS-to-JP sector mappingは `data/tickers.py` に置く。window準備、相関推定、非対称共分散推定、prior hook、モデル合成は各モデル側に残す。旧数値実装とmodel helper再公開は撤去した。研究の診断キーも `z_U_t` に揃える。日次PnLは `core.pnl.simulate_daily_pnl`、gap読込は `utils.gap_matrix_io.load_gap_bundle` を直接使い、旧互換wrapperと未使用CostCalculatorは撤去した。
 
 詳しくは [監査境界の設計判断](decisions/2026-10-06-audit-boundaries.md)、[追加の設計判断](decisions/2026-10-06-adr-publication-and-shared-blpx.md)、[追加対応結果](../reports/20261006_issue_resolution_round2/report.md) を参照。

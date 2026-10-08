@@ -7,6 +7,7 @@ from typing import Any
 
 import numpy as np
 
+from leadlag.core.blpx_math import build_fixed_sector_prior
 from leadlag.core.macro import MACRO_SENS_MATRIX
 from leadlag.data.tickers import JP_TICKERS, US_TICKERS
 from leadlag.models.blp_base import BLPModelBase
@@ -18,7 +19,6 @@ from leadlag.models.blpx.model_meta import BLPXMetaMixin
 from leadlag.models.blpx.model_predict import BLPXPredictMixin
 from leadlag.models.blpx.prior_builder import (
     _SECTOR_MAPPING_STRUCTURE,
-    _build_sector_prior,
     _get_sector_prior,
     _load_macro_returns,
 )
@@ -57,7 +57,6 @@ class ProductionBLPXModel(BLPXPredictMixin, BLPXMetaMixin, BLPModelBase):
     }
 
     # Bound helpers from split modules
-    _build_sector_prior = _build_sector_prior
     _load_macro_returns = _load_macro_returns
     _get_sector_prior = _get_sector_prior
     _prepare_window_returns = _prepare_window_returns
@@ -250,7 +249,13 @@ class ProductionBLPXModel(BLPXPredictMixin, BLPXMetaMixin, BLPModelBase):
         self.meta_smooth_factor = float(getattr(self.cfg, "meta_learning_smooth_factor", 1.0))
 
         # Precompute the fixed Sector Mapping matrix M_sector
-        self.M_sector = self._build_sector_prior()
+        self.M_sector = build_fixed_sector_prior(
+            self._SECTOR_MAPPING_STRUCTURE,
+            US_TICKERS,
+            JP_TICKERS,
+            n_u=self.n_u,
+            n_j=self.n_j,
+        )
         self._M_sector_fixed = self.M_sector.copy()
 
         # Precompute sector mapping indices to avoid list.index lookups in hot loops
