@@ -1,0 +1,13 @@
+{
+  "version": "inventory-v3",
+  "carry_interval": "previous_close_to_current_entry",
+  "carry_attribution": "receiving_trade_date",
+  "entry_proxy": "09:10_when_measured_else_open",
+  "target_basis": "previous_close_NAV",
+  "holdings_unit": "signed_effective_marked_notional_in_initial_cash_currency",
+  "return_and_volume_basis": "previous_close_NAV",
+  "holding_fees": "previous_close_inventory_times_incoming_calendar_days",
+  "terminal_policy": "liquidate",
+  "turnover": "effective_opening_plus_closing_notional_divided_by_two",
+  "target_weight_turnover": "model_target_weight_change_L1_divided_by_two"
+}

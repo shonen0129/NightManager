@@ -86,31 +86,15 @@ def _cost_sums(pnl: dict[str, list[float]]) -> dict[str, float]:
     }
 
 
-def _simulate_in_artifact_chunks(
-    *,
-    leverage: float,
-    common_args: dict[str, Any],
-    weights: np.ndarray,
-    target_returns: np.ndarray,
-    gap_returns: np.ndarray,
-    dates: pd.DatetimeIndex,
-    chunk_positions: list[np.ndarray],
-) -> dict[str, list[float]]:
-    """Replay each immutable artifact segment with the backtest's reset boundary."""
-    parts = [
-        simulate_daily_pnl(
-            **common_args,
-            weights=weights[position],
-            target_returns=target_returns[position],
-            gap_returns=gap_returns[position],
-            sim_dates=dates[position],
-            side_leverage=leverage,
-        )
-        for position in chunk_positions
-    ]
-    if not parts:
-        raise ValueError("no artifact history chunks were selected")
-    return {key: [value for part in parts for value in part[key]] for key in parts[0]}
+def _simulate_continuous(
+    *, leverage: float, common_args: dict[str, Any], weights: np.ndarray,
+    target_returns: np.ndarray, gap_returns: np.ndarray, dates: pd.DatetimeIndex,
+) -> dict[str, Any]:
+    """Artifact identity changes decisions, never the inventory accounting state."""
+    return simulate_daily_pnl(
+        **common_args, weights=weights, target_returns=target_returns,
+        gap_returns=gap_returns, sim_dates=dates, side_leverage=leverage,
+    )
 
 
 def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
@@ -206,7 +190,7 @@ def run() -> dict[str, Any]:
         raise ValueError("gap input fingerprint is inconsistent across source artifacts")
 
     open_910 = build_open_910_returns(frame, JP_TICKERS)
-    target_returns, gap_returns = BacktestEngine._compute_target_and_gap_returns(
+    target_returns, gap_returns, morning_returns = BacktestEngine._compute_price_intervals(
         frame,
         pd.DatetimeIndex(frame.index),
         dates,
@@ -230,22 +214,22 @@ def run() -> dict[str, Any]:
         "reverse_daily": float(params["rev_bps"]) / 10000.0,
         "alpha_long": float(params["alpha_long"]),
         "alpha_short": float(params["alpha_short"]),
+        "open_910_returns": morning_returns,
     }
 
-    baseline_pnl = _simulate_in_artifact_chunks(
+    baseline_pnl = _simulate_continuous(
         leverage=1.50,
         common_args=common_pnl_args,
         weights=weights,
         target_returns=target_returns,
         gap_returns=gap_returns,
         dates=dates,
-        chunk_positions=chunk_positions,
     )
     reproduced = pd.Series(baseline_pnl["net_returns"], index=dates)
     max_baseline_diff = float((reproduced - returns).abs().max())
     if max_baseline_diff > 1e-10:
         raise ValueError(
-            "same-input baseline replay did not reproduce saved returns: "
+            "Saved historical report has a different accounting contract; use reevaluate_inventory_accounting.py. "
             f"max_abs_diff={max_baseline_diff}"
         )
     source_costs = _cost_sums(baseline_pnl)
@@ -341,14 +325,13 @@ def run() -> dict[str, Any]:
     scenarios: list[dict[str, Any]] = []
     risk = app.risk
     for leverage in CANDIDATES:
-        pnl = _simulate_in_artifact_chunks(
+        pnl = _simulate_continuous(
             leverage=leverage,
             common_args=common_pnl_args,
             weights=weights,
             target_returns=target_returns,
             gap_returns=gap_returns,
             dates=dates,
-            chunk_positions=chunk_positions,
         )
         scenario_returns = pd.Series(pnl["net_returns"], index=dates)
         metrics = _stats(scenario_returns, window=int(risk.var_window), risk=risk)
