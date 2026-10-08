@@ -4,7 +4,7 @@
 本番は毎朝 `live/pipeline_data/gap_adjusted_distribution/latest` を使い、
 履歴数が少ない状況で PIT binning fallback となる。このスクリプトは、
 過去の live 実行日ごとにその日の `latest`（例: `20260729_091009`）を使い、
-`generate_v2_production_portfolio_with_overlay` を再実行する。
+`ProductionV2Model.decide_from_cache` と `apply_overlay` を再実行する。
 
 これにより「本番ロジックをバックテストにどれだけ寄せられるか」の限界が測れる。
 """
@@ -90,12 +90,14 @@ def main():
     import sys
     sys.path.insert(0, str(ROOT / "src"))
 
+    from leadlag.config.schemas import parse_run_config
     from leadlag.data.intraday_inputs import compute_jp_target_returns
     from leadlag.data.market_data_cache import load_df_exec_from_local_cache
     from leadlag.data.tickers import JP_TICKERS
     from leadlag.execution.config import load_config_from_yaml
     from leadlag.models.ml_overlay_artifact import load_overlay_model
-    from leadlag.models.ml_overlay_inference import generate_v2_production_portfolio_with_overlay
+    from leadlag.models.ml_overlay_inference import apply_overlay
+    from leadlag.models.production_v2 import ProductionV2Model
     from research.experiment_registry import Decision
     from research.experiment_utils import record_simple_experiment
 
@@ -158,13 +160,11 @@ def main():
             continue
 
         try:
-            result = generate_v2_production_portfolio_with_overlay(
+            result = ProductionV2Model(parse_run_config(app_config.v2)).decide_from_cache(
                 trade_date=trade_date,
                 gap_input_dir=gap_dir,
-                cfg=app_config.v2,
-                df_exec=df_exec,
-                overlay_model=overlay_model,
             )
+            result = apply_overlay(result, df_exec, overlay_model, trade_date)
             w_t = result.w_final
             fb = bool(result.fallback["gap_data_missing"])
         except Exception as e:
@@ -280,7 +280,7 @@ def main():
         "# 本番同一設定 live-aligned バックテスト\n\n",
         f"期間: {args.start_date} 〜 {args.end_date}\n",
         "対象: 各日の `live/pipeline_data/gap_adjusted_distribution/YYYYMMDD_0910XX` を使用\n",
-        "ロジック: `generate_v2_production_portfolio_with_overlay` + 本番 config + overlay model\n\n",
+        "ロジック: `ProductionV2Model.decide_from_cache` + `apply_overlay` + 本番 config + overlay model\n\n",
         "## 1. 主要指標\n\n",
         f"- 日数: {len(valid)}\n",
         f"- Final equity: {equity:.4f}（{(equity-1)*100:+.2f}%）\n",

@@ -696,44 +696,6 @@ class ProductionV2RunConfig(BaseModel):
     # normalization; the model itself no longer needs a pre-validation hook.
 
 
-class ConvexOptimizerConfig(BaseModel):
-    """Convex portfolio optimizer configuration.
-
-    Originally introduced as part of the archived Next-Gen pipeline, this
-    config is now retained only as a standalone type for research scripts
-    and the `leadlag.core.convex_optimizer` utility. It is not part of the
-    V2 production `AppConfig`.
-    """
-
-    model_config = {"frozen": True}
-
-    lambda_risk: float = Field(default=3.0, ge=0.0, description="リスク回避係数")
-    cost_bps: float = Field(default=5.0, ge=0.0, description="取引コスト bps")
-    turnover_penalty: float = Field(default=0.0001, ge=0.0, description="ターンオーバーペナルティ")
-    max_single_weight: float = Field(default=0.25, gt=0.0, le=1.0, description="銘柄別最大ウェイト")
-    gross_target: float = Field(default=2.0, gt=0.0, description="目標グロスエクスポージャー")
-    min_weight_threshold: float = Field(default=1e-4, ge=0.0, description="ゼロ切り捨て閾値")
-    solver_tol: float = Field(default=1e-7, gt=0.0, description="SLSQP 停止許容値")
-    max_iter: int = Field(default=100, ge=1, description="SLSQP 最大反復回数")
-    smooth_eps: float = Field(default=1e-4, gt=0.0, description="Pseudo-Huber 平滑化パラメータ")
-
-    # Net cost model (defaults mirror CostConfig / BacktestEngine)
-    overnight_alpha_long: float = Field(default=0.75, ge=0.0, le=1.0, description="ロングのオーバーナイト保有割合")
-    overnight_alpha_short: float = Field(default=0.5, ge=0.0, le=1.0, description="ショートのオーバーナイト保有割合")
-    buy_interest_annual: float = Field(default=0.025, ge=0.0, description="ロング金利年率")
-    borrow_fee_annual: float = Field(default=0.0115, ge=0.0, description="貸株料年率")
-    reverse_fee_bps: float = Field(default=2.0, ge=0.0, description="逆日歩 bps/日")
-    slippage_bps_per_side: float = Field(default=5.0, ge=0.0, description="片道スリッページ bps")
-    side_leverage: float = Field(default=1.5, ge=0.0, description="サイドレバレッジ")
-
-    # Execution/time-out controls
-    split_delay_seconds: float = Field(default=60.0, gt=0.0, description="大注文分割遅延秒数")
-    order_timeout_seconds: float = Field(default=30.0, gt=0.0, description="1注文のタイムアウト秒数")
-    get_positions_timeout_seconds: float = Field(default=30.0, gt=0.0, description="持仓取得のタイムアウト秒数")
-    execute_portfolio_timeout_seconds: float = Field(default=120.0, gt=0.0, description="全発注フェーズのタイムアウト秒数")
-    broker_request_timeout_seconds: float = Field(default=30.0, gt=0.0, description="ブローカーAPI呼び出しのタイムアウト秒数")
-
-
 class AppConfig(BaseModel):
     """Full application configuration.
 

@@ -184,7 +184,7 @@ exit 124は期限超過、73はlease競合である。runは注文がFILLEDに�
 brokerへ接続せず、保存台帳の復旧候補を表示する:
 
 ```bash
-.venv/bin/python reports/20260912_workspace_audit/watchdog.py 30 \
+.venv/bin/python scripts/tools/phase_deadline.py --label pending_reconciliation --timeout 30 --grace 10 -- \
   .venv/bin/python -m leadlag.execution.reconcile \
   --state-db var/live/pipeline_data/execution/execution_state.sqlite
 ```
@@ -192,7 +192,7 @@ brokerへ接続せず、保存台帳の復旧候補を表示する:
 大引け後など、保存済み注文の終端を確認できる時点で、対象runを読取専用で照合する:
 
 ```bash
-.venv/bin/python reports/20260912_workspace_audit/watchdog.py 180 \
+.venv/bin/python scripts/tools/phase_deadline.py --label run_reconciliation --timeout 180 --grace 10 -- \
   .venv/bin/python -m leadlag.execution.reconcile \
   --state-db var/live/pipeline_data/execution/execution_state.sqlite \
   --run-id '<一覧に表示されたrun_id>' \
@@ -207,7 +207,7 @@ brokerへ接続せず、保存台帳の復旧候補を表示する:
 brokerの注文ID一覧を取得するAPIではないため、約定の突合が必要な場合は上記`--run-id`を使う。
 
 ```bash
-.venv/bin/python reports/20260912_workspace_audit/watchdog.py 180 \
+.venv/bin/python scripts/tools/phase_deadline.py --label account_snapshot --timeout 180 --grace 10 -- \
   .venv/bin/python -m leadlag.execution.reconcile \
   --account-snapshot \
   --output-dir var/results/reconciliation

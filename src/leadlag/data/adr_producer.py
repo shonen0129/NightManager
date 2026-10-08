@@ -104,7 +104,7 @@ def refresh_adr_features(
 
 
 def main() -> int:
-    """ADR-only recovery entry, run under job_guard/phase_deadline by operators."""
+    """ADR-only recovery entry, run under job_guard and the phase deadline by operators."""
     import argparse
 
     from leadlag.data.market_data_cache import load_df_exec_from_local_cache

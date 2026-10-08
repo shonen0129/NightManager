@@ -24,7 +24,6 @@ from leadlag.core.market_calendar import is_trading_day, next_trading_day, previ
 from leadlag.core.pnl import simulate_daily_pnl
 from leadlag.core.signal import build_weights_minvar
 from leadlag.data.backtest_store import BacktestResultStore, _safe_config
-from leadlag.data.providers import YFinanceProvider
 from leadlag.execution.backtester import BacktestEngine
 from leadlag.execution.output_ops import save_summary_files
 from leadlag.experiment_registry import compute_deflated_sharpe
@@ -152,18 +151,6 @@ def test_broker_http_errors_exclude_secret_urls_even_in_traceback(endpoint):
         else:
             pytest.fail('transport error did not propagate')
     client.session.close()
-
-
-def test_provider_keeps_ohlc_without_optional_volume_and_avoids_future_bar():
-    daily = pd.DataFrame({'Open': [100.], 'High': [110.], 'Low': [90.], 'Close': [105.]}, index=pd.DatetimeIndex(['2026-10-01']))
-    provider = YFinanceProvider(download_fn=lambda *args: daily)
-    assert len(provider.fetch_daily_ohlc(['TEST'], date(2026, 10, 1), date(2026, 10, 2))['TEST']) == 1
-    history = pd.DataFrame({'Close': [100., 110., 200.]}, index=pd.DatetimeIndex(['2026-10-01 09:09', '2026-10-01 09:10', '2026-10-01 15:00'], tz='Asia/Tokyo'))
-    with patch('leadlag.data.providers.yfinance_provider.yf.Ticker') as ticker:
-        ticker.return_value.history.return_value = history
-        assert provider.fetch_intraday_quote(['TEST'], pd.Timestamp('2026-10-01 09:10')) == {'TEST': 100.}
-        assert provider.fetch_intraday_quote(['TEST'], pd.Timestamp('2026-09-30 20:10', tz='America/New_York')) == {'TEST': 100.}
-        assert provider.fetch_intraday_quote(['TEST'], pd.Timestamp('2026-09-30 09:10')) == {}
 
 
 @pytest.mark.parametrize('day', [date(2024, 12, 31), date(2028, 1, 3), date(2029, 1, 2)])

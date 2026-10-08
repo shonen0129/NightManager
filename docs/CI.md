@@ -46,7 +46,7 @@ uv run --locked ruff check src/research tools/research
 uv run --locked mypy --config-file pyproject.toml src/leadlag
 uv run --locked lint-imports
 uv run --locked python -m pytest tests/regression/test_v2_baseline.py
-.venv/bin/python reports/20260912_workspace_audit/watchdog.py 1800 \
+.venv/bin/python scripts/tools/phase_deadline.py --label ci_tests --timeout 1800 --grace 10 -- \
   .venv/bin/python -m pytest tests --ignore=tests/regression/test_v2_baseline.py -n auto --junitxml=var/ci/tests.xml
 ```
 
