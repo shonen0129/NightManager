@@ -1,0 +1,134 @@
+{
+  "study": "research_execution_policy_replay",
+  "created_at_local": "2026-10-08T12:08:38.382846+09:00",
+  "read_only_broker": true,
+  "broker_order_submission": false,
+  "input_quotes": "reports/20260923_profitability_order_2/quote_snapshots.jsonl",
+  "input_quotes_sha256": "cf0f6cea6fdf12277e94e3c09c3ef03b0ddba8dae6933213920e86bbf0d0aee7",
+  "input_orders": null,
+  "input_positions": null,
+  "input_positions_sha256": null,
+  "stored_quote_record_count": 4,
+  "eligible_replay_event_count": 0,
+  "eligible_arrival_record_count": 0,
+  "full_depth_record_count": 4,
+  "true_0910_record_count": 0,
+  "passive_queue_evidence_record_count": 0,
+  "distinct_observed_times": [
+    "2026-09-23T02:52:53.264117+09:00",
+    "2026-09-23T02:53:46.999920+09:00",
+    "2026-09-23T02:54:06.133346+09:00",
+    "2026-09-23T02:58:45.073455+09:00"
+  ],
+  "eligibility_reasons": {
+    "not_a_valid_09:10_capture": 4,
+    "trade_tape_missing": 4,
+    "queue_position_or_depletion_events_missing": 4
+  },
+  "record_checks": [
+    {
+      "observed_at": "2026-09-23T02:52:53.264117+09:00",
+      "status": "OBSERVED_OUTSIDE_0910_WINDOW",
+      "window_valid": false,
+      "valid_09_10_capture": false,
+      "book_ticker_count": 17,
+      "full_five_level_depth": true,
+      "trade_tape_present": false,
+      "queue_events_present": false,
+      "eligible_for_execution_replay": false,
+      "eligible_for_arrival": false,
+      "passive_evidence_reasons": [
+        "trade_tape_missing",
+        "queue_position_or_depletion_events_missing"
+      ],
+      "reasons": [
+        "not_a_valid_09:10_capture"
+      ]
+    },
+    {
+      "observed_at": "2026-09-23T02:53:46.999920+09:00",
+      "status": "OBSERVED_OUTSIDE_0910_WINDOW",
+      "window_valid": false,
+      "valid_09_10_capture": false,
+      "book_ticker_count": 17,
+      "full_five_level_depth": true,
+      "trade_tape_present": false,
+      "queue_events_present": false,
+      "eligible_for_execution_replay": false,
+      "eligible_for_arrival": false,
+      "passive_evidence_reasons": [
+        "trade_tape_missing",
+        "queue_position_or_depletion_events_missing"
+      ],
+      "reasons": [
+        "not_a_valid_09:10_capture"
+      ]
+    },
+    {
+      "observed_at": "2026-09-23T02:54:06.133346+09:00",
+      "status": "OBSERVED_OUTSIDE_0910_WINDOW",
+      "window_valid": false,
+      "valid_09_10_capture": false,
+      "book_ticker_count": 17,
+      "full_five_level_depth": true,
+      "trade_tape_present": false,
+      "queue_events_present": false,
+      "eligible_for_execution_replay": false,
+      "eligible_for_arrival": false,
+      "passive_evidence_reasons": [
+        "trade_tape_missing",
+        "queue_position_or_depletion_events_missing"
+      ],
+      "reasons": [
+        "not_a_valid_09:10_capture"
+      ]
+    },
+    {
+      "observed_at": "2026-09-23T02:58:45.073455+09:00",
+      "status": "OBSERVED_OUTSIDE_0910_WINDOW",
+      "window_valid": false,
+      "valid_09_10_capture": false,
+      "book_ticker_count": 17,
+      "full_five_level_depth": true,
+      "trade_tape_present": false,
+      "queue_events_present": false,
+      "eligible_for_execution_replay": false,
+      "eligible_for_arrival": false,
+      "passive_evidence_reasons": [
+        "trade_tape_missing",
+        "queue_position_or_depletion_events_missing"
+      ],
+      "reasons": [
+        "not_a_valid_09:10_capture"
+      ]
+    }
+  ],
+  "orders_supplied": false,
+  "requested_order_count": null,
+  "order_trade_date": null,
+  "position_trade_date": null,
+  "deadline": null,
+  "simulation_status": "NOT_EVALUABLE_NO_ELIGIBLE_REPLAY_EVENTS",
+  "policy_config": {
+    "urgent_last_seconds": 10.0,
+    "wide_spread_bps": 20.0,
+    "max_pair_net_ratio": 0.05,
+    "adverse_selection_horizon_seconds": 5.0,
+    "status": "initial design constants; uncalibrated"
+  },
+  "comparison": null,
+  "metric_definitions": {
+    "arrival_reference": "first valid 09:10:00-09:10:30 JST bid/ask midpoint",
+    "side_adjusted_shortfall": "BUY: fill - reference; SELL: reference - fill",
+    "delay_component": "side-adjusted fill-time midpoint movement from arrival midpoint",
+    "spread_and_book_component": "side-adjusted fill price minus fill-time midpoint",
+    "unfilled_opportunity_cost": "side-adjusted exact-deadline midpoint movement for known unfilled quantity",
+    "adverse_selection": "side-adjusted midpoint movement from fill time to first observed event at/after configured horizon; diagnostic, not added twice to shortfall",
+    "net_exposure": "known filled long minus short notional; peak includes each sequential simulated fill; event mids held through next mark or deadline; area is JPY-seconds; unresolved quantities make exposure incomplete",
+    "depth_rule": "displayed five-level depth only; remainder is unresolved, never extrapolated",
+    "passive_fill_rule": "complete queue-aware evidence must cover each preceding resting interval; a missing interval permanently leaves the pair unresolved and stops further execution"
+  },
+  "read_errors": [],
+  "paired_shortfall_delta_evaluable": false,
+  "reproduction_command": "PYTHONPATH=src .venv/bin/python src/research/scripts/experiments/replay_execution_policy.py"
+}

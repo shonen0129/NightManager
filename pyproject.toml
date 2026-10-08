@@ -89,6 +89,7 @@ ignore = [
     "E501",   # line too long (handled by formatter)
     "E402",   # module level import not at top of file (allow sys.path.insert before import)
     "UP007",  # existing Optional annotations are accepted
+    "UP038",  # isinstance with tuple is preferred over union syntax
 ]
 
 [tool.ruff.lint.isort]

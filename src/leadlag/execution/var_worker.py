@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import multiprocessing
+import sys
 import tempfile
 from collections.abc import Callable
 from pathlib import Path
@@ -47,12 +48,16 @@ def _set_cache_with_deadline(
     terminates the child before it can publish a late result to the shared DB.
     """
     # ``fork`` avoids importing the complete application during a short
-    # deadline on Unix.  Windows has no fork context and uses spawn instead.
+    # deadline on Linux. macOS crashes with fork in multithreaded runtimes,
+    # and Windows has no fork context; both use spawn instead.
     context: Any
-    try:
-        context = multiprocessing.get_context("fork")
-    except ValueError:
+    if sys.platform == "darwin":
         context = multiprocessing.get_context("spawn")
+    else:
+        try:
+            context = multiprocessing.get_context("fork")
+        except ValueError:
+            context = multiprocessing.get_context("spawn")
     process = context.Process(
         target=_cache_set_worker,
         args=(str(path), key, value, timeout),

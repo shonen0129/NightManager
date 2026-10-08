@@ -513,12 +513,12 @@ class HistoricalInputs:
         current row are masked. Pandas 3 copy-on-write isolates mutations.
         """
         if as_of is None:
-            return self._frame.copy(deep=False)
+            return self._frame.copy(deep=True)
         cutoff = _date(as_of, "as_of")
         if cutoff not in self._frame.index:
             raise ValueError(f"as_of {cutoff.date()} is not present in historical frame")
         cutoff_ts = _timestamp(as_of, "as_of")
-        frame = self._frame.loc[:cutoff].copy(deep=False)
+        frame = self._frame.loc[:cutoff].copy(deep=True)
         # Explicit availability metadata overrides the standard JP-close
         # cutoff. Applying the default mask first would make an earlier
         # explicit availability impossible to express.

@@ -102,7 +102,7 @@ def test_provisional_zero_open_is_kept():
     assert pd.Timestamp(df_exec.loc[provisional_date, "sig_date"]) == dates[-1]
     # It must be finite for downstream consumption
     assert np.isfinite(
-        df_exec.loc[provisional_date, [f"jp_open_trade_{tk}" for tk in JP_TICKERS]].values
+        df_exec.loc[provisional_date, [f"jp_open_trade_{tk}" for tk in JP_TICKERS]].to_numpy(dtype=float)
     ).all()
 
 

@@ -7,6 +7,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
@@ -168,7 +169,8 @@ def test_build_regime_hinge_x_base_signal():
     assert np.isclose(val, 0.0008)
 
 
-def test_build_gap_asset_specific_hinge():
+@pytest.mark.parametrize("vary", [False, True])
+def test_build_gap_asset_specific_hinge(vary):
     """Verify gap asset-specific hinge feature construction."""
     dates = pd.date_range("2026-01-01", periods=10)
     tickers = ["1306.T", "1610.T"]
@@ -176,9 +178,10 @@ def test_build_gap_asset_specific_hinge():
     # Gap long panel
     records = []
     # Make jp_open_gap vary by ticker
-    for dt in dates:
-        records.append({"date": dt, "ticker": "1306.T", "jp_open_gap": 0.5})
-        records.append({"date": dt, "ticker": "1610.T", "jp_open_gap": -0.5})
+    for i, dt in enumerate(dates):
+        offset = 0.1 * (i % 3) if vary else 0.0
+        records.append({"date": dt, "ticker": "1306.T", "jp_open_gap": 0.5 + offset})
+        records.append({"date": dt, "ticker": "1610.T", "jp_open_gap": -0.5 - offset})
 
     gap_panel = pd.DataFrame(records)
 
@@ -194,6 +197,41 @@ def test_build_gap_asset_specific_hinge():
     # Needs enough observations for zscore window, zscore window is 5, dates=10, so it should run.
     assert not res.empty
     assert len(res.columns) == 3
+    assert len(res) == 16
+    assert res["date"].min() == dates[2]
+    if not vary:
+        assert (res.iloc[:, 2] == 0).all()
+
+
+def test_gap_zero_variance_keeps_missing_and_warmup_unavailable_without_future_leakage():
+    dates = pd.date_range("2026-01-01", periods=10)
+    panel = pd.DataFrame([
+        {"date": date, "ticker": ticker, "jp_open_gap": value}
+        for date in dates for ticker, value in [("1306.T", 0.5), ("1610.T", -0.5)]
+    ])
+    panel.loc[(panel["date"] == dates[4]) & (panel["ticker"] == "1306.T"), "jp_open_gap"] = np.nan
+    panel.loc[(panel["date"] == dates[5]) & (panel["ticker"] == "1306.T"), "jp_open_gap"] = 1.5
+
+    def build(data):
+        return build_gap_asset_specific_hinge(
+            gap_panel_long=data, tickers=["1306.T", "1610.T"], gap_cols=["jp_open_gap"],
+            zscore_window=5, thresholds=[1.0], directions=["positive", "negative"],
+        )
+
+    original = build(panel)
+    assert not (original["date"] < dates[2]).any()
+    assert original[(original["date"] == dates[4]) & (original["ticker"] == "1306.T")].empty
+    # A finite gap with no historical scale is neutral, including a new jump.
+    jump = original[(original["date"] == dates[5]) & (original["ticker"] == "1306.T")]
+    assert len(jump) == 1
+    assert (jump.iloc[:, 2:] == 0).all().all()
+    changed = panel.copy(deep=True)
+    changed.loc[changed["date"] > dates[5], "jp_open_gap"] *= 100
+    perturbed = build(changed)
+    pd.testing.assert_frame_equal(
+        original[original["date"] <= dates[5]].reset_index(drop=True),
+        perturbed[perturbed["date"] <= dates[5]].reset_index(drop=True),
+    )
 
 
 def test_build_all_interaction_features():

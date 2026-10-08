@@ -1,0 +1,56 @@
+[
+  {
+    "id": "NEW-01",
+    "priority": "P1",
+    "title": "[P1] HistoricalInputs.calculation_frame() の浅いコピーによる原本 DataFrame 破壊とイミュータビリティ欠損の修正",
+    "target_file": "src/leadlag/domain/inputs.py:521",
+    "description": "HistoricalInputs.calculation_frame(cutoff) で frame = self._frame.loc[:cutoff].copy(deep=False) を返しているため、pandas 2.x（現行環境、CoW無効）において frame.loc[cutoff, column] = np.nan によるラベルマスキングが原本 self._frame をインプレースで書き換えてしまう。後続の確定時刻（15:31）での再計算でラベルが消失し、呼び出し元の変更も原本に伝播して fingerprint 不変性が破壊される。deep=True による完全なディープコピーを返すように修正する。",
+    "affected_tests": [
+      "tests/unit/test_s2b_input_contracts.py::test_historical_calculation_frame_masks_current_and_future_labels",
+      "tests/unit/test_s2b_input_contracts.py::test_close_labels_become_visible_only_after_jp_close_cutoff",
+      "tests/unit/test_s2b_input_contracts.py::test_explicit_label_availability_masks_only_current_row_until_available",
+      "tests/unit/test_s2b_input_contracts.py::test_session_relative_label_availability_is_versioned",
+      "tests/unit/test_s3b_research_boundaries.py::test_gap_historical_inputs_use_session_relative_label_cutoff",
+      "tests/unit/test_stage_abc_followup_fixes.py::test_gap_snapshot_keeps_cache_input_immutable_after_writer_update",
+      "tests/unit/test_structural_completion.py::test_calculation_frame_cannot_change_versioned_history"
+    ]
+  },
+  {
+    "id": "NEW-02",
+    "priority": "P1",
+    "title": "[P1] macOS (Darwin) 環境における var_worker の multiprocessing.fork クラッシュ (SIGSEGV -11) の修正",
+    "target_file": "src/leadlag/execution/var_worker.py:53",
+    "description": "_set_cache_with_deadline で Unix 系として一律 multiprocessing.get_context('fork') を使用しているが、macOS (Darwin) 上のマルチスレッドプロセスから fork すると CoreFoundation/SQLite 等の非フォークセーフティにより子プロセスが SIGSEGV (exit code -11) で即死する。RuntimeError: cache write process failed with exit code -11 が発生し VaR キャッシュ保存が失敗する。sys.platform == 'darwin' では spawn コンテキストを使用するよう修正する。",
+    "affected_tests": [
+      "tests/unit/test_stage_abc_followup_fixes.py::test_var_backtest_receives_same_selected_overlay_object"
+    ]
+  },
+  {
+    "id": "NEW-03",
+    "priority": "P2",
+    "title": "[P2] preprocess_data 出力検証における NumPy 2.x 互換性欠損 (object 配列への ufunc isfinite エラー) の解消",
+    "target_file": "tests/unit/test_preprocessor.py:104 / src/leadlag/data/preprocessor.py",
+    "description": "df_exec の単一行から抽出した Series は異種型混在のため dtype が object となる。NumPy 2.x では object 配列への np.isfinite() 呼び出しが TypeError: ufunc 'isfinite' not supported for the input types で拒絶される。to_numpy(dtype=float) の明示呼び出しや DataFrame スライス化によって安全な float 抽出を行うよう修正する。",
+    "affected_tests": [
+      "tests/unit/test_preprocessor.py::test_provisional_zero_open_is_kept"
+    ]
+  },
+  {
+    "id": "NEW-04",
+    "priority": "P2",
+    "title": "[P2] hinge_interactions.py における分散ゼロ系列の全 NaN 生成と空 DataFrame 出力の防止",
+    "target_file": "src/research/features/hinge_interactions.py:524 / tests/research/test_sprint3b.py:195",
+    "description": "gap 系列が時系列で定数の場合、rolling std が 0 -> NaN となり、z_wide が全要素 NaN になる。h_wide.stack(dropna=True) により全行が脱落して空の DataFrame が返されアサーションが失敗する。分散ゼロ時の安全なフォールバック処理を追加し、テストフィクスチャにも時系列変動を含むサンプルデータを指定する。",
+    "affected_tests": [
+      "tests/research/test_sprint3b.py::test_build_gap_asset_specific_hinge"
+    ]
+  },
+  {
+    "id": "NEW-05",
+    "priority": "P3",
+    "title": "[P3] Ruff Linter バージョン差異による UP038 警告の pyproject.toml への除外追加",
+    "target_file": "pyproject.toml:88",
+    "description": "ローカル環境の Ruff で select = ['UP'] を検査すると UP038 (isinstance(x, (A, B)) -> isinstance(x, A | B)) の警告が 29 箇所発生する。CI とローカルの差異をなくすため、pyproject.toml の tool.ruff.lint.ignore に 'UP038' を追加する。",
+    "affected_tests": []
+  }
+]

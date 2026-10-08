@@ -129,6 +129,7 @@ def _collect_training_data(
     open_910_returns: pd.DataFrame | None = None,
     historical_inputs: HistoricalInputs | None = None,
     decision_model: ProductionV2Model | None = None,
+    use_file_cache: bool = True,
 ) -> pd.DataFrame:
     """Collect point-in-time ticker rows from the canonical V2 decision path."""
     baseline_residual_scale = _validate_target_contract(
@@ -179,8 +180,8 @@ def _collect_training_data(
                     source="ml_overlay_training",
                 ),
                 historical=historical_inputs,
-                gap_input_dir=gap_input_dir,
-                use_file_cache=True,
+                gap_input_dir=gap_input_dir if use_file_cache else None,
+                use_file_cache=use_file_cache,
             )
             v2 = decision_model.decide(inputs=inputs, overlay_enabled=False)
         except Exception as exc:

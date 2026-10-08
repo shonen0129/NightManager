@@ -463,7 +463,9 @@ def build_gap_asset_specific_hinge(
     """Build asset-specific gap hinge features.
 
     For gap columns that are asset-specific (vary by ticker),
-    computes rolling z-score per ticker and applies hinge.
+    computes rolling z-score per ticker and applies hinge. With sufficient
+    historical observations but zero historical variance, a finite current
+    gap has neutral z-score 0. Missing gaps and warm-up remain unavailable.
 
     feature_{j,t} = hinge(z_{gap_{j,t}})
 
@@ -524,6 +526,8 @@ def build_gap_asset_specific_hinge(
         roll_std = wide.shift(1).rolling(window=zscore_window, min_periods=min_periods).std()
         z_wide = (wide - roll_mean) / roll_std.replace(0, np.nan)
         z_wide = z_wide.replace([np.inf, -np.inf], np.nan)
+        neutral = roll_std.eq(0) & np.isfinite(roll_mean) & np.isfinite(wide)
+        z_wide = z_wide.mask(neutral, 0.0)
 
         z_val = z_wide.values
 
@@ -541,7 +545,7 @@ def build_gap_asset_specific_hinge(
                 h_wide = pd.DataFrame(h_val, index=z_wide.index, columns=z_wide.columns)
                 h_wide.columns.name = "ticker"
                 h_wide.index.name = "date"
-                feat_series = h_wide.stack().rename(fname)
+                feat_series = h_wide.stack().dropna().rename(fname)
                 feature_series_list.append(feat_series)
 
     if not feature_series_list:

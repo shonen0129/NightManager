@@ -56,14 +56,12 @@ def _file_manifest_fingerprint(path: Path | None, *, timeout: float | None = Non
 
     if path.is_file():
         candidates = [path]
-        # WAL/SHM sidecars contain committed state that may not yet have been
-        # checkpointed into the SQLite main file.
+        # WAL sidecar contains committed state that may not yet have been
+        # checkpointed into the SQLite main file. Exclude volatile -shm and empty -wal.
         if path.suffix in {".sqlite", ".sqlite3", ".db"}:
-            candidates.extend(
-                path.with_name(path.name + suffix)
-                for suffix in ("-wal", "-shm")
-                if path.with_name(path.name + suffix).exists()
-            )
+            wal_sidecar = path.with_name(path.name + "-wal")
+            if wal_sidecar.exists() and wal_sidecar.stat().st_size > 0:
+                candidates.append(wal_sidecar)
         for candidate in candidates:
             if candidate.exists():
                 add_file(candidate.name, candidate)
