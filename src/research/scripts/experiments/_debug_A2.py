@@ -2,15 +2,16 @@
 """Debug A matrix build in detail."""
 from pathlib import Path
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 import yaml
 
 ROOT = Path(__file__).resolve().parents[4]
 import sys
+
 sys.path.insert(0, str(ROOT / "src"))
 
-mapping = yaml.safe_load(open(ROOT / "configs" / "research" / "subsector_mapping_generated.yaml", "r", encoding="utf-8"))
+mapping = yaml.safe_load(open(ROOT / "configs" / "research" / "subsector_mapping_generated.yaml", encoding="utf-8"))
 cap_panel = pd.read_parquet(ROOT / "var" / "research" / "subsector" / "cap_panel.parquet")
 cap = cap_panel.iloc[-1].copy()
 

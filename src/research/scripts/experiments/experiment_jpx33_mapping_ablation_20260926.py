@@ -23,6 +23,7 @@ sys.path.insert(0, str(ROOT / "src/research/scripts/experiments"))
 
 import experiment_jpx33_direct_prediction_20260924 as prior  # noqa: E402
 import experiment_jpx33_index_ohlc_20260926 as source_exp  # noqa: E402
+
 from leadlag.core.correlation import compute_baseline_correlation  # noqa: E402
 from leadlag.core.gap_adjustment import build_raw_distribution  # noqa: E402
 from leadlag.core.residualize import compute_rolling_ols_betas  # noqa: E402
@@ -86,7 +87,6 @@ def _fit_simplex_map(
     matrix = np.zeros_like(initial_map)
     weights_by_parent: dict[str, list[float]] = {}
     ticker_idx = {ticker: i for i, ticker in enumerate(JP_TICKERS)}
-    industry_idx = {industry: i for i, industry in enumerate(industry_order)}
 
     for parent_i, parent in enumerate(parents):
         member_indices = [i for i, row in enumerate(industry_rows) if str(row[1]) == parent]

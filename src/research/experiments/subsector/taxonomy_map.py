@@ -30,7 +30,7 @@ def _topix17_index(ticker: str) -> int:
 
 
 def load_mapping(mapping_path: Path) -> dict[str, Any]:
-    with open(mapping_path, "r", encoding="utf-8") as f:
+    with open(mapping_path, encoding="utf-8") as f:
         return yaml.safe_load(f)
 
 

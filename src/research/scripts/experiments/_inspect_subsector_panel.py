@@ -2,7 +2,6 @@
 """Inspect existing subsector panel files and raw OHLC structure."""
 from __future__ import annotations
 
-import json
 import sys
 from pathlib import Path
 
@@ -12,7 +11,6 @@ import yaml
 ROOT = Path(__file__).resolve().parents[4]
 sys.path.insert(0, str(ROOT / "src"))
 
-from leadlag.data.tickers import JP_TICKERS
 
 
 def main() -> int:
@@ -50,7 +48,7 @@ def main() -> int:
 
     # Mapping file
     mapping_path = ROOT / "configs" / "research" / "subsector_mapping_generated.yaml"
-    with open(mapping_path, "r", encoding="utf-8") as f:
+    with open(mapping_path, encoding="utf-8") as f:
         mapping = yaml.safe_load(f)
     n = len(mapping.get("stock_mapping", []))
     print(f"--- mapping: {n} tickers ---")
@@ -60,13 +58,13 @@ def main() -> int:
 
     # Expanded mapping
     expanded_path = ROOT / "configs" / "research" / "subsector_mapping_expanded.yaml"
-    with open(expanded_path, "r", encoding="utf-8") as f:
+    with open(expanded_path, encoding="utf-8") as f:
         expanded = yaml.safe_load(f)
     print(f"--- expanded A matrix: rows={len(expanded.get('aggregation_matrix_A',{}).get('rows',[]))} cols={len(expanded.get('aggregation_matrix_A',{}).get('cols',[]))} ---")
 
     # Check expanded vs canonical taxonomy overlap
     tax_path = ROOT / "configs" / "taxonomy_subsectors.yaml"
-    with open(tax_path, "r", encoding="utf-8") as f:
+    with open(tax_path, encoding="utf-8") as f:
         taxonomy = yaml.safe_load(f)
     canonical_tickers = set()
     for _, tickers in taxonomy.items():

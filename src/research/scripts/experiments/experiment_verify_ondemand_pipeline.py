@@ -19,9 +19,8 @@ from leadlag.data.preprocessor import preprocess_data
 from leadlag.data.tickers import JP_TICKERS, TOPIX_TICKER
 from leadlag.execution.config import load_config_from_yaml
 from leadlag.models.blpx import ProductionBLPXModel
-from leadlag.models.v2.gap_io import _compute_ondemand
 from leadlag.models.production_v2 import ProductionV2Model
-from leadlag.models.v2.gap_io import _build_current_prices_from_df_exec
+from leadlag.models.v2.gap_io import _build_current_prices_from_df_exec, _compute_ondemand
 
 
 def main() -> None:

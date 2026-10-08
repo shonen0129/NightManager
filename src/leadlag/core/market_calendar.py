@@ -17,6 +17,8 @@ from datetime import date, datetime, timedelta
 
 import pandas as pd
 
+from leadlag.utils.timestamps import jst_today, normalize_jst_date
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -137,9 +139,9 @@ def is_trading_day(d: date | datetime | None = None) -> bool:
         True if the date is a trading day (not weekend, not holiday).
     """
     if d is None:
-        d = date.today()
+        d = jst_today()
     elif isinstance(d, datetime):
-        d = d.date()
+        d = normalize_jst_date(d).date()
 
     if _is_weekend(d):
         return False
@@ -170,9 +172,9 @@ def get_holiday_name(d: date | datetime | None = None) -> str | None:
     Returns None if it's a regular trading day or weekend.
     """
     if d is None:
-        d = date.today()
+        d = jst_today()
     elif isinstance(d, datetime):
-        d = d.date()
+        d = normalize_jst_date(d).date()
 
     if _is_weekend(d):
         return "Weekend"
@@ -198,9 +200,9 @@ def previous_trading_day(d: date | datetime | None = None) -> date:
     cannot be found within a one-year defensive bound.
     """
     if d is None:
-        d = date.today()
+        d = jst_today()
     elif isinstance(d, datetime):
-        d = d.date()
+        d = normalize_jst_date(d).date()
 
     candidate = d - timedelta(days=1)
     for _ in range(366):
@@ -218,9 +220,9 @@ def next_trading_day(d: date | datetime | None = None) -> date:
     cannot be found within a one-year defensive bound.
     """
     if d is None:
-        d = date.today()
+        d = jst_today()
     elif isinstance(d, datetime):
-        d = d.date()
+        d = normalize_jst_date(d).date()
 
     candidate = d + timedelta(days=1)
     for _ in range(366):

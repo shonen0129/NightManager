@@ -20,6 +20,7 @@ from leadlag.config.paths import market_data
 from leadlag.core.market_calendar import count_tse_bdays
 from leadlag.data.cache_store import SqliteCacheStore
 from leadlag.data.schema import all_expected_columns
+from leadlag.utils.timestamps import jst_today, normalize_jst_date
 
 logger = logging.getLogger(__name__)
 
@@ -104,8 +105,8 @@ def _check_df_exec_staleness(
     last = df_exec.index.max()
     if pd.isna(last):
         raise RuntimeError("df_exec cache has no valid trade date")
-    last = pd.to_datetime(last).normalize()
-    today = pd.Timestamp.now().replace(tzinfo=None).normalize()
+    last = normalize_jst_date(last)
+    today = pd.Timestamp(jst_today())
     if today < last:
         raise RuntimeError(f"df_exec cache last trade date {last.date()} is in the future")
     stale_bdays = count_tse_bdays(last, today)

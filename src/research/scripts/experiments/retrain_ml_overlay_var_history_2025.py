@@ -23,11 +23,10 @@ sys.path.insert(0, str(ROOT / "src"))
 from leadlag.config.schemas import ProductionV2RunConfig
 from leadlag.data.tickers import JP_TICKERS
 from leadlag.experiment_registry import Decision
-from research.experiments.ml_overlay_training import DEFAULT_LGBM_KWARGS
 from leadlag.models.ml_overlay_artifact import load_overlay_model, save_overlay_model
 from leadlag.utils.dataframe_fingerprint import dataframe_fingerprint
 from research.experiment_utils import record_simple_experiment
-from research.experiments.ml_overlay_training import _train_overlay_lgbm
+from research.experiments.ml_overlay_training import DEFAULT_LGBM_KWARGS, _train_overlay_lgbm
 
 SOURCE_WORK = ROOT / "var/results/20260927_ml_overlay_retrain"
 SOURCE_REPORT = ROOT / "reports/20260927_ml_overlay_retrain"
@@ -97,7 +96,8 @@ def train() -> None:
     frame_through_cutoff = frame.loc[frame.index <= train_end].copy()
     history = _read_pickle(SOURCE_WORK / "inputs/history_kwargs.pkl")
     source_provenance_path = SOURCE_WORK / "inputs/input_provenance.json"
-    source_provenance = json.loads(source_provenance_path.read_text(encoding="utf-8"))
+    # Validate the saved provenance JSON even though no fields are consumed here.
+    json.loads(source_provenance_path.read_text(encoding="utf-8"))
     config_hash = hashlib.sha256(
         json.dumps(run_cfg.model_dump(), sort_keys=True, default=str).encode()
     ).hexdigest()

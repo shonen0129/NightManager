@@ -27,13 +27,13 @@ logging.basicConfig(
 
 def main() -> int:
     mapping_path = ROOT / "configs" / "research" / "subsector_mapping_generated.yaml"
-    with open(mapping_path, "r", encoding="utf-8") as f:
+    with open(mapping_path, encoding="utf-8") as f:
         mapping = yaml.safe_load(f)
 
     tickers = [m["ticker"] for m in mapping["stock_mapping"]]
     # Add any canonical taxonomy tickers not in mapping (unmapped)
     tax_path = ROOT / "configs" / "taxonomy_subsectors.yaml"
-    with open(tax_path, "r", encoding="utf-8") as f:
+    with open(tax_path, encoding="utf-8") as f:
         taxonomy = yaml.safe_load(f)
     canonical = set()
     for _, tks in taxonomy.items():

@@ -90,12 +90,12 @@ def main():
     import sys
     sys.path.insert(0, str(ROOT / "src"))
 
-    from leadlag.data.market_data_cache import load_df_exec_from_local_cache
     from leadlag.data.intraday_inputs import compute_jp_target_returns
+    from leadlag.data.market_data_cache import load_df_exec_from_local_cache
     from leadlag.data.tickers import JP_TICKERS
     from leadlag.execution.config import load_config_from_yaml
-    from leadlag.models.ml_overlay_inference import generate_v2_production_portfolio_with_overlay
     from leadlag.models.ml_overlay_artifact import load_overlay_model
+    from leadlag.models.ml_overlay_inference import generate_v2_production_portfolio_with_overlay
     from research.experiment_registry import Decision
     from research.experiment_utils import record_simple_experiment
 

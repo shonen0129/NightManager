@@ -22,7 +22,7 @@ _ORIGINAL_JP_TICKERS = [
 ]
 
 # Load 98 subsector configuration
-with open(ROOT / "configs" / "research" / "subsector_98_config.yaml", "r", encoding="utf-8") as f:
+with open(ROOT / "configs" / "research" / "subsector_98_config.yaml", encoding="utf-8") as f:
     subsector_config = yaml.safe_load(f)
 
 SUBSECTOR_NAMES = [s["name"] for s in subsector_config["subsectors"]]
@@ -31,18 +31,17 @@ SUBSECTOR_LABELS = {s["name"]: s["sensitivity_labels"] for s in subsector_config
 print(f"Subsector count: {len(SUBSECTOR_NAMES)}")
 
 # Load aggregation matrix
-with open(ROOT / "configs" / "research" / "subsector_98_aggregation.yaml", "r", encoding="utf-8") as f:
+with open(ROOT / "configs" / "research" / "subsector_98_aggregation.yaml", encoding="utf-8") as f:
     agg_config = yaml.safe_load(f)
 
 A = np.array(agg_config["aggregation_matrix"])  # Shape: (17, 99)
 print(f"Aggregation matrix shape: {A.shape}")
 
-import leadlag.data.tickers as _tickers
-import leadlag.data.preprocessor as _preprocessor
 import leadlag.core.pipeline as _pipeline
-import leadlag.core.correlation as _correlation
-import leadlag.models.blpx.prior_builder as _prior_builder
+import leadlag.data.preprocessor as _preprocessor
+import leadlag.data.tickers as _tickers
 import leadlag.models.blpx.model_predict as _model_predict
+import leadlag.models.blpx.prior_builder as _prior_builder
 
 
 def _set_jp_universe(names: list[str], is_subsector: bool = False) -> None:

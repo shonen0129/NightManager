@@ -21,7 +21,6 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from leadlag.data.fetcher import download_data
 from leadlag.data.preprocessor import preprocess_data
-from leadlag.data.tickers import JP_TICKERS
 
 logging.basicConfig(
     level=logging.INFO,
@@ -44,7 +43,7 @@ def main() -> int:
     logger.info("Loaded expanded subsector panel: %s", subpanel.shape)
 
     agg_path = ROOT / "configs" / "research" / "subsector_mapping_expanded.yaml"
-    with open(agg_path, "r", encoding="utf-8") as f:
+    with open(agg_path, encoding="utf-8") as f:
         agg = yaml.safe_load(f)
     A = np.array(agg["aggregation_matrix_A"]["data"])
     rows = agg["aggregation_matrix_A"]["rows"]

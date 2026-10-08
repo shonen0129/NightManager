@@ -15,14 +15,12 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 from leadlag.data.market_data_cache import save_df_exec_to_local_cache
-from leadlag.data.market_data_cache import save_df_exec_to_local_cache
 
 
 def main() -> int:
     df = pd.read_pickle(ROOT / "var" / "results" / "beta_shift_comparison" / "df_exec_new.pkl")
     save_df_exec_to_local_cache(df)
-    save_df_exec_to_local_cache(df)
-    print(f"Saved {len(df)} rows to df_exec local cache and decision cache.")
+    print(f"Saved {len(df)} rows to the df_exec local cache.")
     return 0
 
 

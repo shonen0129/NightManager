@@ -23,8 +23,8 @@ while not (ROOT / "pyproject.toml").exists():
 sys.path.insert(0, str(ROOT / "src"))
 
 from leadlag.experiment_registry import Decision
-from research.experiments.ml_overlay_training import ROUND_TRIP_COST, SLIPPAGE_BPS_PER_SIDE
 from research.experiment_utils import record_simple_experiment
+from research.experiments.ml_overlay_training import ROUND_TRIP_COST, SLIPPAGE_BPS_PER_SIDE
 
 OUTPUT_DIR = ROOT / "reports" / "20260923_profitability_order_7"
 ON_DIR = ROOT / "reports" / "20260923_profitability_order_5" / "v2_current_overlay_oos"

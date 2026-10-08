@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Debug quality validation."""
-from pathlib import Path
 import sys
-import pandas as pd
+from pathlib import Path
+
 import numpy as np
+import pandas as pd
 import yaml
 
 ROOT = Path(__file__).resolve().parents[4]
@@ -23,7 +24,7 @@ panel = pd.read_parquet(ROOT / "var" / "research" / "subsector" / "panel_subsect
 print("panel head:")
 print(panel.head())
 
-with open(ROOT / "configs" / "research" / "subsector_aggregation_vw.yaml", "r", encoding="utf-8") as f:
+with open(ROOT / "configs" / "research" / "subsector_aggregation_vw.yaml", encoding="utf-8") as f:
     agg = yaml.safe_load(f)
 A = np.array(agg["aggregation_matrix_A"]["data"])
 cols = agg["aggregation_matrix_A"]["cols"]

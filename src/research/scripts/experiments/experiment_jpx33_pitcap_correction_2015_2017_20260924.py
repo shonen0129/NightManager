@@ -12,7 +12,6 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-import yaml
 from scipy.stats import spearmanr
 
 ROOT = Path(__file__).resolve().parents[4]
@@ -20,6 +19,7 @@ sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(ROOT / "src/research/scripts/experiments"))
 
 import experiment_sensitivity_pipeline_audit_20260924 as audit  # noqa: E402
+
 from leadlag.core.gap_adjustment import build_raw_distribution  # noqa: E402
 from leadlag.data.market_data_cache import load_df_exec_from_local_cache  # noqa: E402
 from leadlag.data.tickers import JP_TICKERS, N_JP, N_US, SENSITIVITY_LABELS  # noqa: E402
@@ -254,7 +254,7 @@ def main() -> None:
         "",
         "### 2017固定ウェイトと年次PITウェイトの差",
         "",
-        f"| 比較 | ΔRank IC 95% block CI | ΔMAE bp 95% block CI | ΔRank IC平均 | ΔMAE平均 (bp) | 日数 |",
+        "| 比較 | ΔRank IC 95% block CI | ΔMAE bp 95% block CI | ΔRank IC平均 | ΔMAE平均 (bp) | 日数 |",
         "|---|---:|---:|---:|---:|---:|",
     ])
     for name, item in comparisons.items():

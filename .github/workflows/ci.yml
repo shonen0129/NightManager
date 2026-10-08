@@ -39,11 +39,8 @@ jobs:
       - name: Ruff production and maintained tool paths
         run: uv run --locked ruff check src/leadlag tests tools/production tools/validation
 
-      # The historical research tree has a tracked lint backlog.  Keep the
-      # newly maintained training entry strict without making that backlog an
-      # unbounded exemption for new production code.
-      - name: Ruff current research training entry
-        run: uv run --locked ruff check src/research/experiments/ml_overlay_training.py tools/research/train_ml_order_overlay.py
+      - name: Ruff cleaned research paths
+        run: uv run --locked ruff check src/research tools/research
 
       - name: Mypy production package
         run: uv run --locked mypy --config-file pyproject.toml src/leadlag

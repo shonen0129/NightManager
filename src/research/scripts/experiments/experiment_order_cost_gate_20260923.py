@@ -224,7 +224,6 @@ def _order_cost_gate(
                 long_alpha,
                 np.where(target < -WEIGHT_EPS, short_alpha, np.where(previous >= 0, long_alpha, short_alpha)),
             )
-            previous_alpha = np.where(previous >= 0, long_alpha, short_alpha)
             # Estimated order cost includes one opening fill plus the modeled
             # intraday close fraction. Carry is the incremental next-session
             # cost versus holding the previous model-weight proxy.
@@ -525,7 +524,7 @@ def _write_report(output: dict[str, Any]) -> None:
             "",
             "## 統計評価と判定",
             "",
-            f"- 20営業日paired block bootstrap: 1,000回、seed=42。区間は日次平均net差の不確実性で、Sharpe差の有意性を意味しない。",
+            "- 20営業日paired block bootstrap: 1,000回、seed=42。区間は日次平均net差の不確実性で、Sharpe差の有意性を意味しない。",
             f"- 名目DSR (中心variant; 同一検証内の3コスト水準×baseline/gatedの6候補): {dsr['value'] if dsr['value'] is not None else '算出不能'}。既存の関連no-trade試行とこのOOSの事前閲覧分を完全に網羅した総試行数ではないため、採否を確定する証拠としては使わない。",
             f"- 事前ゲート: 中心12.5bpsでnet Sharpeが同費用baseline以上、max DDが悪化せず、turnoverとcost sumが減ること。結果: `{output['predeclared_gate_pass']}`。",
             f"- 研究判定: **{output['decision']}**。{output['decision_reason']}",

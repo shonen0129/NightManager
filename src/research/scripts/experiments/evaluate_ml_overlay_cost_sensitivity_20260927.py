@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -306,7 +306,7 @@ def main() -> None:
     registry = ExperimentRegistry(REGISTRY_PATH)
     name = "ml_overlay_cost_sensitivity_20260927"
     run_number = sum(1 for _ in registry.iter_records(name=name)) + 1
-    started_at = datetime.now(timezone.utc)
+    started_at = datetime.now(UTC)
     summary, daily = _run()
     daily.to_csv(OUTPUT_DIR / "daily_cost_sensitivity.csv", index=False)
     summary["registry_record"] = {
@@ -325,7 +325,7 @@ def main() -> None:
         name=name,
         hypothesis="Check whether the existing modeled ML-on incremental net return survives predetermined one-way slippage stress levels.",
         start_time=started_at,
-        end_time=datetime.now(timezone.utc),
+        end_time=datetime.now(UTC),
         parameters={
             "source_on": str(ON_DIR.relative_to(ROOT)),
             "source_off": str(OFF_DIR.relative_to(ROOT)),

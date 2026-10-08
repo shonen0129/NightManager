@@ -13,7 +13,7 @@ uv sync --locked --extra dev --extra ml-overlay
 ## Daily operation
 
 ```bash
-# 朝（09:15 前）= decision、以降 = close を自動実行
+# 日本時間の朝（09:15 前）= decision、以降 = close を自動実行
 python3 -m leadlag.cli daily --config configs/production/production.yaml
 
 # 日次本番実行

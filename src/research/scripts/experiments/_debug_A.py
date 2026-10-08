@@ -3,11 +3,11 @@
 from pathlib import Path
 
 import pandas as pd
-import yaml
 
 ROOT = Path(__file__).resolve().parents[4]
 sys_path = str(ROOT / "src")
 import sys
+
 sys.path.insert(0, sys_path)
 
 from research.experiments.subsector.taxonomy_map import build_aggregation_matrix, load_mapping

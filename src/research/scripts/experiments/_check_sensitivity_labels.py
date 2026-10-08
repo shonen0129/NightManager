@@ -11,7 +11,6 @@ import sys
 from pathlib import Path
 
 import numpy as np
-import pandas as pd
 import yaml
 
 ROOT = Path(__file__).resolve().parents[4]
@@ -28,7 +27,7 @@ _ORIGINAL_JP_TICKERS = [
 
 def main() -> int:
     # Load aggregation matrix
-    with open(ROOT / "configs" / "research" / "subsector_aggregation_vw.yaml", "r", encoding="utf-8") as f:
+    with open(ROOT / "configs" / "research" / "subsector_aggregation_vw.yaml", encoding="utf-8") as f:
         agg = yaml.safe_load(f)
     A = np.array(agg["aggregation_matrix_A"]["data"])
     ETF_ROWS = agg["aggregation_matrix_A"]["rows"]
