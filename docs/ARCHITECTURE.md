@@ -2,7 +2,7 @@
 
 V2 同期パス (ProductionV2Model) を本番正本とし、Next-Gen 非同期パイプライン・凸最適化は 2026-08-17 の ADR (docs/decisions/2026-08-17-p35-pipeline-canon.md) に基づき archive/legacy_src/ へ移設された。`PITDataLake` は `leadlag.data.pit_lake` の本番入力adapterとして保持し、`DecisionInputs`へ変換してモデルへ渡す。
 
-> **最終更新**: 2026-10-04
+> **最終更新**: 2026-10-08
 
 ## Overview
 
@@ -170,7 +170,7 @@ snapshotを生成する検証済みproducerは未整備なので、producerが�
 | `tickers.py` | US/JP ティッカー定義・変換ユーティリティの**単一正本** |
 | `market_data_cache.py` | ETF価格・intraday・市場履歴cacheの正本。SQLiteストアを一度だけ読み書きする |
 | `fetcher.py` | yfinance ダウンロード、差分更新、1629.T NAVパッチ |
-| `preprocessor.py` | `df_exec` 構築（日次リターン整列、TOPIX beta計算） |
+| `preprocessor.py` | `PreprocessorInputs`を作り、日次リターン・proxy・target日・TOPIX betaを計算。execution record検証と市場diagnosticsを組み立てる |
 | `macro.py` | macro価格の取得・列名正規化・timeout・キャッシュ。計算層へDataFrameを渡す入力adapter |
 | `adr_features.py` | ADR ZIP bundleの原子的公開・hash/coverage/provenance検証、当日行欠損時のskip判定 |
 | `adr_producer.py` | Yahoo closeからADR特徴を生成する運用producer。取得欠損を維持し当日coverage不足では公開しない |
@@ -206,15 +206,17 @@ kabuステーションや立花証券からの移行・別ブローカー追加�
 | モジュール | 責務 |
 |---|---|
 | `config.py` | YAML/env の設定パラメータロード・Pydanticスキーマによる検証 (デフォルト: `configs/production/production.yaml`) |
+| `v2_bridge.py` | `run_v2_decision()`の日次run組立。価格source/PIT入力は `QuotePreflight`、actual-account risk証跡は `AccountRiskPreflight` で下流へ渡す |
 | `broker_ops.py` | BrokerClient 構築・ポジション/資本取得・発注・1629.T 大口分割 |
 | `pricing.py` | 寄付価格・約定価格解決 |
 | `risk_capital.py` | `AppConfig.risk`を受けるリスクチェック・gross調整・資本配分 |
 | `output_ops.py` | 出力ディレクトリ・決定 CSV・バックテストサマリー・position/wallet スナップショット |
 | `post_decision.py` | gross 調整→リスク→配分→発注→出力の一連フロー |
 | `decision.py` | `generate_daily_decision_results()` |
-| `close.py` | `close_all_positions()`とCLIの決済・照合。leaseを迂回する旧auto-close helperは撤去 |
+| `close.py` | close注文計画、順序を保った送信・観測保存、照合・出力を構成する `close_all_positions()` |
 | `backtest.py` | `run_production()` — 生産バックテスト実行管理 |
 | `backtester.py` | `BacktestEngine` — 汎用的なバックテスト実行シミュレータ |
+| `var_history.py` | 履歴sourceの所有、cache判定、VaR再生計画・実行を `VaRHistorySource` / `VaRHistoryReplayPlan` に分けて構成 |
 | `var_cache.py` | `VaRCacheIdentity`でeffective config・入力版・overlay・gap bundleをcache keyへ束ね、`DeadlineBudget`で絶対期限を共有 |
 | `var_inputs.py` / `var_worker.py` | fingerprint・gap/PIT履歴snapshotの取得と、timeout後もworker終了まで保持する所有権・期限付き保存 |
 | `state_store.py` | SQLiteのrun/order intent/observation/reconciliation台帳と口座・戦略単位の実行lease |

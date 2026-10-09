@@ -10,6 +10,8 @@ from __future__ import annotations
 import json
 import logging
 import tempfile
+from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
 
@@ -28,6 +30,76 @@ from leadlag.utils.dataframe_fingerprint import dataframe_fingerprint
 from leadlag.utils.threading import run_with_timeout
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class VaRHistorySource:
+    """Run-owned, deadline-bound source snapshot prepared before cache lookup."""
+
+    returns_store: SqliteCacheStore
+    deadline_budget: DeadlineBudget
+    app_config: Any
+    df_exec: pd.DataFrame
+    trade_date: pd.Timestamp
+    required_last: pd.Timestamp
+    history_dates: pd.DatetimeIndex
+    history_start: str
+    slippage_bps: float | None
+    effective_config: dict[str, Any]
+    gap_input_path: Path | None
+    gap_snapshot_path: Path | None
+    gap_fingerprint: str
+    snapshot_owner: tempfile.TemporaryDirectory[str] | None
+
+    def remaining_timeout(self) -> float:
+        return self.deadline_budget.remaining(label="VaR/ES risk-history")
+
+    def cleanup_snapshot(self) -> None:
+        """Release a snapshot only while this run still owns it."""
+        owner = self.snapshot_owner
+        self.snapshot_owner = None
+        if owner is not None:
+            owner.cleanup()
+
+    def transfer_snapshot(self) -> tempfile.TemporaryDirectory[str] | None:
+        """Transfer snapshot lifetime to the worker before it starts."""
+        owner = self.snapshot_owner
+        self.snapshot_owner = None
+        return owner
+
+
+@dataclass(frozen=True)
+class VaRHistoryReplayPlan:
+    """Exact inputs shared by the cache identity and the V2 replay worker."""
+
+    source: VaRHistorySource
+    overlay_chunks: list[tuple[pd.DatetimeIndex, Any | None]]
+    historical_inputs: Any
+    cache_key: str
+
+
+def _configured_timeout(config: Any) -> float:
+    if isinstance(config, dict):
+        configured = config.get("var_history_timeout", 300)
+    else:
+        configured = getattr(config, "var_history_timeout", 300)
+    try:
+        return max(0.01, float(configured))
+    except (TypeError, ValueError):
+        return 300.0
+
+
+def _timed_call(
+    deadline_budget: DeadlineBudget,
+    function: Callable[[], Any],
+    label: str,
+) -> Any:
+    """Bound synchronous preparation with the run's single absolute deadline."""
+    return run_with_timeout(
+        function,
+        timeout=deadline_budget.remaining(label="VaR/ES risk-history"),
+        label=label,
+    )
 
 
 def _load_overlay_version(artifact_root: Path, version: str) -> Any:
@@ -237,94 +309,83 @@ def _build_var_historical_inputs(
     )
 
 
-def get_hist_returns_for_risk(
+def _prepare_var_history_source(
     config: Any,
     output_root: str,
     trade_date: pd.Timestamp,
-    config_path: str | Path | None = None,
-    gap_input_dir: str | Path | None = None,
-    overlay_model: Any | None = None,
-) -> pd.Series:
-    """Efficiently get historical daily returns for VaR/ES risk checks.
-
-    Uses an SQLite cache if available, otherwise runs the V2 full backtest and
-    caches the result.
-    """
+    config_path: str | Path | None,
+    gap_input_dir: str | Path | None,
+    deadline_budget: DeadlineBudget,
+) -> VaRHistorySource | None:
+    """Resolve effective configuration and freeze the completed source rows."""
     cache_dir = Path(output_root) / ".cache"
-    # A single deadline covers snapshot acquisition and the backtest.  The
-    # snapshot used to happen before the backtest timeout was even resolved,
-    # so a SQLite lock could block the caller for the connection timeout.
-    if isinstance(config, dict):
-        configured_timeout = config.get("var_history_timeout", 300)
-    else:
-        configured_timeout = getattr(config, "var_history_timeout", 300)
     try:
-        timeout = max(0.01, float(configured_timeout))
-    except (TypeError, ValueError):
-        timeout = 300.0
-    deadline_budget = DeadlineBudget.from_timeout(timeout)
-
-    def remaining_timeout() -> float:
-        return deadline_budget.remaining(label="VaR/ES risk-history")
-
-    def timed_call(function: Any, label: str) -> Any:
-        """Bound synchronous preparation/cache operations by the same deadline."""
-        return run_with_timeout(function, timeout=remaining_timeout(), label=label)
-
-    try:
-        returns_store = timed_call(
+        returns_store = _timed_call(
+            deadline_budget,
             lambda: SqliteCacheStore(
                 cache_dir / "daily_returns.sqlite",
-                timeout=remaining_timeout(),
+                timeout=deadline_budget.remaining(label="VaR/ES risk-history"),
             ),
             "VaR/ES return-cache initialization",
         )
     except TimeoutError as exc:
         logger.error("VaR/ES return-cache initialization timed out: %s", exc)
         logger.warning("Returning empty historical return series so risk check blocks.")
-        return pd.Series(dtype=float)
+        return None
 
-    # Load and freshness-check the source data before consulting the cache.
-    # A cache hit must never hide a corrected/stale df_exec bundle.
     try:
-        df_exec = timed_call(
+        df_exec = _timed_call(
+            deadline_budget,
             lambda: load_df_exec_from_local_cache(max_stale_bdays=3),
             "VaR/ES df_exec load",
         )
     except TimeoutError as exc:
         logger.error("VaR/ES df_exec load timed out: %s", exc)
         logger.warning("Returning empty historical return series so risk check blocks.")
-        return pd.Series(dtype=float)
-    except RuntimeError as e:
-        logger.error("VaR/ES cannot use stale df_exec: %s", e)
+        return None
+    except RuntimeError as exc:
+        logger.error("VaR/ES cannot use stale df_exec: %s", exc)
         logger.warning("Returning empty historical return series so risk check blocks.")
-        return pd.Series(dtype=float)
+        return None
 
-    # Resolve the canonical inherited config before consulting the cache.  A
-    # VaR series is only reusable for the same effective config and cost
-    # override; the old fixed key silently reused returns from another run.
     project_root = resolve_project_root()
     if config_path is None:
-        resolved_cfg_path = project_root / "configs" / "production" / "production.yaml"
+        resolved_config_path = project_root / "configs" / "production" / "production.yaml"
     else:
-        resolved_cfg_path = Path(config_path)
-        if not resolved_cfg_path.is_absolute():
-            resolved_cfg_path = project_root / resolved_cfg_path
-    start_date = config.get("start_date", "2015-01-05") if isinstance(config, dict) else getattr(config, "start_date", "2015-01-05")
-    slippage_bps = config.get("slippage_bps") if isinstance(config, dict) else getattr(config, "slippage_bps", None)
+        resolved_config_path = Path(config_path)
+        if not resolved_config_path.is_absolute():
+            resolved_config_path = project_root / resolved_config_path
+    start_date = (
+        config.get("start_date", "2015-01-05")
+        if isinstance(config, dict)
+        else getattr(config, "start_date", "2015-01-05")
+    )
+    slippage_bps = (
+        config.get("slippage_bps")
+        if isinstance(config, dict)
+        else getattr(config, "slippage_bps", None)
+    )
     try:
-        app_config = timed_call(
-            lambda: load_config_from_yaml(resolved_cfg_path, strict=True),
+        app_config = _timed_call(
+            deadline_budget,
+            lambda: load_config_from_yaml(resolved_config_path, strict=True),
             "VaR/ES effective config load",
         )
     except TimeoutError as exc:
         logger.error("VaR/ES effective config load timed out: %s", exc)
         logger.warning("Returning empty historical return series so risk check blocks.")
-        return pd.Series(dtype=float)
+        return None
     if slippage_bps is not None:
-        costs = app_config.v2.costs.model_copy(update={"slippage_bps_per_side": float(slippage_bps)})
-        app_config = app_config.model_copy(update={"v2": app_config.v2.model_copy(update={"costs": costs})})
-    required_last = pd.Timestamp(previous_trading_day(trade_date.to_pydatetime())).normalize()
+        costs = app_config.v2.costs.model_copy(
+            update={"slippage_bps_per_side": float(slippage_bps)}
+        )
+        app_config = app_config.model_copy(
+            update={"v2": app_config.v2.model_copy(update={"costs": costs})}
+        )
+
+    required_last = pd.Timestamp(
+        previous_trading_day(trade_date.to_pydatetime())
+    ).normalize()
     start_boundary = pd.Timestamp(start_date).normalize()
     risk_window = int(app_config.risk.var_window)
     history_dates = pd.DatetimeIndex(
@@ -339,27 +400,26 @@ def get_hist_returns_for_risk(
     if history_dates.empty:
         logger.error("No completed TSE rows available for the VaR/ES history window.")
         logger.warning("Returning empty historical return series so risk check blocks.")
-        return pd.Series(dtype=float)
+        return None
+
     history_start = str(history_dates.min().date())
-    # Keep the point-in-time frame through the last completed session only.
-    # Current/provisional rows cannot affect the signal, cache key or VaR series.
     df_exec = df_exec.loc[df_exec.index <= required_last].copy()
-    # Hash the validated, effective calculation settings used by this very run.
-    effective_config = {"v2": app_config.v2.model_dump(mode="json"),
-                        "strategy": app_config.strategy.model_dump(mode="json")}
+    effective_config = {
+        "v2": app_config.v2.model_dump(mode="json"),
+        "strategy": app_config.strategy.model_dump(mode="json"),
+    }
     configured_gap = app_config.gap_distribution_dir
     gap_arg = gap_input_dir if gap_input_dir is not None else configured_gap
     gap_path = Path(gap_arg) if gap_arg else None
     if gap_path is not None and not gap_path.is_absolute():
         gap_path = project_root / gap_path
-    # Freeze the exact gap input before hashing the cache key.  The same
-    # snapshot path is passed to the V2 backtest below, so a concurrent Step 2
-    # writer cannot change the distribution between key construction and use.
+
     try:
-        gap_snapshot_path, gap_fingerprint, _gap_snapshot_temp = timed_call(
+        gap_snapshot_path, gap_fingerprint, snapshot_owner = _timed_call(
+            deadline_budget,
             lambda: var_inputs._snapshot_gap_input(
                 gap_path,
-                timeout=remaining_timeout(),
+                timeout=deadline_budget.remaining(label="VaR/ES risk-history"),
                 max_trade_date=required_last,
             ),
             "VaR/ES gap-input snapshot",
@@ -367,246 +427,307 @@ def get_hist_returns_for_risk(
     except (RuntimeError, TimeoutError) as exc:
         logger.error("VaR/ES cannot obtain a stable gap-input snapshot: %s", exc)
         logger.warning("Returning empty historical return series so risk check blocks.")
-        return pd.Series(dtype=float)
-    snapshot_owner = _gap_snapshot_temp
+        return None
 
-    def _cleanup_snapshot() -> None:
-        """Release a pre-worker snapshot on every non-worker exit path."""
-        nonlocal snapshot_owner
-        if snapshot_owner is not None:
-            snapshot_owner.cleanup()
-            snapshot_owner = None
+    return VaRHistorySource(
+        returns_store=returns_store,
+        deadline_budget=deadline_budget,
+        app_config=app_config,
+        df_exec=df_exec,
+        trade_date=trade_date,
+        required_last=required_last,
+        history_dates=history_dates,
+        history_start=history_start,
+        slippage_bps=slippage_bps,
+        effective_config=effective_config,
+        gap_input_path=gap_path,
+        gap_snapshot_path=gap_snapshot_path,
+        gap_fingerprint=gap_fingerprint,
+        snapshot_owner=snapshot_owner,
+    )
 
+
+def _build_var_history_replay_plan(
+    source: VaRHistorySource,
+    overlay_model: Any | None,
+) -> VaRHistoryReplayPlan | None:
+    """Bind the cache key to the exact overlay and historical inputs to replay."""
+    deadline_budget = source.deadline_budget
     try:
-        configured_overlay, overlay_path = resolve_overlay_settings(app_config)
-
-        # Select the overlay exactly once.  A caller such as the live V2 bridge
-        # passes the object already held by ProductionRunner.  Standalone VaR
-        # calls load the configured version once before computing the cache key;
-        # the same object is then passed to BacktestEngine below.  Never resolve
-        # CURRENT again after the key has been calculated.
+        configured_overlay, overlay_path = resolve_overlay_settings(source.app_config)
         selected_overlay_model = overlay_model
-        if selected_overlay_model is None:
-            if configured_overlay and overlay_path is not None:
-                from leadlag.models.ml_overlay_artifact import load_overlay_model
+        if selected_overlay_model is None and configured_overlay and overlay_path is not None:
+            from leadlag.models.ml_overlay_artifact import load_overlay_model
 
-                selected_overlay_model = timed_call(
-                    lambda: load_overlay_model(overlay_path),
-                    "VaR/ES overlay load",
-                )
-        overlay_chunks, overlay_identity = timed_call(
+            selected_overlay_model = _timed_call(
+                deadline_budget,
+                lambda: load_overlay_model(overlay_path),
+                "VaR/ES overlay load",
+            )
+        overlay_chunks, overlay_identity = _timed_call(
+            deadline_budget,
             lambda: _resolve_overlay_history_chunks(
-                history_dates,
+                source.history_dates,
                 selected_overlay_model,
                 overlay_path,
             ),
             "VaR/ES overlay history resolution",
         )
-        historical_input_snapshot = timed_call(
+        historical_inputs = _timed_call(
+            deadline_budget,
             lambda: _build_var_historical_inputs(
-                df_exec,
-                app_config,
-                gap_snapshot_path,
-                history_dates,
+                source.df_exec,
+                source.app_config,
+                source.gap_snapshot_path,
+                source.history_dates,
                 bool(configured_overlay),
             ),
             "VaR/ES run-input snapshot",
         )
-        input_snapshot_hash = timed_call(
-            lambda: historical_input_snapshot.fingerprint,
+        input_snapshot_hash = _timed_call(
+            deadline_budget,
+            lambda: historical_inputs.fingerprint,
             "VaR/ES run-input fingerprint",
         )
-        df_exec_hash = timed_call(
-            lambda: dataframe_fingerprint(df_exec),
+        df_exec_hash = _timed_call(
+            deadline_budget,
+            lambda: dataframe_fingerprint(source.df_exec),
             "VaR/ES df_exec fingerprint",
         )
-        code_hash = timed_call(
+        code_hash = _timed_call(
+            deadline_budget,
             lambda: var_inputs._file_manifest_fingerprint(
                 Path(__file__).resolve().parents[1],
-                timeout=remaining_timeout(),
+                timeout=source.remaining_timeout(),
             ),
             "VaR/ES code fingerprint",
         )
         cache_key = build_var_cache_key(
-            effective_config=effective_config,
-            start_date=history_start,
-            slippage_bps=slippage_bps,
+            effective_config=source.effective_config,
+            start_date=source.history_start,
+            slippage_bps=source.slippage_bps,
             df_exec_hash=df_exec_hash,
             code_hash=code_hash,
             overlay_identity=overlay_identity,
-            gap_input_hash=gap_fingerprint,
+            gap_input_hash=source.gap_fingerprint,
             input_snapshot_hash=input_snapshot_hash,
         )
+        return VaRHistoryReplayPlan(
+            source=source,
+            overlay_chunks=overlay_chunks,
+            historical_inputs=historical_inputs,
+            cache_key=cache_key,
+        )
+    except TimeoutError as exc:
+        source.cleanup_snapshot()
+        logger.error("VaR/ES preparation exceeded its deadline: %s", exc)
+        logger.warning("Returning empty historical return series so risk check blocks.")
+        return None
+    except BaseException:
+        source.cleanup_snapshot()
+        raise
 
-        # VaR/ES should use returns up to the previous TSE trading day.
-        # If the cache does not include the most recent completed trading day,
-        # we recompute to avoid stale risk thresholds.
-        _RETURNS_MAX_STALE_BDAY = 0
 
-        try:
-            cached = timed_call(
-                lambda: returns_store.get(cache_key),
-                "VaR/ES return-cache read",
+def _load_cached_var_returns(plan: VaRHistoryReplayPlan) -> pd.Series | None:
+    """Return fresh cached returns, None on a miss, or an empty series on timeout."""
+    source = plan.source
+    try:
+        cached = _timed_call(
+            source.deadline_budget,
+            lambda: source.returns_store.get(plan.cache_key),
+            "VaR/ES return-cache read",
+        )
+    except TimeoutError as exc:
+        logger.error("VaR/ES return-cache read timed out: %s", exc)
+        logger.warning("Returning empty historical return series so risk check blocks.")
+        return pd.Series(dtype=float)
+
+    if cached is None:
+        return None
+    hist_results = cached
+    if not hist_results.empty:
+        if "daily_fallback" in hist_results and hist_results["daily_fallback"].astype(bool).any():
+            logger.warning("Cached VaR returns contain fallback dates; recomputing.")
+            hist_results = pd.DataFrame()
+            cached = None
+    if cached is not None and not hist_results.empty:
+        cached_last = pd.to_datetime(hist_results.index.max()).normalize()
+        if not pd.isna(cached_last):
+            required_last = pd.Timestamp(
+                previous_trading_day(source.trade_date.to_pydatetime())
             )
-        except TimeoutError as exc:
-            logger.error("VaR/ES return-cache read timed out: %s", exc)
-            _cleanup_snapshot()
-            logger.warning("Returning empty historical return series so risk check blocks.")
-            return pd.Series(dtype=float)
-        if cached is not None:
-            hist_results = cached
-            if not hist_results.empty:
-                if "daily_fallback" in hist_results and hist_results["daily_fallback"].astype(bool).any():
-                    logger.warning("Cached VaR returns contain fallback dates; recomputing.")
-                    hist_results = pd.DataFrame()
-                if hist_results.empty:
-                    cached = None
-            if cached is not None and not hist_results.empty:
-                cached_last = pd.to_datetime(hist_results.index.max()).normalize()
-                if not pd.isna(cached_last):
-                    required_last = pd.Timestamp(
-                        previous_trading_day(trade_date.to_pydatetime())
-                    )
-                    stale_bdays = count_tse_bdays(cached_last, required_last)
-                    if stale_bdays <= _RETURNS_MAX_STALE_BDAY:
-                        hist_returns = hist_results["daily_return"]
-                        hist_returns = hist_returns[hist_returns.index < trade_date]
-                        logger.info(
-                            "Loaded %d cached daily returns for VaR/ES (last=%s)",
-                            len(hist_returns),
-                            cached_last.date(),
-                        )
-                        remaining_timeout()
-                        _cleanup_snapshot()
-                        return hist_returns
-                    logger.warning(
-                        "Cached daily returns are stale: last=%s, trade_date=%s, "
-                        "required_last=%s, %d TSE trading days old (max=%d); recomputing.",
-                        cached_last.date(),
-                        trade_date.date(),
-                        required_last.date(),
-                        stale_bdays,
-                        _RETURNS_MAX_STALE_BDAY,
-                    )
-                else:
-                    logger.warning("Cached daily returns have no valid index; recomputing.")
-            else:
-                logger.warning("Cached daily returns are empty; recomputing.")
+            stale_bdays = count_tse_bdays(cached_last, required_last)
+            if stale_bdays <= 0:
+                hist_returns = hist_results["daily_return"]
+                hist_returns = hist_returns[hist_returns.index < source.trade_date]
+                logger.info(
+                    "Loaded %d cached daily returns for VaR/ES (last=%s)",
+                    len(hist_returns),
+                    cached_last.date(),
+                )
+                source.remaining_timeout()
+                return hist_returns
+            logger.warning(
+                "Cached daily returns are stale: last=%s, trade_date=%s, "
+                "required_last=%s, %d TSE trading days old (max=0); recomputing.",
+                cached_last.date(),
+                source.trade_date.date(),
+                required_last.date(),
+                stale_bdays,
+            )
+        else:
+            logger.warning("Cached daily returns have no valid index; recomputing.")
+    else:
+        logger.warning("Cached daily returns are empty; recomputing.")
+    return None
+
+
+def _run_var_history_backtest(
+    plan: VaRHistoryReplayPlan,
+    backtest_engine: Any,
+) -> dict[str, Any]:
+    """Replay each date-scoped overlay chunk and validate all audit contracts."""
+    source = plan.source
+    gap_dir = source.gap_snapshot_path
+    if source.gap_input_path is not None and gap_dir is None:
+        logger.warning(
+            "Gap input dir not found or could not be snapshotted: %s. "
+            "V2 VaR/ES history will fall back to flat positions.",
+            source.gap_input_path,
+        )
+
+    chunks: list[dict[str, Any]] = []
+    audit_rows: list[dict[str, Any]] = []
+    inventory_args: dict[str, Any] = {}
+    for chunk_dates, chunk_overlay in plan.overlay_chunks:
+        chunk_result = cast(
+            dict[str, Any],
+            backtest_engine.run_v2_backtest(
+                cfg=source.app_config,
+                gap_input_dir=gap_dir,
+                df_exec=source.df_exec,
+                start_date=str(chunk_dates.min().date()),
+                end_date=str(chunk_dates.max().date()),
+                n_jobs=4,
+                overlay_model=chunk_overlay,
+                historical_inputs=plan.historical_inputs,
+                terminal_policy="open_inventory",
+                **inventory_args,
+            ),
+        )
+        chunks.append(chunk_result)
+        terminal = chunk_result["terminal_inventory"]
+        inventory_args = {
+            "initial_holdings": np.asarray(terminal["holdings"], dtype=float),
+            "initial_cash": terminal["cash"],
+            "initial_mark_date": terminal["mark_date"],
+            "initial_target_weights": np.asarray(terminal["target_weights"], dtype=float),
+        }
+        summaries = chunk_result.get("v2_summaries")
+        if summaries is not None:
+            if len(summaries) != len(chunk_dates):
+                raise ValueError("VaR replay returned an incomplete decision summary set")
+            for date, summary, is_fallback in zip(
+                chunk_dates,
+                summaries,
+                chunk_result["daily_fallback"].to_numpy(dtype=bool),
+            ):
+                audit = summary.get("audit_status", {})
+                audit_rows.append(
+                    {
+                        "trade_date": str(date.date()),
+                        "numerical": audit.get("numerical"),
+                        "leakage": audit.get("leakage"),
+                        "fallback": bool(is_fallback or audit.get("fallback", False)),
+                    }
+                )
+
+    combined = pd.concat([chunk["daily_returns"] for chunk in chunks]).sort_index()
+    if not combined.index.equals(source.history_dates):
+        raise ValueError("Versioned VaR replay returned a different date set than requested")
+    if combined.isna().any() or not np.isfinite(combined.to_numpy(dtype=float)).all():
+        raise ValueError("Versioned VaR replay returned non-finite daily returns")
+    fallbacks = pd.concat(
+        [
+            chunk.get(
+                "daily_fallback",
+                pd.Series(False, index=chunk["daily_returns"].index),
+            )
+            for chunk in chunks
+        ]
+    ).sort_index().astype(bool)
+    if fallbacks.any():
+        raise ValueError(
+            f"VaR replay produced {int(fallbacks.sum())} fallback days; refusing to cache"
+        )
+    if audit_rows and len(audit_rows) != len(combined):
+        raise ValueError("VaR replay did not expose audit status for every decision date")
+    failed_audits = [
+        row
+        for row in audit_rows
+        if row["numerical"] != "PASSED" or row["leakage"] != "PASSED" or row["fallback"]
+    ]
+    if failed_audits:
+        raise ValueError(f"VaR replay contains an audit failure: {failed_audits[:5]}")
+    return {"daily_returns": combined, "daily_fallback": fallbacks}
+
+
+def get_hist_returns_for_risk(
+    config: Any,
+    output_root: str,
+    trade_date: pd.Timestamp,
+    config_path: str | Path | None = None,
+    gap_input_dir: str | Path | None = None,
+    overlay_model: Any | None = None,
+) -> pd.Series:
+    """Load fresh cached VaR returns or replay the same run-owned history."""
+    timeout = _configured_timeout(config)
+    deadline_budget = DeadlineBudget.from_timeout(timeout)
+    source = _prepare_var_history_source(
+        config,
+        output_root,
+        trade_date,
+        config_path,
+        gap_input_dir,
+        deadline_budget,
+    )
+    if source is None:
+        return pd.Series(dtype=float)
+
+    plan = _build_var_history_replay_plan(source, overlay_model)
+    if plan is None:
+        return pd.Series(dtype=float)
+
+    try:
+        cached_returns = _load_cached_var_returns(plan)
+        if cached_returns is not None:
+            source.cleanup_snapshot()
+            return cached_returns
 
         logger.info(
             "No return cache found; replaying %d completed sessions for VaR/ES...",
-            len(history_dates),
+            len(source.history_dates),
         )
-        if gap_input_dir is None:
-            gap_input_dir = app_config.gap_distribution_dir
-        gap_dir = gap_snapshot_path
-        if gap_input_dir and gap_dir is None:
-            logger.warning(
-                "Gap input dir not found or could not be snapshotted: %s. "
-                "V2 VaR/ES history will fall back to flat positions.",
-                gap_input_dir,
-            )
 
-        # Local import to avoid a module-level cycle; bound it as part of the
-        # same deadline because a cold import can be expensive on startup.
-        def _load_backtest_engine() -> Any:
+        # Keep the local import inside the same absolute deadline as snapshot
+        # preparation and fingerprinting.
+        def load_backtest_engine() -> Any:
             from leadlag.execution.backtester import BacktestEngine
 
             return BacktestEngine
 
-        backtest_engine = timed_call(
-            _load_backtest_engine,
+        backtest_engine = _timed_call(
+            deadline_budget,
+            load_backtest_engine,
             "VaR/ES backtest engine import",
         )
-
-        # Resolve the remaining budget before transferring ownership.  If the
-        # overall deadline has already elapsed, the outer cleanup path still
-        # owns the snapshot and can remove it deterministically.
-        worker_timeout = remaining_timeout()
-
-        # Transfer ownership to the worker before starting it.  The caller
-        # must not clean this directory after a timeout while the daemon thread
-        # is still reading from the snapshot.
-        worker_snapshot_owner = snapshot_owner
-        snapshot_owner = None
-
-        def _run_backtest_for_risk() -> dict[str, Any]:
-            chunks: list[dict[str, Any]] = []
-            audit_rows: list[dict[str, Any]] = []
-            inventory_args: dict[str, Any] = {}
-            for chunk_dates, chunk_overlay in overlay_chunks:
-                chunk_result = cast(dict[str, Any], backtest_engine.run_v2_backtest(
-                    cfg=app_config,
-                    gap_input_dir=gap_dir,
-                    df_exec=df_exec,
-                    start_date=str(chunk_dates.min().date()),
-                    end_date=str(chunk_dates.max().date()),
-                    n_jobs=4,
-                    overlay_model=chunk_overlay,
-                    historical_inputs=historical_input_snapshot,
-                    terminal_policy="open_inventory",
-                    **inventory_args,
-                ))
-                chunks.append(chunk_result)
-                terminal = chunk_result["terminal_inventory"]
-                inventory_args = {
-                    "initial_holdings": np.asarray(terminal["holdings"], dtype=float),
-                    "initial_cash": terminal["cash"],
-                    "initial_mark_date": terminal["mark_date"],
-                    "initial_target_weights": np.asarray(terminal["target_weights"], dtype=float),
-                }
-                summaries = chunk_result.get("v2_summaries")
-                if summaries is not None:
-                    if len(summaries) != len(chunk_dates):
-                        raise ValueError("VaR replay returned an incomplete decision summary set")
-                    for date, summary, is_fallback in zip(
-                        chunk_dates,
-                        summaries,
-                        chunk_result["daily_fallback"].to_numpy(dtype=bool),
-                    ):
-                        audit = summary.get("audit_status", {})
-                        audit_rows.append(
-                            {
-                                "trade_date": str(date.date()),
-                                "numerical": audit.get("numerical"),
-                                "leakage": audit.get("leakage"),
-                                "fallback": bool(is_fallback or audit.get("fallback", False)),
-                            }
-                        )
-            combined = pd.concat([chunk["daily_returns"] for chunk in chunks]).sort_index()
-            if not combined.index.equals(history_dates):
-                raise ValueError("Versioned VaR replay returned a different date set than requested")
-            if combined.isna().any() or not np.isfinite(combined.to_numpy(dtype=float)).all():
-                raise ValueError("Versioned VaR replay returned non-finite daily returns")
-            fallbacks = pd.concat(
-                [
-                    chunk.get(
-                        "daily_fallback",
-                        pd.Series(False, index=chunk["daily_returns"].index),
-                    )
-                    for chunk in chunks
-                ]
-            ).sort_index().astype(bool)
-            if fallbacks.any():
-                raise ValueError(
-                    f"VaR replay produced {int(fallbacks.sum())} fallback days; refusing to cache"
-                )
-            if audit_rows and len(audit_rows) != len(combined):
-                raise ValueError("VaR replay did not expose audit status for every decision date")
-            if any(
-                row["numerical"] != "PASSED" or row["leakage"] != "PASSED" or row["fallback"]
-                for row in audit_rows
-            ):
-                failed = [
-                    row for row in audit_rows
-                    if row["numerical"] != "PASSED" or row["leakage"] != "PASSED" or row["fallback"]
-                ]
-                raise ValueError(f"VaR replay contains an audit failure: {failed[:5]}")
-            return {"daily_returns": combined, "daily_fallback": fallbacks}
-
+        worker_timeout = source.remaining_timeout()
+        worker_snapshot_owner = source.transfer_snapshot()
         try:
             out_res = var_worker.run_snapshot_worker(
-                _run_backtest_for_risk, worker_snapshot_owner, timeout=worker_timeout,
+                lambda: _run_var_history_backtest(plan, backtest_engine),
+                worker_snapshot_owner,
+                timeout=worker_timeout,
             )
         except TimeoutError:
             logger.warning(
@@ -616,13 +737,14 @@ def get_hist_returns_for_risk(
             )
             return pd.Series(dtype=float)
     except TimeoutError as exc:
-        _cleanup_snapshot()
+        source.cleanup_snapshot()
         logger.error("VaR/ES preparation exceeded its deadline: %s", exc)
         logger.warning("Returning empty historical return series so risk check blocks.")
         return pd.Series(dtype=float)
     except BaseException:
-        _cleanup_snapshot()
+        source.cleanup_snapshot()
         raise
+
     hist_results = pd.DataFrame(
         {
             "daily_return": out_res["daily_returns"],
@@ -633,21 +755,20 @@ def get_hist_returns_for_risk(
         },
         index=out_res["daily_returns"].index,
     )
-
     try:
         var_worker._set_cache_with_deadline(
-            returns_store.path,
-            cache_key,
+            source.returns_store.path,
+            plan.cache_key,
             hist_results,
-            timeout=remaining_timeout(),
+            timeout=source.remaining_timeout(),
         )
-        remaining_timeout()
+        source.remaining_timeout()
     except TimeoutError as exc:
         logger.error("VaR/ES return-cache write timed out: %s", exc)
         logger.warning("Returning empty historical return series so risk check blocks.")
         return pd.Series(dtype=float)
 
-    remaining_timeout()
+    source.remaining_timeout()
     return pd.Series(
         hist_results.loc[
             hist_results.index < trade_date,

@@ -8,6 +8,7 @@ import pytest
 from leadlag.execution.account_risk import (
     ACCOUNT_RISK_SCHEMA,
     REQUIRED_PNL_BASIS,
+    AccountRiskPreflight,
     AccountRiskSnapshot,
     AccountRiskSnapshotError,
     evaluate_account_loss,
@@ -101,8 +102,9 @@ def test_live_risk_check_blocks_when_actual_account_snapshot_is_missing():
         max_capital=100_000.0,
         hist_daily_returns=pd.Series([0.01]),
         config=config,
-        actual_account_risk_error="account-risk snapshot is missing",
-        require_actual_account_risk=True,
+        account_risk_preflight=AccountRiskPreflight.unavailable(
+            AccountRiskSnapshotError("account-risk snapshot is missing")
+        ),
     )
 
     assert report["is_blocked"] is True
@@ -138,10 +140,22 @@ def test_actual_loss_stop_overrides_positive_replay_return():
         max_capital=100_000.0,
         hist_daily_returns=pd.Series([0.01]),
         config=config,
-        actual_account_risk=snapshot,
-        require_actual_account_risk=True,
+        account_risk_preflight=AccountRiskPreflight.verified(snapshot),
     )
 
     assert report["is_blocked"] is True
     assert report["actual_account_risk"]["daily_loss"] == pytest.approx(0.03)
     assert "ActualAccountDailyLoss" in " ".join(report["stop_breaches"])
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"required": True},
+        {"required": True, "snapshot": object(), "error": AccountRiskSnapshotError("bad")},
+        {"required": False, "error": AccountRiskSnapshotError("unexpected")},
+    ],
+)
+def test_account_risk_preflight_rejects_ambiguous_evidence(kwargs):
+    with pytest.raises(ValueError, match="preflight"):
+        AccountRiskPreflight(**kwargs)

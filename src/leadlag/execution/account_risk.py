@@ -145,6 +145,35 @@ class AccountRiskSnapshot:
         )
 
 
+@dataclass(frozen=True)
+class AccountRiskPreflight:
+    """Run-owned account-risk evidence and whether the live gate requires it."""
+
+    required: bool
+    snapshot: AccountRiskSnapshot | None = None
+    error: AccountRiskSnapshotError | None = None
+
+    def __post_init__(self) -> None:
+        if self.required and (self.snapshot is None) == (self.error is None):
+            raise ValueError(
+                "required account-risk preflight must contain exactly one of snapshot or error"
+            )
+        if not self.required and (self.snapshot is not None or self.error is not None):
+            raise ValueError("optional account-risk preflight cannot contain evidence or an error")
+
+    @classmethod
+    def not_required(cls) -> AccountRiskPreflight:
+        return cls(required=False)
+
+    @classmethod
+    def verified(cls, snapshot: AccountRiskSnapshot) -> AccountRiskPreflight:
+        return cls(required=True, snapshot=snapshot)
+
+    @classmethod
+    def unavailable(cls, error: AccountRiskSnapshotError) -> AccountRiskPreflight:
+        return cls(required=True, error=error)
+
+
 def evaluate_account_loss(snapshot: AccountRiskSnapshot, config: Any) -> dict[str, Any]:
     """Compare verified account returns with the existing daily/monthly limits."""
     daily_loss = max(0.0, -snapshot.daily_return)
@@ -185,6 +214,7 @@ def evaluate_account_loss(snapshot: AccountRiskSnapshot, config: Any) -> dict[st
 __all__ = [
     "ACCOUNT_RISK_SCHEMA",
     "REQUIRED_PNL_BASIS",
+    "AccountRiskPreflight",
     "AccountRiskSnapshot",
     "AccountRiskSnapshotError",
     "evaluate_account_loss",
