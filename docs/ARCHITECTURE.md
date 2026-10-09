@@ -142,7 +142,7 @@ ProductionBLPXModel (models/blpx/model.py)
 | `macro.py` | マクロ因子（USDJPY, CLF, TNX）のボラティリティ調整サプライズ計算、感度行列（`MACRO_SENS_MATRIX`）、Factor-Specific Kappa リスクスケーリング。ネットワーク・キャッシュI/Oは持たない |
 | `pnl.py` | weight-based BTの日次損益・費用計算と、観測/仮定FillをFIFO在庫へ評価する純粋な会計プリミティブ |
 | `pit.py` | Point-in-time view — ローリング窓アクセスを `as_of` 行で制限しルックアヘッドを実行時に防止 |
-| `experiment_registry.py` | 実験レジストリ — 仮説・パラメータ・指標・DSR を JSONL で記録 |
+| `experiment_registry.py` | 実験レジストリ — 仮説family事前登録・全試行開始/outcome・選択・DSR検証を同JSONLに追記 ([契約](decisions/2026-10-08-study-governance.md)) |
 | `timeouts.py` | 集中管理されたタイムアウト定数と `with_timeout` デコレータ |
 
 ### 2.1 Typed input boundary (`domain/inputs.py`)

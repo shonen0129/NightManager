@@ -152,7 +152,8 @@ def test_record_backtest_experiment_preserves_explicit_trial_count(tmp_path):
     )
 
     assert rec.metrics["trials"] == 24
-    assert rec.metrics["deflated_sharpe"] is not None
+    assert rec.metrics["deflated_sharpe"] is None
+    assert rec.metrics["trial_count_status"] == "lower_bound"
 
 
 def test_record_backtest_experiment_does_not_persist_broker_credentials(tmp_path):
