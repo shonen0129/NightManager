@@ -211,7 +211,7 @@ def _submit_close_order_batches(
             close_results.append(simulated)
         return close_results
 
-    immediate_close, delayed_close = split_large_orders(order_plan.order_requests)
+    immediate_close, delayed_close = split_large_orders(list(order_plan.order_requests))
     immediate_requests = list(immediate_close)
     logger.info("[LIVE MODE] Submitting %d position close orders...", len(immediate_requests))
     first_results = api_client.submit_orders_batch(
