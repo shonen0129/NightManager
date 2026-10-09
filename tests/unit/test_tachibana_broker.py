@@ -84,7 +84,7 @@ class TestTachibanaClient:
 
         # Mock decrypt helper to bypass file reading and RSA
         with patch.object(client, "_decrypt_virtual_url") as mock_decrypt:
-            mock_decrypt.side_effect = lambda val: f"https://decrypted-{val}.jp"
+            mock_decrypt.side_effect = lambda val, **kwargs: f"https://decrypted-{val}.jp"
             client.login()
 
             assert client.logged_in is True
@@ -224,7 +224,7 @@ class TestTachibanaClient:
         client.decrypted_urls = {"sUrlRequest": "https://decrypted-request-url.jp"}
 
         with patch.object(client, "_decrypt_virtual_url") as mock_decrypt:
-            mock_decrypt.side_effect = lambda val: f"https://decrypted-{val}.jp"
+            mock_decrypt.side_effect = lambda val, **kwargs: f"https://decrypted-{val}.jp"
 
             res = client._request("sUrlRequest", {"sCLMID": "CLMZanKaiSummary"})
             assert res["some_data"] == "ok"
