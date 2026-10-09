@@ -84,7 +84,7 @@ def test_ticker_transition_attribution_reconciles_inventory_ledger() -> None:
     masks = np.array([[0.75, 0.5], [0.5, 0.25], [0.0, 0.0]])
     target = np.array([[0.01, -0.02], [0.03, -0.01], [0.0, 0.0]])
     gaps = np.array([[0.0, 0.0], [0.02, 0.01], [-0.01, 0.0]])
-    days = np.array([1.0, 1.0, 0.0])
+    days = np.array([0.0, 1.0, 1.0])
     attributed = attribute_inventory_transitions(
         weights=weights,
         target_returns=target,
@@ -127,6 +127,43 @@ def test_ticker_transition_attribution_reconciles_inventory_ledger() -> None:
     reversal = attributed.loc[
         (attributed["date"] == dates[0]) & (attributed["ticker_index"] == 1)
     ].iloc[0]
-    np.testing.assert_allclose(reversal["close_slippage_delta_vs_flat"], -0.000325)
-    np.testing.assert_allclose(reversal["next_open_slippage_delta_vs_flat"], 0.000325)
-    np.testing.assert_allclose(reversal["transition_slippage_delta_vs_flat"], 0.0)
+    # The short carry is marked at 0.98 on the first close, then at 1.01
+    # on the receiving date; next-opening volume uses the new NAV basis.
+    short_carry = 1.3 * 0.5 * 0.98
+    first_day_cost = 0.0005 * (2.6 + 1.3 * (0.25 * 1.01 + 0.5 * 0.98))
+    first_close_nav = 1.0 + 1.3 * 0.03 - first_day_cost
+    saved_close = -0.0005 * short_carry
+    added_next_open = 0.0005 * short_carry * 1.01 / first_close_nav
+    np.testing.assert_allclose(reversal["close_slippage_delta_vs_flat"], saved_close)
+    np.testing.assert_allclose(reversal["next_open_slippage_delta_vs_flat"], added_next_open)
+    np.testing.assert_allclose(
+        reversal["transition_slippage_delta_vs_flat"], saved_close + added_next_open
+    )
+
+
+def test_attribution_books_marked_carry_and_weekend_fees_on_receiving_date():
+    dates = pd.DatetimeIndex(["2025-01-10", "2025-01-13"])
+    attributed = attribute_inventory_transitions(
+        weights=np.array([[1.0], [0.0]]),
+        target_returns=np.array([[0.10], [0.0]]),
+        gap_returns=np.array([[0.0], [0.20]]),
+        alpha_masks=np.ones((2, 1)),
+        sim_dates=dates, calendar_days=np.array([0.0, 3.0]),
+        slip=0.0, financing_daily=0.001, borrow_daily=0.0,
+        reverse_daily=0.0, side_leverage=1.0,
+    )
+    np.testing.assert_allclose(attributed["overnight_pnl"], [0.0, 0.20])
+    np.testing.assert_allclose(attributed["financing_cost"], [0.0, 0.003])
+    np.testing.assert_allclose(attributed["execution_volume"], [1.0, 1.20])
+    np.testing.assert_allclose(attributed["net_pnl"], [0.10, 0.197])
+
+
+def test_research_replay_calendar_intervals_are_incoming():
+    from research.scripts.experiments.experiment_adaptive_overnight_inventory_v2_long_20261009 import (
+        _calendar_days,
+    )
+
+    np.testing.assert_array_equal(
+        _calendar_days(pd.DatetimeIndex(["2025-01-10", "2025-01-13", "2025-01-14"])),
+        [0.0, 3.0, 1.0],
+    )

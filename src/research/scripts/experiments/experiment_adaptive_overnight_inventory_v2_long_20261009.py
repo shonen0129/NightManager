@@ -20,7 +20,16 @@ while not (ROOT / "pyproject.toml").exists():
     ROOT = ROOT.parent
 sys.path.insert(0, str(ROOT / "src"))
 
-from experiment_adaptive_overnight_inventory_20261008 import (
+from leadlag.data.intraday_inputs import build_open_910_returns
+from leadlag.data.market_data_cache import load_df_exec_from_local_cache
+from leadlag.data.tickers import JP_TICKERS
+from leadlag.execution.backtester import BacktestEngine
+from leadlag.execution.config import load_config_from_yaml
+from leadlag.experiment_registry import Decision
+from leadlag.reporting.metrics import MetricsSpec
+from research.experiment_utils import record_backtest_experiment
+from research.overnight_inventory import adaptive_carry_masks, realized_inventory_reuse
+from research.scripts.experiments.experiment_adaptive_overnight_inventory_20261008 import (
     _calendar_days,
     _fixed_masks,
     _gross_stats,
@@ -34,16 +43,6 @@ from experiment_adaptive_overnight_inventory_20261008 import (
     _summary_row,
     _weighted_alpha_mean,
 )
-
-from leadlag.data.intraday_inputs import build_open_910_returns
-from leadlag.data.market_data_cache import load_df_exec_from_local_cache
-from leadlag.data.tickers import JP_TICKERS
-from leadlag.execution.backtester import BacktestEngine
-from leadlag.execution.config import load_config_from_yaml
-from leadlag.experiment_registry import Decision
-from leadlag.reporting.metrics import MetricsSpec
-from research.experiment_utils import record_backtest_experiment
-from research.overnight_inventory import adaptive_carry_masks, realized_inventory_reuse
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -186,9 +185,10 @@ def main() -> int:
     if not dates.equals(expected_dates):
         raise ValueError("V2 weight dates do not match the requested execution-date slice")
     open_910_returns = build_open_910_returns(df_exec, JP_TICKERS)
-    target_returns, gap_returns = BacktestEngine._compute_target_and_gap_returns(
+    target_returns, gap_returns, morning_returns = BacktestEngine._compute_price_intervals(
         df_exec, sim_dates, pd.DatetimeIndex(sim_dates[start_idx : end_idx + 1]), open_910_returns
     )
+    gap_returns = (1.0 + gap_returns) * (1.0 + morning_returns) - 1.0
     calendar_days = _calendar_days(dates)
 
     slip = float(costs.slippage_bps_per_side) / 10_000.0

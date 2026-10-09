@@ -358,3 +358,48 @@ def test_shadow_only_returns_before_production_writes_positions_or_orders(monkey
     assert result == str(shadow_path)
     assert shadow_calls[0]["raise_on_overlay_failure"] is True
     assert api_client.closed is True
+
+
+@pytest.mark.parametrize("shadow_only", [False, True])
+def test_candidate_config_failure_preserves_live_v2_but_stops_shadow_only(
+    monkeypatch, tmp_path, shadow_only
+):
+    config = SimpleNamespace(v2=SimpleNamespace(ml_overlay_enabled=False))
+    baseline = _decision(0.2)
+    written = []
+    client = SimpleNamespace(close=lambda: None)
+
+    def load_config(path, **_kwargs):
+        if str(path).endswith("missing-candidate.yaml"):
+            raise FileNotFoundError("candidate config unavailable")
+        return config
+
+    class ProductionWriteReached(Exception):
+        pass
+
+    def write_baseline(_date, _path, result, **_kwargs):
+        written.append(result)
+        raise ProductionWriteReached
+
+    monkeypatch.setattr(v2_bridge, "load_config_from_yaml", load_config)
+    monkeypatch.setattr(v2_bridge, "_resolve_trade_date", lambda *_args: "2026-09-28")
+    monkeypatch.setattr(v2_bridge, "_resolve_gap_dir", lambda *_args: None)
+    monkeypatch.setattr(v2_bridge, "_load_df_exec", lambda *_args, **_kwargs: pd.DataFrame())
+    monkeypatch.setattr(v2_bridge, "load_frozen_quote_snapshot", lambda *_args, **_kwargs: SimpleNamespace(
+        as_of=pd.Timestamp("2026-09-28T09:10:05+09:00"), snapshot_id="frozen-test"
+    ))
+    monkeypatch.setattr(v2_bridge, "build_api_client", lambda **_kwargs: client)
+    monkeypatch.setattr(v2_bridge, "_resolve_current_price_preflight", lambda *_args, **_kwargs: object())
+    monkeypatch.setattr(v2_bridge, "_build_quote_preflight", lambda *_args, **_kwargs: object())
+    monkeypatch.setattr(v2_bridge, "_build_run_owned_decision_inputs", lambda *_args: _inputs())
+    monkeypatch.setattr(v2_bridge, "ProductionRunner", lambda _config: SimpleNamespace(run=lambda _inputs: baseline))
+    monkeypatch.setattr(v2_bridge, "write_production_files", write_baseline)
+
+    error = FileNotFoundError if shadow_only else ProductionWriteReached
+    with pytest.raises(error):
+        v2_bridge.run_v2_decision(
+            config_path="production.yaml", live_dir=tmp_path,
+            api_enable=True, ml_overlay_shadow_dir=tmp_path / "shadow",
+            ml_overlay_shadow_config="missing-candidate.yaml", shadow_only=shadow_only,
+        )
+    assert written == ([] if shadow_only else [baseline])

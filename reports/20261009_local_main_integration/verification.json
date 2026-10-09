@@ -1,0 +1,48 @@
+{
+  "schema_version": "local-main-integration-v1",
+  "base_main": "4e2b44884956dc9ec760a10314f560b6fb0814be",
+  "original_local_main": "c3a86c95fd5f889fe34f6fb700c64c23aaf4b679",
+  "tests": {
+    "baseline_passed": 1,
+    "remaining": {
+      "tests": 1263,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "total_passed": 1264,
+    "warnings": 2,
+    "remaining_workers": 4
+  },
+  "deadlines_seconds": {
+    "baseline": 300,
+    "remaining_tests": 1800,
+    "kill_grace": 10
+  },
+  "checks_passed": [
+    "compileall",
+    "ruff-production-and-research",
+    "mypy-147-files",
+    "7-import-contracts",
+    "2-operational-imports",
+    "249-current-doc-paths-and-symbols",
+    "298-maintained-doc-references",
+    "6-added-doc-references",
+    "lock-check",
+    "clean-wheel-152-files",
+    "installed-wheel-smoke",
+    "4-research-entry-imports"
+  ],
+  "file_sha256": {
+    "configs/production/production.yaml": "e6e51f832af9db88c7ef5dffdb7be33ff298cd063978b6444fb75887e3171cb9",
+    "src/leadlag/execution/v2_bridge.py": "dd50b243eb28157bf71899fe9c894369620a6434077904fb52b3c352d59d05d0",
+    "src/leadlag/reporting/ml_overlay_shadow.py": "1a7915007bf3d5a48e0d98357f8ca46e72f53420008f47b84cd96ce178d6b81f",
+    "src/research/overnight_inventory.py": "5ea34d198bfaf62edf44eca1db0316fd7178237dea21d0486a4f9b2f40c4342e",
+    "src/research/scripts/experiments/experiment_adaptive_overnight_inventory_20261008.py": "1ac12085918d791a1c1dd04e1b64c193fdde131a9dc76f609a6cd3de3224b01b",
+    "src/research/scripts/experiments/experiment_adaptive_overnight_inventory_v2_long_20261009.py": "44c51899aed0b174dfebaf32458fc6624c7f3f75787c8902d99b71509e5d307d",
+    "src/research/scripts/experiments/experiment_nightmanager_direct_stock_alpha_20261007.py": "298c7e074312f87377fbf1193c8dcc2f4d50609b191c590d750cd788bfcfc0c6",
+    "src/research/scripts/experiments/experiment_nightmanager_etf_stock_proxy_20261007.py": "51c8e37885f23a830119f9c8813d2006b5a07e7eddf3f1a2bfbfc0392339fc42"
+  },
+  "research_performance_rerun": false,
+  "live_orders_submitted": false
+}

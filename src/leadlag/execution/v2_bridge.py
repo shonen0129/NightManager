@@ -603,20 +603,11 @@ def run_v2_decision(
         config_path = ROOT / config_path
     logger.info("Loading V2 config: %s", config_path)
     app_config = load_config_from_yaml(str(config_path))
-    overlay_shadow_config = None
     if ml_overlay_shadow_dir is not None:
         if app_config.v2.ml_overlay_enabled:
             raise ValueError(
                 "paired overlay shadow requires the production V2-only config"
             )
-        candidate_config_path = Path(ml_overlay_shadow_config)
-        if not candidate_config_path.is_absolute():
-            candidate_config_path = ROOT / candidate_config_path
-        overlay_shadow_config = load_config_from_yaml(
-            str(candidate_config_path), strict=True
-        )
-        if not overlay_shadow_config.v2.ml_overlay_enabled:
-            raise ValueError("research shadow config must enable its overlay candidate")
 
     # Resolve live dir before trade date, because ``latest`` reads from it.
     live_path = Path(live_dir)
@@ -754,7 +745,14 @@ def run_v2_decision(
     if ml_overlay_shadow_dir is not None:
         if api_enable and not api_dry_run and not dry_run:
             try:
-                assert overlay_shadow_config is not None
+                candidate_config_path = Path(ml_overlay_shadow_config)
+                if not candidate_config_path.is_absolute():
+                    candidate_config_path = ROOT / candidate_config_path
+                overlay_shadow_config = load_config_from_yaml(
+                    str(candidate_config_path), strict=True
+                )
+                if not overlay_shadow_config.v2.ml_overlay_enabled:
+                    raise ValueError("research shadow config must enable its overlay candidate")
                 shadow_path = append_ml_overlay_shadow(
                     app_config=app_config,
                     overlay_config=overlay_shadow_config,

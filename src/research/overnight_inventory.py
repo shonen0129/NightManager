@@ -13,6 +13,8 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
+from leadlag.core.pnl import simulate_daily_pnl
+
 
 @dataclass(frozen=True)
 class AdaptiveCarryConfig:
@@ -281,55 +283,67 @@ def attribute_inventory_transitions(
         raise ValueError("cost rates and side_leverage must be finite and non-negative")
 
     n_days, n_assets = weight_array.shape
-    held = alpha_array * weight_array
-    held_previous = np.zeros_like(held)
+    ledger = simulate_daily_pnl(
+        weights=weight_array,
+        target_returns=target_array,
+        gap_returns=gap_array,
+        sim_dates=dates,
+        slip=slip,
+        financing_daily=financing_daily,
+        borrow_daily=borrow_daily,
+        reverse_daily=reverse_daily,
+        alpha_long=0.0,
+        alpha_short=0.0,
+        alpha_masks=alpha_array,
+        calendar_days=days_array,
+        side_leverage=side_leverage,
+    )
+    # Read the canonical ledger's NAV and close-marked inventory. Research
+    # attribution does not maintain a second cash/inventory state machine.
+    nav_previous = np.r_[ledger["initial_inventory"]["equity"], ledger["equity"][:-1]]
+    held = np.asarray(ledger["holdings"], dtype=float)
+    held_previous = np.zeros_like(weight_array)
     if n_days > 1:
         held_previous[1:] = held[:-1]
-    opening_flow = np.abs(weight_array - held_previous)
-    closing_flow = np.abs(weight_array - held)
-    execution_volume = side_leverage * (opening_flow + closing_flow)
+    prior_inventory = held_previous / nav_previous[:, None]
+    entry_inventory = prior_inventory * (1.0 + np.where(prior_inventory != 0, gap_array, 0.0))
+    target_value = side_leverage * weight_array
+    close_value = target_value * (1.0 + np.where(target_value != 0, target_array, 0.0))
+    close_inventory = held / nav_previous[:, None]
+    opening_flow = np.abs(target_value - entry_inventory)
+    closing_flow = np.abs(close_value - close_inventory)
+    execution_volume = opening_flow + closing_flow
     slip_cost = slip * execution_volume
-    close_slippage_delta_vs_flat = slip * side_leverage * (
-        closing_flow - np.abs(weight_array)
+    close_slippage_delta_vs_flat = slip * (
+        closing_flow - np.abs(close_value)
     )
     next_open_slippage_delta_vs_flat = np.zeros_like(weight_array)
     if n_days > 1:
-        next_open_flow = np.abs(weight_array[1:] - held[:-1])
-        next_open_slippage_delta_vs_flat[:-1] = slip * side_leverage * (
-            next_open_flow - np.abs(weight_array[1:])
+        next_open_slippage_delta_vs_flat[:-1] = slip * (
+            opening_flow[1:] - np.abs(target_value[1:])
         )
     transition_slippage_delta_vs_flat = (
         close_slippage_delta_vs_flat + next_open_slippage_delta_vs_flat
     )
     financing_cost = (
-        side_leverage
-        * alpha_array
-        * np.maximum(weight_array, 0.0)
+        np.maximum(prior_inventory, 0.0)
         * financing_daily
         * days_array[:, None]
     )
     borrow_cost = (
-        side_leverage
-        * alpha_array
-        * np.maximum(-weight_array, 0.0)
+        np.maximum(-prior_inventory, 0.0)
         * borrow_daily
         * days_array[:, None]
     )
     reverse_cost = (
-        side_leverage
-        * alpha_array
-        * np.maximum(-weight_array, 0.0)
+        np.maximum(-prior_inventory, 0.0)
         * reverse_daily
         * days_array[:, None]
     )
     intraday_gross = side_leverage * np.where(
         weight_array != 0.0, weight_array * target_array, 0.0
     )
-    overnight = np.zeros_like(weight_array)
-    if n_days > 1:
-        next_gap = gap_array[1:]
-        carry = held[:-1]
-        overnight[:-1] = side_leverage * np.where(carry != 0.0, carry * next_gap, 0.0)
+    overnight = prior_inventory * np.where(prior_inventory != 0.0, gap_array, 0.0)
     gross = intraday_gross + overnight
     total_cost = slip_cost + financing_cost + borrow_cost + reverse_cost
     next_weights = np.zeros_like(weight_array)
@@ -344,9 +358,12 @@ def attribute_inventory_transitions(
     classes[:-1][active & (next_direction[:-1] == -current_direction[:-1])] = "next_signal_reversal"
     classes[:-1][active & (next_direction[:-1] == current_direction[:-1])] = "next_signal_same_direction"
     classes[:-1][active & (next_direction[:-1] == 0.0)] = "next_signal_flat"
+    next_inventory = np.zeros_like(weight_array)
+    if n_days > 1:
+        next_inventory[:-1] = entry_inventory[1:]
     reused_notional = np.where(
         (current_direction != 0.0) & (current_direction == next_direction),
-        np.minimum(np.abs(held), np.abs(next_weights)),
+        np.minimum(np.abs(next_inventory), side_leverage * np.abs(next_weights)),
         0.0,
     )
 
@@ -370,7 +387,7 @@ def attribute_inventory_transitions(
             "next_open_slippage_delta_vs_flat": next_open_slippage_delta_vs_flat.reshape(-1),
             "transition_slippage_delta_vs_flat": transition_slippage_delta_vs_flat.reshape(-1),
             "execution_volume": execution_volume.reshape(-1),
-            "carried_notional": np.abs(held).reshape(-1),
+            "carried_notional": np.abs(next_inventory).reshape(-1),
             "reused_notional": reused_notional.reshape(-1),
         }
     )

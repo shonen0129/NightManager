@@ -1,0 +1,30 @@
+experiment_id: nightmanager_etf_stock_proxy_20261007
+description: Rolling OOS test of TOPIX-17 ETF replication by liquid same-industry stocks.
+data:
+  stock_prices: var/research/subsector/raw_ohlc/
+  current_industry_mapping: configs/research/subsector_mapping_expanded.yaml
+  etf_price_cache: var/market_data/etf_prices.sqlite
+  nightmanager_target_weights: var/results/v2_backtest_exact_production/daily_weights.csv
+  nightmanager_backtest_summary: var/results/v2_backtest_exact_production/summary.json
+evaluation:
+  lookback_sessions: 252
+  candidate_pool_top_k: 10
+  candidate_pool_sensitivity: [8, 12]
+  cost_penalty_lambda_bps: 10.0
+  cost_penalty_sensitivity_bps: [5.0, 20.0]
+  min_training_observations: 252
+  annualization_sessions: 245
+  validation_end: "2019-12-31"
+  bootstrap_block_sessions: 20
+  bootstrap_resamples: 5000
+  bootstrap_seed: 20261007
+replaceability_gates:
+  minimum_oos_correlation: 0.90
+  maximum_tracking_error_to_etf_vol_ratio: 0.35
+  require_lower_estimated_unit_cost: false
+cost_model:
+  slippage_bps_per_side: 5.0
+  stock_spread_method: Corwin-Schultz daily OHLC estimator, prior 60-session median
+  stock_spread_cost: estimated half-spread plus 5.0 bps slippage per side
+  etf_cost: 5.0 bps per side (project reference slippage; historical ETF quote spreads unavailable)
+  excluded: commissions, exchange fees, taxes, borrow, financing, market impact, and short availability

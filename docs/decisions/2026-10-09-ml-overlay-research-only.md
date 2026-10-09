@@ -33,7 +33,7 @@ V2単独を本番基準に戻す。履歴上のpromotion記録とimmutable artif
 - live baselineはその日の本番V2結果、candidateはresearch configで計算したoverlay結果。
 - 両者は同一の入力digest、frozen quote snapshot、trade dateに結び付ける。
 - config fingerprintには両設定とcandidate artifact metadataを記録する。
-- overlay計算・保存が失敗した場合は不完全なshadow rowを残し、本番出力や発注判断を変更しない。
+- overlay計算失敗は不完全なshadow rowを残す。candidate設定読込や保存の失敗はログへ記録し、通常の本番出力や発注判断を変更しない。shadow-onlyではこれらを失敗として終了する。
 - shadowのモデル費用は実約定費用ではない。採否判断は既存のforward gateと実費照合が満たされるまで保留する。
 - 本番へ戻す操作はこの決定では行わない。採用時は別途OOS結果・監査・リスク確認と明示的な設定変更を必要とする。
 

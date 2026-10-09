@@ -82,9 +82,10 @@ def _safe_json(value: Any) -> Any:
 
 
 def _calendar_days(dates: pd.DatetimeIndex) -> np.ndarray:
+    """Incoming intervals for fees on previous-close inventory."""
     values = np.zeros(len(dates), dtype=float)
     if len(dates) > 1:
-        values[:-1] = np.diff(dates.values).astype("timedelta64[D]").astype(int)
+        values[1:] = np.diff(dates.values).astype("timedelta64[D]").astype(int)
     return values
 
 
@@ -398,9 +399,9 @@ def _segment_rows(
         return output
     following = weights[1:]
     group_masks: dict[str, np.ndarray] = {
-        "calendar_gap_1d": calendar_days[:-1] == 1,
-        "weekend_or_short_holiday_2_3d": (calendar_days[:-1] >= 2) & (calendar_days[:-1] <= 3),
-        "extended_holiday_4d_plus": calendar_days[:-1] >= 4,
+        "calendar_gap_1d": calendar_days[1:] == 1,
+        "weekend_or_short_holiday_2_3d": (calendar_days[1:] >= 2) & (calendar_days[1:] <= 3),
+        "extended_holiday_4d_plus": calendar_days[1:] >= 4,
     }
     eligible_positions = np.arange(len(dates) - 1) >= oos_start_index
     attributed = attribute_inventory_transitions(
@@ -571,9 +572,11 @@ def main() -> int:
     if not dates.equals(expected_dates):
         raise ValueError("Backtest weight dates differ from the execution-data date slice")
     open_910_returns = build_open_910_returns(df_exec, JP_TICKERS)
-    target_returns, gap_returns = BacktestEngine._compute_target_and_gap_returns(
+    target_returns, gap_returns, morning_returns = BacktestEngine._compute_price_intervals(
         df_exec, sim_dates, pd.DatetimeIndex(sim_dates[start_idx : end_idx + 1]), open_910_returns
     )
+    # Research uses one close-to-entry mark, matched to the intraday target.
+    gap_returns = (1.0 + gap_returns) * (1.0 + morning_returns) - 1.0
     calendar_days = _calendar_days(dates)
 
     slip = float(cost_config.slippage_bps_per_side) / 10_000.0
