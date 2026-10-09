@@ -40,8 +40,8 @@ PRODUCTION_CONFIG = ROOT / "configs/production/production.yaml"
 SOURCE_HISTORY = ROOT / "reports/20260927_ml_overlay_var_history/history.json"
 SOURCE_RETURNS = ROOT / "var/results/20260927_ml_overlay_var_history_2025/history/versioned_var_returns.pkl"
 MACRO_PROVENANCE = ROOT / "var/market_data/macro_prices_verified.provenance.json"
-OUTPUT_ROOT = ROOT / "var/results/20260929_ml_overlay_paired_269"
-REPORT_ROOT = ROOT / "reports/20260929_ml_overlay_paired_269"
+OUTPUT_ROOT = ROOT / "var/results/20261008_inventory_ml_overlay_paired_269"
+REPORT_ROOT = ROOT / "reports/20261008_issue33_inventory/paired_269"
 REGISTRY_PATH = ROOT / "var/experiments/registry.jsonl"
 STUDY_ID = "ml-overlay-versioned-paired-replay-2026-09-29"
 OLD_VERSION = "20260922T011723828589Z-7e1a81ab2617"
@@ -165,6 +165,8 @@ def _run_chunk(
     dates: pd.DatetimeIndex,
     *,
     overlay_model: Any | None,
+    inventory_args: dict[str, Any] | None = None,
+    terminal_policy: str = "liquidate",
 ) -> dict[str, Any]:
     result = BacktestEngine.run_v2_backtest(
         cfg=app,
@@ -175,6 +177,8 @@ def _run_chunk(
         n_jobs=4,
         overlay_model=overlay_model,
         historical_inputs=history_inputs,
+        terminal_policy=terminal_policy,
+        **(inventory_args or {}),
     )
     if not result["daily_returns"].index.equals(dates):
         raise ValueError("Backtest returned a different trade-date index")
@@ -376,6 +380,7 @@ def run() -> dict[str, Any]:
         on_parts: list[dict[str, Any]] = []
         on_audits: list[dict[str, Any]] = []
         model_by_version = {OLD_VERSION: prior_model, CURRENT_VERSION: cutoff_model}
+        inventory_args: dict[str, Any] = {}
         for version in (OLD_VERSION, CURRENT_VERSION):
             dates = pd.DatetimeIndex(dates_by_version[version])
             part = _run_chunk(
@@ -385,7 +390,16 @@ def run() -> dict[str, Any]:
                 history_inputs,
                 dates,
                 overlay_model=model_by_version[version],
+                inventory_args=inventory_args,
+                terminal_policy="liquidate" if version == CURRENT_VERSION else "open_inventory",
             )
+            terminal = part["terminal_inventory"]
+            inventory_args = {
+                "initial_holdings": np.asarray(terminal["holdings"], dtype=float),
+                "initial_cash": terminal["cash"],
+                "initial_mark_date": terminal["mark_date"],
+                "initial_target_weights": np.asarray(terminal["target_weights"], dtype=float),
+            }
             on_parts.append(part)
             on_audits.extend(_audit_rows(part, f"ml_on:{version}"))
 
@@ -412,11 +426,21 @@ def run() -> dict[str, Any]:
         "daily_borrow_costs",
         "daily_reverse_costs",
         "daily_turnover",
+        "daily_target_weight_turnover",
+        "daily_execution_volume",
+        "daily_carry_gap_returns",
+        "daily_carry_open_910_returns",
+        "daily_cash",
+        "daily_inventory_equity",
+        "daily_holdings",
         "daily_fallback",
         "weights",
     ):
         on_result[key] = pd.concat([part[key] for part in on_parts]).sort_index()
     on_result["side_leverage"] = on_parts[-1]["side_leverage"]
+    on_result["accounting_contract"] = on_parts[-1]["accounting_contract"]
+    on_result["initial_inventory"] = on_parts[0]["initial_inventory"]
+    on_result["terminal_inventory"] = on_parts[-1]["terminal_inventory"]
     on_audit_frame = pd.DataFrame(on_audits).sort_values("trade_date")
     off_audit_frame = pd.DataFrame(off_audits).sort_values("trade_date")
     if len(on_result["daily_returns"]) != EXPECTED_DAYS:
@@ -493,6 +517,9 @@ def run() -> dict[str, Any]:
         "ml_off_leakage_passed": int((off_audit_frame["leakage"] == "PASSED").sum()),
     }
     summary = {
+        "accounting_contract": on_result["accounting_contract"],
+        "initial_inventory": on_result["initial_inventory"],
+        "terminal_inventory": on_result["terminal_inventory"],
         "status": "RETROSPECTIVE_VERSIONED_PAIRED_REPLAY_PENDING_PIT_PROVIDER_AND_EXECUTION_VALIDATION",
         "study_id": STUDY_ID,
         "created_at_utc": datetime.now(UTC).isoformat(),
@@ -662,7 +689,7 @@ def run() -> dict[str, Any]:
             "prospective_gate_eligible": False,
         },
         decision=Decision.PENDING,
-        report_path="reports/20260929_ml_overlay_paired_269/report.md",
+        report_path="reports/20261008_issue33_inventory/paired_269/report.md",
         study_id=STUDY_ID,
         metric_schema_version="ml-overlay-versioned-paired-v1",
     )

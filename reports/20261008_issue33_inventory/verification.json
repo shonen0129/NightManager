@@ -1,0 +1,82 @@
+{
+  "date_jst": "2026-10-08",
+  "issue": 33,
+  "implementation_status": "implemented_and_tested",
+  "issue_status": "pending_original_269_day_input_revaluation",
+  "targeted_regressions": {
+    "passed": 84,
+    "failed": 0,
+    "elapsed_seconds": 20.66
+  },
+  "complete_tests": {
+    "name": "pytest",
+    "errors": "0",
+    "failures": "0",
+    "skipped": "0",
+    "tests": "1162",
+    "time": "208.257",
+    "timestamp": "2026-10-08T15:58:12.339098+09:00",
+    "hostname": "takahashimasaminorunonotobukkukonpyuta.local"
+  },
+  "full_test_command": "/usr/bin/timeout -k 10s 1800s .venv/bin/python -m pytest tests/ -q --timeout=300 --junitxml=reports/20261008_issue33_inventory/tests.xml",
+  "compileall": "passed: src/leadlag tests tools scripts src/research",
+  "ruff": "passed: src/leadlag tests tools/production tools/validation src/research tools/research",
+  "mypy": {
+    "version": "2.3.0",
+    "status": "4_preexisting_errors_no_new_errors",
+    "baseline_same_four_errors": true,
+    "details": "src/leadlag/core/market_calendar.py:111: error: Returning Any from function declared to return \"bool | None\"  [no-any-return]\nsrc/leadlag/core/market_calendar.py:187: error: Returning Any from function declared to return \"str | None\"  [no-any-return]\nsrc/leadlag/core/gap_adjustment.py:195: error: Returning Any from function declared to return \"ndarray[tuple[Any, ...], dtype[Any]]\"  [no-any-return]\nsrc/leadlag/models/blpx/model_meta.py:82: error: Argument 1 to \"append\" of \"list\" has incompatible type \"list[object]\"; expected \"list[float]\"  [arg-type]\nFound 4 errors in 3 files (checked 152 source files)\n"
+  },
+  "import_contracts": {
+    "kept": 7,
+    "broken": 0
+  },
+  "operational_imports": {
+    "passed": 2
+  },
+  "docs_references": {
+    "verified": 161
+  },
+  "stored_revaluation_vs_final_code": {
+    "series": 4,
+    "days_per_series": 368,
+    "max_abs_net_error": 1.0408340855860843e-16
+  },
+  "terminal_cash_and_inventory": "hand_calculation_and_CSV_SQLite_roundtrip_passed",
+  "artifact_continuity": "split_vs_single_run_and_actual_VaR_history_entry_passed",
+  "user_confirmed_missing_inputs": "original 269-day run-owned prices, intraday marks and pickles are not on this device",
+  "production_config_changed": false,
+  "broker_operations": false,
+  "source_sha256": {
+    "src/leadlag/core/pnl.py": "c844f2ba7483425ecb6e2f60bf9ceb8b5c58a4ec50e2f09590630b3756481ea6",
+    "src/leadlag/execution/backtest.py": "b688c75e74d3d9e91e909a621e0820ad592ea3c891020947be8c3f654e7dddc8",
+    "src/leadlag/execution/backtester.py": "44a42ec99b8fcb2989a3ff46c6a3cb7652b003a4bc0d90004cc7d7d4d6e03106",
+    "src/leadlag/execution/var_history.py": "45d6f248ef01eba9f8703555c24f3bf81dab97594f72afa4fd59b9dbd8b37919",
+    "src/research/backtest_common.py": "9cfea8e74ff8ffe2369427f6f0bab0b504d9d319b2e7deae566e87040d24f924",
+    "src/research/backtest_v1.py": "fc58035f5fb88f6de83cc7ec37885019c81119087c6bf091160992210a743003",
+    "src/research/scripts/experiments/evaluate_ml_overlay_blpx_residual_20260929.py": "755bf0f6c1120cd54c90538e35398cdf976995df1cb7a83633db57d568454e17",
+    "src/research/scripts/experiments/evaluate_ml_overlay_versioned_paired_20260929.py": "7f378bb1efb0804d0159e6e8dbb045320683e2f817041162ba40c687d141b689",
+    "src/research/scripts/experiments/evaluate_var_es_side_leverage_20260930.py": "11d7e982eb2acc04115592db9117eeec526b5e9419a139d7e4a189cbfae6f4e5",
+    "src/research/scripts/experiments/experiment_beat_baseline.py": "92e65dc5dd7beb0c1dac7d85a256823347fbc63b6abb02bcae1a599c890ece50",
+    "src/research/scripts/experiments/experiment_convex_lambda_sweep.py": "c40e88079d6971a8268298621bc3455e155ee39d093a3c242809f81794c68f66",
+    "src/research/scripts/experiments/experiment_convex_max_weight_sweep.py": "a81900123bd18fa0cbbe84bd6daab74ca5009eb752e830b18dac6eff11a8ab70",
+    "src/research/scripts/experiments/experiment_convex_score_formulation.py": "92482948caa2aa545afcd0ceeadda93edae88a6925ecbfc388d6e7164d840fd4",
+    "src/research/scripts/experiments/experiment_convex_vs_baseline_backtest.py": "e149112712bf58be03bc0a486bdc27dd7b5ad01433156567a57ffd15b486dcb8",
+    "src/research/scripts/experiments/experiment_dispersion_sizing.py": "145fdd4dcadf9a82f7fbaaddf504c9bf63f378a79a6ddefd9231686cca3f5474",
+    "src/research/scripts/experiments/experiment_lgbm_calibration_20260923.py": "0976ca4855a32d0ceebb76eb1594d51fa1214aea74923abdf44bf0ffca493749",
+    "src/research/scripts/experiments/experiment_lgbm_order_cost_20260923.py": "e7b304f16aa54975cfc21c4b73afeefbac02bcf799678f3539a8f297f16aeda0",
+    "src/research/scripts/experiments/experiment_lower_vol_higher_return.py": "3cb3854ec11dee98d3c5e454a0bb0fd3cf515ca6fa37a57bd9e5bd9572c0526f",
+    "src/research/scripts/experiments/experiment_order_cost_gate_20260923.py": "434ef145b4fbda7e353c7839065e096b14a8629d1c56623107cad2ec1a6e1a97",
+    "src/research/scripts/experiments/experiment_sparse_convex_optimizer.py": "ba38d7b34ea3442d9ae6d6304877884b79c6cb2ffc030f24e4342a9aec0bf307",
+    "src/research/scripts/experiments/experiment_stage5_intraday_carry_20260923.py": "ce881602f2b8afde0b5e1092742c70f7a32900c3d58f837cc654508ed6235d18",
+    "src/research/scripts/experiments/experiment_strict_lower_vol.py": "baf8a9ccdf86a1b7be44d4f18498a91a299137fc622d39f5ae0768e6ecb042fe",
+    "src/research/scripts/experiments/experiment_turnover_aware_no_trade_20260923.py": "3e95d2c551fe82951c401336dfc9dddef68404a819aca28a44a095d547bf5fd9",
+    "src/research/scripts/experiments/structural_artifact_evaluate.py": "0a516e58e1428ae5cd5830638899fc0d26ad60098f213edd48ad4944772a5688",
+    "tests/unit/test_backtester_pnl.py": "204cc4a95c9b889f25f64e5dd48543c810dd285864e4b50868849109ed17a502",
+    "tests/unit/test_project_audit_regressions.py": "f05dff3e93e4fec86054104e6b6bd6936d1ae0e5f4ae924c84c071214473fd14",
+    "tests/unit/test_stage_abc_followup_fixes.py": "992e6f19e5f36ee5efb23e80ba3d521f28452583b6790f64fdd289b6f36c4436",
+    "src/research/scripts/experiments/reevaluate_inventory_accounting.py": "8d6290ba832b1c5490a8d984b78efde9b9bb55175186fea13ce3ae4c00cd0ac7",
+    "tests/unit/test_inventory_accounting.py": "50af0b7828ed93f83ee69c74dd03a3b637b70be069ed1eece43c11d09e0e0564",
+    "tests/integration/test_inventory_backtest.py": "e524e88be905401eae7948668a19ebc5f0566983264450ddfbb96d9b2f4d8bdc"
+  }
+}

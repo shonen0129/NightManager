@@ -111,7 +111,7 @@ def test_var_backtest_receives_same_selected_overlay_object(tmp_path, monkeypatc
 
     def fake_backtest(**kwargs):
         captured.append(kwargs["overlay_model"])
-        return {"daily_returns": pd.Series([0.02], index=frame.index)}
+        return {"daily_returns": pd.Series([0.02], index=frame.index), "terminal_inventory": {"holdings": [0.0]*17, "cash": 1.02, "equity": 1.02, "mark_date": "2026-08-13", "target_weights": [0.0]*17}}
 
     monkeypatch.setattr(BacktestEngine, "run_v2_backtest", fake_backtest)
     value = var_history.get_hist_returns_for_risk(
@@ -314,7 +314,7 @@ def test_var_late_cache_write_is_not_adopted(tmp_path, monkeypatch):
     monkeypatch.setattr(
         BacktestEngine,
         "run_v2_backtest",
-        lambda **_: {"daily_returns": pd.Series([0.02], index=frame.index)},
+        lambda **_: {"daily_returns": pd.Series([0.02], index=frame.index), "terminal_inventory": {"holdings": [0.0]*17, "cash": 1.02, "equity": 1.02, "mark_date": "2026-08-13", "target_weights": [0.0]*17}},
     )
 
     def fail_cache_write(*_args, **_kwargs):
@@ -471,7 +471,7 @@ def test_var_timeout_keeps_snapshot_until_worker_finishes(tmp_path, monkeypatch)
         release.wait(timeout=5)
         observed["exists_after_release"] = snapshot.exists()
         finished.set()
-        return {"daily_returns": pd.Series([0.02], index=frame.index)}
+        return {"daily_returns": pd.Series([0.02], index=frame.index), "terminal_inventory": {"holdings": [0.0]*17, "cash": 1.02, "equity": 1.02, "mark_date": "2026-08-13", "target_weights": [0.0]*17}}
 
     monkeypatch.setattr(BacktestEngine, "run_v2_backtest", fake_backtest)
     assert started.is_set() is False

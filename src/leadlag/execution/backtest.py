@@ -100,11 +100,16 @@ def _save_detailed_backtest_results(results: dict[str, Any], output_dir: Path) -
     _save_series("daily_execution_volume", results.get("daily_execution_volume"))
     _save_series("daily_effective_gross_exps", results.get("daily_effective_gross_exps"))
     _save_series("daily_overnight_returns", results.get("daily_overnight_returns"))
-    if "accounting_contract" in results:
-        (output_dir / "accounting_contract.json").write_text(
-            json.dumps(results["accounting_contract"], ensure_ascii=False, indent=2) + "\n",
-            encoding="utf-8",
-        )
+    for name in ("daily_opening_volume", "daily_closing_volume", "daily_carry_gap_returns", "daily_carry_open_910_returns", "daily_cash", "daily_inventory_equity", "daily_model_net_exps", "daily_effective_net_exps"):
+        _save_series(name, results.get(name))
+    for name in ("accounting_contract", "initial_inventory", "terminal_inventory"):
+        if name in results:
+            (output_dir / f"{name}.json").write_text(
+                json.dumps(results[name], ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8",
+            )
+    if "daily_holdings" in results:
+        results["daily_holdings"].to_csv(output_dir / "daily_holdings.csv")
     _save_series("daily_gross_exps", results.get("daily_gross_exps"))
     _save_series("daily_costs", results.get("daily_costs"))
     _save_series("daily_slip_costs", results.get("daily_slip_costs"))
