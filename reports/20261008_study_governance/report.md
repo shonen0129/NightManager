@@ -12,6 +12,8 @@
 
 ## 既存DSRの残件
 
+2026-10-09追補: 所有環境の実registry120件を点検し、34件を原本保持の追記訂正で未確認化した。再点検の訂正候補は0件。[統合前の実記録点検](../20261009_pr55_registry_review/report.md)と前後hashを参照する。以下は10月8日時点の取得環境の記録として保持する。
+
 `var/experiments/registry.jsonl` はGit管理外でこの環境には存在せず、個別の実recordを点検・訂正していない。履歴点検toolと合成回帰で、preview、行別理由、数値再計算/未確認化、append-only訂正、legacy ID保存、idempotenceを検証する。所有環境で実registryに対して実行する必要がある。2026-10-06監査の非null20件を全件誤りと推測せず、Issueはこの点検完了までopenで扱う。
 
 ## 検証
