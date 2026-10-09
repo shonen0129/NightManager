@@ -7,6 +7,7 @@ Handles PKI authentication, RSA decryption, session caching, and request formatt
 from __future__ import annotations
 
 import base64
+import binascii
 import json
 import logging
 import urllib.parse
@@ -24,6 +25,12 @@ logger = logging.getLogger(__name__)
 _LOGIN_URL_KEYS = ("sUrlRequest", "sUrlMaster", "sUrlPrice", "sUrlEvent")
 
 
+def _safe_result_code(value: Any) -> str | None:
+    """Keep only the API's bounded ASCII numeric codes, never server error text."""
+    code = str(value) if isinstance(value, (str, int)) and not isinstance(value, bool) else ""
+    return code if 1 <= len(code) <= 5 and code.isascii() and code.isdigit() else None
+
+
 def _diagnostic_scalar(payload: dict[str, Any], key: str) -> dict[str, Any]:
     """Describe a safe scalar field without defaulting a missing value."""
     if key not in payload:
@@ -33,7 +40,13 @@ def _diagnostic_scalar(payload: dict[str, Any], key: str) -> dict[str, Any]:
         return {"state": "null", "type": "NoneType", "value": None}
     if value == "":
         return {"state": "empty", "type": type(value).__name__, "value": ""}
-    safe_value = value if isinstance(value, (str, int, float, bool)) else None
+    # Allowlisting field names alone does not make arbitrary response values safe.
+    if key == "sCLMID":
+        safe_value = value if value in ("CLMAuthLoginRequest", "CLMAuthLoginAck") else None
+    elif key == "sKinsyouhouMidokuFlg":
+        safe_value = value if isinstance(value, (str, int)) and str(value) in ("0", "1") else None
+    else:
+        safe_value = value if _safe_result_code(value) is not None else None
     return {"state": "value", "type": type(value).__name__, "value": safe_value}
 
 
@@ -108,7 +121,7 @@ class TachibanaApiError(Exception):
         result_code: str | None = None,
     ):
         self.endpoint = endpoint
-        self.result_code = str(result_code) if result_code is not None and str(result_code).isdigit() else None
+        self.result_code = _safe_result_code(result_code)
         suffix = f" (code={self.result_code})" if self.result_code is not None else ""
         super().__init__(message + suffix)
 
@@ -148,49 +161,76 @@ class TachibanaClient:
         now = datetime.now()
         return now.strftime("%Y.%m.%d-%H:%M:%S") + f".{now.microsecond // 1000:03d}"
 
-    def _decrypt_virtual_url(self, encrypted_b64: str) -> str:
+    def _decrypt_virtual_url(
+        self, encrypted_b64: str, *, diagnostics: dict[str, Any] | None = None
+    ) -> str:
         """Decrypt virtual URL base64 string using the PEM private key.
 
-        Tries PKCS1_OAEP (SHA-256 / SHA-1) and PKCS1_v1_5.
+        Tries PKCS1_OAEP (SHA-256 / SHA-1) and PKCS1_v1_5 in that order.
+        Expected key/input/decryption failures raise ValueError with a fixed
+        message and no unsafe cause. Diagnostics contain only algorithm names
+        and failure stages, never key paths, ciphertext or plaintext.
         """
         from Crypto.Cipher import PKCS1_OAEP, PKCS1_v1_5
         from Crypto.Hash import SHA1, SHA256
         from Crypto.PublicKey import RSA
+        from Crypto.Random import get_random_bytes
+
+        record = diagnostics if diagnostics is not None else {}
+        attempts: list[dict[str, str]] = []
+        record.update({
+            "decrypt_algorithm": None,
+            "decrypt_attempts": attempts,
+            "decrypt_failure_stage": None,
+        })
 
         try:
             with open(self.config.private_key_path, encoding="utf-8") as f:
                 priv_key_pem = f.read()
-        except Exception as e:
-            raise ValueError(f"Failed to read private key from path '{self.config.private_key_path}': {e}")
-
-        key = RSA.import_key(priv_key_pem)
-        encrypted_data = base64.b64decode(encrypted_b64)
-
-        # Try 1: PKCS1_OAEP with SHA-256
+        except (OSError, UnicodeError):
+            record["decrypt_failure_stage"] = "key_read"
+            raise ValueError("Failed to read Tachibana private key.") from None
         try:
-            cipher = PKCS1_OAEP.new(key, hashAlgo=SHA256)
-            return cipher.decrypt(encrypted_data).decode("utf-8").strip()
-        except Exception:
-            pass
-
-        # Try 2: PKCS1_OAEP with SHA-1 (default)
+            key = RSA.import_key(priv_key_pem)
+            if not key.has_private():
+                raise ValueError("private key required")
+        except (ValueError, TypeError, IndexError):
+            record["decrypt_failure_stage"] = "key_import"
+            raise ValueError("Failed to import Tachibana private key.") from None
         try:
-            cipher = PKCS1_OAEP.new(key, hashAlgo=SHA1)
-            return cipher.decrypt(encrypted_data).decode("utf-8").strip()
-        except Exception:
-            pass
+            encrypted_data = base64.b64decode(encrypted_b64)
+        except (binascii.Error, ValueError, TypeError):
+            record["decrypt_failure_stage"] = "ciphertext_decode"
+            raise ValueError("Failed to decode Tachibana virtual URL ciphertext.") from None
 
-        # Try 3: PKCS1_v1_5
-        try:
-            v15_cipher = PKCS1_v1_5.new(key)
-            sentinel = b"DECRYPT_FAIL"
-            dec = v15_cipher.decrypt(encrypted_data, sentinel)
-            if dec != sentinel:
-                return dec.decode("utf-8").strip()
-        except Exception:
-            pass
+        for algorithm in ("oaep_sha256", "oaep_sha1", "pkcs1_v1_5"):
+            attempt = {"algorithm": algorithm, "outcome": "decrypt_failed"}
+            attempts.append(attempt)
+            try:
+                if algorithm == "pkcs1_v1_5":
+                    sentinel = get_random_bytes(32)
+                    plaintext = PKCS1_v1_5.new(key).decrypt(encrypted_data, sentinel)
+                    if plaintext == sentinel:
+                        continue
+                else:
+                    cipher = PKCS1_OAEP.new(
+                        key, hashAlgo=SHA256 if algorithm == "oaep_sha256" else SHA1
+                    )
+                    plaintext = cipher.decrypt(encrypted_data)
+                decrypted_url = plaintext.decode("utf-8").strip()
+            except UnicodeDecodeError:
+                attempt["outcome"] = "invalid_utf8"
+                continue
+            except (ValueError, TypeError):
+                continue
+            attempt["outcome"] = "succeeded"
+            record["decrypt_algorithm"] = algorithm
+            return decrypted_url
 
-        raise ValueError("Failed to decrypt virtual URL using all known RSA padding/hash algorithms.")
+        record["decrypt_failure_stage"] = "all_algorithms"
+        raise ValueError(
+            "Failed to decrypt virtual URL using all known RSA padding/hash algorithms."
+        ) from None
 
     def _get_response(self, url: str, endpoint: str) -> requests.Response:
         """Discard transport exceptions containing credential-bearing URLs."""
@@ -247,7 +287,7 @@ class TachibanaClient:
 
         try:
             result = self._parse_response(response, "/auth/login")
-        except Exception:
+        except TachibanaApiError:
             login_diagnostics["stopped_at"] = "response_parse"
             raise
         login_diagnostics = _build_login_diagnostics(
@@ -289,9 +329,10 @@ class TachibanaClient:
                         "sKinsyouhouMidokuFlg=1 (required disclosure documents are unread; "
                         "review them in the standard e-Shiten website)."
                     )
+                safe_flag = login_diagnostics["sKinsyouhouMidokuFlg"]["value"]
                 disclosure_status = (
-                    f" (sKinsyouhouMidokuFlg={disclosure_flag})"
-                    if disclosure_flag is not None
+                    f" (sKinsyouhouMidokuFlg={safe_flag})"
+                    if safe_flag is not None
                     else ""
                 )
                 raise ValueError(
@@ -300,8 +341,8 @@ class TachibanaClient:
                 )
             url_diagnostics["decrypt_attempted"] = True
             try:
-                decrypted_val = self._decrypt_virtual_url(encrypted_val)
-            except Exception:
+                decrypted_val = self._decrypt_virtual_url(encrypted_val, diagnostics=url_diagnostics)
+            except ValueError:
                 login_diagnostics["stopped_at"] = f"decrypt_virtual_url:{url_key}"
                 raise
             url_diagnostics["decrypt_succeeded"] = True

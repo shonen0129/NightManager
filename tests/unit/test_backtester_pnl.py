@@ -26,7 +26,8 @@ def test_flat_transition_charges_liquidation_slippage() -> None:
     )
     # Day 1: open 1.0 plus close 25%; day 2: liquidate the 75% carried
     # inventory.  The old sign-based formula charged zero on day 2.
-    expected = [1.5 * 0.0005 * 1.25, 1.5 * 0.0005 * 0.75]
+    day_one_fee = 1.5 * 0.0005 * 1.25
+    expected = [day_one_fee, 1.5 * 0.0005 * 0.75 / (1.0 - day_one_fee)]
     np.testing.assert_allclose(result["slip_costs"], expected)
 
 
@@ -39,7 +40,7 @@ def test_backtest_target_uses_run_owned_open_910_returns() -> None:
         frame[f"jp_open_trade_{ticker}"] = 100.0
 
     open_910 = pd.DataFrame(0.10, index=dates, columns=JP_TICKERS)
-    target, gap = BacktestEngine._compute_target_and_gap_returns(
+    target, gap, morning = BacktestEngine._compute_price_intervals(
         frame,
         dates,
         dates,
@@ -47,4 +48,5 @@ def test_backtest_target_uses_run_owned_open_910_returns() -> None:
     )
 
     np.testing.assert_allclose(target, (1.20 / 1.10) - 1.0)
-    np.testing.assert_allclose(gap, 0.10)
+    np.testing.assert_allclose(gap, 0.0)
+    np.testing.assert_allclose(morning, 0.10)

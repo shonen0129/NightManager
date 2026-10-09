@@ -3,9 +3,8 @@
 This module has no broker, filesystem, or network dependency.  It contains
 the two accounting contracts used by the project:
 
-* :func:`simulate_daily_pnl` is the weight-based backtest model.  It keeps the
-  existing daily return and cost semantics while making the calculation
-  reusable outside ``BacktestEngine``.
+* :func:`simulate_daily_pnl` is the self-financing weight-target backtest
+  ledger, with price-marked carry, explicit terminal policy and cash.
 * :class:`InventoryLedger` consumes observed or simulated fills.  It keeps
   FIFO lots, allocates explicit fees once, and reports realized and
   mark-to-market P&L without applying a second slippage assumption to an
@@ -22,7 +21,7 @@ from collections import defaultdict
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date, datetime
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 import numpy as np
 import pandas as pd
@@ -187,10 +186,7 @@ class DailyCostBreakdown:
     @property
     def total_return(self) -> float:
         return (
-            self.slippage_return
-            + self.financing_return
-            + self.borrow_return
-            + self.reverse_return
+            self.slippage_return + self.financing_return + self.borrow_return + self.reverse_return
         )
 
 
@@ -212,7 +208,9 @@ def fill_from_record(
     if status in {"FAILED", "SKIPPED", "SIMULATED"}:
         return None
     raw_price = record.get("fill_price", record.get("price"))
-    raw_quantity = record.get("fill_quantity", record.get("filled_quantity", record.get("quantity")))
+    raw_quantity = record.get(
+        "fill_quantity", record.get("filled_quantity", record.get("quantity"))
+    )
     raw_date = record.get("trade_date") or record.get("executed_at") or trade_date
     ticker = str(record.get("ticker", ""))
     side = str(record.get("side", ""))
@@ -230,12 +228,12 @@ def fill_from_record(
     detail = record.get("fill_detail") or {}
     if not isinstance(detail, Mapping):
         detail = {}
-    fee_provided = "sBaiBaiTesuryo" in detail or any(
-        key in record for key in ("fee", "commission")
-    )
+    fee_provided = "sBaiBaiTesuryo" in detail or any(key in record for key in ("fee", "commission"))
     observed_source = source in {"observed", "observed_fill"}
-    raw_fee = detail.get("sBaiBaiTesuryo") if "sBaiBaiTesuryo" in detail else record.get(
-        "fee", record.get("commission")
+    raw_fee = (
+        detail.get("sBaiBaiTesuryo")
+        if "sBaiBaiTesuryo" in detail
+        else record.get("fee", record.get("commission"))
     )
     if observed_source and (not fee_provided or raw_fee is None):
         # A broker fill without a fee is still an execution fact, but it is
@@ -313,7 +311,7 @@ class InventoryLedger:
                 else (lot.entry_price - fill.price) * matched
             )
             record = RealizedPnlRecord(
-                    trade_date=cast(str, fill.trade_date),
+                trade_date=cast(str, fill.trade_date),
                 ticker=fill.ticker,
                 original_side=lot.side,
                 close_side=fill.side,
@@ -438,43 +436,122 @@ def simulate_daily_pnl(
     oc_returns: np.ndarray | None = None,
     alpha_masks: np.ndarray | None = None,
     calendar_days: np.ndarray | None = None,
-) -> dict[str, list[float]]:
-    """Run the existing daily weight-based backtest cost model.
+    open_910_returns: np.ndarray | None = None,
+    initial_holdings: np.ndarray | None = None,
+    initial_cash: float = 1.0,
+    initial_mark_date: str | None = None,
+    initial_target_weights: np.ndarray | None = None,
+    terminal_policy: Literal["liquidate", "open_inventory"] = "liquidate",
+) -> dict[str, Any]:
+    """Self-financing inventory accounting at entry and close marks.
 
-    This is intentionally a direct extraction of the former
-    ``simulate_daily_pnl`` implementation.  Inputs are copied
-    at the boundary so the accounting loop cannot mutate caller-owned arrays.
-    ``alpha_masks`` supplies per-asset carry fractions for research callers;
-    when omitted, long/short fractions are selected from the weight sign.
-    ``calendar_days`` is an explicit override for legacy research assumptions;
-    production callers use calendar gaps between ``sim_dates`` by default.
+    Targets are model weights times side leverage times the previous close
+    NAV. Carry fractions retain quantities, hence their *close marked values*
+    move through next open and 09:10 before rebalancing. Gap and morning
+    contributions use the previous close and open bases respectively and are
+    booked on the receiving date. Holding fees accrue on previous close
+    inventory over the incoming calendar interval. No future fee or price is
+    invented after the last close.
+
+    Initial holdings are signed effective notionals marked at initial_mark_date
+    close, in the same currency as initial_cash (default unit capital).
+    ``calendar_days`` optionally overrides incoming holding intervals.
+    Missing returns on active inventory remain NaN, never silently become zero.
     """
     weights_arr = np.array(weights, dtype=float, copy=True)
     target_arr = np.array(target_returns, dtype=float, copy=True)
     gap_arr = np.array(gap_returns, dtype=float, copy=True)
-    if weights_arr.ndim != 2 or target_arr.shape != weights_arr.shape or gap_arr.shape != weights_arr.shape:
+    morning_arr = (
+        np.zeros_like(gap_arr)
+        if open_910_returns is None
+        else np.array(open_910_returns, dtype=float, copy=True)
+    )
+    if (
+        weights_arr.ndim != 2
+        or target_arr.shape != weights_arr.shape
+        or gap_arr.shape != weights_arr.shape
+    ):
         raise ValueError("weights, target_returns, and gap_returns must have the same 2-D shape")
+    if morning_arr.shape != weights_arr.shape:
+        raise ValueError("open_910_returns must have the same shape as weights")
     if oc_returns is not None and np.asarray(oc_returns).shape != weights_arr.shape:
         raise ValueError("oc_returns must have the same shape as weights when supplied")
     alpha_masks_arr = None if alpha_masks is None else np.array(alpha_masks, dtype=float, copy=True)
     if alpha_masks_arr is not None and alpha_masks_arr.shape != weights_arr.shape:
         raise ValueError("alpha_masks must have the same shape as weights when supplied")
-    calendar_days_arr = None if calendar_days is None else np.array(calendar_days, dtype=float, copy=True)
+    calendar_days_arr = (
+        None if calendar_days is None else np.array(calendar_days, dtype=float, copy=True)
+    )
     if calendar_days_arr is not None and calendar_days_arr.shape != (len(weights_arr),):
         raise ValueError("calendar_days must have one value per weight row when supplied")
     if len(sim_dates) != len(weights_arr):
         raise ValueError("sim_dates length must match the number of weight rows")
+    if terminal_policy not in {"liquidate", "open_inventory"}:
+        raise ValueError("terminal_policy must be liquidate or open_inventory")
+    for name, value in (
+        ("slip", slip),
+        ("financing_daily", financing_daily),
+        ("borrow_daily", borrow_daily),
+        ("reverse_daily", reverse_daily),
+        ("side_leverage", side_leverage),
+    ):
+        _finite_nonnegative(value, name)
+    if not np.isfinite(weights_arr).all():
+        raise ValueError("weights must be finite")
+    for value in (alpha_long, alpha_short):
+        if not np.isfinite(value) or not 0 <= value <= 1:
+            raise ValueError("carry fractions must be in [0, 1]")
+    if alpha_masks_arr is not None and (
+        not np.isfinite(alpha_masks_arr).all()
+        or np.any((alpha_masks_arr < 0) | (alpha_masks_arr > 1))
+    ):
+        raise ValueError("alpha_masks must be finite fractions in [0, 1]")
 
     n_sim_days, n_j = weights_arr.shape
-    w_prev = np.zeros(n_j)
-    held_prev = np.zeros(n_j)
-    default_calendar_days = np.ones(n_sim_days)
+    w_prev = (
+        np.zeros(n_j)
+        if initial_target_weights is None
+        else np.array(initial_target_weights, dtype=float, copy=True)
+    )
+    held_prev = (
+        np.zeros(n_j)
+        if initial_holdings is None
+        else np.array(initial_holdings, dtype=float, copy=True)
+    )
+    if (
+        held_prev.shape != (n_j,)
+        or w_prev.shape != (n_j,)
+        or not np.isfinite(held_prev).all()
+        or not np.isfinite(w_prev).all()
+    ):
+        raise ValueError("initial holdings and target weights must be finite asset vectors")
+    cash = float(initial_cash)
+    nav = cash + float(held_prev.sum())
+    if not np.isfinite(cash) or not np.isfinite(nav) or nav <= 0:
+        raise ValueError("initial cash and holdings must give positive finite NAV")
+    default_calendar_days = np.zeros(n_sim_days)
     sim_dates_pd = pd.to_datetime(sim_dates)
-    for i in range(n_sim_days - 1):
-        default_calendar_days[i] = (sim_dates_pd[i + 1] - sim_dates_pd[i]).days
+    if (
+        n_sim_days == 0
+        or sim_dates_pd.hasnans
+        or not sim_dates_pd.is_monotonic_increasing
+        or sim_dates_pd.has_duplicates
+    ):
+        raise ValueError("sim_dates must be nonempty, strictly increasing valid dates")
+    if np.any(held_prev) and initial_mark_date is None:
+        raise ValueError("nonzero initial holdings require initial_mark_date")
+    if initial_mark_date is not None:
+        interval = (sim_dates_pd[0].normalize() - pd.Timestamp(initial_mark_date).normalize()).days
+        if interval <= 0:
+            raise ValueError("initial_mark_date must precede the first simulation date")
+        default_calendar_days[0] = interval
+    for i in range(1, n_sim_days):
+        default_calendar_days[i] = (sim_dates_pd[i] - sim_dates_pd[i - 1]).days
     held_days = calendar_days_arr if calendar_days_arr is not None else default_calendar_days
+    if not np.isfinite(held_days).all() or np.any(held_days < 0):
+        raise ValueError("calendar holding intervals must be finite and non-negative")
 
-    result: dict[str, list[float]] = {
+    result: dict[str, Any] = {
         "gross_returns": [],
         "net_returns": [],
         "costs": [],
@@ -487,6 +564,34 @@ def simulate_daily_pnl(
         "turnover": [],
         "target_weight_turnover": [],
         "execution_volume": [],
+        "opening_volume": [],
+        "closing_volume": [],
+        "carry_gap_returns": [],
+        "carry_open_910_returns": [],
+        "intraday_returns": [],
+        "cash": [],
+        "equity": [],
+        "holdings": [],
+        "initial_inventory": {
+            "holdings": held_prev.tolist(),
+            "cash": cash,
+            "equity": nav,
+            "mark_date": initial_mark_date,
+            "target_weights": w_prev.tolist(),
+        },
+        "accounting_contract": {
+            "version": "inventory-v3",
+            "carry_interval": "previous_close_to_current_entry",
+            "carry_attribution": "receiving_trade_date",
+            "entry_proxy": "09:10_when_measured_else_open",
+            "target_basis": "previous_close_NAV",
+            "holdings_unit": "signed_effective_marked_notional_in_initial_cash_currency",
+            "return_and_volume_basis": "previous_close_NAV",
+            "holding_fees": "previous_close_inventory_times_incoming_calendar_days",
+            "terminal_policy": terminal_policy,
+            "turnover": "effective_opening_plus_closing_notional_divided_by_two",
+            "target_weight_turnover": "model_target_weight_change_L1_divided_by_two",
+        },
     }
     if oc_returns is not None:
         result["gross_returns_oc"] = []
@@ -498,32 +603,39 @@ def simulate_daily_pnl(
         days_held = held_days[i]
         # Missing labels on zero inventory cannot change price P&L. Preserve
         # missing active labels so consumers reject an incomplete evaluation.
-        gross_ret = side_leverage * float(np.sum(w_t * np.where(w_t != 0, r_target_t, 0.0)))
+        effective_weight = side_leverage * w_t
+        intraday_ret = float(np.sum(effective_weight * np.where(effective_weight != 0, r_target_t, 0.0)))
         gross_exp = float(np.sum(np.abs(w_t)))
         alpha_mask = (
             alpha_masks_arr[i]
             if alpha_masks_arr is not None
             else np.where(w_t > 0, alpha_long, np.where(w_t < 0, alpha_short, 0.0))
         )
-        overnight_ret = 0.0
-        carry_enabled = np.any(alpha_mask > 0) or (
-            alpha_masks_arr is None and (alpha_long > 0 or alpha_short > 0)
-        )
-        if carry_enabled and i < n_sim_days - 1:
-            carry = alpha_mask * w_t
-            overnight_ret = side_leverage * float(np.sum(carry * np.where(carry != 0, gap_arr[i + 1], 0.0)))
+        gap_pnl = held_prev * np.where(held_prev != 0, gap_arr[i], 0.0)
+        at_open = held_prev + gap_pnl
+        morning_pnl = at_open * np.where(at_open != 0, morning_arr[i], 0.0)
+        at_entry = at_open + morning_pnl
+        gap_ret = float(gap_pnl.sum()) / nav
+        morning_ret = float(morning_pnl.sum()) / nav
+        overnight_ret = gap_ret + morning_ret
         target_weight_turnover = float(np.sum(np.abs(w_t - w_prev)) / 2.0)
-        held_t = alpha_mask * w_t
-        opening_trade = np.sum(np.abs(w_t - held_prev))
-        close_trade = np.sum(np.abs(w_t - held_t))
-        execution_volume = side_leverage * float(opening_trade + close_trade)
+        target_value = effective_weight * nav
+        close_value = target_value * (1.0 + np.where(effective_weight != 0, r_target_t, 0.0))
+        held_t = alpha_mask * close_value
+        if i == n_sim_days - 1 and terminal_policy == "liquidate":
+            held_t = np.zeros(n_j)
+        opening_flow = target_value - at_entry
+        closing_flow = held_t - close_value
+        opening_trade = float(np.abs(opening_flow).sum()) / nav
+        close_trade = float(np.abs(closing_flow).sum()) / nav
+        execution_volume = opening_trade + close_trade
         turnover = execution_volume / 2.0
-        slip_cost = side_leverage * slip * (opening_trade + close_trade)
-        held_long = float(np.sum(alpha_mask * np.maximum(w_t, 0.0)))
-        held_short = float(np.sum(alpha_mask * np.maximum(-w_t, 0.0)))
-        fin_cost = side_leverage * held_long * financing_daily * days_held
-        borrow_cost = side_leverage * held_short * borrow_daily * days_held
-        reverse_cost = side_leverage * held_short * reverse_daily * days_held
+        slip_cost = slip * execution_volume
+        held_long = float(np.maximum(held_prev, 0.0).sum()) / nav
+        held_short = float(np.maximum(-held_prev, 0.0).sum()) / nav
+        fin_cost = held_long * financing_daily * days_held
+        borrow_cost = held_short * borrow_daily * days_held
+        reverse_cost = held_short * reverse_daily * days_held
         cost_breakdown = DailyCostBreakdown(
             slippage_return=slip_cost,
             financing_return=fin_cost,
@@ -531,9 +643,14 @@ def simulate_daily_pnl(
             reverse_return=reverse_cost,
         )
         cost = cost_breakdown.total_return
-        net_ret = gross_ret + overnight_ret - cost
+        gross_ret = intraday_ret + overnight_ret
+        net_ret = gross_ret - cost
+        cash -= float(opening_flow.sum() + closing_flow.sum()) + cost * nav
+        nav = cash + float(held_t.sum())
+        if np.isfinite(nav) and nav <= 0:
+            raise ValueError("portfolio NAV became non-positive")
 
-        result["gross_returns"].append(gross_ret + overnight_ret)
+        result["gross_returns"].append(gross_ret)
         result["net_returns"].append(net_ret)
         result["costs"].append(cost)
         result["slip_costs"].append(slip_cost)
@@ -545,11 +662,33 @@ def simulate_daily_pnl(
         result["turnover"].append(turnover)
         result["target_weight_turnover"].append(target_weight_turnover)
         result["execution_volume"].append(execution_volume)
+        result["opening_volume"].append(opening_trade)
+        result["closing_volume"].append(close_trade)
+        result["carry_gap_returns"].append(gap_ret)
+        result["carry_open_910_returns"].append(morning_ret)
+        result["intraday_returns"].append(intraday_ret)
+        result["cash"].append(cash)
+        result["equity"].append(nav)
+        result["holdings"].append(held_t.tolist())
 
         if oc_returns is not None:
-            gross_ret_oc = side_leverage * float(np.sum(w_t * np.where(w_t != 0, np.asarray(oc_returns)[i], 0.0)))
+            gross_ret_oc = float(
+                np.sum(effective_weight * np.where(effective_weight != 0, np.asarray(oc_returns)[i], 0.0))
+            )
             result["gross_returns_oc"].append(gross_ret_oc)
             result["net_returns_oc"].append(gross_ret_oc - cost)
         w_prev = w_t.copy()
         held_prev = held_t.copy()
+    result["terminal_inventory"] = {
+        "policy": terminal_policy,
+        "mark_date": _date_string(sim_dates_pd[-1]),
+        "mark_time": "TSE_close",
+        "holdings": held_prev.tolist(),
+        "target_weights": w_prev.tolist(),
+        "cash": cash,
+        "equity": nav,
+        "final_day_cost": result["costs"][-1],
+        "final_day_closing_volume": result["closing_volume"][-1],
+        "future_fees_accrued": False,
+    }
     return result

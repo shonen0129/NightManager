@@ -280,7 +280,7 @@ def _evaluate() -> dict[str, Any]:
             "raw_target_net_cumulative_return": float(np.prod(1.0 + raw_target.to_numpy()) - 1.0),
             "ml_off_net_cumulative_return": float(np.prod(1.0 + ml_off.to_numpy()) - 1.0),
             "max_drawdown": float(np.min(drawdown)),
-            "mean_turnover": float(np.mean([x["candidate"]["daily_turnover_mean_raw_weight_units"] for x in results[f"{scale:.1f}"]])),
+            "mean_execution_turnover_effective_NAV_units": float(np.mean([x["candidate"]["daily_execution_turnover_mean_effective_NAV_units"] for x in results[f"{scale:.1f}"]])),
             "paired_mean_daily_net_delta": float(np.mean(paired)),
             "paired_20_day_bootstrap": bootstrap,
             "folds": results[f"{scale:.1f}"],

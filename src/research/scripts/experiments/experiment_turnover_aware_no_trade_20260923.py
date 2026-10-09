@@ -155,13 +155,14 @@ def _simulate(weights: pd.DataFrame, df_exec: pd.DataFrame, app_config: Any) -> 
         raise ValueError(f"source weights contain dates missing from df_exec: {missing[:3].tolist()}")
     full_dates = pd.DatetimeIndex(df_exec.index)
     open_910 = build_open_910_returns(df_exec, JP_TICKERS)
-    targets, gaps = BacktestEngine._compute_target_and_gap_returns(
+    targets, gaps, morning_returns = BacktestEngine._compute_price_intervals(
         df_exec, full_dates, dates, open_910_returns=open_910
     )
     params = BacktestEngine._resolve_v2_backtest_cost_params(app_config, *([None] * 7))
     pnl = simulate_daily_pnl(
         weights=weights.to_numpy(dtype=float),
         target_returns=targets,
+        open_910_returns=morning_returns,
         gap_returns=gaps,
         sim_dates=dates,
         slip=float(params["slip_bps"]) / 10000.0,

@@ -285,6 +285,18 @@ and exposure. `BacktestEngine` only aligns dates and assembles the result
 Series; it does not carry a second copy of the cost loop. Research overnight
 holding uses the same calculator with an explicit per-asset carry mask.
 
+The `inventory-v3` contract retains quantities at close-marked values, books
+carry gap and open→09:10 PnL on the receiving date, and accrues holding costs
+over the incoming calendar interval. Initial cash, signed effective holdings
+and their close mark date are explicit. Terminal policy is `liquidate` for a
+standalone backtest or `open_inventory` for continuing VaR history; both expose
+cash, equity and final holdings. Artifact boundaries transfer this state.
+Execution volume uses marked opening/closing trades divided by previous close
+NAV, turnover is half that volume, and target weight turnover remains a separate
+model-space diagnostic. The CSV adapter and full SQLite result cache preserve
+these fields and `accounting_contract`.
+See [the accounting decision](decisions/2026-10-08-inventory-accounting.md).
+
 `core.pnl.Fill`, `InventoryLot`, and `FeeAccrual` are the shared accounting
 vocabulary. `daily_pnl_report` translates confirmed close execution records
 and position snapshots into these objects. Observed fill prices are consumed
@@ -496,9 +508,9 @@ artifact・運用の最新受入状態は[実行報告](../reports/20260922_prod
 
 `config/paths.py::project_root` はdeployment data rootを解決する。checkoutは自身のルートを既定とし、installed wheelはimport前に絶対パスの `LEADLAG_RUNTIME_ROOT` を必須とする。ADR、macro、相対model path、varを同一rootへ揃え、コードfingerprintはpackage位置を使う。旧rootの探索fallbackは置かない。
 
-V2の期間入口は2015-01-05以降とsource期間の非空交差を検証する。`evaluation_period`に要求・実評価・sourceの期間を保存する。損益のentry-mark-v2契約と執行turnoverは `accounting_contract` で識別する。US pre-inception proxyは `data/tickers.py::US_INCEPTION_DATES` より前だけとし、各cellの `us_proxy_*` を残す。旧前処理cacheは契約version不一致で再利用せず、strict再構築へ進む。元データの品質異常を補間で隠さない。
+V2の期間入口は2015-01-05以降とsource期間の非空交差を検証する。`evaluation_period`に要求・実評価・sourceの期間を保存する。損益のinventory-v3契約と執行turnoverは `accounting_contract` で識別する。US pre-inception proxyは `data/tickers.py::US_INCEPTION_DATES` より前だけとし、各cellの `us_proxy_*` を残す。旧前処理cacheは契約version不一致で再利用せず、strict再構築へ進む。元データの品質異常を補間で隠さない。
 
-market-data updaterとdistribution diagnosticsは既存job guardの `live:production_v2` leaseと全体deadlineを共有し、各phaseにもdeadlineを設定する。通常のtest utilityは `execution.phase_deadline` を使い、reports内watchdogには依存しない。ADR producerは `data.adr_producer` に分離し、`data/adr_features.zip` 内のpickle/CSV/manifestを一度のatomic replaceで公開する。旧pickleを読むfallbackは置かず、実ソースから再生成する。実運用での更新復旧、scheduled diagnosticsのresearch依存、終端在庫、長期PnL再評価は残件として追跡する。
+market-data updaterとdistribution diagnosticsは既存job guardの `live:production_v2` leaseと全体deadlineを共有し、各phaseにもdeadlineを設定する。通常のtest utilityは `execution.phase_deadline` を使い、reports内watchdogには依存しない。ADR producerは `data.adr_producer` に分離し、`data/adr_features.zip` 内のpickle/CSV/manifestを一度のatomic replaceで公開する。旧pickleを読むfallbackは置かず、実ソースから再生成する。実運用での更新復旧、scheduled diagnosticsのresearch依存、元データ不足による269日長期PnLの完全再評価は残件として追跡する。終端在庫と連続会計は[Issue #33の判断](decisions/2026-10-08-inventory-accounting.md)に従う。
 
 BLPXの行列solve・PCA prior・Tikhonov・confidence・非対称solve・診断構築は `core/blpx_math.py` を本番/研究の共通正本とし、係数・次元を明示入力で受け取る。旧model helper再公開は撤去した。研究の診断キーも `z_U_t` に揃える。日次PnLは `core.pnl.simulate_daily_pnl`、gap読込は `utils.gap_matrix_io.load_gap_bundle` を直接使い、旧互換wrapperと未使用CostCalculatorは撤去した。
 

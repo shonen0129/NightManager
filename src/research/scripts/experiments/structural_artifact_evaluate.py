@@ -67,7 +67,9 @@ def summarize(result, decisions, dates, leverage):
         "max_drawdown": float(result["drawdown"].min()),
         "net_cumulative_return": float(np.prod(1 + net) - 1),
         "daily_net_mean": float(net.mean()),
-        "daily_turnover_mean_raw_weight_units": float(result["daily_turnover"].mean()),
+        "daily_execution_turnover_mean_effective_NAV_units": float(result["daily_turnover"].mean()),
+        "daily_target_weight_turnover_mean_model_units": float(result["daily_target_weight_turnover"].mean()),
+        "accounting_contract": result["accounting_contract"],
         "terminal_fallback_days": int(result["daily_fallback"].sum()),
         "all_zero_weight_days": int((gross_exposure < 1e-12).sum()),
         "overlay_applied_days": sum(bool(x.summary.get("overlay_applied")) for x in available),
@@ -93,12 +95,14 @@ def simulate(frame, history, app, decisions, dates):
                          or decisions[d].fallback.get("audit_failure")) for d in dates])
     summaries = [decisions[d].summary if d in decisions else {"trade_date": str(d.date()),
                  "error": "collector rejected decision; retained as flat"} for d in dates]
-    target, gap = BacktestEngine._compute_target_and_gap_returns(
+    target, gap, morning_returns = BacktestEngine._compute_price_intervals(
         frame, frame.index, dates, open_910_returns=history.open_910_returns)
     pnl = simulate_daily_pnl(
-        weights, target, gap, dates, costs["slip_bps"] / 10000,
-        costs["fin_annual"] / 365, costs["borrow_annual"] / 365, costs["rev_bps"] / 10000,
-        costs["alpha_long"], costs["alpha_short"], costs["side_leverage"],
+        weights=weights, target_returns=target, open_910_returns=morning_returns,
+        gap_returns=gap, sim_dates=dates,
+        slip=costs["slip_bps"] / 10000, financing_daily=costs["fin_annual"] / 365,
+        borrow_daily=costs["borrow_annual"] / 365, reverse_daily=costs["rev_bps"] / 10000,
+        alpha_long=costs["alpha_long"], alpha_short=costs["alpha_short"], side_leverage=costs["side_leverage"],
     )
     result = BacktestEngine._assemble_v2_results(
         pnl, pd.DataFrame(weights, index=dates, columns=JP_TICKERS), flags, summaries, dates,
