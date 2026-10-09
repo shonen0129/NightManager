@@ -390,7 +390,7 @@ def _simulate(
 ) -> dict[str, Any]:
     dates = pd.DatetimeIndex(weights.index)
     open_910 = build_open_910_returns(df_exec, JP_TICKERS)
-    targets, gaps = BacktestEngine._compute_target_and_gap_returns(
+    targets, gaps, morning_returns = BacktestEngine._compute_price_intervals(
         df_exec,
         pd.DatetimeIndex(df_exec.index),
         dates,
@@ -400,6 +400,7 @@ def _simulate(
     pnl = simulate_daily_pnl(
         weights=weights.to_numpy(dtype=float),
         target_returns=targets,
+        open_910_returns=morning_returns,
         gap_returns=gaps,
         sim_dates=dates,
         slip=float(params["slip_bps"]) / 10000.0,
@@ -681,7 +682,7 @@ def main() -> None:
     orders_export = pd.concat(all_order_decisions, ignore_index=True)
 
     open_910 = build_open_910_returns(df_exec, JP_TICKERS)
-    realized_targets, _gap_returns = BacktestEngine._compute_target_and_gap_returns(
+    realized_targets, _gap_returns, _morning_returns = BacktestEngine._compute_price_intervals(
         df_exec,
         pd.DatetimeIndex(df_exec.index),
         dates,

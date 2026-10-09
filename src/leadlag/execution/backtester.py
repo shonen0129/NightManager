@@ -11,7 +11,7 @@ import os
 from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 import numpy as np
 import pandas as pd
@@ -98,17 +98,19 @@ class BacktestEngine:
         return sim_dates, start_idx, end_idx
 
     @staticmethod
-    def _compute_target_and_gap_returns(
+    def _compute_price_intervals(
         df_exec: pd.DataFrame,
         sim_dates: pd.DatetimeIndex,
         sim_dates_slice: pd.DatetimeIndex,
         open_910_returns: pd.DataFrame | None = None,
-    ) -> tuple[np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Compute matched entry-to-close and previous-close-to-entry returns.
 
         Entry is 09:10 when measured, otherwise the explicit open proxy used
         by the target. Carry and intraday P&L therefore meet at one mark.
         """
+        if open_910_returns is None:
+            open_910_returns = build_open_910_returns(df_exec, JP_TICKERS)
         y_jp_target = compute_jp_target_returns(
             df_exec,
             JP_TICKERS,
@@ -123,14 +125,15 @@ class BacktestEngine:
             gap_returns_df = df_exec[gap_cols].copy()
             gap_returns_df.columns = JP_TICKERS
         else:
-            gap_returns_df = pd.DataFrame(0.0, index=sim_dates, columns=JP_TICKERS)
+            gap_returns_df = df_exec.reindex(columns=gap_cols).copy()
+            gap_returns_df.columns = JP_TICKERS
 
+        entry_move = pd.DataFrame(0.0, index=sim_dates, columns=JP_TICKERS)
         if open_910_returns is not None:
             measured = open_910_returns.reindex(index=sim_dates, columns=JP_TICKERS)
             entry_move = measured.where(np.isfinite(measured), 0.0)
-            gap_returns_df = (1.0 + gap_returns_df) * (1.0 + entry_move) - 1.0
         gap_returns_arr = gap_returns_df.loc[sim_dates_slice].values
-        return y_jp_target_arr, gap_returns_arr
+        return y_jp_target_arr, gap_returns_arr, entry_move.loc[sim_dates_slice].values
 
     # ------------------------------------------------------------------
     # V2 backtest (ProductionV2 model — gap-adjusted distribution)
@@ -156,6 +159,11 @@ class BacktestEngine:
         overlay_model_dir: Path | str | None = None,
         decision_transform: Callable[[str, PortfolioDecision], PortfolioDecision] | None = None,
         historical_inputs: HistoricalInputs | None = None,
+        initial_holdings: np.ndarray | None = None,
+        initial_cash: float = 1.0,
+        initial_mark_date: str | None = None,
+        initial_target_weights: np.ndarray | None = None,
+        terminal_policy: Literal["liquidate", "open_inventory"] = "liquidate",
     ) -> dict:
         """Run a historical backtest using the V2 production model.
 
@@ -180,7 +188,7 @@ class BacktestEngine:
             reverse_fee_bps: Daily reverse stock lending fee (bps).
             side_leverage: Notional leverage applied to returns and costs,
                 matching ``allocator.DEFAULT_SIDE_LEVERAGE`` in live trading.
-                Gross exposure and turnover are reported at raw weight values.
+                Model/effective exposure and execution/target turnover are separate.
             n_jobs: Number of parallel workers for per-date portfolio generation.
                 1 = sequential. -1 = all cores.
 
@@ -252,7 +260,7 @@ class BacktestEngine:
                 index=df_exec.index,
                 columns=JP_TICKERS,
             )
-        y_jp_target_arr, gap_returns_arr = cls._compute_target_and_gap_returns(
+        y_jp_target_arr, gap_returns_arr, morning_returns_arr = cls._compute_price_intervals(
             df_exec,
             sim_dates,
             sim_dates_slice,
@@ -294,6 +302,12 @@ class BacktestEngine:
             alpha_long=alpha_long,
             alpha_short=alpha_short,
             side_leverage=side_leverage,
+            open_910_returns=morning_returns_arr,
+            initial_holdings=initial_holdings,
+            initial_cash=initial_cash,
+            initial_mark_date=initial_mark_date,
+            initial_target_weights=initial_target_weights,
+            terminal_policy=terminal_policy,
         )
 
         results = cls._assemble_v2_results(
@@ -597,14 +611,18 @@ class BacktestEngine:
             "daily_turnover": daily_turnover,
             "daily_target_weight_turnover": daily_target_weight_turnover,
             "daily_execution_volume": daily_execution_volume,
-            "accounting_contract": {
-                "version": "entry-mark-v2",
-                "carry_interval": "previous_close_to_current_entry",
-                "carry_attribution": "outgoing_trade_date",
-                "entry_proxy": "09:10_when_measured_else_open",
-                "turnover": "effective_opening_plus_closing_notional_divided_by_two",
-                "target_weight_turnover": "model_target_weight_change_L1_divided_by_two",
-            },
+            "daily_opening_volume": pd.Series(pnl["opening_volume"], index=sim_dates_slice),
+            "daily_closing_volume": pd.Series(pnl["closing_volume"], index=sim_dates_slice),
+            "daily_carry_gap_returns": pd.Series(pnl["carry_gap_returns"], index=sim_dates_slice),
+            "daily_carry_open_910_returns": pd.Series(pnl["carry_open_910_returns"], index=sim_dates_slice),
+            "daily_cash": pd.Series(pnl["cash"], index=sim_dates_slice),
+            "daily_inventory_equity": pd.Series(pnl["equity"], index=sim_dates_slice),
+            "daily_holdings": pd.DataFrame(pnl["holdings"], index=sim_dates_slice, columns=sre_weights_df.columns),
+            "daily_model_net_exps": sre_weights_df.sum(axis=1),
+            "daily_effective_net_exps": sre_weights_df.sum(axis=1) * side_leverage,
+            "accounting_contract": pnl["accounting_contract"],
+            "initial_inventory": pnl["initial_inventory"],
+            "terminal_inventory": pnl["terminal_inventory"],
             "daily_fallback": daily_fallback,
             "overnight_alpha_long": alpha_long,
             "overnight_alpha_short": alpha_short,

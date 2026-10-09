@@ -17,6 +17,15 @@ from leadlag.experiment_registry import (
 )
 
 
+def _metric_contract():
+    return {
+        "metric_schema_version": "daily-v1",
+        "metric_status": "valid",
+        "net_sharpe_frequency": "annual",
+        "trading_days_per_year": 245,
+    }
+
+
 def _temp_registry() -> ExperimentRegistry:
     with tempfile.NamedTemporaryFile(suffix=".jsonl", delete=False) as f:
         path = f.name
@@ -68,6 +77,7 @@ def test_deflated_sharpe_basic():
     np.random.seed(42)
     returns = np.random.normal(0.0006, 0.015, 1000)
     metrics = {
+        **_metric_contract(),
         "net_sharpe": 1.0,
         "trials": 10,
         "n_observations": 1000,
@@ -81,6 +91,7 @@ def test_deflated_sharpe_basic():
     # With only 1 trial, DSR should reduce to the PSR (no selection bias).
     # Positive Sharpe -> > 0.5, negative Sharpe -> < 0.5.
     metrics_one = {
+        **_metric_contract(),
         "net_sharpe": 1.0,
         "trials": 1,
         "n_observations": 1000,
@@ -91,6 +102,7 @@ def test_deflated_sharpe_basic():
     assert dsr_one > 0.5
 
     metrics_neg = {
+        **_metric_contract(),
         "net_sharpe": -1.0,
         "trials": 1,
         "n_observations": 1000,
@@ -110,6 +122,8 @@ def test_deflated_sharpe_trials_penalty():
     # Same observed Sharpe, but with more trials the DSR should fall.
     returns = np.random.default_rng(42).normal(0.0005, 0.015, 1000)
     base = {
+        **_metric_contract(),
+        "trial_sharpe_variance_basis": "external_estimate",
         "net_sharpe": 1.0,
         "n_observations": 1000,
         "returns": returns.tolist(),

@@ -138,7 +138,7 @@ def _load_observations() -> tuple[
     if not dates.isin(df_exec.index).all():
         raise ValueError("acceptance df_exec does not cover the saved forecast dates")
 
-    realized_array, gap_array = BacktestEngine._compute_target_and_gap_returns(
+    realized_array, gap_array, _morning_returns = BacktestEngine._compute_price_intervals(
         df_exec,
         pd.DatetimeIndex(df_exec.index),
         dates,
@@ -305,7 +305,7 @@ def _simulate(
     fallback: pd.Series,
 ) -> dict[str, Any]:
     params = _cost_params(config, bps_per_side)
-    targets, gaps = BacktestEngine._compute_target_and_gap_returns(
+    targets, gaps, morning_returns = BacktestEngine._compute_price_intervals(
         df_exec,
         pd.DatetimeIndex(df_exec.index),
         dates,
@@ -314,6 +314,7 @@ def _simulate(
     pnl = simulate_daily_pnl(
         weights=weights.loc[dates, JP_TICKERS].to_numpy(dtype=float),
         target_returns=targets,
+        open_910_returns=morning_returns,
         gap_returns=gaps,
         sim_dates=dates,
         slip=float(params["slip_bps"]) / 10000.0,

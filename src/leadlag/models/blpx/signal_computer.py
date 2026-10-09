@@ -2,25 +2,18 @@
 
 from __future__ import annotations
 
-import logging
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
 from leadlag.core.blpx_math import (
-    apply_confidence_weighting,
-    build_blp_diagnostics,
-    compute_pca_prior,
-    solve_asymmetric_blp,
+    BLPXSignalParameters,
+    compute_blp_signal_math,
     solve_blp_coefficients,
-    solve_tikhonov,
 )
 
 if TYPE_CHECKING:
     from leadlag.models.blpx.model import ProductionBLPXModel
-
-logger = logging.getLogger("leadlag.models.blpx")
-
 
 def compute_blp_signal(
     self: ProductionBLPXModel,
@@ -42,13 +35,10 @@ def compute_blp_signal(
     the predictive distribution: ``Sigma_XX``, ``Sigma_YX``, ``Sigma_YY``,
     ``B_struct`` and ``z_U_t``.
     """
-    # 1. Prepare window returns (vol-scaling + winsorization)
+    # Window and correlation policies stay with the model instance.
     window_returns = self._prepare_window_returns(all_returns, current_index, rolling_std)
-
-    # 2. Estimate correlation
     mu, sigma, corr = self._estimate_correlation(window_returns, current_index, is_residual)
 
-    # 3. Solve BLP coefficients
     B_blp, Sigma_XX_reg, Sigma_YX_reg, Sigma_YY_reg, cond_num, pinv_fallback = (
         solve_blp_coefficients(
             corr,
@@ -61,151 +51,59 @@ def compute_blp_signal(
             rho=self.rho,
         )
     )
+    M_sector = self._get_sector_prior(current_index, all_returns, corr, B_blp)
 
-    # 4. Structured shrinkage: PCA prior + sector prior + Tikhonov
-    B_pca = compute_pca_prior(
-        corr,
-        v0_static,
-        c_full,
+    asymmetric_covariance = None
+    if self.asymmetry_mode == "covariance":
+        asymmetric_covariance = self._estimate_asymmetric_covariance(window_returns, corr)
+
+    parameters = BLPXSignalParameters(
+        n_u=self.n_u,
+        n_j=self.n_j,
+        alpha_xx=self.alpha_xx,
+        alpha_yx=self.alpha_yx,
+        alpha_yy=self.alpha_yy,
+        rank=self.rank,
+        rho=self.rho,
         k=self.k,
         lambda_lw=self.lambda_lw,
         lambda_reg=self.lambda_reg,
         lw_target=self.lw_target,
-        n_j=self.n_j,
-        n_u=self.n_u,
-        min_raw_weight=getattr(self, 'min_raw_weight', 0.0),
-    )
-    M_sector = self._get_sector_prior(current_index, all_returns, corr, B_blp)
-    diag_mean = float(np.mean(np.diag(Sigma_XX_reg)))
-    B_struct, inv_A_tikh = solve_tikhonov(
-        Sigma_XX_reg,
-        Sigma_YX_reg,
-        B_pca,
-        M_sector,
-        diag_mean,
-        B_blp,
+        min_raw_weight=getattr(self, "min_raw_weight", 0.0),
         frobenius_scale_priors=self.frobenius_scale_priors,
         lambda_pca=self.lambda_pca,
         lambda_sector=self.lambda_sector,
-        n_u=self.n_u,
-        rho=self.rho,
+        asymmetry_delta=self.asymmetry_delta,
+        asymmetry_mode=self.asymmetry_mode,
+        beta_conf=self.beta_conf,
+        vol_adjusted_target=self.vol_adjusted_target,
+        gap_open_coef=self.gap_open_coef,
+        topix_beta_coef=self.topix_beta_coef,
+        gap_open_coef_neg=self.gap_open_coef_neg,
+        topix_beta_coef_neg=self.topix_beta_coef_neg,
+        asymmetry_post_gap_delta=self.asymmetry_post_gap_delta,
+        asymmetry_post_gap_mode=self.asymmetry_post_gap_mode,
     )
-
-    # 5. Predict standardized JP returns
-    X_t = all_returns[current_index, : self.n_u]
-    X_t = np.nan_to_num(X_t, nan=0.0, posinf=0.0, neginf=0.0)
-    mu_X = mu[: self.n_u]
-    sigma_X = sigma[: self.n_u]
-    sigma_X_safe = np.where(sigma_X > 1e-8, sigma_X, 1.0)
-    z_U_t = (X_t - mu_X) / sigma_X_safe
-
-    # Step 5a: Input asymmetric propagation
-    z_U_pos = np.maximum(z_U_t, 0.0)
-    z_U_neg = np.minimum(z_U_t, 0.0)
-    z_U_neg_scaled = (1.0 + self.asymmetry_delta) * z_U_neg
-
-    if self.asymmetry_mode == "covariance":
-        C_YX_pos, C_YX_neg, C_XX, C_YY = self._estimate_asymmetric_covariance(window_returns, corr)
-        B_pos_struct, B_neg_struct, inv_A_tikh, Sigma_YX_reg = solve_asymmetric_blp(
-            C_YX_pos,
-            C_YX_neg,
-            C_XX,
-            C_YY,
-            B_pca,
-            M_sector,
-            B_blp,
-            alpha_xx=self.alpha_xx,
-            alpha_yx=self.alpha_yx,
-            alpha_yy=self.alpha_yy,
-            frobenius_scale_priors=self.frobenius_scale_priors,
-            lambda_pca=self.lambda_pca,
-            lambda_sector=self.lambda_sector,
-            n_j=self.n_j,
-            n_u=self.n_u,
-            rho=self.rho,
-        )
-        z_hat_j_t1 = B_pos_struct @ z_U_pos + B_neg_struct @ z_U_neg_scaled
-        B_struct_diag = 0.5 * (B_pos_struct + B_neg_struct)
-    else:
-        z_U_asym = z_U_pos + z_U_neg_scaled
-        z_hat_j_t1 = B_struct @ z_U_asym
-        B_struct_diag = B_struct
-
-    z_hat_j_t1 = np.nan_to_num(z_hat_j_t1, nan=0.0, posinf=0.0, neginf=0.0)
-
-    # 6. Confidence weighting
-    z_hat_j_t1, pred_var, num_floored = apply_confidence_weighting(z_hat_j_t1, Sigma_YY_reg, Sigma_YX_reg, inv_A_tikh, self.beta_conf)
-
-    # 7. Denormalize and apply gap adjustment
-    r_hat_jp_cc = self._denormalize_signal(
-        z_hat_j_t1, mu, sigma, all_returns, current_index, self.n_u, self.vol_adjusted_target
-    )
-    if self.vol_adjusted_target and current_index >= 20:
-        jp_returns_20 = all_returns[current_index - 20 : current_index, self.n_u :]
-        jp_returns_20 = np.nan_to_num(jp_returns_20, nan=0.0, posinf=0.0, neginf=0.0)
-        sigma_j_t = np.std(jp_returns_20, axis=0, ddof=1)
-        sigma_j_t = np.maximum(sigma_j_t, 1e-8)
-    else:
-        sigma_j_t = sigma[self.n_u :]
-
-    # Determine US market direction
-    us_market_mean = np.nanmean(z_U_t)
-    us_negative = us_market_mean < 0.0
-
-    gap_coef_override = None
-    beta_coef_override = None
-    if us_negative and self.gap_open_coef_neg is not None:
-        gap_coef_override = self.gap_open_coef_neg
-        beta_coef_override = self.topix_beta_coef_neg
-
-    signal = self._apply_gap_adjustment(
-        r_hat_jp_cc,
-        z_hat_j_t1,
-        gap_override,
-        betas_t,
-        topix_night_t,
-        gap_open_coef_override=gap_coef_override,
-        topix_beta_coef_override=beta_coef_override,
-    )
-
-    if self.asymmetry_post_gap_delta != 0.0:
-        if self.asymmetry_post_gap_mode == "signal_split":
-            signal = np.maximum(signal, 0.0) + (1.0 + self.asymmetry_post_gap_delta) * np.minimum(
-                signal, 0.0
-            )
-        elif self.asymmetry_post_gap_mode == "us_direction":
-            if us_negative:
-                signal = signal * (1.0 + self.asymmetry_post_gap_delta)
-
-    # 8. Build diagnostics
-    C_XX = corr[: self.n_u, : self.n_u]
-    C_YX = corr[self.n_u :, : self.n_u]
-    C_YY = corr[self.n_u :, self.n_u :]
-    A = Sigma_XX_reg + self.rho * diag_mean * np.eye(self.n_u)
-
-    return build_blp_diagnostics(
-        signal=signal,
-        z_hat_j_t1=z_hat_j_t1,
-        cond_num=cond_num,
+    return compute_blp_signal_math(
+        all_returns=all_returns,
+        current_index=current_index,
+        window_returns=window_returns,
+        mu=mu,
+        sigma=sigma,
+        corr=corr,
+        v0_static=v0_static,
+        c_full=c_full,
         B_blp=B_blp,
-        B_pca=B_pca,
-        M_sector=M_sector,
-        B_struct=B_struct_diag,
-        C_XX=C_XX,
-        C_YX=C_YX,
-        C_YY=C_YY,
-        pred_var=pred_var,
-        num_floored=num_floored,
-        pinv_fallback=pinv_fallback,
-        num_training_samples=len(window_returns),
-        return_matrices=return_matrices,
-        A=A,
         Sigma_XX_reg=Sigma_XX_reg,
         Sigma_YX_reg=Sigma_YX_reg,
         Sigma_YY_reg=Sigma_YY_reg,
-        inv_A_tikh=inv_A_tikh,
-        z_U_t=z_U_t,
-        mu=mu,
-        sigma=sigma,
-        sigma_j_t=sigma_j_t,
+        cond_num=cond_num,
+        pinv_fallback=pinv_fallback,
+        M_sector=M_sector,
+        gap_override=gap_override,
+        betas_t=betas_t,
+        topix_night_t=topix_night_t,
+        parameters=parameters,
+        asymmetric_covariance=asymmetric_covariance,
+        return_matrices=return_matrices,
     )

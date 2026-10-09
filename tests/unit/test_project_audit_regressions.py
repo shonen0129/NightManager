@@ -97,7 +97,7 @@ def test_minvar_rejects_overlapping_indices_and_impossible_config():
 
 @pytest.mark.parametrize('override', [{'n_observations': 1000}, {'returns': [.01, np.nan, -.01, .02]}, {'metric_status': 'invalid'}, {'net_sharpe': np.nan}, {'net_sharpe_frequency': 'monthly'}, {'trading_days_per_year': 0}, {'trials': 1.5}, {'trial_sharpe_variance': np.nan}, {'trial_sharpes': [np.inf] * 10}, {'trial_sharpes': [1., 2.]}])
 def test_dsr_rejects_invalid_or_inconsistent_inputs(override):
-    metrics = {'net_sharpe': 2., 'trials': 10, 'n_observations': 4, 'returns': [-.01, .015, -.005, .02]}
+    metrics = {'metric_schema_version': 'daily-v1', 'metric_status': 'valid', 'net_sharpe_frequency': 'annual', 'trading_days_per_year': 245, 'trial_sharpes': list(np.linspace(-1, 1, 10)), 'net_sharpe': 2., 'trials': 10, 'n_observations': 4, 'returns': [-.01, .015, -.005, .02]}
     assert compute_deflated_sharpe(metrics) is not None
     assert compute_deflated_sharpe({**metrics, **override}) is None
 
@@ -174,10 +174,10 @@ def test_carry_reaches_next_entry_including_gap_and_morning(side, gap, morning):
         frame[f'jp_gap_{ticker}'] = [0., gap]
         frame[f'jp_open_trade_{ticker}'] = 100.
     measured = pd.DataFrame([np.zeros(17), np.full(17, morning)], index=dates, columns=JP_TICKERS)
-    target, carry = BacktestEngine._compute_target_and_gap_returns(frame, dates, dates, measured)
+    target, carry, morning_returns = BacktestEngine._compute_price_intervals(frame, dates, dates, measured)
     weights = np.zeros_like(target)
     weights[0, 0] = side
-    pnl = simulate_daily_pnl(weights=weights, target_returns=target, gap_returns=carry, sim_dates=dates, slip=0., financing_daily=0., borrow_daily=0., reverse_daily=0., alpha_long=1., alpha_short=1.)
+    pnl = simulate_daily_pnl(weights=weights, target_returns=target, gap_returns=carry, open_910_returns=morning_returns, sim_dates=dates, slip=0., financing_daily=0., borrow_daily=0., reverse_daily=0., alpha_long=1., alpha_short=1.)
     assert sum(pnl['gross_returns']) == pytest.approx(side * ((1 + gap) * (1 + morning) - 1))
     assert np.max(np.abs(target)) == pytest.approx(0.)
 

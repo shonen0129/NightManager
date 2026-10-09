@@ -189,7 +189,7 @@ def _build_decomposition() -> tuple[pd.DataFrame, dict[str, object], object]:
     app_config = load_config_from_yaml(ROOT / "configs" / "production" / "production.yaml")
     df_exec = load_df_exec_from_local_cache()
     open_910 = build_open_910_returns(df_exec, JP_TICKERS)
-    target_returns, gap_returns = BacktestEngine._compute_target_and_gap_returns(
+    target_returns, gap_returns, morning_returns = BacktestEngine._compute_price_intervals(
         df_exec,
         df_exec.index,
         dates,
@@ -209,6 +209,7 @@ def _build_decomposition() -> tuple[pd.DataFrame, dict[str, object], object]:
         weights=weights_arr,
         target_returns=target_returns,
         gap_returns=gap_returns,
+        open_910_returns=morning_returns,
         sim_dates=dates,
         **common,
     )
@@ -221,11 +222,16 @@ def _build_decomposition() -> tuple[pd.DataFrame, dict[str, object], object]:
     checks["replay_cost_max_abs_error"] = float(
         np.max(np.abs(np.asarray(replay["costs"]) - total_cost.to_numpy()))
     )
+    if any(not np.isfinite(checks[key]) or checks[key] > 1e-10 for key in (
+        "replay_net_max_abs_error", "replay_overnight_max_abs_error", "replay_cost_max_abs_error",
+    )):
+        raise ValueError("Stored results use a different price/accounting contract; use reevaluate_inventory_accounting.py and preserve the historical report")
 
     no_carry = simulate_daily_pnl(
         weights=weights_arr,
         target_returns=target_returns,
         gap_returns=gap_returns,
+        open_910_returns=morning_returns,
         sim_dates=dates,
         slip=common["slip"],
         financing_daily=common["financing_daily"],
@@ -306,8 +312,6 @@ def main() -> None:
         extra_metrics={
             "stage": 5,
             "summary": summary,
-            "net_sharpe_frequency": "annual",
-            "trading_days_per_year": int(ANNUALIZATION_DAYS),
         },
         decision=Decision.PENDING,
         reason="Diagnostic only; true 09:10 execution evidence from stage 2 is still incomplete.",
