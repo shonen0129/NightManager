@@ -64,7 +64,7 @@ The table records current tracked project paths. Runtime data and generated outp
 | models/ml_order_overlay/production_20260923/ | Versioned production ML overlay artifact store |
 | kabu_auto_login/ | Separate kabu Station login utility |
 
-The CI documentation and current required checks are in [CI.md](CI.md). The file [scripts/ci/validate_docs.py](../scripts/ci/validate_docs.py) checks relative Markdown links and the current-path tables in this document against the repository tree.
+The CI documentation and current required checks are in [CI.md](CI.md). The file [scripts/ci/validate_docs.py](../scripts/ci/validate_docs.py) checks relative Markdown links and path tables. Its `--current` mode also checks concrete source paths and declared Python symbols in maintained operating documents, Skills and IDE instructions. Resolved configuration and audit/close behavior are tied to the operating tables by `tests/unit/test_operational_doc_contracts.py`; see the [document-contract ADR](decisions/2026-10-08-maintained-document-contracts.md).
 
 本番 `costs.side_leverage` は 1.30。モデル空間の `w_final` は net ±0.05 / gross ≤2.0 を維持し、side leverage 適用後の実効 gross 上限は2.60となる。VaR99 3.00%・ES99 4.00%の停止閾値は変更していない。選定根拠は[2026-09-30リスク低減評価](../reports/20260930_var_es_risk_reduction/report.md)。評価は2025-07-29〜2026-09-25の保存済み履歴に限られ、ES tailは3標本、実口座損益・実約定費用とは未照合のため、当日リスク判定の代替にはならない。
 

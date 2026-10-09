@@ -8,7 +8,9 @@ runtime と開発用検査を同じ解決結果から構築する。CI は次を
    SHAP/llvmlite依存はHosted production CIの解決対象から外す。[研究環境手順](RESEARCH_ENV.md)
    で研究依存を分離する。
 2. `compileall`、Ruff、mypy、import-linter、および `scripts/ci/check_operational_imports.py` によるscheduled Python batch入口のresearch import禁止。shellが起動する研究診断toolの分離は別の残件。
-3. architecture/ADR/plan の相対リンク検査
+3. architecture/ADR/plan の相対リンク検査と `scripts/ci/validate_docs.py --current`。
+   `--current` はAGENTS、README/architecture/CI/scheduler/research環境/roadmap、運用/技術仕様、`.agents/skills/`、Devin Skill、Windsurf workflow/planを対象に、通常のprose/backtick/fenced commandの具体的なrepository pathと `path.py::Class.method` をASTで照合する。runtime出力・placeholder・globは静的存在検査の対象外。履歴reports/ADRには現在のAPI適合を強制しない。現行文書に残す歴史節は `<!-- docs:historical -->` / `<!-- docs:current -->` で範囲を明示する。
+   `tests/unit/test_operational_doc_contracts.py` は仕様のConfig attribute表を継承解決後の設定へ、運用Audit case表を実監査のフラット化・statusへ対応付ける。closeの単元丸めと予定残数量も検査する。実時計・計算窓・口座の約定完了までは文書検査で保証しない。
 4. production wheel のビルド、`research`混入検査、隔離インストール後のCLI・artifact推論
 5. `tests/` 全体（unit / integration / research / regression / features）。回帰baselineは
    並列worker間の状態影響を受けないよう単独で実行し、残りを並列化する。
@@ -18,7 +20,7 @@ S0で固定したコード版・入力fingerprint・回帰基準は、CIの構�
 数値比較を実行したことにはならない。モデル挙動を変更するPRでは、別コード版による
 before/after数値diffを追加し、比較機能・入力・除外条件を明示する。
 
-Ruff の対象は `src/leadlag tests tools/production tools/validation` と
+Ruff の対象は `src/leadlag tests tools/production tools/validation scripts/ci/validate_docs.py` と
 `src/research tools/research`。研究ツリーの既存 backlog を整理したため、学習入口だけの
 個別検査から両研究ツリー全体へゲートを拡大する。新規エラーの免除は追加しない。
 
@@ -41,7 +43,7 @@ Sprint診断テストは`tests/research/conftest.py`の固定市場入力と一�
 uv sync --locked --extra dev --extra ml-overlay
 uv lock --check
 uv run --locked python -m compileall -q src/leadlag tests tools scripts src/research
-uv run --locked ruff check src/leadlag tests tools/production tools/validation
+uv run --locked ruff check src/leadlag tests tools/production tools/validation scripts/ci/validate_docs.py
 uv run --locked ruff check src/research tools/research
 uv run --locked mypy --config-file pyproject.toml src/leadlag
 uv run --locked lint-imports
