@@ -21,7 +21,7 @@ from leadlag.runner.production import ProductionRunner
 
 logger = logging.getLogger(__name__)
 
-_SCHEMA_VERSION = "ml-overlay-paired-shadow-v1"
+_SCHEMA_VERSION = "ml-overlay-research-paired-shadow-v2"
 
 
 def _canonical_hash(value: Any) -> str:
@@ -55,6 +55,24 @@ def _json_value(value: Any) -> Any:
     if isinstance(value, (str, int, bool)) or value is None:
         return value
     return str(value)
+
+
+def _without_overlay_settings(config: Any) -> dict[str, Any]:
+    v2 = config.v2.model_dump(mode="json")
+    for key in (
+        "ml_overlay_enabled",
+        "ml_overlay_model_dir",
+        "ml_overlay_use_ticker",
+        "ml_overlay_use_classification",
+        "ml_overlay_per_ticker_interactions",
+    ):
+        v2.pop(key, None)
+    return {
+        "v2": v2,
+        "risk": _model_dump(getattr(config, "risk", None)),
+        "strategy": _model_dump(getattr(config, "strategy", None)),
+        "broker_provider": getattr(config, "broker_provider", None),
+    }
 
 
 def _result_payload(
@@ -113,41 +131,44 @@ def _read_existing_records(path: Path) -> list[dict[str, Any]]:
 def append_ml_overlay_shadow(
     *,
     app_config: Any,
+    overlay_config: Any,
     decision_inputs: DecisionInputs,
-    ml_enabled_result: PortfolioDecision,
+    ml_disabled_result: PortfolioDecision,
     output_dir: str | Path,
-    overlay_metadata: dict[str, Any] | None = None,
     capital_jpy: float | None = None,
-    raise_on_baseline_failure: bool = False,
+    raise_on_overlay_failure: bool = False,
 ) -> Path:
-    """Run the same production model with ML disabled and append the pair.
+    """Run a research overlay candidate and pair it with the live V2 decision.
 
-    This function never imports or invokes a broker. The ML-enabled result is
-    the already-computed production result; only the disabled counterfactual
-    is run here. Baseline calculation failures are recorded as incomplete
-    rows; persistence failures are raised to the caller, which should keep
-    shadow failure separate from the live decision path.
+    The live V2-only result is supplied by the caller. The candidate runs on
+    the same immutable inputs with a separate research config. This function
+    never imports or invokes a broker. Candidate failures are recorded as
+    incomplete rows; persistence failures are raised to the caller, which
+    keeps shadow failure separate from the live decision path.
     """
-    if not bool(app_config.v2.ml_overlay_enabled):
-        raise ValueError("paired ML shadow requires the production ML overlay to be enabled")
+    if bool(app_config.v2.ml_overlay_enabled):
+        raise ValueError("paired ML shadow requires the production V2-only config")
+    if not bool(overlay_config.v2.ml_overlay_enabled):
+        raise ValueError("research shadow config must enable its overlay candidate")
+    if _without_overlay_settings(app_config) != _without_overlay_settings(overlay_config):
+        raise ValueError("research shadow config changed non-overlay production settings")
 
-    disabled_v2 = app_config.v2.model_copy(deep=True, update={"ml_overlay_enabled": False})
-    disabled_config = app_config.model_copy(deep=True, update={"v2": disabled_v2})
-    baseline_error: str | None = None
+    candidate_error: str | None = None
+    overlay_result: PortfolioDecision | None = None
+    overlay_metadata: dict[str, Any] | None = None
     try:
-        baseline_result = ProductionRunner(disabled_config).run(decision_inputs)
-    except Exception as exc:  # Keep baseline failures visible without affecting production.
-        baseline_result = None
-        baseline_error = f"{type(exc).__name__}: {exc}"
-        logger.exception("ML-disabled paired shadow calculation failed")
+        candidate_runner = ProductionRunner(overlay_config)
+        overlay_model = getattr(candidate_runner.model, "_overlay_model", None)
+        if overlay_model is None:
+            raise ValueError("research shadow config did not load an overlay artifact")
+        overlay_metadata = getattr(overlay_model, "metadata", None)
+        overlay_result = candidate_runner.run(decision_inputs)
+    except Exception as exc:  # Keep candidate failures visible without affecting production.
+        candidate_error = f"{type(exc).__name__}: {exc}"
+        logger.exception("Research overlay paired shadow calculation failed")
 
-    v2_config = app_config.v2.model_dump(mode="json")
-    baseline_v2_config = disabled_v2.model_dump(mode="json")
-    shared_config = {
-        "risk": _model_dump(getattr(app_config, "risk", None)),
-        "strategy": _model_dump(getattr(app_config, "strategy", None)),
-        "broker_provider": getattr(app_config, "broker_provider", None),
-    }
+    overlay_v2_config = overlay_config.v2.model_dump(mode="json")
+    baseline_v2_config = app_config.v2.model_dump(mode="json")
     cost_config = getattr(app_config.v2, "costs", None)
     side_leverage = getattr(cost_config, "side_leverage", None)
     input_version = decision_inputs.version
@@ -166,8 +187,14 @@ def append_ml_overlay_shadow(
         },
         "quote_snapshot_id": getattr(decision_inputs.known, "quote_snapshot_id", None),
         "config_fingerprints": {
-            "ml_enabled": _canonical_hash({**shared_config, "v2": v2_config}),
-            "ml_disabled": _canonical_hash({**shared_config, "v2": baseline_v2_config}),
+            "ml_enabled": _canonical_hash({
+                **_without_overlay_settings(overlay_config),
+                "v2_overlay": overlay_v2_config,
+            }),
+            "ml_disabled": _canonical_hash({
+                **_without_overlay_settings(app_config),
+                "v2_overlay": baseline_v2_config,
+            }),
         },
         "overlay_artifact": _json_value(overlay_metadata or {}),
         "sizing": {
@@ -183,14 +210,14 @@ def append_ml_overlay_shadow(
             ),
         },
         "variants": {
-            "ml_enabled": _result_payload(ml_enabled_result, ticker_order),
-            "ml_disabled": (
-                None if baseline_result is None
-                else _result_payload(baseline_result, ticker_order)
+            "ml_enabled": (
+                None if overlay_result is None
+                else _result_payload(overlay_result, ticker_order)
             ),
+            "ml_disabled": _result_payload(ml_disabled_result, ticker_order),
         },
-        "status": "baseline_failed" if baseline_error is not None else "complete",
-        "baseline_error": baseline_error,
+        "status": "overlay_failed" if candidate_error is not None else "complete",
+        "overlay_error": candidate_error,
         "cost_evidence": {
             "status": "modeled_only_pending_real_execution_reconciliation",
             "note": "Decision cost fields are model estimates, not observed fill costs.",
@@ -219,8 +246,8 @@ def append_ml_overlay_shadow(
         )
         if duplicate is not None:
             logger.info("Paired ML shadow already recorded for %s", record["trade_date"])
-            if raise_on_baseline_failure and duplicate.get("status") != "complete":
-                raise RuntimeError("ML-disabled counterfactual failed; incomplete shadow row is recorded")
+            if raise_on_overlay_failure and duplicate.get("status") != "complete":
+                raise RuntimeError("research overlay failed; incomplete shadow row is recorded")
             return path
         record["attempt"] = 1 + sum(
             item.get("trade_date") == record["trade_date"] for item in existing
@@ -231,8 +258,8 @@ def append_ml_overlay_shadow(
             handle.flush()
             os.fsync(handle.fileno())
         fcntl.flock(lock_handle.fileno(), fcntl.LOCK_UN)
-    if raise_on_baseline_failure and baseline_error is not None:
-        raise RuntimeError("ML-disabled counterfactual failed; incomplete shadow row is recorded")
+    if raise_on_overlay_failure and candidate_error is not None:
+        raise RuntimeError("research overlay failed; incomplete shadow row is recorded")
     return path
 
 

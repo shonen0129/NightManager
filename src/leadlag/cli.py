@@ -41,16 +41,21 @@ def _add_decision_args(
         "--ml-overlay-shadow-dir",
         default=None,
         help=(
-            "Append paired ML-on/off production decisions for prospective shadow "
-            "evaluation. Requires real live prices; does not alter submitted weights."
+            "Append a research overlay candidate paired with the V2-only live decision. "
+            "Requires real live prices; does not alter submitted weights."
         ),
+    )
+    parser.add_argument(
+        "--ml-overlay-shadow-config",
+        default="configs/research/ml_overlay_forward_shadow_20261009.yaml",
+        help="Research-only overlay candidate config used when paired shadow output is enabled.",
     )
     if include_shadow_only:
         parser.add_argument(
             "--shadow-only",
             action="store_true",
             help=(
-                "Generate paired ML-on/off decisions from live read-only market data, "
+                "Generate paired research-overlay and V2-only decisions from live read-only market data, "
                 "then exit before production portfolio writes, position queries, or order submission."
             ),
         )
@@ -311,6 +316,7 @@ def _handle_decision(args: argparse.Namespace) -> int:
         run_tag=args.run_tag,
         dry_run=args.dry_run,
         ml_overlay_shadow_dir=args.ml_overlay_shadow_dir,
+        ml_overlay_shadow_config=args.ml_overlay_shadow_config,
         shadow_only=getattr(args, "shadow_only", False),
     )
     logger.info("V2 decision completed. Output: %s", result_path)

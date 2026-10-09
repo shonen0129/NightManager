@@ -63,6 +63,18 @@ def test_production_side_leverage_is_reduced_without_loosening_risk_stops() -> N
     assert cfg.risk.max_gross_exposure == pytest.approx(3.0)
 
 
+def test_production_config_selects_v2_only_and_research_config_selects_overlay_candidate() -> None:
+    production = load_config_from_yaml("configs/production/production.yaml", strict=True)
+    research = load_config_from_yaml(
+        "configs/research/ml_overlay_forward_shadow_20261009.yaml", strict=True
+    )
+
+    assert production.v2.ml_overlay_enabled is False
+    assert production.v2.ml_overlay_model_dir == ""
+    assert research.v2.ml_overlay_enabled is True
+    assert research.v2.ml_overlay_model_dir == "models/ml_order_overlay/production_20260923"
+
+
 def test_explicit_missing_config_path_raises(tmp_path) -> None:
     with pytest.raises(FileNotFoundError, match="Configuration file"):
         load_config_from_yaml(tmp_path / "missing.yaml", strict=True)

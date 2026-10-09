@@ -12,6 +12,7 @@ from leadlag.cli import setup_parser
 from leadlag.data.tickers import JP_TICKERS
 from leadlag.domain.portfolio import CostBreakdown, PortfolioDecision
 from leadlag.execution import v2_bridge
+from leadlag.execution.config import load_config_from_yaml
 from leadlag.reporting import ml_overlay_shadow
 
 
@@ -20,9 +21,6 @@ class _V2Config:
         self.ml_overlay_enabled = ml_overlay_enabled
         self.ml_overlay_model_dir = "models/ml_order_overlay/test"
         self.cost_bps_per_gross = 10.0
-
-    def model_copy(self, *, deep: bool, update: dict) -> _V2Config:
-        return _V2Config(update.get("ml_overlay_enabled", self.ml_overlay_enabled))
 
     def model_dump(self, *, mode: str) -> dict:
         return {
@@ -35,10 +33,6 @@ class _V2Config:
 class _AppConfig:
     def __init__(self, v2: _V2Config | None = None) -> None:
         self.v2 = v2 or _V2Config()
-
-    def model_copy(self, *, deep: bool, update: dict) -> _AppConfig:
-        return _AppConfig(update.get("v2", self.v2))
-
 
 @dataclass
 class _FakeInputs:
@@ -91,18 +85,23 @@ def test_append_ml_overlay_shadow_records_pair_and_is_idempotent(tmp_path, monke
     class _Runner:
         def __init__(self, config: _AppConfig) -> None:
             calls.append(config.v2.ml_overlay_enabled)
+            self.model = SimpleNamespace(
+                _overlay_model=SimpleNamespace(
+                    metadata={"artifact_version": "model-v1", "model_sha256": "abc"}
+                )
+            )
 
         def run(self, inputs: _FakeInputs) -> PortfolioDecision:
             assert inputs.known.trade_date == pd.Timestamp("2026-09-28")
-            return _decision(0.2)
+            return _decision(0.3)
 
     monkeypatch.setattr(ml_overlay_shadow, "ProductionRunner", _Runner)
     args = dict(
-        app_config=_AppConfig(),
+        app_config=_AppConfig(_V2Config(ml_overlay_enabled=False)),
+        overlay_config=_AppConfig(_V2Config(ml_overlay_enabled=True)),
         decision_inputs=_inputs(),
-        ml_enabled_result=_decision(0.3),
+        ml_disabled_result=_decision(0.2),
         output_dir=tmp_path,
-        overlay_metadata={"artifact_version": "model-v1", "model_sha256": "abc"},
     )
 
     path = ml_overlay_shadow.append_ml_overlay_shadow(**args)
@@ -110,51 +109,56 @@ def test_append_ml_overlay_shadow_records_pair_and_is_idempotent(tmp_path, monke
 
     rows = [json.loads(line) for line in path.read_text().splitlines()]
     assert len(rows) == 1
-    assert calls == [False, False]
+    assert calls == [True, True]
+    assert rows[0]["schema_version"] == "ml-overlay-research-paired-shadow-v2"
     assert rows[0]["status"] == "complete"
     assert rows[0]["variants"]["ml_enabled"]["weights"] == {"A": 0.3, "B": -0.3}
     assert rows[0]["variants"]["ml_disabled"]["weights"] == {"A": 0.2, "B": -0.2}
+    assert rows[0]["overlay_artifact"]["artifact_version"] == "model-v1"
     assert rows[0]["cost_evidence"]["status"] == "modeled_only_pending_real_execution_reconciliation"
 
 
-def test_append_ml_overlay_shadow_records_baseline_failure(tmp_path, monkeypatch):
+def test_append_ml_overlay_shadow_records_candidate_failure(tmp_path, monkeypatch):
     class _Runner:
         def __init__(self, config: _AppConfig) -> None:
-            pass
+            self.model = SimpleNamespace(_overlay_model=SimpleNamespace(metadata={}))
 
         def run(self, inputs: _FakeInputs) -> PortfolioDecision:
-            raise RuntimeError("counterfactual unavailable")
+            raise RuntimeError("candidate unavailable")
 
     monkeypatch.setattr(ml_overlay_shadow, "ProductionRunner", _Runner)
     path = ml_overlay_shadow.append_ml_overlay_shadow(
-        app_config=_AppConfig(),
+        app_config=_AppConfig(_V2Config(ml_overlay_enabled=False)),
+        overlay_config=_AppConfig(_V2Config(ml_overlay_enabled=True)),
         decision_inputs=_inputs(),
-        ml_enabled_result=_decision(0.3),
+        ml_disabled_result=_decision(0.2),
         output_dir=tmp_path,
     )
 
     row = json.loads(path.read_text().splitlines()[0])
-    assert row["status"] == "baseline_failed"
-    assert row["variants"]["ml_disabled"] is None
-    assert row["baseline_error"] == "RuntimeError: counterfactual unavailable"
+    assert row["status"] == "overlay_failed"
+    assert row["variants"]["ml_enabled"] is None
+    assert row["variants"]["ml_disabled"]["weights"] == {"A": 0.2, "B": -0.2}
+    assert row["overlay_error"] == "RuntimeError: candidate unavailable"
 
 
-def test_shadow_only_baseline_failure_is_persisted_then_raises(tmp_path, monkeypatch):
+def test_shadow_only_candidate_failure_is_persisted_then_raises(tmp_path, monkeypatch):
     class _Runner:
         def __init__(self, config: _AppConfig) -> None:
-            pass
+            self.model = SimpleNamespace(_overlay_model=SimpleNamespace(metadata={}))
 
         def run(self, inputs: _FakeInputs) -> PortfolioDecision:
-            raise RuntimeError("counterfactual unavailable")
+            raise RuntimeError("candidate unavailable")
 
     monkeypatch.setattr(ml_overlay_shadow, "ProductionRunner", _Runner)
     try:
         ml_overlay_shadow.append_ml_overlay_shadow(
-            app_config=_AppConfig(),
+            app_config=_AppConfig(_V2Config(ml_overlay_enabled=False)),
+            overlay_config=_AppConfig(_V2Config(ml_overlay_enabled=True)),
             decision_inputs=_inputs(),
-            ml_enabled_result=_decision(0.3),
+            ml_disabled_result=_decision(0.2),
             output_dir=tmp_path,
-            raise_on_baseline_failure=True,
+            raise_on_overlay_failure=True,
         )
     except RuntimeError as exc:
         assert "incomplete shadow row is recorded" in str(exc)
@@ -162,21 +166,33 @@ def test_shadow_only_baseline_failure_is_persisted_then_raises(tmp_path, monkeyp
         raise AssertionError("shadow-only mode must fail closed on an incomplete pair")
 
     row = json.loads((tmp_path / "daily.jsonl").read_text().splitlines()[0])
-    assert row["status"] == "baseline_failed"
+    assert row["status"] == "overlay_failed"
 
 
-def test_shadow_requires_live_overlay_configuration(tmp_path):
+def test_shadow_requires_v2_only_production_and_enabled_candidate_configs(tmp_path):
     try:
         ml_overlay_shadow.append_ml_overlay_shadow(
-            app_config=_AppConfig(_V2Config(ml_overlay_enabled=False)),
+            app_config=_AppConfig(_V2Config(ml_overlay_enabled=True)),
+            overlay_config=_AppConfig(_V2Config(ml_overlay_enabled=True)),
             decision_inputs=_inputs(),
-            ml_enabled_result=_decision(0.3),
+            ml_disabled_result=_decision(0.2),
             output_dir=tmp_path,
         )
     except ValueError as exc:
-        assert "requires the production ML overlay" in str(exc)
+        assert "production V2-only config" in str(exc)
     else:
-        raise AssertionError("disabled ML config must be rejected")
+        raise AssertionError("production overlay config must be rejected")
+
+
+def test_research_shadow_config_changes_only_overlay_settings():
+    production = load_config_from_yaml("configs/production/production.yaml", strict=True)
+    research = load_config_from_yaml(
+        "configs/research/ml_overlay_forward_shadow_20261009.yaml", strict=True
+    )
+
+    assert ml_overlay_shadow._without_overlay_settings(production) == (
+        ml_overlay_shadow._without_overlay_settings(research)
+    )
 
 
 def test_decision_cli_accepts_shadow_output_dir():
@@ -184,11 +200,12 @@ def test_decision_cli_accepts_shadow_output_dir():
         [
             "decision",
             "--ml-overlay-shadow-dir",
-            "var/shadow_runs/ml_overlay_value",
+            "var/shadow_runs/ml_overlay_research_20261009",
             "--shadow-only",
         ]
     )
-    assert args.ml_overlay_shadow_dir == "var/shadow_runs/ml_overlay_value"
+    assert args.ml_overlay_shadow_dir == "var/shadow_runs/ml_overlay_research_20261009"
+    assert args.ml_overlay_shadow_config == "configs/research/ml_overlay_forward_shadow_20261009.yaml"
     assert args.shadow_only is True
 
 
@@ -198,8 +215,13 @@ def test_daily_cli_does_not_accept_shadow_only():
 
 
 def test_shadow_only_rejects_dry_run_before_loading_inputs(monkeypatch, tmp_path):
-    config = SimpleNamespace(v2=SimpleNamespace(ml_overlay_enabled=True))
-    monkeypatch.setattr(v2_bridge, "load_config_from_yaml", lambda _path: config)
+    config = SimpleNamespace(v2=SimpleNamespace(ml_overlay_enabled=False))
+    overlay_config = SimpleNamespace(v2=SimpleNamespace(ml_overlay_enabled=True))
+    monkeypatch.setattr(
+        v2_bridge,
+        "load_config_from_yaml",
+        lambda _path, **_kwargs: overlay_config if "research" in str(_path) else config,
+    )
     monkeypatch.setattr(v2_bridge, "_resolve_trade_date", lambda _date, _path: "2026-09-28")
     monkeypatch.setattr(v2_bridge, "_resolve_gap_dir", lambda *_args: None)
     monkeypatch.setattr(
@@ -229,7 +251,7 @@ def test_shadow_only_returns_before_production_writes_positions_or_orders(monkey
     decision_inputs = _inputs()
     config = SimpleNamespace(
         v2=SimpleNamespace(
-            ml_overlay_enabled=True,
+            ml_overlay_enabled=False,
             macro_kappa_enabled=False,
             macro_direction_enabled=False,
             cs_overlay_enabled=False,
@@ -282,7 +304,12 @@ def test_shadow_only_returns_before_production_writes_positions_or_orders(monkey
 
     shadow_path = tmp_path / "shadow" / "daily.jsonl"
     shadow_calls = []
-    monkeypatch.setattr(v2_bridge, "load_config_from_yaml", lambda _path: config)
+    overlay_config = SimpleNamespace(v2=SimpleNamespace(ml_overlay_enabled=True))
+    monkeypatch.setattr(
+        v2_bridge,
+        "load_config_from_yaml",
+        lambda _path, **_kwargs: overlay_config if "research" in str(_path) else config,
+    )
     monkeypatch.setattr(v2_bridge, "_resolve_trade_date", lambda _date, _path: "2026-09-28")
     monkeypatch.setattr(v2_bridge, "_resolve_gap_dir", lambda *_args: None)
     monkeypatch.setattr(v2_bridge, "_load_df_exec", lambda *_args, **_kwargs: pd.DataFrame(index=[pd.Timestamp("2026-09-28")]))
@@ -329,5 +356,50 @@ def test_shadow_only_returns_before_production_writes_positions_or_orders(monkey
     )
 
     assert result == str(shadow_path)
-    assert shadow_calls[0]["raise_on_baseline_failure"] is True
+    assert shadow_calls[0]["raise_on_overlay_failure"] is True
     assert api_client.closed is True
+
+
+@pytest.mark.parametrize("shadow_only", [False, True])
+def test_candidate_config_failure_preserves_live_v2_but_stops_shadow_only(
+    monkeypatch, tmp_path, shadow_only
+):
+    config = SimpleNamespace(v2=SimpleNamespace(ml_overlay_enabled=False))
+    baseline = _decision(0.2)
+    written = []
+    client = SimpleNamespace(close=lambda: None)
+
+    def load_config(path, **_kwargs):
+        if str(path).endswith("missing-candidate.yaml"):
+            raise FileNotFoundError("candidate config unavailable")
+        return config
+
+    class ProductionWriteReached(Exception):
+        pass
+
+    def write_baseline(_date, _path, result, **_kwargs):
+        written.append(result)
+        raise ProductionWriteReached
+
+    monkeypatch.setattr(v2_bridge, "load_config_from_yaml", load_config)
+    monkeypatch.setattr(v2_bridge, "_resolve_trade_date", lambda *_args: "2026-09-28")
+    monkeypatch.setattr(v2_bridge, "_resolve_gap_dir", lambda *_args: None)
+    monkeypatch.setattr(v2_bridge, "_load_df_exec", lambda *_args, **_kwargs: pd.DataFrame())
+    monkeypatch.setattr(v2_bridge, "load_frozen_quote_snapshot", lambda *_args, **_kwargs: SimpleNamespace(
+        as_of=pd.Timestamp("2026-09-28T09:10:05+09:00"), snapshot_id="frozen-test"
+    ))
+    monkeypatch.setattr(v2_bridge, "build_api_client", lambda **_kwargs: client)
+    monkeypatch.setattr(v2_bridge, "_resolve_current_price_preflight", lambda *_args, **_kwargs: object())
+    monkeypatch.setattr(v2_bridge, "_build_quote_preflight", lambda *_args, **_kwargs: object())
+    monkeypatch.setattr(v2_bridge, "_build_run_owned_decision_inputs", lambda *_args: _inputs())
+    monkeypatch.setattr(v2_bridge, "ProductionRunner", lambda _config: SimpleNamespace(run=lambda _inputs: baseline))
+    monkeypatch.setattr(v2_bridge, "write_production_files", write_baseline)
+
+    error = FileNotFoundError if shadow_only else ProductionWriteReached
+    with pytest.raises(error):
+        v2_bridge.run_v2_decision(
+            config_path="production.yaml", live_dir=tmp_path,
+            api_enable=True, ml_overlay_shadow_dir=tmp_path / "shadow",
+            ml_overlay_shadow_config="missing-candidate.yaml", shadow_only=shadow_only,
+        )
+    assert written == ([] if shadow_only else [baseline])

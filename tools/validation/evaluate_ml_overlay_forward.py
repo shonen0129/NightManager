@@ -13,7 +13,7 @@ from leadlag.config.paths import project_root
 from leadlag.reporting.ml_overlay_forward_evaluation import evaluate_ml_overlay_forward
 
 ROOT = project_root()
-DEFAULT_SHADOW_DIR = ROOT / "var/shadow_runs/ml_overlay_value"
+DEFAULT_SHADOW_DIR = ROOT / "var/shadow_runs/ml_overlay_research_20261009"
 
 
 def _read_jsonl(path: Path, *, optional: bool = False) -> list[dict[str, Any]]:

@@ -37,3 +37,10 @@
 **現行実装の追記（2026-09-29）:** 上記のcapture失敗時にdecisionを継続する計画は、actual-liveのquote入力契約としては採用しない。現行actual-liveは完全な当日frozen quote snapshotがなければ処理を中止する。ML shadow保存の失敗を注文判断から分離する方針とは別の制御である。詳細は [2026-09-29 decision](2026-09-29-frozen-0910-account-risk-forward-eval.md)。
 
 2026-09-28 00:39 JSTに既存の `com.leadlag.decision` が平日09:10にロード済みと確認した。専用shadow Agentを同じ時刻に追加すると `live:production_v2` guardを競合するため、試験登録した `com.leadlag.ml-overlay-shadow` は直ちにbootoutし、plistを削除した。既存 `run_decision_v2.sh` が同一live decision中にペアフックを実行する。追加した `--shadow-only` は安全に発注経路を迂回するCLI機能だが、独立Agentは登録していない。既存decision Agentの直近終了コードは1で、9/25ログではgap計算失敗、VaR/ES履歴計算timeout、risk stopによる発注停止が確認された。ペアフック導入後の初回記録はまだなく、9/28の実行後にログとJSONLを確認する。引け後のcandidate実約定・費用台帳とbaseline counterfactual execution replayの照合器は別途必要であり、現在の保存レコードには将来実現収益をまだ付与しない。
+
+## 2026-10-09の本番切替
+
+2026-10-09にproduction configをV2単独へ変更した。以降のlive baselineは本番V2結果であり、
+research configからoverlay candidateを同一入力で別計算して追記する。これは本番昇格や発注変更では
+なく、candidateのforward shadowを継続するための研究経路である。新しい契約と理由は
+[2026-10-09 decision](2026-10-09-ml-overlay-research-only.md)を参照する。

@@ -1,8 +1,9 @@
 __base__: ../base.yaml
 
-# Explicitly promoted, versioned overlay root.  The active version is selected
-# by CURRENT and must pass the shared artifact loader before a run starts.
-ml_overlay_model_dir: models/ml_order_overlay/production_20260923
+# V2 is the sole production decision model. Overlay remains a separately
+# configured research candidate in configs/research/ml_overlay_forward_shadow_20261009.yaml.
+ml_overlay_enabled: false
+ml_overlay_model_dir: ""
 
 # Reduced from the inherited 1.50 after same-input 250-day VaR/ES replay.
 # This is a top-level flat key because base.yaml defines the same key there.

@@ -1,0 +1,66 @@
+experiment_id: nightmanager_direct_stock_alpha_20261007
+description: >-
+  Re-map existing NightManager TOPIX-17 sector alpha to liquid same-industry
+  stocks with rolling pre-date sector betas; this is not an ETF return tracking test.
+reuse:
+  prior_market_loader_config: configs/research/nightmanager_etf_stock_proxy_20261007.yaml
+  gap_distribution_dir: var/live/pipeline_data/gap_adjusted_distribution/20260731_024303
+  active_production_config: configs/production/production.yaml
+  production_side_leverage_required: 1.30
+evaluation:
+  start_date: "2020-01-06"
+  end_date: "2026-08-05"
+  sector_beta_window: 252
+  recent_beta_window: 126
+  beta_stability_abs_diff: 0.25
+  beta_min: 0.50
+  beta_max: 1.50
+  minimum_adv_jpy: 100000000
+  candidate_pool_top_k: 10
+  max_stock_names_per_sector: 3
+  max_individual_stock_weight_of_nav: 0.10
+  cost_turnover_penalty_bps: 5.0
+  sensitivity:
+    beta_window: [202, 302]
+    beta_stability_abs_diff: [0.20, 0.30]
+    beta_band: [[0.60, 1.40], [0.40, 1.60]]
+    minimum_adv_jpy: [80000000, 120000000]
+    candidate_pool_top_k: [8, 12]
+    max_individual_stock_weight_of_nav: [0.08, 0.12]
+    cost_turnover_penalty_bps: [4.0, 6.0]
+  annualization_sessions: 245
+  bootstrap_block_sessions: 20
+  bootstrap_resamples: 5000
+  bootstrap_seed: 20261007
+decision_gate:
+  portfolio_candidate_requires:
+    paired_net_difference_block_ci_lower_above_bps_per_day: 0.0
+    maximum_net_mdd_deterioration_percentage_points: 2.0
+    mean_abs_beta_exposure_error_nav: 0.0001
+  sector_classification:
+    improvement_if_paired_net_difference_block_ci_lower_above_bps_per_day: 0.0
+    deterioration_if_paired_net_difference_block_ci_upper_below_bps_per_day: 0.0
+    maximum_mean_abs_beta_exposure_error_nav: 0.0001
+portfolio:
+  strategies:
+    - etf_baseline
+    - single_stock_hybrid
+    - stock3_hybrid
+    - cost_aware_stock3_hybrid
+  short_side: retain_topix17_etf
+cost_model:
+  slippage_bps_per_side: 5.0
+  stock_spread_method: Corwin-Schultz high-low spread estimator, prior 60-session median
+  stock_cost: estimated half-spread plus 5.0 bps per side
+  etf_cost: 5.0 bps per side; historical ETF quote spreads unavailable
+  excluded: commissions, exchange fees, taxes, borrow, financing, reverse, market impact, and intraday implementation shortfall
+return_proxy:
+  individual_stock: open_to_close
+  topix17_etf: open_to_close
+  note: Individual-stock 09:10 prices are unavailable; open-to-close is a proxy for 09:10-to-close.
+leakage_controls:
+  rolling_beta_window: strictly_prior_sessions_excluding_trade_date
+  liquidity: trailing_252_session_average_close_times_volume_shifted_one_session
+  stock_cost_estimate: prior_only_ohlc
+  forecast: mu_gap_for_trade_date_from_prior_signal_date
+  classification: current_2026-07-31_parent_sector_fixed_historically

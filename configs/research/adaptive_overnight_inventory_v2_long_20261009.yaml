@@ -1,0 +1,30 @@
+# Historical V2-only follow-up to the adaptive overnight inventory study.
+# The adaptive rule is frozen at 252 sessions; no parameter selection occurs here.
+backtest:
+  start_date: "2015-01-05"
+  end_date: "2026-09-25"
+  oos_start_after_full_baseline_lookback: true
+  initial_inventory: flat
+  terminal_policy: liquidate_at_final_close
+  annualization_periods: 245
+  block_bootstrap:
+    block_sessions: 20
+    resamples: 5000
+    seed: 20261009
+
+model:
+  lookback_sessions: 252
+  transition_dirichlet_prior:
+    same_direction: 1.0
+    reversal: 1.0
+    flat: 1.0
+  overlap_beta_prior:
+    alpha: 1.0
+    beta: 1.0
+  reversal_exit_cost_multiplier: 1.0
+  sensitivity:
+    lookback_multipliers: [0.8, 1.2]
+    reversal_exit_cost_multipliers: [0.8, 1.2]
+
+cost_stress:
+  high_short_borrow_annual: [0.10, 0.30]

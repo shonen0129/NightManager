@@ -1,0 +1,6 @@
+__base__: ../production/production.yaml
+
+# Research-only candidate used to produce paired shadow predictions. This
+# config never supplies the live production portfolio or submitted weights.
+ml_overlay_enabled: true
+ml_overlay_model_dir: models/ml_order_overlay/production_20260923
