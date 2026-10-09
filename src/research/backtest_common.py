@@ -13,7 +13,7 @@ Includes:
   - CostParams: single source of research cost constants
   - load_execution_data: data loading utility
   - run_backtest_with_costs: generic BaseModel backtest with standard cost params
-  - prepare_target_and_gap_returns: target/gap DataFrame alignment
+  - prepare_price_intervals: entry/close, gap and morning DataFrame alignment
   - simulate_overnight_holding: per-asset alpha-mask overnight simulation
   - extended_metrics / compute_backtest_metrics: metrics from daily returns or results dict
   - compute_rank_ic: daily Spearman rank IC timeseries + summary
@@ -34,10 +34,10 @@ from scipy import stats
 
 from leadlag.core.pnl import simulate_daily_pnl
 from leadlag.data.fetcher import download_data
-from leadlag.data.intraday_inputs import compute_jp_target_returns
 from leadlag.data.market_data_cache import load_df_exec_from_local_cache
 from leadlag.data.preprocessor import preprocess_data
 from leadlag.data.tickers import JP_TICKERS
+from leadlag.execution.backtester import BacktestEngine
 from leadlag.reporting.metrics import calculate_metrics
 from research.backtest_v1 import run_v1_backtest
 
@@ -87,22 +87,13 @@ def load_execution_data(
     )
 
 
-def prepare_target_and_gap_returns(
+def prepare_price_intervals(
     df_exec: pd.DataFrame,
     sim_dates: pd.DatetimeIndex,
-) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Build (target_returns_df, gap_returns_df) aligned to sim_dates.
-
-    target: 9:10-to-close returns. gap: overnight gap(t) = open(t)/close(t-1) - 1.
-    """
-    y_jp_target = compute_jp_target_returns(df_exec, JP_TICKERS)
-    target_df = pd.DataFrame(y_jp_target, index=df_exec.index, columns=JP_TICKERS).loc[sim_dates]
-
-    gap_cols = [f"jp_gap_{tk}" for tk in JP_TICKERS]
-    gap_df = df_exec[gap_cols].copy()
-    gap_df.columns = JP_TICKERS
-    gap_df = gap_df.loc[sim_dates]
-    return target_df, gap_df
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """Align entry→close, prior close→open, and open→entry intervals."""
+    target, gap, morning = BacktestEngine._compute_price_intervals(df_exec, df_exec.index, sim_dates)
+    return tuple(pd.DataFrame(values, index=sim_dates, columns=JP_TICKERS) for values in (target, gap, morning))
 
 
 # alpha_mask_fn(i, date, w_t, r_target, signals_row) -> np.ndarray of per-asset alpha
@@ -116,12 +107,14 @@ def simulate_overnight_holding(
     alpha: float | AlphaMaskFn,
     costs: CostParams | None = None,
     signals_df: pd.DataFrame | None = None,
+    *,
+    open_910_returns_df: pd.DataFrame | None = None,
 ) -> dict:
     """Simulate overnight position carry-over with realistic costs.
 
     Return decomposition:
         intraday  = w_t . r_910toClose(t)
-        overnight = alpha_mask . (w_t * r_gap(t+1))
+        overnight = previous close inventory marked through current open/entry
 
     Cost model (per asset j):
         (1 - alpha_j) fraction: full round-trip slippage
@@ -175,9 +168,7 @@ def simulate_overnight_holding(
         alpha_long=0.0,
         alpha_short=0.0,
         alpha_masks=alpha_masks,
-        # Preserve this research helper's established one-session holding
-        # assumption; the production BT uses calendar-day gaps by default.
-        calendar_days=np.ones(n_days),
+        open_910_returns=None if open_910_returns_df is None else open_910_returns_df.loc[dates].to_numpy(),
     )
     intraday = pd.Series(np.sum(weights_arr * target_arr, axis=1), index=dates)
     overnight = pd.Series(pnl["overnight_returns"], index=dates)
@@ -215,6 +206,10 @@ def simulate_overnight_holding(
         "daily_hold_counts": series["hold_count"],
         "equity_curve": wealth,
         "drawdown": drawdown,
+        "accounting_contract": pnl["accounting_contract"],
+        "terminal_inventory": pnl["terminal_inventory"],
+        "daily_execution_volume": pd.Series(pnl["execution_volume"], index=dates),
+        "daily_target_weight_turnover": pd.Series(pnl["target_weight_turnover"], index=dates),
     }
 
 

@@ -105,7 +105,7 @@ def run_experiment(df_exec: pd.DataFrame) -> dict:
     T_sim = len(sim_dates_slice)
     n_j = len(JP_TICKERS)
 
-    y_jp_target_arr, gap_returns_arr = BacktestEngine._compute_target_and_gap_returns(
+    y_jp_target_arr, gap_returns_arr, morning_returns = BacktestEngine._compute_price_intervals(
         df_exec, sim_dates, sim_dates_slice
     )
 
@@ -251,6 +251,7 @@ def run_experiment(df_exec: pd.DataFrame) -> dict:
         pnl = simulate_daily_pnl(
             weights=w_mat,
             target_returns=y_jp_target_arr,
+            open_910_returns=morning_returns,
             gap_returns=gap_returns_arr,
             sim_dates=sim_dates_slice,
             slip=strat_cfg.slippage_bps * 1e-4,

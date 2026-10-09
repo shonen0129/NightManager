@@ -139,6 +139,11 @@ def _assemble_run_backtest_results(
         "signals": sre_signals_df.loc[sim_dates_slice],
         "normalized_signals": pred["normalized_signals"].loc[sim_dates_slice],
         "weights": sre_weights_df,
+        "accounting_contract": pnl["accounting_contract"],
+        "initial_inventory": pnl["initial_inventory"],
+        "terminal_inventory": pnl["terminal_inventory"],
+        "daily_execution_volume": pd.Series(pnl["execution_volume"], index=sim_dates_slice),
+        "daily_target_weight_turnover": pd.Series(pnl["target_weight_turnover"], index=sim_dates_slice),
         "daily_returns_gross": daily_returns_gross,
         "daily_returns": daily_returns_net,
         "daily_returns_gross_oc": daily_returns_gross_oc,
@@ -244,7 +249,7 @@ def run_v1_backtest(
         n_jobs,
     )
 
-    y_jp_target_arr, gap_returns_arr = BacktestEngine._compute_target_and_gap_returns(
+    y_jp_target_arr, gap_returns_arr, morning_returns_arr = BacktestEngine._compute_price_intervals(
         df_exec, sim_dates, sim_dates_slice
     )
 
@@ -261,6 +266,7 @@ def run_v1_backtest(
         weights=sre_weights_arr,
         target_returns=y_jp_target_arr,
         gap_returns=gap_returns_arr,
+        open_910_returns=morning_returns_arr,
         sim_dates=sim_dates_slice,
         slip=slip,
         financing_daily=financing_daily,
