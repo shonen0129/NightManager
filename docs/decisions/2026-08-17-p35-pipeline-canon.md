@@ -20,9 +20,8 @@ Both paths share the same BLPX signal math (`ProductionBLPXModel` / `ProductionV
 The Next-Gen async FSM pipeline (`nextgen_pipeline.py`, `async_fsm.py`, `AsyncExecutionEngine`) is deprecated and will be moved to `archive/legacy_src/execution/` in Phase 41. However, two Next-Gen components are judged worth preserving for later integration in Phase 41:
 
 - `PITDataLake` (`data/pit_lake.py`): a unified as-of data access abstraction
-- `ConvexOptimizer` / `core/convex_optimizer.py`: the constrained portfolio optimizer
 
-These components will be decoupled from the async FSM and made available to the V2 path, rather than being deleted with the FSM wrapper.
+The original plan also retained the convex optimizer for possible V2 integration. Issue #46 supersedes that part: the optimizer is research-only in `research/convex_optimizer.py` and is not part of the production package or path.
 
 ## Consequences
 
@@ -41,9 +40,9 @@ These components will be decoupled from the async FSM and made available to the 
 ### Migration notes
 
 1. `cli.py`: remove `choices=["nextgen", "v2"]` and default to V2.
-2. `production.yaml`: remove `nextgen` execution/FSM block; keep `pit_lake` and `convex_optimizer` settings (relocate to `v2` or a new `math` block in Phase 41).
+2. `production.yaml`: remove `nextgen` execution/FSM block; retain only settings consumed by the V2 path.
 3. `src/leadlag/execution/nextgen_pipeline.py`, `async_fsm.py`, `AsyncExecutionEngine` and related tests: move to `archive/legacy_src/execution/`.
-4. `PITDataLake` and `ConvexOptimizer` stay in `src/leadlag/` and are integrated into the V2 backtest/production path in Phase 41.
+4. `PITDataLake` stays in `src/leadlag/`; the convex optimizer remains a research experiment and is excluded from production configuration.
 
 ## Evidence
 

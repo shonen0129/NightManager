@@ -8,6 +8,7 @@ from types import SimpleNamespace
 
 import numpy as np
 import pandas as pd
+from scripts.tools.phase_deadline import TIMEOUT_EXIT_CODE, run_phase
 
 from leadlag.data.gap_store import GapStore
 from leadlag.data.tickers import JP_TICKERS
@@ -15,7 +16,6 @@ from leadlag.domain.gap_bundle import GapBundleRef, canonical_json_bytes
 from leadlag.domain.inputs import DecisionInputs
 from leadlag.domain.portfolio import PortfolioDecision
 from leadlag.execution.gap_store_check import check_bundle
-from leadlag.execution.phase_deadline import TIMEOUT_EXIT_CODE, run_phase
 from leadlag.execution.runtime_manifest import (
     build_decision_manifest,
     update_decision_manifest,

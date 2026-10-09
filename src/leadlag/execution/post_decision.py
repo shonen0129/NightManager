@@ -19,7 +19,7 @@ from leadlag.broker.base import BrokerClient
 from leadlag.config.schemas import RiskConfig
 from leadlag.config.schemas import StrategyConfig as ProductionConfig
 from leadlag.core import allocator as domain_allocator
-from leadlag.execution.account_risk import AccountRiskSnapshot
+from leadlag.execution.account_risk import AccountRiskPreflight
 from leadlag.execution.broker_ops import (
     OrderExecutionIncomplete,
     build_execution_plan,
@@ -155,9 +155,7 @@ def _run_risk_check_and_print(
     hist_returns: pd.Series,
     config: RiskConfig,
     current_positions: dict[str, int] | None = None,
-    actual_account_risk: AccountRiskSnapshot | None = None,
-    actual_account_risk_error: str | None = None,
-    require_actual_account_risk: bool = False,
+    account_risk_preflight: AccountRiskPreflight | None = None,
 ) -> dict:
     """Compute allocated totals, run risk checks, print the report, and return it."""
     buy_mask = decision_df["action"] == "BUY"
@@ -172,9 +170,7 @@ def _run_risk_check_and_print(
         max_capital=max_capital,
         hist_daily_returns=hist_returns,
         config=config,
-        actual_account_risk=actual_account_risk,
-        actual_account_risk_error=actual_account_risk_error,
-        require_actual_account_risk=require_actual_account_risk,
+        account_risk_preflight=account_risk_preflight,
     )
     _print_risk_report(risk_report)
     logger.info("Actual-account risk evidence: %s", risk_report.get("actual_account_risk"))
@@ -421,9 +417,7 @@ def execute_post_decision_flow(
     state_store: ExecutionStateStore | None = None,
     account_key: str = "default",
     strategy_key: str = "production_v2",
-    actual_account_risk: AccountRiskSnapshot | None = None,
-    actual_account_risk_error: str | None = None,
-    require_actual_account_risk: bool = False,
+    account_risk_preflight: AccountRiskPreflight | None = None,
 ) -> str:
     """Execute post-decision flow (gross adjustment, risk check, capital allocation, order submission, and output writing).
 
@@ -447,9 +441,7 @@ def execute_post_decision_flow(
         hist_returns,
         risk_config,
         current_positions=current_positions,
-        actual_account_risk=actual_account_risk,
-        actual_account_risk_error=actual_account_risk_error,
-        require_actual_account_risk=require_actual_account_risk,
+        account_risk_preflight=account_risk_preflight,
     )
 
     out_path = _write_decision_output_and_submit(

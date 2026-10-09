@@ -59,6 +59,25 @@ JP_TICKERS: list[str] = [f"{t}.T" for t in range(1617, 1634)]
 # 1628.T 運輸・物流, 1629.T 商社・卸売, 1630.T 小売, 1631.T 銀行,
 # 1632.T 金融（除く銀行）, 1633.T 不動産
 
+# Structural BLPX prior: JP sector ETFs associated with each US ETF.
+US_TO_JP_SECTOR_MAPPING: dict[str, list[str]] = {
+    "XLB": ["1620.T", "1623.T"],
+    "XLC": ["1626.T"],
+    "XLE": ["1618.T", "1627.T"],
+    "XLF": ["1631.T", "1632.T"],
+    "XLI": ["1624.T", "1622.T", "1626.T"],
+    "XLK": ["1626.T", "1625.T"],
+    "XLP": ["1617.T", "1630.T"],
+    "XLRE": ["1633.T"],
+    "XLU": ["1627.T"],
+    "XLV": ["1621.T"],
+    "XLY": ["1630.T", "1626.T", "1622.T"],
+    "MTUM": ["1625.T", "1626.T"],
+    "VLUE": ["1631.T", "1632.T", "1623.T", "1622.T"],
+    "IUSG": ["1626.T", "1625.T"],
+    "USMV": ["1617.T", "1621.T", "1627.T"],
+}
+
 # TOPIX proxy ticker (used for beta computation and overnight return)
 TOPIX_TICKER: str = "1306.T"
 

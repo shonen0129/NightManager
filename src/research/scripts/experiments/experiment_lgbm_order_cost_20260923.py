@@ -67,7 +67,7 @@ BLOCK_DAYS = 20
 BOOTSTRAP_SAMPLES = 1000
 BOOTSTRAP_SEED = 42
 RUN_COMMAND = (
-    ".venv/bin/python reports/20260912_workspace_audit/watchdog.py 1800 "
+    ".venv/bin/python scripts/tools/phase_deadline.py --label lgbm_order_cost --timeout 1800 --grace 10 -- "
     ".venv/bin/python src/research/scripts/experiments/experiment_lgbm_order_cost_20260923.py "
     "> /tmp/20260923_lgbm_order_cost.log 2>&1"
 )

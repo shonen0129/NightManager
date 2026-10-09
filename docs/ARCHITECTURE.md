@@ -2,7 +2,7 @@
 
 V2 同期パス (ProductionV2Model) を本番正本とし、Next-Gen 非同期パイプライン・凸最適化は 2026-08-17 の ADR (docs/decisions/2026-08-17-p35-pipeline-canon.md) に基づき archive/legacy_src/ へ移設された。`PITDataLake` は `leadlag.data.pit_lake` の本番入力adapterとして保持し、`DecisionInputs`へ変換してモデルへ渡す。
 
-> **最終更新**: 2026-10-04
+> **最終更新**: 2026-10-08
 
 ## Overview
 
@@ -55,6 +55,7 @@ The table records current tracked project paths. Runtime data and generated outp
 | scripts/batch/ | Scheduled production and market-data entry points |
 | scripts/ci/ | CI validation and wheel checks |
 | scripts/run_tests_parallel.sh | Local partitioned test runner |
+| scripts/tools/phase_deadline.py | Shared process-group deadline for test, backtest, and batch commands |
 | src/leadlag/ | Production strategy package |
 | src/research/ | Research-only package, excluded from the production wheel |
 | tests/ | Unit, integration, regression, research, and feature tests |
@@ -142,7 +143,7 @@ ProductionBLPXModel (models/blpx/model.py)
 | `macro.py` | マクロ因子（USDJPY, CLF, TNX）のボラティリティ調整サプライズ計算、感度行列（`MACRO_SENS_MATRIX`）、Factor-Specific Kappa リスクスケーリング。ネットワーク・キャッシュI/Oは持たない |
 | `pnl.py` | weight-based BTの日次損益・費用計算と、観測/仮定FillをFIFO在庫へ評価する純粋な会計プリミティブ |
 | `pit.py` | Point-in-time view — ローリング窓アクセスを `as_of` 行で制限しルックアヘッドを実行時に防止 |
-| `experiment_registry.py` | 実験レジストリ — 仮説・パラメータ・指標・DSR を JSONL で記録 |
+| `experiment_registry.py` | 実験レジストリ — 仮説family事前登録・全試行開始/outcome・選択・DSR検証を同JSONLに追記 ([契約](decisions/2026-10-08-study-governance.md)) |
 | `timeouts.py` | 集中管理されたタイムアウト定数と `with_timeout` デコレータ |
 
 ### 2.1 Typed input boundary (`domain/inputs.py`)
@@ -170,7 +171,7 @@ snapshotを生成する検証済みproducerは未整備なので、producerが�
 | `tickers.py` | US/JP ティッカー定義・変換ユーティリティの**単一正本** |
 | `market_data_cache.py` | ETF価格・intraday・市場履歴cacheの正本。SQLiteストアを一度だけ読み書きする |
 | `fetcher.py` | yfinance ダウンロード、差分更新、1629.T NAVパッチ |
-| `preprocessor.py` | `df_exec` 構築（日次リターン整列、TOPIX beta計算） |
+| `preprocessor.py` | `PreprocessorInputs`を作り、日次リターン・proxy・target日・TOPIX betaを計算。execution record検証と市場diagnosticsを組み立てる |
 | `macro.py` | macro価格の取得・列名正規化・timeout・キャッシュ。計算層へDataFrameを渡す入力adapter |
 | `adr_features.py` | ADR ZIP bundleの原子的公開・hash/coverage/provenance検証、当日行欠損時のskip判定 |
 | `adr_producer.py` | Yahoo closeからADR特徴を生成する運用producer。取得欠損を維持し当日coverage不足では公開しない |
@@ -206,15 +207,17 @@ kabuステーションや立花証券からの移行・別ブローカー追加�
 | モジュール | 責務 |
 |---|---|
 | `config.py` | YAML/env の設定パラメータロード・Pydanticスキーマによる検証 (デフォルト: `configs/production/production.yaml`) |
+| `v2_bridge.py` | `run_v2_decision()`の日次run組立。価格source/PIT入力は `QuotePreflight`、actual-account risk証跡は `AccountRiskPreflight` で下流へ渡す |
 | `broker_ops.py` | BrokerClient 構築・ポジション/資本取得・発注・1629.T 大口分割 |
 | `pricing.py` | 寄付価格・約定価格解決 |
 | `risk_capital.py` | `AppConfig.risk`を受けるリスクチェック・gross調整・資本配分 |
 | `output_ops.py` | 出力ディレクトリ・決定 CSV・バックテストサマリー・position/wallet スナップショット |
 | `post_decision.py` | gross 調整→リスク→配分→発注→出力の一連フロー |
 | `decision.py` | `generate_daily_decision_results()` |
-| `close.py` | `close_all_positions()`とCLIの決済・照合。leaseを迂回する旧auto-close helperは撤去 |
+| `close.py` | close注文計画、順序を保った送信・観測保存、照合・出力を構成する `close_all_positions()` |
 | `backtest.py` | `run_production()` — 生産バックテスト実行管理 |
 | `backtester.py` | `BacktestEngine` — 汎用的なバックテスト実行シミュレータ |
+| `var_history.py` | 履歴sourceの所有、cache判定、VaR再生計画・実行を `VaRHistorySource` / `VaRHistoryReplayPlan` に分けて構成 |
 | `var_cache.py` | `VaRCacheIdentity`でeffective config・入力版・overlay・gap bundleをcache keyへ束ね、`DeadlineBudget`で絶対期限を共有 |
 | `var_inputs.py` / `var_worker.py` | fingerprint・gap/PIT履歴snapshotの取得と、timeout後もworker終了まで保持する所有権・期限付き保存 |
 | `state_store.py` | SQLiteのrun/order intent/observation/reconciliation台帳と口座・戦略単位の実行lease |
@@ -510,8 +513,8 @@ artifact・運用の最新受入状態は[実行報告](../reports/20260922_prod
 
 V2の期間入口は2015-01-05以降とsource期間の非空交差を検証する。`evaluation_period`に要求・実評価・sourceの期間を保存する。損益のinventory-v3契約と執行turnoverは `accounting_contract` で識別する。US pre-inception proxyは `data/tickers.py::US_INCEPTION_DATES` より前だけとし、各cellの `us_proxy_*` を残す。旧前処理cacheは契約version不一致で再利用せず、strict再構築へ進む。元データの品質異常を補間で隠さない。
 
-market-data updaterとdistribution diagnosticsは既存job guardの `live:production_v2` leaseと全体deadlineを共有し、各phaseにもdeadlineを設定する。通常のtest utilityは `execution.phase_deadline` を使い、reports内watchdogには依存しない。ADR producerは `data.adr_producer` に分離し、`data/adr_features.zip` 内のpickle/CSV/manifestを一度のatomic replaceで公開する。旧pickleを読むfallbackは置かず、実ソースから再生成する。実運用での更新復旧、scheduled diagnosticsのresearch依存、元データ不足による269日長期PnLの完全再評価は残件として追跡する。終端在庫と連続会計は[Issue #33の判断](decisions/2026-10-08-inventory-accounting.md)に従う。
+market-data updaterとdistribution diagnosticsは既存job guardの `live:production_v2` leaseと全体deadlineを共有し、各phaseにも `scripts/tools/phase_deadline.py` でdeadlineを設定する。通常のtest runnerもこの入口を使い、reports内watchdogには依存しない。ADR producerは `data.adr_producer` に分離し、`data/adr_features.zip` 内のpickle/CSV/manifestを一度のatomic replaceで公開する。旧pickleを読むfallbackは置かず、実ソースから再生成する。実運用での更新復旧、scheduled diagnosticsのresearch依存、元データ不足による269日長期PnLの完全再評価は残件として追跡する。終端在庫と連続会計は[Issue #33の判断](decisions/2026-10-08-inventory-accounting.md)に従う。
 
-BLPXの行列solve・PCA prior・Tikhonov・confidence・非対称solve・診断構築は `core/blpx_math.py` を本番/研究の共通正本とし、係数・次元を明示入力で受け取る。旧model helper再公開は撤去した。研究の診断キーも `z_U_t` に揃える。日次PnLは `core.pnl.simulate_daily_pnl`、gap読込は `utils.gap_matrix_io.load_gap_bundle` を直接使い、旧互換wrapperと未使用CostCalculatorは撤去した。
+BLPXの係数solve、固定/rolling sector prior、PCA prior、Tikhonov、confidence weighting、signal変換、非対称solve、診断構築は `core/blpx_math.py` を本番/研究の共通正本とし、係数・行列・次元を明示入力で受け取る。共通のUS-to-JP sector mappingは `data/tickers.py` に置く。window準備、相関推定、非対称共分散推定、prior hook、モデル合成は各モデル側に残す。旧数値実装とmodel helper再公開は撤去した。研究の診断キーも `z_U_t` に揃える。日次PnLは `core.pnl.simulate_daily_pnl`、gap読込は `utils.gap_matrix_io.load_gap_bundle` を直接使い、旧互換wrapperと未使用CostCalculatorは撤去した。
 
 詳しくは [監査境界の設計判断](decisions/2026-10-06-audit-boundaries.md)、[追加の設計判断](decisions/2026-10-06-adr-publication-and-shared-blpx.md)、[追加対応結果](../reports/20261006_issue_resolution_round2/report.md) を参照。

@@ -1,4 +1,4 @@
-"""Unified Convex Portfolio Optimizer.
+"""Research-only unified convex portfolio optimizer.
 
 Formulates and solves the single-stage convex portfolio optimization problem:
     max_w [ w^T * mu_gap - (lambda_risk / 2) * w^T * Omega_gap * w - Cost(w, w_prev) - lambda_to * ||w - w_prev||_1 ]
@@ -17,11 +17,35 @@ from dataclasses import dataclass
 from typing import cast
 
 import numpy as np
+from pydantic import BaseModel, Field
 from scipy.optimize import minimize
 
-from leadlag.config.schemas import ConvexOptimizerConfig
-
 logger = logging.getLogger(__name__)
+
+
+class ConvexOptimizerConfig(BaseModel):
+    """Configuration for research-only convex portfolio experiments."""
+
+    model_config = {"frozen": True}
+
+    lambda_risk: float = Field(default=3.0, ge=0.0, description="リスク回避係数")
+    cost_bps: float = Field(default=5.0, ge=0.0, description="取引コスト bps")
+    turnover_penalty: float = Field(default=0.0001, ge=0.0, description="ターンオーバーペナルティ")
+    max_single_weight: float = Field(default=0.25, gt=0.0, le=1.0, description="銘柄別最大ウェイト")
+    gross_target: float = Field(default=2.0, gt=0.0, description="目標グロスエクスポージャー")
+    min_weight_threshold: float = Field(default=1e-4, ge=0.0, description="ゼロ切り捨て閾値")
+    solver_tol: float = Field(default=1e-7, gt=0.0, description="SLSQP 停止許容値")
+    max_iter: int = Field(default=100, ge=1, description="SLSQP 最大反復回数")
+    smooth_eps: float = Field(default=1e-4, gt=0.0, description="Pseudo-Huber 平滑化パラメータ")
+
+    # Cost defaults mirror the production backtest inputs used by these experiments.
+    overnight_alpha_long: float = Field(default=0.75, ge=0.0, le=1.0, description="ロングのオーバーナイト保有割合")
+    overnight_alpha_short: float = Field(default=0.5, ge=0.0, le=1.0, description="ショートのオーバーナイト保有割合")
+    buy_interest_annual: float = Field(default=0.025, ge=0.0, description="ロング金利年率")
+    borrow_fee_annual: float = Field(default=0.0115, ge=0.0, description="貸株料年率")
+    reverse_fee_bps: float = Field(default=2.0, ge=0.0, description="逆日歩 bps/日")
+    slippage_bps_per_side: float = Field(default=5.0, ge=0.0, description="片道スリッページ bps")
+    side_leverage: float = Field(default=1.5, ge=0.0, description="サイドレバレッジ")
 
 
 @dataclass(frozen=True)

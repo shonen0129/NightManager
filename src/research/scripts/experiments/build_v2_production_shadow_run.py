@@ -2,7 +2,7 @@
 """本番 V2 ロジックを使った shadow run を生成する。
 
 `tools/validation/run_daily_residual_blpx_shadow.py` ではなく、
-`src/leadlag/models/production_v2.py::generate_v2_production_portfolio_with_overlay`
+`ProductionV2Model.decide_from_cache` と `ml_overlay_inference.apply_overlay`
 を用いて各日のポートフォリオを構築し、shadow_runs/ 配下に出力する。
 
 使い方:
@@ -39,7 +39,7 @@ from leadlag.data.market_data_cache import load_df_exec_from_local_cache
 from leadlag.data.tickers import JP_TICKERS
 from leadlag.execution.config import load_config_from_yaml
 from leadlag.models.ml_overlay_artifact import load_overlay_model
-from leadlag.models.ml_overlay_inference import generate_v2_production_portfolio_with_overlay
+from leadlag.models.ml_overlay_inference import apply_overlay
 from leadlag.models.production_v2 import ProductionV2Model
 from research.experiment_registry import Decision
 from research.experiment_utils import record_simple_experiment
@@ -265,16 +265,17 @@ def build_shadow_run(args: argparse.Namespace) -> int:
     # Build shadow portfolios day by day
     for i, trade_date in enumerate(dates, 1):
         try:
+            result = ProductionV2Model(parse_run_config(app_config.v2)).decide_from_cache(
+                trade_date=trade_date,
+                gap_input_dir=gap_input_dir,
+            )
             if overlay_model is not None and df_exec is not None:
-                result = generate_v2_production_portfolio_with_overlay(
-                    trade_date=trade_date,
-                    gap_input_dir=gap_input_dir,
-                    cfg=app_config.v2,
-                    df_exec=df_exec,
-                    overlay_model=overlay_model,
+                result = apply_overlay(
+                    result,
+                    df_exec,
+                    overlay_model,
+                    trade_date,
                 )
-            else:
-                result = ProductionV2Model(parse_run_config(app_config.v2)).decide_from_cache(trade_date=trade_date, gap_input_dir=gap_input_dir)
 
             out_dir = shadow_root / trade_date.replace("-", "")
             write_daily_files(trade_date, out_dir, result)

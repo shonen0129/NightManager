@@ -4,15 +4,12 @@ from __future__ import annotations
 
 import logging
 from dataclasses import replace
-from pathlib import Path
 from typing import Any
 
 import numpy as np
 import pandas as pd
 
 from leadlag.compliance.v2_auditor import run_numerical_audit
-from leadlag.config import safe_config_copy
-from leadlag.config.schemas import ProductionV2RunConfig, parse_run_config
 from leadlag.data.adr_features import load_adr_features, validate_adr_features
 from leadlag.data.pit_lake import MarketSnapshot
 from leadlag.domain.portfolio import PortfolioDecision
@@ -182,23 +179,4 @@ def apply_overlay(
     )
 
 
-def generate_v2_production_portfolio_with_overlay(
-    trade_date: str,
-    gap_input_dir: Path | None,
-    cfg: ProductionV2RunConfig | dict,
-    df_exec: pd.DataFrame | None,
-    overlay_model: Any | None,
-) -> PortfolioDecision:
-    """Run V2 and optionally apply an already loaded overlay model."""
-    cfg_copy = safe_config_copy(cfg)
-    run_cfg = cfg_copy if isinstance(cfg_copy, ProductionV2RunConfig) else parse_run_config(cfg_copy)
-    # Lazy import avoids a production_v2 -> overlay -> production_v2 cycle.
-    from leadlag.models.production_v2 import ProductionV2Model
-
-    result = ProductionV2Model(parse_run_config(run_cfg)).decide_from_cache(trade_date=trade_date, gap_input_dir=gap_input_dir)
-    if overlay_model is None or df_exec is None:
-        return result
-    return apply_overlay(result, df_exec, overlay_model, trade_date)
-
-
-__all__ = ["apply_overlay", "generate_v2_production_portfolio_with_overlay"]
+__all__ = ["apply_overlay"]

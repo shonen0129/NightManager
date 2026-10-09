@@ -1,0 +1,13 @@
+{
+  "reviewed": 120,
+  "appended": 34,
+  "source_sha256": "2df7de435c795c21b06af41508fcbad1fa5f2e718228b009d7f62a4e2a941d84",
+  "corrected_sha256": "6cfcdcafea4ffd8bfb44eb3c95bc3b8041923514fa8336c49b5c11b86c2d5cc9",
+  "original_bytes_preserved": true,
+  "remaining_corrections": 0,
+  "reasons": {
+    "invalid_or_missing_dsr_inputs": 22,
+    "unverified_search_history": 34
+  },
+  "interpretation": "Unverified historical search provenance; no profitability or adoption claim."
+}

@@ -23,6 +23,7 @@
 | [#24](https://github.com/shonen0129/NightManager/issues/24) | VaR/ES超過の原因分析とリスク低減 |
 | [#25](https://github.com/shonen0129/NightManager/issues/25) | actual-account risk snapshot producer |
 | [#27](https://github.com/shonen0129/NightManager/issues/27) | 実取引日の運用受入 |
+| [#45](https://github.com/shonen0129/NightManager/issues/45) | 日次実行・close・前処理・VaRの責務境界 |
 
 ## Historical Roadmap
 

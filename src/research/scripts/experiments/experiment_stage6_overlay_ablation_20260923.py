@@ -325,8 +325,6 @@ def main() -> None:
                 "variant": name,
                 "paired_block_bootstrap": result_summary["paired_block_bootstrap"],
                 "production_changed": False,
-                "net_sharpe_frequency": "annual",
-                "trading_days_per_year": int(ANNUALIZATION_DAYS),
             },
             decision=Decision.PENDING,
             reason="Fixed one-at-a-time diagnostic; stage 2 execution evidence remains incomplete.",
