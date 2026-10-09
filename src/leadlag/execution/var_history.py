@@ -533,6 +533,7 @@ def get_hist_returns_for_risk(
         def _run_backtest_for_risk() -> dict[str, Any]:
             chunks: list[dict[str, Any]] = []
             audit_rows: list[dict[str, Any]] = []
+            inventory_args: dict[str, Any] = {}
             for chunk_dates, chunk_overlay in overlay_chunks:
                 chunk_result = cast(dict[str, Any], backtest_engine.run_v2_backtest(
                     cfg=app_config,
@@ -543,8 +544,17 @@ def get_hist_returns_for_risk(
                     n_jobs=4,
                     overlay_model=chunk_overlay,
                     historical_inputs=historical_input_snapshot,
+                    terminal_policy="open_inventory",
+                    **inventory_args,
                 ))
                 chunks.append(chunk_result)
+                terminal = chunk_result["terminal_inventory"]
+                inventory_args = {
+                    "initial_holdings": np.asarray(terminal["holdings"], dtype=float),
+                    "initial_cash": terminal["cash"],
+                    "initial_mark_date": terminal["mark_date"],
+                    "initial_target_weights": np.asarray(terminal["target_weights"], dtype=float),
+                }
                 summaries = chunk_result.get("v2_summaries")
                 if summaries is not None:
                     if len(summaries) != len(chunk_dates):

@@ -187,10 +187,10 @@ def test_carry_reaches_next_entry_including_gap_and_morning(side, gap, morning):
         frame[f'jp_gap_{ticker}'] = [0., gap]
         frame[f'jp_open_trade_{ticker}'] = 100.
     measured = pd.DataFrame([np.zeros(17), np.full(17, morning)], index=dates, columns=JP_TICKERS)
-    target, carry = BacktestEngine._compute_target_and_gap_returns(frame, dates, dates, measured)
+    target, carry, morning_returns = BacktestEngine._compute_price_intervals(frame, dates, dates, measured)
     weights = np.zeros_like(target)
     weights[0, 0] = side
-    pnl = simulate_daily_pnl(weights=weights, target_returns=target, gap_returns=carry, sim_dates=dates, slip=0., financing_daily=0., borrow_daily=0., reverse_daily=0., alpha_long=1., alpha_short=1.)
+    pnl = simulate_daily_pnl(weights=weights, target_returns=target, gap_returns=carry, open_910_returns=morning_returns, sim_dates=dates, slip=0., financing_daily=0., borrow_daily=0., reverse_daily=0., alpha_long=1., alpha_short=1.)
     assert sum(pnl['gross_returns']) == pytest.approx(side * ((1 + gap) * (1 + morning) - 1))
     assert np.max(np.abs(target)) == pytest.approx(0.)
 
