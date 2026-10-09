@@ -4,6 +4,8 @@
 - Status: accepted
 - Deciders: Devin
 
+The `load_gap_matrices` name below describes the historical loader contract. The current API is `leadlag.utils.gap_matrix_io.load_gap_bundle`, which returns the arrays, metadata, and validation alerts together.
+
 ## Context
 
 `preprocess_data` silently skips rows with NaN in required columns. `load_gap_matrices`

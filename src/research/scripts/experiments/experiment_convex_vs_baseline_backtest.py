@@ -19,12 +19,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
-from leadlag.core.convex_optimizer import (
-    ConvexOptimizerConfig,
-    optimize_portfolio_convex,
-)
 from leadlag.core.pnl import simulate_daily_pnl
 from leadlag.core.portfolio import get_rolling_pit_bin
 from leadlag.data.market_data_cache import load_df_exec_from_local_cache
@@ -34,6 +30,10 @@ from leadlag.execution.config import load_config_from_yaml
 from leadlag.models.blpx import ProductionBLPXModel
 from leadlag.models.production_v2 import ProductionV2Model
 from leadlag.models.v2.gap_io import _build_current_prices_from_df_exec, _compute_ondemand
+from research.convex_optimizer import (
+    ConvexOptimizerConfig,
+    optimize_portfolio_convex,
+)
 
 
 def run_convex_backtest(

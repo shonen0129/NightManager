@@ -45,7 +45,7 @@ fi
 cd "${PROJECT_DIR}"
 
 set +e
-PYTHONPATH=src "${PYTHON_BIN}" -m leadlag.execution.phase_deadline \
+PYTHONPATH=src "${PYTHON_BIN}" scripts/tools/phase_deadline.py \
     --label market_data_update --timeout "${LEADLAG_MARKET_DATA_PHASE_SECONDS:-1100}" \
     --grace "${LEADLAG_JOB_GRACE_SECONDS:-10}" \
     --log "${PROJECT_DIR}/var/logs/job_guard/market_data_phase_${DATESTR}.json" \

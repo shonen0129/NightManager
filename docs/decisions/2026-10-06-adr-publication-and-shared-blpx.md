@@ -20,4 +20,4 @@ Status: accepted for local implementation; live recovery acceptance pending.
 
 ## 検証と残件
 
-変更前のcommitを独立moduleとしてロードし、独立config/model/inputで数値比較する。#44の固定finite/nonfinite/PSD/window入力を使った変更前後比較と共通化の記録は [Issue #44 対応報告](../../reports/20261008_issue44_blpx_canonicalization/report.md)。#35の実更新復旧、#46のprovider/convex optimizer/ML wrapperは別途追跡し、Phase全体の完了は宣言しない。
+変更前のcommitを独立moduleとしてロードし、独立config/model/inputで数値比較する。#44の固定finite/nonfinite/PSD/window入力を使った変更前後比較と共通化の記録は [Issue #44 対応報告](../../reports/20261008_issue44_blpx_canonicalization/report.md)。Issue #46では、未使用provider abstractionを削除し、convex optimizerを `research.convex_optimizer` に移し、研究ML callerが `ProductionV2Model` と `apply_overlay` を直接使うようにする。共通phase deadlineは `scripts/tools/phase_deadline.py` を正規入口とし、reports内watchdogへの依存を外す。#35の実更新復旧は別途追跡し、Phase全体の完了は宣言しない。

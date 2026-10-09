@@ -16,7 +16,7 @@ else
     PYTHON_BIN="python3"
 fi
 
-exec env PYTHONPATH=src "$PYTHON_BIN" -m leadlag.execution.phase_deadline \
+exec env PYTHONPATH=src "$PYTHON_BIN" scripts/tools/phase_deadline.py \
     --label unit_tests --timeout "${LEADLAG_UNIT_TEST_TIMEOUT_SECONDS:-600}" \
     --grace 10 --log /tmp/pytest_unit_guard.json -- \
     "$PYTHON_BIN" -m pytest tests/unit tests/features \

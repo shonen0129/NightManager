@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from leadlag.core.convex_optimizer import (
+from research.convex_optimizer import (
     ConvexOptimizerConfig,
     ensure_psd,
     optimize_portfolio_convex,

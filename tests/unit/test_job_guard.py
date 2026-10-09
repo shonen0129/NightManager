@@ -130,8 +130,8 @@ def test_pnl_batch_reports_even_if_reconciliation_is_incomplete(tmp_path, monkey
     # stand-ins for broker reconciliation and the email-capable report tool.
     interpreter = _script(tmp_path / ".venv/bin/python", (
         '#!/bin/bash\n'
-        'if [ "$1" = "-m" ] && [ "$2" = "leadlag.execution.phase_deadline" ]; then\n'
-        '  shift 2\n'
+        'if [ "$1" = "scripts/tools/phase_deadline.py" ]; then\n'
+        '  shift\n'
         '  while [ "$1" != "--" ]; do shift; done\n'
         '  shift\n'
         'fi\n'
