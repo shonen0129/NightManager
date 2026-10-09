@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
@@ -11,6 +13,112 @@ from leadlag.core.correlation import build_c0_from_v0, regularize_correlation
 from leadlag.data.tickers import US_TICKERS
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True, slots=True)
+class BLPXSignalParameters:
+    """Numerical settings consumed by the shared BLPX signal calculation."""
+
+    n_u: int
+    n_j: int
+    alpha_xx: float
+    alpha_yx: float
+    alpha_yy: float
+    rank: Any
+    rho: float
+    k: int
+    lambda_lw: float
+    lambda_reg: float
+    lw_target: str
+    min_raw_weight: float
+    frobenius_scale_priors: bool
+    lambda_pca: float
+    lambda_sector: float
+    asymmetry_delta: float
+    asymmetry_mode: str
+    beta_conf: float
+    vol_adjusted_target: bool
+    gap_open_coef: float
+    topix_beta_coef: float
+    gap_open_coef_neg: float | None
+    topix_beta_coef_neg: float | None
+    asymmetry_post_gap_delta: float
+    asymmetry_post_gap_mode: str
+
+
+def build_fixed_sector_prior(
+    sector_mapping: Mapping[str, Sequence[str]],
+    us_tickers: Sequence[str],
+    jp_tickers: Sequence[str],
+    *,
+    n_u: int,
+    n_j: int,
+) -> np.ndarray:
+    """Build the fixed equal-split US-to-JP sector prior."""
+    prior = np.zeros((n_j, n_u))
+
+    for u_idx, us_ticker in enumerate(us_tickers):
+        if us_ticker in sector_mapping:
+            jp_sector_tickers = sector_mapping[us_ticker]
+            weight = 1.0 / len(jp_sector_tickers)
+            for jp_ticker in jp_sector_tickers:
+                if jp_ticker in jp_tickers:
+                    j_idx = jp_tickers.index(jp_ticker)
+                    prior[j_idx, u_idx] = weight
+
+    col_sums = np.sum(prior, axis=0)
+    for u_idx in range(n_u):
+        if col_sums[u_idx] > 0:
+            prior[:, u_idx] /= col_sums[u_idx]
+
+    return prior
+
+
+def compute_sector_prior(
+    corr: np.ndarray,
+    B_blp: np.ndarray,
+    model_prior: np.ndarray,
+    fixed_prior: np.ndarray,
+    mapping_indices: Mapping[int, Sequence[int]],
+    *,
+    n_u: int,
+    n_j: int,
+    sector_eta: float,
+    sector_gamma: float,
+) -> np.ndarray:
+    """Blend fixed sector weights with positive rolling US/JP correlations."""
+    expected_shape = B_blp.shape
+    if sector_eta <= 0.0 or fixed_prior.shape != expected_shape:
+        if model_prior.shape == expected_shape:
+            return model_prior
+        return np.zeros(expected_shape)
+
+    if corr.shape != (n_u + n_j, n_u + n_j):
+        return fixed_prior if fixed_prior.shape == expected_shape else np.zeros(expected_shape)
+
+    c_xy = corr[:n_u, n_u:]
+    M_data = np.zeros((n_j, n_u))
+    for u_idx, j_indices in mapping_indices.items():
+        weights = []
+        for j_idx in j_indices:
+            raw_corr = c_xy[u_idx, j_idx]
+            weights.append((j_idx, max(0.0, raw_corr) ** sector_gamma))
+        if not weights:
+            continue
+        total = sum(weight for _, weight in weights)
+        if total > 1e-10:
+            for j_idx, weight in weights:
+                M_data[j_idx, u_idx] = weight / total
+
+    M_blended = (1.0 - sector_eta) * fixed_prior + sector_eta * M_data
+    col_sums = np.sum(M_blended, axis=0)
+    for u_idx in range(n_u):
+        if col_sums[u_idx] > 1e-10:
+            M_blended[:, u_idx] /= col_sums[u_idx]
+
+    if M_blended.shape == expected_shape:
+        return M_blended
+    return np.zeros(expected_shape)
 
 
 def safe_solve_inverse(
@@ -316,3 +424,187 @@ def solve_asymmetric_blp(
     inv_A_avg = 0.5 * (inv_A_pos + inv_A_neg)
     Sigma_YX_reg_avg = 0.5 * (Sigma_YX_reg_pos + Sigma_YX_reg_neg)
     return (B_pos_struct, B_neg_struct, inv_A_avg, Sigma_YX_reg_avg)
+
+
+def compute_blp_signal_math(
+    *,
+    all_returns: np.ndarray,
+    current_index: int,
+    window_returns: np.ndarray,
+    mu: np.ndarray,
+    sigma: np.ndarray,
+    corr: np.ndarray,
+    v0_static: np.ndarray | None,
+    c_full: np.ndarray | None,
+    B_blp: np.ndarray,
+    Sigma_XX_reg: np.ndarray,
+    Sigma_YX_reg: np.ndarray,
+    Sigma_YY_reg: np.ndarray,
+    cond_num: float,
+    pinv_fallback: bool,
+    M_sector: np.ndarray,
+    gap_override: np.ndarray | None,
+    betas_t: np.ndarray | None,
+    topix_night_t: float | None,
+    parameters: BLPXSignalParameters,
+    asymmetric_covariance: tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray] | None = None,
+    return_matrices: bool = False,
+) -> dict[str, Any]:
+    """Compute BLPX priors, forecast, gap adjustment, and diagnostics from explicit inputs.
+
+    Window preparation, correlation estimation, sector-prior policy, and
+    optional asymmetric covariance estimation stay with each model. This
+    function owns the shared numerical solve and forecast transformation.
+    """
+    from leadlag.core.gap_adjustment import apply_gap_adjustment, denormalize_signal
+
+    p = parameters
+    B_pca = compute_pca_prior(
+        corr,
+        v0_static,
+        c_full,
+        k=p.k,
+        lambda_lw=p.lambda_lw,
+        lambda_reg=p.lambda_reg,
+        lw_target=p.lw_target,
+        n_j=p.n_j,
+        n_u=p.n_u,
+        min_raw_weight=p.min_raw_weight,
+    )
+    diag_mean = float(np.mean(np.diag(Sigma_XX_reg)))
+    B_struct, inv_A_tikh = solve_tikhonov(
+        Sigma_XX_reg,
+        Sigma_YX_reg,
+        B_pca,
+        M_sector,
+        diag_mean,
+        B_blp,
+        frobenius_scale_priors=p.frobenius_scale_priors,
+        lambda_pca=p.lambda_pca,
+        lambda_sector=p.lambda_sector,
+        n_u=p.n_u,
+        rho=p.rho,
+    )
+
+    X_t = all_returns[current_index, :p.n_u]
+    X_t = np.nan_to_num(X_t, nan=0.0, posinf=0.0, neginf=0.0)
+    mu_X = mu[:p.n_u]
+    sigma_X = sigma[:p.n_u]
+    sigma_X_safe = np.where(sigma_X > 1e-8, sigma_X, 1.0)
+    z_U_t = (X_t - mu_X) / sigma_X_safe
+
+    z_U_pos = np.maximum(z_U_t, 0.0)
+    z_U_neg = np.minimum(z_U_t, 0.0)
+    z_U_neg_scaled = (1.0 + p.asymmetry_delta) * z_U_neg
+
+    if p.asymmetry_mode == "covariance":
+        if asymmetric_covariance is None:
+            raise ValueError("asymmetric_covariance is required for covariance mode")
+        C_YX_pos, C_YX_neg, C_XX_asym, C_YY_asym = asymmetric_covariance
+        B_pos_struct, B_neg_struct, inv_A_tikh, Sigma_YX_reg = solve_asymmetric_blp(
+            C_YX_pos,
+            C_YX_neg,
+            C_XX_asym,
+            C_YY_asym,
+            B_pca,
+            M_sector,
+            B_blp,
+            alpha_xx=p.alpha_xx,
+            alpha_yx=p.alpha_yx,
+            alpha_yy=p.alpha_yy,
+            frobenius_scale_priors=p.frobenius_scale_priors,
+            lambda_pca=p.lambda_pca,
+            lambda_sector=p.lambda_sector,
+            n_j=p.n_j,
+            n_u=p.n_u,
+            rho=p.rho,
+        )
+        z_hat_j_t1 = B_pos_struct @ z_U_pos + B_neg_struct @ z_U_neg_scaled
+        B_struct_diag = 0.5 * (B_pos_struct + B_neg_struct)
+    else:
+        z_U_asym = z_U_pos + z_U_neg_scaled
+        z_hat_j_t1 = B_struct @ z_U_asym
+        B_struct_diag = B_struct
+
+    z_hat_j_t1 = np.nan_to_num(z_hat_j_t1, nan=0.0, posinf=0.0, neginf=0.0)
+    z_hat_j_t1, pred_var, num_floored = apply_confidence_weighting(
+        z_hat_j_t1, Sigma_YY_reg, Sigma_YX_reg, inv_A_tikh, p.beta_conf
+    )
+
+    r_hat_jp_cc = denormalize_signal(
+        z_hat_j_t1,
+        mu,
+        sigma,
+        all_returns,
+        current_index,
+        p.n_u,
+        p.vol_adjusted_target,
+    )
+    if p.vol_adjusted_target and current_index >= 20:
+        jp_returns_20 = all_returns[current_index - 20 : current_index, p.n_u :]
+        jp_returns_20 = np.nan_to_num(jp_returns_20, nan=0.0, posinf=0.0, neginf=0.0)
+        sigma_j_t = np.std(jp_returns_20, axis=0, ddof=1)
+        sigma_j_t = np.maximum(sigma_j_t, 1e-8)
+    else:
+        sigma_j_t = sigma[p.n_u :]
+
+    us_market_mean = np.nanmean(z_U_t)
+    us_negative = us_market_mean < 0.0
+
+    gap_coef_override = None
+    beta_coef_override = None
+    if us_negative and p.gap_open_coef_neg is not None:
+        gap_coef_override = p.gap_open_coef_neg
+        beta_coef_override = p.topix_beta_coef_neg
+    gap_coef = gap_coef_override if gap_coef_override is not None else p.gap_open_coef
+    beta_coef = beta_coef_override if beta_coef_override is not None else p.topix_beta_coef
+    signal = apply_gap_adjustment(
+        r_hat_jp_cc,
+        z_hat_j_t1,
+        gap_override,
+        betas_t,
+        topix_night_t,
+        gap_coef,
+        beta_coef,
+    )
+
+    if p.asymmetry_post_gap_delta != 0.0:
+        if p.asymmetry_post_gap_mode == "signal_split":
+            signal = np.maximum(signal, 0.0) + (1.0 + p.asymmetry_post_gap_delta) * np.minimum(
+                signal, 0.0
+            )
+        elif p.asymmetry_post_gap_mode == "us_direction":
+            if us_negative:
+                signal = signal * (1.0 + p.asymmetry_post_gap_delta)
+
+    C_XX = corr[:p.n_u, :p.n_u]
+    C_YX = corr[p.n_u :, :p.n_u]
+    C_YY = corr[p.n_u :, p.n_u :]
+    A = Sigma_XX_reg + p.rho * diag_mean * np.eye(p.n_u)
+
+    return build_blp_diagnostics(
+        signal=signal,
+        z_hat_j_t1=z_hat_j_t1,
+        cond_num=cond_num,
+        B_blp=B_blp,
+        B_pca=B_pca,
+        M_sector=M_sector,
+        B_struct=B_struct_diag,
+        C_XX=C_XX,
+        C_YX=C_YX,
+        C_YY=C_YY,
+        pred_var=pred_var,
+        num_floored=num_floored,
+        pinv_fallback=pinv_fallback,
+        num_training_samples=len(window_returns),
+        return_matrices=return_matrices,
+        A=A,
+        Sigma_XX_reg=Sigma_XX_reg,
+        Sigma_YX_reg=Sigma_YX_reg,
+        Sigma_YY_reg=Sigma_YY_reg,
+        inv_A_tikh=inv_A_tikh,
+        z_U_t=z_U_t,
+        mu=mu,
+        sigma=sigma,
+        sigma_j_t=sigma_j_t,
+    )
