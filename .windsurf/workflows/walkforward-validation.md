@@ -1,35 +1,13 @@
 ---
-description: ウォークフォワード検証でOOS性能を確認し、過学習を防ぐ
+description: 事前設計したウォークフォワードOOSを評価する
 ---
 
 # ウォークフォワード検証
 
-モデル変更・パラメータ調整後の out-of-sample 性能確認。
+共通規約は [AGENTS.md](../../AGENTS.md)。長時間実行には [hang-prevention](../../.agents/skills/hang-prevention/SKILL.md) のプロセス全体の停止期限を設定する。
 
-## 手順
+[experiment-design](../../.agents/skills/experiment-design/SKILL.md) を正本として、仮説・候補群・区間・purge/embargo・採否基準を実験前に定める。既存registryと [不採用索引](../../docs/experiment_graveyard.md) を検索し、未登録試行もDSRに含める。
 
-1. 全期間バックテストを実行（CLI `backtest` に IS/OOS 分割フラグは**存在しない**。分割は結果の日次リターンを事後分割して行う）:
+各評価日の前に利用可能なデータだけで学習・選択する。全期間BTの事後分割は、パラメータをISだけで決めた場合を除き参考値であり真のOOSと呼ばない。CLI `backtest` にIS/OOS分割フラグがあると仮定しない。
 
-```
-python3 -m leadlag.cli backtest --config configs/production/production.yaml --start-date 2015-01-05 --output-root var/results/walkforward
-```
-
-2. IS/OOS 分割分析スクリプトを `src/research/scripts/experiments/` に作成し、日次リターンを境界日（例: 2019-12-31 / 2020-01-01）で分割して IS / OOS それぞれの指標を算出する（先例: `reports/phase3_walkforward_validation_report.md`）。パラメータをIS期間のみで決めた場合を除き、事後分割は「参考値」であり真のOOSではないことをレポートに明記すること
-
-3. 確認項目:
-   - IS（In-Sample）と OOS（Out-of-Sample）の Sharpe 比較
-   - OOS での最大DD・ターンオーバー
-   - フォールバック発動率の安定性
-
-4. 過学習ガード（必須）:
-   - 新パラメータ追加時は **パラメータ±摂動の感度分析** を実施
-   - **Deflated Sharpe**（試行回数補正）をレポートに含める
-   - `git tag archive-2026-08` の `archive/experiments/` 約30本の過去実験との重複に注意
-
-5. 結果を `reports/<sprint名>/` に markdown で記録
-
-## 注意事項
-
-- このリポジトリには過去の実験config・スクリプトが大量にあり、同一ヒストリー上での反復選択が既に多い
-- 「Sharpe改善なし」の結論も価値がある — 不採用実験も必ずレポート化して二重検証を防ぐ
-- 不採用実験は `reports/<作業名>/` と `docs/experiment_graveyard.md` に記録する。Skillへ成績・完了履歴を蓄積しない
+結果は [backtest-report](../../.agents/skills/backtest-report/SKILL.md) に従って `reports/`、不採用索引は `docs/experiment_graveyard.md` に残す。Skillへ成績や完了履歴を追記しない。

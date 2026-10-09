@@ -1,28 +1,11 @@
 ---
-description: Pythonファイルの構文チェックを ruff で実行し、CLIスタックを防止する
+description: 正本のcompileallとCI静的検査を実行する
 ---
 
-# 構文チェック（ruff 実行）
+# 構文・静的検査
 
-CLIで `python3 -c "..."` を実行するとスタックする傾向があるため、`ruff` コマンドを使用すること。
+共通規約は [AGENTS.md](../../AGENTS.md)。長時間実行には [hang-prevention](../../.agents/skills/hang-prevention/SKILL.md) のプロセス全体の停止期限を設定する。
 
-## 手順
+検証範囲は [AGENTS.md](../../AGENTS.md) と [CI手順](../../docs/CI.md) に従う。既存 `.venv` で `python -m compileall -q src/leadlag tests tools scripts src/research` を実行し、CI指定のRuff・mypy・import契約も確認する。
 
-1. 仮想環境に `ruff` が含まれていることを確認（`pyproject.toml` の `dev` 依存に記載）
-2. 以下のいずれかで実行:
-
-```bash
-# システムの python3 を使う場合
-python3 -m ruff check src/
-
-# uv 環境の場合
-uv run ruff check src/
-```
-
-3. `All checks passed!` を確認
-
-## 注意事項
-
-- `python3 -c "..."` は長いコードの場合スタックしやすいので避ける
-- 設定は `pyproject.toml` の `[tool.ruff]` / `[tool.ruff.lint]` に集約
-- 以前の `_check_syntax.py` は廃止した。AST 構文確認が必要な場合は `python3 -m compileall src/ research/` でも可能
+`python3 -c` のインライン実行は禁止。Pythonコードが必要ならスクリプトへ保存する。Ruff成功だけで構文確認・全テスト完了を宣言しない。

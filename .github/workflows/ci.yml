@@ -37,7 +37,7 @@ jobs:
         run: uv run --locked python -m compileall -q src/leadlag tests tools scripts src/research
 
       - name: Ruff production and maintained tool paths
-        run: uv run --locked ruff check src/leadlag tests tools/production tools/validation
+        run: uv run --locked ruff check src/leadlag tests tools/production tools/validation scripts/ci/validate_docs.py
 
       - name: Ruff cleaned research paths
         run: uv run --locked ruff check src/research tools/research
@@ -51,13 +51,14 @@ jobs:
       - name: Scheduled Python producer import boundary
         run: uv run --locked python scripts/ci/check_operational_imports.py
 
-      - name: Validate architecture document links
+      - name: Validate maintained documentation contracts and links
         run: >-
-          uv run --locked python scripts/ci/validate_docs.py
+          uv run --locked python scripts/ci/validate_docs.py --current
           docs/ARCHITECTURE.md docs/CI.md docs/SCHEDULER_SETUP.md
           docs/日次運用手順書.md docs/モデル技術仕様書.md
           README.md docs/refactor_roadmap.md docs/RESEARCH_ENV.md
           docs/decisions/2026-10-04-kiss-canonical-apis.md
+          docs/decisions/2026-10-08-maintained-document-contracts.md
           docs/decisions/2026-10-06-audit-boundaries.md
           docs/decisions/2026-10-06-adr-publication-and-shared-blpx.md
           docs/decisions/2026-09-15-structural-improvement-boundaries.md

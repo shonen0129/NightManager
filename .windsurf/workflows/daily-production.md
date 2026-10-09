@@ -1,43 +1,13 @@
 ---
-description: 日次の本番実行（v2）— gap調整分布の事前計算とデイリー意思決定パイプラインを実行する
+description: 現行運用手順で日次decisionとcloseを確認する
 ---
 
-# 日次本番実行（v2）
+# 日次本番実行
 
-ProductionV2Model (Residual-BLPX-RA v2) の日次実行パイプライン。
+共通規約は [AGENTS.md](../../AGENTS.md)。長時間実行には [hang-prevention](../../.agents/skills/hang-prevention/SKILL.md) のプロセス全体の停止期限を設定する。
 
-## 手順
+[日次運用手順書](../../docs/日次運用手順書.md) を使い、[leadlag-fund-improvement](../../.agents/skills/leadlag-fund-improvement/SKILL.md) で入力・設定・出力を特定する。
 
-1. gap調整分布の事前計算（v2 の入力）:
+入口はCLI `decision` / `close`、設定は `configs/production/production.yaml`。当日gap、frozen 09:10 quote、実口座risk、durable reconciliationの実際のgateを確認する。モデルflatは口座全解消を意味しない。通常closeは持越し設定に従い、約定と残建玉の照合まで確認する。
 
-```
-python3 tools/research/compute_gap_adjusted_distribution.py
-```
-
-   - `production.yaml` の `fallback.ondemand_fallback_enabled=true` の場合、
-     当日 gap 行列が不在でも on-demand BLPX 計算を試みます。
-   - ただし計算時間・マクロデータ取得の観点から、9:10 前の事前計算は推奨です。
-
-2. 日次本番実行（v2）:
-
-```
-python3 -m leadlag.cli decision --config configs/production/production.yaml
-```
-
-3. CLI経由のデシジョン（`latest` 日付解決）:
-
-```
-python3 -m leadlag.cli decision --config configs/production/production.yaml --trade-date latest
-```
-
-4. クローズ処理（必要時）:
-
-```
-python3 -m leadlag.cli close
-```
-
-## 注意事項
-
-- **ハング既知パターン**: yfinance ダウンロード、`cache.py` の fcntl ファイルロック、`close.py` の auto-close 無限待機、API再試行バックオフに注意。長時間実行はタイムアウト付きで
-- `--api-enable` で実際の発注が可能（`--api-dry-run` でシミュレーション）
-- 詳細は `docs/スタック再発防止策.md` を参照
+実発注・再送・全解消は依頼の承認範囲内でのみ行う。調査のために `--api-enable` を追加しない。

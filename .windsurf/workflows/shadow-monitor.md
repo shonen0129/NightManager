@@ -1,44 +1,13 @@
 ---
-description: シャドー運用でライブ整合性を確認し、本番昇格前の検証を行う
+description: shadowの入力整合と本番昇格条件を検証する
 ---
 
 # シャドー運用・監視
 
-本番昇格前のライブ整合性確認。
+共通規約は [AGENTS.md](../../AGENTS.md)。長時間実行には [hang-prevention](../../.agents/skills/hang-prevention/SKILL.md) のプロセス全体の停止期限を設定する。
 
-## 手順
+[leadlag-fund-improvement](../../.agents/skills/leadlag-fund-improvement/SKILL.md) のshadow/昇格手順と [日次運用手順書](../../docs/日次運用手順書.md) のread-only受入境界を使う。
 
-1. シャドー運用パッケージのビルド:
+現行の監視入口は `tools/validation/monitor_residual_blpx_shadow_performance.py`、runtime出力は `src/leadlag/config/paths.py` で解決する。同一trade date・snapshot・モデル版を照合し、ML enabledとapplied、モデルPnLと実口座PnLを分ける。未取得の実約定費用・未完了の運用一巡は受入済みと扱わない。
 
-```
-python3 tools/validation/build_residual_blpx_shadow_run_package.py
-```
-
-2. シャドー運用の実行:
-
-```
-python3 tools/validation/run_daily_residual_blpx_shadow.py
-```
-
-3. シャドー性能の監視:
-
-```
-python3 tools/validation/monitor_residual_blpx_shadow_performance.py
-```
-
-4. 本番モデルの検証（必要時）:
-
-```
-python3 tools/validation/validate_production_residual_blpx.py
-```
-
-5. 昇格判定基準:
-   - シャドーと本番のシグナル整合率が十分であること
-   - net Sharpe がベースラインを下回らないこと
-   - フォールバック発動率が異常でないこと
-
-## 注意事項
-
-- シャドー結果は `shadow_runs/` に保存される
-- 昇格時は `configs/production/` の config 更新 + フォールバック階層の維持 + `docs/ARCHITECTURE.md` のリファクタリング履歴へ追記
-- `tools/validation/apply_production_residual_blpx.py` で既存結果への適用テストも可能
+研究採用と本番昇格を分け、昇格が依頼範囲ならshadow証拠・本番設定・設計文書を揃える。
