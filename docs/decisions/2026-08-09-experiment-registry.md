@@ -12,7 +12,7 @@ impossible to compute the Deflated Sharpe Ratio (DSR) automatically.
 
 ## Decision
 
-Add `leadlag.core.experiment_registry.ExperimentRegistry`, an append-only JSONL
+Add `leadlag.experiment_registry.ExperimentRegistry`, an append-only JSONL
 store of `ExperimentRecord` objects. Each record carries parameters, metrics,
 the number of independent trials, and the DSR computed using the Bailey &
 López de Prado (2014) formula.
@@ -24,3 +24,5 @@ López de Prado (2014) formula.
   forgotten.
 - Experiment scripts should import `ExperimentRegistry` and record every
   configuration tested.
+
+Current schema, study preregistration and historical review: [2026-10-08 study governance](2026-10-08-study-governance.md).
