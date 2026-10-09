@@ -107,7 +107,8 @@ run_phase "decision" "${LEADLAG_DECISION_PHASE_TIMEOUT_SECONDS:-900}" \
     "${PYTHON_BIN}" -m leadlag.cli decision \
     --config configs/production/production.yaml \
     --live-dir var/live/production_residual_blpx \
-    --ml-overlay-shadow-dir var/shadow_runs/ml_overlay_value \
+    --ml-overlay-shadow-dir var/shadow_runs/ml_overlay_research_20261009 \
+    --ml-overlay-shadow-config configs/research/ml_overlay_forward_shadow_20261009.yaml \
     ${SHADOW_ONLY_ARG} \
     --api-enable \
     --capital-from-wallet \

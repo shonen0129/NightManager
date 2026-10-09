@@ -134,7 +134,7 @@ def _write_common_artifacts(tmp_path: Path) -> tuple[Path, Path, Path, Path, Pat
     )
 
     shadow = {
-        "schema_version": "ml-overlay-paired-shadow-v1",
+        "schema_version": "ml-overlay-research-paired-shadow-v2",
         "trade_date": TRADE_DATE,
         "as_of": f"{TRADE_DATE}T09:10:06+09:00",
         "quote_snapshot_id": frozen.snapshot_id,
