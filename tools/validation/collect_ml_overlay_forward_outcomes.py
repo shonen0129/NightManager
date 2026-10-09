@@ -23,7 +23,8 @@ from leadlag.reporting.ml_overlay_forward_outcome import (
 )
 
 ROOT = project_root()
-DEFAULT_SHADOW_DIR = ROOT / "var/shadow_runs/ml_overlay_value"
+DEFAULT_SHADOW_DIR = ROOT / "var/shadow_runs/ml_overlay_research_20261009"
+DEFAULT_QUOTE_DIR = ROOT / "var/shadow_runs/ml_overlay_value/microstructure"
 
 
 def _read_jsonl(path: Path) -> list[dict[str, Any]]:
@@ -98,7 +99,7 @@ def main() -> int:
     quote_dir = args.quote_dir
     if quote_dir is None:
         configured_quote_dir = os.environ.get("LEADLAG_CAPTURE_OUTPUT_DIR")
-        quote_dir = Path(configured_quote_dir) if configured_quote_dir else shadow_dir / "microstructure"
+        quote_dir = Path(configured_quote_dir) if configured_quote_dir else DEFAULT_QUOTE_DIR
     if not quote_dir.is_absolute():
         quote_dir = ROOT / quote_dir
     output_path = args.output or (shadow_dir / "outcomes.jsonl")

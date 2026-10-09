@@ -14,14 +14,15 @@ US ETF と TOPIX-17 セクター ETF のリードラグ相関を利用した、
 
 ### ML overlay の責務境界
 
-ML order overlay は、fitted container の正本を
-`leadlag.models.ml_order_overlay.MLOrderOverlayModel` に残す。特徴量計算は
-`ml_overlay_features.py`、検証済みの immutable artifact の保存・読込は
-`ml_overlay_artifact.py`、本番適用は `ml_overlay_inference.py` が正本である。
-学習・LightGBM の fit・学習データ収集は `research.experiments.ml_overlay_training`
-に分離し、本番 package から research を import しない。利用者は各責務のmoduleを直接importする。
-学習コマンドは `tools/research/train_ml_order_overlay.py` に置く。研究環境と artifact
-運用は [RESEARCH_ENV.md](RESEARCH_ENV.md) を参照する。
+ML order overlay は研究candidateであり、本番configでは無効にする。production decisionは
+V2単独で出し、`configs/research/ml_overlay_forward_shadow_20261009.yaml` が指定するcandidateは
+同一入力のshadow比較にだけ使う。研究candidateの予測や失敗は本番ウェイト・発注へ反映しない。
+
+既存artifactの読込に必要なfitted container `leadlag.models.ml_order_overlay.MLOrderOverlayModel`、
+特徴量、artifact検証、推論moduleは再現・shadow用に保持する。学習・LightGBMのfit・学習データ収集は
+`research.experiments.ml_overlay_training`、学習コマンドは `tools/research/train_ml_order_overlay.py`
+に置く。昇格条件と本番無効化の判断は[2026-10-09 decision](decisions/2026-10-09-ml-overlay-research-only.md)、
+研究環境とartifact運用は [RESEARCH_ENV.md](RESEARCH_ENV.md) を参照する。
 
 推論出力は校正済み取引確率ではなく、long/short各側の相対配分倍率である。
 各側を既存の基準grossへ再正規化するため、ML overlay単独では総grossや取引可否を
@@ -61,7 +62,7 @@ The table records current tracked project paths. Runtime data and generated outp
 | tools/production/ | Production support commands |
 | tools/research/ | Research and backtest commands |
 | tools/validation/ | Read-only validation and acceptance commands |
-| models/ml_order_overlay/production_20260923/ | Versioned production ML overlay artifact store |
+| models/ml_order_overlay/production_20260923/ | Archived versioned ML overlay research candidate artifacts |
 | kabu_auto_login/ | Separate kabu Station login utility |
 
 The CI documentation and current required checks are in [CI.md](CI.md). The file [scripts/ci/validate_docs.py](../scripts/ci/validate_docs.py) checks relative Markdown links and the current-path tables in this document against the repository tree.
@@ -74,7 +75,7 @@ The CI documentation and current required checks are in [CI.md](CI.md). The file
 |---|---|
 | src/leadlag/cli.py | CLI entry point for decision, backtest, close, and daily commands |
 | src/leadlag/models/production_v2.py | Production V2 model entry point |
-| src/leadlag/models/v2/ | V2 decision, distribution-source, fallback, overlay, and audit components |
+| src/leadlag/models/v2/ | V2 decision, distribution-source, fallback, research-overlay adapter, and audit components |
 | src/leadlag/models/blpx/ | BLPX signal and prior construction |
 | src/leadlag/runner/model_factory.py | Shared production and backtest model construction |
 | src/leadlag/runner/production.py | ProductionRunner and daily decision composition |
@@ -428,7 +429,7 @@ JPの前処理では、JP calendarで休場と確認でき、close/openの対象
 validationへ渡す。発注後・決済後は不完了summaryを保持して約定、建玉、余力、
 journalを順に照合し、close CLIは不完了時に終了コード2を返す。
 
-ML overlayはartifact rootの `CURRENT` が指すimmutable versionを読む。
+研究用ML overlayはartifact rootの `CURRENT` が指すimmutable versionを読む。
 `versions/<version>/model.pkl` と `metadata.json` のdigest・学習期間・data/config
 hashを検証し、公開途中のstagingは読まない。root直下のlegacy artifactは
 modelとmetadataの組を同一versionとして証明できないため常に拒否し、再学習して
@@ -436,12 +437,15 @@ versioned artifactとして公開する。VaR/ESのreturn cacheはCURRENTが指�
 fingerprintし、inactive versionやstagingの作成では無効化しない。decision実行で
 overlayを選択した場合は、その同じ検証済みobjectをVaRのcache keyとrisk backtestへ
 渡し、途中のCURRENT切替で別versionの系列を同じkeyへ保存しない。
-本番rootは `models/ml_order_overlay/production_20260923`。2026-09-27に
+旧本番rootを研究candidate保管先として維持し、`configs/research/ml_overlay_forward_shadow_20261009.yaml`
+からのみ選択する。production configではoverlayを無効にし、candidateを読み込まない。
+2026-09-27に
 `CURRENT` を `20260926T192555935698Z-ee306a32f3ec` へ切り替えた。2025-12-30 を
 train-end とする version を再作成し、VaR 履歴では2025-12-30まで旧 version、翌日以降は
-新 versionを選ぶ。前向き評価とprovider `available_at`来歴の条件は未達で、今回も数値
-昇格ゲート合格とは扱わない。履歴生成後の250日VaR/ESは停止基準を超過し、発注停止を
-維持する。判断とrollback先は[decision record](decisions/2026-09-27-ml-overlay-var-history-cutoff.md)、
+新 versionを選ぶ。前向き評価とprovider `available_at`来歴の条件は未達で、数値
+昇格ゲート合格とは扱わない。2026-10-09以降はcandidateを研究shadowで評価する。
+履歴生成後の250日VaR/ESは停止基準を超過し、発注停止を維持する。
+旧判断とrollback先は[decision record](decisions/2026-09-27-ml-overlay-var-history-cutoff.md)、
 artifact digest・監査・cache検証は[実行レポート](../reports/20260927_ml_overlay_var_history/report.md)
 および[公開記録](../models/ml_order_overlay/production_20260923/promotions/20260927_var_history_cutoff_rebuild.json)
 を参照する。従前のoperator-directed promotion記録も監査履歴として保持する。

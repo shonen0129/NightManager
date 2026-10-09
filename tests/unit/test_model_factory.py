@@ -8,6 +8,7 @@ import pytest
 
 from leadlag.config.paths import project_root
 from leadlag.config.schemas import AppConfig
+from leadlag.execution.config import load_config_from_yaml
 from leadlag.runner.model_factory import (
     build_blpx_model,
     build_v2_model_bundle,
@@ -81,6 +82,19 @@ def test_blpx_factory_builds_without_loading_configured_overlay(monkeypatch: pyt
     model = build_blpx_model(app_config)
 
     assert model.cfg is app_config.v2.blpx
+
+
+def test_production_config_builds_v2_without_loading_research_overlay(monkeypatch: pytest.MonkeyPatch) -> None:
+    app_config = load_config_from_yaml("configs/production/production.yaml", strict=True)
+    monkeypatch.setattr(
+        "leadlag.runner.model_factory.load_overlay_model",
+        lambda _path: pytest.fail("V2-only production config must not load a research overlay"),
+    )
+
+    bundle = build_v2_model_bundle(app_config)
+
+    assert bundle.overlay_enabled is False
+    assert bundle.overlay_model is None
 
 
 def test_model_config_fingerprint_is_stable_and_excludes_broker_config() -> None:
