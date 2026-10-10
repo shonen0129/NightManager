@@ -619,9 +619,14 @@ def _wait_for_close_fills_sync(
     Updates ``close_results`` entries with the latest status.  This prevents
     moving on before a close order has been confirmed at the exchange.
     """
+    pollable = [
+        result
+        for result in close_results
+        if str(result.get("status", "")) in {status.value for status in OrderStatus}
+    ]
     poll_order_statuses(
         api_client,
-        close_results,
+        pollable,
         order_id_getter=lambda result: str(result.get("order_id", "")),
         status_getter=lambda result: result.get("status", ""),
         status_setter=lambda result, status: result.__setitem__("status", status.value),
