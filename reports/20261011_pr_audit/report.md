@@ -28,6 +28,10 @@ call paths, not a repository-wide safety certification.
   terminal/attempt evidence tests and ADR freshness tests.
 - Updated the architecture diagram and structured covariance description to
   distinguish the production publisher from research diagnostics.
+- **#73 regression coverage:** replaced the loose training-row-count check
+  with the exact 40-row exclusion and verified that perturbing the excluded
+  rows' US predictors leaves all signal, diagnostic and matrix outputs
+  unchanged. Unaffected production/research golden assertions remain intact.
 
 The publisher regressions use actual OnDemandDistributionSource,
 FileCacheDistributionSource and SQLite. Only the expensive model computation
@@ -90,3 +94,11 @@ and must not be promoted merely because its synthetic tests or CI succeed.
 
 Final missing-order-ID repair: the close/config regression set is **31 passed**
 (14.12 seconds); compileall and production/research Ruff passed again.
+Complete pytest after that repair: **1345 passed, 1 existing warning** in
+152.36 seconds, watchdog exit 0. The strengthened label-exclusion regression
+and missing-target tests are **5 passed** (0.72 seconds). Final integrated CI
+and complete pytest are required again after this regression-test update.
+An additional Ruff check beyond the configured CI paths found an existing
+unsorted import in `scripts/capture_v2_baseline.py`; this unchanged one-off
+script is outside the configured lint gate. The configured production,
+maintained-tool, test and cleaned-research paths pass.

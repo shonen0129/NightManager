@@ -104,10 +104,23 @@ def test_production_and_research_signals_match_pre_refactor_fixture(residual_blp
                 # Issue #63 intentionally changes only the production JP-label
                 # boundary: unavailable realized labels are excluded instead of
                 # zero-filled. Legacy research baselines remain unchanged.
-                assert (
-                    actual["num_training_samples"]
-                    < expected["diagnostics"]["num_training_samples"]
+                assert actual["num_training_samples"] == (
+                    expected["diagnostics"]["num_training_samples"] - 40
                 )
+                # All 40 unavailable-label rows must be excluded from the
+                # estimation, including their otherwise usable US predictors.
+                excluded_predictors_changed = all_returns.copy()
+                excluded_predictors_changed[480:520, :15] += 100.0
+                changed = _run_signal(
+                    model_class(copy.deepcopy(model_config)),
+                    excluded_predictors_changed,
+                    v0_static,
+                    c_full,
+                )
+                for key in ("signal", "z_hat_j_t1", *DIAGNOSTIC_KEYS, *MATRIX_KEYS):
+                    np.testing.assert_allclose(
+                        changed[key], actual[key], rtol=0.0, atol=1e-12, equal_nan=True
+                    )
             else:
                 np.testing.assert_allclose(
                     actual["signal"], expected["signal"], rtol=0.0, atol=1e-12
