@@ -28,7 +28,7 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from leadlag.data.market_data_cache import load_df_exec_from_local_cache
 from research.diagnostics.sprint0 import run_sprint0_calculations
-from research.diagnostics.sprint1_experiments import generate_targets_panel
+from research.diagnostics.sprint1_experiments import (\n    generate_targets_panel,\n    restore_dollar_neutrality,\n)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger(__name__)
@@ -55,23 +55,6 @@ def compute_max_drawdown(returns: pd.Series) -> float:
     running_max = cum_returns.cummax()
     drawdown = (cum_returns - running_max) / running_max
     return float(drawdown.min())
-
-
-def restore_neutral_rescale(w: np.ndarray) -> np.ndarray:
-    w_new = w.copy()
-    long_mask = w_new > 0.0
-    short_mask = w_new < 0.0
-
-    long_sum = np.sum(w_new[long_mask])
-    short_sum = np.abs(np.sum(w_new[short_mask]))
-
-    if long_sum == 0.0 or short_sum == 0.0:
-        return np.zeros_like(w_new)
-
-    target_gross = min(long_sum, short_sum)
-    w_new[long_mask] = w_new[long_mask] * (target_gross / long_sum)
-    w_new[short_mask] = w_new[short_mask] * (target_gross / short_sum)
-    return w_new
 
 
 def main():
@@ -213,13 +196,13 @@ def main():
                         is_constrained = max_ratio > 1.0
                     elif strat == "clip_by_name":
                         w_clipped = np.sign(w_target) * np.minimum(np.abs(w_target), weight_cap)
-                        w_opt = restore_neutral_rescale(w_clipped)
+                        w_opt = restore_dollar_neutrality(w_clipped)
                         is_constrained = np.any(np.abs(w_target) > weight_cap)
                     elif strat == "skip_illiquid":
                         skipped = (adv_t < min_adv) | (adv_t <= 0.0)
                         w_clipped = w_target.copy()
                         w_clipped[skipped] = 0.0
-                        w_opt = restore_neutral_rescale(w_clipped)
+                        w_opt = restore_dollar_neutrality(w_clipped)
                         is_constrained = np.any(skipped & (w_target != 0.0))
 
                     if is_constrained:
@@ -464,7 +447,7 @@ def main():
                     # set short weights to 0 for unavailable
                     w_opt_stress = w_opt.copy()
                     w_opt_stress[(w_opt < 0.0) & unavailable_mask] = 0.0
-                    w_opt_stress = restore_neutral_rescale(w_opt_stress)
+                    w_opt_stress = restore_dollar_neutrality(w_opt_stress)
                 elif mode == "replace_with_next_candidate":
                     w_opt_stress = w_opt.copy()
                     # Identify unavailable shorts
@@ -491,7 +474,7 @@ def main():
                                         if amt_to_replace <= 0.0:
                                             break
                         # Restore dollar neutrality if replacement is not complete
-                        w_opt_stress = restore_neutral_rescale(w_opt_stress)
+                        w_opt_stress = restore_dollar_neutrality(w_opt_stress)
 
                 # entry price
                 open_t = open_prices_df.loc[dt].values
@@ -646,13 +629,13 @@ def main():
                         is_constrained_list.append(max_ratio > 1.0)
                     elif strat == "clip_by_name":
                         w_clipped = np.sign(w_target) * np.minimum(np.abs(w_target), weight_cap)
-                        w_opt = restore_neutral_rescale(w_clipped)
+                        w_opt = restore_dollar_neutrality(w_clipped)
                         is_constrained_list.append(np.any(np.abs(w_target) > weight_cap))
                     elif strat == "skip_illiquid":
                         skipped = (adv_t < min_adv) | (adv_t <= 0.0)
                         w_clipped = w_target.copy()
                         w_clipped[skipped] = 0.0
-                        w_opt = restore_neutral_rescale(w_clipped)
+                        w_opt = restore_dollar_neutrality(w_clipped)
                         is_constrained_list.append(np.any(skipped & (w_target != 0.0)))
 
                     open_t = open_prices_df.loc[dt].values
