@@ -307,7 +307,9 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
         window_returns = window_returns[complete_rows]
         if window_returns.shape[0] == 0:
             raise ValueError("No complete finite rows in BLPX training window")
-        window_returns = np.nan_to_num(window_returns, nan=0.0, posinf=0.0, neginf=0.0)
+        window_returns[:, : self.n_u] = np.nan_to_num(
+            window_returns[:, : self.n_u], nan=0.0, posinf=0.0, neginf=0.0
+        )
 
         if self.winsor_sigma is not None:
             mus = np.mean(window_returns, axis=0)
