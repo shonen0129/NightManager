@@ -4,10 +4,12 @@ from copy import deepcopy
 
 import pytest
 
+from leadlag.execution import account_ledger as account_ledger_module
 from leadlag.execution.account_ledger import (
     LedgerReconciliationError,
     build_account_risk_snapshot,
     build_reconciled_execution_ledger,
+    validate_reconciled_execution_ledger,
     write_account_risk_snapshot,
 )
 from leadlag.execution.account_risk import AccountRiskSnapshot
@@ -116,6 +118,36 @@ def test_equity_bridge_mismatch_is_rejected():
     session["closing_equity_jpy"] += 1.0
     with pytest.raises(LedgerReconciliationError, match="equity bridge mismatch"):
         build_reconciled_execution_ledger(_manifest("2026-10-01"), session)
+
+
+def _rehash_ledger(payload):
+    digest = account_ledger_module._ledger_digest(payload)
+    payload["ledger_sha256"] = digest
+    payload["ledger_id"] = f"sha256:{digest}"
+
+
+def test_validator_recomputes_observed_costs_after_content_rehash():
+    ledger = build_reconciled_execution_ledger(
+        _manifest("2026-10-01"), _session("2026-10-01")
+    )
+    ledger["commission_jpy"] += 10.0
+    _rehash_ledger(ledger)
+
+    with pytest.raises(LedgerReconciliationError, match="observed costs are inconsistent"):
+        validate_reconciled_execution_ledger(ledger)
+
+
+def test_validator_recomputes_net_pnl_after_content_rehash():
+    ledger = build_reconciled_execution_ledger(
+        _manifest("2026-10-01"), _session("2026-10-01")
+    )
+    ledger["net_pnl_jpy"] += 10.0
+    ledger["closing_equity_jpy"] += 10.0
+    ledger["daily_return"] = ledger["net_pnl_jpy"] / ledger["return_denominator_jpy"]
+    _rehash_ledger(ledger)
+
+    with pytest.raises(LedgerReconciliationError, match="net PnL is inconsistent"):
+        validate_reconciled_execution_ledger(ledger)
 
 
 def test_ledger_observed_next_morning_is_valid_and_snapshot_uses_observation_time(tmp_path):
