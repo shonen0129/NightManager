@@ -134,9 +134,25 @@ def _check_capture(capture_dir: Path, trade_date: str) -> dict[str, Any]:
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         return {"status": FAIL, "reason": "capture_artifact_unreadable", "error": str(exc), "path": str(path)}
     terminal = str(payload.get("status") or "")
-    if terminal == "CAPTURED":
+    attempts = payload.get("attempts")
+    run_id = payload.get("run_id")
+    # A terminal label alone is not evidence of a successful capture.
+    # Require an identifiable run and at least one successful attempt.
+    valid_capture = (
+        isinstance(run_id, str)
+        and bool(run_id.strip())
+        and isinstance(attempts, list)
+        and any(
+            isinstance(attempt, Mapping) and attempt.get("status") == "CAPTURED"
+            for attempt in attempts
+        )
+    )
+    if terminal == "CAPTURED" and valid_capture:
         status = PASS
         reason = None
+    elif terminal == "CAPTURED":
+        status = FAIL
+        reason = "capture_success_evidence_missing"
     elif terminal == "MARKET_CLOSED":
         status = NOT_RUN
         reason = "market_closed"
