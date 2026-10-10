@@ -18,8 +18,8 @@ def _compute_one_day_target_returns(
     The arithmetic is kept separate from cache access so callers can provide the
     extracted values while using the same return-based arithmetic.
     """
-    jp_oc = df_exec[[f"jp_oc_{tk}" for tk in jp_tickers]].values
-    y_jp_target = jp_oc.copy()
+    jp_oc = df_exec[[f"jp_oc_{tk}" for tk in jp_tickers]].to_numpy(dtype=float)
+    open_arr = df_exec[[f"jp_open_trade_{tk}" for tk in jp_tickers]].to_numpy(dtype=float)
 
     if open_910_returns is None:
         raise ValueError("h=1 target calculation requires explicit open_910_returns")
@@ -31,13 +31,28 @@ def _compute_one_day_target_returns(
             index=df_exec.index, columns=jp_tickers
         )
     adjusted = returns_df.to_numpy(dtype=float)
-    valid = np.isfinite(adjusted)
-    for t_idx in range(len(jp_tickers)):
-        y_jp_target[:, t_idx] = np.where(
-            valid[:, t_idx],
-            (1.0 + jp_oc[:, t_idx]) / (1.0 + adjusted[:, t_idx]) - 1.0,
-            y_jp_target[:, t_idx],
-        )
+
+    # A missing 09:10 observation (NaN) retains the documented daily-open
+    # fallback. Invalid observations are not missing quotes and must not turn an
+    # unavailable label into a finite open-to-close return.
+    valid_close = (
+        np.isfinite(open_arr)
+        & (open_arr > 0)
+        & np.isfinite(jp_oc)
+        & (jp_oc > -1.0)
+    )
+    fallback_target = np.where(valid_close, jp_oc, np.nan)
+    missing_quote = np.isnan(adjusted)
+    valid_quote = np.isfinite(adjusted) & (adjusted > -1.0)
+
+    with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
+        adjusted_target = (1.0 + jp_oc) / (1.0 + adjusted) - 1.0
+    valid_target = valid_close & valid_quote & np.isfinite(adjusted_target)
+    y_jp_target = np.where(
+        missing_quote,
+        fallback_target,
+        np.where(valid_target, adjusted_target, np.nan),
+    )
     return cast(np.ndarray, y_jp_target)
 
 
@@ -123,17 +138,19 @@ def _compute_jp_target_returns_h(
     with np.errstate(divide="ignore", invalid="ignore"):
         y = close_arr / p_use - 1.0
 
-    # Guard against invalid / zero denominators, NaN/Inf close values, and
-    # non-positive open prices (which make both close and the target undefined).
+    # Guard against invalid / zero denominators, NaN/Inf/non-positive close
+    # values, and non-positive open prices. Invalid realized prices represent
+    # an unavailable label; they must remain distinct from a genuine 0% return.
     valid = (
         np.isfinite(p_use)
         & (p_use > 0)
         & np.isfinite(close_arr)
+        & (close_arr > 0)
         & np.isfinite(open_arr)
         & (open_arr > 0)
         & np.isfinite(y)
     )
-    y = np.where(valid, y, 0.0)
+    y = np.where(valid, y, np.nan)
 
     # First (horizon - 1) rows have incomplete windows.
     if horizon > 1:
