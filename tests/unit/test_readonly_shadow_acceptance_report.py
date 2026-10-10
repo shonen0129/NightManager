@@ -11,7 +11,11 @@ from tools.validation import build_readonly_shadow_acceptance_report as acceptan
 from leadlag.data.gap_store import GapStore
 from leadlag.data.quote_snapshot import freeze_quote_snapshot, load_frozen_quote_snapshot
 from leadlag.data.tickers import JP_TICKERS_WITH_TOPIX
-from leadlag.execution.account_risk import ACCOUNT_RISK_SCHEMA, REQUIRED_PNL_BASIS
+from leadlag.execution.account_risk import (
+    ACCOUNT_RISK_SCHEMA,
+    REQUIRED_PNL_BASIS,
+    snapshot_payload_sha256,
+)
 
 TRADE_DATE = "2026-09-29"
 
@@ -216,17 +220,23 @@ def test_valid_previous_session_risk_allows_stage1_pass(tmp_path):
         "schema_version": ACCOUNT_RISK_SCHEMA,
         "valid_for_trade_date": TRADE_DATE,
         "observed_through": "2026-09-28",
-        "as_of": "2026-09-28T15:30:00+09:00",
+        "observed_at": "2026-09-29T08:00:00+09:00",
+        "as_of": "2026-09-29T08:00:00+09:00",
         "account_key": "tachibana:default",
         "daily_return": -0.001,
         "month_return": -0.005,
         "source": "reconciled_execution_ledger",
+        "source_ids": ["sha256:" + "a" * 64],
+        "source_sha256s": ["a" * 64],
         "pnl_basis": REQUIRED_PNL_BASIS,
         "cash_reconciled": True,
         "positions_reconciled": True,
         "fees_complete": True,
         "reconciliation_status": "complete",
     }
+    risk_sha = snapshot_payload_sha256(risk_payload)
+    risk_payload["snapshot_sha256"] = risk_sha
+    risk_payload["snapshot_id"] = f"sha256:{risk_sha}"
     risk_path.write_text(json.dumps(risk_payload), encoding="utf-8")
 
     report = acceptance.build_acceptance_report(
@@ -244,6 +254,8 @@ def test_valid_previous_session_risk_allows_stage1_pass(tmp_path):
     assert report["market_to_shadow_status"] == acceptance.PASS
     assert report["checks"]["account_risk"]["status"] == acceptance.PASS
     assert report["checks"]["account_risk"]["gate"]["is_blocked"] is False
+    assert report["checks"]["account_risk"]["snapshot_id"] == risk_payload["snapshot_id"]
+    assert report["checks"]["account_risk"]["snapshot_sha256"] == risk_payload["snapshot_sha256"]
     assert report["risk_inclusive_stage1_status"] == acceptance.PASS
     assert report["issue_27_overall_status"] == acceptance.DEFERRED
 
