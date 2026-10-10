@@ -207,6 +207,10 @@ def test_market_to_shadow_passes_while_missing_risk_keeps_stage1_blocked(tmp_pat
         "gap": snapshot_id,
         "shadow": snapshot_id,
     }
+    frozen = report["checks"]["frozen_snapshot"]
+    assert frozen["available_at"] == f"{TRADE_DATE}T09:10:06+09:00"
+    assert frozen["available_at_semantics"] == "local_response_receipt"
+    assert frozen["source"] == "tachibana:CLMMfdsGetMarketPrice"
     assert report["issue_27_overall_status"] == acceptance.DEFERRED
 
 
@@ -338,3 +342,31 @@ def test_missing_auth_diagnostics_blocks_market_acceptance(tmp_path):
     assert report["checks"]["auth_diagnostics"]["status"] == acceptance.BLOCKED
     assert report["checks"]["auth_diagnostics"]["reason"] == "auth_diagnostics_missing"
     assert report["market_to_shadow_status"] == acceptance.BLOCKED
+
+
+def test_capture_terminal_requires_run_id_and_successful_attempt(tmp_path):
+    capture_dir, gap_path, shadow_dir, risk_path, log_dir, _ = _write_common_artifacts(tmp_path)
+    capture_path = capture_dir / "capture_20260929.json"
+    original = json.loads(capture_path.read_text(encoding="utf-8"))
+
+    for mutation in (
+        {"run_id": ""},
+        {"attempts": []},
+        {"attempts": [{"status": "FAILED"}]},
+        {"attempts": "CAPTURED"},
+    ):
+        capture_path.write_text(
+            json.dumps({**original, **mutation}), encoding="utf-8"
+        )
+        report = acceptance.build_acceptance_report(
+            trade_date=TRADE_DATE,
+            capture_dir=capture_dir,
+            gap_store=gap_path,
+            shadow_dir=shadow_dir,
+            risk_path=risk_path,
+            preflight_path=capture_dir / "preflight.json",
+            job_log_dir=log_dir,
+        )
+        assert report["checks"]["capture"]["status"] == acceptance.FAIL
+        assert report["checks"]["capture"]["reason"] == "capture_success_evidence_missing"
+        assert report["market_to_shadow_status"] == acceptance.FAIL

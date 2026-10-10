@@ -21,6 +21,9 @@ ROOT = Path(__file__).resolve().parents[2]
 JST = ZoneInfo("Asia/Tokyo")
 SCHEMA_VERSION = "readonly-shadow-acceptance-preflight-v1"
 DEFAULT_CAPTURE_OUTPUT = ROOT / "var/shadow_runs/ml_overlay_value/microstructure"
+EXPECTED_CAPTURE_PROGRAM = (
+    ROOT / "scripts/batch/run_0910_microstructure_capture.sh"
+).resolve(strict=False)
 
 
 def _validated_api_url(api_url: str) -> str:
@@ -59,6 +62,8 @@ def _inspect_installed_scheduler() -> dict[str, Any]:
             "registered": registered,
             "schedule": payload.get("StartCalendarInterval"),
             "program": payload.get("ProgramArguments", []),
+            "run_at_load": payload.get("RunAtLoad"),
+            "keep_alive": payload.get("KeepAlive"),
             "capture_output_dir": payload.get("EnvironmentVariables", {}).get(
                 "LEADLAG_CAPTURE_OUTPUT_DIR"
             ),
@@ -165,6 +170,25 @@ def build_preflight(
                 scheduler_output.resolve(strict=False) == capture_output
             )
 
+    expected_schedule = [
+        {"Weekday": weekday, "Hour": 9, "Minute": 10}
+        for weekday in range(1, 6)
+    ]
+    scheduler_program = resolved_scheduler.get("program")
+    scheduler_program_readonly = (
+        scheduler_registered
+        and scheduler_program == ["/bin/bash", str(EXPECTED_CAPTURE_PROGRAM)]
+    )
+    scheduler_schedule_0910 = (
+        scheduler_registered
+        and resolved_scheduler.get("schedule") == expected_schedule
+    )
+    scheduler_no_auto_start = (
+        scheduler_registered
+        and resolved_scheduler.get("run_at_load") is False
+        and resolved_scheduler.get("keep_alive") is False
+    )
+
     checks = {
         "git_sha_present": bool(resolved_git.get("sha")),
         "git_clean": resolved_git.get("dirty") is False,
@@ -172,6 +196,9 @@ def build_preflight(
         "capture_output_resolved": capture_output.is_absolute(),
         "scheduler_registered": scheduler_registered,
         "scheduler_capture_output_matches": scheduler_output_matches,
+        "scheduler_program_readonly_capture": scheduler_program_readonly,
+        "scheduler_schedule_0910": scheduler_schedule_0910,
+        "scheduler_no_auto_start": scheduler_no_auto_start,
         "shadow_only_enabled": source.get("LEADLAG_SHADOW_ONLY") == "1",
         "capture_0910_enabled": source.get("LEADLAG_CAPTURE_0910", "1") != "0",
     }

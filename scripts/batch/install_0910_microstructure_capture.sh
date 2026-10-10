@@ -29,5 +29,5 @@ launchctl bootstrap "${DOMAIN}" "${INSTALLED_PLIST}"
 launchctl print "${DOMAIN}/${LABEL}" >/dev/null
 
 echo "Installed ${LABEL} for weekdays at 09:10 JST."
-echo "Output: ${PROJECT_DIR}/var/live/pipeline_data/microstructure_0910"
+echo "Output: ${PROJECT_DIR}/var/shadow_runs/ml_overlay_value/microstructure"
 echo "Log: ${PROJECT_DIR}/var/logs/microstructure_0910_launchd.log"
