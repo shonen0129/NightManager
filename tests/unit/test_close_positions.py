@@ -241,6 +241,7 @@ class TestOrderRequestPropagation:
         """
         positions = [_make_position("1629.T", "SELL", 300, margin_trade_type=1, account_type=4)]
         client = MockBrokerClient(positions)
+        client.get_order_status = lambda _order_id: OrderStatus.FILLED  # type: ignore[method-assign]
         with tempfile.TemporaryDirectory() as tmpdir:
             import leadlag.execution.close as close_mod
             _orig_sleep = close_mod.time_module.sleep

@@ -14,6 +14,7 @@ import logging
 import math
 import os
 import time as time_module
+from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
 from contextlib import ExitStack
 from dataclasses import dataclass
@@ -181,6 +182,170 @@ def _build_close_order_plan(
     )
 
 
+MISSING_RESPONSE_STATUS = "MISSING_RESPONSE"
+
+
+def _request_signature(request: OrderRequest) -> tuple[str, str, int]:
+    return request.ticker, request.side.value, int(request.quantity)
+
+
+def _record_signature(record: Mapping[str, Any]) -> tuple[str, str, int]:
+    return (
+        str(record.get("ticker", "")),
+        str(record.get("side", "")),
+        int(record.get("quantity", 0) or 0),
+    )
+
+
+def _result_dict(
+    result: OrderResult,
+    order_plan: CloseOrderPlan,
+    *,
+    delayed: bool = False,
+) -> dict[str, Any]:
+    meta = order_plan.metadata_by_ticker.get(result.ticker, {})
+    payload = {
+        "order_id": result.order_id,
+        "status": result.status.value,
+        "ticker": result.ticker,
+        "side": result.side.value,
+        "quantity": result.quantity,
+        "message": result.message,
+        "eigyou_day": result.eigyou_day,
+        "original_side": meta.get("original_side"),
+        "original_price": meta.get("original_price"),
+    }
+    if delayed:
+        payload["delayed"] = True
+    return payload
+
+
+def _normalize_batch_results(
+    requests: Sequence[OrderRequest],
+    results: Sequence[OrderResult],
+    order_plan: CloseOrderPlan,
+    *,
+    delayed: bool = False,
+) -> list[dict[str, Any]]:
+    """Keep every broker response and make missing responses explicit."""
+    records = [_result_dict(result, order_plan, delayed=delayed) for result in results]
+    expected = Counter(_request_signature(request) for request in requests)
+    observed = Counter(_record_signature(record) for record in records)
+    missing = expected - observed
+    for (ticker, side, quantity), count in missing.items():
+        meta = order_plan.metadata_by_ticker.get(ticker, {})
+        for _ in range(count):
+            record = {
+                "order_id": "",
+                "status": MISSING_RESPONSE_STATUS,
+                "ticker": ticker,
+                "side": side,
+                "quantity": quantity,
+                "message": "Broker returned no response for submitted close request",
+                "original_side": meta.get("original_side"),
+                "original_price": meta.get("original_price"),
+            }
+            if delayed:
+                record["delayed"] = True
+            records.append(record)
+    return records
+
+
+def _batch_reconciliation_errors(
+    requests: Sequence[OrderRequest],
+    records: Sequence[Mapping[str, Any]],
+) -> list[str]:
+    """Validate one concrete broker batch before any delayed submission."""
+    errors: list[str] = []
+    expected = Counter(_request_signature(request) for request in requests)
+    observed = Counter(_record_signature(record) for record in records)
+    if observed != expected:
+        errors.append(
+            "batch response quantities do not match submitted requests "
+            f"(expected={dict(expected)}, observed={dict(observed)})"
+        )
+
+    order_ids = [str(record.get("order_id") or "") for record in records]
+    real_ids = [order_id for order_id in order_ids if order_id]
+    duplicate_ids = sorted(
+        order_id for order_id, count in Counter(real_ids).items() if count > 1
+    )
+    if duplicate_ids:
+        errors.append(f"duplicate broker order response(s): {', '.join(duplicate_ids)}")
+
+    for record in records:
+        status = str(record.get("status") or "")
+        if status != OrderStatus.FILLED.value:
+            errors.append(
+                "first batch not fully filled: "
+                f"{record.get('ticker')} {record.get('side')} x{record.get('quantity')} "
+                f"status={status or 'UNKNOWN'}"
+            )
+        if status == OrderStatus.FILLED.value and not record.get("order_id"):
+            errors.append(
+                "filled close response is missing broker order id: "
+                f"{record.get('ticker')} {record.get('side')} x{record.get('quantity')}"
+            )
+    return errors
+
+
+def _close_plan_reconciliation_errors(
+    execution_plan: ExecutionPlan,
+    records: Sequence[Mapping[str, Any]],
+) -> list[str]:
+    """Reconcile child broker responses back to the persisted close intent quantities."""
+    errors: list[str] = []
+    planned: Counter[tuple[str, str]] = Counter()
+    for request in execution_plan.close_orders:
+        planned[(request.ticker, request.side.value)] += int(request.quantity)
+
+    represented: Counter[tuple[str, str]] = Counter()
+    real_order_ids: list[str] = []
+    for record in records:
+        ticker = str(record.get("ticker") or "")
+        side = str(record.get("side") or "")
+        try:
+            quantity = int(record.get("quantity", 0) or 0)
+        except (TypeError, ValueError):
+            errors.append(f"invalid response quantity for {ticker} {side}")
+            continue
+        if not ticker or not side or quantity <= 0:
+            errors.append(f"invalid close response identity: {ticker} {side} x{quantity}")
+            continue
+        represented[(ticker, side)] += quantity
+        order_id = str(record.get("order_id") or "")
+        if order_id:
+            real_order_ids.append(order_id)
+
+        filled_raw = record.get("fill_quantity", record.get("filled_quantity"))
+        if filled_raw is not None:
+            try:
+                filled = int(filled_raw)
+            except (TypeError, ValueError):
+                errors.append(f"invalid fill quantity: {order_id or ticker}")
+            else:
+                if filled < 0 or filled > quantity:
+                    errors.append(f"invalid fill quantity: {order_id or ticker}")
+                if (
+                    str(record.get("status") or "") == OrderStatus.FILLED.value
+                    and filled != quantity
+                ):
+                    errors.append(f"FILLED quantity mismatch: {order_id or ticker}")
+
+    if represented != planned:
+        errors.append(
+            "close response quantities do not match persisted plan "
+            f"(planned={dict(planned)}, represented={dict(represented)})"
+        )
+
+    duplicate_ids = sorted(
+        order_id for order_id, count in Counter(real_order_ids).items() if count > 1
+    )
+    if duplicate_ids:
+        errors.append(f"duplicate broker order response(s): {', '.join(duplicate_ids)}")
+    return errors
+
+
 def _submit_close_order_batches(
     api_client: BrokerClient,
     order_plan: CloseOrderPlan,
@@ -189,14 +354,16 @@ def _submit_close_order_batches(
     close_position_order: int,
     persist_submitted_observations: Callable[[Sequence[OrderResult]], None],
 ) -> list[dict[str, Any]]:
-    """Submit close batches and wait in the same order as the close contract."""
+    """Submit close batches and fail closed before any delayed submission."""
     close_results: list[dict[str, Any]] = []
     if dry_run:
         logger.info("[DRY RUN MODE] Simulating position close (no actual orders sent)...")
-        for meta in order_plan.order_metadata:
+        for index, meta in enumerate(order_plan.order_metadata):
             clean = meta["ticker"].replace(".T", "")
             simulated = {
-                "order_id": f"SIM-CLOSE-{datetime.now().strftime('%Y%m%d%H%M%S')}-{clean}",
+                "order_id": (
+                    f"SIM-CLOSE-{datetime.now().strftime('%Y%m%d%H%M%S')}-{clean}-{index}"
+                ),
                 "status": "SIMULATED",
                 "ticker": meta["ticker"],
                 "side": meta["side"],
@@ -224,43 +391,30 @@ def _submit_close_order_batches(
         close_position_order=close_position_order,
     )
     persist_submitted_observations(first_results)
-    for result in first_results:
-        logger.info(
-            "  [CLOSE SUBMITTED] %s: %d shares (Order ID: %s)",
-            result.ticker,
-            result.quantity,
-            result.order_id,
-        )
-        meta = order_plan.metadata_by_ticker.get(result.ticker, {})
-        close_results.append(
-            {
-                "order_id": result.order_id,
-                "status": result.status.value,
-                "ticker": result.ticker,
-                "side": result.side.value,
-                "quantity": result.quantity,
-                "message": result.message,
-                "eigyou_day": result.eigyou_day,
-                "original_side": meta.get("original_side"),
-                "original_price": meta.get("original_price"),
-            }
-        )
-
-    # The delayed batch is considered only after the first batch is polled.
-    _wait_for_close_fills_sync(api_client, close_results)
-    first_batch_failed = any(
-        result.get("status") in {
-            OrderStatus.FAILED.value,
-            OrderStatus.PARTIALLY_FILLED.value,
-        }
-        for result in close_results
-        if not result.get("delayed")
+    first_records = _normalize_batch_results(
+        immediate_requests,
+        first_results,
+        order_plan,
     )
+    for record in first_records:
+        logger.info(
+            "  [CLOSE RESPONSE] %s: %d shares (status=%s, order_id=%s)",
+            record["ticker"],
+            record["quantity"],
+            record["status"],
+            record["order_id"],
+        )
+    _wait_for_close_fills_sync(api_client, first_records)
+    close_results.extend(first_records)
+
+    first_batch_errors = _batch_reconciliation_errors(immediate_requests, first_records)
     if delayed_close:
-        if first_batch_failed:
+        if first_batch_errors:
+            reason = "; ".join(first_batch_errors)
             logger.warning(
-                "[DELAYED CLOSE] Skipping %d delayed close order(s) — first batch had failures",
+                "[DELAYED CLOSE] Skipping %d delayed close order(s): %s",
                 len(delayed_close),
+                reason,
             )
             for request in delayed_close:
                 meta = order_plan.metadata_by_ticker.get(request.ticker, {})
@@ -271,7 +425,7 @@ def _submit_close_order_batches(
                         "ticker": request.ticker,
                         "side": request.side.value,
                         "quantity": request.quantity,
-                        "message": "Skipped due to first batch failure",
+                        "message": f"Skipped because first batch was not reconciled: {reason}",
                         "delayed": True,
                         "original_side": meta.get("original_side"),
                         "original_price": meta.get("original_price"),
@@ -296,29 +450,22 @@ def _submit_close_order_batches(
                 close_position_order=close_position_order,
             )
             persist_submitted_observations(delayed_results)
-            for result in delayed_results:
+            delayed_records = _normalize_batch_results(
+                delayed_requests,
+                delayed_results,
+                order_plan,
+                delayed=True,
+            )
+            for record in delayed_records:
                 logger.info(
-                    "  [DELAYED CLOSE SUBMITTED] %s: %d shares (Order ID: %s)",
-                    result.ticker,
-                    result.quantity,
-                    result.order_id,
+                    "  [DELAYED CLOSE RESPONSE] %s: %d shares (status=%s, order_id=%s)",
+                    record["ticker"],
+                    record["quantity"],
+                    record["status"],
+                    record["order_id"],
                 )
-                meta = order_plan.metadata_by_ticker.get(result.ticker, {})
-                close_results.append(
-                    {
-                        "order_id": result.order_id,
-                        "status": result.status.value,
-                        "ticker": result.ticker,
-                        "side": result.side.value,
-                        "quantity": result.quantity,
-                        "message": result.message,
-                        "eigyou_day": result.eigyou_day,
-                        "delayed": True,
-                        "original_side": meta.get("original_side"),
-                        "original_price": meta.get("original_price"),
-                    }
-                )
-            _wait_for_close_fills_sync(api_client, close_results)
+            _wait_for_close_fills_sync(api_client, delayed_records)
+            close_results.extend(delayed_records)
     return close_results
 
 
@@ -344,6 +491,19 @@ def _reconcile_close_run(
                 summary.setdefault("reconciliation_errors", []).append(f"fill_prices: {exc}")
                 logger.exception("Failed to fetch close fill prices")
 
+    plan_errors = _close_plan_reconciliation_errors(execution_plan, close_results)
+    if plan_errors:
+        existing_errors = summary.setdefault("reconciliation_errors", [])
+        existing_errors.extend(error for error in plan_errors if error not in existing_errors)
+    summary["plan_reconciliation_errors"] = plan_errors
+    summary["planned_orders_count"] = execution_plan.expected_order_count
+    summary["planned_close_quantity"] = sum(
+        int(request.quantity) for request in execution_plan.close_orders
+    )
+    summary["represented_close_quantity"] = sum(
+        int(result.get("quantity", 0) or 0) for result in close_results
+    )
+
     terminal_successes = {OrderStatus.FILLED.value, OrderStatus.SIMULATED.value}
     success_count = sum(
         1 for result in close_results if result.get("status") in terminal_successes
@@ -363,7 +523,12 @@ def _reconcile_close_run(
         1
         for result in close_results
         if result.get("status")
-        in {OrderStatus.FAILED.value, OrderStatus.CANCELLED.value, "SKIPPED"}
+        in {
+            OrderStatus.FAILED.value,
+            OrderStatus.CANCELLED.value,
+            "SKIPPED",
+            MISSING_RESPONSE_STATUS,
+        }
     )
     summary["filled_orders_count"] = success_count
     summary["partial_orders_count"] = partial_count
@@ -374,7 +539,7 @@ def _reconcile_close_run(
     ) or bool(summary.get("reconciliation_errors"))
     summary["execution_report"] = report_from_records(
         close_results,
-        expected_orders=len(close_results),
+        expected_orders=execution_plan.expected_order_count,
         reconciliation_errors=summary.get("reconciliation_errors", []),
     ).to_dict()
 
@@ -391,7 +556,8 @@ def _reconcile_close_run(
                 state_store.mark_reconciliation_required(
                     execution_run.run_id,
                     error=(
-                        f"filled={success_count}/{len(close_results)}; "
+                        f"filled_responses={success_count}; "
+                        f"planned_intents={execution_plan.expected_order_count}; "
                         f"pending={pending_count}; failed={failed_count}"
                     ),
                 )
@@ -458,9 +624,14 @@ def _wait_for_close_fills_sync(
     Updates ``close_results`` entries with the latest status.  This prevents
     moving on before a close order has been confirmed at the exchange.
     """
+    pollable = [
+        result
+        for result in close_results
+        if str(result.get("status", "")) in {status.value for status in OrderStatus}
+    ]
     poll_order_statuses(
         api_client,
-        close_results,
+        pollable,
         order_id_getter=lambda result: str(result.get("order_id", "")),
         status_getter=lambda result: result.get("status", ""),
         status_setter=lambda result, status: result.__setitem__("status", status.value),
@@ -587,6 +758,8 @@ def close_all_positions(
         "dry_run": dry_run,
         "positions_found": len(positions),
         "close_orders_count": len(close_order_requests),
+        "planned_orders_count": close_plan.expected_order_count,
+        "planned_close_quantity": sum(int(request.quantity) for request in close_order_requests),
         "overnight_alpha_long": overnight_alpha_long,
         "overnight_alpha_short": overnight_alpha_short,
         "held_overnight": list(order_plan.held_overnight),
@@ -788,7 +961,12 @@ def run_close_positions_mode(
             close_summary["reconciliation_errors"] = reconciliation_errors
             close_summary["execution_report"] = report_from_records(
                 close_summary.get("close_results", []),
-                expected_orders=len(close_summary.get("close_results", [])),
+                expected_orders=int(
+                    close_summary.get(
+                        "planned_orders_count",
+                        len(close_summary.get("close_results", [])),
+                    )
+                ),
                 reconciliation_errors=reconciliation_errors,
             ).to_dict()
             with open(close_log_path, "w", encoding="utf-8") as handle:
