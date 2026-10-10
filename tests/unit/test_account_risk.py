@@ -12,6 +12,7 @@ from leadlag.execution.account_risk import (
     AccountRiskSnapshot,
     AccountRiskSnapshotError,
     evaluate_account_loss,
+    snapshot_payload_sha256,
 )
 from leadlag.execution.risk_capital import run_risk_checks
 
@@ -21,11 +22,14 @@ def _payload(**changes):
         "schema_version": ACCOUNT_RISK_SCHEMA,
         "valid_for_trade_date": "2026-09-29",
         "observed_through": "2026-09-28",
+        "observed_at": "2026-09-28T15:30:00+09:00",
         "as_of": "2026-09-28T15:30:00+09:00",
         "account_key": "tachibana:default",
         "daily_return": -0.03,
         "month_return": -0.06,
         "source": "reconciled_execution_ledger",
+        "source_ids": ["sha256:" + "a" * 64],
+        "source_sha256s": ["a" * 64],
         "pnl_basis": REQUIRED_PNL_BASIS,
         "cash_reconciled": True,
         "positions_reconciled": True,
@@ -33,6 +37,11 @@ def _payload(**changes):
         "reconciliation_status": "complete",
     }
     payload.update(changes)
+    if "as_of" in changes and "observed_at" not in changes:
+        payload["observed_at"] = payload["as_of"]
+    digest = snapshot_payload_sha256(payload)
+    payload["snapshot_sha256"] = digest
+    payload["snapshot_id"] = f"sha256:{digest}"
     return payload
 
 
@@ -78,6 +87,21 @@ def test_account_risk_contract_rejects_incomplete_or_future_evidence(changes, me
             decision_as_of="2026-09-29T09:10:05+09:00",
             account_key="tachibana:default",
         )
+
+
+def test_prior_session_snapshot_may_be_reconciled_next_morning_before_cutoff():
+    snapshot = AccountRiskSnapshot.from_payload(
+        _payload(
+            observed_at="2026-09-29T08:00:00+09:00",
+            as_of="2026-09-29T08:00:00+09:00",
+        ),
+        trade_date="2026-09-29",
+        decision_as_of="2026-09-29T09:10:05+09:00",
+        account_key="tachibana:default",
+    )
+
+    assert snapshot.observed_through == "2026-09-28"
+    assert snapshot.observed_at == pd.Timestamp("2026-09-29T08:00:00+09:00")
 
 
 def test_live_risk_check_blocks_when_actual_account_snapshot_is_missing():

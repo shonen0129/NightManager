@@ -61,6 +61,7 @@ from leadlag.execution.output_ops import build_output_dir
 from leadlag.execution.post_decision import execute_post_decision_flow
 from leadlag.execution.runtime_manifest import (
     build_decision_manifest,
+    update_account_risk_manifest,
     update_decision_manifest,
 )
 from leadlag.execution.state_store import ExecutionStateStore
@@ -893,6 +894,7 @@ def run_v2_decision(
         account_risk_preflight = _preflight_account_risk(
             ROOT, t_effective, account_key, quote_preflight
         )
+        update_account_risk_manifest(output_dir, account_risk_preflight)
         # Batch wrappers hold the same scope for the complete process group.
         # Avoid a nested self-conflict while retaining the in-process lease for
         # direct CLI invocations.

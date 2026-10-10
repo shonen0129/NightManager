@@ -15,9 +15,11 @@ from leadlag.data.tickers import JP_TICKERS
 from leadlag.domain.gap_bundle import GapBundleRef, canonical_json_bytes
 from leadlag.domain.inputs import DecisionInputs
 from leadlag.domain.portfolio import PortfolioDecision
+from leadlag.execution.account_risk import AccountRiskPreflight, AccountRiskSnapshot
 from leadlag.execution.gap_store_check import check_bundle
 from leadlag.execution.runtime_manifest import (
     build_decision_manifest,
+    update_account_risk_manifest,
     update_decision_manifest,
     update_execution_manifest,
 )
@@ -147,6 +149,36 @@ def test_execution_manifest_records_quantities_and_post_position_exposure(tmp_pa
     assert exposure["filled_quantity_by_ticker"] == {"1305": {"BUY": 80, "SELL": 20}}
     assert exposure["signed_quantity_by_ticker"] == {"1305": 80}
     assert exposure["net_quantity"] == 80
+
+
+def test_decision_manifest_references_exact_account_risk_snapshot(tmp_path: Path) -> None:
+    output_dir = tmp_path / "result"
+    output_dir.mkdir()
+    write_run_manifest(str(output_dir), "unit")
+    snapshot = AccountRiskSnapshot(
+        valid_for_trade_date="2026-10-02",
+        observed_through="2026-10-01",
+        observed_at=pd.Timestamp("2026-10-01T15:30:00+09:00"),
+        as_of=pd.Timestamp("2026-10-01T15:30:00+09:00"),
+        account_key="tachibana:default",
+        daily_return=-0.01,
+        month_return=-0.01,
+        source="reconciled_execution_ledger",
+        source_ids=("sha256:" + "a" * 64,),
+        source_sha256s=("a" * 64,),
+        snapshot_id="sha256:" + "b" * 64,
+        snapshot_sha256="b" * 64,
+        pnl_basis="daily_realized_plus_unrealized_change_less_observed_fees",
+        cash_reconciled=True,
+        positions_reconciled=True,
+        fees_complete=True,
+        reconciliation_status="complete",
+    )
+    update_account_risk_manifest(output_dir, AccountRiskPreflight.verified(snapshot))
+    saved = json.loads((output_dir / "run_manifest.json").read_text(encoding="utf-8"))
+    assert saved["account_risk"]["snapshot_id"] == snapshot.snapshot_id
+    assert saved["account_risk"]["snapshot_sha256"] == snapshot.snapshot_sha256
+    assert saved["account_risk"]["source_ids"] == list(snapshot.source_ids)
 
 
 def test_gap_store_check_requires_the_same_date_bundle(tmp_path: Path) -> None:
