@@ -691,6 +691,7 @@ def run_v2_decision(
                 api_url=api_url,
                 api_token=api_token,
                 api_dry_run=api_dry_run,
+                app_config=app_config,
             )
         else:
             logger.info(
