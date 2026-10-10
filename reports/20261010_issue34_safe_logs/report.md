@@ -35,15 +35,16 @@ Python 3.12.14、uv.lock固定のdev・ml-overlay依存を使用した。環境�
 | --- | --- |
 | 関連回帰 | 154件成功、補強後52件成功 |
 | 固定V2 baseline | 1件成功 |
-| 完全suite（baselineを別実行、残りは4 worker） | 実行中 |
+| 完全suite（baselineを別実行、残りは4 worker） | 1297件成功、3件の既存warning、442.79秒。baselineと合わせ1298件成功 |
 | lockfile・compileall | 成功 |
 | production/maintained/research Ruff | 成功 |
 | production Mypy | 147 source files、成功 |
 | import architecture・operational imports | 成功 |
-| maintained docsと追加ADR/reportのリンク | 確認中 |
+| maintained docsと追加ADR/reportのリンク | 303 references・249 current paths/symbols、成功 |
 | clean wheel・research除外・installed wheel/ML artifact smoke | 成功 |
 
 詳細log/JUnitはローカルの `var/ci/issue34-safe-logs/` に出力する。公開PRには合成検証の集計のみ記録する。
+GitHub CIの最新結果はPRのchecksを正本とする。
 
 ## 残る運用確認
 
