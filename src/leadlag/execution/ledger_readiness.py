@@ -7,6 +7,7 @@ An incomplete manifest must never permit new-risk trading.
 from __future__ import annotations
 
 import re
+from datetime import datetime
 from collections.abc import Mapping
 from typing import Any
 
@@ -28,6 +29,18 @@ def assess_ledger_readiness(manifest: Mapping[str, Any]) -> list[str]:
         r"\d{4}-\d{2}-\d{2}", manifest["session_date"]
     ):
         errors.append("missing or invalid session_date")
+    observed_at = manifest.get("observed_at")
+    try:
+        parsed_observed_at = datetime.fromisoformat(str(observed_at).replace("Z", "+00:00"))
+    except ValueError:
+        parsed_observed_at = None
+    if parsed_observed_at is None or parsed_observed_at.tzinfo is None:
+        errors.append("missing or invalid timezone-aware observed_at")
+    elif (
+        isinstance(manifest.get("session_date"), str)
+        and parsed_observed_at.date().isoformat() != manifest["session_date"]
+    ):
+        errors.append("observed_at date does not match session_date")
     sources = manifest.get("sources")
     if not isinstance(sources, Mapping):
         sources = {}
