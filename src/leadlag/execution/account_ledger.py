@@ -100,8 +100,8 @@ def build_reconciled_execution_ledger(
         raise LedgerReconciliationError("session trade_date does not match evidence manifest")
 
     observed_at = _aware_timestamp(evidence_manifest["observed_at"], "observed_at")
-    if observed_at.date().isoformat() != trade_date:
-        raise LedgerReconciliationError("observed_at date does not match trade_date")
+    if observed_at.date() < date.fromisoformat(trade_date):
+        raise LedgerReconciliationError("observed_at cannot precede trade_date")
 
     opening_equity = _nonnegative_number(session.get("opening_equity_jpy"), "opening_equity_jpy")
     if opening_equity <= 0.0:
@@ -207,8 +207,8 @@ def validate_reconciled_execution_ledger(payload: Mapping[str, Any]) -> None:
     except ValueError as exc:
         raise LedgerReconciliationError("reconciled ledger trade_date is invalid") from exc
     observed_at = _aware_timestamp(payload.get("observed_at"), "ledger observed_at")
-    if observed_at.date() != trade_date:
-        raise LedgerReconciliationError("ledger observed_at date does not match trade_date")
+    if observed_at.date() < trade_date:
+        raise LedgerReconciliationError("ledger observed_at cannot precede trade_date")
 
     opening = _nonnegative_number(payload.get("opening_equity_jpy"), "opening_equity_jpy")
     closing = _nonnegative_number(payload.get("closing_equity_jpy"), "closing_equity_jpy")
@@ -296,9 +296,12 @@ def build_account_risk_snapshot(
         )
 
     latest = by_date[expected_prior]
-    latest_observed_at = _aware_timestamp(latest["observed_at"], "latest ledger observed_at")
     monthly_growth = 1.0
     month_ledgers = [by_date[trade_date] for trade_date in expected_month_dates]
+    latest_observed_at = max(
+        _aware_timestamp(ledger["observed_at"], "ledger observed_at")
+        for ledger in month_ledgers
+    )
     for ledger in month_ledgers:
         monthly_growth *= 1.0 + float(ledger["daily_return"])
     month_return = monthly_growth - 1.0
