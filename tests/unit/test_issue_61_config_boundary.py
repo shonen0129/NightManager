@@ -263,8 +263,14 @@ def test_close_uses_inherited_config_for_plan_broker_and_manifest(
     assert manifest["resolved_hash"]
     assert manifest["non_secret_hash"]
     assert manifest["resolved_non_secret"]["broker_provider"] == "tachibana"
+    assert manifest["resolved_non_secret"]["broker"]["client_provider"] == "tachibana"
+    assert manifest["resolved_non_secret"]["broker"]["api_url"] == "https://cli-override.example"
+    assert manifest["resolved_non_secret"]["broker"]["api_url_overridden"] is True
+    assert manifest["resolved_non_secret"]["broker"]["credential_override_present"] is True
     assert manifest["resolved_non_secret"]["broker"]["margin_trade_type"] == 1
     assert manifest["resolved_non_secret"]["broker"]["account_type"] == 12
+    assert manifest["resolved_non_secret"]["execution"]["api_dry_run"] is False
+    assert manifest["resolved_non_secret"]["execution"]["close_position_order"] == 5
     assert manifest["resolved_non_secret"]["execution"]["overnight_alpha_long"] == 0.0
     assert manifest["resolved_non_secret"]["execution"]["overnight_alpha_short"] == 0.0
     serialized_manifest = json.dumps(manifest, sort_keys=True)
