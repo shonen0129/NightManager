@@ -365,6 +365,7 @@ def _handle_close(args: argparse.Namespace) -> int:
     close_summary = run_close_positions_mode(
         output_root=args.output_root,
         run_tag=args.run_tag,
+        config_path=args.config,
         api_url=args.api_url,
         api_token=args.api_token,
         api_dry_run=args.api_dry_run,

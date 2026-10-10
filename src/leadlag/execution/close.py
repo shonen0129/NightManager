@@ -23,7 +23,7 @@ from types import MappingProxyType
 from typing import Any
 
 from leadlag.broker.base import BrokerClient
-from leadlag.config.paths import execution_state_path
+from leadlag.config.paths import execution_state_path, project_root
 from leadlag.core.types import OrderRequest, OrderResult, OrderSide, OrderStatus, OrderType
 from leadlag.data.tickers import lot_size_for
 from leadlag.execution.broker_ops import (
@@ -42,7 +42,10 @@ from leadlag.execution.output_ops import (
     save_wallet_snapshot,
 )
 from leadlag.execution.pricing import fetch_fill_prices
-from leadlag.execution.runtime_manifest import update_execution_manifest
+from leadlag.execution.runtime_manifest import (
+    build_resolved_config_manifest,
+    update_execution_manifest,
+)
 from leadlag.execution.state_store import ExecutionRun, ExecutionStateStore
 
 logger = logging.getLogger(__name__)
@@ -629,19 +632,28 @@ def run_close_positions_mode(
     api_token: str | None,
     api_dry_run: bool,
     close_position_order: int,
+    config_path: str | Path,
 ) -> dict[str, Any]:
     """Entry point for ``--mode close-positions``.
 
     Builds the broker client, executes position close, and cleans up.
     """
     logger.info("=== CLOSE-POSITIONS MODE ===")
+    resolved_config_path = Path(config_path)
+    if not resolved_config_path.is_absolute():
+        resolved_config_path = project_root() / resolved_config_path
+    config = load_config_from_yaml(resolved_config_path)
     output_dir = build_output_dir(output_root, run_tag, run_name="production_close_positions")
 
     api_client: BrokerClient | None = None
     lease_stack = ExitStack()
     try:
-        api_client = build_api_client(api_url, api_token, api_dry_run)
-        config = load_config_from_yaml()
+        api_client = build_api_client(
+            api_url,
+            api_token,
+            api_dry_run,
+            app_config=config,
+        )
         state_store = ExecutionStateStore(execution_state_path())
         account_key = f"{config.broker_provider}:default" if not api_dry_run else f"simulation:{output_dir}"
         if config.broker_provider == "tachibana":
@@ -758,6 +770,14 @@ def run_close_positions_mode(
                 summary=close_summary,
                 position_snapshot_path=pos_snapshot_path,
                 wallet_snapshot_path=wallet_snapshot_path,
+                config=build_resolved_config_manifest(
+                    app_config=config,
+                    config_path=resolved_config_path,
+                    api_url_override=api_url,
+                    api_token_override_present=api_token is not None,
+                    api_dry_run=api_dry_run,
+                    close_position_order=close_position_order,
+                ),
             )
         except Exception as exc:  # noqa: BLE001
             reconciliation_errors.append(f"runtime_manifest: {exc}")
