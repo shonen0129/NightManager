@@ -167,6 +167,10 @@ def build_resolved_config_manifest(
     *,
     app_config: Any,
     config_path: str | Path,
+    api_url_override: str | None = None,
+    api_token_override_present: bool = False,
+    api_dry_run: bool | None = None,
+    close_position_order: int | None = None,
 ) -> dict[str, Any]:
     """Describe the resolved runtime config without exposing broker secrets."""
     provider = str(getattr(app_config, "broker_provider", "") or "")
@@ -178,14 +182,23 @@ def build_resolved_config_manifest(
     def first_value(*values: Any) -> Any:
         return next((value for value in values if value is not None), None)
 
+    configured_api_url = getattr(broker_config, "api_url", None)
+    effective_api_url = api_url_override or configured_api_url
+    client_provider = "dry_run" if api_dry_run else (provider or None)
     resolved_non_secret = {
         "broker_provider": provider or None,
         "broker": {
+            "client_provider": client_provider,
+            "api_url": effective_api_url,
+            "api_url_overridden": api_url_override is not None,
+            "credential_override_present": api_token_override_present,
             "margin_trade_type": getattr(broker_config, "margin_trade_type", None),
             "account_type": getattr(broker_config, "account_type", None),
             "request_timeout": getattr(broker_config, "request_timeout", None),
         },
         "execution": {
+            "api_dry_run": api_dry_run,
+            "close_position_order": close_position_order,
             "overnight_alpha_long": first_value(
                 getattr(strategy, "overnight_alpha_long", None),
                 getattr(v2_costs, "overnight_alpha_long", None),
@@ -223,6 +236,9 @@ def build_decision_manifest(
     config_path: str | Path,
     gap_input_dir: str | Path | None,
     model: Any,
+    api_url_override: str | None = None,
+    api_token_override_present: bool = False,
+    api_dry_run: bool | None = None,
 ) -> dict[str, Any]:
     """Build reproducibility and failure-reason evidence for one decision."""
     observed = _observed_at(inputs)
@@ -256,6 +272,9 @@ def build_decision_manifest(
         "config": build_resolved_config_manifest(
             app_config=app_config,
             config_path=config_path,
+            api_url_override=api_url_override,
+            api_token_override_present=api_token_override_present,
+            api_dry_run=api_dry_run,
         ),
         "model": {
             "production_version": getattr(result.run_config, "version", None),
@@ -379,6 +398,7 @@ def update_execution_manifest(
 
 __all__ = [
     "build_decision_manifest",
+    "build_resolved_config_manifest",
     "update_decision_manifest",
     "update_execution_manifest",
 ]
