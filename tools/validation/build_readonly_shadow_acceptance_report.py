@@ -272,6 +272,8 @@ def _check_frozen(capture_dir: Path, trade_date: str, *, capture_status: str) ->
         "snapshot_id": snapshot.snapshot_id,
         "request_started_at": snapshot.request_started_at.isoformat(),
         "response_received_at": snapshot.as_of.isoformat(),
+        "available_at": snapshot.as_of.isoformat(),
+        "available_at_semantics": snapshot.timestamp_source,
         "observed_count": len(snapshot.prices),
         "source": snapshot.source,
         "timestamp_source": snapshot.timestamp_source,
