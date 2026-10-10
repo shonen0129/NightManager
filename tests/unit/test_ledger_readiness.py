@@ -13,6 +13,7 @@ def _manifest():
         "schema_version": "account-ledger-evidence-v1",
         "account_key": "tachibana:default",
         "session_date": "2026-10-09",
+        "observed_at": "2026-10-09T15:30:00+09:00",
         "sources": {
             name: {
                 "authority": "broker_official",
