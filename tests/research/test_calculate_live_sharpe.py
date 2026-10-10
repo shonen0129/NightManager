@@ -3,7 +3,6 @@ import importlib.util
 import json
 from pathlib import Path
 
-
 SOURCE = Path(__file__).resolve().parents[2] / "tools/research/calculate_live_sharpe.py"
 
 
