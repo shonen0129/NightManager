@@ -118,6 +118,28 @@ def test_equity_bridge_mismatch_is_rejected():
         build_reconciled_execution_ledger(_manifest("2026-10-01"), session)
 
 
+def test_ledger_observed_next_morning_is_valid_and_snapshot_uses_observation_time(tmp_path):
+    manifest = _manifest("2026-10-01")
+    manifest["observed_at"] = "2026-10-02T08:00:00+09:00"
+    ledger = build_reconciled_execution_ledger(manifest, _session("2026-10-01"))
+    snapshot = build_account_risk_snapshot(
+        [ledger],
+        valid_for_trade_date="2026-10-02",
+        account_key="tachibana:default",
+    )
+    assert snapshot["observed_through"] == "2026-10-01"
+    assert snapshot["observed_at"] == "2026-10-02T08:00:00+09:00"
+
+    write_account_risk_snapshot(tmp_path, snapshot)
+    loaded = AccountRiskSnapshot.load(
+        tmp_path / "latest.json",
+        trade_date="2026-10-02",
+        decision_as_of="2026-10-02T09:10:00+09:00",
+        account_key="tachibana:default",
+    )
+    assert loaded.observed_at.isoformat() == "2026-10-02T08:00:00+09:00"
+
+
 def test_snapshot_compounds_complete_month_and_writes_immutable_pointer(tmp_path):
     first = build_reconciled_execution_ledger(
         _manifest("2026-10-01"),
