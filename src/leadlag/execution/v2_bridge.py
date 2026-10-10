@@ -863,6 +863,9 @@ def run_v2_decision(
                 config_path=config_path,
                 gap_input_dir=gap_dir,
                 model=runner.model,
+                api_url_override=api_url,
+                api_token_override_present=api_token is not None,
+                api_dry_run=api_dry_run,
             ),
         )
 
