@@ -8,11 +8,13 @@ Windows 用スクリプトは `archive/legacy_scripts/windows/` に保管して�
 | タスク名 | 実行時刻 | Windows | macOS | 内容 |
 |---|---|---|---|---|
 | `日米ラグ_AutoLogin` | 毎朝 7:00 | —（legacy archive） | — | kabuステーション自動ログイン |
-| `日米ラグ_DistributionDiagnostics` | 月〜土 8:15 | — | `run_distribution_diagnostics.sh` | 分布診断の事前計算 |
 | `日米ラグ_Microstructure0910` | 月〜金 9:10 | — | `run_0910_microstructure_capture.sh` | 読取専用の9:10気配・板保存（decisionとは独立） |
 | `日米ラグ_Decision` | 毎朝 9:10 | —（legacy archive） | `run_decision_v2.sh` | 売買判定 (`leadlag cli decision`) |
 | `日米ラグ_ClosePositions` | 毎日 14:50 | —（legacy archive） | `run_close_positions.sh` | 引け反対売買 (`leadlag cli close`) |
 | `日米ラグ_PnlReport` | 毎日 15:40 | — | `run_pnl_report.sh` | 未完了runの読取専用照合と引け損益レポート |
+
+
+> `run_distribution_diagnostics.sh`（structured covariance / validation / vol-state）は研究診断専用です。launchd には登録せず、本番gap生成の前提にも使いません。09:10 decision は frozen quote 取得後に `run_gap_distribution.sh` → `tools/production/publish_gap_distribution.py` を呼び、本番V2と同じ on-demand / cache 検証境界で canonical SQLite を更新します。
 
 ## 前提条件
 
@@ -40,7 +42,7 @@ Windows側で別途設計してください。
 bash scripts/batch/setup_scheduler_macos.sh
 ```
 
-これで6つのタスク（market data update / distribution diagnostics / 9:10 microstructure capture / Decision / Close / P&L report）が launchd に登録されます。9:10収集は読取専用の別LaunchAgentで動き、decisionの失敗や長時間実行から独立します。既存のplistはプロジェクトルートから生成し直されるため、作業ディレクトリを移動した後も古いパスを残しません。
+これで5つのタスク（market data update / 9:10 microstructure capture / Decision / Close / P&L report）が launchd に登録されます。9:10収集は読取専用の別LaunchAgentで動き、decisionの失敗や長時間実行から独立します。既存のplistはプロジェクトルートから生成し直されるため、作業ディレクトリを移動した後も古いパスを残しません。
 旧コマンド `bash scripts/batch/install_launchd.sh` はこの手順へ委譲する互換入口です。
 
 収集ジョブだけを登録・更新する場合は次を使います。decision等の既存ジョブは再起動しません。

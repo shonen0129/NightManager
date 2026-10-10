@@ -163,6 +163,71 @@ def _position_exposure(path: str | Path | None) -> dict[str, Any]:
         return {"snapshot_readable": False, "snapshot_read_error": str(exc)}
 
 
+def build_resolved_config_manifest(
+    *,
+    app_config: Any,
+    config_path: str | Path,
+    api_url_override: str | None = None,
+    api_token_override_present: bool = False,
+    api_dry_run: bool | None = None,
+    close_position_order: int | None = None,
+) -> dict[str, Any]:
+    """Describe the resolved runtime config without exposing broker secrets."""
+    provider = str(getattr(app_config, "broker_provider", "") or "")
+    broker_config = getattr(app_config, provider, None) if provider else None
+    strategy = getattr(app_config, "strategy", None)
+    v2 = getattr(app_config, "v2", None)
+    v2_costs = getattr(v2, "costs", None)
+
+    def first_value(*values: Any) -> Any:
+        return next((value for value in values if value is not None), None)
+
+    configured_api_url = getattr(broker_config, "api_url", None)
+    effective_api_url = api_url_override or configured_api_url
+    client_provider = "dry_run" if api_dry_run else (provider or None)
+    resolved_non_secret = {
+        "broker_provider": provider or None,
+        "broker": {
+            "client_provider": client_provider,
+            "api_url": effective_api_url,
+            "api_url_overridden": api_url_override is not None,
+            "credential_override_present": api_token_override_present,
+            "margin_trade_type": getattr(broker_config, "margin_trade_type", None),
+            "account_type": getattr(broker_config, "account_type", None),
+            "request_timeout": getattr(broker_config, "request_timeout", None),
+        },
+        "execution": {
+            "api_dry_run": api_dry_run,
+            "close_position_order": close_position_order,
+            "overnight_alpha_long": first_value(
+                getattr(strategy, "overnight_alpha_long", None),
+                getattr(v2_costs, "overnight_alpha_long", None),
+            ),
+            "overnight_alpha_short": first_value(
+                getattr(strategy, "overnight_alpha_short", None),
+                getattr(v2_costs, "overnight_alpha_short", None),
+            ),
+        },
+    }
+    app_dump = (
+        app_config.model_dump(mode="json")
+        if hasattr(app_config, "model_dump")
+        else _json_value(app_config)
+    )
+    v2_dump = (
+        v2.model_dump(mode="json")
+        if v2 is not None and hasattr(v2, "model_dump")
+        else _json_value(v2)
+    )
+    return {
+        "path": str(config_path),
+        "resolved_hash": _digest(app_dump),
+        "non_secret_hash": _digest(resolved_non_secret),
+        "model_config_hash": _digest(v2_dump),
+        "resolved_non_secret": resolved_non_secret,
+    }
+
+
 def build_decision_manifest(
     *,
     app_config: Any,
@@ -171,6 +236,9 @@ def build_decision_manifest(
     config_path: str | Path,
     gap_input_dir: str | Path | None,
     model: Any,
+    api_url_override: str | None = None,
+    api_token_override_present: bool = False,
+    api_dry_run: bool | None = None,
 ) -> dict[str, Any]:
     """Build reproducibility and failure-reason evidence for one decision."""
     observed = _observed_at(inputs)
@@ -201,11 +269,13 @@ def build_decision_manifest(
             "price_observed_at": _json_value(dict(inputs.known.price_observed_at)),
         },
         "code": _git_provenance(project_root()),
-        "config": {
-            "path": str(config_path),
-            "resolved_hash": _digest(app_config.model_dump(mode="json")),
-            "model_config_hash": _digest(app_config.v2.model_dump(mode="json")),
-        },
+        "config": build_resolved_config_manifest(
+            app_config=app_config,
+            config_path=config_path,
+            api_url_override=api_url_override,
+            api_token_override_present=api_token_override_present,
+            api_dry_run=api_dry_run,
+        ),
         "model": {
             "production_version": getattr(result.run_config, "version", None),
             "gap_input_dir": str(gap_input_dir) if gap_input_dir is not None else None,
@@ -269,6 +339,7 @@ def update_execution_manifest(
     summary: Mapping[str, Any],
     position_snapshot_path: str | Path | None = None,
     wallet_snapshot_path: str | Path | None = None,
+    config: Mapping[str, Any] | None = None,
 ) -> str:
     """Persist execution/reconciliation evidence without changing retry rules."""
     report = summary.get("execution_report")
@@ -320,11 +391,14 @@ def update_execution_manifest(
             },
         }
     }
+    if config is not None:
+        update["execution"]["config"] = _json_value(config)
     return update_run_manifest(str(output_dir), update)
 
 
 __all__ = [
     "build_decision_manifest",
+    "build_resolved_config_manifest",
     "update_decision_manifest",
     "update_execution_manifest",
 ]

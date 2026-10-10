@@ -19,6 +19,7 @@ import pandas as pd
 
 from leadlag.broker.base import BrokerClient
 from leadlag.broker.factory import create_broker_from_args
+from leadlag.config.schemas import AppConfig
 from leadlag.core.types import (
     OrderRequest,
     OrderResult,
@@ -70,15 +71,19 @@ def build_api_client(
     api_url: str | None,
     api_token: str | None,
     api_dry_run: bool = False,
+    *,
+    app_config: AppConfig | None = None,
 ) -> BrokerClient:
-    """Build and validate a BrokerClient.
+    """Build and validate a BrokerClient from one resolved application config.
 
-    Delegates to ``broker.factory.create_broker_from_args``.
+    Callers that already resolved configuration should pass ``app_config`` so
+    broker selection and account settings cannot drift through a second config
+    load. Callers without a resolved config retain the default-loader fallback.
     """
-    app_cfg = load_config_from_yaml()
+    app_cfg = app_config if app_config is not None else load_config_from_yaml()
     provider = app_cfg.broker_provider
 
-    if provider == "tachibana" and not api_dry_run:
+    if provider == "tachibana":
         tachi = app_cfg.tachibana
         final_api_url = api_url if api_url else tachi.api_url
         final_api_token = api_token if api_token else tachi.auth_id
@@ -101,6 +106,7 @@ def build_api_client(
         api_url=final_api_url,
         api_token=final_api_token or None,
         api_password=api_password or None,
+        provider=provider,
         dry_run=api_dry_run,
         margin_trade_type=margin_trade_type,
         account_type=account_type,

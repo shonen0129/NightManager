@@ -6,11 +6,13 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
+import pandas as pd
 from tools.validation import build_readonly_shadow_acceptance_report as acceptance
 
+from leadlag.data.adr_features import publish_adr_features
 from leadlag.data.gap_store import GapStore
 from leadlag.data.quote_snapshot import freeze_quote_snapshot, load_frozen_quote_snapshot
-from leadlag.data.tickers import JP_TICKERS_WITH_TOPIX
+from leadlag.data.tickers import ADR_SECTOR_MAP, JP_TICKERS, JP_TICKERS_WITH_TOPIX
 from leadlag.execution.account_risk import ACCOUNT_RISK_SCHEMA, REQUIRED_PNL_BASIS
 
 TRADE_DATE = "2026-09-29"
@@ -22,6 +24,24 @@ def _risk_config() -> SimpleNamespace:
         daily_loss_stop=0.025,
         monthly_loss_stop=0.05,
     )
+
+
+def _write_adr_bundle(tmp_path: Path, trade_date: str = TRADE_DATE) -> Path:
+    trade_ts = pd.Timestamp(trade_date)
+    signal_ts = trade_ts - pd.Timedelta(days=1)
+    row: dict[str, object] = {"sig_date": signal_ts}
+    for ticker in JP_TICKERS:
+        if ADR_SECTOR_MAP[ticker]:
+            row[f"adr_{ticker}"] = 0.01
+            row[f"coverage_{ticker}"] = 1
+        else:
+            row[f"adr_{ticker}"] = 0.0
+            row[f"coverage_{ticker}"] = 0
+    frame = pd.DataFrame([row], index=[trade_ts])
+    frame.index.name = "trade_date"
+    path = tmp_path / "adr_features.zip"
+    publish_adr_features(frame, path, required_trade_date=trade_date)
+    return path
 
 
 def _quote_record() -> dict:
@@ -207,6 +227,10 @@ def test_market_to_shadow_passes_while_missing_risk_keeps_stage1_blocked(tmp_pat
         "gap": snapshot_id,
         "shadow": snapshot_id,
     }
+    frozen = report["checks"]["frozen_snapshot"]
+    assert frozen["available_at"] == f"{TRADE_DATE}T09:10:06+09:00"
+    assert frozen["available_at_semantics"] == "local_response_receipt"
+    assert frozen["source"] == "tachibana:CLMMfdsGetMarketPrice"
     assert report["issue_27_overall_status"] == acceptance.DEFERRED
 
 
@@ -338,3 +362,71 @@ def test_missing_auth_diagnostics_blocks_market_acceptance(tmp_path):
     assert report["checks"]["auth_diagnostics"]["status"] == acceptance.BLOCKED
     assert report["checks"]["auth_diagnostics"]["reason"] == "auth_diagnostics_missing"
     assert report["market_to_shadow_status"] == acceptance.BLOCKED
+
+
+def test_capture_terminal_requires_run_id_and_successful_attempt(tmp_path):
+    capture_dir, gap_path, shadow_dir, risk_path, log_dir, _ = _write_common_artifacts(tmp_path)
+    capture_path = capture_dir / "capture_20260929.json"
+    original = json.loads(capture_path.read_text(encoding="utf-8"))
+
+    for mutation in (
+        {"run_id": ""},
+        {"attempts": []},
+        {"attempts": [{"status": "FAILED"}]},
+        {"attempts": "CAPTURED"},
+    ):
+        capture_path.write_text(
+            json.dumps({**original, **mutation}), encoding="utf-8"
+        )
+        report = acceptance.build_acceptance_report(
+            trade_date=TRADE_DATE,
+            capture_dir=capture_dir,
+            gap_store=gap_path,
+            shadow_dir=shadow_dir,
+            risk_path=risk_path,
+            preflight_path=capture_dir / "preflight.json",
+            job_log_dir=log_dir,
+        )
+        assert report["checks"]["capture"]["status"] == acceptance.FAIL
+        assert report["checks"]["capture"]["reason"] == "capture_success_evidence_missing"
+        assert report["market_to_shadow_status"] == acceptance.FAIL
+
+
+def test_issue_35_research_input_passes_with_current_valid_adr_bundle(tmp_path):
+    capture_dir, gap_path, shadow_dir, risk_path, log_dir, _ = _write_common_artifacts(tmp_path)
+    adr_path = _write_adr_bundle(tmp_path)
+
+    report = acceptance.build_acceptance_report(
+        trade_date=TRADE_DATE,
+        capture_dir=capture_dir,
+        gap_store=gap_path,
+        shadow_dir=shadow_dir,
+        risk_path=risk_path,
+        preflight_path=capture_dir / "preflight.json",
+        job_log_dir=log_dir,
+        adr_bundle=adr_path,
+    )
+
+    assert report["checks"]["adr_features"]["status"] == acceptance.PASS
+    assert report["checks"]["adr_features"]["latest_trade_date"] == TRADE_DATE
+    assert report["issue_35_research_input_status"] == acceptance.PASS
+
+
+def test_issue_35_research_input_blocks_stale_adr_bundle(tmp_path):
+    capture_dir, gap_path, shadow_dir, risk_path, log_dir, _ = _write_common_artifacts(tmp_path)
+    adr_path = _write_adr_bundle(tmp_path, trade_date="2026-09-28")
+
+    report = acceptance.build_acceptance_report(
+        trade_date=TRADE_DATE,
+        capture_dir=capture_dir,
+        gap_store=gap_path,
+        shadow_dir=shadow_dir,
+        risk_path=risk_path,
+        preflight_path=capture_dir / "preflight.json",
+        job_log_dir=log_dir,
+        adr_bundle=adr_path,
+    )
+
+    assert report["checks"]["adr_features"]["status"] == acceptance.BLOCKED
+    assert report["checks"]["adr_features"]["reason"] == "adr_trade_date_not_current"
+    assert report["issue_35_research_input_status"] == acceptance.BLOCKED

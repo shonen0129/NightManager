@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import cast
-
 import numpy as np
 import pandas as pd
 
@@ -15,11 +13,26 @@ def _compute_one_day_target_returns(
 ) -> np.ndarray:
     """Compute one-day targets directly from open-to-09:10 returns.
 
-    The arithmetic is kept separate from cache access so callers can provide the
-    extracted values while using the same return-based arithmetic.
+    Missing 09:10 observations (NaN) fall back to the valid daily open, while
+    explicitly invalid observations and invalid realized prices remain NaN.
     """
-    jp_oc = df_exec[[f"jp_oc_{tk}" for tk in jp_tickers]].values
-    y_jp_target = jp_oc.copy()
+    jp_oc = df_exec[[f"jp_oc_{tk}" for tk in jp_tickers]].to_numpy(dtype=float)
+    open_cols = [f"jp_open_trade_{tk}" for tk in jp_tickers]
+    if set(open_cols).issubset(df_exec.columns):
+        opens = df_exec[open_cols].to_numpy(dtype=float)
+        with np.errstate(over="ignore", invalid="ignore"):
+            closes = opens * (1.0 + jp_oc)
+        realized_valid = (
+            np.isfinite(opens)
+            & (opens > 0)
+            & np.isfinite(jp_oc)
+            & np.isfinite(closes)
+            & (closes > 0)
+        )
+    else:
+        # Legacy return-only research fixtures do not carry realized open prices.
+        # Preserve that boundary while still rejecting non-finite/impossible returns.
+        realized_valid = np.isfinite(jp_oc) & (jp_oc > -1.0)
 
     if open_910_returns is None:
         raise ValueError("h=1 target calculation requires explicit open_910_returns")
@@ -31,14 +44,20 @@ def _compute_one_day_target_returns(
             index=df_exec.index, columns=jp_tickers
         )
     adjusted = returns_df.to_numpy(dtype=float)
-    valid = np.isfinite(adjusted)
-    for t_idx in range(len(jp_tickers)):
-        y_jp_target[:, t_idx] = np.where(
-            valid[:, t_idx],
-            (1.0 + jp_oc[:, t_idx]) / (1.0 + adjusted[:, t_idx]) - 1.0,
-            y_jp_target[:, t_idx],
-        )
-    return cast(np.ndarray, y_jp_target)
+
+    quote_missing = np.isnan(adjusted)
+    quote_valid = np.isfinite(adjusted) & (adjusted > -1.0)
+
+    with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
+        observed_target = (1.0 + jp_oc) / (1.0 + adjusted) - 1.0
+
+    y_jp_target = np.full_like(jp_oc, np.nan, dtype=float)
+    fallback_valid = realized_valid & quote_missing
+    y_jp_target[fallback_valid] = jp_oc[fallback_valid]
+
+    observed_valid = realized_valid & quote_valid & np.isfinite(observed_target)
+    y_jp_target[observed_valid] = observed_target[observed_valid]
+    return y_jp_target
 
 
 def _compute_jp_target_returns_h(
@@ -71,16 +90,26 @@ def _compute_jp_target_returns_h(
     oc_arr = df_exec[oc_cols].values.astype(float)
     close_arr = (1.0 + oc_arr) * open_arr
 
+    # Resolve the start-day 09:10 price while preserving the distinction between
+    # a missing quote (NaN, eligible for daily-open fallback) and an explicitly
+    # invalid quote (zero/negative/non-finite, which must remain invalid).
     p_910_arr = np.full((n, m), np.nan)
+    fallback_to_open = np.ones((n, m), dtype=bool)
+    quote_invalid = np.zeros((n, m), dtype=bool)
+
     if p_910_df is not None and not p_910_df.empty:
         aligned = p_910_df.reindex(index=df_exec.index, columns=jp_tickers)
-        p_910_arr = aligned.values.astype(float)
+        direct = aligned.to_numpy(dtype=float)
+        direct_missing = np.isnan(direct)
+        direct_valid = np.isfinite(direct) & (direct > 0)
+        direct_invalid = ~direct_missing & ~direct_valid
+        p_910_arr[direct_valid] = direct[direct_valid]
+        quote_invalid |= direct_invalid
+        fallback_to_open = direct_missing
 
     # The production adapter owns the 09:10 cache and exposes the explicit
-    # open-to-09:10 return frame.  For h>1, reconstruct the start-day 09:10
-    # price from that return so on-demand fallback uses the same target
-    # definition as the precomputed gap path.  A directly supplied p_910_df
-    # takes precedence; invalid or missing values retain the open fallback.
+    # open-to-09:10 return frame.  A directly supplied valid p_910_df takes
+    # precedence.  Only a genuinely missing observation may fall back to open.
     if open_910_returns is not None:
         if isinstance(open_910_returns, pd.DataFrame):
             returns_df = open_910_returns.reindex(
@@ -91,49 +120,60 @@ def _compute_jp_target_returns_h(
                 index=df_exec.index, columns=jp_tickers
             )
         open_to_910 = returns_df.to_numpy(dtype=float)
+        observation_missing = np.isnan(open_to_910)
         with np.errstate(over="ignore", invalid="ignore"):
             derived_p_910 = open_arr * (1.0 + open_to_910)
-        derived_valid = (
-            np.isfinite(derived_p_910)
+        observation_valid = (
+            np.isfinite(open_to_910)
+            & (open_to_910 > -1.0)
+            & np.isfinite(derived_p_910)
             & (derived_p_910 > 0)
             & np.isfinite(open_arr)
             & (open_arr > 0)
         )
-        direct_valid = np.isfinite(p_910_arr) & (p_910_arr > 0)
-        p_910_arr = np.where(
-            direct_valid,
-            p_910_arr,
-            np.where(derived_valid, derived_p_910, p_910_arr),
-        )
+        eligible = fallback_to_open & ~quote_invalid
+        derived_use = eligible & observation_valid
+        p_910_arr[derived_use] = derived_p_910[derived_use]
+        quote_invalid |= eligible & ~observation_missing & ~observation_valid
+        fallback_to_open = eligible & observation_missing
 
     # start-day arrays, shifted by (horizon - 1) rows
     p_start = np.full((n, m), np.nan)
     open_start = np.full((n, m), np.nan)
+    start_fallback = np.zeros((n, m), dtype=bool)
+    start_invalid = np.zeros((n, m), dtype=bool)
     if n >= horizon:
-        p_start[horizon - 1 :] = p_910_arr[: n - horizon + 1]
-        open_start[horizon - 1 :] = open_arr[: n - horizon + 1]
+        source = slice(0, n - horizon + 1)
+        target = slice(horizon - 1, None)
+        p_start[target] = p_910_arr[source]
+        open_start[target] = open_arr[source]
+        start_fallback[target] = fallback_to_open[source]
+        start_invalid[target] = quote_invalid[source]
 
-    # Use p_910 when available and valid; otherwise fall back to open.
     p_use = np.where(
         np.isfinite(p_start) & (p_start > 0),
         p_start,
-        open_start,
+        np.where(start_fallback & ~start_invalid, open_start, np.nan),
     )
 
-    with np.errstate(divide="ignore", invalid="ignore"):
+    with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
         y = close_arr / p_use - 1.0
 
-    # Guard against invalid / zero denominators, NaN/Inf close values, and
-    # non-positive open prices (which make both close and the target undefined).
-    valid = (
-        np.isfinite(p_use)
-        & (p_use > 0)
-        & np.isfinite(close_arr)
-        & np.isfinite(open_arr)
+    realized_valid = (
+        np.isfinite(open_arr)
         & (open_arr > 0)
+        & np.isfinite(oc_arr)
+        & np.isfinite(close_arr)
+        & (close_arr > 0)
+    )
+    valid = (
+        realized_valid
+        & np.isfinite(p_use)
+        & (p_use > 0)
+        & ~start_invalid
         & np.isfinite(y)
     )
-    y = np.where(valid, y, 0.0)
+    y = np.where(valid, y, np.nan)
 
     # First (horizon - 1) rows have incomplete windows.
     if horizon > 1:
@@ -166,7 +206,9 @@ def compute_jp_target_returns(
 
     Returns:
         Array of target returns, shape (n_rows, n_tickers).  Leading ``horizon - 1``
-        rows are NaN for ``horizon > 1``.
+        rows are NaN for ``horizon > 1``. Missing/invalid realized prices and
+        explicitly invalid 09:10 observations remain NaN; a missing 09:10 quote
+        may fall back to a finite positive daily open.
     """
     if horizon == 1 and p_910_df is None:
         return _compute_one_day_target_returns(

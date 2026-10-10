@@ -48,6 +48,7 @@ class ColumnFamily(StrEnum):
     TOPIX_NIGHT = "topix_night_return"
     TOPIX_OC = "topix_oc_return"
     TOPIX_CC = "topix_cc_trade"
+    TOPIX_CLOSE_SIG = "topix_close_sig"
 
 
 FAMILY_TO_TICKERS: dict[ColumnFamily, list[str]] = {
@@ -64,6 +65,7 @@ SCALAR_FAMILIES: set[ColumnFamily] = {
     ColumnFamily.TOPIX_NIGHT,
     ColumnFamily.TOPIX_OC,
     ColumnFamily.TOPIX_CC,
+    ColumnFamily.TOPIX_CLOSE_SIG,
 }
 
 
@@ -101,6 +103,7 @@ def all_expected_columns() -> list[str]:
         + [ColumnFamily.TOPIX_NIGHT.value]
         + [ColumnFamily.TOPIX_OC.value]
         + [ColumnFamily.TOPIX_CC.value]
+        + [ColumnFamily.TOPIX_CLOSE_SIG.value]
         + family_columns(ColumnFamily.JP_BETA)
     )
 
