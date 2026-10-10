@@ -163,6 +163,58 @@ def _position_exposure(path: str | Path | None) -> dict[str, Any]:
         return {"snapshot_readable": False, "snapshot_read_error": str(exc)}
 
 
+def build_resolved_config_manifest(
+    *,
+    app_config: Any,
+    config_path: str | Path,
+) -> dict[str, Any]:
+    """Describe the resolved runtime config without exposing broker secrets."""
+    provider = str(getattr(app_config, "broker_provider", "") or "")
+    broker_config = getattr(app_config, provider, None) if provider else None
+    strategy = getattr(app_config, "strategy", None)
+    v2 = getattr(app_config, "v2", None)
+    v2_costs = getattr(v2, "costs", None)
+
+    def first_value(*values: Any) -> Any:
+        return next((value for value in values if value is not None), None)
+
+    resolved_non_secret = {
+        "broker_provider": provider or None,
+        "broker": {
+            "margin_trade_type": getattr(broker_config, "margin_trade_type", None),
+            "account_type": getattr(broker_config, "account_type", None),
+            "request_timeout": getattr(broker_config, "request_timeout", None),
+        },
+        "execution": {
+            "overnight_alpha_long": first_value(
+                getattr(strategy, "overnight_alpha_long", None),
+                getattr(v2_costs, "overnight_alpha_long", None),
+            ),
+            "overnight_alpha_short": first_value(
+                getattr(strategy, "overnight_alpha_short", None),
+                getattr(v2_costs, "overnight_alpha_short", None),
+            ),
+        },
+    }
+    app_dump = (
+        app_config.model_dump(mode="json")
+        if hasattr(app_config, "model_dump")
+        else _json_value(app_config)
+    )
+    v2_dump = (
+        v2.model_dump(mode="json")
+        if v2 is not None and hasattr(v2, "model_dump")
+        else _json_value(v2)
+    )
+    return {
+        "path": str(config_path),
+        "resolved_hash": _digest(app_dump),
+        "non_secret_hash": _digest(resolved_non_secret),
+        "model_config_hash": _digest(v2_dump),
+        "resolved_non_secret": resolved_non_secret,
+    }
+
+
 def build_decision_manifest(
     *,
     app_config: Any,
@@ -201,11 +253,10 @@ def build_decision_manifest(
             "price_observed_at": _json_value(dict(inputs.known.price_observed_at)),
         },
         "code": _git_provenance(project_root()),
-        "config": {
-            "path": str(config_path),
-            "resolved_hash": _digest(app_config.model_dump(mode="json")),
-            "model_config_hash": _digest(app_config.v2.model_dump(mode="json")),
-        },
+        "config": build_resolved_config_manifest(
+            app_config=app_config,
+            config_path=config_path,
+        ),
         "model": {
             "production_version": getattr(result.run_config, "version", None),
             "gap_input_dir": str(gap_input_dir) if gap_input_dir is not None else None,
@@ -269,6 +320,7 @@ def update_execution_manifest(
     summary: Mapping[str, Any],
     position_snapshot_path: str | Path | None = None,
     wallet_snapshot_path: str | Path | None = None,
+    config: Mapping[str, Any] | None = None,
 ) -> str:
     """Persist execution/reconciliation evidence without changing retry rules."""
     report = summary.get("execution_report")
@@ -320,6 +372,8 @@ def update_execution_manifest(
             },
         }
     }
+    if config is not None:
+        update["execution"]["config"] = _json_value(config)
     return update_run_manifest(str(output_dir), update)
 
 
