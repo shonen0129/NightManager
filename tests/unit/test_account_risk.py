@@ -37,6 +37,8 @@ def _payload(**changes):
         "reconciliation_status": "complete",
     }
     payload.update(changes)
+    if "as_of" in changes and "observed_at" not in changes:
+        payload["observed_at"] = payload["as_of"]
     digest = snapshot_payload_sha256(payload)
     payload["snapshot_sha256"] = digest
     payload["snapshot_id"] = f"sha256:{digest}"
