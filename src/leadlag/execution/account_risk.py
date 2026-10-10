@@ -119,9 +119,9 @@ class AccountRiskSnapshot:
             cutoff = cutoff.tz_convert("Asia/Tokyo")
         if as_of > cutoff:
             raise AccountRiskSnapshotError("account-risk snapshot was recorded after the decision cutoff")
-        if as_of.date().isoformat() != observed_through:
+        if as_of.date() < observed_date:
             raise AccountRiskSnapshotError(
-                "account-risk as_of date must match observed_through"
+                "account-risk observed_at cannot precede observed_through"
             )
 
         returns: dict[str, float] = {}
