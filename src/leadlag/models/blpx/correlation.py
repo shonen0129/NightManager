@@ -33,13 +33,14 @@ def _prepare_window_returns(
         vol_factors = rolling_std[window_start:current_index]
         window_returns[:, self.n_u :] /= vol_factors
 
-    # Missing/invalid realized labels are not flat returns.  Keep the strict
-    # historical date window, but estimate from complete finite observations
-    # rather than converting unavailable labels to zero.
-    complete_rows = np.isfinite(window_returns).all(axis=1)
+    # Missing/invalid JP realized labels are not flat returns. Drop only rows
+    # whose JP target block is incomplete; preserve the historical handling of
+    # non-finite US predictor inputs by zero-filling them after label filtering.
+    complete_rows = np.isfinite(window_returns[:, self.n_u :]).all(axis=1)
     window_returns = window_returns[complete_rows]
     if window_returns.shape[0] == 0:
         raise ValueError("No complete finite rows in BLPX training window")
+    window_returns = np.nan_to_num(window_returns, nan=0.0, posinf=0.0, neginf=0.0)
 
     if self.winsor_sigma is not None:
         mus = np.mean(window_returns, axis=0)
