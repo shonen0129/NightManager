@@ -392,7 +392,7 @@ VaR/ES 計算・リスクチェック評価は `leadlag/core/risk.py` が正本�
        leadlag/data/preprocessor.py → df_exec (pandas DataFrame)
              ↓
   [Production v2 Flow]
-  tools/research/compute_gap_adjusted_distribution.py → (mu_gap, omega_gap) matrices
+  tools/production/publish_gap_distribution.py → canonical SQLite GapStore
              ↓
   python3 -m leadlag.cli decision
     ├── leadlag/execution/v2_bridge.py::run_v2_decision()
@@ -400,7 +400,7 @@ VaR/ES 計算・リスクチェック評価は `leadlag/core/risk.py` が正本�
     ├── leadlag/runner/production.py::ProductionRunner (一日分の決定組立)
     ├── mu_over_sigma ranking & baseline_style sizing (leadlag/core/portfolio.py)
     ├── PIT binning (RuleD ex-ante IR dynamic gross scaling: 0.75x or 1.00x)
-    └── Fallback checks (gap data missing → flat position)
+    └── Fallback checks (当日cache → on-demand BLPX → flat position)
              ↓
   [Compliance/Risk/Order Flow]
     ├── leadlag/core/risk.py → evaluate_risk_checks()
@@ -435,7 +435,7 @@ VaR/ES return cacheは
 run-owned入力snapshotの版を束ね、`DeadlineBudget`の絶対期限を準備と計算に共有する。これは旧cache key形式を保ったまま、
 入力版の取り違えと期限切れ後の再計算を防ぐための境界である。
 
-h=1 gap生成はsignal dateに一致するStep 1 `Omega_struct`だけを明示共分散として使う。一致するファイルがなく
+研究用のh=1 gap診断はsignal dateに一致するStep 1 `Omega_struct`だけを明示共分散として使う。一致するファイルがなく
 古いfallbackしかない場合は、fallbackを診断へ記録し、on-demandと同じBLPX共分散へ戻す。日付の異なる構造行列を
 キャッシュ出力へ流用してsource間の分布を変えない。
 
