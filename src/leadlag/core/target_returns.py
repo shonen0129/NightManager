@@ -17,7 +17,7 @@ def _compute_one_day_target_returns(
     extracted values while using the same return-based arithmetic.
     """
     jp_oc = df_exec[[f"jp_oc_{tk}" for tk in jp_tickers]].to_numpy(dtype=float)
-    open_arr = df_exec[[f"jp_open_trade_{tk}" for tk in jp_tickers]].to_numpy(dtype=float)
+    open_cols = [f"jp_open_trade_{tk}" for tk in jp_tickers]
 
     if open_910_returns is None:
         raise ValueError("h=1 target calculation requires explicit open_910_returns")
@@ -33,12 +33,10 @@ def _compute_one_day_target_returns(
     # A missing 09:10 observation (NaN) retains the documented daily-open
     # fallback. Invalid observations are not missing quotes and must not turn an
     # unavailable label into a finite open-to-close return.
-    valid_close = (
-        np.isfinite(open_arr)
-        & (open_arr > 0)
-        & np.isfinite(jp_oc)
-        & (jp_oc > -1.0)
-    )
+    valid_close = np.isfinite(jp_oc) & (jp_oc > -1.0)
+    if set(open_cols).issubset(df_exec.columns):
+        open_arr = df_exec[open_cols].to_numpy(dtype=float)
+        valid_close &= np.isfinite(open_arr) & (open_arr > 0)
     fallback_target = np.where(valid_close, jp_oc, np.nan)
     missing_quote = np.isnan(adjusted)
     valid_quote = np.isfinite(adjusted) & (adjusted > -1.0)
