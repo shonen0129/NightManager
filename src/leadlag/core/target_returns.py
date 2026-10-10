@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import cast
-
 import numpy as np
 import pandas as pd
 
@@ -53,7 +51,7 @@ def _compute_one_day_target_returns(
         fallback_target,
         np.where(valid_target, adjusted_target, np.nan),
     )
-    return cast(np.ndarray, y_jp_target)
+    return y_jp_target
 
 
 def _compute_jp_target_returns_h(
