@@ -137,13 +137,8 @@ def test_empty_broker_response_is_explicit_and_durable(tmp_path: Path) -> None:
     )
 
     assert summary["close_incomplete"] is True
-    assert summary["close_results"] == [
-        pytest.approx(
-            {
-                "quantity": 100,
-            }
-        )
-    ] or summary["close_results"][0]["quantity"] == 100
+    assert len(summary["close_results"]) == 1
+    assert summary["close_results"][0]["quantity"] == 100
     assert summary["close_results"][0]["status"] == close_module.MISSING_RESPONSE_STATUS
     assert summary["execution_report"]["incomplete"] is True
     assert summary["execution_report"]["unresolved_orders"] == 1
