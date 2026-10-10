@@ -210,14 +210,39 @@ def validate_reconciled_execution_ledger(payload: Mapping[str, Any]) -> None:
     if observed_at.date() < trade_date:
         raise LedgerReconciliationError("ledger observed_at cannot precede trade_date")
 
+    if payload.get("return_denominator_basis") != "opening_equity_before_external_cash_flows":
+        raise LedgerReconciliationError("reconciled ledger return denominator basis is unsupported")
+
     opening = _nonnegative_number(payload.get("opening_equity_jpy"), "opening_equity_jpy")
     closing = _nonnegative_number(payload.get("closing_equity_jpy"), "closing_equity_jpy")
+    realized = _finite_number(payload.get("realized_pnl_jpy"), "realized_pnl_jpy")
+    unrealized_change = _finite_number(
+        payload.get("unrealized_pnl_change_jpy"), "unrealized_pnl_change_jpy"
+    )
+    commission = _nonnegative_number(payload.get("commission_jpy"), "commission_jpy")
+    taxes = _nonnegative_number(payload.get("taxes_jpy"), "taxes_jpy")
+    financing = _nonnegative_number(payload.get("financing_jpy"), "financing_jpy")
+    borrow = _nonnegative_number(payload.get("borrow_jpy"), "borrow_jpy")
+    reverse = _nonnegative_number(payload.get("reverse_jpy"), "reverse_jpy")
+    observed_costs = _nonnegative_number(
+        payload.get("observed_costs_jpy"), "observed_costs_jpy"
+    )
     pnl = _finite_number(payload.get("net_pnl_jpy"), "net_pnl_jpy")
     external = _finite_number(payload.get("external_cash_flow_jpy"), "external_cash_flow_jpy")
     denominator = _finite_number(payload.get("return_denominator_jpy"), "return_denominator_jpy")
     daily_return = _finite_number(payload.get("daily_return"), "daily_return")
     if opening <= 0.0 or denominator <= 0.0:
         raise LedgerReconciliationError("reconciled ledger return denominator must be > 0")
+    if not math.isclose(denominator, opening, abs_tol=0.01, rel_tol=0.0):
+        raise LedgerReconciliationError("reconciled ledger return denominator is inconsistent")
+
+    expected_costs = commission + taxes + financing + borrow + reverse
+    if not math.isclose(observed_costs, expected_costs, abs_tol=0.01, rel_tol=0.0):
+        raise LedgerReconciliationError("reconciled ledger observed costs are inconsistent")
+    expected_pnl = realized + unrealized_change - expected_costs
+    if not math.isclose(pnl, expected_pnl, abs_tol=0.01, rel_tol=0.0):
+        raise LedgerReconciliationError("reconciled ledger net PnL is inconsistent")
+
     if not math.isclose(closing, opening + pnl + external, abs_tol=0.01, rel_tol=0.0):
         raise LedgerReconciliationError("reconciled ledger equity bridge is inconsistent")
     if not math.isclose(daily_return, pnl / denominator, abs_tol=1e-12, rel_tol=1e-12):
