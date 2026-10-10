@@ -53,7 +53,7 @@ def test_build_preflight_ready_without_persisting_secrets(tmp_path):
             ],
             "program": [
                 "/bin/bash",
-                "/tmp/project/scripts/batch/run_0910_microstructure_capture.sh",
+                str(preflight.EXPECTED_CAPTURE_PROGRAM),
             ],
             "run_at_load": False,
             "keep_alive": False,
@@ -134,3 +134,35 @@ def test_build_preflight_blocks_scheduler_that_is_not_exact_readonly_contract(tm
         "scheduler_schedule_0910",
         "scheduler_no_auto_start",
     }
+
+
+def test_build_preflight_blocks_same_script_name_from_different_checkout(tmp_path):
+    wrong_program = (
+        tmp_path / "other-checkout/scripts/batch/run_0910_microstructure_capture.sh"
+    )
+    payload = preflight.build_preflight(
+        env={
+            "TACHIBANA_API_URL": "https://kabuka.e-shiten.jp/e_api_v4r10/",
+            "LEADLAG_CAPTURE_OUTPUT_DIR": str(tmp_path / "capture"),
+            "LEADLAG_SHADOW_ONLY": "1",
+            "LEADLAG_CAPTURE_0910": "1",
+        },
+        git_state={"sha": "abc123", "dirty": False, "changed_path_count": 0},
+        scheduler={
+            "status": "REGISTERED",
+            "path": "/tmp/com.leadlag.microstructure-0910.plist",
+            "label": "com.leadlag.microstructure-0910",
+            "schedule": [
+                {"Weekday": weekday, "Hour": 9, "Minute": 10}
+                for weekday in range(1, 6)
+            ],
+            "program": ["/bin/bash", str(wrong_program)],
+            "run_at_load": False,
+            "keep_alive": False,
+            "capture_output_dir": str(tmp_path / "capture"),
+        },
+        checked_at=datetime(2026, 10, 6, 8, 45, tzinfo=ZoneInfo("Asia/Tokyo")),
+    )
+
+    assert payload["status"] == "BLOCKED"
+    assert payload["blocking_checks"] == ["scheduler_program_readonly_capture"]
