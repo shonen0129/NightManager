@@ -44,7 +44,9 @@ The orchestrator performs the following fail-closed sequence:
 
 1. same-day network-free preflight;
 2. wait until 09:10:00 JST if started early;
-3. guarded read-only capture of JP17 + TOPIX inside 09:10:00–09:10:30;
+3. wait for the registered `com.leadlag.microstructure-0910` LaunchAgent to
+   perform the guarded read-only JP17 + TOPIX capture; the orchestrator does
+   not start a competing manual capture;
 4. verify terminal `CAPTURED`, run ID, successful attempt, and immutable
    frozen snapshot before continuing;
 5. run the existing gap + V2 path with `LEADLAG_SHADOW_ONLY=1` while setting
