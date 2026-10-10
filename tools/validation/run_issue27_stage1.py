@@ -2,9 +2,9 @@
 """Safely orchestrate Issue #27 Stage-1 read-only/shadow acceptance.
 
 The default action only prints the execution plan. ``--preflight-only`` performs
-network-free host readiness checks. ``--execute`` is the only mode that reaches
-the broker, and it is constrained to the existing read-only 09:10 capture plus
-V2 ``--shadow-only`` path. It never requests controlled-live execution.
+network-free host readiness checks. ``--execute`` coordinates the registered
+read-only 09:10 LaunchAgent capture with the V2 ``--shadow-only`` path. It
+never starts a competing capture and never requests controlled-live execution.
 """
 
 from __future__ import annotations
@@ -32,6 +32,8 @@ DEFAULT_REPORT_ROOT = ROOT / "reports"
 CAPTURE_START_HOUR = 9
 CAPTURE_START_MINUTE = 10
 CAPTURE_WINDOW_SECONDS = 30
+CAPTURE_RESULT_DEADLINE_SECONDS = 70
+CAPTURE_POLL_SECONDS = 0.5
 MAX_EARLY_WAIT = timedelta(minutes=15)
 
 
@@ -96,8 +98,10 @@ def build_execution_plan(
             },
             {
                 "name": "capture",
-                "command": ["bash", "scripts/batch/run_0910_microstructure_capture.sh"],
+                "source": "registered com.leadlag.microstructure-0910 LaunchAgent",
+                "action": "wait_for_and_verify_artifact",
                 "constraint": "09:10:00-09:10:30 Asia/Tokyo on a trading day",
+                "note": "do not start a competing manual capture",
             },
             {
                 "name": "gap_and_v2_shadow",
@@ -141,7 +145,12 @@ def _run_command(command: Sequence[str], *, env: Mapping[str, str]) -> None:
         )
 
 
-def _wait_for_capture_window() -> datetime:
+def _wait_for_scheduled_capture(
+    capture_dir: Path,
+    *,
+    trade_date: str,
+) -> dict[str, Any]:
+    """Wait for the registered LaunchAgent artifact without starting a second capture."""
     now = _jst_now()
     start = now.replace(
         hour=CAPTURE_START_HOUR,
@@ -149,22 +158,28 @@ def _wait_for_capture_window() -> datetime:
         second=0,
         microsecond=0,
     )
-    end = start + timedelta(seconds=CAPTURE_WINDOW_SECONDS)
-    if now > end:
+    deadline = start + timedelta(seconds=CAPTURE_RESULT_DEADLINE_SECONDS)
+    if now > deadline:
         raise RuntimeError(
-            "09:10 capture window already closed; refusing late Stage-1 execution"
+            "scheduled 09:10 capture deadline already passed; refusing a late manual capture"
         )
     if now < start:
         wait = start - now
         if wait > MAX_EARLY_WAIT:
             raise RuntimeError(
-                "Stage-1 execution may only wait for the capture window from 08:55 JST onward"
+                "Stage-1 execution may only wait for the capture from 08:55 JST onward"
             )
         time.sleep(wait.total_seconds())
-        now = _jst_now()
-    if now < start or now > end:
-        raise RuntimeError("process did not enter the 09:10 capture window")
-    return now
+
+    compact = trade_date.replace("-", "")
+    capture_path = capture_dir / f"capture_{compact}.json"
+    while _jst_now() <= deadline:
+        if capture_path.exists():
+            return verify_capture(capture_dir, trade_date=trade_date)
+        time.sleep(CAPTURE_POLL_SECONDS)
+    raise RuntimeError(
+        "registered 09:10 LaunchAgent did not produce a capture artifact before deadline"
+    )
 
 
 def verify_capture(
@@ -263,12 +278,10 @@ def execute_stage1(
         env=env,
     )
 
-    _wait_for_capture_window()
-    _run_command(
-        ["bash", "scripts/batch/run_0910_microstructure_capture.sh"],
-        env=env,
+    capture = _wait_for_scheduled_capture(
+        capture_dir,
+        trade_date=trade_date,
     )
-    capture = verify_capture(capture_dir, trade_date=trade_date)
 
     decision_env = dict(env)
     decision_env["LEADLAG_SHADOW_ONLY"] = "1"
