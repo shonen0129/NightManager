@@ -1,0 +1,17 @@
+mypy:
+Traceback (most recent call last):
+  File "/Users/takahashimasatoshi/Library/Mobile Documents/com~apple~CloudDocs/個別株/日米ラグ/.venv/bin/mypy", line 3, in <module>
+    from mypy.__main__ import console_entry
+ModuleNotFoundError: No module named 'mypy'
+
+import_linter:
+Traceback (most recent call last):
+  File "/Users/takahashimasatoshi/Library/Mobile Documents/com~apple~CloudDocs/個別株/日米ラグ/.venv/bin/lint-imports", line 3, in <module>
+    from importlinter.cli import lint_imports_command
+ModuleNotFoundError: No module named 'importlinter'
+
+mypy_fallback:
+/Users/takahashimasatoshi/.pyenv/versions/3.12.11/bin/python3: No module named mypy
+
+import_linter_fallback:
+/Users/takahashimasatoshi/.pyenv/versions/3.12.11/bin/python3: Error while finding module specification for 'importlinter.cli' (ModuleNotFoundError: No module named 'importlinter')

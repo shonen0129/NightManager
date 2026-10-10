@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """Legacy V1 walk-forward diagnostic (not production V2 evidence).
 
-設計仕様（docs/design/A_theory_design_specs.md A7 + C_validation_frameworks.md C1参照）:
+設計仕様（archive/docs/design/A_theory_design_specs.md A7 + C_validation_frameworks.md C1参照）:
   This script intentionally remains available for historical comparison, but
   it uses the archived V1 model.  It must never be presented as a production
   V2 OOS result; use the V2 backtest runner for promotion decisions.

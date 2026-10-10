@@ -38,4 +38,4 @@ uv run --locked python -m pytest tests/regression/test_v2_baseline.py
 uv run --locked python -m pytest tests --ignore=tests/regression/test_v2_baseline.py -n auto
 ```
 
-[Architecture](docs/ARCHITECTURE.md) と [AGENTS.md](AGENTS.md) に現行構造・不変条件を記載しています。過去Phaseの記録は [docs/history.md](docs/history.md)、現在の未解決作業は [GitHub tracker #22](https://github.com/shonen0129/NightManager/issues/22) が正本です。
+仕様・運用・研究手順は [文書索引](docs/README.md) から参照できます。[Architecture](docs/ARCHITECTURE.md) と [AGENTS.md](AGENTS.md) に現行構造・不変条件を記載しています。過去Phaseの記録は [docs/history.md](docs/history.md)、現在の未解決作業は [GitHub tracker #22](https://github.com/shonen0129/NightManager/issues/22) が正本です。

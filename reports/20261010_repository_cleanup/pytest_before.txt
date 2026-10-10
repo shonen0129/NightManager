@@ -1,0 +1,12 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.12.11, pytest-8.4.2, pluggy-1.6.0
+rootdir: /Users/takahashimasatoshi/Library/Mobile Documents/com~apple~CloudDocs/個別株/日米ラグ
+configfile: pyproject.toml
+plugins: anyio-4.12.0, timeout-2.4.0, Faker-37.8.0
+collected 26 items
+
+tests/unit/test_config_loader.py .....                                   [ 19%]
+tests/unit/test_config_validation.py ............                        [ 65%]
+tests/unit/test_validate_docs.py .........                               [100%]
+
+============================== 26 passed in 1.75s ==============================

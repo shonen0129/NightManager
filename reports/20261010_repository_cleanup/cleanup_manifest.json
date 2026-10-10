@@ -1,0 +1,79 @@
+{
+  "moved": [
+    {
+      "from": "docs/MODE_USAGE_GUIDE.md",
+      "to": "archive/docs/MODE_USAGE_GUIDE.md",
+      "sha256": "51556b2f8508d0ea37b60a179f28ce91aad0d3afda4b6e5eef9f7aefd434ff03"
+    },
+    {
+      "from": "docs/model_summary_for_improvement.md",
+      "to": "archive/docs/model_summary_for_improvement.md",
+      "sha256": "d30623eae0fb5a0d1bb3caa765ac54f1da6e9c784456a96839d15ae7f9e3e15b"
+    },
+    {
+      "from": "docs/quants.md",
+      "to": "archive/docs/quants.md",
+      "sha256": "0d65162cc3c1f8d00d120c394103c6f5bbd7c908fcfd50f170c59958647369c0"
+    },
+    {
+      "from": "docs/研究メモ202606.md",
+      "to": "archive/docs/研究メモ202606.md",
+      "sha256": "8169363154b0c98190077f584250f70550a50bbff1fc4684b4e7857e7c7d8200"
+    },
+    {
+      "from": "docs/運用方針書.md",
+      "to": "archive/docs/運用方針書.md",
+      "sha256": "d9d65b7f134be1985cbaa5609aeb4158f5eed07103cb6f883ef00d3e8fc93e65"
+    },
+    {
+      "from": "docs/design/A_theory_design_specs.md",
+      "to": "archive/docs/design/A_theory_design_specs.md",
+      "sha256": "f4f01bbd40efe6c91c39671331dac918c52b65b2415e16c54e1d1740fae25e09"
+    },
+    {
+      "from": "docs/design/B3_composition_refactor_proposal.md",
+      "to": "archive/docs/design/B3_composition_refactor_proposal.md",
+      "sha256": "664f810386026ae933851087e34946d8222623a84c8d0a7c39098a8ad4e680dc"
+    },
+    {
+      "from": "docs/design/B8_leak_freedom_analysis.md",
+      "to": "archive/docs/design/B8_leak_freedom_analysis.md",
+      "sha256": "e87afa4b8eed4d936b752e6671e2146fc58006769f9b03bd4ae3dc803344b6da"
+    },
+    {
+      "from": "docs/design/B_refactor_specs_and_memos.md",
+      "to": "archive/docs/design/B_refactor_specs_and_memos.md",
+      "sha256": "9a7676c1b6a9e5ae738cebdad92f3e01cb3b4f88e0757a4e4d3bfee784e433b7"
+    },
+    {
+      "from": "docs/design/C_validation_frameworks.md",
+      "to": "archive/docs/design/C_validation_frameworks.md",
+      "sha256": "4afd1f8fd505e8a7b4422053367837e874d5b576c0dc9aaf2e944e37f780e1ca"
+    },
+    {
+      "from": "docs/design/subsector_refinement_plan.md",
+      "to": "archive/docs/design/subsector_refinement_plan.md",
+      "sha256": "0cfa0d74e41aaa6574961bdb7914dea91623e057edf2a1bcfab2deef04a1082f"
+    },
+    {
+      "from": "archive/docs/README.md",
+      "to": "archive/docs/pca_ensemble_overview.md",
+      "sha256": "42de674b20ecb854d12e9d833cb114876306ff17236f419e7f336fd52edba602"
+    },
+    {
+      "from": "configs/production/production.yaml.legacy.disabled",
+      "to": "configs/archive/production_nested_legacy_20260813.yaml",
+      "sha256": "dda33b4a402788fb16b0e60c3634190136c10c6ca99d62d4f7f36e2245b54dd1"
+    }
+  ],
+  "deleted": [
+    {
+      "path": "scripts/migrate_production_config.py",
+      "sha256": "88a8c8529c6882514f3e49447d843498be3a544b0a31b39d736c8272b7cf9265"
+    },
+    {
+      "path": "src/research/scripts/experiments/check_df_exec_range.py",
+      "sha256": "67deff99c28a10080934741f542dfc0a694c235adf92afde3e43b016902caa9b"
+    }
+  ]
+}

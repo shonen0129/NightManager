@@ -1,0 +1,41 @@
+{
+  "targeted_tests_before": {
+    "passed": 26,
+    "exit_code": 0
+  },
+  "targeted_tests_after": {
+    "passed": 26,
+    "exit_code": 0
+  },
+  "full_tests": {
+    "passed": 1264,
+    "warnings": 2,
+    "exit_code": 0,
+    "pytest_elapsed_seconds": 154.75,
+    "whole_process_deadline_seconds": 1800,
+    "per_test_timeout_seconds": 300,
+    "watchdog": "scripts/tools/phase_deadline.py"
+  },
+  "compileall": {
+    "exit_code": 0
+  },
+  "ruff_ci_paths": {
+    "exit_code": 0
+  },
+  "import_linter": {
+    "contracts_kept": 7,
+    "contracts_broken": 0,
+    "exit_code": 0
+  },
+  "operational_imports": {
+    "entry_points_passed": 2,
+    "exit_code": 0
+  },
+  "mypy": {
+    "errors": 4,
+    "files": 3,
+    "exit_code": 1,
+    "source_unchanged": true,
+    "limitation": "Existing local dependency environment; tools and selected dependencies loaded from existing cache at uv.lock versions. No environment packages installed."
+  }
+}

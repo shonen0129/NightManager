@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """A4: アンサンブル重み IC最適化実験スクリプト.
 
-設計仕様（docs/design/A_theory_design_specs.md A4参照）:
+設計仕様（archive/docs/design/A_theory_design_specs.md A4参照）:
   1. 各成分シグナル（Raw-PCA, Residual-PCA, Raw-BLPX, Residual-BLPX）の日次ICを計算
   2. ローリング504日（shift(1)）で μ_IC, Σ_e を推定
   3. 最適重み w* ∝ Σ_e^{-1} μ_IC を計算（Ledoit-Wolfシュリンク）

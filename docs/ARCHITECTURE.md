@@ -357,7 +357,7 @@ YAML の `__base__` 合成は `config/loader.py`、V2 の mapping 正規化は
 `config.py` 経由で各設定オブジェクトへ伝搬されます。
 
 > **Note:** 実装上の US_TICKERS は 15 銘柄（Select Sector SPDRs 11 + Style ETFs 4）である。
-> 運用方針書（§3.1）では論文に基づき N_U = 11 と記述している。
+> 旧運用方針書（履歴資料）の N_U = 11 は現行ユニバースの定義には使用しない。
 > 追加の 4 銘柄（MTUM, VLUE, IUSG, USMV）はシグナル精度向上のために実装で追加されたものであり、
 > 事前部分空間ベクトル（v_1 〜 v_6）の次元は実装上 32 次元（15 + 17）に拡張されている。
 
@@ -499,13 +499,11 @@ artifact・運用の最新受入状態は[実行報告](../reports/20260922_prod
 
 | ドキュメント | 内容 |
 |---|---|
-| [運用方針書.md](運用方針書.md) | 投資目的・哲学、投資ユニバース、検証原則、リスク管理制限値、ガバナンス枠組み等（原則書） |
+| [文書索引](README.md) | 現行の仕様・運用手順・研究手順と履歴資料への入口 |
 | [モデル技術仕様書.md](モデル技術仕様書.md) | シグナル構築数理、PCA・BLPXモデル定式化、パラメータ仕様、事前固有ベクトル設計等の技術仕様 |
 | [日次運用手順書.md](日次運用手順書.md) | 日次のシステム実行タイムライン、自動安全監査 (Safety Audit) 項目、手動ロールバック、監視・アラート手順 |
-| [MODE_USAGE_GUIDE.md](MODE_USAGE_GUIDE.md) | CLI 実行モード一覧・戦略モード・コマンド例・入出力仕様 |
 | [README.md](../README.md) | プロジェクト概要・セットアップ手順 |
-| [model_summary_for_improvement.md](model_summary_for_improvement.md) | モデル改善履歴・サマリ |
-| [研究メモ202606.md](研究メモ202606.md) | 研究メモ・実験記録 (2026年6月) |
+| [旧文書索引](../archive/docs/README.md) | 旧CLI・モデル要約・運用方針案・設計案・研究メモ（現行仕様ではない） |
 | [SCHEDULER_SETUP.md](SCHEDULER_SETUP.md) | macOS launchdの現行batchスケジューラ設定（Windows入口はlegacy archive） |
 | [CI.md](CI.md) | lock固定、静的検査、import契約、wheel分離、全体テストのCIゲート |
 | [api/kabu_STATION_API.yaml](api/kabu_STATION_API.yaml) | kabuステーション API 仕様書 (OpenAPI/Swagger) |

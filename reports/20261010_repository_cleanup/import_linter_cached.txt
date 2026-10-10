@@ -1,0 +1,28 @@
+
+╔══╗─────────▶╔╗ ╔╗      ╔╗◀───┐
+╚╣╠╝◀─────┐  ╔╝╚╗║║────▶╔╝╚╗   │
+ ║║   ╔══╦══╦╩╗╔╝║║  ╔╦═╩╗╔╝╔═╦══╗
+ ║║╔══╣╔╗║╔╗║╔╣║ ║║ ╔╬╣╔╗║║ ║│║╔═╝
+╔╣╠╣║║║╚╝║╚╝║║║╚╗║╚═╝║║║║║╚╗║═╣║
+╚══╩╩╩╣╔═╩══╩╝╚═╝╚═══╩╩╝╚╩═╩╩═╩╝
+  └──▶║║                    ▲
+      ╚╝────────────────────┘
+
+Could not use corrupt cache file .import_linter_cache/b65e71e7ebd24e45c8c1d367fcc3cb1607c09a0f.data.json.
+
+---------
+Contracts
+---------
+
+Analyzed 190 files, 552 dependencies.
+-------------------------------------
+
+data does not depend on higher layers KEPT
+core does not do broker/CLI/execution I/O KEPT
+domain is a pure layer without execution or CLI KEPT
+models do not depend on execution or CLI KEPT
+production does not depend on research KEPT
+pure calculation modules do not depend on I/O adapters KEPT
+domain does not depend on application configuration KEPT
+
+Contracts: 7 kept, 0 broken.
