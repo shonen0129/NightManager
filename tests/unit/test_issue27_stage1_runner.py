@@ -75,10 +75,11 @@ def test_execution_plan_disables_duplicate_capture_for_decision(tmp_path):
     assert plan["controlled_live"] is False
     steps = {step["name"]: step for step in plan["steps"]}
     assert steps["preflight"]["env"]["LEADLAG_SHADOW_ONLY"] == "1"
-    assert steps["capture"]["command"] == [
-        "bash",
-        "scripts/batch/run_0910_microstructure_capture.sh",
-    ]
+    assert steps["capture"]["source"] == (
+        "registered com.leadlag.microstructure-0910 LaunchAgent"
+    )
+    assert steps["capture"]["action"] == "wait_for_and_verify_artifact"
+    assert "command" not in steps["capture"]
     assert steps["gap_and_v2_shadow"]["env"] == {
         "LEADLAG_SHADOW_ONLY": "1",
         "LEADLAG_CAPTURE_0910": "0",
