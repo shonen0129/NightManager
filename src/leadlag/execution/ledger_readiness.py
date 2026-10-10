@@ -36,11 +36,13 @@ def assess_ledger_readiness(manifest: Mapping[str, Any]) -> list[str]:
         parsed_observed_at = None
     if parsed_observed_at is None or parsed_observed_at.tzinfo is None:
         errors.append("missing or invalid timezone-aware observed_at")
-    elif (
-        isinstance(manifest.get("session_date"), str)
-        and parsed_observed_at.date().isoformat() != manifest["session_date"]
-    ):
-        errors.append("observed_at date does not match session_date")
+    elif isinstance(manifest.get("session_date"), str):
+        try:
+            session_date = datetime.fromisoformat(manifest["session_date"]).date()
+        except ValueError:
+            session_date = None
+        if session_date is not None and parsed_observed_at.date() < session_date:
+            errors.append("observed_at cannot precede session_date")
     sources = manifest.get("sources")
     if not isinstance(sources, Mapping):
         sources = {}
