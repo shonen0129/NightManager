@@ -8,6 +8,7 @@ import logging
 import sqlite3
 
 import pandas as pd
+import pytest
 
 from leadlag.cli import main
 from leadlag.config import AppConfig
@@ -93,3 +94,47 @@ def test_mapping_artifact_allowlist_ignores_unknown_credentials():
     mapping = AppConfig().model_dump(mode="json")
     mapping.update(new_broker={"password": "SYNTHETIC_UNKNOWN"}, token="SYNTHETIC_UNKNOWN")
     assert _safe_config(mapping) == clean
+
+
+@pytest.mark.parametrize("failure_stage", ["initialize", "save_run", "save_results"])
+def test_cli_backtest_store_failures_do_not_expose_raw_errors(
+    failure_stage, tmp_path, monkeypatch, caplog, capsys
+):
+    secret = "SYNTHETIC_BACKTEST_FAILURE_34"
+    config_path = tmp_path / "config.yaml"
+    config_path.write_text("risk:\n  var_window: 3\n")
+    dates = pd.bdate_range("2026-10-01", periods=3)
+    results = {"daily_returns": pd.Series([0.001, -0.002, 0.003], index=dates)}
+    monkeypatch.setattr(backtest, "_load_df_exec", lambda *args: pd.DataFrame(index=dates))
+    monkeypatch.setattr(backtest.BacktestEngine, "run_v2_backtest", lambda **kwargs: results)
+
+    def fail(*args, **kwargs):
+        raise OSError(f"synthetic storage failure: {secret}")
+
+    if failure_stage == "initialize":
+        monkeypatch.setattr(backtest, "BacktestResultStore", fail)
+    elif failure_stage == "save_run":
+        monkeypatch.setattr(BacktestResultStore, "save_run", fail)
+    else:
+        save_results = BacktestResultStore.save_results
+        calls = 0
+
+        def fail_second_cache_write(self, *args, **kwargs):
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                return save_results(self, *args, **kwargs)
+            return fail()
+
+        monkeypatch.setattr(BacktestResultStore, "save_results", fail_second_cache_write)
+    output_root = tmp_path / "out"
+    with caplog.at_level(logging.DEBUG):
+        assert main(["backtest", "--config", str(config_path), "--output-root", str(output_root),
+                     "--run-tag", "failure", "--start-date", "2026-10-01", "--skip-chart"]) == 0
+    output = capsys.readouterr()
+    assert "Failed to save full results to BacktestResultStore" in caplog.text
+    observed = (caplog.text + output.out + output.err).encode()
+    for path in output_root.rglob("*"):
+        if path.is_file():
+            observed += path.read_bytes()
+    assert secret.encode() not in observed
