@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import cast
-
 import numpy as np
 import pandas as pd
 
@@ -53,7 +51,7 @@ def _compute_one_day_target_returns(
 
     observed_valid = realized_valid & quote_valid & np.isfinite(observed_target)
     y_jp_target[observed_valid] = observed_target[observed_valid]
-    return cast(np.ndarray, y_jp_target)
+    return y_jp_target
 
 
 def _compute_jp_target_returns_h(
