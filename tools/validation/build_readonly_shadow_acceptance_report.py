@@ -339,7 +339,6 @@ def _check_gap(path: Path, trade_date: str, snapshot_id: str | None) -> dict[str
     }
 
 
-
 def _check_adr(path: Path, trade_date: str) -> dict[str, Any]:
     """Validate the exact-day operational ADR bundle without accepting stale reuse."""
     if not path.exists():
