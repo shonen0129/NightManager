@@ -253,6 +253,8 @@ class TachibanaClient:
 
     def login(self) -> None:
         """Authenticate and decrypt session virtual URLs."""
+        self.logged_in = False
+        self.decrypted_urls = {}
         logger.info("[TachibanaAPI] Authenticating via PKI login...")
         p_sd_date = self._get_timestamp()
         payload = {
@@ -316,7 +318,7 @@ class TachibanaClient:
             )
 
         # Decrypt virtual URLs. Diagnostics record only presence/state and outcome.
-        self.decrypted_urls = {}
+        decrypted_urls: dict[str, str] = {}
         for url_key in _LOGIN_URL_KEYS:
             encrypted_val = result.get(url_key)
             url_diagnostics = login_diagnostics["virtual_urls"][url_key]
@@ -346,8 +348,9 @@ class TachibanaClient:
                 login_diagnostics["stopped_at"] = f"decrypt_virtual_url:{url_key}"
                 raise
             url_diagnostics["decrypt_succeeded"] = True
-            self.decrypted_urls[url_key] = decrypted_val
+            decrypted_urls[url_key] = decrypted_val
 
+        self.decrypted_urls = decrypted_urls
         self.logged_in = True
         login_diagnostics["login_success"] = True
         login_diagnostics["stopped_at"] = None

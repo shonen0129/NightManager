@@ -64,6 +64,7 @@ def create_broker_from_args(
     api_url: str,
     api_token: str | None = None,
     api_password: str | None = None,
+    provider: str | None = None,
     dry_run: bool = False,
     margin_trade_type: int = 3,
     account_type: int = 4,
@@ -76,6 +77,7 @@ def create_broker_from_args(
         api_url: Broker API URL
         api_token: Pre-issued API token (optional if password is provided)
         api_password: Password for token auto-issuance
+        provider: Resolved broker provider. If omitted, falls back to BROKER_PROVIDER.
         dry_run: If True, create a DryRunBrokerClient
         margin_trade_type: Margin trade type
         account_type: Account type
@@ -88,12 +90,14 @@ def create_broker_from_args(
     import os
 
     if dry_run:
-        provider = "dry_run"
+        resolved_provider = "dry_run"
+    elif provider is not None:
+        resolved_provider = provider.lower().strip()
     else:
-        provider = os.environ.get("BROKER_PROVIDER", "kabu").lower().strip()
+        resolved_provider = os.environ.get("BROKER_PROVIDER", "kabu").lower().strip()
 
     config = BrokerConfig(
-        provider=provider,
+        provider=resolved_provider,
         api_url=api_url,
         api_token=api_token or "",
         api_password=api_password or "",

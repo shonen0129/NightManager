@@ -180,6 +180,7 @@ def run_v1_backtest(
     borrow_fee_annual: float | None = None,
     reverse_fee_bps: float | None = None,
     n_jobs: int = 1,
+    open_910_returns: pd.DataFrame | None = None,
 ) -> dict:
     """Run a historical backtest of the model on the execution dataset.
 
@@ -200,6 +201,9 @@ def run_v1_backtest(
         borrow_fee_annual: Annual stock borrow fee for short positions.
         reverse_fee_bps: Daily reverse stock lending fee (bps).
         n_jobs: Number of parallel workers for signal computation. 1 = sequential.
+        open_910_returns: Optional run-owned open-to-09:10 returns. When supplied,
+            V1 target/accounting intervals use this explicit frame instead of
+            reopening the local intraday cache.
 
     Returns:
         Dict containing backtest results and metrics.
@@ -250,7 +254,10 @@ def run_v1_backtest(
     )
 
     y_jp_target_arr, gap_returns_arr, morning_returns_arr = BacktestEngine._compute_price_intervals(
-        df_exec, sim_dates, sim_dates_slice
+        df_exec,
+        sim_dates,
+        sim_dates_slice,
+        open_910_returns=open_910_returns,
     )
 
     # Cost parameters

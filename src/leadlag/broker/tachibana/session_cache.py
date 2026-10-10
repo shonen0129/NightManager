@@ -77,8 +77,8 @@ def _atomic_csv_write(path: Path, df: pd.DataFrame) -> None:
 
 def save_session_cache(state: dict[str, Any]) -> None:
     """Persist TachibanaClient session state to disk."""
-    path = _session_cache_path()
     try:
+        path = _session_cache_path()
         _atomic_json_write(
             path,
             {
@@ -88,17 +88,17 @@ def save_session_cache(state: dict[str, Any]) -> None:
                 "saved_at": datetime.now(UTC).isoformat(),
             },
         )
-        logger.info("[TACHIBANA-CACHE] Session saved to %s", path)
-    except Exception as e:
-        logger.warning("[TACHIBANA-CACHE] Failed to save session cache: %s", e)
+        logger.info("[TACHIBANA-CACHE] Session saved")
+    except Exception:
+        logger.warning("[TACHIBANA-CACHE] Failed to save session cache")
 
 
 def load_session_cache() -> dict[str, Any] | None:
     """Load a recent, structurally valid TachibanaClient session state."""
-    path = _session_cache_path()
-    if not path.exists():
-        return None
     try:
+        path = _session_cache_path()
+        if not path.exists():
+            return None
         with open(path, encoding="utf-8") as f:
             state = json.load(f)
         saved_at = datetime.fromisoformat(state["saved_at"])
@@ -113,10 +113,10 @@ def load_session_cache() -> dict[str, Any] | None:
             logger.info("[TACHIBANA-CACHE] Session cache is stale or invalid; ignoring")
             clear_session_cache()
             return None
-        logger.info("[TACHIBANA-CACHE] Loaded session from %s", path)
+        logger.info("[TACHIBANA-CACHE] Loaded session")
         return cast(dict[str, Any], state)
-    except Exception as e:
-        logger.warning("[TACHIBANA-CACHE] Failed to load session cache: %s", e)
+    except Exception:
+        logger.warning("[TACHIBANA-CACHE] Failed to load session cache")
         clear_session_cache()
         return None
 
@@ -127,25 +127,25 @@ def save_open_prices_cache(
     trade_date: str,
 ) -> None:
     """Persist fetched open prices to a trade-date-specific CSV."""
-    path = _opens_cache_path(trade_date)
     try:
+        path = _opens_cache_path(trade_date)
         records = [{"ticker": tk, "open_price": price} for tk, price in opens.items()]
         if topix_open is not None:
             records.append({"ticker": "TOPIX", "open_price": topix_open})
         _atomic_csv_write(path, pd.DataFrame(records))
-        logger.info("[TACHIBANA-CACHE] Open prices saved to %s", path)
-    except Exception as e:
-        logger.warning("[TACHIBANA-CACHE] Failed to save open prices cache: %s", e)
+        logger.info("[TACHIBANA-CACHE] Open prices saved")
+    except Exception:
+        logger.warning("[TACHIBANA-CACHE] Failed to save open prices cache")
 
 
 def load_open_prices_cache(
     trade_date: str,
 ) -> tuple[dict[str, float], float | None] | None:
     """Load cached open prices for exactly the requested trade date."""
-    path = _opens_cache_path(trade_date)
-    if not path.exists():
-        return None
     try:
+        path = _opens_cache_path(trade_date)
+        if not path.exists():
+            return None
         df = pd.read_csv(path)
         if (
             set(df.columns) != {"ticker", "open_price"}
@@ -164,8 +164,8 @@ def load_open_prices_cache(
             else:
                 manual_opens[ticker] = float(price)
         return manual_opens, topix_open
-    except Exception as e:
-        logger.warning("[TACHIBANA-CACHE] Failed to load open prices cache: %s", e)
+    except Exception:
+        logger.warning("[TACHIBANA-CACHE] Failed to load open prices cache")
         return None
 
 
@@ -175,24 +175,24 @@ def save_current_prices_cache(
     trade_date: str,
 ) -> None:
     """Persist prices observed at the decision time (normally 09:10)."""
-    path = _current_prices_cache_path(trade_date)
-    records = [{"ticker": tk, "current_price": price} for tk, price in prices.items()]
-    if topix_price is not None:
-        records.append({"ticker": "TOPIX", "current_price": topix_price})
     try:
+        path = _current_prices_cache_path(trade_date)
+        records = [{"ticker": tk, "current_price": price} for tk, price in prices.items()]
+        if topix_price is not None:
+            records.append({"ticker": "TOPIX", "current_price": topix_price})
         _atomic_csv_write(path, pd.DataFrame(records))
-    except Exception as e:
-        logger.warning("[TACHIBANA-CACHE] Failed to save current prices cache: %s", e)
+    except Exception:
+        logger.warning("[TACHIBANA-CACHE] Failed to save current prices cache")
 
 
 def load_current_prices_cache(
     trade_date: str,
 ) -> tuple[dict[str, float], float | None] | None:
     """Load current/09:10 prices for exactly the requested trade date."""
-    path = _current_prices_cache_path(trade_date)
-    if not path.exists():
-        return None
     try:
+        path = _current_prices_cache_path(trade_date)
+        if not path.exists():
+            return None
         df = pd.read_csv(path)
         if set(df.columns) != {"ticker", "current_price"} or df.empty:
             return None
@@ -207,16 +207,16 @@ def load_current_prices_cache(
             else:
                 out[ticker] = float(price)
         return out, topix
-    except Exception as e:
-        logger.warning("[TACHIBANA-CACHE] Failed to load current prices cache: %s", e)
+    except Exception:
+        logger.warning("[TACHIBANA-CACHE] Failed to load current prices cache")
         return None
 
 
 def clear_session_cache() -> None:
     """Remove session cache file, e.g. on explicit logout."""
-    path = _session_cache_path()
     try:
+        path = _session_cache_path()
         if path.exists():
             path.unlink()
-    except Exception as e:
-        logger.warning("[TACHIBANA-CACHE] Failed to clear session cache: %s", e)
+    except Exception:
+        logger.warning("[TACHIBANA-CACHE] Failed to clear session cache")

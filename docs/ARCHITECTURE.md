@@ -392,7 +392,7 @@ VaR/ES 計算・リスクチェック評価は `leadlag/core/risk.py` が正本�
        leadlag/data/preprocessor.py → df_exec (pandas DataFrame)
              ↓
   [Production v2 Flow]
-  tools/research/compute_gap_adjusted_distribution.py → (mu_gap, omega_gap) matrices
+  tools/production/publish_gap_distribution.py → canonical SQLite GapStore
              ↓
   python3 -m leadlag.cli decision
     ├── leadlag/execution/v2_bridge.py::run_v2_decision()
@@ -400,7 +400,7 @@ VaR/ES 計算・リスクチェック評価は `leadlag/core/risk.py` が正本�
     ├── leadlag/runner/production.py::ProductionRunner (一日分の決定組立)
     ├── mu_over_sigma ranking & baseline_style sizing (leadlag/core/portfolio.py)
     ├── PIT binning (RuleD ex-ante IR dynamic gross scaling: 0.75x or 1.00x)
-    └── Fallback checks (gap data missing → flat position)
+    └── Fallback checks (当日cache → on-demand BLPX → flat position)
              ↓
   [Compliance/Risk/Order Flow]
     ├── leadlag/core/risk.py → evaluate_risk_checks()
@@ -435,7 +435,7 @@ VaR/ES return cacheは
 run-owned入力snapshotの版を束ね、`DeadlineBudget`の絶対期限を準備と計算に共有する。これは旧cache key形式を保ったまま、
 入力版の取り違えと期限切れ後の再計算を防ぐための境界である。
 
-h=1 gap生成はsignal dateに一致するStep 1 `Omega_struct`だけを明示共分散として使う。一致するファイルがなく
+研究用のh=1 gap診断はsignal dateに一致するStep 1 `Omega_struct`だけを明示共分散として使う。一致するファイルがなく
 古いfallbackしかない場合は、fallbackを診断へ記録し、on-demandと同じBLPX共分散へ戻す。日付の異なる構造行列を
 キャッシュ出力へ流用してsource間の分布を変えない。
 
@@ -515,8 +515,17 @@ artifact・運用の最新受入状態は[実行報告](../reports/20260922_prod
 
 V2の期間入口は2015-01-05以降とsource期間の非空交差を検証する。`evaluation_period`に要求・実評価・sourceの期間を保存する。損益のinventory-v3契約と執行turnoverは `accounting_contract` で識別する。US pre-inception proxyは `data/tickers.py::US_INCEPTION_DATES` より前だけとし、各cellの `us_proxy_*` を残す。旧前処理cacheは契約version不一致で再利用せず、strict再構築へ進む。元データの品質異常を補間で隠さない。
 
-market-data updaterとdistribution diagnosticsは既存job guardの `live:production_v2` leaseと全体deadlineを共有し、各phaseにも `scripts/tools/phase_deadline.py` でdeadlineを設定する。通常のtest runnerもこの入口を使い、reports内watchdogには依存しない。ADR producerは `data.adr_producer` に分離し、`data/adr_features.zip` 内のpickle/CSV/manifestを一度のatomic replaceで公開する。旧pickleを読むfallbackは置かず、実ソースから再生成する。実運用での更新復旧、scheduled diagnosticsのresearch依存、元データ不足による269日長期PnLの完全再評価は残件として追跡する。終端在庫と連続会計は[Issue #33の判断](decisions/2026-10-08-inventory-accounting.md)に従う。
+market-data updaterとdecision/gap publisherは既存job guardの `live:production_v2` leaseと全体deadlineを共有し、各phaseにも `scripts/tools/phase_deadline.py` でdeadlineを設定する。structured covariance / validation / vol-state の distribution diagnostics は研究専用としてschedulerから外し、本番gap publisherは `leadlag.pipeline.gap_publisher` でV2 on-demand計算→atomic GapStore publish→FileCache再読込検証を行う。ADR producerは `data.adr_producer` に分離し、`data/adr_features.zip` 内のpickle/CSV/manifestを一度のatomic replaceで公開する。旧pickleを読むfallbackは置かず、実ソースから再生成する。実取引日のADR更新証跡はread-only/shadow acceptance reportの `adr_features` でhash/date/coverageを照合する。終端在庫と連続会計は[Issue #33の判断](decisions/2026-10-08-inventory-accounting.md)に従う。
 
 BLPXの係数solve、固定/rolling sector prior、PCA prior、Tikhonov、confidence weighting、signal変換、非対称solve、診断構築は `core/blpx_math.py` を本番/研究の共通正本とし、係数・行列・次元を明示入力で受け取る。共通のUS-to-JP sector mappingは `data/tickers.py` に置く。window準備、相関推定、非対称共分散推定、prior hook、モデル合成は各モデル側に残す。旧数値実装とmodel helper再公開は撤去した。研究の診断キーも `z_U_t` に揃える。日次PnLは `core.pnl.simulate_daily_pnl`、gap読込は `utils.gap_matrix_io.load_gap_bundle` を直接使い、旧互換wrapperと未使用CostCalculatorは撤去した。
 
 詳しくは [監査境界の設計判断](decisions/2026-10-06-audit-boundaries.md)、[追加の設計判断](decisions/2026-10-06-adr-publication-and-shared-blpx.md)、[追加対応結果](../reports/20261006_issue_resolution_round2/report.md) を参照。
+
+Operational frozen quotes use `df_exec.topix_close_sig`, selected at the same
+historical JP signal date as the sector prior closes. `PITDataLake` exposes it
+as `prev_closes[TOPIX_TICKER]` so both the gap publisher and frozen-quote decision
+compute the TOPIX 09:10 gap from the same known close. This scalar does not add
+a traded asset or a model dimension. The df_exec cache contract is
+`pit-topix-close-v3`; older frames are rebuilt from raw ETF cache by the existing
+loader. Missing prior TOPIX prices stop frozen-quote publication. The publisher
+checks the quote date and uses the canonical `DistributionStatus.READY` outcome.

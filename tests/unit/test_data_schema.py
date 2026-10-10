@@ -41,6 +41,7 @@ def _make_df(rows: int = 10) -> pd.DataFrame:
     data[ColumnFamily.TOPIX_NIGHT.value] = rng.normal(0, 0.01, rows)
     data[ColumnFamily.TOPIX_OC.value] = rng.normal(0, 0.01, rows)
     data[ColumnFamily.TOPIX_CC.value] = rng.normal(0, 0.01, rows)
+    data[ColumnFamily.TOPIX_CLOSE_SIG.value] = np.full(rows, 1000.0)
     return pd.DataFrame(data, index=dti)
 
 
@@ -60,8 +61,8 @@ def test_family_columns_count():
 @pytest.mark.unit
 def test_all_expected_columns():
     cols = all_expected_columns()
-    # Metadata + US + 6 JP families (cc/oc/gap/close_sig/open_trade/beta) + 3 TOPIX
-    expected_count = 2 + N_US + (6 * N_JP) + 3
+    # Metadata + US + 6 JP families (cc/oc/gap/close_sig/open_trade/beta) + 4 TOPIX
+    expected_count = 2 + N_US + (6 * N_JP) + 4
     assert len(cols) == expected_count
     assert all(isinstance(c, str) for c in cols)
 

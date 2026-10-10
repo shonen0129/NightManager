@@ -220,3 +220,74 @@ def test_actual_broker_failures_do_not_leak_into_logs_or_order_summary(operation
     assert SECRET not in caplog.text + summary
     assert URL not in caplog.text + summary
     broker._client.session.close()
+
+
+@pytest.mark.parametrize("mode", [0o600, 0o644])
+def test_private_key_permission_warning_excludes_key_path(tmp_path, rsa_key, mode, caplog):
+    key_path = tmp_path / f"{SECRET}.pem"
+    key_path.write_bytes(rsa_key.export_key())
+    key_path.chmod(mode)
+    with caplog.at_level(logging.DEBUG):
+        broker = TachibanaBrokerClient(
+            BrokerConfig(provider="tachibana", api_token=SECRET, api_password=SECRET,
+                         extra={"private_key_path": str(key_path)})
+        )
+    broker._client.session.close()
+    warnings = [record for record in caplog.records if record.levelno >= logging.WARNING]
+    assert bool(warnings) == (mode == 0o644)
+    assert SECRET not in caplog.text
+    assert str(key_path) not in caplog.text
+    assert rsa_key.export_key().decode() not in caplog.text
+
+
+def test_real_rsa_login_mixed_padding_records_each_url(rsa_client, rsa_key, caplog):
+    modes = dict(zip(("sUrlRequest", "sUrlMaster", "sUrlPrice", "sUrlEvent"),
+                     [*ALGORITHMS, "oaep_sha256"]))
+    payload = {key: encrypt(rsa_key, mode, URL.encode()) for key, mode in modes.items()}
+    payload["sResultCode"] = "0"
+    with patch.object(rsa_client.session, "get", return_value=response(payload)), caplog.at_level(logging.DEBUG):
+        rsa_client.login()
+    assert rsa_client.logged_in
+    assert set(rsa_client.decrypted_urls) == set(modes)
+    assert all(value == URL for value in rsa_client.decrypted_urls.values())
+    for key, mode in modes.items():
+        diagnostic = rsa_client.last_login_diagnostics["virtual_urls"][key]
+        assert diagnostic["decrypt_algorithm"] == mode
+        assert diagnostic["decrypt_attempts"] == [
+            {"algorithm": algorithm, "outcome": "succeeded" if algorithm == mode else "decrypt_failed"}
+            for algorithm in ALGORITHMS[:ALGORITHMS.index(mode) + 1]
+        ]
+    assert SECRET not in json.dumps(rsa_client.last_login_diagnostics) + caplog.text
+    assert not any(record.levelno >= logging.WARNING for record in caplog.records)
+
+
+@pytest.mark.parametrize("failed_url", ["sUrlRequest", "sUrlMaster", "sUrlPrice", "sUrlEvent"])
+@pytest.mark.parametrize("previously_logged_in", [False, True])
+def test_reauthentication_decrypt_failure_discards_partial_and_old_urls(
+    rsa_client, rsa_key, failed_url, previously_logged_in, caplog
+):
+    keys = ["sUrlRequest", "sUrlMaster", "sUrlPrice", "sUrlEvent"]
+    payload = {key: encrypt(rsa_key, "oaep_sha256", URL.encode()) for key in keys}
+    payload[failed_url] = base64.b64encode(bytes(rsa_key.size_in_bytes())).decode()
+    payload["sResultCode"] = "0"
+    rsa_client.logged_in = previously_logged_in
+    rsa_client.decrypted_urls = {key: URL for key in keys} if previously_logged_in else {}
+    with patch.object(rsa_client.session, "get", return_value=response(payload)), caplog.at_level(logging.DEBUG):
+        with pytest.raises(ValueError) as captured:
+            rsa_client.login()
+    assert not rsa_client.logged_in
+    assert rsa_client.decrypted_urls == {}
+    diagnostics = rsa_client.last_login_diagnostics
+    assert diagnostics["login_success"] is False
+    assert diagnostics["stopped_at"] == f"decrypt_virtual_url:{failed_url}"
+    assert diagnostics["virtual_urls"][failed_url]["decrypt_failure_stage"] == "all_algorithms"
+    assert diagnostics["virtual_urls"][failed_url]["decrypt_algorithm"] is None
+    assert [attempt["algorithm"] for attempt in diagnostics["virtual_urls"][failed_url]["decrypt_attempts"]] == ALGORITHMS
+    for key in keys[:keys.index(failed_url)]:
+        assert diagnostics["virtual_urls"][key]["decrypt_succeeded"] is True
+    for key in keys[keys.index(failed_url) + 1:]:
+        assert diagnostics["virtual_urls"][key]["decrypt_attempted"] is False
+    observed = json.dumps(diagnostics) + caplog.text + "".join(traceback.format_exception(captured.value))
+    for value in [SECRET, URL, *payload.values()]:
+        if value != "0":
+            assert value not in observed

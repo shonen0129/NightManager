@@ -1,4 +1,9 @@
-#!/usr/bin/env python3
+"""Historical July 2026 V1-backtest / ProductionV2 comparison.
+
+ARCHIVED EVIDENCE ONLY; not a supported executable. The original source at
+commit 4c370755 (scripts/compare_bt_vs_actual.py) contains workstation-specific
+paths and fixed, unverified interpretation. Refer to the adjacent README.
+"""
 """Compare backtest daily returns with actual live trading results."""
 import csv
 import glob

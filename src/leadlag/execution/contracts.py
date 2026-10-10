@@ -206,9 +206,10 @@ def report_from_records(
     accepted = {"SUBMITTED", "PARTIALLY_FILLED", "FILLED", "SIMULATED"}
     filled = {"FILLED", "SIMULATED"}
     partial = {"PARTIALLY_FILLED"}
-    unresolved = {"SUBMITTED", "PARTIALLY_FILLED"}
+    unresolved = {"SUBMITTED", "PARTIALLY_FILLED", "MISSING_RESPONSE"}
     failed = {"FAILED", "CANCELLED", "SKIPPED"}
     statuses = [str(record.get("status", "")) for record in records]
+    known = accepted | failed | unresolved
     observations = tuple(
         _observation_from_record(record)
         for record in records
@@ -219,7 +220,9 @@ def report_from_records(
         filled_orders=sum(status in filled for status in statuses),
         partial_orders=sum(status in partial for status in statuses),
         failed_orders=sum(status in failed for status in statuses),
-        unresolved_orders=sum(status in unresolved for status in statuses),
+        unresolved_orders=sum(
+            status in unresolved or status not in known for status in statuses
+        ),
         close_failed=bool(close_failed),
         recording_errors=tuple(recording_errors),
         reconciliation_errors=tuple(reconciliation_errors),
