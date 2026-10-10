@@ -1,0 +1,38 @@
+[
+  {
+    "name": "mypy",
+    "version": "2.3.0",
+    "lock_version": "2.3.0",
+    "path": "/Users/takahashimasatoshi/.cache/uv/archive-v0/UqVpr2a532ANjc6p"
+  },
+  {
+    "name": "typing-extensions",
+    "version": "4.16.0",
+    "lock_version": "4.16.0",
+    "path": "/Users/takahashimasatoshi/.cache/uv/archive-v0/wR_avxaT8YjJqoiD"
+  },
+  {
+    "name": "ast-serialize",
+    "version": "0.8.0",
+    "lock_version": "0.8.0",
+    "path": "/Users/takahashimasatoshi/.cache/uv/archive-v0/zj6lZzSTSm9b4CEX"
+  },
+  {
+    "name": "pathspec",
+    "version": "1.1.1",
+    "lock_version": "1.1.1",
+    "path": "/Users/takahashimasatoshi/.cache/uv/archive-v0/XNEoAp-HURXuxkAy"
+  },
+  {
+    "name": "mypy-extensions",
+    "version": "1.1.0",
+    "lock_version": "1.1.0",
+    "path": "/Users/takahashimasatoshi/.cache/uv/archive-v0/1wxvLMydzDtcWnAG"
+  },
+  {
+    "name": "librt",
+    "version": "0.15.0",
+    "lock_version": "0.15.0",
+    "path": "/Users/takahashimasatoshi/.cache/uv/archive-v0/SV-vifPNoM9ZDS7M"
+  }
+]

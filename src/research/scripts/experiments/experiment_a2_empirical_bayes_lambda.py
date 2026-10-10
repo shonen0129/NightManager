@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """A2: BLP Empirical Bayes λ推定実験スクリプント.
 
-設計仕様（docs/design/A_theory_design_specs.md A2参照）:
+設計仕様（archive/docs/design/A_theory_design_specs.md A2参照）:
   Tikhonov解のMAP解釈に基づき、λ_pca / λ_sector / ρ の最適値を探索する。
   各パラメータを現行値の {0.5x, 1x, 2x} で摂動（log-scale 3点）。
 

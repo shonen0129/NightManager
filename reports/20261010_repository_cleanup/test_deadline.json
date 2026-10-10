@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "label": "cleanup_full_tests",
+  "command": [
+    ".venv/bin/python",
+    "-m",
+    "pytest",
+    "tests/",
+    "-q",
+    "--timeout=300"
+  ],
+  "started_at": "2026-10-10T02:42:56.007+00:00",
+  "timeout_seconds": 1800.0,
+  "grace_seconds": 10.0,
+  "status": "completed",
+  "pid": 72578,
+  "cleanup": "already_exited",
+  "finished_at": "2026-10-10T02:45:32.050+00:00",
+  "elapsed_seconds": 156.051,
+  "return_code": 0
+}

@@ -1,0 +1,11 @@
+{
+  "moves_verified": 13,
+  "docstring_only_changes": [
+    "src/research/scripts/experiments/experiment_a1_adaptive_gap_coef.py",
+    "src/research/scripts/experiments/experiment_a2_empirical_bayes_lambda.py",
+    "src/research/scripts/experiments/experiment_a4_ensemble_ic_optimization.py",
+    "src/research/scripts/experiments/experiment_a7_walkforward_dsr.py"
+  ],
+  "production_source_unchanged": true,
+  "active_configs_unchanged": true
+}

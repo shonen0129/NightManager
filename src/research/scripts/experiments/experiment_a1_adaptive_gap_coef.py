@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """A1: ギャップ調整の適応的c_t実験スクリプト.
 
-設計仕様（docs/design/A_theory_design_specs.md A1参照）:
+設計仕様（archive/docs/design/A_theory_design_specs.md A1参照）:
   理論値 c_t = 1 + β_rev_oc(t)（ローリング252日、shift(1)）を計算し、
   現行の固定 c=0.70 とシュリンクブレンドする:
     c_t = (1-λ)·0.70 + λ·(1 + β_rev_oc_hat(t))

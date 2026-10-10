@@ -1,0 +1,2404 @@
+{
+  "created_local_date": "2026-10-10",
+  "method": "initial filesystem metadata snapshot before full content verification; per-file SHA-256 values are in the separate manifest",
+  "reports": {
+    "files": 1315,
+    "logical_bytes": 87817151,
+    "allocated_bytes": 90836992,
+    "git_tracked_files": 1295
+  },
+  "results": {
+    "files": 17384,
+    "logical_bytes": 5090872621,
+    "allocated_bytes": 1737695232
+  },
+  "archived_source_directories": [
+    "results/blp_enhanced_refined",
+    "results/baseline_reconciliation",
+    "results/etf_basket_substitution",
+    "results/sector_relative_ensemble_pls_extended",
+    "results/sre_etf_vs_stock_basket",
+    "results/rrr_projection",
+    "results/production_shadow_run_package"
+  ],
+  "scope_file_count": 390,
+  "scope_logical_bytes": 4490416228,
+  "scope_allocated_bytes": 1736626176,
+  "files": [
+    {
+      "path": "results/baseline_reconciliation/audit.json",
+      "bytes": 1090,
+      "allocated_bytes": 4096,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/audit/all_passed.csv",
+      "bytes": 34,
+      "allocated_bytes": 4096,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/audit/beta_shift_is_one.csv",
+      "bytes": 41,
+      "allocated_bytes": 4096,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/audit/c0_built_from_residualized_returns_when_expected.csv",
+      "bytes": 72,
+      "allocated_bytes": 4096,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/audit/c0_diag_is_one.csv",
+      "bytes": 38,
+      "allocated_bytes": 4096,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/audit/c0_no_nan_inf.csv",
+      "bytes": 37,
+      "allocated_bytes": 4096,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/audit/c0_positive_semidefinite_or_tolerated.csv",
+      "bytes": 61,
+      "allocated_bytes": 4096,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/audit/c0_source_correct.csv",
+      "bytes": 41,
+      "allocated_bytes": 4096,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/audit/cost_consistency_passed.csv",
+      "bytes": 47,
+      "allocated_bytes": 4096,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/audit/ensemble_weights_sum_to_one.csv",
+      "bytes": 51,
+      "allocated_bytes": 4096,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/audit/gamma_one_matches_full_residual_us.csv",
+      "bytes": 58,
+      "allocated_bytes": 4096,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/audit/gamma_zero_matches_raw_us.csv",
+      "bytes": 49,
+      "allocated_bytes": 4096,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/audit/gram_schmidt_recomputed.csv",
+      "bytes": 47,
+      "allocated_bytes": 4096,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/audit/gross_exposure_within_limit.csv",
+      "bytes": 51,
+      "allocated_bytes": 4096,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/audit/jp_beta_uses_t_minus_1_window.csv",
+      "bytes": 53,
+      "allocated_bytes": 4096,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/audit/jp_residual_matches_p3_target.csv",
+      "bytes": 53,
+      "allocated_bytes": 4096,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/audit/jp_residualization_formula_passed.csv",
+      "bytes": 57,
+      "allocated_bytes": 4096,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/audit/net_exposure_within_limit.csv",
+      "bytes": 49,
+      "allocated_bytes": 4096,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/audit/no_lookahead_detected.csv",
+      "bytes": 45,
+      "allocated_bytes": 4096,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/audit/no_nan_inf_in_signals.csv",
+      "bytes": 45,
+      "allocated_bytes": 4096,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/audit/no_nan_inf_in_weights.csv",
+      "bytes": 45,
+      "allocated_bytes": 4096,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/audit/prior_variant_valid.csv",
+      "bytes": 43,
+      "allocated_bytes": 4096,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/audit/signal_date_lt_trade_date.csv",
+      "bytes": 49,
+      "allocated_bytes": 4096,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/audit/us_beta_uses_t_minus_1_window.csv",
+      "bytes": 53,
+      "allocated_bytes": 4096,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/audit/us_residualization_formula_passed.csv",
+      "bytes": 57,
+      "allocated_bytes": 4096,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/audit/v0_columns_orthonormal.csv",
+      "bytes": 46,
+      "allocated_bytes": 4096,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/audit/v1_removed_when_expected.csv",
+      "bytes": 48,
+      "allocated_bytes": 4096,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/audit/v1_v2_scaled_when_expected.csv",
+      "bytes": 50,
+      "allocated_bytes": 4096,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/audit/v2_removed_when_expected.csv",
+      "bytes": 48,
+      "allocated_bytes": 4096,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/c0_diagnostics.csv",
+      "bytes": 28069,
+      "allocated_bytes": 28672,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/config_used 2.yaml",
+      "bytes": 1061,
+      "allocated_bytes": 4096,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/config_used.yaml",
+      "bytes": 1061,
+      "allocated_bytes": 4096,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/daily_positions.csv",
+      "bytes": 150367411,
+      "allocated_bytes": 150368256,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/daily_returns.csv",
+      "bytes": 14104949,
+      "allocated_bytes": 14106624,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/diff_return_stats.csv",
+      "bytes": 334,
+      "allocated_bytes": 4096,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/drawdown.png",
+      "bytes": 100726,
+      "allocated_bytes": 102400,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/drawdown_timeseries.csv",
+      "bytes": 9366101,
+      "allocated_bytes": 9367552,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/equity_curve.png",
+      "bytes": 58655,
+      "allocated_bytes": 61440,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/gamma_sensitivity.csv",
+      "bytes": 1891,
+      "allocated_bytes": 4096,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/ic_timeseries.csv",
+      "bytes": 135403,
+      "allocated_bytes": 139264,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/lambda_reg_sensitivity.csv",
+      "bytes": 1528,
+      "allocated_bytes": 4096,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/monthly_win_loss.csv",
+      "bytes": 4974,
+      "allocated_bytes": 8192,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/oos_ranking_5bps.csv",
+      "bytes": 112505,
+      "allocated_bytes": 114688,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/p4_vs_p3_by_prior.csv",
+      "bytes": 14786,
+      "allocated_bytes": 16384,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/prior_variant_comparison.csv",
+      "bytes": 2265,
+      "allocated_bytes": 4096,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/reference_sre/audit/baseline_definition_audit.csv",
+      "bytes": 217,
+      "allocated_bytes": 4096,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/reference_sre/audit/config_audit.csv",
+      "bytes": 200,
+      "allocated_bytes": 4096,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/reference_sre/audit/cost_consistency_audit.csv",
+      "bytes": 171,
+      "allocated_bytes": 4096,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/reference_sre/audit/date_alignment_audit.csv",
+      "bytes": 184,
+      "allocated_bytes": 4096,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/reference_sre/audit/residualization_leakage_audit.csv",
+      "bytes": 174,
+      "allocated_bytes": 4096,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/reference_sre/audit/signal_weighting_audit.csv",
+      "bytes": 228,
+      "allocated_bytes": 4096,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/reference_sre/audit/ticker_order_audit.csv",
+      "bytes": 172,
+      "allocated_bytes": 4096,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/reference_sre/audit/weight_constraint_audit.csv",
+      "bytes": 202,
+      "allocated_bytes": 4096,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/reference_sre/audit_summary.csv",
+      "bytes": 1226,
+      "allocated_bytes": 4096,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/reference_sre/component_rank_correlation.csv",
+      "bytes": 35,
+      "allocated_bytes": 4096,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/reference_sre/component_signal_agreement.csv",
+      "bytes": 34,
+      "allocated_bytes": 4096,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/reference_sre/component_signal_correlation.csv",
+      "bytes": 31,
+      "allocated_bytes": 4096,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/reference_sre/daily_costs.csv",
+      "bytes": 57256,
+      "allocated_bytes": 57344,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/reference_sre/daily_drawdown.csv",
+      "bytes": 67670,
+      "allocated_bytes": 69632,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/reference_sre/daily_equity_curve.csv",
+      "bytes": 79818,
+      "allocated_bytes": 81920,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/reference_sre/daily_gross_returns.csv",
+      "bytes": 87540,
+      "allocated_bytes": 90112,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/reference_sre/daily_net_returns.csv",
+      "bytes": 88178,
+      "allocated_bytes": 90112,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/reference_sre/daily_turnover.csv",
+      "bytes": 79704,
+      "allocated_bytes": 81920,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/reference_sre/drawdown.png",
+      "bytes": 98922,
+      "allocated_bytes": 102400,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/reference_sre/equity_curve.png",
+      "bytes": 47690,
+      "allocated_bytes": 49152,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/reference_sre/final_report.md",
+      "bytes": 1988,
+      "allocated_bytes": 4096,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/reference_sre/metrics_summary_full.csv",
+      "bytes": 151,
+      "allocated_bytes": 4096,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/reference_sre/metrics_summary_oos.csv",
+      "bytes": 151,
+      "allocated_bytes": 4096,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/reference_sre/metrics_summary_train.csv",
+      "bytes": 151,
+      "allocated_bytes": 4096,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/reference_sre/normalized_signals.csv",
+      "bytes": 894350,
+      "allocated_bytes": 897024,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/reference_sre/positions.csv",
+      "bytes": 227938,
+      "allocated_bytes": 229376,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/reference_sre/rolling_ic.png",
+      "bytes": 70428,
+      "allocated_bytes": 73728,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/reference_sre/rolling_sharpe.png",
+      "bytes": 82611,
+      "allocated_bytes": 86016,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/reference_sre/signal_heatmap.png",
+      "bytes": 97803,
+      "allocated_bytes": 98304,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/reference_sre/signals.csv",
+      "bytes": 919438,
+      "allocated_bytes": 921600,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/reference_sre/slippage_sensitivity.csv",
+      "bytes": 338,
+      "allocated_bytes": 4096,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/reference_sre/top_drawdown_periods.csv",
+      "bytes": 383,
+      "allocated_bytes": 4096,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/reference_sre/turnover.png",
+      "bytes": 124714,
+      "allocated_bytes": 126976,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/reference_sre/weights.csv",
+      "bytes": 652575,
+      "allocated_bytes": 655360,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/report.md",
+      "bytes": 11858,
+      "allocated_bytes": 12288,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/rolling_ic.png",
+      "bytes": 91540,
+      "allocated_bytes": 94208,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/rolling_sharpe.png",
+      "bytes": 84437,
+      "allocated_bytes": 86016,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/signal_correlations.csv",
+      "bytes": 245,
+      "allocated_bytes": 4096,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/signal_heatmap.png",
+      "bytes": 98789,
+      "allocated_bytes": 102400,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/summary.csv",
+      "bytes": 819590,
+      "allocated_bytes": 823296,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/summary_5bps.csv",
+      "bytes": 275662,
+      "allocated_bytes": 278528,
+      "flags": 64
+    },
+    {
+      "path": "results/baseline_reconciliation/turnover.png",
+      "bytes": 123603,
+      "allocated_bytes": 126976,
+      "flags": 64
+    },
+    {
+      "path": "results/blp_enhanced_refined/audit.json",
+      "bytes": 1533,
+      "allocated_bytes": 4096,
+      "flags": 64
+    },
+    {
+      "path": "results/blp_enhanced_refined/blend_comparison_5bps.csv",
+      "bytes": 2705,
+      "allocated_bytes": 4096,
+      "flags": 64
+    },
+    {
+      "path": "results/blp_enhanced_refined/blend_comparison_7p5bps.csv",
+      "bytes": 2709,
+      "allocated_bytes": 4096,
+      "flags": 64
+    },
+    {
+      "path": "results/blp_enhanced_refined/blpx_diagnostics.csv",
+      "bytes": 1008009,
+      "allocated_bytes": 1011712,
+      "flags": 64
+    },
+    {
+      "path": "results/blp_enhanced_refined/blpx_param_sensitivity.csv",
+      "bytes": 464966150,
+      "allocated_bytes": 464969728,
+      "flags": 64
+    },
+    {
+      "path": "results/blp_enhanced_refined/config_used.yaml",
+      "bytes": 2089,
+      "allocated_bytes": 4096,
+      "flags": 64
+    },
+    {
+      "path": "results/blp_enhanced_refined/contribution_by_ticker.csv",
+      "bytes": 459,
+      "allocated_bytes": 4096,
+      "flags": 64
+    },
+    {
+      "path": "results/blp_enhanced_refined/cost_sensitivity_decomposition.csv",
+      "bytes": 8774,
+      "allocated_bytes": 12288,
+      "flags": 64
+    },
+    {
+      "path": "results/blp_enhanced_refined/daily_positions_BLPX_SRE.csv",
+      "bytes": 653415,
+      "allocated_bytes": 655360,
+      "flags": 64
+    },
+    {
+      "path": "results/blp_enhanced_refined/daily_positions_Hybrid_BLPX_20.csv",
+      "bytes": 653406,
+      "allocated_bytes": 655360,
+      "flags": 64
+    },
+    {
+      "path": "results/blp_enhanced_refined/daily_positions_Hybrid_BLPX_25.csv",
+      "bytes": 653461,
+      "allocated_bytes": 655360,
+      "flags": 64
+    },
+    {
+      "path": "results/blp_enhanced_refined/daily_positions_Hybrid_BLPX_50.csv",
+      "bytes": 653456,
+      "allocated_bytes": 655360,
+      "flags": 64
+    },
+    {
+      "path": "results/blp_enhanced_refined/daily_positions_P8P3_only.csv",
+      "bytes": 653270,
+      "allocated_bytes": 655360,
+      "flags": 64
+    },
+    {
+      "path": "results/blp_enhanced_refined/daily_positions_P8_only.csv",
+      "bytes": 653448,
+      "allocated_bytes": 655360,
+      "flags": 64
+    },
+    {
+      "path": "results/blp_enhanced_refined/daily_positions_SRE_BLPX_BLEND_00.csv",
+      "bytes": 653207,
+      "allocated_bytes": 655360,
+      "flags": 64
+    },
+    {
+      "path": "results/blp_enhanced_refined/daily_positions_SRE_BLPX_BLEND_10.csv",
+      "bytes": 653408,
+      "allocated_bytes": 655360,
+      "flags": 64
+    },
+    {
+      "path": "results/blp_enhanced_refined/daily_positions_SRE_BLPX_BLEND_100.csv",
+      "bytes": 653379,
+      "allocated_bytes": 655360,
+      "flags": 64
+    },
+    {
+      "path": "results/blp_enhanced_refined/daily_positions_SRE_BLPX_BLEND_20.csv",
+      "bytes": 653432,
+      "allocated_bytes": 655360,
+      "flags": 64
+    },
+    {
+      "path": "results/blp_enhanced_refined/daily_positions_SRE_BLPX_BLEND_25.csv",
+      "bytes": 653414,
+      "allocated_bytes": 655360,
+      "flags": 64
+    },
+    {
+      "path": "results/blp_enhanced_refined/daily_positions_SRE_BLPX_BLEND_33.csv",
+      "bytes": 653462,
+      "allocated_bytes": 655360,
+      "flags": 64
+    },
+    {
+      "path": "results/blp_enhanced_refined/daily_positions_SRE_BLPX_BLEND_40.csv",
+      "bytes": 653473,
+      "allocated_bytes": 655360,
+      "flags": 64
+    },
+    {
+      "path": "results/blp_enhanced_refined/daily_positions_SRE_BLPX_BLEND_50.csv",
+      "bytes": 653395,
+      "allocated_bytes": 655360,
+      "flags": 64
+    },
+    {
+      "path": "results/blp_enhanced_refined/daily_positions_SRE_BLPX_BLEND_67.csv",
+      "bytes": 653357,
+      "allocated_bytes": 655360,
+      "flags": 64
+    },
+    {
+      "path": "results/blp_enhanced_refined/daily_returns.csv",
+      "bytes": 1050136,
+      "allocated_bytes": 1052672,
+      "flags": 64
+    },
+    {
+      "path": "results/blp_enhanced_refined/dd_contribution_by_ticker.csv",
+      "bytes": 499,
+      "allocated_bytes": 4096,
+      "flags": 64
+    },
+    {
+      "path": "results/blp_enhanced_refined/dd_long_short_contribution.csv",
+      "bytes": 71,
+      "allocated_bytes": 4096,
+      "flags": 64
+    },
+    {
+      "path": "results/blp_enhanced_refined/drawdown_events.csv",
+      "bytes": 23120,
+      "allocated_bytes": 24576,
+      "flags": 64
+    },
+    {
+      "path": "results/blp_enhanced_refined/drawdown_timeseries.csv",
+      "bytes": 566441,
+      "allocated_bytes": 569344,
+      "flags": 64
+    },
+    {
+      "path": "results/blp_enhanced_refined/gross_scaled_comparison.csv",
+      "bytes": 8411,
+      "allocated_bytes": 12288,
+      "flags": 64
+    },
+    {
+      "path": "results/blp_enhanced_refined/ic_summary.csv",
+      "bytes": 113,
+      "allocated_bytes": 4096,
+      "flags": 64
+    },
+    {
+      "path": "results/blp_enhanced_refined/ic_timeseries.csv",
+      "bytes": 135739,
+      "allocated_bytes": 139264,
+      "flags": 64
+    },
+    {
+      "path": "results/blp_enhanced_refined/long_short_contribution.csv",
+      "bytes": 808,
+      "allocated_bytes": 4096,
+      "flags": 64
+    },
+    {
+      "path": "results/blp_enhanced_refined/oos_ranking_5bps.csv",
+      "bytes": 614524047,
+      "allocated_bytes": 614526976,
+      "flags": 64
+    },
+    {
+      "path": "results/blp_enhanced_refined/oos_ranking_7p5bps.csv",
+      "bytes": 464508612,
+      "allocated_bytes": 464510976,
+      "flags": 64
+    },
+    {
+      "path": "results/blp_enhanced_refined/regime_performance.csv",
+      "bytes": 5635,
+      "allocated_bytes": 8192,
+      "flags": 64
+    },
+    {
+      "path": "results/blp_enhanced_refined/report.md",
+      "bytes": 8427,
+      "allocated_bytes": 12288,
+      "flags": 64
+    },
+    {
+      "path": "results/blp_enhanced_refined/rolling_metrics.csv",
+      "bytes": 120823,
+      "allocated_bytes": 122880,
+      "flags": 64
+    },
+    {
+      "path": "results/blp_enhanced_refined/sector_prior_mapping.csv",
+      "bytes": 1218,
+      "allocated_bytes": 4096,
+      "flags": 64
+    },
+    {
+      "path": "results/blp_enhanced_refined/selection_overlap.csv",
+      "bytes": 343,
+      "allocated_bytes": 4096,
+      "flags": 64
+    },
+    {
+      "path": "results/blp_enhanced_refined/signal_correlations.csv",
+      "bytes": 914,
+      "allocated_bytes": 4096,
+      "flags": 64
+    },
+    {
+      "path": "results/blp_enhanced_refined/signal_diff_stats.csv",
+      "bytes": 527,
+      "allocated_bytes": 4096,
+      "flags": 64
+    },
+    {
+      "path": "results/blp_enhanced_refined/summary.csv",
+      "bytes": 1393753306,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/blp_enhanced_refined/summary_5bps.csv",
+      "bytes": 464966150,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/blp_enhanced_refined/summary_7p5bps.csv",
+      "bytes": 464510143,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/blp_enhanced_refined/vol_matched_comparison.csv",
+      "bytes": 2535,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/blp_enhanced_refined/worst_20_days.csv",
+      "bytes": 3539,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/blp_enhanced_refined/worst_20_days_vs_sre.csv",
+      "bytes": 3503,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/blp_enhanced_refined/yearly_performance.csv",
+      "bytes": 11302,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/etf_basket_substitution/full_2015_present/aum_sensitivity.csv",
+      "bytes": 1643,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/etf_basket_substitution/full_2015_present/aum_sensitivity.png",
+      "bytes": 128052,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/etf_basket_substitution/full_2015_present/basket_composition.csv",
+      "bytes": 43448365,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/etf_basket_substitution/full_2015_present/cumulative_cost_saved.png",
+      "bytes": 321059,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/etf_basket_substitution/full_2015_present/cumulative_net_return.png",
+      "bytes": 233423,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/etf_basket_substitution/full_2015_present/daily_positions.csv",
+      "bytes": 24309281,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/etf_basket_substitution/full_2015_present/daily_returns.csv",
+      "bytes": 2648718,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/etf_basket_substitution/full_2015_present/drawdown.png",
+      "bytes": 494557,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/etf_basket_substitution/full_2015_present/fallback_log.csv",
+      "bytes": 5336106,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/etf_basket_substitution/full_2015_present/metrics_summary.csv",
+      "bytes": 1963,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/etf_basket_substitution/full_2015_present/report.md",
+      "bytes": 8386,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/etf_basket_substitution/full_2015_present/sector_summary.csv",
+      "bytes": 9802,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/etf_basket_substitution/oos_2020_present/aum_sensitivity.csv",
+      "bytes": 1749,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/etf_basket_substitution/oos_2020_present/aum_sensitivity.png",
+      "bytes": 132950,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/etf_basket_substitution/oos_2020_present/basket_composition.csv",
+      "bytes": 33518666,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/etf_basket_substitution/oos_2020_present/cumulative_cost_saved.png",
+      "bytes": 320799,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/etf_basket_substitution/oos_2020_present/cumulative_net_return.png",
+      "bytes": 261323,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/etf_basket_substitution/oos_2020_present/daily_positions.csv",
+      "bytes": 16491594,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/etf_basket_substitution/oos_2020_present/daily_returns.csv",
+      "bytes": 1490464,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/etf_basket_substitution/oos_2020_present/drawdown.png",
+      "bytes": 516387,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/etf_basket_substitution/oos_2020_present/fallback_log.csv",
+      "bytes": 2200953,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/etf_basket_substitution/oos_2020_present/metrics_summary.csv",
+      "bytes": 2004,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/etf_basket_substitution/oos_2020_present/report.md",
+      "bytes": 8394,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/etf_basket_substitution/oos_2020_present/sector_summary.csv",
+      "bytes": 9768,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/production_shadow_run_package/20260615_130218/candidate_historical_metrics.csv",
+      "bytes": 1196,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/production_shadow_run_package/20260615_130218/daily_file_manifest.csv",
+      "bytes": 727579,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/production_shadow_run_package/20260615_130218/historical_reproduction_audit.csv",
+      "bytes": 352,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/production_shadow_run_package/20260615_130218/pit_binning_audit.csv",
+      "bytes": 91364,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/production_shadow_run_package/20260615_130218/shadow_candidate_summary_panel.csv",
+      "bytes": 1545581,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/production_shadow_run_package/20260615_130218/shadow_diff_vs_baseline_panel.csv",
+      "bytes": 7470816,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/production_shadow_run_package/20260615_130218/shadow_run_panel.csv",
+      "bytes": 21515039,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/production_shadow_run_package/20260615_130218/shadow_run_panel.parquet",
+      "bytes": 3194166,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/production_shadow_run_package/20260615_130301/candidate_acceptance_criteria.csv",
+      "bytes": 777,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/production_shadow_run_package/20260615_130301/candidate_historical_metrics.csv",
+      "bytes": 1196,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/production_shadow_run_package/20260615_130301/candidate_risk_diagnostics.csv",
+      "bytes": 490,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/production_shadow_run_package/20260615_130301/candidate_state_diagnostics.csv",
+      "bytes": 5786,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/production_shadow_run_package/20260615_130301/daily_file_manifest.csv",
+      "bytes": 727579,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/production_shadow_run_package/20260615_130301/historical_reproduction_audit.csv",
+      "bytes": 352,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/production_shadow_run_package/20260615_130301/leakage_audit.json",
+      "bytes": 181,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/production_shadow_run_package/20260615_130301/numerical_audit.json",
+      "bytes": 129,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/production_shadow_run_package/20260615_130301/pit_binning_audit.csv",
+      "bytes": 91364,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/production_shadow_run_package/20260615_130301/plots/active_weight_distance.png",
+      "bytes": 87036,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/production_shadow_run_package/20260615_130301/plots/candidate_risk_scatter.png",
+      "bytes": 34774,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/production_shadow_run_package/20260615_130301/plots/cumulative_active_return.png",
+      "bytes": 67339,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/production_shadow_run_package/20260615_130301/plots/cumulative_historical_net_return.png",
+      "bytes": 46653,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/production_shadow_run_package/20260615_130301/plots/daily_max_abs_weight.png",
+      "bytes": 103061,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/production_shadow_run_package/20260615_130301/plots/drawdown_curves.png",
+      "bytes": 102524,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/production_shadow_run_package/20260615_130301/plots/fallback_alert_count.png",
+      "bytes": 19229,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/production_shadow_run_package/20260615_130301/plots/gross_multiplier_time_series.png",
+      "bytes": 63740,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/production_shadow_run_package/20260615_130301/plots/overlap_with_baseline.png",
+      "bytes": 64329,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/production_shadow_run_package/20260615_130301/plots/predicted_ir_time_series.png",
+      "bytes": 66418,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/production_shadow_run_package/20260615_130301/plots/rolling_252_day_sharpe.png",
+      "bytes": 92531,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/production_shadow_run_package/20260615_130301/plots/state_diagnostics_heatmap.png",
+      "bytes": 25012,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/production_shadow_run_package/20260615_130301/report.md",
+      "bytes": 3956,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/production_shadow_run_package/20260615_130301/shadow_candidate_summary_panel.csv",
+      "bytes": 1545581,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/production_shadow_run_package/20260615_130301/shadow_diff_vs_baseline_panel.csv",
+      "bytes": 7470816,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/production_shadow_run_package/20260615_130301/shadow_run_panel.csv",
+      "bytes": 21515039,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/production_shadow_run_package/20260615_130301/shadow_run_panel.parquet",
+      "bytes": 3194166,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/production_shadow_run_package/20260615_130301/validation_audit.json",
+      "bytes": 229,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/rrr_projection/audit.json",
+      "bytes": 1384,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/rrr_projection/config_used.yaml",
+      "bytes": 1907,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/rrr_projection/contribution_by_ticker.csv",
+      "bytes": 460,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/rrr_projection/daily_positions_Hybrid_LowrankBLP_20_Lowrank_BLP.csv",
+      "bytes": 653177,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/rrr_projection/daily_positions_Hybrid_LowrankBLP_25_Lowrank_BLP.csv",
+      "bytes": 653034,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/rrr_projection/daily_positions_Hybrid_LowrankBLP_50_Lowrank_BLP.csv",
+      "bytes": 653098,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/rrr_projection/daily_positions_Hybrid_RRR_20_BLP_prior_RRR.csv",
+      "bytes": 653139,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/rrr_projection/daily_positions_Hybrid_RRR_20_Lowrank_BLP.csv",
+      "bytes": 653177,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/rrr_projection/daily_positions_Hybrid_RRR_20_PCA_prior_RRR.csv",
+      "bytes": 653310,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/rrr_projection/daily_positions_Hybrid_RRR_20_RRR_pure.csv",
+      "bytes": 653319,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/rrr_projection/daily_positions_Hybrid_RRR_20_Ridge_RRR.csv",
+      "bytes": 653005,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/rrr_projection/daily_positions_Hybrid_RRR_25_BLP_prior_RRR.csv",
+      "bytes": 653237,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/rrr_projection/daily_positions_Hybrid_RRR_25_Lowrank_BLP.csv",
+      "bytes": 653034,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/rrr_projection/daily_positions_Hybrid_RRR_25_PCA_prior_RRR.csv",
+      "bytes": 653171,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/rrr_projection/daily_positions_Hybrid_RRR_25_RRR_pure.csv",
+      "bytes": 653209,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/rrr_projection/daily_positions_Hybrid_RRR_25_Ridge_RRR.csv",
+      "bytes": 653243,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/rrr_projection/daily_positions_Hybrid_RRR_50_BLP_prior_RRR.csv",
+      "bytes": 653173,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/rrr_projection/daily_positions_Hybrid_RRR_50_Lowrank_BLP.csv",
+      "bytes": 653098,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/rrr_projection/daily_positions_Hybrid_RRR_50_PCA_prior_RRR.csv",
+      "bytes": 653180,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/rrr_projection/daily_positions_Hybrid_RRR_50_RRR_pure.csv",
+      "bytes": 653083,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/rrr_projection/daily_positions_Hybrid_RRR_50_Ridge_RRR.csv",
+      "bytes": 653326,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/rrr_projection/daily_positions_LowrankBLP_SRE_Lowrank_BLP.csv",
+      "bytes": 653181,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/rrr_projection/daily_positions_P6P3_only_BLP_prior_RRR.csv",
+      "bytes": 653097,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/rrr_projection/daily_positions_P6P3_only_Lowrank_BLP.csv",
+      "bytes": 653253,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/rrr_projection/daily_positions_P6P3_only_PCA_prior_RRR.csv",
+      "bytes": 653188,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/rrr_projection/daily_positions_P6P3_only_RRR_pure.csv",
+      "bytes": 653024,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/rrr_projection/daily_positions_P6P3_only_Ridge_RRR.csv",
+      "bytes": 653038,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/rrr_projection/daily_positions_P6_only_BLP_prior_RRR.csv",
+      "bytes": 653225,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/rrr_projection/daily_positions_P6_only_Lowrank_BLP.csv",
+      "bytes": 653106,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/rrr_projection/daily_positions_P6_only_PCA_prior_RRR.csv",
+      "bytes": 653219,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/rrr_projection/daily_positions_P6_only_RRR_pure.csv",
+      "bytes": 653110,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/rrr_projection/daily_positions_P6_only_Ridge_RRR.csv",
+      "bytes": 653114,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/rrr_projection/daily_positions_P7P3_only_Lowrank_BLP.csv",
+      "bytes": 653253,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/rrr_projection/daily_positions_P7_only_Lowrank_BLP.csv",
+      "bytes": 653106,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/rrr_projection/daily_positions_RRR_SRE_BLP_prior_RRR.csv",
+      "bytes": 653164,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/rrr_projection/daily_positions_RRR_SRE_Lowrank_BLP.csv",
+      "bytes": 653181,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/rrr_projection/daily_positions_RRR_SRE_PCA_prior_RRR.csv",
+      "bytes": 653199,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/rrr_projection/daily_positions_RRR_SRE_RRR_pure.csv",
+      "bytes": 653257,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/rrr_projection/daily_positions_RRR_SRE_Ridge_RRR.csv",
+      "bytes": 653195,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/rrr_projection/daily_positions_SRE_current_BLP_prior_RRR.csv",
+      "bytes": 653172,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/rrr_projection/daily_positions_SRE_current_Lowrank_BLP.csv",
+      "bytes": 653172,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/rrr_projection/daily_positions_SRE_current_PCA_prior_RRR.csv",
+      "bytes": 653172,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/rrr_projection/daily_positions_SRE_current_RRR_pure.csv",
+      "bytes": 653172,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/rrr_projection/daily_positions_SRE_current_Ridge_RRR.csv",
+      "bytes": 653172,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/rrr_projection/daily_returns.csv",
+      "bytes": 2422746,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/rrr_projection/drawdown_timeseries.csv",
+      "bytes": 1622578,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/rrr_projection/ensemble_comparison_5bps.csv",
+      "bytes": 112378,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/rrr_projection/ic_timeseries.csv",
+      "bytes": 135444,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/rrr_projection/long_short_contribution.csv",
+      "bytes": 815,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/rrr_projection/oos_ranking_5bps.csv",
+      "bytes": 2639009,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/rrr_projection/oos_ranking_7p5bps.csv",
+      "bytes": 2192311,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/rrr_projection/report.md",
+      "bytes": 4809,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/rrr_projection/rolling_metrics.csv",
+      "bytes": 120871,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/rrr_projection/rrr_diagnostics.csv",
+      "bytes": 2920660,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/rrr_projection/rrr_param_sensitivity.csv",
+      "bytes": 2137786,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/rrr_projection/signal_correlations.csv",
+      "bytes": 532,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/rrr_projection/summary.csv",
+      "bytes": 25348253,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/rrr_projection/summary_5bps.csv",
+      "bytes": 6380355,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/rrr_projection/variant_comparison_5bps.csv",
+      "bytes": 61432,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sector_relative_ensemble_pls_extended/audit_report_extended.json",
+      "bytes": 3203,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sector_relative_ensemble_pls_extended/backtest_log.txt",
+      "bytes": 2765,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sector_relative_ensemble_pls_extended/config_used.yaml",
+      "bytes": 1588,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sector_relative_ensemble_pls_extended/daily_positions_extended.csv",
+      "bytes": 24657366,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sector_relative_ensemble_pls_extended/daily_returns_extended.csv",
+      "bytes": 7267866,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sector_relative_ensemble_pls_extended/daily_signals_extended.csv",
+      "bytes": 49893698,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sector_relative_ensemble_pls_extended/diagnostic_cost_sensitivity.csv",
+      "bytes": 32796,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sector_relative_ensemble_pls_extended/diagnostic_ic_summary.csv",
+      "bytes": 25050,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sector_relative_ensemble_pls_extended/diagnostic_inverted_pls.csv",
+      "bytes": 21029,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sector_relative_ensemble_pls_extended/drawdown_regime_analysis.csv",
+      "bytes": 20029,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sector_relative_ensemble_pls_extended/filter_strategy_summary_common.csv",
+      "bytes": 27528,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sector_relative_ensemble_pls_extended/filter_strategy_summary_native.csv",
+      "bytes": 27528,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sector_relative_ensemble_pls_extended/plots/cost_sensitivity_pls.png",
+      "bytes": 119047,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sector_relative_ensemble_pls_extended/plots/cumulative_filter_strategies.png",
+      "bytes": 98853,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sector_relative_ensemble_pls_extended/plots/ic_by_variant.png",
+      "bytes": 32274,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sector_relative_ensemble_pls_extended/plots/target_variant_comparison.png",
+      "bytes": 89752,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sector_relative_ensemble_pls_extended/signal_correlation_extended.csv",
+      "bytes": 3648,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sector_relative_ensemble_pls_extended/target_variant_summary_common.csv",
+      "bytes": 23167,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sector_relative_ensemble_pls_extended/target_variant_summary_native.csv",
+      "bytes": 23167,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/adv_participation_by_aum.csv",
+      "bytes": 5800,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/audit/capacity_audit.csv",
+      "bytes": 129,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/audit/config_audit.csv",
+      "bytes": 119,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/audit/cost_model_audit.csv",
+      "bytes": 138,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/audit/data_availability_audit.csv",
+      "bytes": 133,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/audit/etf_cost_scenario_audit.csv",
+      "bytes": 120,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/audit/lookahead_bias_audit.csv",
+      "bytes": 123,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/audit/missing_data_audit.csv",
+      "bytes": 104,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/audit/point_in_time_selection_audit.csv",
+      "bytes": 152,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/audit/price_alignment_audit.csv",
+      "bytes": 147,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/audit/sector_mapping_audit.csv",
+      "bytes": 106,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/audit/sector_weight_consistency_audit.csv",
+      "bytes": 153,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/audit/shortability_audit.csv",
+      "bytes": 133,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/audit/sre_signal_consistency_audit.csv",
+      "bytes": 143,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/audit/stock_cost_scenario_audit.csv",
+      "bytes": 131,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/audit/stock_expansion_exposure_audit.csv",
+      "bytes": 212,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/audit/ticker_survivorship_audit.csv",
+      "bytes": 154,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/audit_summary.csv",
+      "bytes": 1633,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/borrow_cost_sensitivity.csv",
+      "bytes": 3947,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/borrow_fee_impact.csv",
+      "bytes": 3891,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/capacity_by_aum.png",
+      "bytes": 108771,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/capacity_summary.csv",
+      "bytes": 4480,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/capacity_warning_days.csv",
+      "bytes": 34,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/cost_by_model.csv",
+      "bytes": 4513,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/cost_by_ticker.csv",
+      "bytes": 703741,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/cost_by_ticker_SRE_stock_top3_cap.csv",
+      "bytes": 3144655,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/cost_contribution_by_ticker.png",
+      "bytes": 66409,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/cost_contribution_summary.csv",
+      "bytes": 2299,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/cost_contribution_summary_SRE_stock_top3_cap.csv",
+      "bytes": 21667,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/daily_active_name_count.csv",
+      "bytes": 105175,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/daily_costs.csv",
+      "bytes": 2310914,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/daily_drawdowns.csv",
+      "bytes": 2111535,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/daily_equity_curves.csv",
+      "bytes": 2040604,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/daily_execution_turnover.csv",
+      "bytes": 372431,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/daily_gross_exposure.csv",
+      "bytes": 211602,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/daily_gross_returns.csv",
+      "bytes": 422292,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/daily_net_exposure.csv",
+      "bytes": 397654,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/daily_net_returns.csv",
+      "bytes": 2888404,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/daily_rebalance_turnover.csv",
+      "bytes": 55535,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/deployment_classification.csv",
+      "bytes": 11409,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/drawdowns_full.png",
+      "bytes": 70687,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/drawdowns_matched.png",
+      "bytes": 93488,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/drawdowns_oos.png",
+      "bytes": 61207,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/equity_curves_full.png",
+      "bytes": 61185,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/equity_curves_matched.png",
+      "bytes": 88209,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/equity_curves_oos.png",
+      "bytes": 67370,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/execution_turnover_by_ticker.csv",
+      "bytes": 807908,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/final_report.md",
+      "bytes": 72577,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/high_participation_tickers.csv",
+      "bytes": 15095958,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/max_single_name_weight_timeseries.png",
+      "bytes": 104807,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/metrics_summary_full.csv",
+      "bytes": 18673,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/metrics_summary_matched.csv",
+      "bytes": 18475,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/metrics_summary_oos.csv",
+      "bytes": 18516,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/metrics_summary_train.csv",
+      "bytes": 7056,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/model_ranking_full.csv",
+      "bytes": 19095,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/model_ranking_matched.csv",
+      "bytes": 19146,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/model_ranking_oos.csv",
+      "bytes": 18855,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/one_way_cost_assumptions.csv",
+      "bytes": 234,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/pnl_contribution_by_ticker.png",
+      "bytes": 64846,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/proxy_correlation_heatmap.png",
+      "bytes": 35634,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/proxy_quality_summary.csv",
+      "bytes": 245,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/proxy_quality_summary_SRE_stock_top10_cap.csv",
+      "bytes": 242,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/proxy_quality_summary_SRE_stock_top10_equal.csv",
+      "bytes": 243,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/proxy_quality_summary_SRE_stock_top10_liquidity.csv",
+      "bytes": 239,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/proxy_quality_summary_SRE_stock_top1_proxy.csv",
+      "bytes": 245,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/proxy_quality_summary_SRE_stock_top3_cap.csv",
+      "bytes": 244,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/proxy_quality_summary_SRE_stock_top3_equal.csv",
+      "bytes": 242,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/proxy_quality_summary_SRE_stock_top3_liquidity.csv",
+      "bytes": 243,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/proxy_quality_summary_SRE_stock_top5_cap.csv",
+      "bytes": 243,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/proxy_quality_summary_SRE_stock_top5_equal.csv",
+      "bytes": 243,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/proxy_quality_summary_SRE_stock_top5_liquidity.csv",
+      "bytes": 243,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/rebalance_turnover_by_ticker.csv",
+      "bytes": 41278,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/relative_comparison_vs_etf_3ticks_full.csv",
+      "bytes": 17400,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/relative_comparison_vs_etf_base.csv",
+      "bytes": 32600,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/sector_proxy_beta.csv",
+      "bytes": 455,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/sector_proxy_correlation.csv",
+      "bytes": 463,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/sector_proxy_diagnostics_SRE_stock_top10_cap.csv",
+      "bytes": 2210,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/sector_proxy_diagnostics_SRE_stock_top10_equal.csv",
+      "bytes": 2207,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/sector_proxy_diagnostics_SRE_stock_top10_liquidity.csv",
+      "bytes": 2197,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/sector_proxy_diagnostics_SRE_stock_top1_proxy.csv",
+      "bytes": 2201,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/sector_proxy_diagnostics_SRE_stock_top3_cap.csv",
+      "bytes": 2209,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/sector_proxy_diagnostics_SRE_stock_top3_equal.csv",
+      "bytes": 2201,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/sector_proxy_diagnostics_SRE_stock_top3_liquidity.csv",
+      "bytes": 2194,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/sector_proxy_diagnostics_SRE_stock_top5_cap.csv",
+      "bytes": 2208,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/sector_proxy_diagnostics_SRE_stock_top5_equal.csv",
+      "bytes": 2195,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/sector_proxy_diagnostics_SRE_stock_top5_liquidity.csv",
+      "bytes": 2201,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/sector_proxy_residual_volatility.csv",
+      "bytes": 480,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/sector_proxy_same_sign_hit_rate.csv",
+      "bytes": 470,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/sector_proxy_tracking_error.csv",
+      "bytes": 474,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/sector_signals_sre.csv",
+      "bytes": 919113,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/sector_weights_sre.csv",
+      "bytes": 652337,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/short_constraint_impact.csv",
+      "bytes": 52,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/short_unavailable_days.csv",
+      "bytes": 12,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/shortability_summary.csv",
+      "bytes": 151,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/stock_basket_allocations_by_date.csv",
+      "bytes": 2877226,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/stock_basket_constituents_by_date.csv",
+      "bytes": 1928415,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/stock_weights_top10_cap.csv",
+      "bytes": 4329637,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/stock_weights_top10_equal.csv",
+      "bytes": 4315166,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/stock_weights_top10_liquidity.csv",
+      "bytes": 4330114,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/stock_weights_top1_proxy.csv",
+      "bytes": 2654576,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/stock_weights_top3_cap.csv",
+      "bytes": 3082583,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/stock_weights_top3_equal.csv",
+      "bytes": 3081057,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/stock_weights_top3_liquidity.csv",
+      "bytes": 3083562,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/stock_weights_top5_cap.csv",
+      "bytes": 3490741,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/stock_weights_top5_equal.csv",
+      "bytes": 3487590,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/stock_weights_top5_liquidity.csv",
+      "bytes": 3492373,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/tracking_error_heatmap.png",
+      "bytes": 117667,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/worst_tracking_error_days.csv",
+      "bytes": 18044,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/worst_tracking_error_days_SRE_stock_top10_cap.csv",
+      "bytes": 17356,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/worst_tracking_error_days_SRE_stock_top10_equal.csv",
+      "bytes": 17361,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/worst_tracking_error_days_SRE_stock_top10_liquidity.csv",
+      "bytes": 17317,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/worst_tracking_error_days_SRE_stock_top1_proxy.csv",
+      "bytes": 17175,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/worst_tracking_error_days_SRE_stock_top3_cap.csv",
+      "bytes": 17315,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/worst_tracking_error_days_SRE_stock_top3_equal.csv",
+      "bytes": 17296,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/worst_tracking_error_days_SRE_stock_top3_liquidity.csv",
+      "bytes": 17280,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/worst_tracking_error_days_SRE_stock_top5_cap.csv",
+      "bytes": 17306,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/worst_tracking_error_days_SRE_stock_top5_equal.csv",
+      "bytes": 17346,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    },
+    {
+      "path": "results/sre_etf_vs_stock_basket/worst_tracking_error_days_SRE_stock_top5_liquidity.csv",
+      "bytes": 17229,
+      "allocated_bytes": 0,
+      "flags": 1073741920
+    }
+  ],
+  "baseline_before_hydration_allocated_bytes": 1069056,
+  "post_attempt_results_allocated_bytes": 1737695232,
+  "post_attempt_scope_allocated_bytes": 1736626176,
+  "inventory_snapshot_stage": "historical metadata snapshot during partial iCloud hydration; allocated byte counts are not post-cleanup values",
+  "execution": {
+    "status": "complete",
+    "completed_local_date": "2026-10-10",
+    "archive": "var/results/historical_research_results_20261010.tar.gz",
+    "archive_bytes": 906373990,
+    "archive_sha256": "03caae916dbdac55889648a5df0c7051944a98104d70eab5dbb74795b9f54ea5",
+    "source_bytes": 4490416228,
+    "compression_ratio": 0.2018,
+    "file_count": 390,
+    "directory_count": 18,
+    "all_file_contents_sha256_verified": true,
+    "source_directories_removed_after_verification": true,
+    "source_directories": [
+      "results/blp_enhanced_refined",
+      "results/baseline_reconciliation",
+      "results/etf_basket_substitution",
+      "results/sector_relative_ensemble_pls_extended",
+      "results/sre_etf_vs_stock_basket",
+      "results/rrr_projection",
+      "results/production_shadow_run_package"
+    ],
+    "icloud_sync": {
+      "archive_item_registered": true,
+      "last_reported_progress": 0.3278,
+      "last_reported_uploaded_bytes": 311994120,
+      "last_reported_total_bytes": 951853668,
+      "completion_confirmed": false
+    },
+    "manifest": "reports/20261010_repository_cleanup/historical_results_manifest.json",
+    "restore_command": "tar -xzf var/results/historical_research_results_20261010.tar.gz -C ."
+  }
+}

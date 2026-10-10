@@ -1,0 +1,50 @@
+[
+  {
+    "name": "markdown-it-py",
+    "version": "4.2.0",
+    "lock_version": "4.2.0",
+    "path": "/Users/takahashimasatoshi/.cache/uv/archive-v0/f8HIwzEpjYSAeB1e"
+  },
+  {
+    "name": "typing-extensions",
+    "version": "4.16.0",
+    "lock_version": "4.16.0",
+    "path": "/Users/takahashimasatoshi/.cache/uv/archive-v0/wR_avxaT8YjJqoiD"
+  },
+  {
+    "name": "import-linter",
+    "version": "2.13",
+    "lock_version": "2.13",
+    "path": "/Users/takahashimasatoshi/.cache/uv/archive-v0/v2CEqQMquo20qIxW"
+  },
+  {
+    "name": "mdurl",
+    "version": "0.1.2",
+    "lock_version": "0.1.2",
+    "path": "/Users/takahashimasatoshi/.cache/uv/archive-v0/IcGA2Qjk01-NfrW3"
+  },
+  {
+    "name": "pygments",
+    "version": "2.20.0",
+    "lock_version": "2.20.0",
+    "path": "/Users/takahashimasatoshi/.cache/uv/archive-v0/3WzkBmQW7usezYIm"
+  },
+  {
+    "name": "click",
+    "version": "8.4.2",
+    "lock_version": "8.4.2",
+    "path": "/Users/takahashimasatoshi/.cache/uv/archive-v0/399r5fa-HyfnWUIh"
+  },
+  {
+    "name": "grimp",
+    "version": "3.15",
+    "lock_version": "3.15",
+    "path": "/Users/takahashimasatoshi/.cache/uv/archive-v0/DAwEkNW2eboEfvkD"
+  },
+  {
+    "name": "rich",
+    "version": "15.0.0",
+    "lock_version": "15.0.0",
+    "path": "/Users/takahashimasatoshi/.cache/uv/archive-v0/0OxvFVkP0qsahQz7"
+  }
+]

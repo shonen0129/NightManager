@@ -1,0 +1,5 @@
+src/leadlag/core/market_calendar.py:111: error: Returning Any from function declared to return "bool | None"  [no-any-return]
+src/leadlag/core/market_calendar.py:187: error: Returning Any from function declared to return "str | None"  [no-any-return]
+src/leadlag/core/gap_adjustment.py:195: error: Returning Any from function declared to return "ndarray[tuple[Any, ...], dtype[Any]]"  [no-any-return]
+src/leadlag/models/blpx/model_meta.py:82: error: Argument 1 to "append" of "list" has incompatible type "list[object]"; expected "list[float]"  [arg-type]
+Found 4 errors in 3 files (checked 147 source files)

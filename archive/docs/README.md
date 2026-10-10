@@ -1,73 +1,26 @@
-# Sector Relative Ensemble (PCA-Ensemble) Strategy
+# 旧文書・参考資料索引
 
-This repository contains the codebase and tools for the **Sector Relative Ensemble (PCA-Ensemble)** strategy, which is the official production trading model of the Lead-Lag Market-Neutral Fund.
+このディレクトリは当時の記述を保存する履歴資料であり、現行の運用・実装指示ではない。現行仕様は [文書索引](../../docs/README.md) と [AGENTS.md](../../AGENTS.md) を参照する。
 
-PCA-Ensemble was previously referred to as the `Raw-PCA/Residual-PCA signal-level 50/50 ensemble`. The naming with experimental numbers (Raw-PCA, Residual-PCA, P5, P6) is deprecated.
+2026-10-10の整理では下表の旧文書を本文を変更せず移設した。旧API、V1/PCAフォールバック、移行中の互換層、当時の設定値・実験成績は現在の仕様や受入結果を保証しない。研究スクリプトが参照する設計案も、実装採用や完了を意味しない。
 
-## Model Overview
-PCA-Ensemble combines the standard Production signal (Raw-PCA) with a TOPIX-residualized Production target signal (Residual-PCA) at the signal level. It uses a cross-sectional Z-score normalization for both components before taking a 50/50 average. Portfolio weights are built using the canonical signal-weighted allocator.
+| 元の場所 | 保存先・内容 |
+|---|---|
+| docs/MODE_USAGE_GUIDE.md | [旧CLIガイド](MODE_USAGE_GUIDE.md) |
+| docs/model_summary_for_improvement.md | [旧モデル要約](model_summary_for_improvement.md) |
+| docs/運用方針書.md | [旧運用方針案](運用方針書.md) |
+| docs/研究メモ202606.md | [2026年6月研究メモ](研究メモ202606.md) |
+| docs/quants.md | [量的取引の参考資料](quants.md) |
+| docs/design/A_theory_design_specs.md | [理論面の改善設計案](design/A_theory_design_specs.md) |
+| docs/design/B_refactor_specs_and_memos.md | [旧コード改善仕様・メモ](design/B_refactor_specs_and_memos.md) |
+| docs/design/B3_composition_refactor_proposal.md | [旧composition提案](design/B3_composition_refactor_proposal.md) |
+| docs/design/B8_leak_freedom_analysis.md | [当時のルックアヘッド解析](design/B8_leak_freedom_analysis.md) |
+| docs/design/C_validation_frameworks.md | [旧検証フレームワーク案](design/C_validation_frameworks.md) |
+| docs/design/subsector_refinement_plan.md | [サブセクター精緻化計画](design/subsector_refinement_plan.md) |
+| archive/docs/README.md | [旧PCA-Ensemble概要](pca_ensemble_overview.md) |
 
-> [!WARNING]
-> Uniform/equal-weighting is strictly forbidden in PCA-Ensemble. The model must always use `signals.build_weights(..., weight_mode="signal")` to maintain high risk-adjusted Sharpe profiles.
+[運用方針書オリジナル](運用方針書オリジナル.md) も過去版として保存する。
 
-## Data Requirements
-Execution requires daily US sector ETF returns and Japanese TOPIX-17 sector ETF prices, as well as TOPIX index price series for OLS residualization. These can be fetched automatically via yfinance or kabuステーション API.
+無効化済みの旧ネスト設定は [configs/archive/production_nested_legacy_20260813.yaml](../../configs/archive/production_nested_legacy_20260813.yaml) に保存した。本番設定は `configs/production/production.yaml` とその継承先を使う。
 
-## Configuration File
-The canonical production configuration is stored in:
-`configs/production/production.yaml`
-
-Do not create dedicated model configurations like `configs/sector_relative_ensemble.yaml`. Maintain PCA-Ensemble parameters directly inside `configs/production/production.yaml`.
-
-## Commands
-
-### Historical Backtesting
-To run a historical backtest of the PCA-Ensemble model under a 5 bps slippage assumption:
-```bash
-python tools/research/backtest_sector_relative_ensemble.py \
-    --config configs/production/production.yaml \
-    --slippage-bps 5 \
-    --output-dir results/sector_relative_ensemble/
-```
-
-### Daily Dry Run / Execution
-To run PCA-Ensemble for daily signal and order generation:
-```bash
-python tools/research/run_daily_sector_relative_ensemble.py \
-    --config configs/production/production.yaml \
-    --signal-date latest \
-    --output-dir live/sector_relative_ensemble/ \
-    --dry-run
-```
-
-## Output Files
-
-### Backtest Outputs (`results/sector_relative_ensemble/`)
-- `metrics_summary_train.csv`, `metrics_summary_oos.csv`, `metrics_summary_full.csv`
-- `daily_gross_returns.csv`, `daily_costs.csv`, `daily_net_returns.csv`, `daily_equity_curve.csv`, `daily_drawdown.csv`, `daily_turnover.csv`
-- `signals.csv`, `normalized_signals.csv`, `weights.csv`, `positions.csv`
-- `component_signal_correlation.csv`, `component_rank_correlation.csv`, `component_signal_agreement.csv`, `top_drawdown_periods.csv`, `slippage_sensitivity.csv`
-- `equity_curve.png`, `drawdown.png`, `rolling_sharpe.png`, `rolling_ic.png`, `turnover.png`, `signal_heatmap.png`
-- `final_report.md`
-
-### Daily Live Outputs (`live/sector_relative_ensemble/`)
-- `latest_signal.csv`
-- `latest_weights.csv`
-- `latest_orders.csv`
-- `latest_audit.json`
-- `run_log.txt`
-
-## Safety Audits
-The backtest automatically triggers a set of safety checks written to `results/sector_relative_ensemble/audit/`:
-- `baseline_definition_audit.csv`
-- `signal_weighting_audit.csv`
-- `date_alignment_audit.csv`
-- `residualization_leakage_audit.csv`
-- `cost_consistency_audit.csv`
-- `weight_constraint_audit.csv`
-- `ticker_order_audit.csv`
-- `config_audit.csv`
-
-## Deprecated Experiments
-All deprecated experimental scripts (P2, P5, P6, Gap Shrinkage, Low-Rank models, risk overlays, etc.) have been archived under `git tag archive-2026-08` の `archive/experiments/`. For details on why these were not adopted, see:
-[deprecated_experiments.md](deprecated_experiments.md)
+歴史レポートに記載された旧パスは、当時の証跡として保持する。移設一覧と本文のSHA-256は [整理記録](../../reports/20261010_repository_cleanup/cleanup_manifest.json) を参照する。
