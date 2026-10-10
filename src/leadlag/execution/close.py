@@ -355,10 +355,12 @@ def _submit_close_order_batches(
     close_results: list[dict[str, Any]] = []
     if dry_run:
         logger.info("[DRY RUN MODE] Simulating position close (no actual orders sent)...")
-        for meta in order_plan.order_metadata:
+        for index, meta in enumerate(order_plan.order_metadata):
             clean = meta["ticker"].replace(".T", "")
             simulated = {
-                "order_id": f"SIM-CLOSE-{datetime.now().strftime('%Y%m%d%H%M%S')}-{clean}",
+                "order_id": (
+                    f"SIM-CLOSE-{datetime.now().strftime('%Y%m%d%H%M%S')}-{clean}-{index}"
+                ),
                 "status": "SIMULATED",
                 "ticker": meta["ticker"],
                 "side": meta["side"],
