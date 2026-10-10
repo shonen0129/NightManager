@@ -23,6 +23,7 @@ import pandas as pd
 from leadlag.config.paths import project_root
 from leadlag.domain.inputs import DecisionInputs
 from leadlag.domain.portfolio import PortfolioDecision
+from leadlag.execution.account_risk import AccountRiskPreflight
 from leadlag.reporting.results_format import update_run_manifest
 
 RUNTIME_MANIFEST_VERSION = "v1"
@@ -323,8 +324,41 @@ def update_execution_manifest(
     return update_run_manifest(str(output_dir), update)
 
 
+def update_account_risk_manifest(
+    output_dir: str | Path,
+    preflight: AccountRiskPreflight,
+) -> str:
+    """Record the exact immutable account-risk evidence used by the decision gate."""
+    if preflight.snapshot is not None:
+        snapshot = preflight.snapshot
+        evidence: dict[str, Any] = {
+            "required": True,
+            "available": True,
+            "snapshot_id": snapshot.snapshot_id,
+            "snapshot_sha256": snapshot.snapshot_sha256,
+            "valid_for_trade_date": snapshot.valid_for_trade_date,
+            "observed_through": snapshot.observed_through,
+            "observed_at": snapshot.observed_at.isoformat(),
+            "account_key": snapshot.account_key,
+            "source": snapshot.source,
+            "source_ids": list(snapshot.source_ids),
+            "source_sha256s": list(snapshot.source_sha256s),
+            "pnl_basis": snapshot.pnl_basis,
+        }
+    elif preflight.required:
+        evidence = {
+            "required": True,
+            "available": False,
+            "reason": str(preflight.error) if preflight.error is not None else "missing evidence",
+        }
+    else:
+        evidence = {"required": False, "available": False, "status": "not_required"}
+    return update_run_manifest(str(output_dir), {"account_risk": evidence})
+
+
 __all__ = [
     "build_decision_manifest",
+    "update_account_risk_manifest",
     "update_decision_manifest",
     "update_execution_manifest",
 ]
