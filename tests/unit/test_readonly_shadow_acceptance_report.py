@@ -207,6 +207,10 @@ def test_market_to_shadow_passes_while_missing_risk_keeps_stage1_blocked(tmp_pat
         "gap": snapshot_id,
         "shadow": snapshot_id,
     }
+    frozen = report["checks"]["frozen_snapshot"]
+    assert frozen["available_at"] == f"{TRADE_DATE}T09:10:06+09:00"
+    assert frozen["available_at_semantics"] == "local_response_receipt"
+    assert frozen["source"] == "tachibana:CLMMfdsGetMarketPrice"
     assert report["issue_27_overall_status"] == acceptance.DEFERRED
 
 
