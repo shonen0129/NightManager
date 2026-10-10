@@ -17,9 +17,22 @@ def _compute_one_day_target_returns(
     explicitly invalid observations and invalid realized prices remain NaN.
     """
     jp_oc = df_exec[[f"jp_oc_{tk}" for tk in jp_tickers]].to_numpy(dtype=float)
-    opens = df_exec[[f"jp_open_trade_{tk}" for tk in jp_tickers]].to_numpy(dtype=float)
-    with np.errstate(over="ignore", invalid="ignore"):
-        closes = opens * (1.0 + jp_oc)
+    open_cols = [f"jp_open_trade_{tk}" for tk in jp_tickers]
+    if set(open_cols).issubset(df_exec.columns):
+        opens = df_exec[open_cols].to_numpy(dtype=float)
+        with np.errstate(over="ignore", invalid="ignore"):
+            closes = opens * (1.0 + jp_oc)
+        realized_valid = (
+            np.isfinite(opens)
+            & (opens > 0)
+            & np.isfinite(jp_oc)
+            & np.isfinite(closes)
+            & (closes > 0)
+        )
+    else:
+        # Legacy return-only research fixtures do not carry realized open prices.
+        # Preserve that boundary while still rejecting non-finite/impossible returns.
+        realized_valid = np.isfinite(jp_oc) & (jp_oc > -1.0)
 
     if open_910_returns is None:
         raise ValueError("h=1 target calculation requires explicit open_910_returns")
@@ -32,13 +45,6 @@ def _compute_one_day_target_returns(
         )
     adjusted = returns_df.to_numpy(dtype=float)
 
-    realized_valid = (
-        np.isfinite(opens)
-        & (opens > 0)
-        & np.isfinite(jp_oc)
-        & np.isfinite(closes)
-        & (closes > 0)
-    )
     quote_missing = np.isnan(adjusted)
     quote_valid = np.isfinite(adjusted) & (adjusted > -1.0)
 
