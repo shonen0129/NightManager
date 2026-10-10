@@ -55,3 +55,17 @@ def test_blpx_window_fails_closed_when_no_complete_history_remains() -> None:
 
     with pytest.raises(ValueError, match="No complete finite rows"):
         _prepare_window_returns(_model(), returns, current_index=2, rolling_std=None)
+
+
+def test_blpx_window_keeps_predictor_fallback_while_filtering_labels() -> None:
+    returns = np.array(
+        [
+            [np.nan, 0.02],
+            [0.02, 0.03],
+        ],
+        dtype=float,
+    )
+
+    window = _prepare_window_returns(_model(), returns, current_index=2, rolling_std=None)
+
+    np.testing.assert_allclose(window, np.array([[0.0, 0.02], [0.02, 0.03]]))
