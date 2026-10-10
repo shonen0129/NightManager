@@ -7,8 +7,8 @@ An incomplete manifest must never permit new-risk trading.
 from __future__ import annotations
 
 import re
-from datetime import datetime
 from collections.abc import Mapping
+from datetime import datetime
 from typing import Any
 
 REQUIRED_SOURCES = (
