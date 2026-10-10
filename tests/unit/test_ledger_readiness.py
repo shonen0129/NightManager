@@ -64,6 +64,12 @@ def test_incomplete_or_ambiguous_evidence_remains_blocked(mutation, expected):
     assert expected in " | ".join(assess_ledger_readiness(manifest))
 
 
+def test_observed_at_before_session_date_is_blocked():
+    manifest = _manifest()
+    manifest["observed_at"] = "2026-10-08T23:59:59+09:00"
+    assert "observed_at cannot precede session_date" in assess_ledger_readiness(manifest)
+
+
 def test_no_source_manifest_is_never_ready():
     assert assess_ledger_readiness({})
 
