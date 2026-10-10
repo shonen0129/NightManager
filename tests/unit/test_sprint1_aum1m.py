@@ -52,18 +52,20 @@ def test_rounding_to_lot_size_uses_canonical_allocator():
 
 
 def test_credit_cost_calculation_uses_inventory_ledger():
-    """Verify one calendar day of financing, borrow, and reverse costs on real inventory."""
+    """Verify weekend holding fees and liquidation slippage on real long/short inventory."""
     aum = 1_000_000.0
     buy_rate = 0.025
     borrow_rate = 0.0115
     reverse_fee_bps = 10.0
+    slip = 0.001
+    held_days = 3
 
     result = simulate_daily_pnl(
         weights=np.zeros((1, 2)),
         target_returns=np.zeros((1, 2)),
         gap_returns=np.zeros((1, 2)),
-        sim_dates=pd.DatetimeIndex(["2026-01-06"]),
-        slip=0.0,
+        sim_dates=pd.DatetimeIndex(["2026-10-05"]),
+        slip=slip,
         financing_daily=buy_rate / 365.0,
         borrow_daily=borrow_rate / 365.0,
         reverse_daily=reverse_fee_bps / 10000.0,
@@ -71,15 +73,20 @@ def test_credit_cost_calculation_uses_inventory_ledger():
         alpha_short=0.5,
         initial_holdings=np.array([100_000.0, -50_000.0]),
         initial_cash=950_000.0,
-        initial_mark_date="2026-01-05",
+        initial_mark_date="2026-10-02",
     )
 
-    np.testing.assert_allclose(result["financing_costs"][0] * aum, 100_000.0 * buy_rate / 365.0)
-    np.testing.assert_allclose(result["borrow_costs"][0] * aum, 50_000.0 * borrow_rate / 365.0)
-    np.testing.assert_allclose(
-        result["reverse_costs"][0] * aum,
-        50_000.0 * reverse_fee_bps / 10000.0,
-    )
+    expected_slip = (100_000.0 + 50_000.0) * slip
+    expected_financing = 100_000.0 * buy_rate * held_days / 365.0
+    expected_borrow = 50_000.0 * borrow_rate * held_days / 365.0
+    expected_reverse = 50_000.0 * reverse_fee_bps * held_days / 10000.0
+    expected_total = expected_slip + expected_financing + expected_borrow + expected_reverse
+
+    np.testing.assert_allclose(result["slip_costs"][0] * aum, expected_slip)
+    np.testing.assert_allclose(result["financing_costs"][0] * aum, expected_financing)
+    np.testing.assert_allclose(result["borrow_costs"][0] * aum, expected_borrow)
+    np.testing.assert_allclose(result["reverse_costs"][0] * aum, expected_reverse)
+    np.testing.assert_allclose(result["costs"][0] * aum, expected_total)
     np.testing.assert_allclose(
         result["gross_returns"],
         np.asarray(result["net_returns"]) + np.asarray(result["costs"]),
