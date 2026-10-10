@@ -33,7 +33,7 @@ _ETF_META_KEY = "raw_ohlc_meta"
 _INTRADAY_KEY = "intraday_{interval}"
 _DF_EXEC_KEY = "df_exec"
 _DF_EXEC_META_KEY = "df_exec_meta"
-_DF_EXEC_CONTRACT_VERSION = "pre-inception-proxy-v2"
+_DF_EXEC_CONTRACT_VERSION = "pit-topix-close-v3"
 
 _INTRADAY_SPLIT_BASIS_ATTR = "leadlag_intraday_split_basis"
 _INTRADAY_SPLIT_BASIS_VERSION = "1629_20260330_500"

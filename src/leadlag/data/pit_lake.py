@@ -18,7 +18,7 @@ import numpy as np
 import pandas as pd
 
 from leadlag.data.intraday_inputs import resolve_execution_prices
-from leadlag.data.tickers import JP_TICKERS, US_TICKERS
+from leadlag.data.tickers import JP_TICKERS, TOPIX_TICKER, US_TICKERS
 from leadlag.domain.inputs import DecisionInputs, HistoricalInputs, KnownMarketInputs
 
 logger = logging.getLogger(__name__)
@@ -297,6 +297,9 @@ class PITDataLake:
                 jp_gap_returns[j] = 0.0
 
         # 3. TOPIX overnight return
+        topix_prior = float(row.get("topix_close_sig", np.nan))
+        if np.isfinite(topix_prior) and topix_prior > 0.0:
+            prev_closes[TOPIX_TICKER] = topix_prior
         topix_night_val = float(row.get("topix_night_return", 0.0))
         topix_night_return = topix_night_val if np.isfinite(topix_night_val) else 0.0
 

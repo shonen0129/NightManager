@@ -572,6 +572,10 @@ def _build_execution_records(
             jp_open_trade = jp_open_trade.fillna(0.0)
 
         record: dict = {"trade_date": trade_date, "sig_date": sig_date, "is_provisional": is_provisional}
+        record["topix_close_sig"] = (
+            float(topix_close.loc[jp_sig_date])
+            if topix_close is not None and jp_sig_date in topix_close.index else np.nan
+        )
         for tk in US_TICKERS:
             record[f"us_cc_{tk}"] = r_us[tk]
             if tk in proxy_sources:

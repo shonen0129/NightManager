@@ -522,3 +522,12 @@ market-data updaterとdecision/gap publisherは既存job guardの `live:producti
 BLPXの係数solve、固定/rolling sector prior、PCA prior、Tikhonov、confidence weighting、signal変換、非対称solve、診断構築は `core/blpx_math.py` を本番/研究の共通正本とし、係数・行列・次元を明示入力で受け取る。共通のUS-to-JP sector mappingは `data/tickers.py` に置く。window準備、相関推定、非対称共分散推定、prior hook、モデル合成は各モデル側に残す。旧数値実装とmodel helper再公開は撤去した。研究の診断キーも `z_U_t` に揃える。日次PnLは `core.pnl.simulate_daily_pnl`、gap読込は `utils.gap_matrix_io.load_gap_bundle` を直接使い、旧互換wrapperと未使用CostCalculatorは撤去した。
 
 詳しくは [監査境界の設計判断](decisions/2026-10-06-audit-boundaries.md)、[追加の設計判断](decisions/2026-10-06-adr-publication-and-shared-blpx.md)、[追加対応結果](../reports/20261006_issue_resolution_round2/report.md) を参照。
+
+Operational frozen quotes use `df_exec.topix_close_sig`, selected at the same
+historical JP signal date as the sector prior closes. `PITDataLake` exposes it
+as `prev_closes[TOPIX_TICKER]` so both the gap publisher and frozen-quote decision
+compute the TOPIX 09:10 gap from the same known close. This scalar does not add
+a traded asset or a model dimension. The df_exec cache contract is
+`pit-topix-close-v3`; older frames are rebuilt from raw ETF cache by the existing
+loader. Missing prior TOPIX prices stop frozen-quote publication. The publisher
+checks the quote date and uses the canonical `DistributionStatus.READY` outcome.

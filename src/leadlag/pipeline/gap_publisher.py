@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import pandas as pd
@@ -20,6 +20,7 @@ from leadlag.data.intraday_inputs import build_open_910_returns
 from leadlag.data.pit_lake import MarketSnapshot, PITDataLake
 from leadlag.data.quote_snapshot import FrozenQuoteSnapshot
 from leadlag.data.tickers import JP_TICKERS, TOPIX_TICKER
+from leadlag.domain.distribution import DistributionStatus
 from leadlag.domain.inputs import HistoricalInputs
 from leadlag.models.production_v2 import ProductionV2Model
 from leadlag.models.v2.distribution_source import (
@@ -50,7 +51,10 @@ def build_market_snapshot(
     trade_date: str,
 ) -> tuple[MarketSnapshot, dict[str, float], pd.Timestamp]:
     """Pair an immutable 09:10 quote snapshot with the run-owned PIT frame."""
-    decision_as_of = frozen.as_of.tz_localize(None)
+    quote_time = frozen.as_of.tz_convert("Asia/Tokyo")
+    if frozen.trade_date != trade_date or quote_time.date().isoformat() != trade_date:
+        raise ValueError("frozen quote date must match requested trade_date")
+    decision_as_of = quote_time.tz_localize(None)
     lake = PITDataLake(df_exec)
     trade_ts = pd.Timestamp(trade_date).normalize()
     if trade_ts not in lake.history_frame().index:
@@ -105,7 +109,7 @@ def compute_rank_reversal_signal(df_exec: pd.DataFrame, trade_date: str) -> np.n
     frame = df_exec.loc[:date, columns].copy()
     frame.columns = JP_TICKERS
     ranks = frame.shift(1).rank(axis=1)
-    return -ranks.diff().iloc[-1].to_numpy(dtype=float)
+    return cast(np.ndarray, -ranks.diff().iloc[-1].to_numpy(dtype=float))
 
 
 def _configured_horizons(config: AppConfig) -> tuple[int, ...]:
@@ -156,10 +160,11 @@ def publish_gap_cache(
             open_910_returns=open_910_returns,
             allow_implicit_io=False,
         )
-        if not result.is_available or result.mu_gap is None or result.Omega_gap is None:
+        if result.status != DistributionStatus.READY or result.mu_gap is None or result.Omega_gap is None:
             details = "; ".join(result.alerts) if result.alerts else result.reason.value
             raise RuntimeError(f"h={horizon} on-demand gap computation failed: {details}")
 
+        gap_inputs: tuple[np.ndarray, np.ndarray, float] | None
         if horizon == 1:
             gap_inputs = _extract_gap_inputs(
                 calculation_frame,
@@ -197,6 +202,12 @@ def publish_gap_cache(
             metadata,
         )
 
+    rank_signal = None
+    if app_config.v2.cs_overlay_enabled:
+        rank_signal = compute_rank_reversal_signal(calculation_frame, trade_date)
+        if not np.isfinite(rank_signal).all():
+            raise RuntimeError("rank-reversal signal is incomplete")
+
     # Compute every configured horizon before the first write so an input/model
     # failure cannot publish a knowingly incomplete generation.
     for horizon, (mu_gap, omega_gap, metadata) in computed.items():
@@ -223,10 +234,7 @@ def publish_gap_cache(
             raise RuntimeError(f"h={horizon} gap bundle publication failed")
 
     rank_saved = False
-    if app_config.v2.cs_overlay_enabled:
-        rank_signal = compute_rank_reversal_signal(calculation_frame, trade_date)
-        if not np.isfinite(rank_signal).all():
-            raise RuntimeError("rank-reversal signal is incomplete")
+    if rank_signal is not None:
         GapStore(gap_store).put(trade_date, "rank_reversal", rank_signal)
         rank_saved = True
 
@@ -242,7 +250,7 @@ def publish_gap_cache(
             open_910_returns=open_910_returns,
             allow_implicit_io=False,
         )
-        if not cached.is_available or cached.mu_gap is None or cached.Omega_gap is None:
+        if cached.status != DistributionStatus.READY or cached.mu_gap is None or cached.Omega_gap is None:
             details = "; ".join(cached.alerts) if cached.alerts else cached.reason.value
             raise RuntimeError(f"h={horizon} published cache failed validation: {details}")
         mu_delta = float(np.max(np.abs(np.asarray(cached.mu_gap) - expected_mu)))
