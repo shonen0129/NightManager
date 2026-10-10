@@ -21,6 +21,9 @@ ROOT = Path(__file__).resolve().parents[2]
 JST = ZoneInfo("Asia/Tokyo")
 SCHEMA_VERSION = "readonly-shadow-acceptance-preflight-v1"
 DEFAULT_CAPTURE_OUTPUT = ROOT / "var/shadow_runs/ml_overlay_value/microstructure"
+EXPECTED_CAPTURE_PROGRAM = (
+    ROOT / "scripts/batch/run_0910_microstructure_capture.sh"
+).resolve(strict=False)
 
 
 def _validated_api_url(api_url: str) -> str:
@@ -174,13 +177,7 @@ def build_preflight(
     scheduler_program = resolved_scheduler.get("program")
     scheduler_program_readonly = (
         scheduler_registered
-        and isinstance(scheduler_program, list)
-        and len(scheduler_program) >= 2
-        and scheduler_program[0] == "/bin/bash"
-        and isinstance(scheduler_program[1], str)
-        and scheduler_program[1].endswith(
-            "/scripts/batch/run_0910_microstructure_capture.sh"
-        )
+        and scheduler_program == ["/bin/bash", str(EXPECTED_CAPTURE_PROGRAM)]
     )
     scheduler_schedule_0910 = (
         scheduler_registered
