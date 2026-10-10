@@ -773,6 +773,10 @@ def run_close_positions_mode(
                 config=build_resolved_config_manifest(
                     app_config=config,
                     config_path=resolved_config_path,
+                    api_url_override=api_url,
+                    api_token_override_present=api_token is not None,
+                    api_dry_run=api_dry_run,
+                    close_position_order=close_position_order,
                 ),
             )
         except Exception as exc:  # noqa: BLE001
