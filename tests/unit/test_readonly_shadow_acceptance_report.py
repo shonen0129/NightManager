@@ -6,6 +6,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
+import pandas as pd
 from tools.validation import build_readonly_shadow_acceptance_report as acceptance
 
 from leadlag.data.gap_store import GapStore

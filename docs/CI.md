@@ -69,3 +69,6 @@ check の `app_id=15368`（GitHub Actions）を確認した。管理設定はユ
 approval要求がOFF、bypass対象なしとして保存済みであることを確認した。
 
 wheel smokeはtemporaryなdeployment rootを `LEADLAG_RUNTIME_ROOT` に指定し、installed packageのcode位置から独立したADR/macro/相対model/varの解決を検査する。運用配置ではimport前に同変数へ既存の絶対directoryを指定し、そのroot配下へconfig/model/dataを配置する。詳しくは [runtime境界ADR](decisions/2026-10-06-audit-boundaries.md) を参照。
+
+
+Issue #35 boundary: `scripts/ci/check_operational_imports.py` enumerates shell-launched production Python entry points and rejects research references in operational scheduled shells. This remains deliberately narrow; import-linter owns transitive `leadlag` package contracts.

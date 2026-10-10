@@ -18,7 +18,7 @@ description: 日米リードラグ戦略の改善・V2バックテスト・本�
 
 - バックテストは `BacktestEngine.run_v2_backtest()` または CLI `backtest` を使う。対象期間の gap store の日付・銘柄順・生成設定を検査する。
 - `ProductionV2Model` の on-demand 計算には BLPX モデルと必要な履歴・当日入力が必要。日次経路で利用可能でも、バックテストや単純ラッパーで同じ依存が注入されるとは限らない。cache 欠損のまま実行して全日フラットを戦略成績と誤認しない。
-- gap 事前計算の入口は `tools/research/compute_gap_adjusted_distribution.py` と `scripts/batch/run_gap_distribution.sh`。必要な上流成果物・鮮度は実際の引数と読込処理で確認する。アーカイブ内の V1 スクリプトを日次の必須工程として復活させない。
+- 本番gap publisherの入口は `tools/production/publish_gap_distribution.py` と `scripts/batch/run_gap_distribution.sh`。frozen 09:10 quoteとrun-owned入力から本番V2のon-demand計算を使い、canonical GapStoreへpublish後にcache経路で再検証する。`tools/research/compute_gap_adjusted_distribution.py` とdistribution diagnosticsは研究専用であり、日次の必須工程へ戻さない。
 - 日次バッチは `scripts/batch/run_decision_v2.sh` から CLI / V2 同期経路へ進む。開始時刻とデータの利用可能時刻を区別し、当日 gap の鮮度を検証する。
 
 ## 作業の分岐

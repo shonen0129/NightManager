@@ -14,6 +14,7 @@ import json
 import os
 import sqlite3
 import tempfile
+import zipfile
 from collections.abc import Mapping, Sequence
 from datetime import UTC, date, datetime
 from pathlib import Path
@@ -23,6 +24,7 @@ import numpy as np
 
 from leadlag.config.paths import project_root
 from leadlag.core.market_calendar import previous_trading_day
+from leadlag.data.adr_features import DEFAULT_ADR_FEATURES_PATH, load_adr_features
 from leadlag.data.gap_store import GapStore
 from leadlag.data.quote_snapshot import load_frozen_quote_snapshot
 from leadlag.domain.gap_bundle import canonical_json_bytes, sha256_bytes
@@ -34,12 +36,13 @@ from leadlag.execution.account_risk import (
 from leadlag.execution.config import load_config_from_yaml
 
 ROOT = project_root()
-SCHEMA_VERSION = "readonly-shadow-acceptance-report-v1"
+SCHEMA_VERSION = "readonly-shadow-acceptance-report-v2"
 DEFAULT_CAPTURE_DIR = ROOT / "var/shadow_runs/ml_overlay_value/microstructure"
 DEFAULT_GAP_STORE = ROOT / "var/live/pipeline_data/gap_adjusted_distribution/gap_store.sqlite"
 DEFAULT_SHADOW_DIR = ROOT / "var/shadow_runs/ml_overlay_research_20261009"
 DEFAULT_RISK_PATH = ROOT / "var/live/pipeline_data/account_risk/latest.json"
 DEFAULT_JOB_LOG_DIR = ROOT / "var/logs/job_guard"
+DEFAULT_ADR_BUNDLE = DEFAULT_ADR_FEATURES_PATH
 PASS = "PASS"
 FAIL = "FAIL"
 BLOCKED = "BLOCKED"
@@ -336,6 +339,58 @@ def _check_gap(path: Path, trade_date: str, snapshot_id: str | None) -> dict[str
     }
 
 
+
+def _check_adr(path: Path, trade_date: str) -> dict[str, Any]:
+    """Validate the exact-day operational ADR bundle without accepting stale reuse."""
+    if not path.exists():
+        return {"status": NOT_RUN, "reason": "adr_bundle_missing", "path": str(path)}
+    try:
+        with zipfile.ZipFile(path) as bundle:
+            manifest = json.loads(bundle.read("manifest.json"))
+        if not isinstance(manifest, dict):
+            raise ValueError("ADR manifest must be a JSON object")
+    except (OSError, KeyError, ValueError, zipfile.BadZipFile, json.JSONDecodeError) as exc:
+        return {
+            "status": FAIL,
+            "reason": "adr_manifest_unreadable",
+            "error": str(exc),
+            "path": str(path),
+        }
+
+    latest_trade_date = manifest.get("latest_trade_date")
+    if latest_trade_date != trade_date:
+        return {
+            "status": BLOCKED,
+            "reason": "adr_trade_date_not_current",
+            "path": str(path),
+            "required_trade_date": trade_date,
+            "latest_trade_date": latest_trade_date,
+            "published_at": manifest.get("published_at"),
+        }
+
+    validated = load_adr_features(path, trade_date=trade_date)
+    if validated is None:
+        return {
+            "status": FAIL,
+            "reason": "adr_bundle_validation_failed",
+            "path": str(path),
+            "required_trade_date": trade_date,
+            "latest_trade_date": latest_trade_date,
+        }
+
+    return {
+        "status": PASS,
+        "path": str(path),
+        "file_sha256": _file_sha256(path),
+        "published_at": manifest.get("published_at"),
+        "latest_trade_date": latest_trade_date,
+        "latest_signal_date": manifest.get("latest_signal_date"),
+        "rows": manifest.get("rows"),
+        "incomplete_rows": manifest.get("incomplete_rows"),
+        "latest_coverage": manifest.get("latest_coverage"),
+    }
+
+
 def _read_jsonl(path: Path) -> list[dict[str, Any]]:
     records: list[dict[str, Any]] = []
     with path.open(encoding="utf-8") as handle:
@@ -526,6 +581,7 @@ def build_acceptance_report(
     account_key: str = "tachibana:default",
     risk_config: Any | None = None,
     generated_at: datetime | None = None,
+    adr_bundle: Path = DEFAULT_ADR_BUNDLE,
 ) -> dict[str, Any]:
     date.fromisoformat(trade_date)
     preflight = _check_preflight(
@@ -543,6 +599,7 @@ def build_acceptance_report(
     snapshot_id = frozen.get("snapshot_id") if frozen.get("status") == PASS else None
     gap = _check_gap(gap_store, trade_date, snapshot_id)
     shadow = _check_shadow(shadow_dir, trade_date, snapshot_id)
+    adr = _check_adr(adr_bundle, trade_date)
     jobs = _check_jobs(job_log_dir, trade_date)
     risk = _check_risk(
         risk_path,
@@ -573,6 +630,10 @@ def build_acceptance_report(
     else:
         stage1_status = PASS
 
+    issue_35_research_input_status = _combine(
+        [str(adr["status"]), str(gap["status"]), str(shadow["status"])]
+    )
+
     now = generated_at or datetime.now(UTC)
     snapshot_suffix = str(snapshot_id)[:12] if snapshot_id else "pending"
     acceptance_id = f"{trade_date}-readonly-shadow-{snapshot_suffix}"
@@ -584,6 +645,7 @@ def build_acceptance_report(
         "stage": "stage1_readonly_shadow",
         "market_to_shadow_status": market_status,
         "risk_inclusive_stage1_status": stage1_status,
+        "issue_35_research_input_status": issue_35_research_input_status,
         "issue_27_overall_status": DEFERRED,
         "issue_27_deferred_reason": (
             "controlled-live reconciliation and a normal scheduler cycle remain later acceptance stages"
@@ -599,6 +661,7 @@ def build_acceptance_report(
             "frozen_snapshot": frozen,
             "gap": gap,
             "shadow": shadow,
+            "adr_features": adr,
             "jobs": jobs,
             "account_risk": risk,
         },
@@ -615,6 +678,7 @@ def render_markdown(report: Mapping[str, Any]) -> str:
         ("frozen snapshot", checks["frozen_snapshot"]["status"]),
         ("gap", checks["gap"]["status"]),
         ("paired shadow", checks["shadow"]["status"]),
+        ("ADR research input", checks["adr_features"]["status"]),
         ("job/phase + shadow-only", checks["jobs"]["status"]),
         ("actual-account risk", checks["account_risk"]["status"]),
     ]
@@ -624,6 +688,7 @@ def render_markdown(report: Mapping[str, Any]) -> str:
         f"- acceptance ID: `{report['acceptance_id']}`",
         f"- market → shadow: **{report['market_to_shadow_status']}**",
         f"- risk込みStage 1: **{report['risk_inclusive_stage1_status']}**",
+        f"- Issue #35 research input: **{report['issue_35_research_input_status']}**",
         f"- Issue #27全体: **{report['issue_27_overall_status']}**",
         f"- frozen/gap/shadow snapshot ID一致: **{propagation['all_three_match']}**",
         "",
@@ -664,6 +729,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--risk-snapshot", type=Path, default=Path(risk_default))
     parser.add_argument("--preflight", type=Path, default=None)
     parser.add_argument("--job-log-dir", type=Path, default=DEFAULT_JOB_LOG_DIR)
+    parser.add_argument("--adr-bundle", type=Path, default=DEFAULT_ADR_BUNDLE)
     parser.add_argument("--account-key", default="tachibana:default")
     parser.add_argument(
         "--config",
@@ -691,6 +757,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         job_log_dir=_absolute(args.job_log_dir),
         account_key=args.account_key,
         risk_config=app_config.risk,
+        adr_bundle=_absolute(args.adr_bundle),
     )
     output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "report.json").write_text(
