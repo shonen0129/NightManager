@@ -51,7 +51,7 @@ def _prepare_window_returns(
                     mus[c] - self.winsor_sigma * stds[c],
                     mus[c] + self.winsor_sigma * stds[c],
                 )
-    return cast(np.ndarray, window_returns)
+    return window_returns
 
 
 def _estimate_correlation(
