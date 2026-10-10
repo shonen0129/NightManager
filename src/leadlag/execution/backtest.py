@@ -245,8 +245,8 @@ def run_production(
         run_id = store.save_run(results, config=app_config)
         if run_id is not None:
             store.save_results(results, run_id=run_id)
-    except Exception as e:
-        logger.warning("Failed to save full results to BacktestResultStore: %s", e)
+    except Exception:
+        logger.warning("Failed to save full results to BacktestResultStore")
 
     # Print summary metrics to log
     print("=== Backtest Performance Metrics ===")

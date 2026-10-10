@@ -39,3 +39,13 @@ Status: accepted（実装境界のみ。資格の状態・運用対応は所有�
 合成key/ciphertextだけで3方式の成功、途中fallback、全方式失敗、UTF-8不正、鍵読込/import・base64失敗、診断の非露出を検証する。CLIの実設定読込→成果物/SQLite/cache、brokerの実login/order/health失敗→log/注文summaryを回帰で通す。数理モデル・prior・監査・cache fallback・durable reconciliationの契約は変更しない。本番反映・実発注・実資格操作は実行していない。
 
 検証結果: [対応記録](../../reports/20261008_issue34/report.md)。
+
+## 2026-10-10: cache・保存失敗と再認証の補強
+
+合成secretによる追加回帰で、秘密鍵のpermission warningに含まれるpath、不正なsession timestampを含むcache例外、backtest保存例外のmessage/causeから秘密値が表示されることを確認した。これらのログは固定の操作分類だけにし、cache path解決も既存のbest-effort境界内で扱う。保存先や復号URLを含むsession cache自体は従来のprivate storageであり、ログ非露出と区別する。
+
+`BacktestResultStore` のcache保存・読込と `save_run` は固定messageの `BacktestStoreError` を送出し、unsafe causeを通常のtracebackへ出さない。CLIの保存失敗warningも固定messageとする。SQLite commit後のcache失敗ではrollbackを試みず、既存のDB保存済み/cache失敗という挙動を維持したまま例外型を保証する。
+
+login開始時に認証状態と旧URLを解除し、4 URLすべての復号が成功してからURL群を公開する。途中失敗で部分的なURLや前回の認証済み状態を残さない。RSA方式の順序・成功方式と失敗段階の診断・全方式失敗時の例外contractは変更しない。
+
+追加検証は鍵permission、cacheのpath/I/O失敗、不正timestamp、保存失敗の例外/tracebackとCLI成果物、4 URLの混在padding成功、各URLでの初回/再login復号失敗を合成値だけで通す。[追加対応記録](../../reports/20261010_issue34_safe_logs/report.md)を参照。Issue #34の所有者による過去artifact確認・資格失効の完了証跡は別途必要である。

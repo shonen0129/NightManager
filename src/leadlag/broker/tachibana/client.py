@@ -60,9 +60,9 @@ class TachibanaBrokerClient(BrokerClient):
             # Check if file is readable by group or others (should be 600 or 400)
             if file_stat.st_mode & (stat.S_IRGRP | stat.S_IROTH):
                 logger.warning(
-                    "SECURITY WARNING: Private key file %s has overly permissive permissions (%s). "
+                    "SECURITY WARNING: Tachibana private key file has overly permissive permissions (%s). "
                     "Recommended: chmod 600 (owner read/write only)",
-                    private_key_path, file_mode
+                    file_mode
                 )
         second_password = (
             config.api_password
