@@ -303,6 +303,10 @@ class SectorRelativeEnsembleBLPEnhancedModel(_BLPBase):
             vol_factors = rolling_std[window_start:current_index]
             window_returns[:, self.n_u:] /= vol_factors
 
+        complete_rows = np.isfinite(window_returns[:, self.n_u :]).all(axis=1)
+        window_returns = window_returns[complete_rows]
+        if window_returns.shape[0] == 0:
+            raise ValueError("No complete finite rows in BLPX training window")
         window_returns = np.nan_to_num(window_returns, nan=0.0, posinf=0.0, neginf=0.0)
 
         if self.winsor_sigma is not None:
