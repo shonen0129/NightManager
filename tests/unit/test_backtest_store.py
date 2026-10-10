@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import tempfile
+import traceback
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import pytest
 
-from leadlag.data.backtest_store import BacktestResultStore
+from leadlag.data.backtest_store import BacktestResultStore, BacktestStoreError
 
 
 def _make_results():
@@ -84,3 +86,36 @@ def test_backtest_store_multi_run_audit_trail():
         conn.close()
         assert run_count == 2
         assert pnl_count == 10
+
+
+@pytest.mark.parametrize("operation", ["save_results", "load_results", "save_run", "invalid_config"])
+def test_backtest_storage_failures_preserve_safe_exception_contract(tmp_path, monkeypatch, operation):
+    secret = "SYNTHETIC_STORE_SECRET_34"
+    store = BacktestResultStore(tmp_path / "backtest.sqlite")
+    results = {"daily_returns": pd.Series([0.0], index=pd.DatetimeIndex(["2026-10-01"]))}
+
+    def fail(*args, **kwargs):
+        raise OSError(f"synthetic storage error: {secret}")
+
+    monkeypatch.setattr(store._cache, "get" if operation == "load_results" else "set", fail)
+    with pytest.raises(BacktestStoreError) as captured:
+        if operation == "save_results":
+            store.save_results(results, run_id=1)
+        elif operation == "load_results":
+            store.load_results(1)
+        else:
+            store.save_run(results, config={"risk": {"var_window": secret}} if operation == "invalid_config" else None)
+    assert secret not in str(captured.value) + "".join(traceback.format_exception(captured.value))
+    assert captured.value.__cause__ is None
+    assert captured.value.__suppress_context__
+    expected_message = {
+        "save_results": "Failed to cache backtest results.",
+        "load_results": "Failed to load backtest results.",
+        "save_run": "Failed to save backtest run.",
+        "invalid_config": "Failed to save backtest run.",
+    }[operation]
+    assert str(captured.value) == expected_message
+    if operation == "save_run":
+        # The cache write happens after commit; its failure must not mask the
+        # contract or undo the independently durable run audit trail.
+        assert store.list_runs() == ["1"]

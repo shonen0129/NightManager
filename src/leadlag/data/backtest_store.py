@@ -132,10 +132,8 @@ class BacktestResultStore:
         run_id_str = str(run_id)
         try:
             self._cache.set(f"bt:{run_id_str}", results)
-        except Exception as e:
-            raise BacktestStoreError(
-                f"Failed to cache results for run {run_id_str}: {e}"
-            ) from e
+        except Exception:
+            raise BacktestStoreError("Failed to cache backtest results.") from None
         return run_id_str
 
     def load_results(self, run_id: str | int) -> dict[str, Any] | None:
@@ -146,10 +144,8 @@ class BacktestResultStore:
         run_id_str = str(run_id)
         try:
             return cast(dict[str, Any] | None, self._cache.get(f"bt:{run_id_str}"))
-        except Exception as e:
-            raise BacktestStoreError(
-                f"Failed to load results for run {run_id_str}: {e}"
-            ) from e
+        except Exception:
+            raise BacktestStoreError("Failed to load backtest results.") from None
 
     def list_runs(self) -> list[str]:
         """Return a list of run ids stored in the database."""
@@ -261,9 +257,10 @@ class BacktestResultStore:
                 # Also cache the full results dict for the high-level API.
                 self.save_results(results, run_id=run_id)
                 return run_id
-            except Exception as e:
-                conn.execute("ROLLBACK")
-                raise BacktestStoreError(f"Failed to save backtest run: {e}") from e
+            except Exception:
+                if conn.in_transaction:
+                    conn.execute("ROLLBACK")
+                raise BacktestStoreError("Failed to save backtest run.") from None
 
     def _create_run_info_from_results(
         self,
