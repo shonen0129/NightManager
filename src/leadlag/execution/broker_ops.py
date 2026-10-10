@@ -83,7 +83,7 @@ def build_api_client(
     app_cfg = app_config if app_config is not None else load_config_from_yaml()
     provider = app_cfg.broker_provider
 
-    if provider == "tachibana" and not api_dry_run:
+    if provider == "tachibana":
         tachi = app_cfg.tachibana
         final_api_url = api_url if api_url else tachi.api_url
         final_api_token = api_token if api_token else tachi.auth_id
