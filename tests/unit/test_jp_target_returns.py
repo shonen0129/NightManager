@@ -3,7 +3,7 @@
 Tests focus on the h-day 9:10-to-close target definition and its fallbacks:
 - h=1 and h>1 target formulas
 - 5m 9:10 price vs open-to-close fallback
-- Invalid / zero open guard
+- Invalid / zero open and close preservation as missing labels
 - No lookahead (start-day only)
 """
 
@@ -178,8 +178,8 @@ class TestComputeJpTargetReturns:
         )
         np.testing.assert_allclose(y_on_demand, y_cache, equal_nan=True)
 
-    def test_invalid_open_returns_zero(self, simple_df_exec):
-        """Zero or NaN start-day open should yield 0.0, not inf/NaN."""
+    def test_invalid_start_open_remains_missing(self, simple_df_exec):
+        """Zero or NaN start-day open must remain distinguishable from a flat return."""
         simple_df_exec.loc[simple_df_exec.index[0], "jp_open_trade_1617.T"] = 0.0
         simple_df_exec.loc[simple_df_exec.index[1], "jp_open_trade_1617.T"] = np.nan
 
@@ -191,10 +191,61 @@ class TestComputeJpTargetReturns:
             simple_df_exec, JP_TICKERS, horizon=3, p_910_df=p_910
         )
 
-        # row 2 depends on start day 0 (zero open) → fallback to 0 open gives 0.0
-        assert y[2, JP_TICKERS.index("1617.T")] == 0.0
-        # row 3 depends on start day 1 (NaN open) → 0.0
-        assert y[3, JP_TICKERS.index("1617.T")] == 0.0
+        # Rows 2/3 depend on invalid start-day opens and must not become flat labels.
+        idx = JP_TICKERS.index("1617.T")
+        assert np.isnan(y[2, idx])
+        assert np.isnan(y[3, idx])
+
+    @pytest.mark.parametrize("horizon", [1, 3, 5])
+    def test_missing_realized_close_remains_nan(self, simple_df_exec, horizon):
+        """A missing realized close is unknown, not a confirmed zero return."""
+        ticker = JP_TICKERS[0]
+        row = horizon - 1
+        simple_df_exec.loc[simple_df_exec.index[row], f"jp_oc_{ticker}"] = np.nan
+        p_910 = pd.DataFrame(
+            100.0, index=simple_df_exec.index, columns=JP_TICKERS, dtype=float
+        )
+
+        y = compute_jp_target_returns(
+            simple_df_exec, JP_TICKERS, horizon=horizon, p_910_df=p_910
+        )
+
+        assert np.isnan(y[row, 0])
+
+    @pytest.mark.parametrize("bad_quote", [0.0, np.inf, -1.0])
+    def test_explicit_invalid_910_price_does_not_fall_back_to_open(
+        self, simple_df_exec, bad_quote
+    ):
+        """Only a missing 09:10 quote may use the valid daily-open fallback."""
+        ticker = JP_TICKERS[0]
+        p_910 = pd.DataFrame(
+            np.nan, index=simple_df_exec.index, columns=JP_TICKERS, dtype=float
+        )
+        p_910.loc[simple_df_exec.index[0], ticker] = bad_quote
+
+        y = compute_jp_target_returns(
+            simple_df_exec, JP_TICKERS, horizon=3, p_910_df=p_910
+        )
+
+        assert np.isnan(y[2, 0])
+
+    @pytest.mark.parametrize("horizon", [1, 3, 5])
+    def test_confirmed_zero_return_stays_zero(self, simple_df_exec, horizon):
+        """A valid flat price move remains 0.0 and is distinct from an unknown label."""
+        ticker = JP_TICKERS[0]
+        row = horizon - 1
+        simple_df_exec.loc[simple_df_exec.index[row], f"jp_oc_{ticker}"] = 0.0
+        p_910 = pd.DataFrame(
+            np.nan, index=simple_df_exec.index, columns=JP_TICKERS, dtype=float
+        )
+        start = row - horizon + 1
+        p_910.loc[simple_df_exec.index[start], ticker] = 100.0
+
+        y = compute_jp_target_returns(
+            simple_df_exec, [ticker], horizon=horizon, p_910_df=p_910[[ticker]]
+        )
+
+        assert y[row, 0] == pytest.approx(0.0)
 
     def test_h1_no_p_910_df_matches_jp_oc(self, simple_df_exec):
         """h=1 without 5m data falls back to open-to-close = jp_oc."""
@@ -323,8 +374,8 @@ class TestBuild5m910Prices:
         assert list(p_910.columns) == list(JP_TICKERS)
         assert p_910.isna().all().all()
 
-    def test_zero_or_infinite_open_gives_zero_target(self, simple_df_exec):
-        """Zero or inf open prices (data quality outliers) must not yield inf targets."""
+    def test_zero_or_infinite_open_gives_missing_target(self, simple_df_exec):
+        """Zero or inf open prices (data quality outliers) must remain missing."""
         simple_df_exec.loc[simple_df_exec.index[2], "jp_open_trade_1617.T"] = 0.0
         simple_df_exec.loc[simple_df_exec.index[3], "jp_open_trade_1617.T"] = np.inf
 
@@ -336,11 +387,13 @@ class TestBuild5m910Prices:
             simple_df_exec, JP_TICKERS, horizon=3, p_910_df=p_910
         )
 
-        assert np.isfinite(y[2:, JP_TICKERS.index("1617.T")]).all()
+        idx = JP_TICKERS.index("1617.T")
+        assert np.isnan(y[2, idx])
+        assert np.isnan(y[3, idx])
         assert not np.isinf(y).any()
 
-    def test_zero_open_with_p910_gives_zero_target(self, simple_df_exec):
-        """Zero open with a positive p_910 must not produce -1 target."""
+    def test_zero_open_with_p910_gives_missing_target(self, simple_df_exec):
+        """Zero realized open with a positive p_910 still makes the close undefined."""
         simple_df_exec.loc[simple_df_exec.index[2], "jp_open_trade_1617.T"] = 0.0
 
         p_910 = pd.DataFrame(
@@ -352,10 +405,10 @@ class TestBuild5m910Prices:
         )
 
         assert not np.isinf(y).any()
-        assert y[2, JP_TICKERS.index("1617.T")] == 0.0
+        assert np.isnan(y[2, JP_TICKERS.index("1617.T")])
 
-    def test_infinite_oc_gives_finite_target(self, simple_df_exec):
-        """An infinite open-to-close return must be guarded by the valid mask."""
+    def test_infinite_oc_gives_missing_target(self, simple_df_exec):
+        """An infinite open-to-close return must remain an unavailable label."""
         simple_df_exec.loc[simple_df_exec.index[2], "jp_oc_1617.T"] = np.inf
 
         p_910 = pd.DataFrame(
@@ -367,7 +420,7 @@ class TestBuild5m910Prices:
         )
 
         assert not np.isinf(y).any()
-        assert not np.isnan(y[2:, :]).any()
+        assert np.isnan(y[2, JP_TICKERS.index("1617.T")])
 
     def test_zero_5m_price_gives_zero_ret_open_910(self, simple_df_exec, monkeypatch):
         """A zero 9:10 or 09:00 5m price must not create -1 / division by zero."""
