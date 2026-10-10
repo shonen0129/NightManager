@@ -316,6 +316,10 @@ def _close_plan_reconciliation_errors(
         order_id = str(record.get("order_id") or "")
         if order_id:
             real_order_ids.append(order_id)
+        elif str(record.get("status") or "") == OrderStatus.FILLED.value:
+            errors.append(
+                f"filled close response is missing broker order id: {ticker} {side} x{quantity}"
+            )
 
         filled_raw = record.get("fill_quantity", record.get("filled_quantity"))
         if filled_raw is not None:

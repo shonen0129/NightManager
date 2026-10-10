@@ -190,6 +190,24 @@ def test_duplicate_response_is_reconciliation_error(tmp_path: Path) -> None:
     assert summary["execution_report"]["incomplete"] is True
 
 
+def test_filled_response_without_order_id_is_not_complete(tmp_path: Path, monkeypatch) -> None:
+    store = ExecutionStateStore(tmp_path / "state.sqlite")
+    broker = _BatchBroker(
+        [_position("1617.T", "BUY", 100)],
+        [[_result("", OrderStatus.FILLED, "1617.T", OrderSide.SELL, 100)]],
+    )
+    monkeypatch.setattr(close_module, "fetch_fill_prices", lambda *_args, **_kwargs: None)
+
+    summary = close_module.close_all_positions(broker, tmp_path, state_store=store, account_key="test")
+
+    assert summary["close_incomplete"] is True
+    assert summary["execution_report"]["incomplete"] is True
+    assert any("missing broker order id" in error for error in summary["plan_reconciliation_errors"])
+    run = store.get_run(str(summary["run_id"]))
+    assert run is not None
+    assert run.status == ExecutionRunStatus.RECONCILIATION_REQUIRED
+
+
 @pytest.mark.parametrize(
     ("status", "expected_status"),
     [

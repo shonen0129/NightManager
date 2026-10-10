@@ -18,6 +18,11 @@ call paths, not a repository-wide safety certification.
   from raw ETF cache; model dimensions and traded ticker order are unchanged.
 - **P2, #78, requested date:** reject frozen quotes belonging to another trade
   date at the publisher boundary. No prior-day quote is relabeled.
+- **P1, #69, final close reconciliation:** a non-split `FILLED` response with
+  no broker order ID was reported complete. A regression reproduced this
+  false completion before repair. The final persisted-plan reconciliation
+  now rejects it, propagating incomplete status to the report and durable
+  reconciliation-required state.
 - Validate the optional rank-reversal signal before the first write.
 - Resolved #70/#78's conflicting test additions by retaining both capture
   terminal/attempt evidence tests and ADR freshness tests.
@@ -38,7 +43,7 @@ invariance assertion remains.
 | #65 | safe exception/log boundaries; failed reauthentication state; durable post-commit store errors | mergeable; merged separately |
 | #66 | explicit research V1 input; no implicit terminal cache in cost regression | integrate |
 | #68 | inherited config through close/decision/broker; account/provider and safe manifest | integrate |
-| #69 | persisted-plan quantity reconciliation; missing/duplicate response; delayed close gate | integrate |
+| #69 | persisted-plan quantity reconciliation; missing/duplicate response; missing order ID; delayed close gate | repair and integrate |
 | #70 | shadow-only environment; registered read-only capture; terminal evidence and preflight | integrate; actual Stage 1 still pending |
 | #72 | owner-only legacy credential remediation and explicit operation boundary | integrate; #34 remains open |
 | #73 | invalid targets remain missing; missing quote fallback; finite historical label filtering | integrate |
@@ -49,7 +54,7 @@ invariance assertion remains.
 
 ## Validation
 
-- Integrated checkout: targeted regressions **147 passed**.
+- Integrated checkout before the final missing-order-ID repair: targeted regressions **147 passed**.
 - Complete `tests/`, including fixed V2 baseline: **1344 passed, 1 warning**,
   154.28 seconds. Watchdog deadline 1800 seconds, 10-second kill grace,
   exit 0. No timeout occurred. Warning: existing fragmented test DataFrame.
@@ -60,6 +65,9 @@ invariance assertion remains.
   full CI logs, including mypy, import contracts, wheel exclusion/smoke and
   complete pytest. Local mypy is unavailable; do not count that local attempt
   as PASS. Final integrated head must pass locked CI before merge.
+- The missing-order-ID regression failed before its repair (`close_incomplete`
+  was False). The final repaired head is revalidated through complete pytest
+  and locked CI; final results are recorded in the completion report.
 
 #65 merged to main as a42c7d0dd47849339b57643de43d545c915bcc84.
 Updating main caused #66's immediate merge to be rejected because the required
@@ -79,3 +87,6 @@ The current-day ADR real-source refresh and market/shadow acceptance are not
 proven by offline tests. #25's actual account reconciliation evidence and #34's
 owner-only credential/session remediation remain outstanding. #71 is Draft
 and must not be promoted merely because its synthetic tests or CI succeed.
+
+Final missing-order-ID repair: the close/config regression set is **31 passed**
+(14.12 seconds); compileall and production/research Ruff passed again.
