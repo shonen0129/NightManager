@@ -28,7 +28,10 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from leadlag.data.market_data_cache import load_df_exec_from_local_cache
 from research.diagnostics.sprint0 import run_sprint0_calculations
-from research.diagnostics.sprint1_experiments import (\n    generate_targets_panel,\n    restore_dollar_neutrality,\n)
+from research.diagnostics.sprint1_experiments import (
+    generate_targets_panel,
+    restore_dollar_neutrality,
+)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger(__name__)
