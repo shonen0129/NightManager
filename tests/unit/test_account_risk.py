@@ -89,6 +89,21 @@ def test_account_risk_contract_rejects_incomplete_or_future_evidence(changes, me
         )
 
 
+def test_prior_session_snapshot_may_be_reconciled_next_morning_before_cutoff():
+    snapshot = AccountRiskSnapshot.from_payload(
+        _payload(
+            observed_at="2026-09-29T08:00:00+09:00",
+            as_of="2026-09-29T08:00:00+09:00",
+        ),
+        trade_date="2026-09-29",
+        decision_as_of="2026-09-29T09:10:05+09:00",
+        account_key="tachibana:default",
+    )
+
+    assert snapshot.observed_through == "2026-09-28"
+    assert snapshot.observed_at == pd.Timestamp("2026-09-29T08:00:00+09:00")
+
+
 def test_live_risk_check_blocks_when_actual_account_snapshot_is_missing():
     config = SimpleNamespace(
         var_confidence=0.99,
